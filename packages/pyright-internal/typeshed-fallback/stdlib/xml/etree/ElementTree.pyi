@@ -1,5 +1,5 @@
 import sys
-from _typeshed import AnyPath, FileDescriptor, SupportsWrite
+from _typeshed import FileDescriptor, StrOrBytesPath, SupportsWrite
 from typing import (
     IO,
     Any,
@@ -22,7 +22,7 @@ from typing import (
 from typing_extensions import Literal
 
 _T = TypeVar("_T")
-_File = Union[AnyPath, FileDescriptor, IO[Any]]
+_File = Union[StrOrBytesPath, FileDescriptor, IO[Any]]
 
 VERSION: str
 

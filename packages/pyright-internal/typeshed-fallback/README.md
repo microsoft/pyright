@@ -38,6 +38,13 @@ type stub packages (if found on PyPI).
 PyCharm, pytype etc. work in a similar way, for more details see documentation
 for the type-checking tool you are using.
 
+### The `_typeshed` package
+
+typeshed includes a package `_typeshed` as part of the standard library.
+This package and its submodules contains utility types, but is not
+available at runtime. For more information about how to use this package,
+[see the `stdlib/_typeshed` directory](https://github.com/python/typeshed/tree/master/stdlib/_typeshed).
+
 ## Discussion
 
 If you've run into behavior in the type checker that suggests the type

@@ -1,5 +1,5 @@
 import sys
-from typing import IO, Any, Callable, Iterable, Iterator, Mapping, Optional, Tuple, Type, Union
+from typing import IO, Any, Callable, ClassVar, Iterable, Iterator, Mapping, Optional, Tuple, Type, Union
 
 HIGHEST_PROTOCOL: int
 DEFAULT_PROTOCOL: int
@@ -58,6 +58,7 @@ _reducedtype = Union[
 class Pickler:
     fast: bool
     dispatch_table: Mapping[type, Callable[[Any], _reducedtype]]
+    dispatch: ClassVar[dict[type, Callable[[Unpickler, Any], None]]]  # undocumented, _Pickler only
 
     if sys.version_info >= (3, 8):
         def __init__(
@@ -76,6 +77,8 @@ class Pickler:
     def persistent_id(self, obj: Any) -> Any: ...
 
 class Unpickler:
+    dispatch: ClassVar[dict[int, Callable[[Unpickler], None]]]  # undocumented, _Unpickler only
+
     if sys.version_info >= (3, 8):
         def __init__(
             self,
@@ -169,3 +172,7 @@ FRAME: bytes
 
 def encode_long(x: int) -> bytes: ...  # undocumented
 def decode_long(data: bytes) -> int: ...  # undocumented
+
+# pure-Python implementations
+_Pickler = Pickler  # undocumented
+_Unpickler = Unpickler  # undocumented

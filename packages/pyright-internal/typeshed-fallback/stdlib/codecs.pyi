@@ -1,3 +1,4 @@
+import sys
 import types
 from abc import abstractmethod
 from typing import (
@@ -121,6 +122,9 @@ def open(
 def EncodedFile(file: IO[bytes], data_encoding: str, file_encoding: Optional[str] = ..., errors: str = ...) -> StreamRecoder: ...
 def iterencode(iterator: Iterable[str], encoding: str, errors: str = ...) -> Generator[bytes, None, None]: ...
 def iterdecode(iterator: Iterable[bytes], encoding: str, errors: str = ...) -> Generator[str, None, None]: ...
+
+if sys.version_info >= (3, 10):
+    def unregister(__search_function: Callable[[str], Optional[CodecInfo]]) -> None: ...
 
 BOM: bytes
 BOM_BE: bytes

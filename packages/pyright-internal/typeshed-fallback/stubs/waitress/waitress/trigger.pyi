@@ -1,5 +1,5 @@
 import sys
-from socket import SocketType
+from socket import socket
 from threading import Lock
 from typing import Callable, Mapping, Optional
 from typing_extensions import Literal
@@ -27,5 +27,5 @@ if sys.platform == "linux" or sys.platform == "darwin":
 else:
     class trigger(_triggerbase, wasyncore.dispatcher):
         kind: str = ...
-        trigger: SocketType = ...
+        trigger: socket = ...
         def __init__(self, map: Mapping[str, _triggerbase]) -> None: ...

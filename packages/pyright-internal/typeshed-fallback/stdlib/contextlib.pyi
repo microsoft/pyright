@@ -5,6 +5,7 @@ from typing import (
     Any,
     AsyncContextManager,
     AsyncIterator,
+    Awaitable,
     Callable,
     ContextManager,
     Iterator,
@@ -49,6 +50,9 @@ if sys.version_info >= (3, 10):
     _SupportsAcloseT = TypeVar("_SupportsAcloseT", bound=_SupportsAclose)
     class aclosing(AsyncContextManager[_SupportsAcloseT]):
         def __init__(self, thing: _SupportsAcloseT) -> None: ...
+    _AF = TypeVar("_AF", bound=Callable[..., Awaitable[Any]])
+    class AsyncContextDecorator:
+        def __call__(self, func: _AF) -> _AF: ...
 
 class suppress(ContextManager[None]):
     def __init__(self, *exceptions: Type[BaseException]) -> None: ...
@@ -83,8 +87,6 @@ class ExitStack(ContextManager[ExitStack]):
     ) -> bool: ...
 
 if sys.version_info >= (3, 7):
-    from typing import Awaitable
-
     _S = TypeVar("_S", bound=AsyncExitStack)
 
     _ExitCoroFunc = Callable[[Optional[Type[BaseException]], Optional[BaseException], Optional[TracebackType]], Awaitable[bool]]
