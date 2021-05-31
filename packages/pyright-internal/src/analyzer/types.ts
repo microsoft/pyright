@@ -2162,7 +2162,16 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     }
 
     // Handle the common case where there is only one type.
-    if (subtypes.length === 1) {
+    // Also handle the common case where there are multiple copies of the same type.
+    let allSubtypesAreSame = true;
+    for (let index = 1; index < subtypes.length; index++) {
+        if (subtypes[index] !== subtypes[0]) {
+            allSubtypesAreSame = false;
+            break;
+        }
+    }
+
+    if (allSubtypesAreSame) {
         return subtypes[0];
     }
 
