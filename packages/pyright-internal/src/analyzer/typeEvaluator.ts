@@ -3958,12 +3958,18 @@ export function createTypeEvaluator(
                         !isUnknown(type) &&
                         !fileInfo.isTypingStubFile
                     ) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeAnnotationVariable(),
-                            node
-                        );
+                        // This might be a union that was previously a type alias
+                        // but was reconstituted in such a way that we lost the
+                        // typeAliasInfo. Avoid the false positive error by suppressing
+                        // the error when it looks like a plausible type alias type.
+                        if (!TypeBase.isInstantiable(type)) {
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typeAnnotationVariable(),
+                                node
+                            );
+                        }
                     }
                 }
             }
