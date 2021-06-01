@@ -370,9 +370,10 @@ export class Binder extends ParseTreeWalker {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
             this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str', /* isExclusiveClassMember */ false);
+            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str', /* isExclusiveClassMember */ false);
+
             this._addBuiltInSymbolToCurrentScope('__name__', node, 'str', /* isExclusiveClassMember */ true);
             this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str', /* isExclusiveClassMember */ true);
-            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str', /* isExclusiveClassMember */ true);
 
             if (!this._moduleSymbolOnly) {
                 // Analyze the suite.

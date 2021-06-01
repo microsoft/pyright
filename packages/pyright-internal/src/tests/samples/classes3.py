@@ -30,8 +30,8 @@ dummy = TestClass.__dummy__
 instance = TestClass()
 
 instance.__doc__
+instance.__module__
 
 # These should generate an error because they are not visible to instances.
 instance.__name__
 instance.__qualname__
-instance.__module__
