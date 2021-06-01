@@ -1,7 +1,7 @@
 import importlib.abc
 import importlib.machinery
 import types
-from _typeshed import AnyPath
+from _typeshed import StrOrBytesPath
 from typing import Any, Callable, List, Optional
 
 def module_for_loader(fxn: Callable[..., types.ModuleType]) -> Callable[..., types.ModuleType]: ...
@@ -20,7 +20,7 @@ def spec_from_loader(
 ) -> Optional[importlib.machinery.ModuleSpec]: ...
 def spec_from_file_location(
     name: str,
-    location: Optional[AnyPath] = ...,
+    location: Optional[StrOrBytesPath] = ...,
     *,
     loader: Optional[importlib.abc.Loader] = ...,
     submodule_search_locations: Optional[List[str]] = ...,

@@ -1,4 +1,4 @@
-from _typeshed import AnyPath
+from _typeshed import StrOrBytesPath
 from typing import NamedTuple, Optional, Union
 
 class SndHeaders(NamedTuple):
@@ -8,5 +8,5 @@ class SndHeaders(NamedTuple):
     nframes: int
     sampwidth: Union[int, str]
 
-def what(filename: AnyPath) -> Optional[SndHeaders]: ...
-def whathdr(filename: AnyPath) -> Optional[SndHeaders]: ...
+def what(filename: StrOrBytesPath) -> Optional[SndHeaders]: ...
+def whathdr(filename: StrOrBytesPath) -> Optional[SndHeaders]: ...

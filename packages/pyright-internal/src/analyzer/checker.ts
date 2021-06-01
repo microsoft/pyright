@@ -3180,7 +3180,19 @@ export class Checker extends ParseTreeWalker {
 
                         // Verify that a class variable isn't overriding an instance
                         // variable or vice versa.
-                        if (symbol.isClassVar() !== baseClassAndSymbol.symbol.isClassVar()) {
+                        const isBaseClassVar = baseClassAndSymbol.symbol.isClassVar();
+                        let isClassVar = symbol.isClassVar();
+
+                        // If the subclass doesn't redeclare the type but simply assigns
+                        // it without declaring its type, we won't consider it an instance
+                        // variable.
+                        if (isBaseClassVar && !isClassVar) {
+                            if (!symbol.hasTypedDeclarations()) {
+                                isClassVar = true;
+                            }
+                        }
+
+                        if (isBaseClassVar !== isClassVar) {
                             const unformattedMessage = symbol.isClassVar()
                                 ? Localizer.Diagnostic.classVarOverridesInstanceVar()
                                 : Localizer.Diagnostic.instanceVarOverridesClassVar();

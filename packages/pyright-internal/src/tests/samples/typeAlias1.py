@@ -5,16 +5,16 @@ from typing import Any, Literal, Tuple
 # Make sure it works with and without forward references.
 TupleAlias = Tuple["int", int]
 
-foo: Tuple[int, int]
-bar: TupleAlias
+foo1: Tuple[int, int]
+bar1: TupleAlias
 
-foo = (1, 2)
-bar = (1, 2)
+foo1 = (1, 2)
+bar1 = (1, 2)
 
 
 AnyAlias = Any
 
-baz: AnyAlias = 3
+baz1: AnyAlias = 3
 
 
 class A:
@@ -25,3 +25,13 @@ class A:
 
 t_value1: Literal["Value1"] = reveal_type(A.Value1)
 t_value2: Literal["int"] = reveal_type(A.Value2)
+
+
+Alias1 = Literal[0, 1]
+
+foo2: dict[Alias1, Any] = {}
+
+if foo2:
+    pass
+
+baz2: list[Alias1] = []

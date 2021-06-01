@@ -3958,12 +3958,18 @@ export function createTypeEvaluator(
                         !isUnknown(type) &&
                         !fileInfo.isTypingStubFile
                     ) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeAnnotationVariable(),
-                            node
-                        );
+                        // This might be a union that was previously a type alias
+                        // but was reconstituted in such a way that we lost the
+                        // typeAliasInfo. Avoid the false positive error by suppressing
+                        // the error when it looks like a plausible type alias type.
+                        if (!TypeBase.isInstantiable(type)) {
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typeAnnotationVariable(),
+                                node
+                            );
+                        }
                     }
                 }
             }
@@ -4676,6 +4682,17 @@ export function createTypeEvaluator(
         // a symbol with an inferred type.
         if (!memberInfo) {
             memberInfo = lookUpClassMember(classType, memberName, classLookupFlags);
+        }
+
+        // If this is an "exclusive" class member (i.e. it's not accessible from
+        // a class instance even for 'get') and the access was through an instance,
+        // make it look as though the lookup failed.
+        if (
+            memberInfo &&
+            memberInfo.symbol.isExclusiveClassMember() &&
+            (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
+        ) {
+            memberInfo = undefined;
         }
 
         if (memberInfo) {
@@ -12742,13 +12759,23 @@ export function createTypeEvaluator(
         if (
             ClassType.isProtocolClass(classType) &&
             classType.details.fields.get('__call__') &&
-            classType.details.fields.size === 1 &&
             !classType.details.baseClasses.find(
                 (base) =>
                     isClass(base) && !ClassType.isBuiltIn(base, 'object') && !ClassType.isBuiltIn(base, 'Protocol')
             )
         ) {
-            classType.details.flags |= ClassTypeFlags.CallbackProtocolClass;
+            let symbolsToMatchCount = 0;
+            classType.details.fields.forEach((symbol, name) => {
+                if (!symbol.isIgnoredForProtocolMatch()) {
+                    symbolsToMatchCount++;
+                }
+            });
+
+            // If any symbols are present other than __call__, it's not considered
+            // a callback protocol class.
+            if (symbolsToMatchCount === 1) {
+                classType.details.flags |= ClassTypeFlags.CallbackProtocolClass;
+            }
         }
 
         // Now determine the decorated type of the class.

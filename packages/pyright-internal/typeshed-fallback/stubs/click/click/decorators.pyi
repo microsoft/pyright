@@ -1,19 +1,17 @@
+from _typeshed import IdentityFunction
 from distutils.version import Version
-from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, Text, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Callable, Dict, Iterable, List, Optional, Text, Tuple, Type, TypeVar, Union, overload
 
 from click.core import Argument, Command, Context, Group, Option, Parameter, _ConvertibleType
 
 _T = TypeVar("_T")
 _F = TypeVar("_F", bound=Callable[..., Any])
 
-class _IdentityFunction(Protocol):
-    def __call__(self, __x: _T) -> _T: ...
-
 _Callback = Callable[[Context, Union[Option, Parameter], Any], Any]
 
 def pass_context(__f: _T) -> _T: ...
 def pass_obj(__f: _T) -> _T: ...
-def make_pass_decorator(object_type: type, ensure: bool = ...) -> _IdentityFunction: ...
+def make_pass_decorator(object_type: type, ensure: bool = ...) -> IdentityFunction: ...
 
 # NOTE: Decorators below have **attrs converted to concrete constructor
 # arguments from core.pyi to help with type checking.
@@ -72,7 +70,7 @@ def argument(
     is_eager: bool = ...,
     envvar: Optional[Union[str, List[str]]] = ...,
     autocompletion: Optional[Callable[[Context, List[str], str], Iterable[Union[str, Tuple[str, str]]]]] = ...,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 @overload
 def option(
     *param_decls: Text,
@@ -101,7 +99,7 @@ def option(
     envvar: Optional[Union[str, List[str]]] = ...,
     # User-defined
     **kwargs: Any,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 @overload
 def option(
     *param_decls: str,
@@ -130,7 +128,7 @@ def option(
     envvar: Optional[Union[str, List[str]]] = ...,
     # User-defined
     **kwargs: Any,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 @overload
 def option(
     *param_decls: str,
@@ -159,7 +157,7 @@ def option(
     envvar: Optional[Union[str, List[str]]] = ...,
     # User-defined
     **kwargs: Any,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 @overload
 def option(
     *param_decls: str,
@@ -188,7 +186,7 @@ def option(
     envvar: Optional[Union[str, List[str]]] = ...,
     # User-defined
     **kwargs: Any,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 def confirmation_option(
     *param_decls: str,
     cls: Type[Option] = ...,
@@ -213,7 +211,7 @@ def confirmation_option(
     expose_value: bool = ...,
     is_eager: bool = ...,
     envvar: Optional[Union[str, List[str]]] = ...,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 def password_option(
     *param_decls: str,
     cls: Type[Option] = ...,
@@ -238,7 +236,7 @@ def password_option(
     expose_value: bool = ...,
     is_eager: bool = ...,
     envvar: Optional[Union[str, List[str]]] = ...,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 def version_option(
     version: Optional[Union[str, Version]] = ...,
     *param_decls: str,
@@ -266,7 +264,7 @@ def version_option(
     expose_value: bool = ...,
     is_eager: bool = ...,
     envvar: Optional[Union[str, List[str]]] = ...,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...
 def help_option(
     *param_decls: str,
     cls: Type[Option] = ...,
@@ -291,4 +289,4 @@ def help_option(
     expose_value: bool = ...,
     is_eager: bool = ...,
     envvar: Optional[Union[str, List[str]]] = ...,
-) -> _IdentityFunction: ...
+) -> IdentityFunction: ...

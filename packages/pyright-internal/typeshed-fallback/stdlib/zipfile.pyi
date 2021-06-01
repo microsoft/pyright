@@ -2,7 +2,8 @@ import io
 import sys
 from _typeshed import StrPath
 from types import TracebackType
-from typing import IO, Any, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Sequence, Tuple, Type, Union
+from typing import IO, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Sequence, Tuple, Type, Union, overload
+from typing_extensions import Literal
 
 _DateTuple = Tuple[int, int, int, int, int, int]
 
@@ -12,6 +13,16 @@ BadZipfile = BadZipFile
 error = BadZipfile
 
 class LargeZipFile(Exception): ...
+
+class _ZipStream(Protocol):
+    def read(self, __n: int) -> bytes: ...
+    # The following methods are optional:
+    # def seekable(self) -> bool: ...
+    # def tell(self) -> int: ...
+    # def seek(self, __n: int) -> object: ...
+
+class _ClosableZipStream(_ZipStream, Protocol):
+    def close(self) -> object: ...
 
 class ZipExtFile(io.BufferedIOBase):
     MAX_N: int = ...
@@ -24,17 +35,57 @@ class ZipExtFile(io.BufferedIOBase):
     mode: str
     name: str
     if sys.version_info >= (3, 7):
+        @overload
         def __init__(
-            self, fileobj: IO[bytes], mode: str, zipinfo: ZipInfo, pwd: Optional[bytes] = ..., close_fileobj: bool = ...
+            self, fileobj: _ClosableZipStream, mode: str, zipinfo: ZipInfo, pwd: Optional[bytes], close_fileobj: Literal[True]
         ) -> None: ...
-    else:
+        @overload
         def __init__(
             self,
-            fileobj: IO[bytes],
+            fileobj: _ClosableZipStream,
+            mode: str,
+            zipinfo: ZipInfo,
+            pwd: Optional[bytes] = ...,
+            *,
+            close_fileobj: Literal[True],
+        ) -> None: ...
+        @overload
+        def __init__(
+            self,
+            fileobj: _ZipStream,
+            mode: str,
+            zipinfo: ZipInfo,
+            pwd: Optional[bytes] = ...,
+            close_fileobj: Literal[False] = ...,
+        ) -> None: ...
+    else:
+        @overload
+        def __init__(
+            self,
+            fileobj: _ClosableZipStream,
+            mode: str,
+            zipinfo: ZipInfo,
+            decrypter: Optional[Callable[[Sequence[int]], bytes]],
+            close_fileobj: Literal[True],
+        ) -> None: ...
+        @overload
+        def __init__(
+            self,
+            fileobj: _ClosableZipStream,
             mode: str,
             zipinfo: ZipInfo,
             decrypter: Optional[Callable[[Sequence[int]], bytes]] = ...,
-            close_fileobj: bool = ...,
+            *,
+            close_fileobj: Literal[True],
+        ) -> None: ...
+        @overload
+        def __init__(
+            self,
+            fileobj: _ZipStream,
+            mode: str,
+            zipinfo: ZipInfo,
+            decrypter: Optional[Callable[[Sequence[int]], bytes]] = ...,
+            close_fileobj: Literal[False] = ...,
         ) -> None: ...
     def read(self, n: Optional[int] = ...) -> bytes: ...
     def readline(self, limit: int = ...) -> bytes: ...  # type: ignore
@@ -43,7 +94,7 @@ class ZipExtFile(io.BufferedIOBase):
     def read1(self, n: Optional[int]) -> bytes: ...  # type: ignore
 
 class _Writer(Protocol):
-    def write(self, __s: str) -> Any: ...
+    def write(self, __s: str) -> object: ...
 
 class ZipFile:
     filename: Optional[str]

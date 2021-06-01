@@ -85,8 +85,8 @@ class time:
     min: ClassVar[time]
     max: ClassVar[time]
     resolution: ClassVar[timedelta]
-    def __init__(
-        self,
+    def __new__(
+        cls: Type[_S],
         hour: int = ...,
         minute: int = ...,
         second: int = ...,
@@ -94,7 +94,7 @@ class time:
         tzinfo: Optional[_tzinfo] = ...,
         *,
         fold: int = ...,
-    ) -> None: ...
+    ) -> _S: ...
     @property
     def hour(self) -> int: ...
     @property
@@ -139,8 +139,8 @@ class timedelta(SupportsAbs[timedelta]):
     min: ClassVar[timedelta]
     max: ClassVar[timedelta]
     resolution: ClassVar[timedelta]
-    def __init__(
-        self,
+    def __new__(
+        cls: Type[_S],
         days: float = ...,
         seconds: float = ...,
         microseconds: float = ...,
@@ -148,9 +148,7 @@ class timedelta(SupportsAbs[timedelta]):
         minutes: float = ...,
         hours: float = ...,
         weeks: float = ...,
-        *,
-        fold: int = ...,
-    ) -> None: ...
+    ) -> _S: ...
     @property
     def days(self) -> int: ...
     @property
@@ -181,6 +179,7 @@ class timedelta(SupportsAbs[timedelta]):
     def __lt__(self, other: timedelta) -> bool: ...
     def __ge__(self, other: timedelta) -> bool: ...
     def __gt__(self, other: timedelta) -> bool: ...
+    def __bool__(self) -> bool: ...
     def __hash__(self) -> int: ...
 
 class datetime(date):

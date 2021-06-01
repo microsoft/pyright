@@ -1430,9 +1430,11 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
             const isClassTypedDict = ClassType.isTypedDictClass(mroClass);
             mroClass.details.fields.forEach((symbol, name) => {
                 if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
-                    if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
-                        if (!symbolTable.get(name)) {
-                            symbolTable.set(name, symbol);
+                    if (!symbol.isExclusiveClassMember() || !includeInstanceVars) {
+                        if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
+                            if (!symbolTable.get(name)) {
+                                symbolTable.set(name, symbol);
+                            }
                         }
                     }
                 }

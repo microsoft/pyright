@@ -1,5 +1,5 @@
 # The structure of this file is as follows:
-# - Blank lines and lines starting with `#` are ignored.
+# - Blank lines and comments starting with `#` are ignored.
 # - Lines contain the name of a module, followed by a colon,
 #   a space, and a version range (for example: `symbol: 2.7-3.9`).
 #
@@ -43,12 +43,13 @@ _py_abc: 3.7-
 _pydecimal: 3.6-
 _random: 2.7-
 _sitebuiltins: 3.6-
+_socket: 3.0-  # present in 2.7 at runtime, but not in typeshed
 _stat: 3.6-
 _thread: 2.7-
 _threading_local: 3.6-
 _tkinter: 2.7-
 _tracemalloc: 3.6-
-_typeshed: 2.7-
+_typeshed: 2.7-  # not present at runtime, only for type checking
 _warnings: 2.7-
 _weakref: 2.7-
 _weakrefset: 2.7-
@@ -129,7 +130,7 @@ gzip: 2.7-
 hashlib: 2.7-
 heapq: 2.7-
 hmac: 2.7-
-html: 2.7-
+html: 3.0-
 http: 3.0-
 imaplib: 2.7-
 imghdr: 2.7-
@@ -138,7 +139,7 @@ importlib: 2.7-
 importlib.resources: 3.7-
 inspect: 2.7-
 io: 2.7-
-ipaddress: 2.7-
+ipaddress: 3.3-
 itertools: 2.7-
 json: 2.7-
 keyword: 2.7-
@@ -197,7 +198,7 @@ quopri: 2.7-
 random: 2.7-
 re: 2.7-
 readline: 2.7-
-reprlib: 2.7-
+reprlib: 3.0-
 resource: 2.7-
 rlcompleter: 2.7-
 runpy: 2.7-
@@ -264,7 +265,7 @@ warnings: 2.7-
 wave: 2.7-
 weakref: 2.7-
 webbrowser: 2.7-
-winreg: 2.7-
+winreg: 3.0-
 winsound: 2.7-
 wsgiref: 2.7-
 xdrlib: 2.7-
