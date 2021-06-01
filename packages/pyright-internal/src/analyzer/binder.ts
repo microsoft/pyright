@@ -369,6 +369,11 @@ export class Binder extends ParseTreeWalker {
         this._createNewScope(ScopeType.Class, parentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
+            this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str', /* isExclusiveClassMember */ false);
+            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str', /* isExclusiveClassMember */ true);
+            this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str', /* isExclusiveClassMember */ true);
+            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str', /* isExclusiveClassMember */ true);
+
             if (!this._moduleSymbolOnly) {
                 // Analyze the suite.
                 this.walk(node.suite);
@@ -2766,6 +2771,11 @@ export class Binder extends ParseTreeWalker {
                 if (addedSymbols) {
                     addedSymbols.set(name, symbol);
                 }
+            } else {
+                // If the "exclusive class member" flag was previously set for
+                // the symbol because of an intrinsic class variable, clear it
+                // now because it is being overridden by an explicit class variable.
+                symbol.setIsNotExclusiveClassMember();
             }
 
             return symbol;
@@ -2810,7 +2820,8 @@ export class Binder extends ParseTreeWalker {
     private _addBuiltInSymbolToCurrentScope(
         nameValue: string,
         node: ModuleNode | ClassNode | FunctionNode,
-        type: IntrinsicType
+        type: IntrinsicType,
+        isExclusiveClassMember = false
     ) {
         const symbol = this._addSymbolToCurrentScope(nameValue, /* isInitiallyUnbound */ false);
         if (symbol) {
@@ -2823,6 +2834,10 @@ export class Binder extends ParseTreeWalker {
                 moduleName: this._fileInfo.moduleName,
             });
             symbol.setIsIgnoredForProtocolMatch();
+
+            if (isExclusiveClassMember) {
+                symbol.setIsExclusiveClassMember();
+            }
         }
     }
 
@@ -2848,6 +2863,10 @@ export class Binder extends ParseTreeWalker {
             // Add the symbol. Assume that symbols with a default type source ID
             // are "implicit" symbols added to the scope. These are not initially unbound.
             symbol = this._currentScope.addSymbol(nameValue, symbolFlags);
+        } else {
+            // Clear the "exclusive class member" flag if it was previously set
+            // on one of the intrinsic symbols, such as `__name__`.
+            symbol.setIsNotExclusiveClassMember();
         }
 
         return symbol;

@@ -1171,7 +1171,15 @@ export class PackageTypeVerifier {
 
     private _isSymbolTypeImplied(scopeType: ScopeType, name: string) {
         if (scopeType === ScopeType.Class) {
-            const knownClassSymbols = ['__class__', '__dict__', '__doc__', '__module__', '__slots__', '__all__'];
+            const knownClassSymbols = [
+                '__class__',
+                '__dict__',
+                '__doc__',
+                '__module__',
+                '__qualname__',
+                '__slots__',
+                '__all__',
+            ];
             return knownClassSymbols.some((sym) => sym === name);
         } else if (scopeType === ScopeType.Module) {
             const knownModuleSymbols = [

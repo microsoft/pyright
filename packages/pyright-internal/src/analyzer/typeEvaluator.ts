@@ -4684,6 +4684,17 @@ export function createTypeEvaluator(
             memberInfo = lookUpClassMember(classType, memberName, classLookupFlags);
         }
 
+        // If this is an "exclusive" class member (i.e. it's not accessible from
+        // a class instance even for 'get') and the access was through an instance,
+        // make it look as though the lookup failed.
+        if (
+            memberInfo &&
+            memberInfo.symbol.isExclusiveClassMember() &&
+            (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
+        ) {
+            memberInfo = undefined;
+        }
+
         if (memberInfo) {
             let type: Type | undefined;
             let isTypeIncomplete = false;
@@ -12748,13 +12759,23 @@ export function createTypeEvaluator(
         if (
             ClassType.isProtocolClass(classType) &&
             classType.details.fields.get('__call__') &&
-            classType.details.fields.size === 1 &&
             !classType.details.baseClasses.find(
                 (base) =>
                     isClass(base) && !ClassType.isBuiltIn(base, 'object') && !ClassType.isBuiltIn(base, 'Protocol')
             )
         ) {
-            classType.details.flags |= ClassTypeFlags.CallbackProtocolClass;
+            let symbolsToMatchCount = 0;
+            classType.details.fields.forEach((symbol, name) => {
+                if (!symbol.isIgnoredForProtocolMatch()) {
+                    symbolsToMatchCount++;
+                }
+            });
+
+            // If any symbols are present other than __call__, it's not considered
+            // a callback protocol class.
+            if (symbolsToMatchCount === 1) {
+                classType.details.flags |= ClassTypeFlags.CallbackProtocolClass;
+            }
         }
 
         // Now determine the decorated type of the class.
