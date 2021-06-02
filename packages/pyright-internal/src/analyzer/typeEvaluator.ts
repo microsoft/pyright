@@ -1491,6 +1491,20 @@ export function createTypeEvaluator(
             }
         }
 
+        // If the decorator is completely unannotated and the return type
+        // includes unknowns, assume that it preserves the type of the input
+        // function.
+        if (isPartlyUnknown(returnType)) {
+            if (isFunction(decoratorTypeResult.type)) {
+                if (
+                    !decoratorTypeResult.type.details.parameters.find((param) => param.typeAnnotation !== undefined) &&
+                    decoratorTypeResult.type.details.declaredReturnType === undefined
+                ) {
+                    return functionOrClassType;
+                }
+            }
+        }
+
         return returnType;
     }
 
