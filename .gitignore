@@ -117,3 +117,5 @@ dist
 
 *.vsix
 junit.xml
+
+.webpack_cache/

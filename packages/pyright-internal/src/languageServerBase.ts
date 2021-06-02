@@ -65,6 +65,7 @@ import {
 } from './common/commandLineOptions';
 import { ConfigOptions, getDiagLevelDiagnosticRules } from './common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
+import { isDefined } from './common/core';
 import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
@@ -75,6 +76,7 @@ import {
     FileWatcher,
     FileWatcherEventHandler,
     FileWatcherEventType,
+    isInZipOrEgg,
 } from './common/fileSystem';
 import { containsPath, convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
@@ -407,21 +409,24 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
 
         // For any non-workspace paths, use the node file watcher.
-        let nodeWatchers: FileWatcher[];
+        const nodeWatchers = nonWorkspacePaths
+            .map((path) => {
+                // Skip paths that don't exist; fs.watch will throw when it tries to watch them,
+                // and won't give us a watcher that would work if it were created later.
+                if (!fs.existsSync(path)) {
+                    return undefined;
+                }
 
-        try {
-            nodeWatchers = nonWorkspacePaths.map((path) => {
-                return fs.watch(path, { recursive: true }, (event, filename) =>
-                    listener(event as FileWatcherEventType, filename)
-                );
-            });
-        } catch (e) {
-            // Versions of node >= 14 are reportedly throwing exceptions
-            // when calling fs.watch with recursive: true. Just swallow
-            // the exception and proceed.
-            this.console.error(`Exception received when installing recursive file system watcher`);
-            nodeWatchers = [];
-        }
+                try {
+                    return fs.watch(path, { recursive: true }, (event, filename) =>
+                        listener(event as FileWatcherEventType, filename)
+                    );
+                } catch (e) {
+                    this.console.error(`Exception received when installing recursive file system watcher: ${e}`);
+                    return undefined;
+                }
+            })
+            .filter(isDefined);
 
         const fileWatcher: InternalFileWatcher = {
             close() {
@@ -481,7 +486,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (!locations) {
                 return undefined;
             }
-            return locations.map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
+            return locations
+                .filter((loc) => !isInZipOrEgg(loc.path))
+                .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
         };
 
         this._connection.onDefinition((params, token) =>
@@ -531,7 +538,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 }
 
                 const convert = (locs: DocumentRange[]): Location[] => {
-                    return locs.map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
+                    return locs
+                        .filter((loc) => !isInZipOrEgg(loc.path))
+                        .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
                 };
 
                 const locations: Location[] = [];
@@ -784,6 +793,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return null;
             }
 
+            if (isInZipOrEgg(callItem.uri)) {
+                return null;
+            }
+
             // Convert the file path in the item to proper URI.
             callItem.uri = convertPathToUri(this.fs, callItem.uri);
 
@@ -803,10 +816,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return null;
             }
 
-            const callItems = workspace.serviceInstance.getIncomingCallsForPosition(filePath, position, token) || null;
+            let callItems = workspace.serviceInstance.getIncomingCallsForPosition(filePath, position, token) || null;
             if (!callItems || callItems.length === 0) {
                 return null;
             }
+
+            callItems = callItems.filter((item) => !isInZipOrEgg(item.from.uri));
 
             // Convert the file paths in the items to proper URIs.
             callItems.forEach((item) => {
@@ -829,10 +844,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return null;
             }
 
-            const callItems = workspace.serviceInstance.getOutgoingCallsForPosition(filePath, position, token) || null;
+            let callItems = workspace.serviceInstance.getOutgoingCallsForPosition(filePath, position, token) || null;
             if (!callItems || callItems.length === 0) {
                 return null;
             }
+
+            callItems = callItems.filter((item) => !isInZipOrEgg(item.to.uri));
 
             // Convert the file paths in the items to proper URIs.
             callItems.forEach((item) => {
@@ -1092,6 +1109,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected onAnalysisCompletedHandler(results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
+            if (isInZipOrEgg(fileDiag.filePath)) {
+                return;
+            }
+
             this._connection.sendDiagnostics({
                 uri: convertPathToUri(this.fs, fileDiag.filePath),
                 diagnostics: this._convertDiagnostics(fileDiag.diagnostics),
@@ -1278,12 +1299,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             const relatedInfo = diag.getRelatedInfo();
             if (relatedInfo.length > 0) {
-                vsDiag.relatedInformation = relatedInfo.map((info) => {
-                    return DiagnosticRelatedInformation.create(
-                        Location.create(convertPathToUri(this.fs, info.filePath), info.range),
-                        info.message
+                vsDiag.relatedInformation = relatedInfo
+                    .filter((info) => !isInZipOrEgg(info.filePath))
+                    .map((info) =>
+                        DiagnosticRelatedInformation.create(
+                            Location.create(convertPathToUri(this.fs, info.filePath), info.range),
+                            info.message
+                        )
                     );
-                });
             }
 
             convertedDiags.push(vsDiag);

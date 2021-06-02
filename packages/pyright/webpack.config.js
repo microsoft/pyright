@@ -3,13 +3,10 @@
  * Copyright: Microsoft 2018
  */
 
-/* eslint-disable @typescript-eslint/no-var-requires */
-//@ts-check
-
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const { TsconfigPathsPlugin } = require('tsconfig-paths-webpack-plugin');
-const { monorepoResourceNameMapper } = require('../../build/lib/webpack');
+const { cacheConfig, monorepoResourceNameMapper } = require('../../build/lib/webpack');
 
 const outPath = path.resolve(__dirname, 'dist');
 const typeshedFallback = path.resolve(__dirname, '..', 'pyright-internal', 'typeshed-fallback');
@@ -31,6 +28,7 @@ module.exports = (_, { mode }) => {
             clean: true,
         },
         devtool: mode === 'development' ? 'source-map' : 'nosources-source-map',
+        cache: mode === 'development' ? cacheConfig(__dirname, __filename) : undefined,
         stats: {
             all: false,
             errors: true,

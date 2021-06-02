@@ -5,6 +5,12 @@
     },
     "include": [
         "src/**/*",
-        "src/localization/*.json"
+        "src/localization/*.json",
+        "**/*.js"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "out"
     ]
 }

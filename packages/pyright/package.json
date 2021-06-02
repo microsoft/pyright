@@ -23,6 +23,7 @@
         "webpack": "webpack --mode development --progress"
     },
     "devDependencies": {
+        "@types/copy-webpack-plugin": "^8.0.0",
         "@types/node": "^12.20.13",
         "copy-webpack-plugin": "^8.1.1",
         "shx": "^0.3.3",

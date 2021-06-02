@@ -63,7 +63,7 @@ export class PyrightFileSystem implements FileSystem {
         return this._realFS.existsSync(this.getOriginalFilePath(path));
     }
 
-    mkdirSync(path: string, options?: MkDirOptions | number): void {
+    mkdirSync(path: string, options?: MkDirOptions): void {
         this._realFS.mkdirSync(path, options);
     }
 

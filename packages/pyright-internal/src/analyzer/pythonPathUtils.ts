@@ -227,13 +227,7 @@ function getPathResultFromInterpreter(
                 execSplitEntry = execSplitEntry.trim();
                 if (execSplitEntry) {
                     const normalizedPath = normalizePath(execSplitEntry);
-                    // Make sure the path exists and is a directory. We don't currently
-                    // support zip files and other formats.
-                    if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
-                        result.paths.push(normalizedPath);
-                    } else {
-                        importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
-                    }
+                    result.paths.push(normalizedPath);
                 }
             }
 
