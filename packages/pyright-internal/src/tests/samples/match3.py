@@ -207,3 +207,9 @@ def func6(subj: object):
             t_c2: Literal["float"] = reveal_type(c)
             t_v2: Literal["NT2"] = reveal_type(subj)
 
+
+def func7(subj: object):
+    match subj:
+        case complex(real=a, imag=b):
+            t_a1: Literal["float"] = reveal_type(a)
+            t_b1: Literal["float"] = reveal_type(b)

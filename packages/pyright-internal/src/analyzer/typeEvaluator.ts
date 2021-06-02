@@ -15282,10 +15282,11 @@ export function createTypeEvaluator(
             argType = ObjectType.create(classType);
         } else {
             if (argName) {
-                const argMemberInfo = lookUpClassMember(classType, argName);
-                if (argMemberInfo) {
-                    argType = getTypeOfMember(argMemberInfo);
-                }
+                argType = useSpeculativeMode(arg, () =>
+                    // We need to apply a rather ugly cast here because PatternClassArgumentNode is
+                    // not technically an ExpressionNode, but it is OK to use it in this context.
+                    getTypeFromObjectMember(arg as any as ExpressionNode, ObjectType.create(classType), argName!)
+                )?.type;
             }
 
             if (!argType) {
