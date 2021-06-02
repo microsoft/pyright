@@ -392,6 +392,7 @@
         "unexpectedIndent": "Unexpected indentation",
         "unexpectedUnindent": "Unindent not expected",
         "unionSyntaxIllegal": "Alternative syntax for unions requires Python 3.10 or newer",
+        "uninitializedInstanceVariable": "Instance variable \"{name}\" is not initialized in the class body or __init__ method",
         "unnecessaryCast": "Unnecessary \"cast\" call; type is already \"{type}\"",
         "unnecessaryIsInstanceAlways": "Unnecessary isinstance call; \"{testType}\" is always an instance of \"{classType}\"",
         "unnecessaryIsSubclassAlways": "Unnecessary issubclass call; \"{testType}\" is always a subclass of \"{classType}\"",

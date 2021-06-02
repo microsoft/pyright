@@ -46,6 +46,7 @@ export enum DiagnosticRule {
     reportIncompatibleMethodOverride = 'reportIncompatibleMethodOverride',
     reportIncompatibleVariableOverride = 'reportIncompatibleVariableOverride',
     reportOverlappingOverload = 'reportOverlappingOverload',
+    reportUninitializedInstanceVariable = 'reportUninitializedInstanceVariable',
     reportInvalidStringEscapeSequence = 'reportInvalidStringEscapeSequence',
     reportUnknownParameterType = 'reportUnknownParameterType',
     reportUnknownArgumentType = 'reportUnknownArgumentType',

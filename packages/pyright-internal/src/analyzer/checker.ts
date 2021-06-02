@@ -257,6 +257,8 @@ export class Checker extends ParseTreeWalker {
 
             this._validateFinalMemberOverrides(classTypeResult.classType);
 
+            this._validateInstanceVariableInitialization(classTypeResult.classType);
+
             if (ClassType.isTypedDictClass(classTypeResult.classType)) {
                 this._validateTypedDictClassSuite(node.suite);
             }
@@ -2804,6 +2806,59 @@ export class Checker extends ParseTreeWalker {
                     decl.node
                 );
             }
+        });
+    }
+
+    // Reports the case where an instance variable is not declared or initialized
+    // within the class body or constructor method.
+    private _validateInstanceVariableInitialization(classType: ClassType) {
+        // This check can be expensive, so don't perform it if the corresponding
+        // rule is disabled.
+        if (this._fileInfo.diagnosticRuleSet.reportUninitializedInstanceVariable === 'none') {
+            return;
+        }
+
+        classType.details.fields.forEach((localSymbol, name) => {
+            // This applies only to instance members.
+            if (!localSymbol.isInstanceMember()) {
+                return;
+            }
+
+            const decls = localSymbol.getDeclarations();
+
+            // If the symbol is assigned (or at least declared) within the
+            // class body or within the __init__ method, it can be ignored.
+            if (
+                decls.find((decl) => {
+                    const containingClass = ParseTreeUtils.getEnclosingClassOrFunction(decl.node);
+                    if (!containingClass || containingClass.nodeType === ParseNodeType.Class) {
+                        return true;
+                    }
+
+                    if (containingClass.name.value === '__init__') {
+                        return true;
+                    }
+
+                    return false;
+                })
+            ) {
+                return;
+            }
+
+            // If the symbol is declared by its parent, we can assume it
+            // is initialized there.
+            const parentSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
+            if (parentSymbol) {
+                return;
+            }
+
+            // Report the variable as uninitialized only on the first decl.
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUninitializedInstanceVariable,
+                DiagnosticRule.reportUninitializedInstanceVariable,
+                Localizer.Diagnostic.uninitializedInstanceVariable().format({ name: name }),
+                decls[0].node
+            );
         });
     }
 

@@ -432,6 +432,17 @@
                                 "error"
                             ]
                         },
+                        "reportUninitializedInstanceVariable": {
+                            "type": "string",
+                            "description": "Diagnostics for instance variables that are not declared or initialized within class body or `__init__` method.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportInvalidStringEscapeSequence": {
                             "type": "string",
                             "description": "Diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions.",

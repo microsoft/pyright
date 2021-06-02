@@ -757,6 +757,8 @@ export namespace Localizer {
         export const unexpectedIndent = () => getRawString('Diagnostic.unexpectedIndent');
         export const unexpectedUnindent = () => getRawString('Diagnostic.unexpectedUnindent');
         export const unionSyntaxIllegal = () => getRawString('Diagnostic.unionSyntaxIllegal');
+        export const uninitializedInstanceVariable = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.uninitializedInstanceVariable'));
         export const unnecessaryCast = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unnecessaryCast'));
         export const unnecessaryIsInstanceAlways = () =>

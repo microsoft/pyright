@@ -191,6 +191,10 @@ export interface DiagnosticRuleSet {
     // incompatible return types.
     reportOverlappingOverload: DiagnosticLevel;
 
+    // Report instance variables that are not initialized within
+    // the constructor.
+    reportUninitializedInstanceVariable: DiagnosticLevel;
+
     // Report usage of invalid escape sequences in string literals?
     reportInvalidStringEscapeSequence: DiagnosticLevel;
 
@@ -315,6 +319,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportIncompatibleMethodOverride,
         DiagnosticRule.reportIncompatibleVariableOverride,
         DiagnosticRule.reportOverlappingOverload,
+        DiagnosticRule.reportUninitializedInstanceVariable,
         DiagnosticRule.reportInvalidStringEscapeSequence,
         DiagnosticRule.reportUnknownParameterType,
         DiagnosticRule.reportUnknownArgumentType,
@@ -387,6 +392,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
         reportOverlappingOverload: 'none',
+        reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'none',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -455,6 +461,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
         reportOverlappingOverload: 'none',
+        reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -523,6 +530,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleMethodOverride: 'error',
         reportIncompatibleVariableOverride: 'error',
         reportOverlappingOverload: 'error',
+        reportUninitializedInstanceVariable: 'error',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
         reportUnknownArgumentType: 'error',
@@ -1075,6 +1083,13 @@ export class ConfigOptions {
                 configObj.reportOverlappingOverload,
                 DiagnosticRule.reportOverlappingOverload,
                 defaultSettings.reportOverlappingOverload
+            ),
+
+            // Read the "reportUninitializedInstanceVariable" entry.
+            reportUninitializedInstanceVariable: this._convertDiagnosticLevel(
+                configObj.reportUninitializedInstanceVariable,
+                DiagnosticRule.reportUninitializedInstanceVariable,
+                defaultSettings.reportUninitializedInstanceVariable
             ),
 
             // Read the "reportInvalidStringEscapeSequence" entry.
