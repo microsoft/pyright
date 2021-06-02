@@ -6,12 +6,12 @@
 // the change will cause problems with merging and the updateDeps script.
 
 const detectIndent = require('detect-indent');
-const fsExtra = require('fs-extra');
+const { promises: fsAsync } = require('fs');
 const util = require('util');
 const glob = util.promisify(require('glob'));
 
 async function findPackageLocks() {
-    const lernaFile = await fsExtra.readFile('lerna.json', 'utf-8');
+    const lernaFile = await fsAsync.readFile('lerna.json', 'utf-8');
 
     /** @type {{ packages: string[] }} */
     const lernaConfig = JSON.parse(lernaFile);
@@ -26,7 +26,7 @@ async function main() {
     let ok = true;
 
     for (const filepath of locks) {
-        const input = await fsExtra.readFile(filepath, 'utf-8');
+        const input = await fsAsync.readFile(filepath, 'utf-8');
         const indent = detectIndent(input);
 
         if (indent.indent !== '    ') {

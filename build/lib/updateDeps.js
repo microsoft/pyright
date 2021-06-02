@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 //@ts-check
 
-const fsExtra = require('fs-extra');
+const { promises: fsAsync } = require('fs');
 const ncu = require('npm-check-updates');
 const PQueue = require('p-queue').default;
 const path = require('path');
@@ -9,8 +9,20 @@ const util = require('util');
 const glob = util.promisify(require('glob'));
 const exec = util.promisify(require('child_process').exec);
 
+/** @type {(path: string, options?: import('fs').RmDirOptions & { force?: boolean }) => Promise<void> | undefined} */
+const node14rm = /** @type {any} */ (fsAsync).rm;
+
+/** @type {(path: string) => Promise<void>} */
+async function rmdir(path) {
+    if (node14rm) {
+        // Avoid deprecation warning when on Node v14+, which have deprecated recursive rmdir in favor of rm.
+        return node14rm(path, { recursive: true, force: true });
+    }
+    return fsAsync.rmdir(path, { recursive: true });
+}
+
 async function findPackages() {
-    const lernaFile = await fsExtra.readFile('lerna.json', 'utf-8');
+    const lernaFile = await fsAsync.readFile('lerna.json', 'utf-8');
 
     /** @type {{ packages: string[] }} */
     const lernaConfig = JSON.parse(lernaFile);
@@ -42,8 +54,8 @@ async function updatePackage(packageFile, transitive, reject = undefined) {
 
     if (transitive) {
         console.log(`${packageName}: removing package-lock.json and node_modules`);
-        await fsExtra.remove(path.join(packagePath, 'package-lock.json'));
-        await fsExtra.remove(path.join(packagePath, 'node_modules'));
+        await fsAsync.unlink(path.join(packagePath, 'package-lock.json'));
+        await rmdir(path.join(packagePath, 'node_modules'));
     }
 
     await queue.add(async () => {

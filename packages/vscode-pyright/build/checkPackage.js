@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 //@ts-check
 
-const fsExtra = require('fs-extra');
+const { promises: fsAsync } = require('fs');
 const chalk = require('chalk');
 
 async function main() {
-    const packageJson = await fsExtra.readFile('package.json', 'utf-8');
+    const packageJson = await fsAsync.readFile('package.json', 'utf-8');
     const obj = JSON.parse(packageJson);
 
     const name = obj.name;
