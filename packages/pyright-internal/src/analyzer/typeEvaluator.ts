@@ -8440,9 +8440,8 @@ export function createTypeEvaluator(
             }
         }
 
-        // Calculate the return type. If there was a type error detected,
-        // don't bother attempting to infer the return type.
-        const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams, !argumentErrors);
+        // Calculate the return type.
+        const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams);
         let specializedReturnType = addConditionToType(applySolvedTypeVars(returnType, typeVarMap), typeCondition);
 
         // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
