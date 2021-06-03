@@ -23,7 +23,7 @@ class A:
     Value2 = 1
 
 
-t_value1: Literal["Value1"] = reveal_type(A.Value1)
+t_value1: Literal["Type[Literal[1]]"] = reveal_type(A.Value1)
 t_value2: Literal["int"] = reveal_type(A.Value2)
 
 

@@ -53,6 +53,6 @@ SimpleAlias = int
 ExplicitAlias: TA = int
 SimpleNonAlias: Type[int] = int
 
-t1: Literal["SimpleAlias"] = reveal_type(SimpleAlias)
-t2: Literal["ExplicitAlias"] = reveal_type(ExplicitAlias)
+t1: Literal["Type[int]"] = reveal_type(SimpleAlias)
+t2: Literal["Type[int]"] = reveal_type(ExplicitAlias)
 t3: Literal["Type[int]"] = reveal_type(SimpleNonAlias)

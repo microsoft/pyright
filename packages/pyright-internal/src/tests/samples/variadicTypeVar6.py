@@ -74,8 +74,8 @@ Alias6 = Tuple[int, Unpack[_Xs]]
 # The type annotation for y will generate an error if
 # reportMissingTypeArgument is enabled.
 def func2(x: Alias6[float, bool], y: Alias6, z: Alias6[()]):
-    t_x: Literal["Alias6[float, bool]"] = reveal_type(x)
+    t_x: Literal["Tuple[int, float, bool]"] = reveal_type(x)
 
-    t_y: Literal["Alias6[*_Xs@Alias6]"] = reveal_type(y)
+    t_y: Literal["Tuple[int, *_Xs@Alias6]"] = reveal_type(y)
 
-    t_z: Literal["Alias6[()]"] = reveal_type(z)
+    t_z: Literal["Tuple[int]"] = reveal_type(z)

@@ -6266,7 +6266,7 @@ export function createTypeEvaluator(
     function getTypeFromRevealType(node: CallNode) {
         const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
         const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
-        const typeString = printType(type);
+        const typeString = printType(type, /* expandTypeAlias */ true);
         addInformation(
             Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: exprString, type: typeString }),
             node.arguments[0]
@@ -6305,7 +6305,10 @@ export function createTypeEvaluator(
                 if (!symbol.isIgnoredForProtocolMatch()) {
                     const typeOfSymbol = getEffectiveTypeOfSymbol(symbol);
                     infoMessages.push(
-                        Localizer.DiagnosticAddendum.typeOfSymbol().format({ name, type: printType(typeOfSymbol) })
+                        Localizer.DiagnosticAddendum.typeOfSymbol().format({
+                            name,
+                            type: printType(typeOfSymbol, /* expandTypeAlias */ true),
+                        })
                     );
                 }
             });

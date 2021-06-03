@@ -15,7 +15,9 @@ class ClassWithNoMeta2:
 
 
 NoMetaUnion = ClassWithNoMeta1 | ClassWithNoMeta2
-tf1: Literal["NoMetaUnion"] = reveal_type(NoMetaUnion)
+tf1: Literal["Type[ClassWithNoMeta1] | Type[ClassWithNoMeta2]"] = reveal_type(
+    NoMetaUnion
+)
 
 _T = TypeVar("_T")
 
