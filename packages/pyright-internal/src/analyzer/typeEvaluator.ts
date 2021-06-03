@@ -11805,7 +11805,7 @@ export function createTypeEvaluator(
                 typeArgTypes.push(AnyType.create(/* isEllipsis */ true));
             }
 
-            return specializeTupleClass(classType, typeArgTypes, typeArgs !== undefined);
+            return specializeTupleClass(classType, typeArgTypes, typeArgs !== undefined, /* stripLiterals */ false);
         }
 
         return ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);

@@ -1,6 +1,5 @@
 # This sample tests that inferred types for tuples strip
-# literals when there is no expected type or the expected
-# type is not a heterogeneous tuple.
+# literals under the appropriate circumstances.
 
 
 from typing import List, Literal, Tuple
@@ -18,10 +17,10 @@ t3: Literal["list[Literal[1]]"] = reveal_type(a3)
 
 def func1(v1: Tuple[Literal[1], ...], v2: Tuple[Literal[1]]):
     a4 = set(v1)
-    t4: Literal["set[int]"] = reveal_type(a4)
+    t4: Literal["set[Literal[1]]"] = reveal_type(a4)
 
     a5 = set(v2)
-    t5: Literal["set[int]"] = reveal_type(a5)
+    t5: Literal["set[Literal[1]]"] = reveal_type(a5)
 
 
 a6 = (1, "hi")
