@@ -723,6 +723,12 @@ test('Protocol17', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('Protocol18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol18.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 

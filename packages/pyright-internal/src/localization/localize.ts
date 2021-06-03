@@ -389,6 +389,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('Diagnostic.instanceVarOverridesClassVar')
             );
+        export const instantiateAbstract = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.instantiateAbstract'));
+        export const instantiateProtocol = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.instantiateProtocol'));
         export const internalBindError = () =>
             new ParameterizedString<{ file: string; message: string }>(getRawString('Diagnostic.internalBindError'));
         export const internalParseError = () =>
@@ -632,8 +636,6 @@ export namespace Localizer {
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('Diagnostic.tupleSizeMismatch')
             );
-        export const typeAbstract = () =>
-            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeAbstract'));
         export const typeAliasIsRecursiveDirect = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursiveDirect'));
         export const typeAliasIsRecursiveIndirect = () =>

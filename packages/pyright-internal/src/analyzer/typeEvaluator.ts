@@ -7404,48 +7404,24 @@ export function createTypeEvaluator(
                                 }
                             });
 
-                            const fileInfo = getFileInfo(errorNode);
                             addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.typeAbstract().format({ type: concreteSubtype.details.name }) +
-                                    diagAddendum.getString(),
+                                Localizer.Diagnostic.instantiateAbstract().format({
+                                    type: concreteSubtype.details.name,
+                                }) + diagAddendum.getString(),
                                 errorNode
                             );
                         }
 
-                        if (!isTypeObject && ClassType.hasAbstractMethods(concreteSubtype)) {
-                            // If the class is abstract, it can't be instantiated.
-                            const abstractMethods = getAbstractMethods(concreteSubtype);
-                            const diagAddendum = new DiagnosticAddendum();
-                            const errorsToDisplay = 2;
-
-                            abstractMethods.forEach((abstractMethod, index) => {
-                                if (index === errorsToDisplay) {
-                                    diagAddendum.addMessage(
-                                        Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
-                                            count: abstractMethods.length - errorsToDisplay,
-                                        })
-                                    );
-                                } else if (index < errorsToDisplay) {
-                                    if (isClass(abstractMethod.classType)) {
-                                        const className = abstractMethod.classType.details.name;
-                                        diagAddendum.addMessage(
-                                            Localizer.DiagnosticAddendum.memberIsAbstract().format({
-                                                type: className,
-                                                name: abstractMethod.symbolName,
-                                            })
-                                        );
-                                    }
-                                }
-                            });
-
-                            const fileInfo = getFileInfo(errorNode);
+                        if (!isTypeObject && ClassType.isProtocolClass(concreteSubtype)) {
+                            // If the class is a protocol, it can't be instantiated.
                             addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.typeAbstract().format({ type: concreteSubtype.details.name }) +
-                                    diagAddendum.getString(),
+                                Localizer.Diagnostic.instantiateProtocol().format({
+                                    type: concreteSubtype.details.name,
+                                }),
                                 errorNode
                             );
                         }
