@@ -23,8 +23,8 @@ import {
     isModule,
     isObject,
     isOverloadedFunction,
+    isTypeVar,
     Type,
-    TypeBase,
     UnknownType,
 } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
@@ -177,22 +177,23 @@ export class HoverProvider {
                 // the type alias when printing the type information.
                 const type = evaluator.getType(typeNode);
                 let expandTypeAlias = false;
-                if (type && TypeBase.isInstantiable(type)) {
-                    const typeAliasInfo = getTypeAliasInfo(type);
-                    if (typeAliasInfo) {
-                        if (typeAliasInfo.name === typeNode.value) {
-                            expandTypeAlias = true;
-                        }
+                let typeVarName: string | undefined;
 
-                        label = 'type alias';
+                if (type?.typeAliasInfo) {
+                    const typeAliasInfo = getTypeAliasInfo(type);
+                    if (typeAliasInfo?.name === typeNode.value) {
+                        if (isTypeVar(type)) {
+                            label = type.details.isParamSpec ? 'param spec' : 'type variable';
+                            typeVarName = type.details.name;
+                        } else {
+                            expandTypeAlias = true;
+                            label = 'type alias';
+                        }
                     }
                 }
 
-                this._addResultsPart(
-                    parts,
-                    `(${label}) ` + node.value + this._getTypeText(typeNode, evaluator, expandTypeAlias),
-                    true
-                );
+                const typeText = typeVarName || node.value + this._getTypeText(typeNode, evaluator, expandTypeAlias);
+                this._addResultsPart(parts, `(${label}) ${typeText}`, true);
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
