@@ -68,6 +68,9 @@ export const enum TypeFlags {
     // This type refers to a type that is wrapped an "Annotated"
     // (PEP 593) annotation.
     Annotated = 1 << 2,
+
+    // This type is a non-callable special type like "Union".
+    NonCallable = 1 << 3,
 }
 
 export type UnionableType =
@@ -128,6 +131,14 @@ export namespace TypeBase {
 
     export function isAnnotated(type: TypeBase) {
         return (type.flags & TypeFlags.Annotated) !== 0;
+    }
+
+    export function isNonCallable(type: TypeBase) {
+        return (type.flags & TypeFlags.NonCallable) !== 0;
+    }
+
+    export function setNonCallable(type: TypeBase) {
+        return (type.flags |= TypeFlags.NonCallable);
     }
 
     export function cloneForTypeAlias(
@@ -1086,7 +1097,7 @@ export namespace FunctionType {
     export function cloneAsInstance(type: FunctionType) {
         assert(TypeBase.isInstantiable(type));
         const newInstance: FunctionType = { ...type };
-        newInstance.flags &= ~TypeFlags.Instantiable;
+        newInstance.flags &= ~(TypeFlags.Instantiable | TypeFlags.NonCallable);
         newInstance.flags |= TypeFlags.Instance;
         return newInstance;
     }
@@ -1094,7 +1105,7 @@ export namespace FunctionType {
     export function cloneAsInstantiable(type: FunctionType) {
         assert(TypeBase.isInstance(type));
         const newInstance: FunctionType = { ...type };
-        newInstance.flags &= ~TypeFlags.Instance;
+        newInstance.flags &= ~(TypeFlags.Instance | TypeFlags.NonCallable);
         newInstance.flags |= TypeFlags.Instantiable;
         return newInstance;
     }
@@ -1651,7 +1662,7 @@ export namespace TypeVarType {
     export function cloneAsInstance(type: TypeVarType) {
         assert(TypeBase.isInstantiable(type));
         const newInstance: TypeVarType = { ...type };
-        newInstance.flags &= ~TypeFlags.Instantiable;
+        newInstance.flags &= ~(TypeFlags.Instantiable | TypeFlags.NonCallable);
         newInstance.flags |= TypeFlags.Instance;
         return newInstance;
     }
@@ -1659,7 +1670,7 @@ export namespace TypeVarType {
     export function cloneAsInstantiable(type: TypeVarType) {
         assert(TypeBase.isInstance(type));
         const newInstance: TypeVarType = { ...type };
-        newInstance.flags &= ~TypeFlags.Instance;
+        newInstance.flags &= ~(TypeFlags.Instance | TypeFlags.NonCallable);
         newInstance.flags |= TypeFlags.Instantiable;
         return newInstance;
     }

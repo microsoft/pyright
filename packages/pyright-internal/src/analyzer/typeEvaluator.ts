@@ -7162,6 +7162,20 @@ export function createTypeEvaluator(
         let argumentErrors = false;
         let isTypeIncomplete = false;
 
+        if (TypeBase.isNonCallable(callType)) {
+            const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
+            addDiagnostic(
+                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeNotCallable().format({
+                    expression: ParseTreeUtils.printExpression(exprNode),
+                    type: printType(callType, /* expandTypeAlias */ true),
+                }),
+                exprNode
+            );
+            return { returnType: UnknownType.create(), argumentErrors: true };
+        }
+
         const returnType = mapSubtypesExpandTypeVars(
             callType,
             /* conditionFilter */ undefined,
@@ -11318,6 +11332,7 @@ export function createTypeEvaluator(
     // present, should specify the return type.
     function createCallableType(typeArgs: TypeResult[] | undefined, errorNode: ParseNode): FunctionType {
         const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
+        TypeBase.setNonCallable(functionType);
         functionType.details.declaredReturnType = UnknownType.create();
 
         const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(errorNode);
@@ -11436,7 +11451,13 @@ export function createTypeEvaluator(
             addExpectedClassDiagnostic(typeArg0Type, typeArgs[0].node);
         }
 
-        return combineTypes([typeArg0Type, NoneType.createType()]);
+        const optionalType = combineTypes([typeArg0Type, NoneType.createType()]);
+
+        if (isUnion(optionalType)) {
+            TypeBase.setNonCallable(optionalType);
+        }
+
+        return optionalType;
     }
 
     function cloneBuiltinObjectWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
@@ -11798,6 +11819,7 @@ export function createTypeEvaluator(
         }
 
         // Handle tuple type params as a special case.
+        let returnType: Type;
         if (isTupleTypeParam) {
             // If no type args are provided and it's a tuple, default to [Unknown, ...].
             if (!typeArgs) {
@@ -11805,10 +11827,19 @@ export function createTypeEvaluator(
                 typeArgTypes.push(AnyType.create(/* isEllipsis */ true));
             }
 
-            return specializeTupleClass(classType, typeArgTypes, typeArgs !== undefined, /* stripLiterals */ false);
+            returnType = specializeTupleClass(
+                classType,
+                typeArgTypes,
+                typeArgs !== undefined,
+                /* stripLiterals */ false
+            );
+        } else {
+            returnType = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
         }
 
-        return ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
+        TypeBase.setNonCallable(returnType);
+
+        return returnType;
     }
 
     // Unpacks the index expression for a "Union[X, Y, Z]" type annotation.
@@ -11836,7 +11867,11 @@ export function createTypeEvaluator(
         }
 
         if (types.length > 0) {
-            return combineTypes(types);
+            const unionType = combineTypes(types);
+            if (isUnion(unionType)) {
+                TypeBase.setNonCallable(unionType);
+            }
+            return unionType;
         }
 
         return NeverType.create();
