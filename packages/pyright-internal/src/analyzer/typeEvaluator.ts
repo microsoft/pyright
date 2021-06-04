@@ -8449,7 +8449,16 @@ export function createTypeEvaluator(
 
         // Calculate the return type.
         const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams);
-        let specializedReturnType = addConditionToType(applySolvedTypeVars(returnType, typeVarMap), typeCondition);
+        let specializedReturnType = addConditionToType(
+            applySolvedTypeVars(
+                returnType,
+                typeVarMap,
+                /*unknownIfNotFound */ false,
+                /* useNarrowBoundOnly */ false,
+                /* eliminateUnsolvedInUnions */ true
+            ),
+            typeCondition
+        );
 
         // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
         // object with a type argument that reflects the narrowed type.

@@ -53,7 +53,7 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     # variadic) TypeVar matching within a Union. So behavior
     # is likely to vary between type checkers here.
     v2_1 = func2(a)
-    t_v2_1: Literal["*_Xs@func2 | int"] = reveal_type(v2_1)
+    t_v2_1: Literal["int"] = reveal_type(v2_1)
 
     v2_2 = func2(d)
     t_v2_2: Literal["str | complex"] = reveal_type(v2_2)
@@ -73,7 +73,7 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
 
     # This behavior isn't defined by PEP 646 or PEP 484.
     v4_1 = func4(a)
-    t_v4_1: Literal["_T@func4 | int"] = reveal_type(v4_1)
+    t_v4_1: Literal["int"] = reveal_type(v4_1)
 
     v4_2 = func4(d)
     t_v4_2: Literal["str | complex"] = reveal_type(v4_2)

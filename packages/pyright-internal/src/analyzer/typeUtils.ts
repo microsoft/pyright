@@ -51,6 +51,7 @@ import {
     TypeCondition,
     TypeVarScopeId,
     TypeVarType,
+    UnionType,
     UnknownType,
 } from './types';
 import { TypeVarMap } from './typeVarMap';
@@ -152,6 +153,7 @@ interface TypeVarTransformer {
     transformTypeVar: (typeVar: TypeVarType) => Type;
     transformVariadicTypeVar: (paramSpec: TypeVarType) => Type[] | undefined;
     transformParamSpec: (paramSpec: TypeVarType) => ParamSpecValue | undefined;
+    transformUnion?: (type: UnionType) => Type;
 }
 
 let synthesizedTypeVarIndexForExpectedType = 1;
@@ -652,9 +654,11 @@ export function applySolvedTypeVars(
     type: Type,
     typeVarMap: TypeVarMap,
     unknownIfNotFound = false,
-    useNarrowBoundOnly = false
+    useNarrowBoundOnly = false,
+    eliminateUnsolvedInUnions = false
 ): Type {
-    if (typeVarMap.isEmpty() && !unknownIfNotFound) {
+    // Use a shortcut if the typeVarMap is empty and no transform is necessary.
+    if (typeVarMap.isEmpty() && !unknownIfNotFound && !eliminateUnsolvedInUnions) {
         return type;
     }
 
@@ -676,6 +680,29 @@ export function applySolvedTypeVars(
             }
 
             return typeVar;
+        },
+        transformUnion: (type: UnionType) => {
+            // If a union contains unsolved TypeVars within scope, eliminate them
+            // unless this results in an empty union. This elimination is needed
+            // in cases where TypeVars can go unmatched due to unions in parameter
+            // annotations, like this:
+            //   def test(x: Union[str, T]) -> Union[str, T]
+            if (eliminateUnsolvedInUnions) {
+                const updatedUnion = mapSubtypes(type, (subtype) => {
+                    if (
+                        isTypeVar(subtype) &&
+                        subtype.scopeId !== undefined &&
+                        typeVarMap.hasSolveForScope(subtype.scopeId)
+                    ) {
+                        return undefined;
+                    }
+                    return subtype;
+                });
+
+                return isNever(updatedUnion) ? type : updatedUnion;
+            }
+
+            return type;
         },
         transformVariadicTypeVar: (typeVar: TypeVarType) => {
             if (!typeVar.scopeId || !typeVarMap.hasSolveForScope(typeVar.scopeId)) {
@@ -1738,7 +1765,7 @@ export function _transformTypeVars(
     }
 
     if (isUnion(type)) {
-        return mapSubtypes(type, (subtype) => {
+        const newUnionType = mapSubtypes(type, (subtype) => {
             let transformedType = _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1);
 
             // If we're transforming a variadic type variable within a union,
@@ -1754,6 +1781,12 @@ export function _transformTypeVars(
 
             return transformedType;
         });
+
+        if (callbacks.transformUnion && isUnion(newUnionType)) {
+            return callbacks.transformUnion(newUnionType);
+        }
+
+        return newUnionType;
     }
 
     if (isObject(type)) {
