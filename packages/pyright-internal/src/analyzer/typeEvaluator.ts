@@ -8523,7 +8523,7 @@ export function createTypeEvaluator(
     ): boolean {
         const paramSpecValue = typeVarMap.getParamSpec(paramSpec);
 
-        if (!paramSpecValue || !paramSpecValue.parameters) {
+        if (!paramSpecValue || !paramSpecValue.concrete) {
             addDiagnostic(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -8537,7 +8537,7 @@ export function createTypeEvaluator(
 
         // Build a map of all named parameters.
         const paramMap = new Map<string, ParamSpecEntry>();
-        const paramSpecParams = paramSpecValue.parameters;
+        const paramSpecParams = paramSpecValue.concrete.parameters;
         paramSpecParams.forEach((param) => {
             if (param.name) {
                 paramMap.set(param.name, param);
@@ -20494,7 +20494,7 @@ export function createTypeEvaluator(
             if (isTypeVar(srcType) && srcType.details.isParamSpec) {
                 const existingEntry = typeVarMap.getParamSpec(destType);
                 if (existingEntry) {
-                    if (!existingEntry.parameters && existingEntry.paramSpec) {
+                    if (!existingEntry.concrete && existingEntry.paramSpec) {
                         // If there's an existing entry that matches, that's fine.
                         if (isTypeSame(existingEntry.paramSpec, srcType)) {
                             return true;
@@ -22215,17 +22215,20 @@ export function createTypeEvaluator(
             // Are we assigning to a function with a ParamSpec?
             if (destType.details.paramSpec) {
                 typeVarMap.setParamSpec(destType.details.paramSpec, {
-                    parameters: srcType.details.parameters
-                        .map((p, index) => {
-                            const paramSpecEntry: ParamSpecEntry = {
-                                category: p.category,
-                                name: p.name,
-                                hasDefault: !!p.hasDefault,
-                                type: FunctionType.getEffectiveParameterType(srcType, index),
-                            };
-                            return paramSpecEntry;
-                        })
-                        .slice(destType.details.parameters.length, srcType.details.parameters.length),
+                    concrete: {
+                        parameters: srcType.details.parameters
+                            .map((p, index) => {
+                                const paramSpecEntry: ParamSpecEntry = {
+                                    category: p.category,
+                                    name: p.name,
+                                    hasDefault: !!p.hasDefault,
+                                    type: FunctionType.getEffectiveParameterType(srcType, index),
+                                };
+                                return paramSpecEntry;
+                            })
+                            .slice(destType.details.parameters.length, srcType.details.parameters.length),
+                        flags: srcType.details.flags,
+                    },
                 });
             }
         }
@@ -23027,12 +23030,13 @@ export function createTypeEvaluator(
                     memberTypeFirstParam.hasDeclaredType
                 ) {
                     if (errorNode) {
+                        const methodName = memberType.details.name || '(unnamed)';
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.bindTypeMismatch().format({
                                 type: printType(baseType),
-                                methodName: memberType.details.name,
+                                methodName: methodName,
                                 paramName: memberTypeFirstParam.name,
                             }) + diag.getString(),
                             errorNode

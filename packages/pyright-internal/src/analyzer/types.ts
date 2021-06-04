@@ -968,11 +968,13 @@ export interface ParamSpecEntry {
 }
 
 export interface ParamSpecValue {
-    parameters?: ParamSpecEntry[];
+    concrete?: {
+        flags: FunctionTypeFlags;
+        parameters: ParamSpecEntry[];
+    };
 
     // If the param spec is assigned to another param spec,
-    // this will contain that type, and the params array will
-    // be empty.
+    // this will contain that type, and concrete will be undefined.
     paramSpec?: TypeVarType;
 }
 
@@ -1146,10 +1148,10 @@ export namespace FunctionType {
         delete newFunction.details.paramSpec;
 
         if (paramTypes) {
-            if (paramTypes.parameters) {
+            if (paramTypes.concrete) {
                 newFunction.details.parameters = [
                     ...type.details.parameters,
-                    ...paramTypes.parameters.map((specEntry) => {
+                    ...paramTypes.concrete.parameters.map((specEntry) => {
                         return {
                             category: specEntry.category,
                             name: specEntry.name,
@@ -1161,9 +1163,16 @@ export namespace FunctionType {
                     }),
                 ];
 
+                newFunction.details.flags =
+                    (paramTypes.concrete.flags &
+                        (FunctionTypeFlags.ClassMethod |
+                            FunctionTypeFlags.StaticMethod |
+                            FunctionTypeFlags.ConstructorMethod)) |
+                    FunctionTypeFlags.SynthesizedMethod;
+
                 // Update the specialized parameter types as well.
                 if (newFunction.specializedTypes) {
-                    paramTypes.parameters.forEach((paramInfo) => {
+                    paramTypes.concrete.parameters.forEach((paramInfo) => {
                         newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
                     });
                 }
@@ -1188,14 +1197,14 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
 
-        if (paramTypes.parameters) {
+        if (paramTypes.concrete) {
             // Remove the last two parameters, which are the *args and **kwargs.
             newFunction.details.parameters = newFunction.details.parameters.slice(
                 0,
                 newFunction.details.parameters.length - 2
             );
 
-            paramTypes.parameters.forEach((specEntry) => {
+            paramTypes.concrete.parameters.forEach((specEntry) => {
                 newFunction.details.parameters.push({
                     category: specEntry.category,
                     name: specEntry.name,

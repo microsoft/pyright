@@ -1164,7 +1164,9 @@ export function buildTypeVarMap(
                                 type: param.type,
                             });
                         });
-                        typeVarMap.setParamSpec(typeParam, { parameters: paramSpecEntries });
+                        typeVarMap.setParamSpec(typeParam, {
+                            concrete: { parameters: paramSpecEntries, flags: typeArgType.details.flags },
+                        });
                     } else if (isParamSpec(typeArgType)) {
                         typeVarMap.setParamSpec(typeParam, { paramSpec: typeArgType });
                     }
@@ -1827,11 +1829,11 @@ function _transformTypeVarsInClassType(
     const transformParamSpec = (paramSpec: TypeVarType) => {
         const paramSpecEntries = callbacks.transformParamSpec(paramSpec);
         if (paramSpecEntries) {
-            if (paramSpecEntries.parameters) {
+            if (paramSpecEntries.concrete) {
                 // Create a function type from the param spec entries.
                 const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
 
-                paramSpecEntries.parameters.forEach((entry) => {
+                paramSpecEntries.concrete.parameters.forEach((entry) => {
                     FunctionType.addParameter(functionType, {
                         category: entry.category,
                         name: entry.name,
