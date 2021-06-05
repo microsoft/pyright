@@ -90,6 +90,7 @@ import {
     FlowAssignmentAlias,
     FlowCall,
     FlowCondition,
+    FlowExhaustedMatch,
     FlowFlags,
     FlowLabel,
     FlowNarrowForPattern,
@@ -16986,6 +16987,21 @@ export function createTypeEvaluator(
                         continue;
                     }
 
+                    if (curFlowNode.flags & FlowFlags.ExhaustedMatch) {
+                        const exhaustedMatchFlowNode = curFlowNode as FlowExhaustedMatch;
+                        const narrowedTypeResult = evaluateTypeForSubnode(exhaustedMatchFlowNode.node, () => {
+                            evaluateTypesForMatchNode(exhaustedMatchFlowNode.node);
+                        });
+
+                        // If the narrowed type is "never", don't allow further exploration.
+                        if (narrowedTypeResult && isNever(narrowedTypeResult.type)) {
+                            return setCacheEntry(curFlowNode, undefined, !!narrowedTypeResult.isIncomplete);
+                        }
+
+                        curFlowNode = exhaustedMatchFlowNode.antecedent;
+                        continue;
+                    }
+
                     if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
                         const patternFlowNode = curFlowNode as FlowNarrowForPattern;
                         if (
@@ -17126,7 +17142,8 @@ export function createTypeEvaluator(
                         FlowFlags.WildcardImport |
                         FlowFlags.TrueNeverCondition |
                         FlowFlags.FalseNeverCondition |
-                        FlowFlags.NarrowForPattern)
+                        FlowFlags.NarrowForPattern |
+                        FlowFlags.ExhaustedMatch)
                 ) {
                     const typedFlowNode = curFlowNode as
                         | FlowVariableAnnotation
@@ -17134,7 +17151,8 @@ export function createTypeEvaluator(
                         | FlowAssignmentAlias
                         | FlowCondition
                         | FlowWildcardImport
-                        | FlowCondition;
+                        | FlowCondition
+                        | FlowExhaustedMatch;
                     curFlowNode = typedFlowNode.antecedent;
                     continue;
                 }

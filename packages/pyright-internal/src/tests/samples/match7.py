@@ -29,3 +29,34 @@ def func1(subj: int | dict[str, str] | tuple[int] | str, cond: bool):
     t_v6: Literal["dict[str, str] | tuple[int]"] = reveal_type(subj)
     return subj
 
+
+# This should generate an error because there is the potential
+# for fall-through if the subject expression is a str.
+def func2(subj: int | str) -> str:
+    match subj:
+        case int():
+            return "int"
+    
+    t_v1: Literal['str'] = reveal_type(subj)
+
+
+# This should generate an error because there is the potential
+# for fall-through if the guard expressions are false.
+def func3(subj: int | str) -> str:
+    match subj:
+        case str() if len(subj) > 0:
+            return "str"
+
+        case int() if subj < 0:
+            return "int"
+    
+    t_v1: Literal['int | str'] = reveal_type(subj)
+
+
+def func4(subj: int | str) -> str:
+    match subj:
+        case int():
+            return "int"
+
+        case str():
+            return "str"

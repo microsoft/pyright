@@ -85,6 +85,7 @@ import {
     FlowAssignmentAlias,
     FlowCall,
     FlowCondition,
+    FlowExhaustedMatch,
     FlowFlags,
     FlowLabel,
     FlowNarrowForPattern,
@@ -1798,6 +1799,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         const postMatchLabel = this._createBranchLabel();
+        let foundIrrefutableCase = false;
 
         // Model the match statement as a series of if/elif clauses
         // each of which tests for the specified pattern (and optionally
@@ -1812,12 +1814,18 @@ export class Binder extends ParseTreeWalker {
 
             if (!caseStatement.isIrrefutable) {
                 this._addAntecedent(postCaseLabel, this._currentFlowNode!);
+            } else if (!caseStatement.guardExpression) {
+                foundIrrefutableCase = true;
             }
 
             this._currentFlowNode = this._finishFlowLabel(preGuardLabel);
 
             // Bind the pattern.
             this.walk(caseStatement.pattern);
+
+            if (isSubjectNarrowable) {
+                this._createFlowNarrowForPattern(node.subjectExpression, caseStatement);
+            }
 
             // Apply the guard expression.
             if (caseStatement.guardExpression) {
@@ -1827,10 +1835,6 @@ export class Binder extends ParseTreeWalker {
             }
 
             this._currentFlowNode = this._finishFlowLabel(preSuiteLabel);
-
-            if (isSubjectNarrowable) {
-                this._createFlowNarrowForPattern(node.subjectExpression, caseStatement);
-            }
 
             // Bind the body of the case statement.
             this.walk(caseStatement.suite);
@@ -1844,6 +1848,12 @@ export class Binder extends ParseTreeWalker {
         // statements are matched.
         if (isSubjectNarrowable) {
             this._createFlowNarrowForPattern(node.subjectExpression, node);
+
+            // Create an "implied else" to conditionally gate code flow based on
+            // whether the narrowed type of the subject expression is Never at this point.
+            if (!foundIrrefutableCase) {
+                this._createFlowExhaustedMatch(node);
+            }
         }
 
         this._addAntecedent(postMatchLabel, this._currentFlowNode!);
@@ -2701,6 +2711,21 @@ export class Binder extends ParseTreeWalker {
             };
 
             this._addExceptTargets(flowNode);
+            this._currentFlowNode = flowNode;
+        }
+
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+    }
+
+    private _createFlowExhaustedMatch(node: MatchNode) {
+        if (!this._isCodeUnreachable()) {
+            const flowNode: FlowExhaustedMatch = {
+                flags: FlowFlags.ExhaustedMatch,
+                id: getUniqueFlowNodeId(),
+                node,
+                antecedent: this._currentFlowNode!,
+            };
+
             this._currentFlowNode = flowNode;
         }
 
