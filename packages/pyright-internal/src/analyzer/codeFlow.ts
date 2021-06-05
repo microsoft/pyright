@@ -21,6 +21,7 @@ import {
     ExpressionNode,
     ImportFromNode,
     IndexNode,
+    MatchNode,
     MemberAccessNode,
     NameNode,
     NumberNode,
@@ -117,7 +118,7 @@ export interface FlowCondition extends FlowNode {
 
 export interface FlowNarrowForPattern extends FlowNode {
     subjectExpression: ExpressionNode;
-    caseStatement: CaseNode;
+    statement: CaseNode | MatchNode;
     antecedent: FlowNode;
 }
 

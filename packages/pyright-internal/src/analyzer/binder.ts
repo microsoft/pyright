@@ -1839,6 +1839,13 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = this._finishFlowLabel(postCaseLabel);
         });
 
+        // Add a final narrowing step for the subject expression for the entire
+        // match statement. This will compute the narrowed type if no case
+        // statements are matched.
+        if (isSubjectNarrowable) {
+            this._createFlowNarrowForPattern(node.subjectExpression, node);
+        }
+
         this._addAntecedent(postMatchLabel, this._currentFlowNode!);
         this._currentFlowNode = this._finishFlowLabel(postMatchLabel);
 
@@ -2141,12 +2148,15 @@ export class Binder extends ParseTreeWalker {
         return flowNode;
     }
 
-    private _createFlowNarrowForPattern(subjectExpression: ExpressionNode, caseStatement: CaseNode) {
+    // Create a flow node that narrows the type of the subject expression for
+    // a specified case statement or the entire match statement (if the flow
+    // falls through the bottom of all cases).
+    private _createFlowNarrowForPattern(subjectExpression: ExpressionNode, statement: CaseNode | MatchNode) {
         const flowNode: FlowNarrowForPattern = {
             flags: FlowFlags.NarrowForPattern,
             id: getUniqueFlowNodeId(),
             subjectExpression,
-            caseStatement,
+            statement,
             antecedent: this._currentFlowNode!,
         };
 

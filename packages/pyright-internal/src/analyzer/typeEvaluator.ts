@@ -51,6 +51,7 @@ import {
     LambdaNode,
     ListComprehensionNode,
     ListNode,
+    MatchNode,
     MemberAccessNode,
     NameNode,
     ParameterCategory,
@@ -14873,6 +14874,24 @@ export function createTypeEvaluator(
         writeTypeCache(node, symbolType, /* isIncomplete */ false);
     }
 
+    function evaluateTypesForMatchNode(node: MatchNode) {
+        if (readTypeCache(node)) {
+            return;
+        }
+
+        const subjectTypeResult = getTypeOfExpression(node.subjectExpression);
+        let subjectType = subjectTypeResult.type;
+
+        // Apply negative narrowing for each of the cases that doesn't have a guard statement.
+        for (const caseStatement of node.cases) {
+            if (!caseStatement.guardExpression) {
+                subjectType = narrowTypeBasedOnPattern(subjectType, caseStatement.pattern, /* isPositiveTest */ false);
+            }
+        }
+
+        writeTypeCache(node, subjectType, !!subjectTypeResult.isIncomplete);
+    }
+
     function evaluateTypesForCaseNode(node: CaseNode) {
         if (readTypeCache(node)) {
             return;
@@ -16973,8 +16992,12 @@ export function createTypeEvaluator(
                             reference &&
                             ParseTreeUtils.isMatchingExpression(reference, patternFlowNode.subjectExpression)
                         ) {
-                            const typeResult = evaluateTypeForSubnode(patternFlowNode.caseStatement, () => {
-                                evaluateTypesForCaseNode(patternFlowNode.caseStatement);
+                            const typeResult = evaluateTypeForSubnode(patternFlowNode.statement, () => {
+                                if (patternFlowNode.statement.nodeType === ParseNodeType.Case) {
+                                    evaluateTypesForCaseNode(patternFlowNode.statement);
+                                } else {
+                                    evaluateTypesForMatchNode(patternFlowNode.statement);
+                                }
                             });
                             if (typeResult) {
                                 return setCacheEntry(curFlowNode, typeResult.type, !!typeResult.isIncomplete);

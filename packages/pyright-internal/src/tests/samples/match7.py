@@ -26,9 +26,6 @@ def func1(subj: int | dict[str, str] | tuple[int] | str, cond: bool):
             t_v5: Literal["str"] = reveal_type(subj)
             return
 
-        case z:
-            t_v6: Literal["dict[str, str] | tuple[int]"] = reveal_type(subj)
-            return
-
+    t_v6: Literal["dict[str, str] | tuple[int]"] = reveal_type(subj)
     return subj
 
