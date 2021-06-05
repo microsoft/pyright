@@ -3,7 +3,8 @@ import types
 from socket import socket
 from typing import Any, Callable, Optional, Type, TypeVar
 
-from .events import AbstractEventLoop, AbstractServer, BaseDefaultEventLoopPolicy, _ProtocolFactory, _SSLContext
+from .base_events import Server
+from .events import AbstractEventLoop, BaseDefaultEventLoopPolicy, _ProtocolFactory, _SSLContext
 from .selector_events import BaseSelectorEventLoop
 
 _T1 = TypeVar("_T1", bound=AbstractChildWatcher)
@@ -41,7 +42,7 @@ class _UnixSelectorEventLoop(BaseSelectorEventLoop):
             sock: Optional[socket] = ...,
             backlog: int = ...,
             ssl: _SSLContext = ...,
-        ) -> AbstractServer: ...
+        ) -> Server: ...
 
 class _UnixDefaultEventLoopPolicy(BaseDefaultEventLoopPolicy):
     def get_child_watcher(self) -> AbstractChildWatcher: ...

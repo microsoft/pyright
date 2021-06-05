@@ -219,7 +219,7 @@ class Parameter:
     envvar: Union[str, List[str], None]
     def __init__(
         self,
-        param_decls: Optional[List[str]] = ...,
+        param_decls: Optional[Iterable[str]] = ...,
         type: Optional[_ConvertibleType] = ...,
         required: bool = ...,
         default: Optional[Any] = ...,
@@ -264,7 +264,7 @@ class Option(Parameter):
     show_envvar: bool
     def __init__(
         self,
-        param_decls: Optional[List[str]] = ...,
+        param_decls: Optional[Iterable[str]] = ...,
         show_default: bool = ...,
         prompt: Union[bool, str] = ...,
         confirmation_prompt: bool = ...,
@@ -284,4 +284,4 @@ class Option(Parameter):
     def prompt_for_value(self, ctx: Context) -> Any: ...
 
 class Argument(Parameter):
-    def __init__(self, param_decls: Optional[List[str]] = ..., required: Optional[bool] = ..., **attrs: Any) -> None: ...
+    def __init__(self, param_decls: Optional[Iterable[str]] = ..., required: Optional[bool] = ..., **attrs: Any) -> None: ...
