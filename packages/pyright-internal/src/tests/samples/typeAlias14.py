@@ -15,10 +15,13 @@ T_Callable = Callable[[int], None]
 T_Callable(1)
 
 
-T_Type = Type[int]
+T_Type1 = Type[int]
 
 # This should generate an error
-T_Type()
+T_Type1(object)
+
+T_Type2 = type
+T_Type2(object)
 
 T_Optional = Optional[str]
 
@@ -32,12 +35,17 @@ T_TypeVar = TypeVar("T_TypeVar")
 T_TypeVar()
 
 
-T_Tuple = Tuple[int, ...]
+T_Tuple1 = Tuple[int, ...]
 
 # This should generate an error
-T_Tuple()
+T_Tuple1([3, 4])
 
 
 I = int
 
 I(3)
+
+
+T_Tuple2 = tuple[int, ...]
+
+T_Tuple2([3, 4, 5])

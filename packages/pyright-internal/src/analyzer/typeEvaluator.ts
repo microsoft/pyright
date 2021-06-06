@@ -11761,7 +11761,8 @@ export function createTypeEvaluator(
         classType: ClassType,
         typeArgs: TypeResult[] | undefined,
         paramLimit?: number,
-        allowParamSpec = false
+        allowParamSpec = false,
+        isCallable = false
     ): Type {
         const isTupleTypeParam = ClassType.isTupleClass(classType);
 
@@ -11848,7 +11849,9 @@ export function createTypeEvaluator(
             returnType = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
         }
 
-        TypeBase.setNonCallable(returnType);
+        if (!isCallable) {
+            TypeBase.setNonCallable(returnType);
+        }
 
         return returnType;
     }
@@ -18283,14 +18286,26 @@ export function createTypeEvaluator(
             if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
                 const typeClass = getTypingType(errorNode, 'Type');
                 if (typeClass && isClass(typeClass)) {
-                    return createSpecialType(typeClass, typeArgs, 1);
+                    return createSpecialType(
+                        typeClass,
+                        typeArgs,
+                        1,
+                        /* allowParamSpec */ undefined,
+                        /* isCallable */ true
+                    );
                 }
             }
 
             // Handle "tuple" specially, since it needs to act like "Tuple"
             // in Python 3.9 and newer.
             if (isTupleClass(classType)) {
-                return createSpecialType(classType, typeArgs, /* paramLimit */ undefined);
+                return createSpecialType(
+                    classType,
+                    typeArgs,
+                    /* paramLimit */ undefined,
+                    /* allowParamSpec */ undefined,
+                    /* isCallable */ true
+                );
             }
         }
 
