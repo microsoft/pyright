@@ -464,7 +464,9 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 }
 
                 if (strChar === Char.LineFeed || strChar === Char.CarriageReturn) {
-                    break;
+                    if (!isTriplicate) {
+                        break;
+                    }
                 }
 
                 if (strChar === quoteChar) {
