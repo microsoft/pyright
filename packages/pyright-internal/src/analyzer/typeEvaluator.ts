@@ -21543,6 +21543,14 @@ export function createTypeEvaluator(
                 }
             }
 
+            // If it's a class, use the constructor for type compatibility checking.
+            if (isClass(concreteSrcType) && concreteSrcType.literalValue === undefined) {
+                const constructor = createFunctionFromConstructor(concreteSrcType);
+                if (constructor) {
+                    concreteSrcType = constructor;
+                }
+            }
+
             if (isOverloadedFunction(concreteSrcType)) {
                 // Overloads are not compatible with ParamSpec.
                 if (destType.details.paramSpec) {
@@ -21578,45 +21586,6 @@ export function createTypeEvaluator(
                 srcFunction = overloads[overloadIndex];
             } else if (isFunction(concreteSrcType)) {
                 srcFunction = concreteSrcType;
-            } else if (isClass(concreteSrcType) && concreteSrcType.literalValue === undefined) {
-                // Synthesize a function that represents the constructor for this class.
-                const constructorFunction = FunctionType.createInstance(
-                    '__init__',
-                    '',
-                    '',
-                    FunctionTypeFlags.StaticMethod |
-                        FunctionTypeFlags.ConstructorMethod |
-                        FunctionTypeFlags.SynthesizedMethod
-                );
-                constructorFunction.details.declaredReturnType = ObjectType.create(concreteSrcType);
-
-                let constructorInfo = lookUpClassMember(
-                    concreteSrcType,
-                    '__init__',
-                    ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
-                );
-
-                if (!constructorInfo) {
-                    constructorInfo = lookUpClassMember(
-                        concreteSrcType,
-                        '__new__',
-                        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
-                    );
-                }
-
-                const constructorType = constructorInfo ? getTypeOfMember(constructorInfo) : undefined;
-                if (constructorType && isFunction(constructorType)) {
-                    constructorType.details.parameters.forEach((param, index) => {
-                        // Skip the 'cls' or 'self' parameter.
-                        if (index > 0) {
-                            FunctionType.addParameter(constructorFunction, param);
-                        }
-                    });
-                } else {
-                    FunctionType.addDefaultParameters(constructorFunction);
-                }
-
-                srcFunction = constructorFunction;
             } else if (isAnyOrUnknown(concreteSrcType)) {
                 return (flags & CanAssignFlags.DisallowAssignFromAny) === 0;
             }
@@ -21707,6 +21676,109 @@ export function createTypeEvaluator(
         );
 
         return false;
+    }
+
+    // Synthesize a function that represents the constructor for this class
+    // taking into consideration the __init__ and __new__ methods.
+    function createFunctionFromConstructor(classType: ClassType): FunctionType | OverloadedFunctionType | undefined {
+        // Use the __init__ method if available. It's usually more detailed.
+        const initInfo = lookUpClassMember(
+            classType,
+            '__init__',
+            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+        );
+
+        if (initInfo) {
+            const initType = getTypeOfMember(initInfo);
+            const objectType = ObjectType.create(classType);
+
+            const convertInitToConstructor = (initSubtype: FunctionType) => {
+                let constructorFunction = bindFunctionToClassOrObject(objectType, initSubtype) as
+                    | FunctionType
+                    | undefined;
+                if (constructorFunction) {
+                    constructorFunction = FunctionType.clone(constructorFunction);
+                    constructorFunction.details.declaredReturnType = objectType;
+                    if (constructorFunction.specializedTypes) {
+                        constructorFunction.specializedTypes.returnType = objectType;
+                    }
+                }
+                return constructorFunction;
+            };
+
+            if (isFunction(initType)) {
+                return convertInitToConstructor(initType);
+            } else if (isOverloadedFunction(initType)) {
+                const initOverloads: FunctionType[] = [];
+                initType.overloads.forEach((overload) => {
+                    const converted = convertInitToConstructor(overload);
+                    if (converted) {
+                        initOverloads.push(converted);
+                    }
+                });
+
+                if (initOverloads.length === 0) {
+                    return undefined;
+                } else if (initOverloads.length === 1) {
+                    return initOverloads[0];
+                }
+
+                return OverloadedFunctionType.create(initOverloads);
+            }
+        }
+
+        // Fall back on the __new__ method if __init__ isn't available.
+        const newInfo = lookUpClassMember(
+            classType,
+            '__new__',
+            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+        );
+
+        if (newInfo) {
+            const newType = getTypeOfMember(newInfo);
+
+            const convertNewToConstructor = (newSubtype: FunctionType) => {
+                return bindFunctionToClassOrObject(
+                    classType,
+                    newSubtype,
+                    /* memberClass */ undefined,
+                    /* errorNode */ undefined,
+                    /* recursionCount */ undefined,
+                    /* treatConstructorAsClassMember */ true
+                ) as FunctionType | undefined;
+            };
+
+            if (isFunction(newType)) {
+                return convertNewToConstructor(newType);
+            } else if (isOverloadedFunction(newType)) {
+                const newOverloads: FunctionType[] = [];
+                newType.overloads.forEach((overload) => {
+                    const converted = convertNewToConstructor(overload);
+                    if (converted) {
+                        newOverloads.push(converted);
+                    }
+                });
+
+                if (newOverloads.length === 0) {
+                    return undefined;
+                } else if (newOverloads.length === 1) {
+                    return newOverloads[0];
+                }
+
+                return OverloadedFunctionType.create(newOverloads);
+            }
+        }
+
+        // Return a generic constructor.
+        const constructorFunction = FunctionType.createInstance(
+            '__new__',
+            '',
+            '',
+            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
+        );
+        constructorFunction.details.declaredReturnType = ObjectType.create(classType);
+        FunctionType.addDefaultParameters(constructorFunction);
+        return constructorFunction;
     }
 
     function getCallbackProtocolType(objType: ObjectType): FunctionType | OverloadedFunctionType | undefined {
