@@ -272,7 +272,7 @@ def add(a: _StrOrFloat, b: _StrOrFloat) -> _StrOrFloat:
 
 # The arguments for `a` and `b` are both `str`
 v1 = add("hi", "there")
-reveal_type(v1) # int
+reveal_type(v1) # str
 
 # The arguments for `a` and `b` are both `float`
 v2 = add(1.3, 2.4)
