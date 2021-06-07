@@ -9176,7 +9176,7 @@ export function createTypeEvaluator(
         }
 
         if (argList.length >= 2) {
-            const baseClass = getTypeForArgumentExpectingType(argList[1]);
+            const baseClass = transformTypeObjectToClass(getTypeForArgumentExpectingType(argList[1]));
 
             if (isClass(baseClass)) {
                 if (ClassType.isProtocolClass(baseClass)) {
