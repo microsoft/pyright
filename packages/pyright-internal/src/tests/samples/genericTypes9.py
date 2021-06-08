@@ -13,15 +13,15 @@ class Bar(Foo):
     pass
 
 
-X = TypeVar("X", Foo, str)
-B = TypeVar("B", bound=Foo)
+T1 = TypeVar("T1", Foo, str)
+T2 = TypeVar("T2", bound=Foo)
 
 
-def test1(x: X) -> X:
+def test1(x: T1) -> T1:
     return x
 
 
-def test2(x: B) -> B:
+def test2(x: T2) -> T2:
     return x
 
 
@@ -49,3 +49,46 @@ def func1(a: AnyStr, b: AnyStr) -> None:
 def func2(a: Union[str, bytes], b: Union[str, bytes]):
     # This should generate two errors
     func1(a, b)
+
+
+class A:
+    ...
+
+
+class B:
+    ...
+
+
+class C:
+    ...
+
+
+class D:
+    ...
+
+
+T3 = TypeVar("T3", A, B, Union[C, D])
+
+
+def do_something(value: T3) -> T3:
+    ...
+
+
+def func10(value: Union[C, D]):
+    value1 = do_something(value)
+
+
+def func11(value: D):
+    value1 = do_something(value)
+
+
+def func12(value: Union[A, B]):
+    # This should generate an error because A and B
+    # map to different constraints.
+    value1 = do_something(value)
+
+
+def func13(value: Union[A, D]):
+    # This should generate an error because A and D
+    # map to different constraints.
+    value1 = do_something(value)

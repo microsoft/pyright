@@ -20664,6 +20664,11 @@ export function createTypeEvaluator(
             } else {
                 let isCompatible = true;
 
+                // Subtypes that are not conditionally dependent on the dest type var
+                // must all map to the same constraint. For example, Union[str, bytes]
+                // cannot be assigned to AnyStr.
+                let unconditionalConstraintIndex: number | undefined;
+
                 // Find the narrowest constrained type that is compatible.
                 constrainedType = mapSubtypes(concreteSrcType, (srcSubtype) => {
                     let constrainedSubtype: Type | undefined;
@@ -20672,10 +20677,12 @@ export function createTypeEvaluator(
                         return srcSubtype;
                     }
 
-                    destType.details.constraints.forEach((t) => {
+                    let constraintIndexUsed: number | undefined;
+                    destType.details.constraints.forEach((t, i) => {
                         if (canAssignType(t, srcSubtype, new DiagnosticAddendum())) {
                             if (!constrainedSubtype || canAssignType(constrainedSubtype, t, new DiagnosticAddendum())) {
                                 constrainedSubtype = addConditionToType(t, getTypeCondition(srcSubtype));
+                                constraintIndexUsed = i;
                             }
                         }
                     });
@@ -20689,6 +20696,19 @@ export function createTypeEvaluator(
                         }
                     }
 
+                    // If this subtype isn't conditional, make sure it maps to the same
+                    // constraint index as previous unconditional subtypes.
+                    if (constraintIndexUsed !== undefined && !getTypeCondition(srcSubtype)) {
+                        if (
+                            unconditionalConstraintIndex !== undefined &&
+                            unconditionalConstraintIndex !== constraintIndexUsed
+                        ) {
+                            isCompatible = false;
+                        }
+
+                        unconditionalConstraintIndex = constraintIndexUsed;
+                    }
+
                     return constrainedSubtype;
                 });
 
@@ -20700,12 +20720,7 @@ export function createTypeEvaluator(
             // If there was no constrained type that was assignable
             // or there were multiple types that were assignable and they
             // are not conditional, it's an error.
-            if (
-                !constrainedType ||
-                (isUnion(constrainedType) &&
-                    constrainedType.subtypes.length > 1 &&
-                    constrainedType.subtypes.find((subtype) => !getTypeCondition(subtype)))
-            ) {
+            if (!constrainedType) {
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
                         type: printType(srcType),
