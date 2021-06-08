@@ -18,7 +18,6 @@ import {
     isNever,
     isObject,
     isParamSpec,
-    isUnion,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     removeNoneFromUnion,
