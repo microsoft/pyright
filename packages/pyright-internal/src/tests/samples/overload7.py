@@ -8,6 +8,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Type,
     TypeVar,
     Union,
     overload,
@@ -120,17 +121,42 @@ def func6(p0: Union[int, str], /) -> int:
     return 3
 
 
-T = TypeVar("T")
+_T1 = TypeVar("_T1")
 
 
-class ClassA(Generic[T]):
+class ClassA(Generic[_T1]):
     @overload
     def method1(self: "ClassA[None]") -> None:
         ...
 
     @overload
-    def method1(self, value: T) -> None:
+    def method1(self, value: _T1) -> None:
         ...
 
     def method1(self, value: Any = None) -> None:
         ...
+
+
+class ClassB:
+    ...
+
+
+class ClassC:
+    ...
+
+
+_T2 = TypeVar("_T2", ClassB, ClassC)
+
+
+@overload
+def func(cls: Type[ClassB], var: int) -> ClassB:
+    ...
+
+
+@overload
+def func(cls: Type[ClassC], var: str) -> ClassC:
+    ...
+
+
+def func(cls: Type[_T2], var: Union[int, str]) -> _T2:
+    return cls()

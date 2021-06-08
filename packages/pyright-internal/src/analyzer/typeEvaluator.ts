@@ -3314,6 +3314,10 @@ export function createTypeEvaluator(
                             }
                         }
 
+                        if (TypeBase.isInstantiable(subtype)) {
+                            constraintType = convertToInstantiable(subtype);
+                        }
+
                         typesToCombine.push(
                             addConditionToType(constraintType, [
                                 {
