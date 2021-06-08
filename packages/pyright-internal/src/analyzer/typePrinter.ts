@@ -577,7 +577,7 @@ export function printFunctionParts(
     });
 
     const returnType = returnTypeCallback(type);
-    let returnTypeString =
+    const returnTypeString =
         recursionTypes.length < maxTypeRecursionCount
             ? printType(
                   returnType,
@@ -586,10 +586,6 @@ export function printFunctionParts(
                   recursionTypes
               )
             : '';
-
-    if (printTypeFlags & PrintTypeFlags.PEP604 && isUnion(returnType) && recursionTypes.length > 0) {
-        returnTypeString = `(${returnTypeString})`;
-    }
 
     return [paramTypeStrings, returnTypeString];
 }
