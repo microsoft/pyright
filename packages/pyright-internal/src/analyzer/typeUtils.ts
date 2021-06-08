@@ -1790,18 +1790,34 @@ export function _transformTypeVars(
     }
 
     if (isObject(type)) {
-        const classType = _transformTypeVarsInClassType(type.classType, callbacks, recursionMap, recursionLevel + 1);
+        let classType = _transformTypeVarsInClassType(type.classType, callbacks, recursionMap, recursionLevel + 1);
 
         // Handle the "Type" special class.
         if (ClassType.isBuiltIn(classType, 'Type')) {
             const typeArgs = classType.typeArguments;
             if (typeArgs && typeArgs.length >= 1) {
                 if (isObject(typeArgs[0])) {
-                    return _transformTypeVars(typeArgs[0].classType, callbacks, recursionMap, recursionLevel + 1);
+                    const transformedObj = _transformTypeVars(
+                        typeArgs[0].classType,
+                        callbacks,
+                        recursionMap,
+                        recursionLevel + 1
+                    );
+                    if (transformedObj !== typeArgs[0]) {
+                        classType = ClassType.cloneForSpecialization(
+                            classType,
+                            [transformedObj],
+                            /* usTypeArgumentExplicit */ true
+                        );
+                    }
                 } else if (isTypeVar(typeArgs[0])) {
                     const replacementType = callbacks.transformTypeVar(typeArgs[0]);
                     if (replacementType && isObject(replacementType)) {
-                        return replacementType.classType;
+                        classType = ClassType.cloneForSpecialization(
+                            classType,
+                            [ObjectType.create(replacementType.classType)],
+                            /* usTypeArgumentExplicit */ true
+                        );
                     }
                 }
             }
