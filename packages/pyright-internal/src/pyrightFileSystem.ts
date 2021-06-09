@@ -159,6 +159,10 @@ export class PyrightFileSystem implements FileSystem {
         return this._realFS.tmpfile(options);
     }
 
+    realCasePath(path: string): string {
+        return this._realFS.realCasePath(path);
+    }
+
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {
         return this.isPathScanned(execEnv.root);
     }

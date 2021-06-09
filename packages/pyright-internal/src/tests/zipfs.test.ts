@@ -88,3 +88,17 @@ function runTests(p: string): void {
 
 describe('zip', () => runTests('./samples/zipfs/basic.zip'));
 describe('egg', () => runTests('./samples/zipfs/basic.egg'));
+
+function runBadTests(p: string): void {
+    const zipRoot = path.resolve(path.dirname(module.filename), p);
+    const fs = createFromRealFileSystem();
+
+    test('stat root', () => {
+        const stats = fs.statSync(zipRoot);
+        assert.strictEqual(stats.isDirectory(), false);
+        assert.strictEqual(stats.isFile(), true);
+    });
+}
+
+describe('zip', () => runBadTests('./samples/zipfs/bad.zip'));
+describe('egg', () => runBadTests('./samples/zipfs/bad.egg'));
