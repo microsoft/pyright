@@ -335,6 +335,10 @@ export class TestFileSystem implements FileSystem {
         return path;
     }
 
+    realCasePath(path: string): string {
+        return path;
+    }
+
     private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {
         if (axis === 'ancestors-or-self' || axis === 'self' || axis === 'descendants-or-self') {
             if (!traversal.accept || traversal.accept(path, stats)) {

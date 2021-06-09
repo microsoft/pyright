@@ -731,7 +731,9 @@ default_rng     Default constructor for \`\`Generator\`\`
 |Generator | |
 |---------------|---------------------------------------------------------|
 |Generator       |Class implementing all of the random number distributions|
-|default_rng     |Default constructor for \`\`Generator\`\`|`;
+|default_rng     |Default constructor for \`\`Generator\`\`|
+
+<br/>`;
 
     _testConvertToMarkdown(docstring, markdown);
 });
@@ -749,7 +751,9 @@ rand                 Uniformly distributed values.
     const markdown = `
 |Compatibility <br>functions - removed <br>in the new API | <br> <br> |
 |--------------------|---------------------------------------------------------|
-|rand                 |Uniformly distributed values.|`;
+|rand                 |Uniformly distributed values.|
+
+<br/>`;
 
     _testConvertToMarkdown(docstring, markdown);
 });
@@ -767,7 +771,9 @@ Scalar Type                    Array Type
     const markdown = `|Scalar Type                     |Array Type |
 |------------------------------|-------------------------------------|
 |:class:\`pandas.Interval\`       |:class:\`pandas.arrays.IntervalArray\`|
-|:class:\`pandas.Period\`         |:class:\`pandas.arrays.PeriodArray\`|`;
+|:class:\`pandas.Period\`         |:class:\`pandas.arrays.PeriodArray\`|
+
+<br/>`;
 
     _testConvertToMarkdown(docstring, markdown);
 });
@@ -793,7 +799,9 @@ dtype : str, np.dtype, or ExtensionDtype, optional
 |    Scalar Type                 |    Array Type |
 |------------------------------|-------------------------------------|
 |    :class:\`pandas.Interval\`   |  :class:\`pandas.arrays.IntervalArray\`|
-|    :class:\`pandas.Period\`     |  :class:\`pandas.arrays.PeriodArray\`|`;
+|    :class:\`pandas.Period\`     |  :class:\`pandas.arrays.PeriodArray\`|
+
+<br/>`;
 
     _testConvertToMarkdown(docstring, markdown);
 });

@@ -28,7 +28,6 @@ import {
     getRelativePathComponentsFromDirectory,
     isDirectory,
     isFile,
-    normalizePathCase,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
@@ -227,7 +226,7 @@ export class ImportResolver {
             this._getCompletionSuggestionsTypeshedPath(execEnv, moduleDescriptor, false, suggestions, similarityLimit);
 
             // Look for the import in the list of third-party packages.
-            const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
+            const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
             for (const searchPath of pythonSearchPaths) {
                 this.getCompletionSuggestionsAbsolute(searchPath, moduleDescriptor, suggestions, similarityLimit);
             }
@@ -430,7 +429,7 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
-        const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
         for (const searchPath of pythonSearchPaths) {
             const candidateModuleName = this._getModuleNameFromPath(searchPath, filePath);
 
@@ -489,7 +488,7 @@ export class ImportResolver {
             roots.push(typeshedPathEx);
         }
 
-        const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
         if (pythonSearchPaths.length > 0) {
             roots.push(...pythonSearchPaths);
         }
@@ -585,7 +584,7 @@ export class ImportResolver {
         addPaths(execEnv.root);
         execEnv.extraPaths.forEach((p) => addPaths(p));
         addPaths(this.getTypeshedPathEx(execEnv, ignored));
-        this._getPythonSearchPaths(execEnv, ignored).forEach((p) => addPaths(p));
+        this.getPythonSearchPaths(execEnv, ignored).forEach((p) => addPaths(p));
 
         this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv));
         this._invalidateFileSystemCache();
@@ -1089,7 +1088,7 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
-        const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
         if (pythonSearchPaths.length > 0) {
             for (const searchPath of pythonSearchPaths) {
                 importFailureInfo.push(`Looking in python search path '${searchPath}'`);
@@ -1224,14 +1223,14 @@ export class ImportResolver {
         return true;
     }
 
-    private _getPythonSearchPaths(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+    protected getPythonSearchPaths(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
         const cacheKey = '<default>';
 
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths.has(cacheKey)) {
             let paths = (
                 PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, importFailureInfo) || []
-            ).map((p) => normalizePathCase(this.fileSystem, p));
+            ).map((p) => this.fileSystem.realCasePath(p));
 
             // Remove duplicates (yes, it happens).
             paths = [...new Set(paths)];
@@ -1489,7 +1488,7 @@ export class ImportResolver {
                 typeshedPath = possibleTypeshedPath;
             }
         } else {
-            const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
+            const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
             for (const searchPath of pythonSearchPaths) {
                 const possibleTypeshedPath = combinePaths(searchPath, 'typeshed');
                 if (this.dirExistsCached(possibleTypeshedPath)) {
