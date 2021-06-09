@@ -21,7 +21,11 @@ class DataTuple(NamedTuple):
     # Unannotated variables should not be included.
     not_annotated = 5
 
-    name: Final[Optional[str]] = None
+    name: Optional[str] = None
+
+    # An initialized Final implies ClassVar, so this
+    # should not be included.
+    name2: Final[Optional[str]] = None
 
 
 d1 = DataTuple(id=1, aid=Other())

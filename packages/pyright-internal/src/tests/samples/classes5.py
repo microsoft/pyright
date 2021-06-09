@@ -1,13 +1,14 @@
 # This sample tests the reportIncompatibleVariableOverride
 # configuration option.
 
-from typing import ClassVar, List, Union
+from typing import ClassVar, Final, List, Union
 
 
 class ParentClass:
     cv1: ClassVar[int] = 0
     cv2: ClassVar[int] = 0
     cv3: ClassVar[int] = 0
+    cv4: ClassVar[int] = 0
 
     var1: int
     var2: str
@@ -36,6 +37,8 @@ class Subclass(ParentClass):
     cv2: int = 3
 
     cv3 = 3
+
+    cv4: Final = 3
 
     # This should generate an error because the type is incompatible.
     var1: str

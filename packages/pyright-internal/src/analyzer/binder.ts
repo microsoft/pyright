@@ -3070,12 +3070,25 @@ export class Binder extends ParseTreeWalker {
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
 
-                    // Is this annotation indicating that the variable is a "ClassVar"? Note
-                    // that this check is somewhat fragile because we can't verify here that
-                    // "ClassVar" maps to the typing module symbol by this name.
-                    const isClassVar =
+                    // Is this annotation indicating that the variable is a "ClassVar"?
+                    let isClassVar =
                         typeAnnotation.nodeType === ParseNodeType.Index &&
                         this._isTypingAnnotation(typeAnnotation.baseExpression, 'ClassVar');
+
+                    // PEP 591 indicates that a Final variable initialized within a class
+                    // body should also be considered a ClassVar.
+                    if (finalInfo.isFinal) {
+                        const containingClass = ParseTreeUtils.getEnclosingClassOrFunction(target);
+                        if (containingClass && containingClass.nodeType === ParseNodeType.Class) {
+                            // Make sure it's part of an assignment.
+                            if (
+                                target.parent?.nodeType === ParseNodeType.Assignment ||
+                                target.parent?.parent?.nodeType === ParseNodeType.Assignment
+                            ) {
+                                isClassVar = true;
+                            }
+                        }
+                    }
 
                     if (isClassVar) {
                         symbolWithScope.symbol.setIsClassVar();
