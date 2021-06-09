@@ -422,7 +422,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         listener(event as FileWatcherEventType, filename)
                     );
                 } catch (e) {
-                    this.console.error(`Exception received when installing recursive file system watcher: ${e}`);
+                    this.console.warn(`Exception received when installing recursive file system watcher: ${e}`);
                     return undefined;
                 }
             })

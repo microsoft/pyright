@@ -9,13 +9,14 @@
  */
 
 // * NOTE * except tests, this should be only file that import "fs"
-import { FakeFS, PortablePath, PosixFS, ppath, VirtualFS, ZipOpenFS } from '@yarnpkg/fslib';
+import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipOpenFS } from '@yarnpkg/fslib';
 import { getLibzipSync } from '@yarnpkg/libzip';
 import * as chokidar from 'chokidar';
-import type * as fs from 'fs';
+import * as fs from 'fs';
 import * as tmp from 'tmp';
 
 import { ConsoleInterface, NullConsole } from './console';
+import { getRootLength } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -74,6 +75,9 @@ export interface FileSystem {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): string;
     tmpfile(options?: TmpfileOptions): string;
+
+    // Return path in casing on OS.
+    realCasePath(path: string): string;
 }
 
 export interface FileWatcherProvider {
@@ -86,7 +90,8 @@ export function createFromRealFileSystem(
     console?: ConsoleInterface,
     fileWatcherProvider?: FileWatcherProvider
 ): FileSystem {
-    return new RealFileSystem(fileWatcherProvider ?? new ChokidarFileWatcherProvider(console ?? new NullConsole()));
+    console = console ?? new NullConsole();
+    return new RealFileSystem(fileWatcherProvider ?? new ChokidarFileWatcherProvider(console), console);
 }
 
 // File watchers can give "changed" event even for a file open. but for those cases,
@@ -134,8 +139,45 @@ function getArchivePart(path: string) {
 
 // Returns true if the specified path may be inside of a zip or egg file.
 // These files don't really exist, and will fail if navigated to in the editor.
-export function isInZipOrEgg(path: string) {
+export function isInZipOrEgg(path: string): boolean {
     return /[^\\/]\.(?:egg|zip)[\\/]/.test(path);
+}
+
+function hasZipOrEggExtension(p: string): boolean {
+    return p.endsWith(DOT_ZIP) || p.endsWith(DOT_EGG);
+}
+
+// "Magic" values for the zip file type. https://en.wikipedia.org/wiki/List_of_file_signatures
+const zipMagic = [
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    Buffer.from([0x50, 0x4b, 0x05, 0x06]),
+    Buffer.from([0x50, 0x4b, 0x07, 0x08]),
+];
+
+function hasZipMagic(fs: FakeFS<PortablePath>, p: PortablePath): boolean {
+    let fd: number | undefined;
+    try {
+        fd = fs.openSync(p, 'r');
+        const buffer = Buffer.alloc(4);
+        const bytesRead = fs.readSync(fd, buffer, 0, 4, 0);
+        if (bytesRead < 4) {
+            return false;
+        }
+
+        for (const magic of zipMagic) {
+            if (buffer.compare(magic) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    } catch {
+        return false;
+    } finally {
+        if (fd !== undefined) {
+            fs.closeSync(fd);
+        }
+    }
 }
 
 // Patch fslib's ZipOpenFS to also consider .egg files to be .zip files.
@@ -153,7 +195,6 @@ class EggZipOpenFS extends ZipOpenFS {
     private isZip!: Set<PortablePath>;
     private notZip!: Set<PortablePath>;
 
-    // Exactly the same as ZipOpenFS, but uses our getArchivePart.
     findZip(p: PortablePath) {
         if (this.filter && !this.filter.test(p)) return null;
 
@@ -173,6 +214,11 @@ class EggZipOpenFS extends ZipOpenFS {
                         this.notZip.add(filePath);
                         continue;
                     }
+
+                    if (!hasZipMagic(this.baseFs, filePath)) {
+                        this.notZip.add(filePath);
+                        continue;
+                    }
                 } catch {
                     return null;
                 }
@@ -188,29 +234,47 @@ class EggZipOpenFS extends ZipOpenFS {
     }
 }
 
-const yarnFS = new PosixFS(
-    new VirtualFS({
-        baseFs: new EggZipOpenFS({
+class YarnFS extends PosixFS {
+    private readonly _eggZipOpenFS: EggZipOpenFS;
+
+    constructor() {
+        const eggZipOpenFS = new EggZipOpenFS({
             // Note: libzip is a WASM module and can take a few milliseconds to load.
             // The next version of fslib should allow this to be initialized lazily.
             libzip: getLibzipSync(),
             useCache: true,
             maxOpenFiles: 80,
             readOnlyArchives: true,
-        }),
-    })
-);
+        });
 
-class RealFileSystem implements FileSystem {
-    private _fileWatcherProvider: FileWatcherProvider;
-    private _tmpdir?: string;
+        super(
+            new VirtualFS({
+                baseFs: eggZipOpenFS,
+            })
+        );
 
-    constructor(fileWatcherProvider: FileWatcherProvider) {
-        this._fileWatcherProvider = fileWatcherProvider;
+        this._eggZipOpenFS = eggZipOpenFS;
     }
 
+    isZip(p: NativePath): boolean {
+        return !!this._eggZipOpenFS.findZip(this.mapToBase(p));
+    }
+}
+
+const yarnFS = new YarnFS();
+
+class RealFileSystem implements FileSystem {
+    private _tmpdir?: string;
+
+    constructor(private _fileWatcherProvider: FileWatcherProvider, private _console: ConsoleInterface) {}
+
     existsSync(path: string) {
-        return yarnFS.existsSync(path);
+        try {
+            // Catch zip open errors. existsSync is assumed to never throw by callers.
+            return yarnFS.existsSync(path);
+        } catch {
+            return false;
+        }
     }
 
     mkdirSync(path: string, options?: MkDirOptions) {
@@ -229,8 +293,8 @@ class RealFileSystem implements FileSystem {
         return yarnFS.readdirSync(path, { withFileTypes: true }).map((entry): fs.Dirent => {
             // Treat zip/egg files as directories.
             // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
-            if (entry.name.endsWith(DOT_ZIP) || entry.name.endsWith(DOT_EGG)) {
-                if (entry.isFile()) {
+            if (hasZipOrEggExtension(entry.name)) {
+                if (entry.isFile() && yarnFS.isZip(path)) {
                     return {
                         name: entry.name,
                         isFile: () => false,
@@ -265,8 +329,8 @@ class RealFileSystem implements FileSystem {
         const stat = yarnFS.statSync(path);
         // Treat zip/egg files as directories.
         // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
-        if (path.endsWith(DOT_ZIP) || path.endsWith(DOT_EGG)) {
-            if (stat.isFile()) {
+        if (hasZipOrEggExtension(path)) {
+            if (stat.isFile() && yarnFS.isZip(path)) {
                 return {
                     ...stat,
                     isFile: () => false,
@@ -331,6 +395,34 @@ class RealFileSystem implements FileSystem {
     tmpfile(options?: TmpfileOptions): string {
         const f = tmp.fileSync({ dir: this.tmpdir(), discardDescriptor: true, ...options });
         return f.name;
+    }
+
+    realCasePath(path: string): string {
+        try {
+            // If it doesn't exist in the real FS, return path as it is.
+            if (!fs.existsSync(path)) {
+                return path;
+            }
+
+            // realpathSync.native will return casing as in OS rather than
+            // trying to preserve casing given.
+            const realPath = fs.realpathSync.native(path);
+
+            // path is not rooted, return as it is
+            const rootLength = getRootLength(realPath);
+            if (rootLength <= 0) {
+                return realPath;
+            }
+
+            // path is rooted, make sure we lower case the root part
+            // to follow vscode's behavior.
+            return realPath.substr(0, rootLength).toLowerCase() + realPath.substr(rootLength);
+        } catch (e) {
+            // Return as it is, if anything failed.
+            this._console.error(`Failed to get real file system casing for ${path}: ${e}`);
+
+            return path;
+        }
     }
 }
 

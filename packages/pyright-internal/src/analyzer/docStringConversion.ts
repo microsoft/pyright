@@ -103,6 +103,7 @@ interface RestTableState {
     header: string;
     inHeader: boolean;
 }
+
 class DocStringConverter {
     private _builder = '';
     private _skipAppendEmptyLine = true;
@@ -635,6 +636,7 @@ class DocStringConverter {
 
         if (EqualHeaderRegExp.test(line)) {
             this._eatLine();
+            this._appendLine('\n<br/>\n');
             this._popState();
             this._tableState = undefined;
             return;
