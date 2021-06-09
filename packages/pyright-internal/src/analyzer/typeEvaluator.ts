@@ -20605,7 +20605,45 @@ export function createTypeEvaluator(
                         }
                     }
                 } else {
-                    typeVarMap.setParamSpec(destType, { paramSpec: srcType });
+                    if (!typeVarMap.isLocked() && isTypeVarInScope) {
+                        typeVarMap.setParamSpec(destType, { paramSpec: srcType });
+                    }
+                    return true;
+                }
+            } else if (isFunction(srcType)) {
+                const functionSrcType = srcType;
+                const parameters = srcType.details.parameters.map((p, index) => {
+                    const paramSpecEntry: ParamSpecEntry = {
+                        category: p.category,
+                        name: p.name,
+                        hasDefault: !!p.hasDefault,
+                        type: FunctionType.getEffectiveParameterType(functionSrcType, index),
+                    };
+                    return paramSpecEntry;
+                });
+
+                const existingEntry = typeVarMap.getParamSpec(destType);
+                if (existingEntry) {
+                    // Verify that the existing entry matches the new entry.
+                    if (
+                        existingEntry.concrete &&
+                        existingEntry.concrete.parameters.length === parameters.length &&
+                        !existingEntry.concrete.parameters.some((existingParam, index) => {
+                            const newParam = parameters[index];
+                            return (
+                                existingParam.category !== newParam.category ||
+                                existingParam.name !== newParam.name ||
+                                existingParam.hasDefault !== newParam.hasDefault ||
+                                !isTypeSame(existingParam.type, newParam.type)
+                            );
+                        })
+                    ) {
+                        return true;
+                    }
+                } else {
+                    if (!typeVarMap.isLocked() && isTypeVarInScope) {
+                        typeVarMap.setParamSpec(destType, { concrete: { parameters, flags: srcType.details.flags } });
+                    }
                     return true;
                 }
             }
