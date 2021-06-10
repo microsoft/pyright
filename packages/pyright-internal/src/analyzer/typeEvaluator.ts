@@ -208,6 +208,7 @@ import {
     convertToInstantiable,
     derivesFromClassRecursive,
     doForEachSubtype,
+    explodeGenericClass,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType,
     getGeneratorTypeArgs,
@@ -18238,7 +18239,11 @@ export function createTypeEvaluator(
                 }
 
                 case 'Type': {
-                    return createSpecialType(classType, typeArgs, 1);
+                    let typeType = createSpecialType(classType, typeArgs, 1);
+                    if (isClass(typeType)) {
+                        typeType = explodeGenericClass(typeType);
+                    }
+                    return typeType;
                 }
 
                 case 'ClassVar': {
@@ -18300,13 +18305,19 @@ export function createTypeEvaluator(
             if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
                 const typeClass = getTypingType(errorNode, 'Type');
                 if (typeClass && isClass(typeClass)) {
-                    return createSpecialType(
+                    let typeType = createSpecialType(
                         typeClass,
                         typeArgs,
                         1,
                         /* allowParamSpec */ undefined,
                         /* isCallable */ true
                     );
+
+                    if (isClass(typeType)) {
+                        typeType = explodeGenericClass(typeType);
+                    }
+
+                    return typeType;
                 }
             }
 

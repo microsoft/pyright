@@ -1589,6 +1589,21 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     return false;
 }
 
+// If the specified type is a generic class with a single type argument
+// that is a union, it "explodes" the class into a union of classes with
+// each element of the union - e.g. Foo[A | B] becomes Foo[A] | Foo[B].
+export function explodeGenericClass(classType: ClassType) {
+    if (!classType.typeArguments || classType.typeArguments.length !== 1 || !isUnion(classType.typeArguments[0])) {
+        return classType;
+    }
+
+    return combineTypes(
+        classType.typeArguments[0].subtypes.map((subtype) => {
+            return ClassType.cloneForSpecialization(classType, [subtype], /* isTypeArgumentExplicit */ true);
+        })
+    );
+}
+
 // If the type is a union of same-sized tuples, these are combined into
 // a single tuple with that size. Otherwise, returns undefined.
 export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) {
