@@ -255,6 +255,7 @@ export namespace WhileNode {
 export interface ForNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.For;
     isAsync?: boolean;
+    asyncToken?: Token;
     targetExpression: ExpressionNode;
     iterableExpression: ExpressionNode;
     forSuite: SuiteNode;
@@ -293,6 +294,7 @@ export type ListComprehensionIterNode = ListComprehensionForNode | ListComprehen
 export interface ListComprehensionForNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.ListComprehensionFor;
     isAsync?: boolean;
+    asyncToken?: Token;
     targetExpression: ExpressionNode;
     iterableExpression: ExpressionNode;
 }
@@ -533,6 +535,7 @@ export namespace ClassNode {
 export interface WithNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.With;
     isAsync?: boolean;
+    asyncToken?: Token;
     withItems: WithItemNode[];
     suite: SuiteNode;
 }

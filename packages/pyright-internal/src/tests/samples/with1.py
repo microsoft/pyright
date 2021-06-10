@@ -87,7 +87,7 @@ class Class4:
         return True
 
 
-def test2():
+async def test2():
     a1 = Class4()
 
     # This should generate an error because __aenter__

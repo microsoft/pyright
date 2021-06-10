@@ -1328,6 +1328,7 @@ export class Parser {
 
         if (asyncToken) {
             forNode.isAsync = true;
+            forNode.asyncToken = asyncToken;
             extendRange(forNode, asyncToken);
         }
 
@@ -1409,6 +1410,7 @@ export class Parser {
 
         if (asyncToken) {
             compForNode.isAsync = true;
+            compForNode.asyncToken = asyncToken;
         }
 
         return compForNode;
@@ -1883,6 +1885,7 @@ export class Parser {
         const withNode = WithNode.create(withToken, withSuite);
         if (asyncToken) {
             withNode.isAsync = true;
+            withNode.asyncToken = asyncToken;
             extendRange(withNode, asyncToken);
         }
 

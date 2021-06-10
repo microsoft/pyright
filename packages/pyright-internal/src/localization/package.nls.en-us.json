@@ -25,6 +25,7 @@
         "assignmentExprComprehension": "Assignment expression target \"{name}\" cannot use same name as comprehension for target",
         "assignmentInProtocol": "Instance or class variables within a Protocol class must be explicitly declared within the class body",
         "assignmentTargetExpr": "Expression cannot be assignment target",
+        "asyncNotInAsyncFunction": "Use of \"async\" not allowed outside of async function",
         "awaitIllegal": "Use of \"await\" requires Python 3.5 or newer",
         "awaitNotInAsync": "\"await\" allowed only within async function",
         "backticksIllegal": "Expressions surrounded by backticks are not supported in Python 3.x; use repr instead",

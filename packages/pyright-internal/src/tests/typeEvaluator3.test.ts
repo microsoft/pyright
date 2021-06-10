@@ -805,3 +805,9 @@ test('DataclassTransform2', () => {
 
     TestUtils.validateResults(analysisResults, 4);
 });
+
+test('Async1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['async1.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});

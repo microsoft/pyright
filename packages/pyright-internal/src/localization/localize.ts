@@ -194,6 +194,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.assignmentExprComprehension'));
         export const assignmentInProtocol = () => getRawString('Diagnostic.assignmentInProtocol');
         export const assignmentTargetExpr = () => getRawString('Diagnostic.assignmentTargetExpr');
+        export const asyncNotInAsyncFunction = () => getRawString('Diagnostic.asyncNotInAsyncFunction');
         export const awaitIllegal = () => getRawString('Diagnostic.awaitIllegal');
         export const awaitNotInAsync = () => getRawString('Diagnostic.awaitNotInAsync');
         export const backticksIllegal = () => getRawString('Diagnostic.backticksIllegal');

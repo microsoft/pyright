@@ -22,10 +22,11 @@ for foo1 in int1:
     pass
 
 
-# This should generate an error because
-# list1 isn't an async iterator.
-async for foo2 in list1:
-    requires_int(foo2)
+async def func1():
+    # This should generate an error because
+    # list1 isn't an async iterator.
+    async for foo2 in list1:
+        requires_int(foo2)
 
 
 class AsyncIterable1(object):
@@ -38,15 +39,16 @@ class AsyncIterable1(object):
 
 iter1 = AsyncIterable1()
 
-async for foo3 in iter1:
-    requires_int(foo3)
 
+async def func2():
+    async for foo3 in iter1:
+        requires_int(foo3)
 
-for d in [b for b in list1]:
-    requires_int(d)
+    for d in [b for b in list1]:
+        requires_int(d)
 
-for e in [b async for b in iter1]:
-    requires_int(e)
+    for e in [b async for b in iter1]:
+        requires_int(e)
 
 
 class ClassWithGetItem(object):

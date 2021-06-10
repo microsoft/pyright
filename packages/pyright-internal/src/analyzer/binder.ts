@@ -908,6 +908,13 @@ export class Binder extends ParseTreeWalker {
 
         this._currentFlowNode = this._finishFlowLabel(postForLabel);
 
+        if (node.asyncToken) {
+            const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+            if (!enclosingFunction || !enclosingFunction.isAsync) {
+                this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
+            }
+        }
+
         return false;
     }
 
@@ -1650,6 +1657,13 @@ export class Binder extends ParseTreeWalker {
         this._addAntecedent(postContextManagerLabel, this._currentFlowNode!);
         this._currentFlowNode = postContextManagerLabel;
 
+        if (node.asyncToken) {
+            const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+            if (!enclosingFunction || !enclosingFunction.isAsync) {
+                this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
+            }
+        }
+
         return false;
     }
 
@@ -1729,6 +1743,8 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitListComprehension(node: ListComprehensionNode): boolean {
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+
         this._createNewScope(ScopeType.ListComprehension, this._currentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -1744,6 +1760,18 @@ export class Binder extends ParseTreeWalker {
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                     this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
                     this._addInferredTypeAssignmentForVariable(compr.targetExpression, compr);
+
+                    // Async for is not allowed outside of an async function.
+                    if (compr.asyncToken) {
+                        if (!enclosingFunction || !enclosingFunction.isAsync) {
+                            // Allow if it's within a generator expression. Execution of
+                            // generator expressions is deferred and therefore can be
+                            // run within the context of an async function later.
+                            if (node.parent?.nodeType === ParseNodeType.List) {
+                                this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), compr.asyncToken);
+                            }
+                        }
+                    }
                 }
                 boundSymbols.push(addedSymbols);
             }

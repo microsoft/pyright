@@ -54,7 +54,7 @@ class Class4:
         return self
 
 
-def test2():
+async def test2():
     a1 = Class4()
 
     # This should generate an error because __aexit__
