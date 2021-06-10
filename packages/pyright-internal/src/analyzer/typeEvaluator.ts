@@ -8463,7 +8463,7 @@ export function createTypeEvaluator(
             applySolvedTypeVars(
                 returnType,
                 typeVarMap,
-                /*unknownIfNotFound */ false,
+                /* unknownIfNotFound */ false,
                 /* useNarrowBoundOnly */ false,
                 /* eliminateUnsolvedInUnions */ true
             ),

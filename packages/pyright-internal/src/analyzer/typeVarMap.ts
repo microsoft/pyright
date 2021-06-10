@@ -269,6 +269,12 @@ export class TypeVarMap {
                 return 0.5;
             }
 
+            case TypeCategory.TypeVar: {
+                // A bare TypeVar is less desirable (and therefore considered
+                // more complex) than a concrete type.
+                return 1;
+            }
+
             case TypeCategory.Union: {
                 let minScore = 1;
 
