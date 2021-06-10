@@ -62,7 +62,11 @@ import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluator';
 
+// Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
+
+// Allow files up to 16MB in length.
+const _maxSourceFileSize = 16 * 1024 * 1024;
 
 interface ResolveImportResult {
     imports: ImportResult[];
@@ -522,6 +526,16 @@ export class SourceFile {
                 try {
                     const startTime = timingStats.readFileTime.totalTime;
                     timingStats.readFileTime.timeOperation(() => {
+                        // Check the file's length before attempting to read its full contents.
+                        const fileStat = this.fileSystem.statSync(this._filePath);
+                        if (fileStat.size > _maxSourceFileSize) {
+                            this._console.error(
+                                `File length of "${this._filePath}" is ${fileStat.size} ` +
+                                    `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
+                            );
+                            throw new Error('File larger than max');
+                        }
+
                         // Read the file's contents.
                         fileContents = content ?? this.fileSystem.readFileSync(this._filePath, 'utf8');
 
