@@ -4206,7 +4206,10 @@ export function createTypeEvaluator(
                         }
                     });
                     if (functionTypeInfo.functionType.details.declaredReturnType) {
-                        addTypeVarsToListIfUnique(typeVarsForScope!, getTypeVarArgumentsRecursive(functionTypeInfo.functionType.details.declaredReturnType));
+                        addTypeVarsToListIfUnique(
+                            typeVarsForScope!,
+                            getTypeVarArgumentsRecursive(functionTypeInfo.functionType.details.declaredReturnType)
+                        );
                     }
                 }
             } else if (curNode.nodeType === ParseNodeType.Module) {
