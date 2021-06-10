@@ -524,17 +524,18 @@ export class SourceFile {
             let fileContents = this.getFileContents();
             if (fileContents === undefined) {
                 try {
-                    const fileStat = this.fileSystem.statSync(this._filePath);
-                    if (fileStat.size > _maxSourceFileSize) {
-                        this._console.error(
-                            `File length of "${this._filePath}" is ${fileStat.size} ` +
-                                `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
-                        );
-                        throw new Error('File larger than max');
-                    }
-
                     const startTime = timingStats.readFileTime.totalTime;
                     timingStats.readFileTime.timeOperation(() => {
+                        // Check the file's length before attempting to read its full contents.
+                        const fileStat = this.fileSystem.statSync(this._filePath);
+                        if (fileStat.size > _maxSourceFileSize) {
+                            this._console.error(
+                                `File length of "${this._filePath}" is ${fileStat.size} ` +
+                                    `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
+                            );
+                            throw new Error('File larger than max');
+                        }
+
                         // Read the file's contents.
                         fileContents = content ?? this.fileSystem.readFileSync(this._filePath, 'utf8');
 
