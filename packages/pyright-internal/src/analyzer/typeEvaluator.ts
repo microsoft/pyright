@@ -4205,6 +4205,9 @@ export function createTypeEvaluator(
                             addTypeVarsToListIfUnique(typeVarsForScope!, getTypeVarArgumentsRecursive(param.type));
                         }
                     });
+                    if (functionTypeInfo.functionType.details.declaredReturnType) {
+                        addTypeVarsToListIfUnique(typeVarsForScope!, getTypeVarArgumentsRecursive(functionTypeInfo.functionType.details.declaredReturnType));
+                    }
                 }
             } else if (curNode.nodeType === ParseNodeType.Module) {
                 break;

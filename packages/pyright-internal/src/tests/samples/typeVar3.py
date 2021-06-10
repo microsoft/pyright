@@ -1,6 +1,6 @@
 # This sample tests various diagnostics related to TypeVar usage.
 
-from typing import Generic, List, Optional, TypeVar
+from typing import Callable, Generic, List, Literal, Optional, TypeVar
 import typing
 
 _T = TypeVar("_T")
@@ -62,3 +62,14 @@ b: List[_T] = []
 
 # This should generate an error.
 c: List[typing.AnyStr] = []
+
+
+T = TypeVar("T")
+
+
+def foo() -> Callable[[T], T]:
+    def inner(v: T) -> T:
+        t_v: Literal["T@foo"] = reveal_type(v)
+        return v
+
+    return inner
