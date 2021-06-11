@@ -239,9 +239,7 @@ class YarnFS extends PosixFS {
 
     constructor() {
         const eggZipOpenFS = new EggZipOpenFS({
-            // Note: libzip is a WASM module and can take a few milliseconds to load.
-            // The next version of fslib should allow this to be initialized lazily.
-            libzip: getLibzipSync(),
+            libzip: () => getLibzipSync(),
             useCache: true,
             maxOpenFiles: 80,
             readOnlyArchives: true,
