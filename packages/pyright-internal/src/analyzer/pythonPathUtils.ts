@@ -227,7 +227,12 @@ function getPathResultFromInterpreter(
                 execSplitEntry = execSplitEntry.trim();
                 if (execSplitEntry) {
                     const normalizedPath = normalizePath(execSplitEntry);
-                    result.paths.push(normalizedPath);
+                    // Skip non-existent paths and broken zips/eggs.
+                    if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
+                        result.paths.push(normalizedPath);
+                    } else {
+                        importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
+                    }
                 }
             }
 

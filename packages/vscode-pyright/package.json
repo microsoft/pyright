@@ -769,16 +769,16 @@
     },
     "devDependencies": {
         "@types/copy-webpack-plugin": "^8.0.0",
-        "@types/node": "^12.20.13",
+        "@types/node": "^12.20.15",
         "@types/vscode": "~1.54.0",
-        "copy-webpack-plugin": "^8.1.1",
-        "detect-indent": "^6.0.0",
+        "copy-webpack-plugin": "^9.0.0",
+        "detect-indent": "^6.1.0",
         "shx": "^0.3.3",
-        "ts-loader": "^9.1.2",
+        "ts-loader": "^9.2.3",
         "tsconfig-paths-webpack-plugin": "^3.5.1",
-        "typescript": "^4.2.4",
-        "vsce": "^1.88.0",
-        "webpack": "^5.37.0",
-        "webpack-cli": "^4.7.0"
+        "typescript": "~4.3.2",
+        "vsce": "^1.93.0",
+        "webpack": "^5.38.1",
+        "webpack-cli": "^4.7.2"
     }
 }
