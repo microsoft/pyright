@@ -1,7 +1,5 @@
 from typing import Any, Optional, Tuple, Type
 
-from paramiko.ssh_exception import SSHException
-
 GSS_AUTH_AVAILABLE: bool
 GSS_EXCEPTIONS: Tuple[Type[Exception], ...]
 

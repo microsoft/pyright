@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List, Mapping, MutableMapping, Optional
+from typing import Iterator, List, Mapping, MutableMapping, Optional
 
 from paramiko.pkey import PKey
 

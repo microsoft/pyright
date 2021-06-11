@@ -1,7 +1,6 @@
 from typing import Union
 
 from paramiko.sftp_attr import SFTPAttributes
-from paramiko.sftp_server import SFTPServer
 from paramiko.util import ClosingContextManager
 
 class SFTPHandle(ClosingContextManager):

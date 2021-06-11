@@ -1,11 +1,11 @@
-from typing import Iterator, Optional, Sequence, Tuple
+from typing import Any, Iterator, Optional, Sequence, Tuple
 
 from paramiko.file import BufferedFile
 from paramiko.sftp_attr import SFTPAttributes
 from paramiko.sftp_client import SFTPClient
 from paramiko.sftp_handle import SFTPHandle
 
-class SFTPFile(BufferedFile):
+class SFTPFile(BufferedFile[Any]):
     MAX_REQUEST_SIZE: int
     sftp: SFTPClient
     handle: SFTPHandle

@@ -1,9 +1,7 @@
 from threading import Event
 from typing import Callable, List, Optional, Tuple
 
-from paramiko.message import Message
 from paramiko.pkey import PKey
-from paramiko.server import InteractiveQuery
 from paramiko.ssh_gss import _SSH_GSSAuth
 from paramiko.transport import Transport
 

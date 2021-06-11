@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Optional, Text, Type, Union
+from typing import Any, Optional, Text, Type, Union
 
 from redis.client import Redis
 
@@ -8,7 +8,7 @@ _TokenValue = Union[bytes, Text]
 class Lock:
     def __init__(
         self,
-        redis: Redis,
+        redis: Redis[Any],
         name: str,
         timeout: Union[None, int, float] = ...,
         sleep: float = ...,

@@ -50,7 +50,7 @@ class FileDescriptorSet(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        file : typing___Optional[typing___Iterable[type___FileDescriptorProto]] = None,
+        file : typing___Optional[typing___Iterable[type___FileDescriptorProto]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"file",b"file"]) -> None: ...
 type___FileDescriptorSet = FileDescriptorSet
@@ -84,18 +84,18 @@ class FileDescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        package : typing___Optional[typing___Text] = None,
-        dependency : typing___Optional[typing___Iterable[typing___Text]] = None,
-        public_dependency : typing___Optional[typing___Iterable[builtin___int]] = None,
-        weak_dependency : typing___Optional[typing___Iterable[builtin___int]] = None,
-        message_type : typing___Optional[typing___Iterable[type___DescriptorProto]] = None,
-        enum_type : typing___Optional[typing___Iterable[type___EnumDescriptorProto]] = None,
-        service : typing___Optional[typing___Iterable[type___ServiceDescriptorProto]] = None,
-        extension : typing___Optional[typing___Iterable[type___FieldDescriptorProto]] = None,
-        options : typing___Optional[type___FileOptions] = None,
-        source_code_info : typing___Optional[type___SourceCodeInfo] = None,
-        syntax : typing___Optional[typing___Text] = None,
+        name : typing___Optional[typing___Text] = ...,
+        package : typing___Optional[typing___Text] = ...,
+        dependency : typing___Optional[typing___Iterable[typing___Text]] = ...,
+        public_dependency : typing___Optional[typing___Iterable[builtin___int]] = ...,
+        weak_dependency : typing___Optional[typing___Iterable[builtin___int]] = ...,
+        message_type : typing___Optional[typing___Iterable[type___DescriptorProto]] = ...,
+        enum_type : typing___Optional[typing___Iterable[type___EnumDescriptorProto]] = ...,
+        service : typing___Optional[typing___Iterable[type___ServiceDescriptorProto]] = ...,
+        extension : typing___Optional[typing___Iterable[type___FieldDescriptorProto]] = ...,
+        options : typing___Optional[type___FileOptions] = ...,
+        source_code_info : typing___Optional[type___SourceCodeInfo] = ...,
+        syntax : typing___Optional[typing___Text] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"name",b"name",u"options",b"options",u"package",b"package",u"source_code_info",b"source_code_info",u"syntax",b"syntax"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"dependency",b"dependency",u"enum_type",b"enum_type",u"extension",b"extension",u"message_type",b"message_type",u"name",b"name",u"options",b"options",u"package",b"package",u"public_dependency",b"public_dependency",u"service",b"service",u"source_code_info",b"source_code_info",u"syntax",b"syntax",u"weak_dependency",b"weak_dependency"]) -> None: ...
@@ -113,9 +113,9 @@ class DescriptorProto(google___protobuf___message___Message):
 
         def __init__(self,
             *,
-            start : typing___Optional[builtin___int] = None,
-            end : typing___Optional[builtin___int] = None,
-            options : typing___Optional[type___ExtensionRangeOptions] = None,
+            start : typing___Optional[builtin___int] = ...,
+            end : typing___Optional[builtin___int] = ...,
+            options : typing___Optional[type___ExtensionRangeOptions] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"end",b"end",u"options",b"options",u"start",b"start"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"end",b"end",u"options",b"options",u"start",b"start"]) -> None: ...
@@ -128,8 +128,8 @@ class DescriptorProto(google___protobuf___message___Message):
 
         def __init__(self,
             *,
-            start : typing___Optional[builtin___int] = None,
-            end : typing___Optional[builtin___int] = None,
+            start : typing___Optional[builtin___int] = ...,
+            end : typing___Optional[builtin___int] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"end",b"end",u"start",b"start"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"end",b"end",u"start",b"start"]) -> None: ...
@@ -164,16 +164,16 @@ class DescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        field : typing___Optional[typing___Iterable[type___FieldDescriptorProto]] = None,
-        extension : typing___Optional[typing___Iterable[type___FieldDescriptorProto]] = None,
-        nested_type : typing___Optional[typing___Iterable[type___DescriptorProto]] = None,
-        enum_type : typing___Optional[typing___Iterable[type___EnumDescriptorProto]] = None,
-        extension_range : typing___Optional[typing___Iterable[type___DescriptorProto.ExtensionRange]] = None,
-        oneof_decl : typing___Optional[typing___Iterable[type___OneofDescriptorProto]] = None,
-        options : typing___Optional[type___MessageOptions] = None,
-        reserved_range : typing___Optional[typing___Iterable[type___DescriptorProto.ReservedRange]] = None,
-        reserved_name : typing___Optional[typing___Iterable[typing___Text]] = None,
+        name : typing___Optional[typing___Text] = ...,
+        field : typing___Optional[typing___Iterable[type___FieldDescriptorProto]] = ...,
+        extension : typing___Optional[typing___Iterable[type___FieldDescriptorProto]] = ...,
+        nested_type : typing___Optional[typing___Iterable[type___DescriptorProto]] = ...,
+        enum_type : typing___Optional[typing___Iterable[type___EnumDescriptorProto]] = ...,
+        extension_range : typing___Optional[typing___Iterable[type___DescriptorProto.ExtensionRange]] = ...,
+        oneof_decl : typing___Optional[typing___Iterable[type___OneofDescriptorProto]] = ...,
+        options : typing___Optional[type___MessageOptions] = ...,
+        reserved_range : typing___Optional[typing___Iterable[type___DescriptorProto.ReservedRange]] = ...,
+        reserved_name : typing___Optional[typing___Iterable[typing___Text]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"name",b"name",u"options",b"options"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"enum_type",b"enum_type",u"extension",b"extension",u"extension_range",b"extension_range",u"field",b"field",u"name",b"name",u"nested_type",b"nested_type",u"oneof_decl",b"oneof_decl",u"options",b"options",u"reserved_name",b"reserved_name",u"reserved_range",b"reserved_range"]) -> None: ...
@@ -187,7 +187,7 @@ class ExtensionRangeOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 type___ExtensionRangeOptions = ExtensionRangeOptions
@@ -264,17 +264,17 @@ class FieldDescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        number : typing___Optional[builtin___int] = None,
-        label : typing___Optional[type___FieldDescriptorProto.LabelValue] = None,
-        type : typing___Optional[type___FieldDescriptorProto.TypeValue] = None,
-        type_name : typing___Optional[typing___Text] = None,
-        extendee : typing___Optional[typing___Text] = None,
-        default_value : typing___Optional[typing___Text] = None,
-        oneof_index : typing___Optional[builtin___int] = None,
-        json_name : typing___Optional[typing___Text] = None,
-        options : typing___Optional[type___FieldOptions] = None,
-        proto3_optional : typing___Optional[builtin___bool] = None,
+        name : typing___Optional[typing___Text] = ...,
+        number : typing___Optional[builtin___int] = ...,
+        label : typing___Optional[type___FieldDescriptorProto.LabelValue] = ...,
+        type : typing___Optional[type___FieldDescriptorProto.TypeValue] = ...,
+        type_name : typing___Optional[typing___Text] = ...,
+        extendee : typing___Optional[typing___Text] = ...,
+        default_value : typing___Optional[typing___Text] = ...,
+        oneof_index : typing___Optional[builtin___int] = ...,
+        json_name : typing___Optional[typing___Text] = ...,
+        options : typing___Optional[type___FieldOptions] = ...,
+        proto3_optional : typing___Optional[builtin___bool] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"default_value",b"default_value",u"extendee",b"extendee",u"json_name",b"json_name",u"label",b"label",u"name",b"name",u"number",b"number",u"oneof_index",b"oneof_index",u"options",b"options",u"proto3_optional",b"proto3_optional",u"type",b"type",u"type_name",b"type_name"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"default_value",b"default_value",u"extendee",b"extendee",u"json_name",b"json_name",u"label",b"label",u"name",b"name",u"number",b"number",u"oneof_index",b"oneof_index",u"options",b"options",u"proto3_optional",b"proto3_optional",u"type",b"type",u"type_name",b"type_name"]) -> None: ...
@@ -289,8 +289,8 @@ class OneofDescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        options : typing___Optional[type___OneofOptions] = None,
+        name : typing___Optional[typing___Text] = ...,
+        options : typing___Optional[type___OneofOptions] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"name",b"name",u"options",b"options"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"name",b"name",u"options",b"options"]) -> None: ...
@@ -305,8 +305,8 @@ class EnumDescriptorProto(google___protobuf___message___Message):
 
         def __init__(self,
             *,
-            start : typing___Optional[builtin___int] = None,
-            end : typing___Optional[builtin___int] = None,
+            start : typing___Optional[builtin___int] = ...,
+            end : typing___Optional[builtin___int] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"end",b"end",u"start",b"start"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"end",b"end",u"start",b"start"]) -> None: ...
@@ -326,11 +326,11 @@ class EnumDescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        value : typing___Optional[typing___Iterable[type___EnumValueDescriptorProto]] = None,
-        options : typing___Optional[type___EnumOptions] = None,
-        reserved_range : typing___Optional[typing___Iterable[type___EnumDescriptorProto.EnumReservedRange]] = None,
-        reserved_name : typing___Optional[typing___Iterable[typing___Text]] = None,
+        name : typing___Optional[typing___Text] = ...,
+        value : typing___Optional[typing___Iterable[type___EnumValueDescriptorProto]] = ...,
+        options : typing___Optional[type___EnumOptions] = ...,
+        reserved_range : typing___Optional[typing___Iterable[type___EnumDescriptorProto.EnumReservedRange]] = ...,
+        reserved_name : typing___Optional[typing___Iterable[typing___Text]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"name",b"name",u"options",b"options"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"name",b"name",u"options",b"options",u"reserved_name",b"reserved_name",u"reserved_range",b"reserved_range",u"value",b"value"]) -> None: ...
@@ -346,9 +346,9 @@ class EnumValueDescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        number : typing___Optional[builtin___int] = None,
-        options : typing___Optional[type___EnumValueOptions] = None,
+        name : typing___Optional[typing___Text] = ...,
+        number : typing___Optional[builtin___int] = ...,
+        options : typing___Optional[type___EnumValueOptions] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"name",b"name",u"number",b"number",u"options",b"options"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"name",b"name",u"number",b"number",u"options",b"options"]) -> None: ...
@@ -366,9 +366,9 @@ class ServiceDescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        method : typing___Optional[typing___Iterable[type___MethodDescriptorProto]] = None,
-        options : typing___Optional[type___ServiceOptions] = None,
+        name : typing___Optional[typing___Text] = ...,
+        method : typing___Optional[typing___Iterable[type___MethodDescriptorProto]] = ...,
+        options : typing___Optional[type___ServiceOptions] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"name",b"name",u"options",b"options"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"method",b"method",u"name",b"name",u"options",b"options"]) -> None: ...
@@ -387,12 +387,12 @@ class MethodDescriptorProto(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        input_type : typing___Optional[typing___Text] = None,
-        output_type : typing___Optional[typing___Text] = None,
-        options : typing___Optional[type___MethodOptions] = None,
-        client_streaming : typing___Optional[builtin___bool] = None,
-        server_streaming : typing___Optional[builtin___bool] = None,
+        name : typing___Optional[typing___Text] = ...,
+        input_type : typing___Optional[typing___Text] = ...,
+        output_type : typing___Optional[typing___Text] = ...,
+        options : typing___Optional[type___MethodOptions] = ...,
+        client_streaming : typing___Optional[builtin___bool] = ...,
+        server_streaming : typing___Optional[builtin___bool] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"client_streaming",b"client_streaming",u"input_type",b"input_type",u"name",b"name",u"options",b"options",u"output_type",b"output_type",u"server_streaming",b"server_streaming"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"client_streaming",b"client_streaming",u"input_type",b"input_type",u"name",b"name",u"options",b"options",u"output_type",b"output_type",u"server_streaming",b"server_streaming"]) -> None: ...
@@ -438,27 +438,27 @@ class FileOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        java_package : typing___Optional[typing___Text] = None,
-        java_outer_classname : typing___Optional[typing___Text] = None,
-        java_multiple_files : typing___Optional[builtin___bool] = None,
-        java_generate_equals_and_hash : typing___Optional[builtin___bool] = None,
-        java_string_check_utf8 : typing___Optional[builtin___bool] = None,
-        optimize_for : typing___Optional[type___FileOptions.OptimizeModeValue] = None,
-        go_package : typing___Optional[typing___Text] = None,
-        cc_generic_services : typing___Optional[builtin___bool] = None,
-        java_generic_services : typing___Optional[builtin___bool] = None,
-        py_generic_services : typing___Optional[builtin___bool] = None,
-        php_generic_services : typing___Optional[builtin___bool] = None,
-        deprecated : typing___Optional[builtin___bool] = None,
-        cc_enable_arenas : typing___Optional[builtin___bool] = None,
-        objc_class_prefix : typing___Optional[typing___Text] = None,
-        csharp_namespace : typing___Optional[typing___Text] = None,
-        swift_prefix : typing___Optional[typing___Text] = None,
-        php_class_prefix : typing___Optional[typing___Text] = None,
-        php_namespace : typing___Optional[typing___Text] = None,
-        php_metadata_namespace : typing___Optional[typing___Text] = None,
-        ruby_package : typing___Optional[typing___Text] = None,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        java_package : typing___Optional[typing___Text] = ...,
+        java_outer_classname : typing___Optional[typing___Text] = ...,
+        java_multiple_files : typing___Optional[builtin___bool] = ...,
+        java_generate_equals_and_hash : typing___Optional[builtin___bool] = ...,
+        java_string_check_utf8 : typing___Optional[builtin___bool] = ...,
+        optimize_for : typing___Optional[type___FileOptions.OptimizeModeValue] = ...,
+        go_package : typing___Optional[typing___Text] = ...,
+        cc_generic_services : typing___Optional[builtin___bool] = ...,
+        java_generic_services : typing___Optional[builtin___bool] = ...,
+        py_generic_services : typing___Optional[builtin___bool] = ...,
+        php_generic_services : typing___Optional[builtin___bool] = ...,
+        deprecated : typing___Optional[builtin___bool] = ...,
+        cc_enable_arenas : typing___Optional[builtin___bool] = ...,
+        objc_class_prefix : typing___Optional[typing___Text] = ...,
+        csharp_namespace : typing___Optional[typing___Text] = ...,
+        swift_prefix : typing___Optional[typing___Text] = ...,
+        php_class_prefix : typing___Optional[typing___Text] = ...,
+        php_namespace : typing___Optional[typing___Text] = ...,
+        php_metadata_namespace : typing___Optional[typing___Text] = ...,
+        ruby_package : typing___Optional[typing___Text] = ...,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"cc_enable_arenas",b"cc_enable_arenas",u"cc_generic_services",b"cc_generic_services",u"csharp_namespace",b"csharp_namespace",u"deprecated",b"deprecated",u"go_package",b"go_package",u"java_generate_equals_and_hash",b"java_generate_equals_and_hash",u"java_generic_services",b"java_generic_services",u"java_multiple_files",b"java_multiple_files",u"java_outer_classname",b"java_outer_classname",u"java_package",b"java_package",u"java_string_check_utf8",b"java_string_check_utf8",u"objc_class_prefix",b"objc_class_prefix",u"optimize_for",b"optimize_for",u"php_class_prefix",b"php_class_prefix",u"php_generic_services",b"php_generic_services",u"php_metadata_namespace",b"php_metadata_namespace",u"php_namespace",b"php_namespace",u"py_generic_services",b"py_generic_services",u"ruby_package",b"ruby_package",u"swift_prefix",b"swift_prefix"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"cc_enable_arenas",b"cc_enable_arenas",u"cc_generic_services",b"cc_generic_services",u"csharp_namespace",b"csharp_namespace",u"deprecated",b"deprecated",u"go_package",b"go_package",u"java_generate_equals_and_hash",b"java_generate_equals_and_hash",u"java_generic_services",b"java_generic_services",u"java_multiple_files",b"java_multiple_files",u"java_outer_classname",b"java_outer_classname",u"java_package",b"java_package",u"java_string_check_utf8",b"java_string_check_utf8",u"objc_class_prefix",b"objc_class_prefix",u"optimize_for",b"optimize_for",u"php_class_prefix",b"php_class_prefix",u"php_generic_services",b"php_generic_services",u"php_metadata_namespace",b"php_metadata_namespace",u"php_namespace",b"php_namespace",u"py_generic_services",b"py_generic_services",u"ruby_package",b"ruby_package",u"swift_prefix",b"swift_prefix",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
@@ -476,11 +476,11 @@ class MessageOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        message_set_wire_format : typing___Optional[builtin___bool] = None,
-        no_standard_descriptor_accessor : typing___Optional[builtin___bool] = None,
-        deprecated : typing___Optional[builtin___bool] = None,
-        map_entry : typing___Optional[builtin___bool] = None,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        message_set_wire_format : typing___Optional[builtin___bool] = ...,
+        no_standard_descriptor_accessor : typing___Optional[builtin___bool] = ...,
+        deprecated : typing___Optional[builtin___bool] = ...,
+        map_entry : typing___Optional[builtin___bool] = ...,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated",u"map_entry",b"map_entry",u"message_set_wire_format",b"message_set_wire_format",u"no_standard_descriptor_accessor",b"no_standard_descriptor_accessor"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated",u"map_entry",b"map_entry",u"message_set_wire_format",b"message_set_wire_format",u"no_standard_descriptor_accessor",b"no_standard_descriptor_accessor",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
@@ -524,13 +524,13 @@ class FieldOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        ctype : typing___Optional[type___FieldOptions.CTypeValue] = None,
-        packed : typing___Optional[builtin___bool] = None,
-        jstype : typing___Optional[type___FieldOptions.JSTypeValue] = None,
-        lazy : typing___Optional[builtin___bool] = None,
-        deprecated : typing___Optional[builtin___bool] = None,
-        weak : typing___Optional[builtin___bool] = None,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        ctype : typing___Optional[type___FieldOptions.CTypeValue] = ...,
+        packed : typing___Optional[builtin___bool] = ...,
+        jstype : typing___Optional[type___FieldOptions.JSTypeValue] = ...,
+        lazy : typing___Optional[builtin___bool] = ...,
+        deprecated : typing___Optional[builtin___bool] = ...,
+        weak : typing___Optional[builtin___bool] = ...,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"ctype",b"ctype",u"deprecated",b"deprecated",u"jstype",b"jstype",u"lazy",b"lazy",u"packed",b"packed",u"weak",b"weak"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"ctype",b"ctype",u"deprecated",b"deprecated",u"jstype",b"jstype",u"lazy",b"lazy",u"packed",b"packed",u"uninterpreted_option",b"uninterpreted_option",u"weak",b"weak"]) -> None: ...
@@ -544,7 +544,7 @@ class OneofOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 type___OneofOptions = OneofOptions
@@ -559,9 +559,9 @@ class EnumOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        allow_alias : typing___Optional[builtin___bool] = None,
-        deprecated : typing___Optional[builtin___bool] = None,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        allow_alias : typing___Optional[builtin___bool] = ...,
+        deprecated : typing___Optional[builtin___bool] = ...,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"allow_alias",b"allow_alias",u"deprecated",b"deprecated"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"allow_alias",b"allow_alias",u"deprecated",b"deprecated",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
@@ -576,8 +576,8 @@ class EnumValueOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        deprecated : typing___Optional[builtin___bool] = None,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        deprecated : typing___Optional[builtin___bool] = ...,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
@@ -592,8 +592,8 @@ class ServiceOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        deprecated : typing___Optional[builtin___bool] = None,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        deprecated : typing___Optional[builtin___bool] = ...,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
@@ -621,9 +621,9 @@ class MethodOptions(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        deprecated : typing___Optional[builtin___bool] = None,
-        idempotency_level : typing___Optional[type___MethodOptions.IdempotencyLevelValue] = None,
-        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = None,
+        deprecated : typing___Optional[builtin___bool] = ...,
+        idempotency_level : typing___Optional[type___MethodOptions.IdempotencyLevelValue] = ...,
+        uninterpreted_option : typing___Optional[typing___Iterable[type___UninterpretedOption]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated",u"idempotency_level",b"idempotency_level"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"deprecated",b"deprecated",u"idempotency_level",b"idempotency_level",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
@@ -638,8 +638,8 @@ class UninterpretedOption(google___protobuf___message___Message):
 
         def __init__(self,
             *,
-            name_part : typing___Optional[typing___Text] = None,
-            is_extension : typing___Optional[builtin___bool] = None,
+            name_part : typing___Optional[typing___Text] = ...,
+            is_extension : typing___Optional[builtin___bool] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"is_extension",b"is_extension",u"name_part",b"name_part"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"is_extension",b"is_extension",u"name_part",b"name_part"]) -> None: ...
@@ -657,13 +657,13 @@ class UninterpretedOption(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Iterable[type___UninterpretedOption.NamePart]] = None,
-        identifier_value : typing___Optional[typing___Text] = None,
-        positive_int_value : typing___Optional[builtin___int] = None,
-        negative_int_value : typing___Optional[builtin___int] = None,
-        double_value : typing___Optional[builtin___float] = None,
-        string_value : typing___Optional[builtin___bytes] = None,
-        aggregate_value : typing___Optional[typing___Text] = None,
+        name : typing___Optional[typing___Iterable[type___UninterpretedOption.NamePart]] = ...,
+        identifier_value : typing___Optional[typing___Text] = ...,
+        positive_int_value : typing___Optional[builtin___int] = ...,
+        negative_int_value : typing___Optional[builtin___int] = ...,
+        double_value : typing___Optional[builtin___float] = ...,
+        string_value : typing___Optional[builtin___bytes] = ...,
+        aggregate_value : typing___Optional[typing___Text] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"aggregate_value",b"aggregate_value",u"double_value",b"double_value",u"identifier_value",b"identifier_value",u"negative_int_value",b"negative_int_value",u"positive_int_value",b"positive_int_value",u"string_value",b"string_value"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"aggregate_value",b"aggregate_value",u"double_value",b"double_value",u"identifier_value",b"identifier_value",u"name",b"name",u"negative_int_value",b"negative_int_value",u"positive_int_value",b"positive_int_value",u"string_value",b"string_value"]) -> None: ...
@@ -681,11 +681,11 @@ class SourceCodeInfo(google___protobuf___message___Message):
 
         def __init__(self,
             *,
-            path : typing___Optional[typing___Iterable[builtin___int]] = None,
-            span : typing___Optional[typing___Iterable[builtin___int]] = None,
-            leading_comments : typing___Optional[typing___Text] = None,
-            trailing_comments : typing___Optional[typing___Text] = None,
-            leading_detached_comments : typing___Optional[typing___Iterable[typing___Text]] = None,
+            path : typing___Optional[typing___Iterable[builtin___int]] = ...,
+            span : typing___Optional[typing___Iterable[builtin___int]] = ...,
+            leading_comments : typing___Optional[typing___Text] = ...,
+            trailing_comments : typing___Optional[typing___Text] = ...,
+            leading_detached_comments : typing___Optional[typing___Iterable[typing___Text]] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"leading_comments",b"leading_comments",u"trailing_comments",b"trailing_comments"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"leading_comments",b"leading_comments",u"leading_detached_comments",b"leading_detached_comments",u"path",b"path",u"span",b"span",u"trailing_comments",b"trailing_comments"]) -> None: ...
@@ -697,7 +697,7 @@ class SourceCodeInfo(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        location : typing___Optional[typing___Iterable[type___SourceCodeInfo.Location]] = None,
+        location : typing___Optional[typing___Iterable[type___SourceCodeInfo.Location]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"location",b"location"]) -> None: ...
 type___SourceCodeInfo = SourceCodeInfo
@@ -713,10 +713,10 @@ class GeneratedCodeInfo(google___protobuf___message___Message):
 
         def __init__(self,
             *,
-            path : typing___Optional[typing___Iterable[builtin___int]] = None,
-            source_file : typing___Optional[typing___Text] = None,
-            begin : typing___Optional[builtin___int] = None,
-            end : typing___Optional[builtin___int] = None,
+            path : typing___Optional[typing___Iterable[builtin___int]] = ...,
+            source_file : typing___Optional[typing___Text] = ...,
+            begin : typing___Optional[builtin___int] = ...,
+            end : typing___Optional[builtin___int] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"begin",b"begin",u"end",b"end",u"source_file",b"source_file"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"begin",b"begin",u"end",b"end",u"path",b"path",u"source_file",b"source_file"]) -> None: ...
@@ -728,7 +728,7 @@ class GeneratedCodeInfo(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        annotation : typing___Optional[typing___Iterable[type___GeneratedCodeInfo.Annotation]] = None,
+        annotation : typing___Optional[typing___Iterable[type___GeneratedCodeInfo.Annotation]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"annotation",b"annotation"]) -> None: ...
 type___GeneratedCodeInfo = GeneratedCodeInfo

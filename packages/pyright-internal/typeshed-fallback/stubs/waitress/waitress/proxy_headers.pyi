@@ -1,12 +1,15 @@
-from collections import namedtuple
 from logging import Logger
-from typing import Any, Callable, Mapping, Optional, Sequence, Set
+from typing import Any, Callable, Mapping, NamedTuple, Optional, Sequence, Set
 
 from .utilities import BadRequest as BadRequest
 
-PROXY_HEADERS: frozenset
+PROXY_HEADERS: frozenset[Any]
 
-Forwarded = namedtuple("Forwarded", ["by", "for_", "host", "proto"])
+class Forwarded(NamedTuple):
+    by: Any
+    for_: Any
+    host: Any
+    proto: Any
 
 class MalformedProxyHeader(Exception):
     header: str = ...

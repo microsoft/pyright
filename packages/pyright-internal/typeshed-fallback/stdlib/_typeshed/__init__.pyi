@@ -57,7 +57,6 @@ class SupportsItemAccess(SupportsGetItem[_KT_contra, _VT], Protocol[_KT_contra, 
 StrPath = Union[str, PathLike[str]]  # stable
 BytesPath = Union[bytes, PathLike[bytes]]  # stable
 StrOrBytesPath = Union[str, bytes, PathLike[str], PathLike[bytes]]  # stable
-AnyPath = StrOrBytesPath  # obsolete, will be removed soon
 
 OpenTextModeUpdating = Literal[
     "r+",

@@ -40,8 +40,8 @@ class Any(google___protobuf___message___Message, google___protobuf___internal___
 
     def __init__(self,
         *,
-        type_url : typing___Optional[typing___Text] = None,
-        value : typing___Optional[builtin___bytes] = None,
+        type_url : typing___Optional[typing___Text] = ...,
+        value : typing___Optional[builtin___bytes] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"type_url",b"type_url",u"value",b"value"]) -> None: ...
 type___Any = Any

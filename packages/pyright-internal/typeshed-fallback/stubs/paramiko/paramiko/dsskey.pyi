@@ -1,8 +1,7 @@
 from typing import IO, Any, Callable, Optional, Tuple
 
-from paramiko.ber import BER
 from paramiko.message import Message
-from paramiko.pkey import PKey, PublicBlob
+from paramiko.pkey import PKey
 
 class DSSKey(PKey):
     p: Optional[int]

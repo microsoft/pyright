@@ -77,12 +77,12 @@ class Type(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        fields : typing___Optional[typing___Iterable[type___Field]] = None,
-        oneofs : typing___Optional[typing___Iterable[typing___Text]] = None,
-        options : typing___Optional[typing___Iterable[type___Option]] = None,
-        source_context : typing___Optional[google___protobuf___source_context_pb2___SourceContext] = None,
-        syntax : typing___Optional[type___SyntaxValue] = None,
+        name : typing___Optional[typing___Text] = ...,
+        fields : typing___Optional[typing___Iterable[type___Field]] = ...,
+        oneofs : typing___Optional[typing___Iterable[typing___Text]] = ...,
+        options : typing___Optional[typing___Iterable[type___Option]] = ...,
+        source_context : typing___Optional[google___protobuf___source_context_pb2___SourceContext] = ...,
+        syntax : typing___Optional[type___SyntaxValue] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"source_context",b"source_context"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"fields",b"fields",u"name",b"name",u"oneofs",b"oneofs",u"options",b"options",u"source_context",b"source_context",u"syntax",b"syntax"]) -> None: ...
@@ -163,16 +163,16 @@ class Field(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        kind : typing___Optional[type___Field.KindValue] = None,
-        cardinality : typing___Optional[type___Field.CardinalityValue] = None,
-        number : typing___Optional[builtin___int] = None,
-        name : typing___Optional[typing___Text] = None,
-        type_url : typing___Optional[typing___Text] = None,
-        oneof_index : typing___Optional[builtin___int] = None,
-        packed : typing___Optional[builtin___bool] = None,
-        options : typing___Optional[typing___Iterable[type___Option]] = None,
-        json_name : typing___Optional[typing___Text] = None,
-        default_value : typing___Optional[typing___Text] = None,
+        kind : typing___Optional[type___Field.KindValue] = ...,
+        cardinality : typing___Optional[type___Field.CardinalityValue] = ...,
+        number : typing___Optional[builtin___int] = ...,
+        name : typing___Optional[typing___Text] = ...,
+        type_url : typing___Optional[typing___Text] = ...,
+        oneof_index : typing___Optional[builtin___int] = ...,
+        packed : typing___Optional[builtin___bool] = ...,
+        options : typing___Optional[typing___Iterable[type___Option]] = ...,
+        json_name : typing___Optional[typing___Text] = ...,
+        default_value : typing___Optional[typing___Text] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"cardinality",b"cardinality",u"default_value",b"default_value",u"json_name",b"json_name",u"kind",b"kind",u"name",b"name",u"number",b"number",u"oneof_index",b"oneof_index",u"options",b"options",u"packed",b"packed",u"type_url",b"type_url"]) -> None: ...
 type___Field = Field
@@ -193,11 +193,11 @@ class Enum(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        enumvalue : typing___Optional[typing___Iterable[type___EnumValue]] = None,
-        options : typing___Optional[typing___Iterable[type___Option]] = None,
-        source_context : typing___Optional[google___protobuf___source_context_pb2___SourceContext] = None,
-        syntax : typing___Optional[type___SyntaxValue] = None,
+        name : typing___Optional[typing___Text] = ...,
+        enumvalue : typing___Optional[typing___Iterable[type___EnumValue]] = ...,
+        options : typing___Optional[typing___Iterable[type___Option]] = ...,
+        source_context : typing___Optional[google___protobuf___source_context_pb2___SourceContext] = ...,
+        syntax : typing___Optional[type___SyntaxValue] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"source_context",b"source_context"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"enumvalue",b"enumvalue",u"name",b"name",u"options",b"options",u"source_context",b"source_context",u"syntax",b"syntax"]) -> None: ...
@@ -213,9 +213,9 @@ class EnumValue(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        number : typing___Optional[builtin___int] = None,
-        options : typing___Optional[typing___Iterable[type___Option]] = None,
+        name : typing___Optional[typing___Text] = ...,
+        number : typing___Optional[builtin___int] = ...,
+        options : typing___Optional[typing___Iterable[type___Option]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"name",b"name",u"number",b"number",u"options",b"options"]) -> None: ...
 type___EnumValue = EnumValue
@@ -229,8 +229,8 @@ class Option(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        name : typing___Optional[typing___Text] = None,
-        value : typing___Optional[google___protobuf___any_pb2___Any] = None,
+        name : typing___Optional[typing___Text] = ...,
+        value : typing___Optional[google___protobuf___any_pb2___Any] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"value",b"value"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"name",b"name",u"value",b"value"]) -> None: ...

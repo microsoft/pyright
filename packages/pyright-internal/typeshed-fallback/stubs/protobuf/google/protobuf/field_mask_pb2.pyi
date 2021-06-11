@@ -44,7 +44,7 @@ class FieldMask(google___protobuf___message___Message, google___protobuf___inter
 
     def __init__(self,
         *,
-        paths : typing___Optional[typing___Iterable[typing___Text]] = None,
+        paths : typing___Optional[typing___Iterable[typing___Text]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"paths",b"paths"]) -> None: ...
 type___FieldMask = FieldMask

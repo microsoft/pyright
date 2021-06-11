@@ -2,7 +2,7 @@ from io import TextIOWrapper
 from typing import Any, Callable, Optional, Pattern, Sequence, Tuple
 
 HELP: str
-RUNNER_PATTERN: Pattern
+RUNNER_PATTERN: Pattern[Any]
 
 def match(obj_name: str) -> Tuple[str, str]: ...
 def resolve(module_name: str, object_name: str) -> Any: ...

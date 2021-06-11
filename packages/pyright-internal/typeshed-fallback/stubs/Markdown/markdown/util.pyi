@@ -1,4 +1,3 @@
-from collections import namedtuple
 from typing import Any, Optional, Pattern
 
 PY37: Any
@@ -8,10 +7,10 @@ STX: str
 ETX: str
 INLINE_PLACEHOLDER_PREFIX: Any
 INLINE_PLACEHOLDER: Any
-INLINE_PLACEHOLDER_RE: Pattern
+INLINE_PLACEHOLDER_RE: Pattern[str]
 AMP_SUBSTITUTE: Any
 HTML_PLACEHOLDER: Any
-HTML_PLACEHOLDER_RE: Pattern
+HTML_PLACEHOLDER_RE: Pattern[str]
 TAG_PLACEHOLDER: Any
 INSTALLED_EXTENSIONS: Any
 RTL_BIDI_RANGES: Any

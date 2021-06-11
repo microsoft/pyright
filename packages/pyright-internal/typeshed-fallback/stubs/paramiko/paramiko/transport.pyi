@@ -6,11 +6,9 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, Sequ
 
 from paramiko.auth_handler import AuthHandler, _InteractiveCallback
 from paramiko.channel import Channel
-from paramiko.compress import ZlibCompressor, ZlibDecompressor
 from paramiko.message import Message
-from paramiko.packet import NeedRekeyException, Packetizer
+from paramiko.packet import Packetizer
 from paramiko.pkey import PKey
-from paramiko.primes import ModulusPack
 from paramiko.server import ServerInterface, SubsystemHandler
 from paramiko.sftp_client import SFTPClient
 from paramiko.ssh_gss import _SSH_GSSAuth

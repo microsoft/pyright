@@ -1,7 +1,6 @@
 from socket import socket
-from typing import Any, Dict, Iterable, Mapping, NoReturn, Optional, Tuple, Type, Union
+from typing import Dict, Iterable, Mapping, NoReturn, Optional, Tuple, Type, Union
 
-from paramiko.agent import Agent
 from paramiko.channel import Channel, ChannelFile, ChannelStderrFile, ChannelStdinFile
 from paramiko.hostkeys import HostKeys
 from paramiko.pkey import PKey

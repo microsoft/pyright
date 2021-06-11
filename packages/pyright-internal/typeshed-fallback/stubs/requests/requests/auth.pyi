@@ -1,6 +1,6 @@
 from typing import Any, Text, Union
 
-from . import cookies, models, status_codes, utils
+from . import cookies, models, utils
 
 extract_cookies_to_jar = cookies.extract_cookies_to_jar
 parse_dict_header = utils.parse_dict_header

@@ -1,6 +1,10 @@
 from typing import IO, Any, Callable, List, Optional, Sequence, Tuple, Type
 
-from cryptography.hazmat.primitives.asymmetric.ec2 import EllipticCurve, EllipticCurvePrivateKey, EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.ec2 import (  # type: ignore
+    EllipticCurve,
+    EllipticCurvePrivateKey,
+    EllipticCurvePublicKey,
+)
 from cryptography.hazmat.primitives.hashes import HashAlgorithm
 from paramiko.message import Message
 from paramiko.pkey import PKey

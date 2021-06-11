@@ -56,10 +56,10 @@ class Version(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        major : typing___Optional[builtin___int] = None,
-        minor : typing___Optional[builtin___int] = None,
-        patch : typing___Optional[builtin___int] = None,
-        suffix : typing___Optional[typing___Text] = None,
+        major : typing___Optional[builtin___int] = ...,
+        minor : typing___Optional[builtin___int] = ...,
+        patch : typing___Optional[builtin___int] = ...,
+        suffix : typing___Optional[typing___Text] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"major",b"major",u"minor",b"minor",u"patch",b"patch",u"suffix",b"suffix"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"major",b"major",u"minor",b"minor",u"patch",b"patch",u"suffix",b"suffix"]) -> None: ...
@@ -78,10 +78,10 @@ class CodeGeneratorRequest(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        file_to_generate : typing___Optional[typing___Iterable[typing___Text]] = None,
-        parameter : typing___Optional[typing___Text] = None,
-        proto_file : typing___Optional[typing___Iterable[google___protobuf___descriptor_pb2___FileDescriptorProto]] = None,
-        compiler_version : typing___Optional[type___Version] = None,
+        file_to_generate : typing___Optional[typing___Iterable[typing___Text]] = ...,
+        parameter : typing___Optional[typing___Text] = ...,
+        proto_file : typing___Optional[typing___Iterable[google___protobuf___descriptor_pb2___FileDescriptorProto]] = ...,
+        compiler_version : typing___Optional[type___Version] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"compiler_version",b"compiler_version",u"parameter",b"parameter"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"compiler_version",b"compiler_version",u"file_to_generate",b"file_to_generate",u"parameter",b"parameter",u"proto_file",b"proto_file"]) -> None: ...
@@ -110,10 +110,10 @@ class CodeGeneratorResponse(google___protobuf___message___Message):
 
         def __init__(self,
             *,
-            name : typing___Optional[typing___Text] = None,
-            insertion_point : typing___Optional[typing___Text] = None,
-            content : typing___Optional[typing___Text] = None,
-            generated_code_info : typing___Optional[google___protobuf___descriptor_pb2___GeneratedCodeInfo] = None,
+            name : typing___Optional[typing___Text] = ...,
+            insertion_point : typing___Optional[typing___Text] = ...,
+            content : typing___Optional[typing___Text] = ...,
+            generated_code_info : typing___Optional[google___protobuf___descriptor_pb2___GeneratedCodeInfo] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"content",b"content",u"generated_code_info",b"generated_code_info",u"insertion_point",b"insertion_point",u"name",b"name"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"content",b"content",u"generated_code_info",b"generated_code_info",u"insertion_point",b"insertion_point",u"name",b"name"]) -> None: ...
@@ -127,9 +127,9 @@ class CodeGeneratorResponse(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        error : typing___Optional[typing___Text] = None,
-        supported_features : typing___Optional[builtin___int] = None,
-        file : typing___Optional[typing___Iterable[type___CodeGeneratorResponse.File]] = None,
+        error : typing___Optional[typing___Text] = ...,
+        supported_features : typing___Optional[builtin___int] = ...,
+        file : typing___Optional[typing___Iterable[type___CodeGeneratorResponse.File]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"error",b"error",u"supported_features",b"supported_features"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"error",b"error",u"file",b"file",u"supported_features",b"supported_features"]) -> None: ...

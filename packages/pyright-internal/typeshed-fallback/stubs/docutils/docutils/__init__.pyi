@@ -1,5 +1,4 @@
-from collections.abc import Sequence
-from typing import Any, ClassVar, NamedTuple, Optional, Tuple, Union
+from typing import Any, ClassVar, NamedTuple, Optional, Tuple
 
 __docformat__: str
 __version__: str

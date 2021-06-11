@@ -35,7 +35,7 @@ class SourceContext(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        file_name : typing___Optional[typing___Text] = None,
+        file_name : typing___Optional[typing___Text] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"file_name",b"file_name"]) -> None: ...
 type___SourceContext = SourceContext

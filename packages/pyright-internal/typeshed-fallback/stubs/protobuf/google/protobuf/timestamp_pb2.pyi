@@ -39,8 +39,8 @@ class Timestamp(google___protobuf___message___Message, google___protobuf___inter
 
     def __init__(self,
         *,
-        seconds : typing___Optional[builtin___int] = None,
-        nanos : typing___Optional[builtin___int] = None,
+        seconds : typing___Optional[builtin___int] = ...,
+        nanos : typing___Optional[builtin___int] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"nanos",b"nanos",u"seconds",b"seconds"]) -> None: ...
 type___Timestamp = Timestamp

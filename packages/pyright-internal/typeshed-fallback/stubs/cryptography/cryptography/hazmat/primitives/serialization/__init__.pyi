@@ -9,11 +9,6 @@ from cryptography.hazmat.backends.interfaces import (
     PEMSerializationBackend,
     RSABackend,
 )
-from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
-from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey, DSAPublicKey
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey, EllipticCurvePublicKey
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
 def load_pem_private_key(
     data: bytes, password: Optional[bytes], backend: Optional[PEMSerializationBackend] = ...

@@ -2,9 +2,8 @@ from logging import Logger
 from threading import Condition, Event, Lock
 from typing import Any, Callable, Mapping, Optional, Tuple, TypeVar
 
-from paramiko.buffered_pipe import BufferedPipe, PipeTimeout
+from paramiko.buffered_pipe import BufferedPipe
 from paramiko.file import BufferedFile
-from paramiko.message import Message
 from paramiko.transport import Transport
 from paramiko.util import ClosingContextManager
 
@@ -19,8 +18,8 @@ class Channel(ClosingContextManager):
     active: bool
     eof_received: int
     eof_sent: int
-    in_buffer: BufferedPipe
-    in_stderr_buffer: BufferedPipe
+    in_buffer: BufferedPipe[Any]
+    in_stderr_buffer: BufferedPipe[Any]
     timeout: Optional[float]
     closed: bool
     ultra_debug: bool
@@ -89,7 +88,7 @@ class Channel(ClosingContextManager):
     def shutdown_read(self) -> None: ...
     def shutdown_write(self) -> None: ...
 
-class ChannelFile(BufferedFile):
+class ChannelFile(BufferedFile[Any]):
     channel: Channel
     def __init__(self, channel: Channel, mode: str = ..., bufsize: int = ...) -> None: ...
 

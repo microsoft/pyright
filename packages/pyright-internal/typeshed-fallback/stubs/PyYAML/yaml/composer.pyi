@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from yaml.error import MarkedYAMLError
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode

@@ -72,8 +72,8 @@ class Struct(google___protobuf___message___Message, google___protobuf___internal
 
         def __init__(self,
             *,
-            key : typing___Optional[typing___Text] = None,
-            value : typing___Optional[type___Value] = None,
+            key : typing___Optional[typing___Text] = ...,
+            value : typing___Optional[type___Value] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions___Literal[u"value",b"value"]) -> builtin___bool: ...
         def ClearField(self, field_name: typing_extensions___Literal[u"key",b"key",u"value",b"value"]) -> None: ...
@@ -85,7 +85,7 @@ class Struct(google___protobuf___message___Message, google___protobuf___internal
 
     def __init__(self,
         *,
-        fields : typing___Optional[typing___Mapping[typing___Text, type___Value]] = None,
+        fields : typing___Optional[typing___Mapping[typing___Text, type___Value]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"fields",b"fields"]) -> None: ...
 type___Struct = Struct
@@ -105,12 +105,12 @@ class Value(google___protobuf___message___Message):
 
     def __init__(self,
         *,
-        null_value : typing___Optional[type___NullValueValue] = None,
-        number_value : typing___Optional[builtin___float] = None,
-        string_value : typing___Optional[typing___Text] = None,
-        bool_value : typing___Optional[builtin___bool] = None,
-        struct_value : typing___Optional[type___Struct] = None,
-        list_value : typing___Optional[type___ListValue] = None,
+        null_value : typing___Optional[type___NullValueValue] = ...,
+        number_value : typing___Optional[builtin___float] = ...,
+        string_value : typing___Optional[typing___Text] = ...,
+        bool_value : typing___Optional[builtin___bool] = ...,
+        struct_value : typing___Optional[type___Struct] = ...,
+        list_value : typing___Optional[type___ListValue] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions___Literal[u"bool_value",b"bool_value",u"kind",b"kind",u"list_value",b"list_value",u"null_value",b"null_value",u"number_value",b"number_value",u"string_value",b"string_value",u"struct_value",b"struct_value"]) -> builtin___bool: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"bool_value",b"bool_value",u"kind",b"kind",u"list_value",b"list_value",u"null_value",b"null_value",u"number_value",b"number_value",u"string_value",b"string_value",u"struct_value",b"struct_value"]) -> None: ...
@@ -125,7 +125,7 @@ class ListValue(google___protobuf___message___Message, google___protobuf___inter
 
     def __init__(self,
         *,
-        values : typing___Optional[typing___Iterable[type___Value]] = None,
+        values : typing___Optional[typing___Iterable[type___Value]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions___Literal[u"values",b"values"]) -> None: ...
 type___ListValue = ListValue

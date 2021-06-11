@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List, Pattern
+from typing import Any, List, Pattern
 
 from . import util
 
@@ -19,5 +19,5 @@ class HtmlBlockPreprocessor(Preprocessor):
 
 class ReferencePreprocessor(Preprocessor):
     TITLE: str = ...
-    RE: Pattern
-    TITLE_RE: Pattern
+    RE: Pattern[str]
+    TITLE_RE: Pattern[str]
