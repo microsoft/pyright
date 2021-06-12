@@ -585,22 +585,22 @@ function printUsage() {
             toolName +
             ' [options] files...\n' +
             '  Options:\n' +
-            '  --createstub IMPORT              Create type stub file(s) for import\n' +
-            '  --dependencies                   Emit import dependency information\n' +
-            '  -h,--help                        Show this help message\n' +
-            '  --ignoreexternal                 Ignore external imports for --verifytypes\n' +
-            '  --lib                            Use library code to infer types when stubs are missing\n' +
-            '  --outputjson                     Output results in JSON format\n' +
-            '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
-            '  --pythonplatform PLATFORM        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
-            '  --pythonversion VERSION          Analyze for a specific version (3.3, 3.4, etc.)\n' +
-            '  --stats                          Print detailed performance stats\n' +
-            '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
-            '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
-            '  --verbose                        Emit verbose diagnostics\n' +
-            '  --verifytypes PACKAGE            Verify type completeness of a py.typed package\n' +
-            '  --version                        Print Pyright version\n' +
-            '  -w,--watch                       Continue to run and watch for changes\n'
+            '  --createstub <IMPORT>              Create type stub file(s) for import\n' +
+            '  --dependencies                     Emit import dependency information\n' +
+            '  -h,--help                          Show this help message\n' +
+            '  --ignoreexternal                   Ignore external imports for --verifytypes\n' +
+            '  --lib                              Use library code to infer types when stubs are missing\n' +
+            '  --outputjson                       Output results in JSON format\n' +
+            '  -p,--project <FILE OR DIRECTORY>   Use the configuration file at this location\n' +
+            '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
+            '  --pythonversion <VERSION>          Analyze for a specific version (3.3, 3.4, etc.)\n' +
+            '  --stats                            Print detailed performance stats\n' +
+            '  -t,--typeshed-path <DIRECTORY>     Use typeshed type stubs at this location\n' +
+            '  -v,--venv-path <DIRECTORY>         Directory that contains virtual environments\n' +
+            '  --verbose                          Emit verbose diagnostics\n' +
+            '  --verifytypes <PACKAGE>            Verify type completeness of a py.typed package\n' +
+            '  --version                          Print Pyright version\n' +
+            '  -w,--watch                         Continue to run and watch for changes\n'
     );
 }
 
