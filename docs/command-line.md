@@ -6,22 +6,22 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 
 | Flag                               | Description                                           |
 | :--------------------------------- | :---------------------------------------------------  |
-| --createstub IMPORT                 | Create type stub file(s) for import                  |
-| --dependencies                      | Emit import dependency information                   |
-| -h, --help                          | Show help message                                    |
-| --ignoreexternal                    | Ignore external imports for --verifytypes            |
-| --lib                               | Use library code for types when stubs are missing    |
-| --outputjson                        | Output results in JSON format                        |
-| -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
-| --pythonplatform PLATFORM           | Analyze for platform (Darwin, Linux, Windows)        |
-| --pythonversion VERSION             | Analyze for version (3.3, 3.4, etc.)                 |
-| --stats                             | Print detailed performance stats                     |
-| -t, --typeshed-path DIRECTORY       | Use typeshed type stubs at this location (2)         |
-| -v, --venv-path DIRECTORY           | Directory that contains virtual environments (3)     |
-| --verbose                           | Emit verbose diagnostics                             |
-| --verifytypes IMPORT                | Verify completeness of types in py.typed package     |
-| --version                           | Print pyright version                                |
-| -w, --watch                         | Continue to run and watch for changes (4)            |
+| --createstub `<IMPORT>`                 | Create type stub file(s) for import                  |
+| --dependencies                          | Emit import dependency information                   |
+| -h, --help                              | Show help message                                    |
+| --ignoreexternal                        | Ignore external imports for --verifytypes            |
+| --lib                                   | Use library code for types when stubs are missing    |
+| --outputjson                            | Output results in JSON format                        |
+| -p, --project `<FILE OR DIRECTORY>`     | Use the configuration file at this location          |
+| --pythonplatform `<PLATFORM>`           | Analyze for platform (Darwin, Linux, Windows)        |
+| --pythonversion `<VERSION>`             | Analyze for version (3.3, 3.4, etc.)                 |
+| --stats                                 | Print detailed performance stats                     |
+| -t, --typeshed-path `<DIRECTORY>`       | Use typeshed type stubs at this location (2)         |
+| -v, --venv-path `<DIRECTORY>`           | Directory that contains virtual environments (3)     |
+| --verbose                               | Emit verbose diagnostics                             |
+| --verifytypes `<IMPORT>`                | Verify completeness of types in py.typed package     |
+| --version                               | Print pyright version                                |
+| -w, --watch                             | Continue to run and watch for changes (4)            |
 
 (1) If specific files are specified on the command line, the pyrightconfig.json file is ignored.
 
