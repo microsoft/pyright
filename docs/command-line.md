@@ -25,7 +25,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 
 (1) If specific files are specified on the command line, the pyrightconfig.json file is ignored.
 
-(2) the `--ignoreexternal` flag is to be places after the files.
+(2) the `--ignoreexternal` flag has to be placed after [...files].
 
 (3) Pyright has built-in typeshed type stubs for Python stdlib functionality. To use a different version of typeshed type stubs, specify the directory with this option.
 
