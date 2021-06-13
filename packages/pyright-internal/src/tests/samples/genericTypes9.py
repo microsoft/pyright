@@ -2,7 +2,7 @@
 
 import pathlib
 import shutil
-from typing import AnyStr, Sequence, TypeVar, Union
+from typing import AnyStr, Literal, Sequence, Type, TypeVar, Union
 
 
 class Foo:
@@ -92,3 +92,18 @@ def func13(value: Union[A, D]):
     # This should generate an error because A and D
     # map to different constraints.
     value1 = do_something(value)
+
+
+T4 = TypeVar("T4", A, B, Union[C, D])
+
+
+def func14(cls: Type[T4]) -> T4:
+    instance1 = cls()
+    t1: Literal["T4@func14"] = reveal_type(instance1)  # Unknown
+    return instance1
+
+
+def func15(cls: Union[Type[Union[A, B]], Type[Union[C, D]]]) -> Union[A, B, C, D]:
+    instance2 = cls()
+    t1: Literal["A | B | C | D"] = reveal_type(instance2)
+    return instance2

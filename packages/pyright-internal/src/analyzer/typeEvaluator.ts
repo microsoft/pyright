@@ -3316,7 +3316,7 @@ export function createTypeEvaluator(
                         }
 
                         if (TypeBase.isInstantiable(subtype)) {
-                            constraintType = convertToInstantiable(subtype);
+                            constraintType = convertToInstantiable(constraintType);
                         }
 
                         typesToCombine.push(
@@ -7204,9 +7204,7 @@ export function createTypeEvaluator(
                     isTypeObject = true;
                 }
 
-                const concreteSubtype = makeTopLevelTypeVarsConcrete(expandedSubtype);
-
-                switch (concreteSubtype.category) {
+                switch (expandedSubtype.category) {
                     case TypeCategory.Unknown:
                     case TypeCategory.Any: {
                         // Touch all of the args so they're marked accessed.
@@ -7216,13 +7214,13 @@ export function createTypeEvaluator(
                             }
                         });
 
-                        return concreteSubtype;
+                        return expandedSubtype;
                     }
 
                     case TypeCategory.Function: {
                         // The stdlib collections/__init__.pyi stub file defines namedtuple
                         // as a function rather than a class, so we need to check for it here.
-                        if (concreteSubtype.details.builtInName === 'namedtuple') {
+                        if (expandedSubtype.details.builtInName === 'namedtuple') {
                             addDiagnostic(
                                 getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
                                 DiagnosticRule.reportUntypedNamedTuple,
@@ -7235,8 +7233,8 @@ export function createTypeEvaluator(
                         const functionResult = validateFunctionArguments(
                             errorNode,
                             argList,
-                            concreteSubtype,
-                            typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
+                            expandedSubtype,
+                            typeVarMap || new TypeVarMap(getTypeVarScopeId(expandedSubtype)),
                             skipUnknownArgCheck,
                             expectedType
                         );
@@ -7248,11 +7246,11 @@ export function createTypeEvaluator(
                         }
 
                         // Handle the NewType specially, replacing the normal return type.
-                        if (!functionResult.argumentErrors && concreteSubtype.details.builtInName === 'NewType') {
+                        if (!functionResult.argumentErrors && expandedSubtype.details.builtInName === 'NewType') {
                             return createNewType(errorNode, argList);
                         }
 
-                        if (concreteSubtype.details.builtInName === '__import__') {
+                        if (expandedSubtype.details.builtInName === '__import__') {
                             // For the special __import__ type, we'll override the return type to be "Any".
                             // This is required because we don't know what module was imported, and we don't
                             // want to fail type checks when accessing members of the resulting module type.
@@ -7265,7 +7263,7 @@ export function createTypeEvaluator(
                     case TypeCategory.OverloadedFunction: {
                         // Handle the 'cast' call as a special case.
                         const isCast =
-                            concreteSubtype.overloads[0].details.builtInName === 'cast' && argList.length === 2;
+                            expandedSubtype.overloads[0].details.builtInName === 'cast' && argList.length === 2;
 
                         if (isCast) {
                             // Precalculate the type of the first argument using special semantics,
@@ -7277,7 +7275,7 @@ export function createTypeEvaluator(
                         const functionResult = validateOverloadedFunctionArguments(
                             errorNode,
                             argList,
-                            concreteSubtype,
+                            expandedSubtype,
                             typeVarMap,
                             skipUnknownArgCheck,
                             expectedType
@@ -7314,7 +7312,7 @@ export function createTypeEvaluator(
                     }
 
                     case TypeCategory.Class: {
-                        if (concreteSubtype.literalValue !== undefined) {
+                        if (expandedSubtype.literalValue !== undefined) {
                             addDiagnostic(
                                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
@@ -7325,15 +7323,15 @@ export function createTypeEvaluator(
                             return UnknownType.create();
                         }
 
-                        if (ClassType.isBuiltIn(concreteSubtype)) {
-                            const className = concreteSubtype.aliasName || concreteSubtype.details.name;
+                        if (ClassType.isBuiltIn(expandedSubtype)) {
+                            const className = expandedSubtype.aliasName || expandedSubtype.details.name;
 
                             if (className === 'type') {
                                 // Validate the constructor arguments.
                                 validateConstructorArguments(
                                     errorNode,
                                     argList,
-                                    concreteSubtype,
+                                    expandedSubtype,
                                     skipUnknownArgCheck,
                                     expectedType
                                 );
@@ -7400,11 +7398,11 @@ export function createTypeEvaluator(
                                 className === 'Flag' ||
                                 className === 'IntFlag'
                             ) {
-                                return createEnumType(errorNode, concreteSubtype, argList);
+                                return createEnumType(errorNode, expandedSubtype, argList);
                             }
 
                             if (className === 'TypedDict') {
-                                return createTypedDictType(errorNode, concreteSubtype, argList);
+                                return createTypedDictType(errorNode, expandedSubtype, argList);
                             }
 
                             if (className === 'auto' && argList.length === 0) {
@@ -7412,9 +7410,9 @@ export function createTypeEvaluator(
                             }
                         }
 
-                        if (!isTypeObject && ClassType.hasAbstractMethods(concreteSubtype)) {
+                        if (!isTypeObject && ClassType.hasAbstractMethods(expandedSubtype)) {
                             // If the class is abstract, it can't be instantiated.
-                            const abstractMethods = getAbstractMethods(concreteSubtype);
+                            const abstractMethods = getAbstractMethods(expandedSubtype);
                             const diagAddendum = new DiagnosticAddendum();
                             const errorsToDisplay = 2;
 
@@ -7442,19 +7440,19 @@ export function createTypeEvaluator(
                                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 Localizer.Diagnostic.instantiateAbstract().format({
-                                    type: concreteSubtype.details.name,
+                                    type: expandedSubtype.details.name,
                                 }) + diagAddendum.getString(),
                                 errorNode
                             );
                         }
 
-                        if (!isTypeObject && ClassType.isProtocolClass(concreteSubtype)) {
+                        if (!isTypeObject && ClassType.isProtocolClass(expandedSubtype)) {
                             // If the class is a protocol, it can't be instantiated.
                             addDiagnostic(
                                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 Localizer.Diagnostic.instantiateProtocol().format({
-                                    type: concreteSubtype.details.name,
+                                    type: expandedSubtype.details.name,
                                 }),
                                 errorNode
                             );
@@ -7464,7 +7462,7 @@ export function createTypeEvaluator(
                         const constructorResult = validateConstructorArguments(
                             errorNode,
                             argList,
-                            concreteSubtype,
+                            expandedSubtype,
                             skipUnknownArgCheck,
                             expectedType
                         );
@@ -7473,7 +7471,7 @@ export function createTypeEvaluator(
                         }
                         let returnType = constructorResult.returnType;
 
-                        // If the concreteSubtype originated from a TypeVar, convert
+                        // If the expandedSubtype originated from a TypeVar, convert
                         // the constructed type back to the TypeVar. For example, if
                         // we have `cls: Type[_T]` followed by `_T()`.
                         if (isTypeVar(unexpandedSubtype)) {
@@ -7511,7 +7509,7 @@ export function createTypeEvaluator(
                     }
 
                     case TypeCategory.Object: {
-                        const memberType = getTypeFromObjectMember(errorNode, concreteSubtype, '__call__')?.type;
+                        const memberType = getTypeFromObjectMember(errorNode, expandedSubtype, '__call__')?.type;
 
                         if (memberType && (isFunction(memberType) || isOverloadedFunction(memberType))) {
                             const functionResult = validateCallArguments(
@@ -7531,7 +7529,7 @@ export function createTypeEvaluator(
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.objectNotCallable().format({ type: printType(concreteSubtype) }),
+                            Localizer.Diagnostic.objectNotCallable().format({ type: printType(expandedSubtype) }),
                             errorNode
                         );
                         return UnknownType.create();
@@ -7545,6 +7543,26 @@ export function createTypeEvaluator(
                             errorNode
                         );
                         return undefined;
+                    }
+
+                    // TypeVars should have been expanded in most cases,
+                    // but we still need to handle the case of Type[T] where
+                    // T is a constrained type that contains a union.
+                    case TypeCategory.TypeVar: {
+                        const callResult = validateCallArguments(
+                            errorNode,
+                            argList,
+                            expandedSubtype,
+                            typeVarMap,
+                            skipUnknownArgCheck,
+                            expectedType
+                        );
+
+                        if (callResult.argumentErrors) {
+                            argumentErrors = true;
+                        }
+
+                        return callResult.returnType || UnknownType.create();
                     }
                 }
 
