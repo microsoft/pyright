@@ -1805,11 +1805,11 @@ export function _transformTypeVars(
     }
 
     if (isObject(type)) {
-        let classType = _transformTypeVarsInClassType(type.classType, callbacks, recursionMap, recursionLevel + 1);
+        let classType: ClassType | undefined;
 
         // Handle the "Type" special class.
-        if (ClassType.isBuiltIn(classType, 'Type')) {
-            const typeArgs = classType.typeArguments;
+        if (ClassType.isBuiltIn(type.classType, 'Type')) {
+            const typeArgs = type.classType.typeArguments;
             if (typeArgs && typeArgs.length >= 1) {
                 if (isObject(typeArgs[0])) {
                     const transformedObj = _transformTypeVars(
@@ -1820,7 +1820,7 @@ export function _transformTypeVars(
                     );
                     if (transformedObj !== typeArgs[0]) {
                         classType = ClassType.cloneForSpecialization(
-                            classType,
+                            type.classType,
                             [transformedObj],
                             /* usTypeArgumentExplicit */ true
                         );
@@ -1829,13 +1829,17 @@ export function _transformTypeVars(
                     const replacementType = callbacks.transformTypeVar(typeArgs[0]);
                     if (replacementType && isObject(replacementType)) {
                         classType = ClassType.cloneForSpecialization(
-                            classType,
+                            type.classType,
                             [ObjectType.create(replacementType.classType)],
                             /* usTypeArgumentExplicit */ true
                         );
                     }
                 }
             }
+        }
+
+        if (!classType) {
+            classType = _transformTypeVarsInClassType(type.classType, callbacks, recursionMap, recursionLevel + 1);
         }
 
         // Don't allocate a new ObjectType class if the class
