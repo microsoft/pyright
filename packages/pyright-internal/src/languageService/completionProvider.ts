@@ -1166,7 +1166,7 @@ export class CompletionProvider {
         const completionResults = { completionList };
 
         // Return empty completionList for Ellipsis
-        if (priorText.slice(-3) === '...') {
+        if (priorText.slice(-2) === '..') {
             return completionResults;
         }
 
