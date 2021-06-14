@@ -2,11 +2,7 @@ import sys
 from _typeshed import ReadableBuffer
 from typing import Callable, Optional, Union
 
-from cryptography.hazmat.primitives.asymmetric.ec2 import (  # type: ignore
-    EllipticCurve,
-    EllipticCurvePrivateKey,
-    EllipticCurvePublicKey,
-)
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurve, EllipticCurvePrivateKey, EllipticCurvePublicKey
 from paramiko.message import Message
 from paramiko.transport import Transport
 
