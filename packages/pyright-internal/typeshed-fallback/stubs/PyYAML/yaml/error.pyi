@@ -1,21 +1,26 @@
-from typing import Any
-
 class Mark:
-    name: Any
-    index: Any
-    line: Any
-    column: Any
-    buffer: Any
-    pointer: Any
-    def __init__(self, name, index, line, column, buffer, pointer) -> None: ...
-    def get_snippet(self, indent=..., max_length=...): ...
+    name: str
+    index: int
+    line: int
+    column: int
+    buffer: str | None
+    pointer: int
+    def __init__(self, name: str, index: int, line: int, column: int, buffer: str | None, pointer: int) -> None: ...
+    def get_snippet(self, indent: int = ..., max_length: int = ...) -> str | None: ...
 
 class YAMLError(Exception): ...
 
 class MarkedYAMLError(YAMLError):
-    context: Any
-    context_mark: Any
-    problem: Any
-    problem_mark: Any
-    note: Any
-    def __init__(self, context=..., context_mark=..., problem=..., problem_mark=..., note=...) -> None: ...
+    context: str | None
+    context_mark: Mark | None
+    problem: str | None
+    problem_mark: Mark | None
+    note: str | None
+    def __init__(
+        self,
+        context: str | None = ...,
+        context_mark: Mark | None = ...,
+        problem: str | None = ...,
+        problem_mark: Mark | None = ...,
+        note: str | None = ...,
+    ) -> None: ...

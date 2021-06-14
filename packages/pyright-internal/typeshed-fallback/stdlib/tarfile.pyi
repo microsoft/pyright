@@ -5,8 +5,10 @@ from _typeshed import StrOrBytesPath, StrPath
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from gzip import _ReadableFileobj as _GzipReadableFileobj, _WritableFileobj as _GzipWritableFileobj
 from types import TracebackType
-from typing import IO, Dict, List, Optional, Protocol, Set, Tuple, Type, Union, overload
+from typing import IO, Dict, List, Optional, Protocol, Set, Tuple, Type, TypeVar, Union, overload
 from typing_extensions import Literal
+
+_TF = TypeVar("_TF", bound=TarFile)
 
 class _Fileobj(Protocol):
     def read(self, __size: int) -> bytes: ...
@@ -122,14 +124,14 @@ class TarFile:
         errorlevel: Optional[int] = ...,
         copybufsize: Optional[int] = ...,  # undocumented
     ) -> None: ...
-    def __enter__(self) -> TarFile: ...
+    def __enter__(self: _TF) -> _TF: ...
     def __exit__(
         self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]
     ) -> None: ...
     def __iter__(self) -> Iterator[TarInfo]: ...
     @classmethod
     def open(
-        cls,
+        cls: Type[_TF],
         name: Optional[StrOrBytesPath] = ...,
         mode: str = ...,
         fileobj: Optional[IO[bytes]] = ...,  # depends on mode
@@ -144,10 +146,10 @@ class TarFile:
         pax_headers: Optional[Mapping[str, str]] = ...,
         debug: Optional[int] = ...,
         errorlevel: Optional[int] = ...,
-    ) -> TarFile: ...
+    ) -> _TF: ...
     @classmethod
     def taropen(
-        cls,
+        cls: Type[_TF],
         name: Optional[StrOrBytesPath],
         mode: Literal["r", "a", "w", "x"] = ...,
         fileobj: Optional[_Fileobj] = ...,
@@ -161,11 +163,11 @@ class TarFile:
         pax_headers: Optional[Mapping[str, str]] = ...,
         debug: Optional[int] = ...,
         errorlevel: Optional[int] = ...,
-    ) -> TarFile: ...
+    ) -> _TF: ...
     @overload
     @classmethod
     def gzopen(
-        cls,
+        cls: Type[_TF],
         name: Optional[StrOrBytesPath],
         mode: Literal["r"] = ...,
         fileobj: Optional[_GzipReadableFileobj] = ...,
@@ -179,11 +181,11 @@ class TarFile:
         pax_headers: Optional[Mapping[str, str]] = ...,
         debug: Optional[int] = ...,
         errorlevel: Optional[int] = ...,
-    ) -> TarFile: ...
+    ) -> _TF: ...
     @overload
     @classmethod
     def gzopen(
-        cls,
+        cls: Type[_TF],
         name: Optional[StrOrBytesPath],
         mode: Literal["w", "x"],
         fileobj: Optional[_GzipWritableFileobj] = ...,
@@ -197,11 +199,11 @@ class TarFile:
         pax_headers: Optional[Mapping[str, str]] = ...,
         debug: Optional[int] = ...,
         errorlevel: Optional[int] = ...,
-    ) -> TarFile: ...
+    ) -> _TF: ...
     @overload
     @classmethod
     def bz2open(
-        cls,
+        cls: Type[_TF],
         name: Optional[StrOrBytesPath],
         mode: Literal["w", "x"],
         fileobj: Optional[_Bz2WritableFileobj] = ...,
@@ -215,11 +217,11 @@ class TarFile:
         pax_headers: Optional[Mapping[str, str]] = ...,
         debug: Optional[int] = ...,
         errorlevel: Optional[int] = ...,
-    ) -> TarFile: ...
+    ) -> _TF: ...
     @overload
     @classmethod
     def bz2open(
-        cls,
+        cls: Type[_TF],
         name: Optional[StrOrBytesPath],
         mode: Literal["r"] = ...,
         fileobj: Optional[_Bz2ReadableFileobj] = ...,
@@ -233,10 +235,10 @@ class TarFile:
         pax_headers: Optional[Mapping[str, str]] = ...,
         debug: Optional[int] = ...,
         errorlevel: Optional[int] = ...,
-    ) -> TarFile: ...
+    ) -> _TF: ...
     @classmethod
     def xzopen(
-        cls,
+        cls: Type[_TF],
         name: Optional[StrOrBytesPath],
         mode: Literal["r", "w", "x"] = ...,
         fileobj: Optional[IO[bytes]] = ...,
@@ -250,7 +252,7 @@ class TarFile:
         pax_headers: Optional[Mapping[str, str]] = ...,
         debug: Optional[int] = ...,
         errorlevel: Optional[int] = ...,
-    ) -> TarFile: ...
+    ) -> _TF: ...
     def getmember(self, name: str) -> TarInfo: ...
     def getmembers(self) -> List[TarInfo]: ...
     def getnames(self) -> List[str]: ...

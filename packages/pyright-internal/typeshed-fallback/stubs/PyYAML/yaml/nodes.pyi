@@ -1,31 +1,29 @@
-from typing import Any
+from typing import Any, ClassVar
+
+from yaml.error import Mark
 
 class Node:
-    tag: Any
+    tag: str
     value: Any
-    start_mark: Any
-    end_mark: Any
-    def __init__(self, tag, value, start_mark, end_mark) -> None: ...
+    start_mark: Mark | Any
+    end_mark: Mark | Any
+    def __init__(self, tag: str, value, start_mark: Mark | None, end_mark: Mark | None) -> None: ...
 
 class ScalarNode(Node):
-    id: Any
-    tag: Any
-    value: Any
-    start_mark: Any
-    end_mark: Any
-    style: Any
-    def __init__(self, tag, value, start_mark=..., end_mark=..., style=...) -> None: ...
+    id: ClassVar[str]
+    style: str | Any
+    def __init__(
+        self, tag: str, value, start_mark: Mark | None = ..., end_mark: Mark | None = ..., style: str | None = ...
+    ) -> None: ...
 
 class CollectionNode(Node):
-    tag: Any
-    value: Any
-    start_mark: Any
-    end_mark: Any
-    flow_style: Any
-    def __init__(self, tag, value, start_mark=..., end_mark=..., flow_style=...) -> None: ...
+    flow_style: bool | Any
+    def __init__(
+        self, tag: str, value, start_mark: Mark | None = ..., end_mark: Mark | None = ..., flow_style: bool | None = ...
+    ) -> None: ...
 
 class SequenceNode(CollectionNode):
-    id: Any
+    id: ClassVar[str]
 
 class MappingNode(CollectionNode):
-    id: Any
+    id: ClassVar[str]
