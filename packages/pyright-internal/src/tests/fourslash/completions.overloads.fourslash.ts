@@ -8,7 +8,11 @@
 //// from typing import overload
 ////
 //// @overload
-//// def func(x: str) -> str: ...
+//// def func(x: str) -> str: ...[|/*marker2*/|]
+////
+//// @overload
+//// def func(x: bytes) -> bytes:
+////     ...[|/*marker3*/|]
 ////
 //// @overload
 //// def func(x: int) -> int:
@@ -22,8 +26,15 @@ await helper.verifyCompletion('included', 'markdown', {
             {
                 label: 'func',
                 kind: Consts.CompletionItemKind.Function,
-                documentation: '```python\nfunc(x: str) -> str\nfunc(x: int) -> int\n```\n---\nfunc docs',
+                documentation:
+                    '```python\nfunc(x: str) -> str\nfunc(x: bytes) -> bytes\nfunc(x: int) -> int\n```\n---\nfunc docs',
             },
         ],
     },
+});
+
+// @ts-ignore
+await helper.verifyCompletion('exact', 'markdown', {
+    marker2: { completions: [] },
+    marker3: { completions: [] },
 });

@@ -1165,6 +1165,11 @@ export class CompletionProvider {
         const completionList = CompletionList.create();
         const completionResults = { completionList };
 
+        // Return empty completionList for Ellipsis
+        if (priorText.slice(-3) === '...') {
+            return completionResults;
+        }
+
         // Add call argument completions.
         this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
 
