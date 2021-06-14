@@ -682,6 +682,7 @@ interface CodeFlowAnalyzer {
 
 interface FlowNodeTypeResult {
     type: Type | undefined;
+    usedOuterScopeAlias: boolean;
     isIncomplete: boolean;
     generationCount?: number;
     incompleteType?: Type;
@@ -3897,6 +3898,16 @@ export function createTypeEvaluator(
 
                 if (codeFlowTypeResult.isIncomplete) {
                     isIncomplete = true;
+                }
+
+                // If the symbol used by the code flow engine isn't the same
+                // as the original symbol, then an outer-scoped symbol was used,
+                // and we need to mark it as accessed.
+                if (codeFlowTypeResult.usedOuterScopeAlias) {
+                    const outerScopeSymbol = symbolWithScope.scope.parent?.lookUpSymbolRecursive(name);
+                    if (outerScopeSymbol) {
+                        setSymbolAccessed(fileInfo, outerScopeSymbol.symbol, node);
+                    }
                 }
             }
 
@@ -16545,7 +16556,7 @@ export function createTypeEvaluator(
         const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionScope);
 
         if (!codeFlowExpressions || !codeFlowExpressions!.has(referenceKey)) {
-            return { type: undefined, isIncomplete: false };
+            return { type: undefined, usedOuterScopeAlias: false, isIncomplete: false };
         }
 
         // Is there an code flow analyzer cached for this execution scope?
@@ -16564,7 +16575,7 @@ export function createTypeEvaluator(
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
         if (flowNode === undefined) {
-            return { type: undefined, isIncomplete: false };
+            return { type: undefined, usedOuterScopeAlias: false, isIncomplete: false };
         }
 
         return getTypeFromCodeFlow(
@@ -16584,7 +16595,7 @@ export function createTypeEvaluator(
         targetSymbolId: number | undefined,
         initialType: Type | undefined,
         isInitialTypeIncomplete: boolean
-    ) {
+    ): FlowNodeTypeResult {
         incompleteTypeTracker.enterTrackingScope();
         let codeFlowResult: FlowNodeTypeResult;
 
@@ -16604,7 +16615,7 @@ export function createTypeEvaluator(
             incompleteTypeTracker.enableUndoTracking();
         }
 
-        return { type: codeFlowResult.type, isIncomplete: codeFlowResult.isIncomplete };
+        return codeFlowResult;
     }
 
     // Creates a new code flow analyzer that can be used to narrow the types
@@ -16634,6 +16645,7 @@ export function createTypeEvaluator(
             function setCacheEntry(
                 flowNode: FlowNode,
                 type: Type | undefined,
+                usedOuterScopeAlias: boolean,
                 isIncomplete: boolean
             ): FlowNodeTypeResult {
                 if (!isIncomplete) {
@@ -16667,13 +16679,19 @@ export function createTypeEvaluator(
 
                 return {
                     type,
+                    usedOuterScopeAlias,
                     isIncomplete,
                     generationCount: flowIncompleteGeneration,
                     incompleteSubtypes: isIncomplete ? [] : undefined,
                 };
             }
 
-            function setIncompleteSubtype(flowNode: FlowNode, index: number, type: Type | undefined) {
+            function setIncompleteSubtype(
+                flowNode: FlowNode,
+                index: number,
+                type: Type | undefined,
+                usedOuterScopeAlias: boolean
+            ) {
                 const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
                 if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
                     fail('setIncompleteSubtype can be called only on a valid incomplete cache entry');
@@ -16689,14 +16707,14 @@ export function createTypeEvaluator(
 
                 flowIncompleteGeneration++;
 
-                return getCacheEntry(flowNode);
+                return getCacheEntry(flowNode, usedOuterScopeAlias);
             }
 
             function deleteCacheEntry(flowNode: FlowNode) {
                 flowNodeTypeCache!.delete(flowNode.id);
             }
 
-            function getCacheEntry(flowNode: FlowNode): FlowNodeTypeResult | undefined {
+            function getCacheEntry(flowNode: FlowNode, usedOuterScopeAlias: boolean): FlowNodeTypeResult | undefined {
                 if (!flowNodeTypeCache!.has(flowNode.id)) {
                     return undefined;
                 }
@@ -16705,6 +16723,7 @@ export function createTypeEvaluator(
                 if (cachedEntry === undefined) {
                     return {
                         type: cachedEntry,
+                        usedOuterScopeAlias,
                         isIncomplete: false,
                     };
                 }
@@ -16712,6 +16731,7 @@ export function createTypeEvaluator(
                 if (!isIncompleteType(cachedEntry)) {
                     return {
                         type: cachedEntry,
+                        usedOuterScopeAlias,
                         isIncomplete: false,
                     };
                 }
@@ -16732,6 +16752,7 @@ export function createTypeEvaluator(
 
                 return {
                     type,
+                    usedOuterScopeAlias,
                     isIncomplete: true,
                     incompleteSubtypes: cachedEntry.incompleteSubtypes,
                     generationCount: cachedEntry.generationCount,
@@ -16766,6 +16787,7 @@ export function createTypeEvaluator(
                 isInitialTypeIncomplete: boolean
             ): FlowNodeTypeResult {
                 let curFlowNode = flowNode;
+                let usedOuterScopeAlias = false;
 
                 // This is a frequently-called routine, so it's a good place to call
                 // the cancellation check. If the operation is canceled, an exception
@@ -16774,7 +16796,7 @@ export function createTypeEvaluator(
 
                 while (true) {
                     // Have we already been here? If so, use the cached value.
-                    const cachedEntry = getCacheEntry(curFlowNode);
+                    const cachedEntry = getCacheEntry(curFlowNode, usedOuterScopeAlias);
                     if (cachedEntry) {
                         // If the cached entry is incomplete, we can use it only if nothing
                         // has changed that may cause the previously-reported incomplete type to change.
@@ -16787,7 +16809,7 @@ export function createTypeEvaluator(
                         // We can get here if there are nodes in a compound logical expression
                         // (e.g. "False and x") that are never executed but are evaluated.
                         // The type doesn't matter in this case.
-                        return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                        return setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
@@ -16803,7 +16825,7 @@ export function createTypeEvaluator(
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
                         if (isCallNoReturn(callFlowNode.node)) {
-                            return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                            return setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ false);
                         }
 
                         curFlowNode = callFlowNode.antecedent;
@@ -16823,24 +16845,34 @@ export function createTypeEvaluator(
                                 // Is this a special "unbind" assignment? If so,
                                 // we can handle it immediately without any further evaluation.
                                 if (curFlowNode.flags & FlowFlags.Unbind) {
-                                    return setCacheEntry(curFlowNode, UnboundType.create(), /* isIncomplete */ false);
+                                    return setCacheEntry(
+                                        curFlowNode,
+                                        UnboundType.create(),
+                                        usedOuterScopeAlias,
+                                        /* isIncomplete */ false
+                                    );
                                 }
 
                                 // If there was a cache entry already, that means we hit a recursive
                                 // case (something like "int: int = 4"). Avoid infinite recursion
                                 // by returning an undefined type.
                                 if (cachedEntry && cachedEntry.type === undefined) {
-                                    return { type: undefined, isIncomplete: true };
+                                    return { type: undefined, usedOuterScopeAlias, isIncomplete: true };
                                 }
 
                                 // Set the cache entry to undefined before evaluating the
                                 // expression in case it depends on itself.
-                                setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
+                                setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ true);
                                 let flowTypeResult = evaluateAssignmentFlowNode(assignmentFlowNode);
                                 if (flowTypeResult && isTypeAliasPlaceholder(flowTypeResult.type)) {
                                     flowTypeResult = undefined;
                                 }
-                                return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
+                                return setCacheEntry(
+                                    curFlowNode,
+                                    flowTypeResult?.type,
+                                    usedOuterScopeAlias,
+                                    !!flowTypeResult?.isIncomplete
+                                );
                             } else if (ParseTreeUtils.isPartialMatchingExpression(reference, assignmentFlowNode.node)) {
                                 // If the node partially matches the reference, we need to "kill" any narrowed
                                 // types further above this point. For example, if we see the sequence
@@ -16848,7 +16880,12 @@ export function createTypeEvaluator(
                                 //    a = Foo()
                                 //    x = a.b
                                 // The type of "a.b" can no longer be assumed to be Literal[3].
-                                return setCacheEntry(curFlowNode, initialType, isInitialTypeIncomplete);
+                                return setCacheEntry(
+                                    curFlowNode,
+                                    initialType,
+                                    usedOuterScopeAlias,
+                                    isInitialTypeIncomplete
+                                );
                             }
                         }
 
@@ -16863,6 +16900,7 @@ export function createTypeEvaluator(
                         // and continue to traverse the code flow graph.
                         if (targetSymbolId === aliasFlowNode.targetSymbolId) {
                             targetSymbolId = aliasFlowNode.aliasSymbolId;
+                            usedOuterScopeAlias = true;
                         }
                         curFlowNode = aliasFlowNode.antecedent;
                         continue;
@@ -16878,12 +16916,18 @@ export function createTypeEvaluator(
                                     isExceptionContextManager(expr, contextMgrNode.isAsync)
                                 )
                             ) {
-                                return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                                return setCacheEntry(
+                                    curFlowNode,
+                                    undefined,
+                                    usedOuterScopeAlias,
+                                    /* isIncomplete */ false
+                                );
                             }
                         }
 
                         const labelNode = curFlowNode as FlowLabel;
                         const typesToCombine: Type[] = [];
+                        let branchUsedOuterScopeAlias = usedOuterScopeAlias;
 
                         let sawIncomplete = false;
 
@@ -16900,13 +16944,17 @@ export function createTypeEvaluator(
                                 sawIncomplete = true;
                             }
 
+                            if (flowTypeResult.usedOuterScopeAlias) {
+                                branchUsedOuterScopeAlias = true;
+                            }
+
                             if (flowTypeResult.type) {
                                 typesToCombine.push(flowTypeResult.type);
                             }
                         });
 
                         const effectiveType = combineTypes(typesToCombine);
-                        return setCacheEntry(curFlowNode, effectiveType, sawIncomplete);
+                        return setCacheEntry(curFlowNode, effectiveType, branchUsedOuterScopeAlias, sawIncomplete);
                     }
 
                     if (curFlowNode.flags & FlowFlags.LoopLabel) {
@@ -16914,13 +16962,19 @@ export function createTypeEvaluator(
 
                         let firstWasIncomplete = false;
                         let isFirstTimeInLoop = false;
+                        let loopUsedOuterScopeAlias = usedOuterScopeAlias;
 
                         // See if we've been here before. If so, there will be an incomplete cache entry.
-                        let cacheEntry = getCacheEntry(curFlowNode);
+                        let cacheEntry = getCacheEntry(curFlowNode, usedOuterScopeAlias);
                         if (cacheEntry === undefined) {
                             // We haven't been here before, so create a new incomplete cache entry.
                             isFirstTimeInLoop = true;
-                            cacheEntry = setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
+                            cacheEntry = setCacheEntry(
+                                curFlowNode,
+                                undefined,
+                                usedOuterScopeAlias,
+                                /* isIncomplete */ true
+                            );
                         }
 
                         labelNode.antecedents.forEach((antecedent, index) => {
@@ -16930,7 +16984,7 @@ export function createTypeEvaluator(
                             if (index >= cacheEntry!.incompleteSubtypes!.length) {
                                 // Set the incomplete type for this index to undefined to prevent
                                 // infinite recursion. We'll set it to the computed value below.
-                                cacheEntry = setIncompleteSubtype(curFlowNode, index, undefined);
+                                cacheEntry = setIncompleteSubtype(curFlowNode, index, undefined, usedOuterScopeAlias);
                                 const flowTypeResult = getTypeFromFlowNode(
                                     antecedent,
                                     reference,
@@ -16943,7 +16997,16 @@ export function createTypeEvaluator(
                                     firstWasIncomplete = true;
                                 }
 
-                                cacheEntry = setIncompleteSubtype(curFlowNode, index, flowTypeResult.type);
+                                if (flowTypeResult.usedOuterScopeAlias) {
+                                    loopUsedOuterScopeAlias = true;
+                                }
+
+                                cacheEntry = setIncompleteSubtype(
+                                    curFlowNode,
+                                    index,
+                                    flowTypeResult.type,
+                                    loopUsedOuterScopeAlias
+                                );
                             }
                         });
 
@@ -16958,12 +17021,21 @@ export function createTypeEvaluator(
                         // that feeds the loop) is incomplete.
                         if (firstWasIncomplete) {
                             deleteCacheEntry(curFlowNode);
-                            return { type: cacheEntry!.type, isIncomplete: true };
+                            return {
+                                type: cacheEntry!.type,
+                                usedOuterScopeAlias: loopUsedOuterScopeAlias,
+                                isIncomplete: true,
+                            };
                         }
 
                         // We have made it all the way through all the antecedents, and we can
                         // mark the type as complete.
-                        return setCacheEntry(curFlowNode, cacheEntry!.type, /* isIncomplete */ false);
+                        return setCacheEntry(
+                            curFlowNode,
+                            cacheEntry!.type,
+                            loopUsedOuterScopeAlias,
+                            /* isIncomplete */ false
+                        );
                     }
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
@@ -16984,7 +17056,12 @@ export function createTypeEvaluator(
                                     flowType = typeNarrowingCallback(flowType);
                                 }
 
-                                return setCacheEntry(curFlowNode, flowType, flowTypeResult.isIncomplete);
+                                return setCacheEntry(
+                                    curFlowNode,
+                                    flowType,
+                                    flowTypeResult.usedOuterScopeAlias,
+                                    flowTypeResult.isIncomplete
+                                );
                             }
                         }
 
@@ -17014,7 +17091,12 @@ export function createTypeEvaluator(
 
                                     // If the narrowed type is "never", don't allow further exploration.
                                     if (isNever(narrowedType)) {
-                                        return setCacheEntry(curFlowNode, undefined, !!refTypeInfo.isIncomplete);
+                                        return setCacheEntry(
+                                            curFlowNode,
+                                            undefined,
+                                            usedOuterScopeAlias,
+                                            !!refTypeInfo.isIncomplete
+                                        );
                                     }
                                 }
                             }
@@ -17031,7 +17113,12 @@ export function createTypeEvaluator(
 
                         // If the narrowed type is "never", don't allow further exploration.
                         if (narrowedTypeResult && isNever(narrowedTypeResult.type)) {
-                            return setCacheEntry(curFlowNode, undefined, !!narrowedTypeResult.isIncomplete);
+                            return setCacheEntry(
+                                curFlowNode,
+                                undefined,
+                                usedOuterScopeAlias,
+                                !!narrowedTypeResult.isIncomplete
+                            );
                         }
 
                         curFlowNode = exhaustedMatchFlowNode.antecedent;
@@ -17052,7 +17139,12 @@ export function createTypeEvaluator(
                                 }
                             });
                             if (typeResult) {
-                                return setCacheEntry(curFlowNode, typeResult.type, !!typeResult.isIncomplete);
+                                return setCacheEntry(
+                                    curFlowNode,
+                                    typeResult.type,
+                                    usedOuterScopeAlias,
+                                    !!typeResult.isIncomplete
+                                );
                             }
                         }
                         curFlowNode = patternFlowNode.antecedent;
@@ -17062,7 +17154,7 @@ export function createTypeEvaluator(
                     if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                         const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
                         if (preFinallyFlowNode.isGateClosed) {
-                            return { type: undefined, isIncomplete: false };
+                            return { type: undefined, usedOuterScopeAlias, isIncomplete: false };
                         }
                         curFlowNode = preFinallyFlowNode.antecedent;
                         continue;
@@ -17091,14 +17183,19 @@ export function createTypeEvaluator(
                             // If the type is incomplete, don't write back to the cache.
                             return flowTypeResult!.isIncomplete
                                 ? flowTypeResult!
-                                : setCacheEntry(curFlowNode, flowTypeResult!.type, /* isIncomplete */ false);
+                                : setCacheEntry(
+                                      curFlowNode,
+                                      flowTypeResult!.type,
+                                      flowTypeResult!.usedOuterScopeAlias,
+                                      /* isIncomplete */ false
+                                  );
                         } finally {
                             postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                         }
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, initialType, isInitialTypeIncomplete);
+                        return setCacheEntry(curFlowNode, initialType, usedOuterScopeAlias, isInitialTypeIncomplete);
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -17107,7 +17204,7 @@ export function createTypeEvaluator(
                             const nameValue = reference.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
-                                return setCacheEntry(curFlowNode, type, /* isIncomplete */ false);
+                                return setCacheEntry(curFlowNode, type, usedOuterScopeAlias, /* isIncomplete */ false);
                             }
                         }
 
@@ -17117,7 +17214,7 @@ export function createTypeEvaluator(
 
                     // We shouldn't get here.
                     fail('Unexpected flow node flags');
-                    return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                    return setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ false);
                 }
             }
 
@@ -17128,6 +17225,7 @@ export function createTypeEvaluator(
                 // referenced types).
                 return {
                     type: initialType,
+                    usedOuterScopeAlias: false,
                     isIncomplete: isInitialTypeIncomplete,
                 };
             }
