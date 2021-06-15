@@ -10026,7 +10026,10 @@ export function createTypeEvaluator(
                 }
 
                 return {
-                    type: combineTypes([transformTypeObjectToClass(leftType), transformTypeObjectToClass(adjustedRightType)]),
+                    type: combineTypes([
+                        transformTypeObjectToClass(leftType),
+                        transformTypeObjectToClass(adjustedRightType),
+                    ]),
                     node,
                 };
             }
