@@ -1830,7 +1830,7 @@ export function _transformTypeVars(
                     if (replacementType && isObject(replacementType)) {
                         classType = ClassType.cloneForSpecialization(
                             type.classType,
-                            [ObjectType.create(replacementType.classType)],
+                            [replacementType],
                             /* usTypeArgumentExplicit */ true
                         );
                     }

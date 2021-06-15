@@ -5913,6 +5913,9 @@ export function createTypeEvaluator(
             } else {
                 typeResult = getTypeArg(expr, adjFlags);
             }
+
+            typeResult.type = transformTypeObjectToClass(typeResult.type);
+
             return typeResult;
         };
 
@@ -10023,7 +10026,7 @@ export function createTypeEvaluator(
                 }
 
                 return {
-                    type: combineTypes([leftType, adjustedRightType]),
+                    type: combineTypes([transformTypeObjectToClass(leftType), transformTypeObjectToClass(adjustedRightType)]),
                     node,
                 };
             }

@@ -1,7 +1,7 @@
 # This sample tests the alternative syntax for unions as
 # documented in PEP 604.
 
-from typing import Callable, Generic, Literal, TypeVar
+from typing import Callable, Generic, Literal, TypeVar, Union
 
 
 def foo1(a: int):
@@ -43,3 +43,34 @@ def foo5(a: str):
 
     t1: Literal["str | None"] = reveal_type(helper(a))
     t2: Literal["str | None"] = reveal_type(Baz[str].qux)
+
+
+T = TypeVar("T")
+TT = TypeVar("TT", bound=type)
+
+
+def decorator1(value: type[T]) -> type[T]:
+    ...
+
+
+def decorator2(value: TT) -> TT:
+    ...
+
+
+class ClassA:
+    class ClassA_A:
+        pass
+
+    @decorator1
+    class ClassA_B:
+        pass
+
+    @decorator2
+    class ClassA_C:
+        pass
+
+
+a_or_str: "ClassA.ClassA_A | str"
+b_or_str: "ClassA.ClassA_B | str"
+b_or_str_Union: Union[ClassA.ClassA_B, str]
+c_or_str: "ClassA.ClassA_C | str"

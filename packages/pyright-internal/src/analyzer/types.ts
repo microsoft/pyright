@@ -11,6 +11,7 @@ import { assert } from '../common/debug';
 import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
+import { transformTypeObjectToClass } from './typeUtils';
 
 export const enum TypeCategory {
     // Name is not bound to a value of any type.
@@ -2159,7 +2160,8 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
 export function isUnionableType(subtypes: Type[]): boolean {
     let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
 
-    for (const subtype of subtypes) {
+    for (let subtype of subtypes) {
+        subtype = transformTypeObjectToClass(subtype);
         typeFlags &= subtype.flags;
     }
 
