@@ -51,7 +51,7 @@ class FileBasedToken implements CancellationToken {
 
     constructor(readonly cancellationFilePath: string) {}
 
-    public cancel() {
+    cancel() {
         if (!this.isCancelled) {
             this.isCancelled = true;
             if (this._emitter) {
@@ -84,7 +84,7 @@ class FileBasedToken implements CancellationToken {
         return this._emitter.event;
     }
 
-    public dispose(): void {
+    dispose(): void {
         this._disposeEmitter();
     }
 
@@ -112,20 +112,20 @@ class OwningFileToken extends FileBasedToken {
         super(cancellationFilePath);
     }
 
-    public cancel() {
+    override cancel() {
         if (!this._disposed && !this.isCancelled) {
             this._createPipe();
             super.cancel();
         }
     }
 
-    get isCancellationRequested(): boolean {
+    override get isCancellationRequested(): boolean {
         // Since this object owns the file and it gets created when the
         // token is cancelled, there's no point in checking the pipe.
         return this.isCancelled;
     }
 
-    public dispose(): void {
+    override dispose(): void {
         this._disposed = true;
 
         super.dispose();

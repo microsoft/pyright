@@ -1213,12 +1213,12 @@ export class NameNodeWalker extends ParseTreeWalker {
         super();
     }
 
-    visitName(node: NameNode) {
+    override visitName(node: NameNode) {
         this._callback(node, this._subscriptIndex, this._baseExpression);
         return true;
     }
 
-    visitIndex(node: IndexNode) {
+    override visitIndex(node: IndexNode) {
         this.walk(node.baseExpression);
 
         const prevSubscriptIndex = this._subscriptIndex;

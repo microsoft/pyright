@@ -354,35 +354,38 @@ export class PyrightFileSystem implements FileSystem {
 }
 
 class FakeFile extends fs.Dirent {
-    constructor(public name: string) {
+    override name: string;
+
+    constructor(name: string) {
         super();
+        this.name = name;
     }
 
-    isFile(): boolean {
+    override isFile(): boolean {
         return true;
     }
 
-    isDirectory(): boolean {
+    override isDirectory(): boolean {
         return false;
     }
 
-    isBlockDevice(): boolean {
+    override isBlockDevice(): boolean {
         return false;
     }
 
-    isCharacterDevice(): boolean {
+    override isCharacterDevice(): boolean {
         return false;
     }
 
-    isSymbolicLink(): boolean {
+    override isSymbolicLink(): boolean {
         return false;
     }
 
-    isFIFO(): boolean {
+    override isFIFO(): boolean {
         return false;
     }
 
-    isSocket(): boolean {
+    override isSocket(): boolean {
         return false;
     }
 }

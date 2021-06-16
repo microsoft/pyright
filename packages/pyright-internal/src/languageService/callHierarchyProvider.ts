@@ -175,7 +175,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         return this._outgoingCalls;
     }
 
-    visitCall(node: CallNode): boolean {
+    override visitCall(node: CallNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
         let nameNode: NameNode | undefined;
@@ -202,7 +202,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         return true;
     }
 
-    visitMemberAccess(node: MemberAccessNode): boolean {
+    override visitMemberAccess(node: MemberAccessNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
         // Determine whether the member corresponds to a property.
@@ -303,7 +303,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         return this._incomingCalls;
     }
 
-    visitCall(node: CallNode): boolean {
+    override visitCall(node: CallNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
         let nameNode: NameNode | undefined;
@@ -333,7 +333,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         return true;
     }
 
-    visitMemberAccess(node: MemberAccessNode): boolean {
+    override visitMemberAccess(node: MemberAccessNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
         if (node.memberName.value === this._symbolName) {

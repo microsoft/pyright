@@ -28,7 +28,7 @@ export class ParseTreeCleanerWalker extends ParseTreeWalker {
         this.walk(this._parseTree);
     }
 
-    visitNode(node: ParseNode) {
+    override visitNode(node: ParseNode) {
         AnalyzerNodeInfo.cleanNodeAnalysisInfo(node);
         return super.visitNode(node);
     }

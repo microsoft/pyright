@@ -190,12 +190,12 @@ function hasZipMagic(fs: FakeFS<PortablePath>, p: PortablePath): boolean {
 //@ts-expect-error
 class EggZipOpenFS extends ZipOpenFS {
     // Copied from the ZipOpenFS implementation.
-    private readonly baseFs!: FakeFS<PortablePath>;
-    private readonly filter!: RegExp | null;
-    private isZip!: Set<PortablePath>;
-    private notZip!: Set<PortablePath>;
+    private override readonly baseFs!: FakeFS<PortablePath>;
+    private override readonly filter!: RegExp | null;
+    private override isZip!: Set<PortablePath>;
+    private override notZip!: Set<PortablePath>;
 
-    findZip(p: PortablePath) {
+    override findZip(p: PortablePath) {
         if (this.filter && !this.filter.test(p)) return null;
 
         let filePath = `` as PortablePath;

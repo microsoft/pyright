@@ -179,7 +179,7 @@ export class Checker extends ParseTreeWalker {
         this._reportDuplicateImports();
     }
 
-    walk(node: ParseNode) {
+    override walk(node: ParseNode) {
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         } else {
@@ -189,12 +189,12 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    visitSuite(node: SuiteNode): boolean {
+    override visitSuite(node: SuiteNode): boolean {
         this._walkStatementsAndReportUnreachable(node.statements);
         return false;
     }
 
-    visitStatementList(node: StatementListNode) {
+    override visitStatementList(node: StatementListNode) {
         node.statements.forEach((statement) => {
             if (isExpressionNode(statement)) {
                 // Evaluate the expression in case it wasn't otherwise evaluated
@@ -207,7 +207,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitClass(node: ClassNode): boolean {
+    override visitClass(node: ClassNode): boolean {
         const classTypeResult = this._evaluator.getTypeOfClass(node);
 
         this.walk(node.suite);
@@ -260,7 +260,7 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    visitFunction(node: FunctionNode): boolean {
+    override visitFunction(node: FunctionNode): boolean {
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
 
@@ -489,7 +489,7 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    visitLambda(node: LambdaNode): boolean {
+    override visitLambda(node: LambdaNode): boolean {
         this._evaluator.getType(node);
 
         // Walk the children.
@@ -544,7 +544,7 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    visitCall(node: CallNode): boolean {
+    override visitCall(node: CallNode): boolean {
         this._validateIsInstanceCall(node);
 
         if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
@@ -588,7 +588,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitAwait(node: AwaitNode) {
+    override visitAwait(node: AwaitNode) {
         if (this._fileInfo.diagnosticRuleSet.reportUnusedCallResult !== 'none') {
             if (
                 node.parent?.nodeType === ParseNodeType.StatementList &&
@@ -612,27 +612,27 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitFor(node: ForNode): boolean {
+    override visitFor(node: ForNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
         return true;
     }
 
-    visitListComprehension(node: ListComprehensionNode): boolean {
+    override visitListComprehension(node: ListComprehensionNode): boolean {
         this._scopedNodes.push(node);
         return true;
     }
 
-    visitIf(node: IfNode): boolean {
+    override visitIf(node: IfNode): boolean {
         this._evaluator.getType(node.testExpression);
         return true;
     }
 
-    visitWhile(node: WhileNode): boolean {
+    override visitWhile(node: WhileNode): boolean {
         this._evaluator.getType(node.testExpression);
         return true;
     }
 
-    visitWith(node: WithNode): boolean {
+    override visitWith(node: WithNode): boolean {
         node.withItems.forEach((item) => {
             this._evaluator.evaluateTypesForStatement(item);
         });
@@ -640,7 +640,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitReturn(node: ReturnNode): boolean {
+    override visitReturn(node: ReturnNode): boolean {
         let returnType: Type;
 
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
@@ -711,13 +711,13 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitYield(node: YieldNode) {
+    override visitYield(node: YieldNode) {
         const yieldType = node.expression ? this._evaluator.getType(node.expression) : NoneType.createInstance();
         this._validateYieldType(node, yieldType || UnknownType.create());
         return true;
     }
 
-    visitYieldFrom(node: YieldFromNode) {
+    override visitYieldFrom(node: YieldFromNode) {
         const yieldFromType = this._evaluator.getType(node.expression) || UnknownType.create();
         let yieldType =
             this._evaluator.getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
@@ -738,7 +738,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitRaise(node: RaiseNode): boolean {
+    override visitRaise(node: RaiseNode): boolean {
         this._evaluator.verifyRaiseExceptionType(node);
 
         if (node.valueExpression) {
@@ -789,7 +789,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitExcept(node: ExceptNode): boolean {
+    override visitExcept(node: ExceptNode): boolean {
         if (node.typeExpression) {
             this._evaluator.evaluateTypesForStatement(node);
 
@@ -802,7 +802,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitAssert(node: AssertNode) {
+    override visitAssert(node: AssertNode) {
         if (node.exceptionExpression) {
             this._evaluator.getType(node.exceptionExpression);
         }
@@ -830,7 +830,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitAssignment(node: AssignmentNode): boolean {
+    override visitAssignment(node: AssignmentNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
         if (node.typeAnnotationComment) {
             this._evaluator.getType(node.typeAnnotationComment);
@@ -839,17 +839,17 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitAssignmentExpression(node: AssignmentExpressionNode): boolean {
+    override visitAssignmentExpression(node: AssignmentExpressionNode): boolean {
         this._evaluator.getType(node);
         return true;
     }
 
-    visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
+    override visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
         return true;
     }
 
-    visitIndex(node: IndexNode): boolean {
+    override visitIndex(node: IndexNode): boolean {
         this._evaluator.getType(node);
 
         // If the index is a literal integer, see if this is a tuple with
@@ -899,7 +899,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitBinaryOperation(node: BinaryOperationNode): boolean {
+    override visitBinaryOperation(node: BinaryOperationNode): boolean {
         if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
             // Don't apply this rule if it's within an assert.
             if (!ParseTreeUtils.isWithinAssertExpression(node)) {
@@ -911,32 +911,32 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitSlice(node: SliceNode): boolean {
+    override visitSlice(node: SliceNode): boolean {
         this._evaluator.getType(node);
         return true;
     }
 
-    visitUnpack(node: UnpackNode): boolean {
+    override visitUnpack(node: UnpackNode): boolean {
         this._evaluator.getType(node);
         return true;
     }
 
-    visitTuple(node: TupleNode): boolean {
+    override visitTuple(node: TupleNode): boolean {
         this._evaluator.getType(node);
         return true;
     }
 
-    visitUnaryOperation(node: UnaryOperationNode): boolean {
+    override visitUnaryOperation(node: UnaryOperationNode): boolean {
         this._evaluator.getType(node);
         return true;
     }
 
-    visitTernary(node: TernaryNode): boolean {
+    override visitTernary(node: TernaryNode): boolean {
         this._evaluator.getType(node);
         return true;
     }
 
-    visitStringList(node: StringListNode): boolean {
+    override visitStringList(node: StringListNode): boolean {
         for (const stringNode of node.strings) {
             if (stringNode.hasUnescapeErrors) {
                 const unescapedResult = getUnescapedString(stringNode.token);
@@ -1003,7 +1003,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitFormatString(node: FormatStringNode): boolean {
+    override visitFormatString(node: FormatStringNode): boolean {
         node.expressions.forEach((formatExpr) => {
             this._evaluator.getType(formatExpr);
         });
@@ -1011,27 +1011,27 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitGlobal(node: GlobalNode): boolean {
+    override visitGlobal(node: GlobalNode): boolean {
         node.nameList.forEach((name) => {
             this._evaluator.getType(name);
         });
         return true;
     }
 
-    visitNonlocal(node: NonlocalNode): boolean {
+    override visitNonlocal(node: NonlocalNode): boolean {
         node.nameList.forEach((name) => {
             this._evaluator.getType(name);
         });
         return true;
     }
 
-    visitName(node: NameNode) {
+    override visitName(node: NameNode) {
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
         return true;
     }
 
-    visitDel(node: DelNode) {
+    override visitDel(node: DelNode) {
         node.expressions.forEach((expr) => {
             this._evaluator.verifyDeleteExpression(expr);
         });
@@ -1039,7 +1039,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitMemberAccess(node: MemberAccessNode) {
+    override visitMemberAccess(node: MemberAccessNode) {
         this._evaluator.getType(node);
         this._conditionallyReportPrivateUsage(node.memberName);
 
@@ -1049,12 +1049,12 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    visitImportAs(node: ImportAsNode): boolean {
+    override visitImportAs(node: ImportAsNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
         return false;
     }
 
-    visitImportFrom(node: ImportFromNode): boolean {
+    override visitImportFrom(node: ImportFromNode): boolean {
         if (!node.isWildcardImport) {
             node.imports.forEach((importAs) => {
                 this._evaluator.evaluateTypesForStatement(importAs);
@@ -1080,17 +1080,17 @@ export class Checker extends ParseTreeWalker {
         return false;
     }
 
-    visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+    override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
         this._evaluator.getType(node.typeAnnotation);
         return true;
     }
 
-    visitMatch(node: MatchNode): boolean {
+    override visitMatch(node: MatchNode): boolean {
         this._evaluator.getType(node.subjectExpression);
         return true;
     }
 
-    visitCase(node: CaseNode): boolean {
+    override visitCase(node: CaseNode): boolean {
         if (node.guardExpression) {
             this._evaluator.getType(node.guardExpression);
         }
@@ -1099,7 +1099,7 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    visitError(node: ErrorNode) {
+    override visitError(node: ErrorNode) {
         // Get the type of the child so it's available to
         // the completion provider.
         if (node.child) {

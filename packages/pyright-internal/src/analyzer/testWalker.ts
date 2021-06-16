@@ -15,7 +15,7 @@ export class TestWalker extends ParseTreeWalker {
         super();
     }
 
-    visitNode(node: ParseNode) {
+    override visitNode(node: ParseNode) {
         const children = super.visitNode(node);
         this._verifyParentChildLinks(node, children);
         this._verifyChildRanges(node, children);
@@ -90,7 +90,7 @@ export class NameTypeWalker extends ParseTreeWalker {
         super();
     }
 
-    visitName(node: NameNode) {
+    override visitName(node: NameNode) {
         if (node.parent?.nodeType !== ParseNodeType.ImportFromAs && node.parent?.nodeType !== ParseNodeType.ImportAs) {
             if (this._evaluator.isNodeReachable(node)) {
                 this._evaluator.getType(node);

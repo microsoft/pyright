@@ -15,6 +15,7 @@
         "sourceMap": true,
         "outDir": "./out",
         "noImplicitReturns": true,
+        "noImplicitOverride": true,
         "checkJs": true,
     },
     "exclude": [

@@ -264,19 +264,19 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    visitModule(node: ModuleNode): boolean {
+    override visitModule(node: ModuleNode): boolean {
         // Tree walking should start with the children of
         // the node, so we should never get here.
         fail('We should never get here');
         return false;
     }
 
-    visitSuite(node: SuiteNode): boolean {
+    override visitSuite(node: SuiteNode): boolean {
         this._walkStatementsAndReportUnreachable(node.statements);
         return false;
     }
 
-    visitModuleName(node: ModuleNameNode): boolean {
+    override visitModuleName(node: ModuleNameNode): boolean {
         const importResult = AnalyzerNodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
 
@@ -339,7 +339,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitClass(node: ClassNode): boolean {
+    override visitClass(node: ClassNode): boolean {
         this.walkMultiple(node.decorators);
 
         const classDeclaration: ClassDeclaration = {
@@ -387,7 +387,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitFunction(node: FunctionNode): boolean {
+    override visitFunction(node: FunctionNode): boolean {
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const functionDeclaration: FunctionDeclaration = {
@@ -515,7 +515,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitLambda(node: LambdaNode): boolean {
+    override visitLambda(node: LambdaNode): boolean {
         // Analyze the parameter defaults in the context of the parent's scope
         // before we add any names from the function's scope.
         node.parameters.forEach((param) => {
@@ -567,7 +567,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitCall(node: CallNode): boolean {
+    override visitCall(node: CallNode): boolean {
         this.walk(node.leftExpression);
         this.walkMultiple(node.arguments);
         this._createCallFlowNode(node);
@@ -649,7 +649,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitAssignment(node: AssignmentNode): boolean {
+    override visitAssignment(node: AssignmentNode): boolean {
         if (this._handleTypingStubAssignmentOrAnnotation(node)) {
             return false;
         }
@@ -736,7 +736,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitAssignmentExpression(node: AssignmentExpressionNode) {
+    override visitAssignmentExpression(node: AssignmentExpressionNode) {
         // Temporarily disable true/false targets in case this assignment
         // expression is located within an if/else conditional.
         this._disableTrueFalseTargets(() => {
@@ -780,7 +780,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitAugmentedAssignment(node: AugmentedAssignmentNode) {
+    override visitAugmentedAssignment(node: AugmentedAssignmentNode) {
         this.walk(node.leftExpression);
         this.walk(node.rightExpression);
 
@@ -841,7 +841,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitDel(node: DelNode) {
+    override visitDel(node: DelNode) {
         node.expressions.forEach((expr) => {
             this._bindPossibleTupleNamedTarget(expr);
             this.walk(expr);
@@ -851,7 +851,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+    override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
         if (this._handleTypingStubAssignmentOrAnnotation(node)) {
             return false;
         }
@@ -880,7 +880,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitFor(node: ForNode) {
+    override visitFor(node: ForNode) {
         this._bindPossibleTupleNamedTarget(node.targetExpression);
         this._addInferredTypeAssignmentForVariable(node.targetExpression, node);
 
@@ -918,7 +918,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitContinue(node: ContinueNode): boolean {
+    override visitContinue(node: ContinueNode): boolean {
         if (this._currentContinueTarget) {
             this._addAntecedent(this._currentContinueTarget, this._currentFlowNode!);
         }
@@ -928,7 +928,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitBreak(node: BreakNode): boolean {
+    override visitBreak(node: BreakNode): boolean {
         if (this._currentBreakTarget) {
             this._addAntecedent(this._currentBreakTarget, this._currentFlowNode!);
         }
@@ -938,7 +938,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitReturn(node: ReturnNode): boolean {
+    override visitReturn(node: ReturnNode): boolean {
         if (this._targetFunctionDeclaration) {
             if (!this._targetFunctionDeclaration.returnStatements) {
                 this._targetFunctionDeclaration.returnStatements = [];
@@ -961,7 +961,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitYield(node: YieldNode): boolean {
+    override visitYield(node: YieldNode): boolean {
         if (this._isInListComprehension(node)) {
             this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
         }
@@ -970,7 +970,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitYieldFrom(node: YieldFromNode): boolean {
+    override visitYieldFrom(node: YieldFromNode): boolean {
         if (this._isInListComprehension(node)) {
             this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
         }
@@ -979,24 +979,24 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitMemberAccess(node: MemberAccessNode): boolean {
+    override visitMemberAccess(node: MemberAccessNode): boolean {
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
         return true;
     }
 
-    visitName(node: NameNode): boolean {
+    override visitName(node: NameNode): boolean {
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         // Name nodes have no children.
         return false;
     }
 
-    visitIndex(node: IndexNode): boolean {
+    override visitIndex(node: IndexNode): boolean {
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
         return true;
     }
 
-    visitIf(node: IfNode): boolean {
+    override visitIf(node: IfNode): boolean {
         const thenLabel = this._createBranchLabel();
         const elseLabel = this._createBranchLabel();
         const postIfLabel = this._createBranchLabel();
@@ -1034,7 +1034,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitWhile(node: WhileNode): boolean {
+    override visitWhile(node: WhileNode): boolean {
         const thenLabel = this._createBranchLabel();
         const elseLabel = this._createBranchLabel();
         const postWhileLabel = this._createBranchLabel();
@@ -1072,7 +1072,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitAssert(node: AssertNode): boolean {
+    override visitAssert(node: AssertNode): boolean {
         const assertTrueLabel = this._createBranchLabel();
         const assertFalseLabel = this._createBranchLabel();
 
@@ -1087,7 +1087,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitExcept(node: ExceptNode): boolean {
+    override visitExcept(node: ExceptNode): boolean {
         if (node.typeExpression) {
             this.walk(node.typeExpression);
         }
@@ -1122,7 +1122,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitRaise(node: RaiseNode): boolean {
+    override visitRaise(node: RaiseNode): boolean {
         if (this._targetFunctionDeclaration) {
             if (!this._targetFunctionDeclaration.raiseStatements) {
                 this._targetFunctionDeclaration.raiseStatements = [];
@@ -1148,7 +1148,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitTry(node: TryNode): boolean {
+    override visitTry(node: TryNode): boolean {
         // The try/except/else/finally statement is tricky to model using static code
         // flow rules because the finally clause is executed regardless of whether an
         // exception is raised or a return statement is executed. Code within the finally
@@ -1276,7 +1276,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitAwait(node: AwaitNode) {
+    override visitAwait(node: AwaitNode) {
         // Make sure this is within an async lambda or function.
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
@@ -1291,7 +1291,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitGlobal(node: GlobalNode): boolean {
+    override visitGlobal(node: GlobalNode): boolean {
         const globalScope = this._currentScope.getGlobalScope();
 
         node.nameList.forEach((name) => {
@@ -1320,7 +1320,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitNonlocal(node: NonlocalNode): boolean {
+    override visitNonlocal(node: NonlocalNode): boolean {
         const globalScope = this._currentScope.getGlobalScope();
 
         if (this._currentScope === globalScope) {
@@ -1352,7 +1352,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitImportAs(node: ImportAsNode): boolean {
+    override visitImportAs(node: ImportAsNode): boolean {
         if (node.module.nameParts.length > 0) {
             const firstNamePartValue = node.module.nameParts[0].value;
 
@@ -1405,7 +1405,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitImportFrom(node: ImportFromNode): boolean {
+    override visitImportFrom(node: ImportFromNode): boolean {
         const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar', 'Required', 'NotRequired'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
@@ -1609,7 +1609,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitWith(node: WithNode): boolean {
+    override visitWith(node: WithNode): boolean {
         node.withItems.forEach((item) => {
             this.walk(item.expression);
             if (item.target) {
@@ -1667,7 +1667,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitTernary(node: TernaryNode): boolean {
+    override visitTernary(node: TernaryNode): boolean {
         const trueLabel = this._createBranchLabel();
         const falseLabel = this._createBranchLabel();
         const postExpressionLabel = this._createBranchLabel();
@@ -1690,7 +1690,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitUnaryOperation(node: UnaryOperationNode): boolean {
+    override visitUnaryOperation(node: UnaryOperationNode): boolean {
         if (node.operator === OperatorType.Not && this._currentFalseTarget && this._currentTrueTarget) {
             // Swap the existing true/false targets.
             this._bindConditional(node.expression, this._currentFalseTarget, this._currentTrueTarget);
@@ -1707,7 +1707,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitBinaryOperation(node: BinaryOperationNode): boolean {
+    override visitBinaryOperation(node: BinaryOperationNode): boolean {
         if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
             let trueTarget = this._currentTrueTarget;
             let falseTarget = this._currentFalseTarget;
@@ -1742,7 +1742,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitListComprehension(node: ListComprehensionNode): boolean {
+    override visitListComprehension(node: ListComprehensionNode): boolean {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
 
         this._createNewScope(ScopeType.ListComprehension, this._currentScope, () => {
@@ -1813,7 +1813,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitMatch(node: MatchNode) {
+    override visitMatch(node: MatchNode) {
         // Evaluate the subject expression.
         this.walk(node.subjectExpression);
 
@@ -1890,7 +1890,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitPatternAs(node: PatternAsNode) {
+    override visitPatternAs(node: PatternAsNode) {
         const postOrLabel = this._createBranchLabel();
 
         node.orPatterns.forEach((orPattern) => {
@@ -1926,7 +1926,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitPatternCapture(node: PatternCaptureNode) {
+    override visitPatternCapture(node: PatternCaptureNode) {
         if (!node.isWildcard) {
             this._addPatternCaptureTarget(node.target);
         }
@@ -1934,7 +1934,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode) {
+    override visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode) {
         if (node.target.value !== '_') {
             this._addPatternCaptureTarget(node.target);
         }
@@ -3536,12 +3536,12 @@ export class YieldFinder extends ParseTreeWalker {
         return this._containsYield;
     }
 
-    visitYield(node: YieldNode): boolean {
+    override visitYield(node: YieldNode): boolean {
         this._containsYield = true;
         return false;
     }
 
-    visitYieldFrom(node: YieldFromNode): boolean {
+    override visitYieldFrom(node: YieldFromNode): boolean {
         this._containsYield = true;
         return false;
     }
@@ -3555,7 +3555,7 @@ export class ReturnFinder extends ParseTreeWalker {
         return this._containsReturn;
     }
 
-    visitReturn(node: ReturnNode): boolean {
+    override visitReturn(node: ReturnNode): boolean {
         this._containsReturn = true;
         return false;
     }
