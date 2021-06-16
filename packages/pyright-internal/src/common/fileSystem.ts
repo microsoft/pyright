@@ -320,7 +320,7 @@ class RealFileSystem implements FileSystem {
     }
 
     writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null) {
-        yarnFS.writeFileSync(path, data, { encoding: encoding ?? undefined });
+        yarnFS.writeFileSync(path, data, encoding || undefined);
     }
 
     statSync(path: string) {
@@ -415,7 +415,7 @@ class RealFileSystem implements FileSystem {
             // path is rooted, make sure we lower case the root part
             // to follow vscode's behavior.
             return realPath.substr(0, rootLength).toLowerCase() + realPath.substr(rootLength);
-        } catch (e) {
+        } catch (e: any) {
             // Return as it is, if anything failed.
             this._console.error(`Failed to get real file system casing for ${path}: ${e}`);
 

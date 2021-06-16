@@ -122,7 +122,7 @@ export class PackageTypeVerifier {
                     });
                 }
             }
-        } catch (e) {
+        } catch (e: any) {
             const message: string =
                 (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||

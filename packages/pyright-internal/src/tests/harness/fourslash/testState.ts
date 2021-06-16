@@ -132,7 +132,7 @@ export class TestState {
             if (this._isConfig(file, ignoreCase)) {
                 try {
                     this.rawConfigJson = JSON.parse(file.content);
-                } catch (e) {
+                } catch (e: any) {
                     throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }
 
@@ -663,7 +663,7 @@ export class TestState {
 
         const commandResult = await this._hostSpecificFeatures.execute(
             new TestLanguageService(this.workspace, this.console, this.fs),
-            { command: command.command, arguments: command.arguments },
+            { command: command.command, arguments: command.arguments || [] },
             CancellationToken.None
         );
 
@@ -724,7 +724,7 @@ export class TestState {
                     ls,
                     {
                         command: codeAction.command!.command,
-                        arguments: codeAction.command?.arguments,
+                        arguments: codeAction.command?.arguments || [],
                     },
                     CancellationToken.None
                 );

@@ -113,7 +113,7 @@ export interface FlowWildcardImport extends FlowNode {
 // be true or false at the node's location in the control flow.
 export interface FlowCondition extends FlowNode {
     expression: ExpressionNode;
-    reference?: NameNode;
+    reference?: NameNode | undefined;
     antecedent: FlowNode;
 }
 

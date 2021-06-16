@@ -27,10 +27,10 @@ export interface TypeVarMapEntry {
 
     // The final type must "fit" between the narrow and
     // wide type bound.
-    narrowBound?: Type;
-    wideBound?: Type;
+    narrowBound?: Type | undefined;
+    wideBound?: Type | undefined;
 
-    retainLiteral?: boolean;
+    retainLiteral?: boolean | undefined;
 }
 
 export interface ParamSpecMapEntry {

@@ -47,7 +47,7 @@ import { isDunderName } from './symbolNameUtils';
 export interface ImportedModuleDescriptor {
     leadingDots: number;
     nameParts: string[];
-    hasTrailingDot?: boolean;
+    hasTrailingDot?: boolean | undefined;
     importedSymbols: string[] | undefined;
 }
 
@@ -60,7 +60,7 @@ export interface ModuleNameAndType {
 type CachedImportResults = Map<string, ImportResult>;
 interface SupportedVersionRange {
     min: PythonVersion;
-    max?: PythonVersion;
+    max?: PythonVersion | undefined;
 }
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
@@ -1440,7 +1440,7 @@ export class ImportResolver {
                 } else {
                     importFailureInfo.push(`Typeshed stdlib VERSIONS file is unexpectedly large`);
                 }
-            } catch (e) {
+            } catch (e: any) {
                 importFailureInfo.push(`Could not read typeshed stdlib VERSIONS file: '${JSON.stringify(e)}'`);
             }
         }

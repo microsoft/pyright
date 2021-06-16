@@ -93,26 +93,26 @@ import { PyrightFileSystem } from './pyrightFileSystem';
 import { WorkspaceMap } from './workspaceMap';
 
 export interface ServerSettings {
-    venvPath?: string;
-    pythonPath?: string;
-    typeshedPath?: string;
-    stubPath?: string;
-    openFilesOnly?: boolean;
-    typeCheckingMode?: string;
-    useLibraryCodeForTypes?: boolean;
-    disableLanguageServices?: boolean;
-    disableOrganizeImports?: boolean;
-    autoSearchPaths?: boolean;
-    extraPaths?: string[];
-    watchForSourceChanges?: boolean;
-    watchForLibraryChanges?: boolean;
-    watchForConfigChanges?: boolean;
-    diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
-    logLevel?: LogLevel;
-    autoImportCompletions?: boolean;
-    indexing?: boolean;
-    logTypeEvaluationTime?: boolean;
-    typeEvaluationTimeThreshold?: number;
+    venvPath?: string | undefined;
+    pythonPath?: string | undefined;
+    typeshedPath?: string | undefined;
+    stubPath?: string | undefined;
+    openFilesOnly?: boolean | undefined;
+    typeCheckingMode?: string | undefined;
+    useLibraryCodeForTypes?: boolean | undefined;
+    disableLanguageServices?: boolean | undefined;
+    disableOrganizeImports?: boolean | undefined;
+    autoSearchPaths?: boolean | undefined;
+    extraPaths?: string[] | undefined;
+    watchForSourceChanges?: boolean | undefined;
+    watchForLibraryChanges?: boolean | undefined;
+    watchForConfigChanges?: boolean | undefined;
+    diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap | undefined;
+    logLevel?: LogLevel | undefined;
+    autoImportCompletions?: boolean | undefined;
+    indexing?: boolean | undefined;
+    logTypeEvaluationTime?: boolean | undefined;
+    typeEvaluationTimeThreshold?: number | undefined;
 }
 
 export interface WorkspaceServiceInstance {
@@ -283,10 +283,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected async getConfiguration(scopeUri: string | undefined, section: string) {
         if (this.client.hasConfigurationCapability) {
-            const item: ConfigurationItem = {
-                scopeUri,
-                section,
-            };
+            const item: ConfigurationItem = {};
+            if (scopeUri !== undefined) {
+                item.scopeUri = scopeUri;
+            }
+            if (section !== undefined) {
+                item.section = section;
+            }
             return this._connection.workspace.getConfiguration(item);
         }
 
@@ -421,7 +424,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     return fs.watch(path, { recursive: true }, (event, filename) =>
                         listener(event as FileWatcherEventType, filename)
                     );
-                } catch (e) {
+                } catch (e: any) {
                     this.console.warn(`Exception received when installing recursive file system watcher: ${e}`);
                     return undefined;
                 }
@@ -665,8 +668,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 }
 
                 const sigInfo = SignatureInformation.create(sig.label, undefined, ...paramInfo);
-                sigInfo.documentation = sig.documentation;
-                sigInfo.activeParameter = sig.activeParameter;
+                if (sig.documentation !== undefined) {
+                    sigInfo.documentation = sig.documentation;
+                }
+                if (sig.activeParameter !== undefined) {
+                    sigInfo.activeParameter = sig.activeParameter;
+                }
                 return sigInfo;
             });
 

@@ -132,7 +132,7 @@ import {
 interface ListResult<T> {
     list: T[];
     trailingComma: boolean;
-    parseError?: ErrorNode;
+    parseError?: ErrorNode | undefined;
 }
 
 interface SubscriptListResult {
@@ -164,7 +164,7 @@ export interface ParseResults {
 }
 
 export interface ParseExpressionTextResults {
-    parseTree?: ExpressionNode;
+    parseTree?: ExpressionNode | undefined;
     lines: TextRangeCollection<TextRange>;
     diagnostics: Diagnostic[];
 }

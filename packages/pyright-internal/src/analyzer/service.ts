@@ -94,8 +94,8 @@ export class AnalyzerService {
     private _extension: LanguageServiceExtension | undefined;
     private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
-    private _maxAnalysisTimeInForeground?: MaxAnalysisTime;
-    private _backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
+    private _maxAnalysisTimeInForeground: MaxAnalysisTime | undefined;
+    private _backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory | undefined;
     private _disposed = false;
 
     constructor(
@@ -800,7 +800,7 @@ export class AnalyzerService {
             if (!this._fs.existsSync(stubPath)) {
                 this._fs.mkdirSync(stubPath);
             }
-        } catch (e) {
+        } catch (e: any) {
             const errMsg = `Could not create typings directory '${stubPath}'`;
             this._console.error(errMsg);
             throw new Error(errMsg);
@@ -812,7 +812,7 @@ export class AnalyzerService {
             if (!this._fs.existsSync(typingsSubdirPath)) {
                 this._fs.mkdirSync(typingsSubdirPath);
             }
-        } catch (e) {
+        } catch (e: any) {
             const errMsg = `Could not create typings subdirectory '${typingsSubdirPath}'`;
             this._console.error(errMsg);
             throw new Error(errMsg);
@@ -859,7 +859,7 @@ export class AnalyzerService {
                 if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).pyright) {
                     return (configObj.tool as TOML.JsonMap).pyright as object;
                 }
-            } catch (e) {
+            } catch (e: any) {
                 this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);
                 throw e;
             }
@@ -890,7 +890,7 @@ export class AnalyzerService {
             let parseFailed = false;
             try {
                 return parseCallback(fileContents, parseAttemptCount + 1);
-            } catch (e) {
+            } catch (e: any) {
                 parseFailed = true;
             }
 

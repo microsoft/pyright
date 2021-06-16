@@ -564,7 +564,7 @@ export class SourceMapper {
                 // them.
                 //
                 // The ID is not deleted to avoid needing a second Set to track all decls
-                // seen in this function. This is safe beacuse the ID here is unique to this
+                // seen in this function. This is safe because the ID here is unique to this
                 // function.
                 recursiveDeclCache.add(uniqueId);
 

@@ -59,7 +59,7 @@ export class ExecutionEnvironment {
     pythonVersion: PythonVersion;
 
     // Default to no platform.
-    pythonPlatform?: string;
+    pythonPlatform?: string | undefined;
 
     // Default to no extra paths.
     extraPaths: string[] = [];
@@ -571,13 +571,13 @@ export class ConfigOptions {
     projectRoot: string;
 
     // Path to python interpreter.
-    pythonPath?: string;
+    pythonPath?: string | undefined;
 
     // Path to use for typeshed definitions.
-    typeshedPath?: string;
+    typeshedPath?: string | undefined;
 
     // Path to custom typings (stub) modules.
-    stubPath?: string;
+    stubPath?: string | undefined;
 
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
@@ -595,7 +595,7 @@ export class ConfigOptions {
     // It is used to store whether the user has specified directories in
     // the exclude setting, which is later modified to include a default set.
     // This setting is true when user has not specified any exclude.
-    autoExcludeVenv?: boolean;
+    autoExcludeVenv?: boolean | undefined;
 
     // A list of file specs whose errors and warnings should be ignored even
     // if they are included in the transitive closure of included files.
@@ -605,14 +605,14 @@ export class ConfigOptions {
     strict: FileSpec[] = [];
 
     // Emit verbose information to console?
-    verboseOutput?: boolean;
+    verboseOutput?: boolean | undefined;
 
     // Perform type checking and report diagnostics only for open files?
-    checkOnlyOpenFiles?: boolean;
+    checkOnlyOpenFiles?: boolean | undefined;
 
     // In the absence of type stubs, use library implementations to extract
     // type information?
-    useLibraryCodeForTypes?: boolean;
+    useLibraryCodeForTypes?: boolean | undefined;
 
     // Offer auto-import completions.
     autoImportCompletions = true;
@@ -646,28 +646,28 @@ export class ConfigOptions {
     // directories. This is used in conjunction with the "venv" name in
     // the config file to identify the python environment used for resolving
     // third-party modules.
-    venvPath?: string;
+    venvPath?: string | undefined;
 
     // Default venv environment.
-    venv?: string;
+    venv?: string | undefined;
 
     // Default pythonVersion. Can be overridden by executionEnvironment.
-    defaultPythonVersion?: PythonVersion;
+    defaultPythonVersion?: PythonVersion | undefined;
 
     // Default pythonPlatform. Can be overridden by executionEnvironment.
-    defaultPythonPlatform?: string;
+    defaultPythonPlatform?: string | undefined;
 
     // Default extraPaths. Can be overridden by executionEnvironment.
-    defaultExtraPaths?: string[];
+    defaultExtraPaths?: string[] | undefined;
 
     //---------------------------------------------------------------
     // Internal-only switches
 
     // Run additional analysis as part of test cases?
-    internalTestMode?: boolean;
+    internalTestMode?: boolean | undefined;
 
     // Run program in index generation mode.
-    indexGenerationMode?: boolean;
+    indexGenerationMode?: boolean | undefined;
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {

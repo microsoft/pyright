@@ -186,7 +186,7 @@ export interface TokenBase extends TextRange {
     readonly type: TokenType;
 
     // Comments prior to the token.
-    readonly comments?: Comment[];
+    readonly comments?: Comment[] | undefined;
 }
 
 export interface Token extends TokenBase {}

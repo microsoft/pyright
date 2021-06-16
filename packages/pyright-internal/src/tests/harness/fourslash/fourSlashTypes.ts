@@ -59,7 +59,7 @@ export interface FourSlashData {
      * is a range with `text in range` "selected".
      */
     ranges: Range[];
-    rangesByText?: MultiMap<Range>;
+    rangesByText?: MultiMap<Range> | undefined;
 }
 
 export interface Marker {
@@ -70,7 +70,7 @@ export interface Marker {
 
 export interface Range {
     fileName: string;
-    marker?: Marker;
+    marker?: Marker | undefined;
     pos: number;
     end: number;
 }

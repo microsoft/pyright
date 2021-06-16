@@ -70,10 +70,10 @@ const _maxSourceFileSize = 16 * 1024 * 1024;
 
 interface ResolveImportResult {
     imports: ImportResult[];
-    builtinsImportResult?: ImportResult;
-    typingModulePath?: string;
-    typeshedModulePath?: string;
-    collectionsModulePath?: string;
+    builtinsImportResult?: ImportResult | undefined;
+    typingModulePath?: string | undefined;
+    typeshedModulePath?: string | undefined;
+    collectionsModulePath?: string | undefined;
 }
 
 export class SourceFile {
@@ -127,7 +127,7 @@ export class SourceFile {
 
     // Client's version of the file. Undefined implies that contents
     // need to be read from disk.
-    private _clientDocument?: TextDocument;
+    private _clientDocument: TextDocument | undefined;
 
     // Version of file contents that have been analyzed.
     private _analyzedFileContentsVersion = -1;
@@ -136,9 +136,9 @@ export class SourceFile {
     // the binder information hanging from it?
     private _parseTreeNeedsCleaning = false;
 
-    private _parseResults?: ParseResults;
-    private _moduleSymbolTable?: SymbolTable;
-    private _cachedIndexResults?: IndexResults;
+    private _parseResults: ParseResults | undefined;
+    private _moduleSymbolTable: SymbolTable | undefined;
+    private _cachedIndexResults: IndexResults | undefined;
 
     // Reentrancy check for binding.
     private _isBindingInProgress = false;
@@ -155,7 +155,7 @@ export class SourceFile {
     private _circularDependencies: CircularDependency[] = [];
 
     // Did we hit the maximum import depth?
-    private _hitMaxImportDepth?: number;
+    private _hitMaxImportDepth: number | undefined;
 
     // Do we need to perform a binding step?
     private _isBindingNeeded = true;
@@ -167,11 +167,11 @@ export class SourceFile {
     private _indexingNeeded = true;
 
     // Information about implicit and explicit imports from this file.
-    private _imports?: ImportResult[];
-    private _builtinsImport?: ImportResult;
-    private _typingModulePath?: string;
-    private _typeshedModulePath?: string;
-    private _collectionsModulePath?: string;
+    private _imports: ImportResult[] | undefined;
+    private _builtinsImport: ImportResult | undefined;
+    private _typingModulePath: string | undefined;
+    private _typeshedModulePath: string | undefined;
+    private _collectionsModulePath: string | undefined;
 
     private _logTracker: LogTracker;
     readonly fileSystem: FileSystem;
@@ -599,7 +599,7 @@ export class SourceFile {
                     configOptions.diagnosticRuleSet,
                     useStrict
                 );
-            } catch (e) {
+            } catch (e: any) {
                 const message: string =
                     (e.stack ? e.stack.toString() : undefined) ||
                     (typeof e.message === 'string' ? e.message : undefined) ||
@@ -965,7 +965,7 @@ export class SourceFile {
                     assert(moduleScope !== undefined);
                     this._moduleSymbolTable = moduleScope!.symbolTable;
                 });
-            } catch (e) {
+            } catch (e: any) {
                 const message: string =
                     (e.stack ? e.stack.toString() : undefined) ||
                     (typeof e.message === 'string' ? e.message : undefined) ||
@@ -1012,7 +1012,7 @@ export class SourceFile {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
                     this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
                 });
-            } catch (e) {
+            } catch (e: any) {
                 const isCancellation = OperationCanceledException.is(e);
                 if (!isCancellation) {
                     const message: string =

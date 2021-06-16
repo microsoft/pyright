@@ -56,9 +56,9 @@ class TrackedImportAs extends TrackedImport {
 }
 
 interface TrackedImportSymbol {
-    symbol?: Symbol;
+    symbol?: Symbol | undefined;
     name: string;
-    alias?: string;
+    alias?: string | undefined;
     isAccessed: boolean;
 }
 

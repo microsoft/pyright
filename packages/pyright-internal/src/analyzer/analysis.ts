@@ -28,7 +28,7 @@ export interface AnalysisResults {
     fatalErrorOccurred: boolean;
     configParseErrorOccurred: boolean;
     elapsedTime: number;
-    error?: Error;
+    error?: Error | undefined;
 }
 
 export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
@@ -68,7 +68,7 @@ export function analyzeProgram(
                 elapsedTime,
             });
         }
-    } catch (e) {
+    } catch (e: any) {
         if (OperationCanceledException.is(e)) {
             return false;
         }

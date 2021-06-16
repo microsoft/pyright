@@ -57,8 +57,8 @@ interface PyrightSymbolCount {
 interface PyrightTypeCompletenessReport {
     packageName: string;
     ignoreUnknownTypesFromImports: boolean;
-    packageRootDirectory?: string;
-    pyTypedPath?: string;
+    packageRootDirectory?: string | undefined;
+    pyTypedPath?: string | undefined;
     exportedSymbolCounts: PyrightSymbolCount;
     otherSymbolCounts: PyrightSymbolCount;
     missingFunctionDocStringCount: number;
@@ -80,15 +80,15 @@ interface PyrightPublicSymbolReport {
     isTypeKnown: boolean;
     isExported: boolean;
     diagnostics: PyrightJsonDiagnostic[];
-    alternateNames?: string[];
+    alternateNames?: string[] | undefined;
 }
 
 interface PyrightJsonDiagnostic {
     file: string;
     severity: 'error' | 'warning' | 'information';
     message: string;
-    range?: Range;
-    rule?: string;
+    range?: Range | undefined;
+    rule?: string | undefined;
 }
 
 interface PyrightJsonSummary {
@@ -142,8 +142,8 @@ async function processArgs(): Promise<ExitStatus> {
 
     try {
         args = commandLineArgs(optionDefinitions);
-    } catch (err) {
-        const argErr: { name: string; optionName: string } = err;
+    } catch (e: any) {
+        const argErr: { name: string; optionName: string } = e;
         if (argErr && argErr.optionName) {
             console.error(`Unexpected option ${argErr.optionName}.\n${toolName} --help for usage`);
             return ExitStatus.ParameterError;

@@ -32,7 +32,7 @@ import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 
 export interface FileAnalysisResult {
     filePath: string;
-    parseResults?: ParseResults;
+    parseResults?: ParseResults | undefined;
     errors: Diagnostic[];
     warnings: Diagnostic[];
     infos: Diagnostic[];

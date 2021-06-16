@@ -67,7 +67,7 @@ export class Scope {
 
     // The next scope in the hierarchy or undefined if it's the
     // top-most scope.
-    readonly parent?: Scope;
+    readonly parent: Scope | undefined;
 
     // Association between names and symbols.
     readonly symbolTable: SymbolTable = new Map<string, Symbol>();

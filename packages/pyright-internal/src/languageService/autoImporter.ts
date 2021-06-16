@@ -33,10 +33,10 @@ import { ParseResults } from '../parser/parser';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 
 export interface AutoImportSymbol {
-    readonly importAlias?: IndexAliasData;
-    readonly symbol?: Symbol;
-    readonly kind?: SymbolKind;
-    readonly itemKind?: CompletionItemKind;
+    readonly importAlias?: IndexAliasData | undefined;
+    readonly symbol?: Symbol | undefined;
+    readonly kind?: SymbolKind | undefined;
+    readonly itemKind?: CompletionItemKind | undefined;
 }
 
 export interface ModuleSymbolTable {
@@ -44,6 +44,47 @@ export interface ModuleSymbolTable {
 }
 
 export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
+
+export interface AbbreviationInfo {
+    importFrom?: string | undefined;
+    importName: string;
+}
+
+export interface AutoImportResult {
+    name: string;
+    symbol?: Symbol | undefined;
+    source?: string | undefined;
+    insertionText: string;
+    edits?: TextEditAction[] | undefined;
+    alias?: string | undefined;
+    kind?: CompletionItemKind | undefined;
+}
+
+export interface AutoImportOptions {
+    libraryMap?: Map<string, IndexResults> | undefined;
+    patternMatcher?: ((pattern: string, name: string) => boolean) | undefined;
+    allowVariableInAll?: boolean | undefined;
+    lazyEdit?: boolean | undefined;
+}
+
+interface ImportParts {
+    importName: string;
+    symbolName?: string | undefined;
+    importFrom?: string | undefined;
+    filePath: string;
+    dotCount: number;
+    moduleNameAndType: ModuleNameAndType;
+}
+
+interface ImportAliasData {
+    importParts: ImportParts;
+    importGroup: ImportGroup;
+    symbol?: Symbol | undefined;
+    kind?: SymbolKind | undefined;
+    itemKind?: CompletionItemKind | undefined;
+}
+
+type AutoImportResultMap = Map<string, AutoImportResult[]>;
 
 // Build a map of all modules within this program and the module-
 // level scope that contains the symbol table for the module.
@@ -120,47 +161,6 @@ export function buildModuleSymbolsMap(
 
     return moduleSymbolMap;
 }
-
-export interface AbbreviationInfo {
-    importFrom?: string;
-    importName: string;
-}
-
-export interface AutoImportResult {
-    name: string;
-    symbol?: Symbol;
-    source?: string;
-    insertionText: string;
-    edits?: TextEditAction[];
-    alias?: string;
-    kind?: CompletionItemKind;
-}
-
-export interface AutoImportOptions {
-    libraryMap?: Map<string, IndexResults>;
-    patternMatcher?: (pattern: string, name: string) => boolean;
-    allowVariableInAll?: boolean;
-    lazyEdit?: boolean;
-}
-
-interface ImportParts {
-    importName: string;
-    symbolName?: string;
-    importFrom?: string;
-    filePath: string;
-    dotCount: number;
-    moduleNameAndType: ModuleNameAndType;
-}
-
-interface ImportAliasData {
-    importParts: ImportParts;
-    importGroup: ImportGroup;
-    symbol?: Symbol;
-    kind?: SymbolKind;
-    itemKind?: CompletionItemKind;
-}
-
-type AutoImportResultMap = Map<string, AutoImportResult[]>;
 
 export class AutoImporter {
     private _importStatements: ImportStatements;
@@ -694,7 +694,7 @@ export class AutoImporter {
         insertionText: string,
         importGroup: ImportGroup,
         filePath: string
-    ): { insertionText: string; edits?: TextEditAction[] } {
+    ): { insertionText: string; edits?: TextEditAction[] | undefined } {
         // If there is no symbolName, there can't be existing import statement.
         const importStatement = this._importStatements.mapByFilePath.get(filePath);
         if (importStatement) {

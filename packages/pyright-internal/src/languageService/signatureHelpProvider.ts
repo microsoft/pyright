@@ -28,14 +28,14 @@ export interface ParamInfo {
     startOffset: number;
     endOffset: number;
     text: string;
-    documentation?: string;
+    documentation?: string | undefined;
 }
 
 export interface SignatureInfo {
     label: string;
-    documentation?: MarkupContent;
-    parameters?: ParamInfo[];
-    activeParameter?: number;
+    documentation?: MarkupContent | undefined;
+    parameters?: ParamInfo[] | undefined;
+    activeParameter?: number | undefined;
 }
 
 export interface SignatureHelpResults {

@@ -90,8 +90,8 @@ export interface SourceFileInfo {
     isTypeshedFile: boolean;
     isThirdPartyImport: boolean;
     isThirdPartyPyTypedPresent: boolean;
-    diagnosticsVersion?: number;
-    builtinsImport?: SourceFileInfo;
+    diagnosticsVersion?: number | undefined;
+    builtinsImport?: SourceFileInfo | undefined;
 
     // Information about why the file is included in the program
     // and its relation to other source files in the program.
@@ -595,7 +595,7 @@ export class Program {
 
                 try {
                     makeDirectories(this._fs, typeStubDir, stubPath);
-                } catch (e) {
+                } catch (e: any) {
                     const errMsg = `Could not create directory for '${typeStubDir}'`;
                     throw new Error(errMsg);
                 }
@@ -1805,7 +1805,7 @@ export class Program {
             } else {
                 return callback();
             }
-        } catch (e) {
+        } catch (e: any) {
             // An unexpected exception occurred, potentially leaving the current evaluator
             // in an inconsistent state. Discard it and replace it with a fresh one. It is
             // Cancellation exceptions are known to handle this correctly.

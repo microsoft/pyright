@@ -19,6 +19,7 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
         const initialData: InitializationData = {
             rootDirectory: (global as any).__rootDirectory as string,
             cancellationFolderName: getCancellationFolderName(),
+            runner: undefined,
         };
 
         // this will load this same file in BG thread and start listener

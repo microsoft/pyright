@@ -524,8 +524,8 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
 
 export interface InitializationData {
     rootDirectory: string;
-    cancellationFolderName?: string;
-    runner?: string;
+    cancellationFolderName: string | undefined;
+    runner: string | undefined;
 }
 
 export interface AnalysisRequest {
@@ -548,7 +548,7 @@ export interface AnalysisRequest {
         | 'setExperimentOptions';
 
     data: any;
-    port?: MessagePort;
+    port?: MessagePort | undefined;
 }
 
 export interface AnalysisResponse {

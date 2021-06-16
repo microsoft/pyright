@@ -29,7 +29,7 @@ module.exports = (_, { mode }) => {
             clean: true,
         },
         devtool: mode === 'development' ? 'source-map' : 'nosources-source-map',
-        cache: mode === 'development' ? cacheConfig(__dirname, __filename) : undefined,
+        cache: mode === 'development' ? cacheConfig(__dirname, __filename) : false,
         stats: {
             all: false,
             errors: true,

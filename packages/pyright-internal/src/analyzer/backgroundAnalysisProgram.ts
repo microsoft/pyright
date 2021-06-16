@@ -24,9 +24,9 @@ import { Indices, MaxAnalysisTime, Program } from './program';
 
 export class BackgroundAnalysisProgram {
     private _program: Program;
-    private _backgroundAnalysis?: BackgroundAnalysisBase;
-    private _onAnalysisCompletion?: AnalysisCompleteCallback;
-    private _maxAnalysisTime?: MaxAnalysisTime;
+    private _backgroundAnalysis: BackgroundAnalysisBase | undefined;
+    private _onAnalysisCompletion: AnalysisCompleteCallback | undefined;
+    private _maxAnalysisTime: MaxAnalysisTime | undefined;
     private _indices: Indices | undefined;
 
     constructor(

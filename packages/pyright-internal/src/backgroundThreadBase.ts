@@ -91,7 +91,7 @@ export function run(code: () => any, port: MessagePort) {
     try {
         const result = code();
         port.postMessage({ kind: 'ok', data: result });
-    } catch (e) {
+    } catch (e: any) {
         if (OperationCanceledException.is(e)) {
             port.postMessage({ kind: 'cancelled', data: e.message });
             return;
@@ -126,8 +126,8 @@ export function getBackgroundWaiter<T>(port: MessagePort): Promise<T> {
 
 export interface InitializationData {
     rootDirectory: string;
-    cancellationFolderName?: string;
-    runner?: string;
+    cancellationFolderName: string | undefined;
+    runner: string | undefined;
 }
 
 export interface RequestResponse {

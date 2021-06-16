@@ -555,7 +555,7 @@ export function isFile(fs: FileSystem, path: string): boolean {
 export function tryStat(fs: FileSystem, path: string): Stats | undefined {
     try {
         return fs.statSync(path);
-    } catch (e) {
+    } catch (e: any) {
         return undefined;
     }
 }
@@ -563,7 +563,7 @@ export function tryStat(fs: FileSystem, path: string): Stats | undefined {
 export function tryRealpath(fs: FileSystem, path: string): string | undefined {
     try {
         return fs.realpathSync(path);
-    } catch (e) {
+    } catch (e: any) {
         return undefined;
     }
 }
@@ -571,7 +571,7 @@ export function tryRealpath(fs: FileSystem, path: string): string | undefined {
 export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
     try {
         return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'), fs, path);
-    } catch (e) {
+    } catch (e: any) {
         return { files: [], directories: [] };
     }
 }
@@ -868,7 +868,7 @@ function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSyst
             default:
                 return false;
         }
-    } catch (e) {
+    } catch (e: any) {
         return false;
     }
 }
@@ -933,7 +933,7 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
 
         // If file exists, then it is insensitive.
         return !fs.existsSync(mangledFilePath);
-    } catch (e) {
+    } catch (e: any) {
         return false;
     } finally {
         if (filePath) {

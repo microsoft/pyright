@@ -131,7 +131,7 @@ interface DeferredBindingTask {
 
 interface FinalInfo {
     isFinal: boolean;
-    finalTypeNode?: ExpressionNode;
+    finalTypeNode: ExpressionNode | undefined;
 }
 
 export class Binder extends ParseTreeWalker {
@@ -152,23 +152,23 @@ export class Binder extends ParseTreeWalker {
     private _targetFunctionDeclaration: FunctionDeclaration | undefined;
 
     // Flow node label that is the target of a "break" statement.
-    private _currentBreakTarget?: FlowLabel;
+    private _currentBreakTarget: FlowLabel | undefined;
 
     // Flow node label that is the target of a "continue" statement.
-    private _currentContinueTarget?: FlowLabel;
+    private _currentContinueTarget: FlowLabel | undefined;
 
     // Flow nodes used for if/else and while/else statements.
-    private _currentTrueTarget?: FlowLabel;
-    private _currentFalseTarget?: FlowLabel;
+    private _currentTrueTarget: FlowLabel | undefined;
+    private _currentFalseTarget: FlowLabel | undefined;
 
     // Flow nodes used within try blocks.
-    private _currentExceptTargets?: FlowLabel[];
+    private _currentExceptTargets: FlowLabel[] = [];
 
     // Flow nodes used within try/finally flows.
     private _finallyTargets: FlowLabel[] = [];
 
     // Flow nodes used for return statements.
-    private _currentReturnTarget?: FlowLabel;
+    private _currentReturnTarget: FlowLabel | undefined;
 
     // Map of symbols within the current execution scope
     // and require code flow analysis to resolve.

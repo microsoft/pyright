@@ -115,7 +115,7 @@ function createHost(): TestHost {
                 }
             }
             return { files, directories };
-        } catch (e) {
+        } catch (e: any) {
             return { files: [], directories: [] };
         }
     }

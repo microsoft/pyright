@@ -21,16 +21,16 @@ export type ImportLookup = (filePath: string) => ImportLookupResult | undefined;
 export interface ImportLookupResult {
     symbolTable: SymbolTable;
     dunderAllNames: string[] | undefined;
-    docString?: string;
+    docString: string | undefined;
 }
 
 export interface AnalyzerFileInfo {
     importLookup: ImportLookup;
     futureImports: Map<string, boolean>;
-    builtinsScope?: Scope;
-    typingModulePath?: string;
-    typeshedModulePath?: string;
-    collectionsModulePath?: string;
+    builtinsScope?: Scope | undefined;
+    typingModulePath?: string | undefined;
+    typeshedModulePath?: string | undefined;
+    collectionsModulePath?: string | undefined;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
     diagnosticRuleSet: DiagnosticRuleSet;

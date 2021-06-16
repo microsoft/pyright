@@ -29,7 +29,7 @@ function getCancellationFilePath(folderName: string, id: CancellationId) {
 function tryRun(callback: () => void) {
     try {
         callback();
-    } catch (e) {
+    } catch (e: any) {
         /* empty */
     }
 }

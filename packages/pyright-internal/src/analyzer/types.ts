@@ -105,8 +105,8 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 interface TypeAliasInfo {
     name: string;
     fullName: string;
-    typeParameters?: TypeVarType[];
-    typeArguments?: Type[];
+    typeParameters?: TypeVarType[] | undefined;
+    typeArguments?: Type[] | undefined;
     typeVarScopeId: TypeVarScopeId;
 }
 
@@ -115,10 +115,10 @@ interface TypeBase {
     flags: TypeFlags;
 
     // Used only for type aliases
-    typeAliasInfo?: TypeAliasInfo;
+    typeAliasInfo?: TypeAliasInfo | undefined;
 
     // Used only for conditional (constrained) types
-    condition?: TypeCondition[];
+    condition?: TypeCondition[] | undefined;
 }
 
 export namespace TypeBase {
@@ -217,7 +217,7 @@ export namespace UnknownType {
 export interface ModuleType extends TypeBase {
     category: TypeCategory.Module;
     fields: SymbolTable;
-    docString?: string;
+    docString?: string | undefined;
 
     // A "loader" module includes symbols that were injected by
     // the module loader. We keep these separate so we don't
@@ -259,9 +259,9 @@ export namespace ModuleType {
 export interface DataClassEntry {
     name: string;
     isClassVar: boolean;
-    alias?: string;
-    hasDefault?: boolean;
-    defaultValueExpression?: ExpressionNode;
+    alias?: string | undefined;
+    hasDefault?: boolean | undefined;
+    defaultValueExpression?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
 }
@@ -383,18 +383,18 @@ interface ClassDetails {
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
     mro: Type[];
-    declaredMetaclass?: ClassType | UnknownType;
-    effectiveMetaclass?: ClassType | UnknownType;
+    declaredMetaclass?: ClassType | UnknownType | undefined;
+    effectiveMetaclass?: ClassType | UnknownType | undefined;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
-    typeVarScopeId?: TypeVarScopeId;
-    docString?: string;
-    dataClassEntries?: DataClassEntry[];
-    dataClassBehaviors?: DataClassBehaviors;
-    typedDictEntries?: Map<string, TypedDictEntry>;
+    typeVarScopeId?: TypeVarScopeId | undefined;
+    docString?: string | undefined;
+    dataClassEntries?: DataClassEntry[] | undefined;
+    dataClassBehaviors?: DataClassBehaviors | undefined;
+    typedDictEntries?: Map<string, TypedDictEntry> | undefined;
 
     // Transforms to apply if this class is used as a metaclass.
-    metaclassDataClassTransform?: DataClassBehaviors;
+    metaclassDataClassTransform?: DataClassBehaviors | undefined;
 }
 
 export interface ClassType extends TypeBase {
@@ -405,50 +405,50 @@ export interface ClassType extends TypeBase {
     // A generic class that has been completely or partially
     // specialized will have type arguments that correspond to
     // some or all of the type parameters.
-    typeArguments?: Type[];
+    typeArguments?: Type[] | undefined;
 
     // A bool value that has been returned by a user-defined
     // type guard (see PEP 647) will have additional type information
     // that indicates how a type should be narrowed. This field will
     // be used only in a bool class.
-    typeGuardType?: Type;
+    typeGuardType?: Type | undefined;
 
     // If a generic container class (like a list or dict) is known
     // to contain no elements, its type arguments may be "Unknown".
     // This value allows us to elide the Unknown when it's safe to
     // do so.
-    isEmptyContainer?: boolean;
+    isEmptyContainer?: boolean | undefined;
 
     // For tuples, the class definition calls for a single type parameter but
     // the spec allows the programmer to provide variadic type arguments.
     // To make these compatible, we need to derive a single typeArgument value
     // based on the variadic arguments.
-    tupleTypeArguments?: Type[];
+    tupleTypeArguments?: Type[] | undefined;
 
     // We sometimes package multiple types into a tuple internally
     // for matching against a variadic type variable. We need to be
     // able to distinguish this case from normal tuples.
-    isTupleForUnpackedVariadicTypeVar?: boolean;
+    isTupleForUnpackedVariadicTypeVar?: boolean | undefined;
 
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
-    isTypeArgumentExplicit?: boolean;
+    isTypeArgumentExplicit?: boolean | undefined;
 
     skipAbstractClassTest: boolean;
 
     // Some types can be further constrained to have
     // literal types (e.g. true or 'string' or 3).
-    literalValue?: LiteralValue;
+    literalValue?: LiteralValue | undefined;
 
     // The typing module defines aliases for builtin types
     // (e.g. Tuple, List, Dict). This field holds the alias
     // name.
-    aliasName?: string;
+    aliasName?: string | undefined;
 
     // Used for "narrowing" of typed dicts where some entries
     // that are not required have been confirmed to be present
     // through the use of a guard expression.
-    typedDictNarrowedEntries?: Map<string, TypedDictEntry>;
+    typedDictNarrowedEntries?: Map<string, TypedDictEntry> | undefined;
 }
 
 export namespace ClassType {
@@ -845,14 +845,14 @@ export namespace ObjectType {
 
 export interface FunctionParameter {
     category: ParameterCategory;
-    name?: string;
-    isNameSynthesized?: boolean;
-    isTypeInferred?: boolean;
-    hasDefault?: boolean;
-    defaultValueExpression?: ExpressionNode;
-    defaultType?: Type;
-    hasDeclaredType?: boolean;
-    typeAnnotation?: ExpressionNode;
+    name?: string | undefined;
+    isNameSynthesized?: boolean | undefined;
+    isTypeInferred?: boolean | undefined;
+    hasDefault?: boolean | undefined;
+    defaultValueExpression?: ExpressionNode | undefined;
+    defaultType?: Type | undefined;
+    hasDeclaredType?: boolean | undefined;
+    typeAnnotation?: ExpressionNode | undefined;
     type: Type;
 }
 
@@ -926,24 +926,24 @@ interface FunctionDetails {
     moduleName: string;
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
-    declaredReturnType?: Type;
-    declaration?: FunctionDeclaration;
-    typeVarScopeId?: TypeVarScopeId;
-    builtInName?: string;
-    docString?: string;
+    declaredReturnType?: Type | undefined;
+    declaration?: FunctionDeclaration | undefined;
+    typeVarScopeId?: TypeVarScopeId | undefined;
+    builtInName?: string | undefined;
+    docString?: string | undefined;
 
     // Transforms to apply if this function is used
     // as a decorator.
-    decoratorDataClassBehaviors?: DataClassBehaviors;
+    decoratorDataClassBehaviors?: DataClassBehaviors | undefined;
 
     // Parameter specification used only for Callable types created
     // with a ParamSpec representing the parameters.
-    paramSpec?: TypeVarType;
+    paramSpec?: TypeVarType | undefined;
 }
 
 export interface SpecializedFunctionTypes {
     parameterTypes: Type[];
-    returnType?: Type;
+    returnType?: Type | undefined;
 }
 
 export interface FunctionType extends TypeBase {
@@ -953,28 +953,28 @@ export interface FunctionType extends TypeBase {
 
     // A function type can be specialized (i.e. generic type
     // variables replaced by a concrete type).
-    specializedTypes?: SpecializedFunctionTypes;
+    specializedTypes?: SpecializedFunctionTypes | undefined;
 
     // Filled in lazily
-    inferredReturnType?: Type;
+    inferredReturnType?: Type | undefined;
 
     // If this is a bound function where the first parameter
     // was stripped from the original unbound function, the
     // (specialized) type of that stripped parameter.
-    strippedFirstParamType?: Type;
+    strippedFirstParamType?: Type | undefined;
 
     // If this is a bound function where the first parameter
     // was stripped from the original unbound function,
     // the class or object to which the function was bound.
-    boundToType?: ClassType | ObjectType;
+    boundToType?: ClassType | ObjectType | undefined;
 
     // The type var scope for the class that the function was bound to
-    boundTypeVarScopeId?: TypeVarScopeId;
+    boundTypeVarScopeId?: TypeVarScopeId | undefined;
 }
 
 export interface ParamSpecEntry {
     category: ParameterCategory;
-    name?: string;
+    name?: string | undefined;
     hasDefault: boolean;
     type: Type;
 }
@@ -987,7 +987,7 @@ export interface ParamSpecValue {
 
     // If the param spec is assigned to another param spec,
     // this will contain that type, and concrete will be undefined.
-    paramSpec?: TypeVarType;
+    paramSpec?: TypeVarType | undefined;
 }
 
 export namespace FunctionType {
@@ -1528,8 +1528,8 @@ export namespace TypeCondition {
 export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
     subtypes: UnionableType[];
-    literalStrMap?: Map<string, UnionableType>;
-    literalIntMap?: Map<number, UnionableType>;
+    literalStrMap?: Map<string, UnionableType> | undefined;
+    literalIntMap?: Map<number, UnionableType> | undefined;
 }
 
 export namespace UnionType {
@@ -1609,23 +1609,23 @@ export const enum Variance {
 export interface TypeVarDetails {
     name: string;
     constraints: Type[];
-    boundType?: Type;
+    boundType?: Type | undefined;
     variance: Variance;
     isParamSpec: boolean;
     isVariadic: boolean;
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
-    isSynthesizedSelfCls?: boolean;
-    synthesizedIndex?: number;
+    isSynthesizedSelfCls?: boolean | undefined;
+    synthesizedIndex?: number | undefined;
 
     // Used for recursive type aliases.
-    recursiveTypeAliasName?: string;
-    recursiveTypeAliasScopeId?: TypeVarScopeId;
-    illegalRecursionDetected?: boolean;
+    recursiveTypeAliasName?: string | undefined;
+    recursiveTypeAliasScopeId?: TypeVarScopeId | undefined;
+    illegalRecursionDetected?: boolean | undefined;
 
     // Type parameters for a recursive type alias.
-    recursiveTypeParameters?: TypeVarType[];
+    recursiveTypeParameters?: TypeVarType[] | undefined;
 }
 
 export interface TypeVarType extends TypeBase {
@@ -1633,22 +1633,22 @@ export interface TypeVarType extends TypeBase {
     details: TypeVarDetails;
 
     // An ID that uniquely identifies the scope in which this TypeVar is defined.
-    scopeId?: TypeVarScopeId;
+    scopeId?: TypeVarScopeId | undefined;
 
     // A human-readable name of the function, class, or type alias that
     // provides the scope for this type variable. This might not be unique,
     // so it should be used only for error messages.
-    scopeName?: string;
+    scopeName?: string | undefined;
 
     // String formatted as <name>.<scopeId>.
-    nameWithScope?: string;
+    nameWithScope?: string | undefined;
 
     // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
-    isVariadicUnpacked?: boolean;
+    isVariadicUnpacked?: boolean | undefined;
 
     // Is this variadic TypeVar included in a Union[]? This allows us to
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
-    isVariadicInUnion?: boolean;
+    isVariadicInUnion?: boolean | undefined;
 }
 
 export namespace TypeVarType {

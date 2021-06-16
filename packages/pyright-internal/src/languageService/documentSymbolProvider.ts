@@ -37,18 +37,18 @@ export interface IndexAliasData {
     readonly originalName: string;
     readonly modulePath: string;
     readonly kind: SymbolKind;
-    readonly itemKind?: CompletionItemKind;
+    readonly itemKind?: CompletionItemKind | undefined;
 }
 
 export interface IndexSymbolData {
     readonly name: string;
     readonly externallyVisible: boolean;
     readonly kind: SymbolKind;
-    readonly itemKind?: CompletionItemKind;
-    readonly alias?: IndexAliasData;
-    readonly range?: Range;
-    readonly selectionRange?: Range;
-    readonly children?: IndexSymbolData[];
+    readonly itemKind?: CompletionItemKind | undefined;
+    readonly alias?: IndexAliasData | undefined;
+    readonly range?: Range | undefined;
+    readonly selectionRange?: Range | undefined;
+    readonly children?: IndexSymbolData[] | undefined;
 }
 
 export interface IndexResults {
@@ -230,9 +230,12 @@ function appendWorkspaceSymbolsRecursive(
             const symbolInfo: SymbolInformation = {
                 name: symbolData.name,
                 kind: symbolData.kind,
-                containerName: container.length > 0 ? container : undefined,
                 location,
             };
+
+            if (container.length) {
+                symbolInfo.containerName = container;
+            }
 
             symbolList.push(symbolInfo);
         }
@@ -422,9 +425,15 @@ function appendToFlatSymbolsRecursive(
         name: symbol.name,
         kind: symbol.kind,
         location: Location.create(documentUri, symbol.range),
-        tags: symbol.tags,
-        containerName: parent?.name,
     };
+
+    if (symbol.tags) {
+        flatSymbol.tags = symbol.tags;
+    }
+
+    if (parent) {
+        flatSymbol.containerName = parent.name;
+    }
 
     flatSymbols.push(flatSymbol);
 

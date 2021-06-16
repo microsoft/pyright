@@ -253,26 +253,26 @@ interface TypeResult {
     node: ParseNode;
 
     // Type consistency errors detected when evaluating this type.
-    typeErrors?: boolean;
+    typeErrors?: boolean | undefined;
 
     // Variadic type arguments allow the shorthand "()" to
     // represent an empty tuple (i.e. Tuple[()]).
-    isEmptyTupleShorthand?: boolean;
+    isEmptyTupleShorthand?: boolean | undefined;
 
     // Is the type incomplete (i.e. not fully evaluated) because
     // some of the paths involve cyclical dependencies?
-    isIncomplete?: boolean;
+    isIncomplete?: boolean | undefined;
 
-    unpackedType?: Type;
-    typeList?: TypeResult[];
-    expectedTypeDiagAddendum?: DiagnosticAddendum;
+    unpackedType?: Type | undefined;
+    typeList?: TypeResult[] | undefined;
+    expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
 
     // Used for the output of "super" calls used on the LHS of
     // a member access. Normally the type of the LHS is the same
     // as the class or object used to bind the member, but the
     // "super" call can specify a different class or object to
     // bind.
-    bindToType?: ClassType | ObjectType | TypeVarType;
+    bindToType?: ClassType | ObjectType | TypeVarType | undefined;
 }
 
 interface EffectiveTypeResult {
@@ -290,11 +290,11 @@ interface EffectiveTypeCacheEntry {
 
 interface FunctionArgument {
     argumentCategory: ArgumentCategory;
-    node?: ArgumentNode;
-    name?: NameNode;
-    type?: Type;
-    valueExpression?: ExpressionNode;
-    active?: boolean;
+    node?: ArgumentNode | undefined;
+    name?: NameNode | undefined;
+    type?: Type | undefined;
+    valueExpression?: ExpressionNode | undefined;
+    active?: boolean | undefined;
 }
 
 interface ValidateArgTypeParams {
@@ -302,10 +302,10 @@ interface ValidateArgTypeParams {
     paramType: Type;
     requiresTypeVarMatching: boolean;
     argument: FunctionArgument;
-    argType?: Type;
+    argType?: Type | undefined;
     errorNode: ExpressionNode;
-    paramName?: string;
-    mapsToVarArgList?: boolean;
+    paramName?: string | undefined;
+    mapsToVarArgList?: boolean | undefined;
 }
 
 interface ClassMemberLookup {
@@ -414,9 +414,9 @@ interface EvaluatorUsage {
     method: 'get' | 'set' | 'del';
 
     // Used only for set methods
-    setType?: Type;
-    setErrorNode?: ExpressionNode;
-    setExpectedTypeDiag?: DiagnosticAddendum;
+    setType?: Type | undefined;
+    setErrorNode?: ExpressionNode | undefined;
+    setExpectedTypeDiag?: DiagnosticAddendum | undefined;
 }
 
 interface AliasMapEntry {
@@ -563,7 +563,7 @@ export interface FunctionTypeResult {
 
 export interface CallSignature {
     type: FunctionType;
-    activeParam?: FunctionParameter;
+    activeParam?: FunctionParameter | undefined;
 }
 
 export interface CallSignatureInfo {
@@ -572,23 +572,23 @@ export interface CallSignatureInfo {
 }
 
 export interface CallResult {
-    returnType?: Type;
-    isTypeIncomplete?: boolean;
+    returnType?: Type | undefined;
+    isTypeIncomplete?: boolean | undefined;
     argumentErrors: boolean;
-    activeParam?: FunctionParameter;
+    activeParam?: FunctionParameter | undefined;
 }
 
 export interface MatchArgsToParamsResult {
     argumentErrors: boolean;
     argParams: ValidateArgTypeParams[];
-    activeParam?: FunctionParameter;
-    paramSpecTarget?: TypeVarType;
-    paramSpecArgList?: FunctionArgument[];
+    activeParam?: FunctionParameter | undefined;
+    paramSpecTarget?: TypeVarType | undefined;
+    paramSpecArgList?: FunctionArgument[] | undefined;
 }
 
 export interface ArgResult {
     isCompatible: boolean;
-    isTypeIncomplete?: boolean;
+    isTypeIncomplete?: boolean | undefined;
 }
 
 export interface TypeEvaluator {
@@ -684,9 +684,9 @@ interface FlowNodeTypeResult {
     type: Type | undefined;
     usedOuterScopeAlias: boolean;
     isIncomplete: boolean;
-    generationCount?: number;
-    incompleteType?: Type;
-    incompleteSubtypes?: (Type | undefined)[];
+    generationCount?: number | undefined;
+    incompleteType?: Type | undefined;
+    incompleteSubtypes?: (Type | undefined)[] | undefined;
 }
 
 interface SymbolResolutionStackEntry {
@@ -700,7 +700,7 @@ interface SymbolResolutionStackEntry {
 
     // Some limited forms of recursion are allowed. In these
     // cases, a partially-constructed type can be registered.
-    partialType?: Type;
+    partialType?: Type | undefined;
 }
 
 interface ReturnTypeInferenceContext {
@@ -19366,7 +19366,7 @@ export function createTypeEvaluator(
                         } else {
                             isIncomplete = true;
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         // Clean up the stack before rethrowing.
                         popSymbolResolution(symbol);
                         throw e;
@@ -19451,7 +19451,7 @@ export function createTypeEvaluator(
                         if (popSymbolResolution(symbol) || decl.type === DeclarationType.Class) {
                             return type;
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         // Clean up the stack before rethrowing.
                         popSymbolResolution(symbol);
                         throw e;

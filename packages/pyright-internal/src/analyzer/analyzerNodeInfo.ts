@@ -57,7 +57,7 @@ interface AnalyzerNodeInfo {
     codeFlowExpressions?: Map<string, string>;
 
     // List of __all__ symbols in the module.
-    dunderAllNames?: string[];
+    dunderAllNames?: string[] | undefined;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ListComprehensionNode;

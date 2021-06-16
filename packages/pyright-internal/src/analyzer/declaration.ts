@@ -99,14 +99,14 @@ export interface VariableDeclaration extends DeclarationBase {
     node: NameNode | StringListNode;
 
     // An explicit type annotation, if provided
-    typeAnnotationNode?: ExpressionNode;
+    typeAnnotationNode?: ExpressionNode | undefined;
 
     // A source of the inferred type
-    inferredTypeSource?: ParseNode;
+    inferredTypeSource?: ParseNode | undefined;
 
     // Is the declaration considered "constant" (i.e.
     // reassignment is not permitted)?
-    isConstant?: boolean;
+    isConstant?: boolean | undefined;
 
     // Is the declaration considered "final" (similar to
     // constant in that reassignment is not permitted)?
@@ -119,10 +119,10 @@ export interface VariableDeclaration extends DeclarationBase {
     isNotRequired?: boolean;
 
     // Points to the "TypeAlias" annotation described in PEP 613.
-    typeAliasAnnotation?: ExpressionNode;
+    typeAliasAnnotation?: ExpressionNode | undefined;
 
     // If the declaration is a type alias, points to the alias name.
-    typeAliasName?: NameNode;
+    typeAliasName?: NameNode | undefined;
 
     // Is the declaration a class or instance variable defined
     // by a member access, or is it a direct variable declaration
@@ -143,17 +143,17 @@ export interface AliasDeclaration extends DeclarationBase {
 
     // The name of the symbol being imported (used for "from X import Y"
     // statements, not applicable to "import X" statements).
-    symbolName?: string;
+    symbolName?: string | undefined;
 
     // If there is a symbol name that can't be resolved within
     // the target module (defined by "path"), the symbol might
     // refer to a submodule with the same name.
-    submoduleFallback?: AliasDeclaration;
+    submoduleFallback?: AliasDeclaration | undefined;
 
     // The first part of the multi-part name used in the import
     // statement (e.g. for "import a.b.c", firstNamePart would
     // be "a").
-    firstNamePart?: string;
+    firstNamePart?: string | undefined;
 
     // If the alias is targeting a module, multiple other modules
     // may also need to be resolved and inserted implicitly into

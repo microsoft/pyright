@@ -99,7 +99,7 @@ class FileBasedToken implements CancellationToken {
         try {
             fs.statSync(this.cancellationFilePath);
             return true;
-        } catch (e) {
+        } catch (e: any) {
             return false;
         }
     }

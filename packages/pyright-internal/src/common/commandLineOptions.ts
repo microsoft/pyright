@@ -45,64 +45,64 @@ export class CommandLineOptions {
     fileSpecs: string[] = [];
 
     // Watch for changes in workspace source files.
-    watchForSourceChanges?: boolean;
+    watchForSourceChanges?: boolean | undefined;
 
     // Watch for changes in environment library/search paths.
-    watchForLibraryChanges?: boolean;
+    watchForLibraryChanges?: boolean | undefined;
 
     // Watch for changes in config files.
-    watchForConfigChanges?: boolean;
+    watchForConfigChanges?: boolean | undefined;
 
     // Path of config file. This option cannot be combined with
     // file specs.
-    configFilePath?: string;
+    configFilePath?: string | undefined;
 
     // Virtual environments directory.
-    venvPath?: string;
+    venvPath?: string | undefined;
 
     // Path to python interpreter.
-    pythonPath?: string;
+    pythonPath?: string | undefined;
 
     // Python platform indicator (darwin, linux, win32)
-    pythonPlatform?: 'Darwin' | 'Linux' | 'Windows';
+    pythonPlatform?: 'Darwin' | 'Linux' | 'Windows' | undefined;
 
     // Python version string (3.3, 3.4, etc.)
-    pythonVersion?: PythonVersion;
+    pythonVersion?: PythonVersion | undefined;
 
     // Path of typeshed stubs.
-    typeshedPath?: string;
+    typeshedPath?: string | undefined;
 
     // Path of typing folder
-    stubPath?: string;
+    stubPath?: string | undefined;
 
     // Absolute execution root (current working directory).
     executionRoot: string;
 
     // Type stub import target (for creation of type stubs).
-    typeStubTargetImportName?: string;
+    typeStubTargetImportName?: string | undefined;
 
     // Emit verbose information to console?
-    verboseOutput?: boolean;
+    verboseOutput?: boolean | undefined;
 
     // Indicates that only open files should be checked.
-    checkOnlyOpenFiles?: boolean;
+    checkOnlyOpenFiles?: boolean | undefined;
 
     // In the absence of type stubs, use library implementations
     // to extract type information?
-    useLibraryCodeForTypes?: boolean;
+    useLibraryCodeForTypes?: boolean | undefined;
 
     // Look for a common root folders such as 'src' and automatically
     // add them as extra paths if the user has not explicitly defined
     // execution environments.
-    autoSearchPaths?: boolean;
+    autoSearchPaths?: boolean | undefined;
 
     // Extra paths to add to the default execution environment
     // when user has not explicitly defined execution environments.
-    extraPaths?: string[];
+    extraPaths?: string[] | undefined;
 
     // Default type-checking rule set. Should be one of 'off',
     // 'basic', or 'strict'.
-    typeCheckingMode?: string;
+    typeCheckingMode?: string | undefined;
 
     // Indicates that the settings came from VS Code rather than
     // from the command-line. Useful for providing clearer error
@@ -110,13 +110,13 @@ export class CommandLineOptions {
     fromVsCodeExtension: boolean;
 
     // Indicates diagnostic severity overrides
-    diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
+    diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap | undefined;
 
     // Offer auto-import completions.
-    autoImportCompletions?: boolean;
+    autoImportCompletions?: boolean | undefined;
 
     // Use indexing.
-    indexing?: boolean;
+    indexing?: boolean | undefined;
 
     // Use type evaluator call tracking
     logTypeEvaluationTime = false;
