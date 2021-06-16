@@ -7,6 +7,7 @@
  * Utility routines for traversing a parse tree.
  */
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { assertNever, fail } from '../common/debug';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -1581,4 +1582,95 @@ export function printParseNodeType(type: ParseNodeType) {
     }
 
     assertNever(type);
+}
+
+export function isWriteAccess(node: NameNode) {
+    let prevNode: ParseNode = node;
+    let curNode: ParseNode | undefined = prevNode.parent;
+
+    while (curNode) {
+        switch (curNode.nodeType) {
+            case ParseNodeType.Assignment: {
+                return prevNode === curNode.leftExpression;
+            }
+
+            case ParseNodeType.AugmentedAssignment: {
+                return prevNode === curNode.leftExpression;
+            }
+
+            case ParseNodeType.AssignmentExpression: {
+                return prevNode === curNode.name;
+            }
+
+            case ParseNodeType.Del: {
+                return true;
+            }
+
+            case ParseNodeType.For: {
+                return prevNode === curNode.targetExpression;
+            }
+
+            case ParseNodeType.ImportAs: {
+                return (
+                    prevNode === curNode.alias ||
+                    (curNode.module.nameParts.length > 0 && prevNode === curNode.module.nameParts[0])
+                );
+            }
+
+            case ParseNodeType.ImportFromAs: {
+                return prevNode === curNode.alias || (!curNode.alias && prevNode === curNode.name);
+            }
+
+            case ParseNodeType.MemberAccess: {
+                if (prevNode !== curNode.memberName) {
+                    return false;
+                }
+                break;
+            }
+
+            case ParseNodeType.Except: {
+                return prevNode === curNode.name;
+            }
+
+            case ParseNodeType.With: {
+                return curNode.withItems.some((item) => item === prevNode);
+            }
+
+            case ParseNodeType.ListComprehensionFor: {
+                return prevNode === curNode.targetExpression;
+            }
+
+            case ParseNodeType.TypeAnnotation: {
+                if (prevNode === curNode.typeAnnotation) {
+                    return false;
+                }
+                break;
+            }
+
+            case ParseNodeType.Function:
+            case ParseNodeType.Class:
+            case ParseNodeType.Module: {
+                return false;
+            }
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    return false;
+}
+
+export function getModuleNode(node: ParseNode) {
+    let current: ParseNode | undefined = node;
+    while (current && current.nodeType !== ParseNodeType.Module) {
+        current = current.parent;
+    }
+
+    return current;
+}
+
+export function getFileInfoFromNode(node: ParseNode) {
+    const current = getModuleNode(node);
+    return current ? AnalyzerNodeInfo.getFileInfo(current) : undefined;
 }
