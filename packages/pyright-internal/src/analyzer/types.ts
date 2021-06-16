@@ -365,6 +365,9 @@ export const enum ClassTypeFlags {
 
     // The class is a protocol that defines only a __call__ method.
     CallbackProtocolClass = 1 << 22,
+
+    // Class is declared within a type stub fille
+    DefinedInStub = 1 << 23,
 }
 
 export interface DataClassBehaviors {
@@ -654,6 +657,10 @@ export namespace ClassType {
 
     export function isCallbackProtocolClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.CallbackProtocolClass);
+    }
+
+    export function isDefinedInStub(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.DefinedInStub);
     }
 
     export function isPseudoGenericClass(classType: ClassType) {

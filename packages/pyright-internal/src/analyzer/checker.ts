@@ -2552,12 +2552,17 @@ export class Checker extends ParseTreeWalker {
             if (isProtectedName) {
                 const declClassTypeInfo = this._evaluator.getTypeOfClass(classOrModuleNode);
                 if (declClassTypeInfo && isClass(declClassTypeInfo.decoratedType)) {
+                    // If it's a member defined in a stub file, we'll assume that it's part
+                    // of the public contract even if it's named as though it's private.
+                    if (ClassType.isDefinedInStub(declClassTypeInfo.decoratedType)) {
+                        return;
+                    }
+
                     // Note that the access is to a protected class member.
                     isProtectedAccess = true;
 
                     const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node);
                     if (enclosingClassNode) {
-                        isProtectedAccess = true;
                         const enclosingClassTypeInfo = this._evaluator.getTypeOfClass(enclosingClassNode);
 
                         // If the referencing class is a subclass of the declaring class, it's

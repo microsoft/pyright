@@ -1,5 +1,6 @@
 # This sample tests the "reportPrivateUsage" feature.
 
+from typing import NamedTuple
 from .private2 import TestClass, _TestClass, TestClass as _Foo
 
 _Test = 1
@@ -41,3 +42,14 @@ class TestSubclass(TestClass):
     def blah2(self):
         # This should generate an error
         return self.__priv1
+
+
+class MyTuple(NamedTuple):
+    field1: int
+    field2: str
+
+
+# This should not generate an error because _replace is declared
+# within a stub file and is presumably part of the public interface
+# contract.
+MyTuple(1, "2")._replace(field1=3)

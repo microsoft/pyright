@@ -12462,6 +12462,10 @@ export function createTypeEvaluator(
             }
         }
 
+        if (fileInfo.isStubFile) {
+            classFlags |= ClassTypeFlags.DefinedInStub;
+        }
+
         const classType = ClassType.create(
             node.name.value,
             getClassFullName(node, fileInfo.moduleName, node.name.value),
