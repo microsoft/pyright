@@ -875,7 +875,9 @@ export class TestState {
 
                 for (let i = 0; i < expectedCompletions.length; i++) {
                     const expected = expectedCompletions[i];
-                    const actualIndex = result.completionList.items.findIndex((a) => a.label === expected.label);
+                    const actualIndex = result.completionList.items.findIndex(
+                        (a) => a.label === expected.label && (expected.kind ? a.kind === expected.kind : true)
+                    );
                     if (actualIndex >= 0) {
                         if (verifyMode === 'excluded') {
                             // we're not supposed to find the completions passed to the test

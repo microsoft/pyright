@@ -8,7 +8,8 @@
  */
 
 import { ParseNodeType } from '../parser/parseNodes';
-import { Declaration, DeclarationType } from './declaration';
+import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
+import { getFileInfoFromNode } from './parseTreeUtils';
 
 export function hasTypeForDeclaration(declaration: Declaration): boolean {
     switch (declaration.type) {
@@ -115,4 +116,16 @@ export function getNameFromDeclaration(declaration: Declaration) {
     }
 
     throw new Error(`Shouldn't reach here`);
+}
+
+export function isDefinedInFile(decl: Declaration, filePath: string) {
+    if (isAliasDeclaration(decl)) {
+        // Alias decl's path points to the original symbol
+        // the alias is pointing to. So, we need to get the
+        // filepath in that the alias is defined from the node.
+        return getFileInfoFromNode(decl.node)?.filePath === filePath;
+    }
+
+    // Other decls, the path points to the file the symbol is defined in.
+    return decl.path === filePath;
 }
