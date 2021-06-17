@@ -1812,13 +1812,17 @@ export function _transformTypeVars(
             const typeArgs = type.classType.typeArguments;
             if (typeArgs && typeArgs.length >= 1) {
                 if (isObject(typeArgs[0])) {
-                    const transformedObj = _transformTypeVars(
+                    let transformedObj = _transformTypeVars(
                         typeArgs[0].classType,
                         callbacks,
                         recursionMap,
                         recursionLevel + 1
                     );
                     if (transformedObj !== typeArgs[0]) {
+                        if (!TypeBase.isInstance(transformedObj)) {
+                            transformedObj = convertToInstance(transformedObj);
+                        }
+
                         classType = ClassType.cloneForSpecialization(
                             type.classType,
                             [transformedObj],
