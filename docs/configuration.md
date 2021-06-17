@@ -78,17 +78,17 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportWildcardImportFromLibrary** [boolean or string, optional]: Generate or suppress diagnostics for a wildcard import from an external library. The use of this language feature is highly discouraged and can result in bugs when the library is updated. The default value for this setting is 'warning'.
 
-**reportOptionalSubscript** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to subscript (index) a variable with an Optional type. The default value for this setting is 'none'.
+**reportOptionalSubscript** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to subscript (index) a variable with an Optional type. The default value for this setting is 'error'.
 
-**reportOptionalMemberAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a member of a variable with an Optional type. The default value for this setting is 'none'.
+**reportOptionalMemberAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a member of a variable with an Optional type. The default value for this setting is 'error'.
 
-**reportOptionalCall** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to call a variable with an Optional type. The default value for this setting is 'none'.
+**reportOptionalCall** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to call a variable with an Optional type. The default value for this setting is 'error'.
 
-**reportOptionalIterable** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an iterable value (e.g. within a `for` statement). The default value for this setting is 'none'.
+**reportOptionalIterable** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an iterable value (e.g. within a `for` statement). The default value for this setting is 'error'.
 
-**reportOptionalContextManager** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as a context manager (as a parameter to a `with` statement). The default value for this setting is 'none'.
+**reportOptionalContextManager** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as a context manager (as a parameter to a `with` statement). The default value for this setting is 'error'.
 
-**reportOptionalOperand** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an operand to a binary or unary operator (like '+', '==', 'or', 'not'). The default value for this setting is 'none'.
+**reportOptionalOperand** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an operand to a binary or unary operator (like '+', '==', 'or', 'not'). The default value for this setting is 'error'.
 
 **reportTypedDictNotRequiredAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a non-required field within a TypedDict without first checking whether it is present. The default value for this setting is 'error'.
 
@@ -279,12 +279,12 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnusedVariable                      | "none"     | "none"     | "error"    |
 | reportDuplicateImport                     | "none"     | "none"     | "error"    |
 | reportWildcardImportFromLibrary           | "none"     | "warning"  | "error"    |
-| reportOptionalSubscript                   | "none"     | "none"     | "error"    |
-| reportOptionalMemberAccess                | "none"     | "none"     | "error"    |
-| reportOptionalCall                        | "none"     | "none"     | "error"    |
-| reportOptionalIterable                    | "none"     | "none"     | "error"    |
-| reportOptionalContextManager              | "none"     | "none"     | "error"    |
-| reportOptionalOperand                     | "none"     | "none"     | "error"    |
+| reportOptionalSubscript                   | "none"     | "error"    | "error"    |
+| reportOptionalMemberAccess                | "none"     | "error"    | "error"    |
+| reportOptionalCall                        | "none"     | "error"    | "error"    |
+| reportOptionalIterable                    | "none"     | "error"    | "error"    |
+| reportOptionalContextManager              | "none"     | "error"    | "error"    |
+| reportOptionalOperand                     | "none"     | "error"    | "error"    |
 | reportTypedDictNotRequiredAccess          | "none"     | "error"    | "error"    |
 | reportUntypedFunctionDecorator            | "none"     | "none"     | "error"    |
 | reportUntypedClassDecorator               | "none"     | "none"     | "error"    |

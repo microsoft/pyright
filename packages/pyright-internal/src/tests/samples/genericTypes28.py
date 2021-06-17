@@ -15,8 +15,8 @@ def foo1(a: Type[_T1]) -> _T1:
 a = foo1(Optional[int])
 
 
-def foo2(a: Type[_T2]) -> _T2:
-    return a()
+def foo2(a: Type[_T2]) -> Type[_T2]:
+    return a
 
 
 b = foo2(type(None))

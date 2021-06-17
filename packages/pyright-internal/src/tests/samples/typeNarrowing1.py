@@ -1,6 +1,8 @@
 # This file validates type narrowing that involve
 # conditional binary expressions.
 
+# pyright: reportOptionalMemberAccess=false
+
 
 class Foo:
     def bar(self):

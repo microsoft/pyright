@@ -11,7 +11,7 @@ Here is a typical progression:
 6. Look for type stubs for the packages you use. Some package authors opt to ship stubs as a separate companion package named that has “-stubs” appended to the name of the original package.
 7. In cases where type stubs do not yet exist for a package you are using, consider creating a custom type stub that defines the portion of the interface that your source code consumes. Check in your custom type stub files and configure pyright to run as part of your continuous integration (CI) environment to keep the project “type clean”.
 8. Incrementally add type annotations to your code files. The annotations that provide most value are on function input parameters, instance variables, and return parameters (in that order). Note that annotation of variables (instance, class and local) requires Python 3.6 or newer.
-9. Enable stricter type checking options like "reportOptionalSubscript", "reportOptionalMemberAccess", "reportOptionalCall", and "reportUntypedFunctionDecorator".
+9. Enable stricter type checking options like "reportUnknownParameterType", and "reportUntypedFunctionDecorator".
 10. On a file-by-file basis, enable all type checking options by adding the comment `# pyright: strict` somewhere in the file.
 11. Optionally add entire subdirectories to the `strict` config entry to indicate that all files within those subdirectories should be strictly typed.
 

@@ -213,37 +213,37 @@
       "$id": "#/properties/reportOptionalSubscript",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to subscript (index) a variable with Optional type",
-      "default": "none"
+      "default": "error"
     },
     "reportOptionalMemberAccess": {
       "$id": "#/properties/reportOptionalMemberAccess",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to access a member of a variable with Optional type",
-      "default": "none"
+      "default": "error"
     },
     "reportOptionalCall": {
       "$id": "#/properties/reportOptionalCall",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to call a variable with Optional type",
-      "default": "none"
+      "default": "error"
     },
     "reportOptionalIterable": {
       "$id": "#/properties/reportOptionalIterable",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to use an Optional type as an iterable value",
-      "default": "none"
+      "default": "error"
     },
     "reportOptionalContextManager": {
       "$id": "#/properties/reportOptionalContextManager",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to use an Optional type as a parameter to a with statement",
-      "default": "none"
+      "default": "error"
     },
     "reportOptionalOperand": {
       "$id": "#/properties/reportOptionalOperand",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to use an Optional type as an operand for a binary or unary operator",
-      "default": "none"
+      "default": "error"
     },
     "reportTypedDictNotRequiredAccess": {
       "$id": "#/properties/reportTypedDictNotRequiredAccess",

@@ -4,4 +4,4 @@
 
 
 def __getattr__(name: str):
-    return None
+    return str
