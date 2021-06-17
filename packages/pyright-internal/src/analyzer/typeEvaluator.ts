@@ -12052,6 +12052,14 @@ export function createTypeEvaluator(
         // Don't include any synthesized type variables.
         typeParameters = typeParameters.filter((typeVar) => !typeVar.details.isSynthesized);
 
+        // Convert all type variables to instances.
+        typeParameters = typeParameters.map((typeVar) => {
+            if (TypeBase.isInstance(typeVar)) {
+                return typeVar;
+            }
+            return convertToInstance(typeVar) as TypeVarType;
+        });
+
         // Verify that we have at most one variadic type variable.
         const variadics = typeParameters.filter((param) => isVariadicTypeVar(param));
         if (variadics.length > 1) {
