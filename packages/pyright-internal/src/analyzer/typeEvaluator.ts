@@ -5421,6 +5421,25 @@ export function createTypeEvaluator(
                 }
 
                 if (isClass(concreteSubtype)) {
+                    // See if the class has a custom metaclass that supports __getitem__, etc.
+                    if (
+                        concreteSubtype.details.effectiveMetaclass &&
+                        isClass(concreteSubtype.details.effectiveMetaclass) &&
+                        !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, 'type')
+                    ) {
+                        const itemMethodType = getTypeFromClassMember(
+                            node,
+                            concreteSubtype,
+                            getIndexAccessMagicMethodName(usage),
+                            /* usage */ undefined,
+                            /* diag */ undefined,
+                            /* memberAccessFlags */ MemberAccessFlags.ConsiderMetaclassOnly
+                        );
+                        if (itemMethodType) {
+                            return getTypeFromIndexedObjectOrClass(node, concreteSubtype, usage).type;
+                        }
+                    }
+
                     // Setting the value of an indexed class will always result
                     // in an exception.
                     if (usage.method === 'set') {
@@ -5480,7 +5499,7 @@ export function createTypeEvaluator(
                 }
 
                 if (isObject(concreteSubtype)) {
-                    const typeResult = getTypeFromIndexedObject(node, concreteSubtype, usage);
+                    const typeResult = getTypeFromIndexedObjectOrClass(node, concreteSubtype, usage);
                     if (typeResult.isIncomplete) {
                         isIncomplete = true;
                     }
@@ -5545,26 +5564,41 @@ export function createTypeEvaluator(
         return UnknownType.create();
     }
 
-    function getTypeFromIndexedObject(node: IndexNode, baseType: ObjectType, usage: EvaluatorUsage): TypeResult {
+    function getIndexAccessMagicMethodName(usage: EvaluatorUsage): string {
+        if (usage.method === 'get') {
+            return '__getitem__';
+        } else if (usage.method === 'set') {
+            return '__setitem__';
+        } else {
+            assert(usage.method === 'del');
+            return '__delitem__';
+        }
+    }
+
+    function getTypeFromIndexedObjectOrClass(
+        node: IndexNode,
+        baseType: ObjectType | ClassType,
+        usage: EvaluatorUsage
+    ): TypeResult {
         // Handle index operations for TypedDict classes specially.
-        if (ClassType.isTypedDictClass(baseType.classType)) {
+        if (isObject(baseType) && ClassType.isTypedDictClass(baseType.classType)) {
             const typeFromTypedDict = getTypeFromIndexedTypedDict(node, baseType, usage);
             if (typeFromTypedDict) {
                 return typeFromTypedDict;
             }
         }
 
-        let magicMethodName: string;
-        if (usage.method === 'get') {
-            magicMethodName = '__getitem__';
-        } else if (usage.method === 'set') {
-            magicMethodName = '__setitem__';
-        } else {
-            assert(usage.method === 'del');
-            magicMethodName = '__delitem__';
-        }
-
-        const itemMethodType = getTypeFromObjectMember(node, baseType, magicMethodName)?.type;
+        const magicMethodName = getIndexAccessMagicMethodName(usage);
+        const itemMethodType = isObject(baseType)
+            ? getTypeFromObjectMember(node, baseType, magicMethodName)?.type
+            : getTypeFromClassMember(
+                  node,
+                  baseType,
+                  magicMethodName,
+                  /* usage */ undefined,
+                  /* diag */ undefined,
+                  /* memberAccessFlags */ MemberAccessFlags.ConsiderMetaclassOnly
+              )?.type;
 
         if (!itemMethodType) {
             const fileInfo = getFileInfo(node);
@@ -5588,7 +5622,8 @@ export function createTypeEvaluator(
             node.items.length === 1 &&
             !node.trailingComma &&
             !node.items[0].name &&
-            node.items[0].argumentCategory === ArgumentCategory.Simple
+            node.items[0].argumentCategory === ArgumentCategory.Simple &&
+            isObject(baseType)
         ) {
             const baseTypeClass = baseType.classType;
             const index0Expr = node.items[0].valueExpression;

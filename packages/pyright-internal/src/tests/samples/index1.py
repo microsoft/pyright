@@ -2,6 +2,9 @@
 # when used with the __getitem__ and __setitem__ method.
 
 
+from typing import Literal, Type, TypeVar
+
+
 class MyInt:
     def __init__(self, value: int) -> None:
         self.value = value
@@ -29,3 +32,22 @@ hex(MyNonInt())
 l[MyNonInt()]
 l[MyNonInt()] = "hi"
 t[MyNonInt()]
+
+
+T = TypeVar("T")
+
+
+class MyMetaclass(type):
+    def __getitem__(cls: Type[T], item: int) -> T:
+        return cls()
+
+
+class ClassA(metaclass=MyMetaclass):
+    pass
+
+
+a1 = ClassA[1]
+t_a1: Literal["ClassA"] = reveal_type(a1)
+
+# This should generate an error
+ClassA["1"]
