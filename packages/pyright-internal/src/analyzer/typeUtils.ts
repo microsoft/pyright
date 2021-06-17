@@ -49,6 +49,7 @@ import {
     TypeBase,
     TypeCategory,
     TypeCondition,
+    TypeFlags,
     TypeVarScopeId,
     TypeVarType,
     UnionType,
@@ -220,6 +221,23 @@ export function areTypesSame(types: Type[], ignorePseudoGeneric: boolean): boole
     }
 
     return true;
+}
+
+// Determines whether the specified type is a type that can be
+// combined with other types for a union.
+export function isUnionableType(subtypes: Type[]): boolean {
+    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
+
+    for (let subtype of subtypes) {
+        subtype = transformTypeObjectToClass(subtype);
+        typeFlags &= subtype.flags;
+    }
+
+    // All subtypes need to be instantiable. Some types (like Any
+    // and None) are both instances and instantiable. It's OK to
+    // include some of these, but at least one subtype needs to
+    // be definitively instantiable (not an instance).
+    return (typeFlags & TypeFlags.Instantiable) !== 0 && (typeFlags & TypeFlags.Instance) === 0;
 }
 
 export function derivesFromAnyOrUnknown(type: Type): boolean {

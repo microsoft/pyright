@@ -11,7 +11,6 @@ import { assert } from '../common/debug';
 import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
-import { transformTypeObjectToClass } from './typeUtils';
 
 export const enum TypeCategory {
     // Name is not bound to a value of any type.
@@ -2160,23 +2159,6 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
     }
 
     return filter(type) ? type : undefined;
-}
-
-// Determines whether the specified type is a type that can be
-// combined with other types for a union.
-export function isUnionableType(subtypes: Type[]): boolean {
-    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
-
-    for (let subtype of subtypes) {
-        subtype = transformTypeObjectToClass(subtype);
-        typeFlags &= subtype.flags;
-    }
-
-    // All subtypes need to be instantiable. Some types (like Any
-    // and None) are both instances and instantiable. It's OK to
-    // include some of these, but at least one subtype needs to
-    // be definitively instantiable (not an instance).
-    return (typeFlags & TypeFlags.Instantiable) !== 0 && (typeFlags & TypeFlags.Instance) === 0;
 }
 
 // Combines multiple types into a single type. If the types are
