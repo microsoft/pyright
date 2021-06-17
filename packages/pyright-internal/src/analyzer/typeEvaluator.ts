@@ -9984,7 +9984,7 @@ export function createTypeEvaluator(
             expectedOperandType || expectedLeftOperandType,
             flags
         );
-        let leftType = leftTypeResult.type;
+        let leftType = transformTypeObjectToClass(leftTypeResult.type);
 
         // If there is no expected type, use the type of the left operand. This
         // allows us to infer a better type for expressions like `x or []`.
@@ -9993,7 +9993,7 @@ export function createTypeEvaluator(
         }
 
         const rightTypeResult = getTypeOfExpression(rightExpression, expectedOperandType, flags);
-        let rightType = rightTypeResult.type;
+        let rightType = transformTypeObjectToClass(rightTypeResult.type);
 
         if (leftTypeResult.isIncomplete || rightTypeResult.isIncomplete) {
             isIncomplete = true;

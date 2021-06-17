@@ -770,6 +770,12 @@ test('Operators5', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Operators6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 
