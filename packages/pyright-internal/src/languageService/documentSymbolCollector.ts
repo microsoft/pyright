@@ -45,7 +45,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         });
 
         this._startingNode = getModuleNode(node);
-        if (this._declarations.length > 0) {
+        if (this._declarations.length > 0 && declarations[0].node) {
             const scopeRoot = getEvaluationScopeNode(declarations[0].node);
 
             // Find the lowest tree to search the symbol.
