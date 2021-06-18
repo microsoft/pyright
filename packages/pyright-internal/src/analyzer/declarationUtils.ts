@@ -92,7 +92,40 @@ export function isExplicitTypeAliasDeclaration(decl: Declaration) {
 }
 
 export function isPossibleTypeAliasDeclaration(decl: Declaration) {
-    return decl.type === DeclarationType.Variable && !!decl.typeAliasName && !decl.typeAnnotationNode;
+    if (decl.type !== DeclarationType.Variable || !decl.typeAliasName || decl.typeAnnotationNode) {
+        return false;
+    }
+
+    if (decl.node.parent?.nodeType !== ParseNodeType.Assignment) {
+        return false;
+    }
+
+    // Perform a sanity check on the RHS expression. Some expression
+    // forms should never be considered legitimate for type aliases.
+    const rhsOfAssignment = decl.node.parent.rightExpression;
+    switch (rhsOfAssignment.nodeType) {
+        case ParseNodeType.Error:
+        case ParseNodeType.UnaryOperation:
+        case ParseNodeType.AssignmentExpression:
+        case ParseNodeType.TypeAnnotation:
+        case ParseNodeType.Await:
+        case ParseNodeType.Ternary:
+        case ParseNodeType.Unpack:
+        case ParseNodeType.Tuple:
+        case ParseNodeType.Call:
+        case ParseNodeType.ListComprehension:
+        case ParseNodeType.Slice:
+        case ParseNodeType.Yield:
+        case ParseNodeType.YieldFrom:
+        case ParseNodeType.Lambda:
+        case ParseNodeType.Number:
+        case ParseNodeType.Dictionary:
+        case ParseNodeType.List:
+        case ParseNodeType.Set:
+            return false;
+    }
+
+    return true;
 }
 
 export function getNameFromDeclaration(declaration: Declaration) {
