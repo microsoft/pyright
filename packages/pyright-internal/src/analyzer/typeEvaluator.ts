@@ -13130,7 +13130,7 @@ export function createTypeEvaluator(
         }
 
         // Is this the built-in dataclass? If so, return the default behaviors.
-        if (functionType.details.builtInName === 'dataclass') {
+        if (functionType.details.fullName === 'dataclasses.dataclass') {
             return {
                 keywordOnlyParams: false,
                 generateEq: true,
