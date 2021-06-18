@@ -2,7 +2,7 @@
 # when used with the __getitem__ and __setitem__ method.
 
 
-from typing import Literal, Type, TypeVar
+from typing import Generic, Literal, Type, TypeVar, Any
 
 
 class MyInt:
@@ -66,6 +66,18 @@ class ClassC:
 B_or_C = TypeVar("B_or_C", ClassB, ClassC)
 
 
-def func1(bar: B_or_C):
-    a = bar
-    a[1] = bar
+def func1(container: B_or_C):
+    a = container
+    a[1] = container
+
+
+TD = TypeVar("TD", bound="ClassD[Any]")
+
+
+class ClassD(Generic[TD]):
+    def __setitem__(self, index: int, value: TD):
+        ...
+
+
+def func2(container: ClassD[TD], value: TD):
+    container[1] = value
