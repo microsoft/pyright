@@ -8541,13 +8541,29 @@ export function createTypeEvaluator(
 
         // Calculate the return type.
         const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams);
+
+        // Determine whether the expression being evaluated is within the current TypeVar
+        // scope. If not, then the expression is invoking a function in another scope,
+        // and we should eliminate unsolved type variables from union types that appear
+        // in the return type. If we're within the same scope, we should retain these
+        // extra type variables because they are still potentially relevant within this
+        // scope.
+        let eliminateUnsolvedInUnions = true;
+        const typeVarScopeNode = ParseTreeUtils.getTypeVarScopeNode(errorNode);
+        if (typeVarScopeNode) {
+            const typeVarScopeId = getScopeIdForNode(typeVarScopeNode);
+            if (typeVarMap.hasSolveForScope(typeVarScopeId)) {
+                eliminateUnsolvedInUnions = false;
+            }
+        }
+
         let specializedReturnType = addConditionToType(
             applySolvedTypeVars(
                 returnType,
                 typeVarMap,
                 /* unknownIfNotFound */ false,
                 /* useNarrowBoundOnly */ false,
-                /* eliminateUnsolvedInUnions */ true
+                eliminateUnsolvedInUnions
             ),
             typeCondition
         );
