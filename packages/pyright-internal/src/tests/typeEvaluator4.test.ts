@@ -443,6 +443,12 @@ test('Callable3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Callable4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ThreePartVersion1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['threePartVersion1.py']);
 
