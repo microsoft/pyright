@@ -685,8 +685,11 @@ export function applySolvedTypeVars(
             // If the type variable is unrelated to the scopes we're solving,
             // don't transform that type variable.
             if (typeVar.scopeId && typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                const replacement = typeVarMap.getTypeVarType(typeVar, useNarrowBoundOnly);
+                let replacement = typeVarMap.getTypeVarType(typeVar, useNarrowBoundOnly);
                 if (replacement) {
+                    if (TypeBase.isInstantiable(typeVar)) {
+                        replacement = convertToInstantiable(replacement);
+                    }
                     return replacement;
                 }
 
@@ -1773,15 +1776,6 @@ export function _transformTypeVars(
         const typeVarName = TypeVarType.getNameWithScope(type);
         if (!recursionMap.has(typeVarName)) {
             replacementType = callbacks.transformTypeVar(type);
-
-            // If we're replacing a TypeVar with another type and the
-            // original is not an instance, convert the replacement so it's also
-            // not an instance. This happens in the case where a type alias refers
-            // to a union that includes a TypeVar.
-            if (TypeBase.isInstantiable(type) && !TypeBase.isInstantiable(replacementType)) {
-                replacementType = convertToInstantiable(replacementType);
-            }
-
             recursionMap.set(typeVarName, type);
             replacementType = _transformTypeVars(replacementType, callbacks, recursionMap, recursionLevel + 1);
 

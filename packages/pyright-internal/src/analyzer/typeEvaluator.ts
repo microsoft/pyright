@@ -21025,8 +21025,7 @@ export function createTypeEvaluator(
             destType.details.constraints.some((t) => containsLiteralType(t));
         let adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
 
-        // In case the src type came from a Type[T], convert it to a T.
-        if (isTypeVar(adjSrcType) && TypeBase.isInstantiable(adjSrcType)) {
+        if (TypeBase.isInstantiable(destType)) {
             adjSrcType = convertToInstance(adjSrcType);
         }
 
