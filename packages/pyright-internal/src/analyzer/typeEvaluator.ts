@@ -5741,9 +5741,11 @@ export function createTypeEvaluator(
         ];
 
         if (usage.method === 'set') {
+            const conditionFilter = isObject(baseType) ? baseType.classType.condition : undefined;
+            const setType = makeTopLevelTypeVarsConcrete(usage.setType || AnyType.create(), conditionFilter);
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,
-                type: usage.setType || AnyType.create(),
+                type: setType,
             });
         }
 

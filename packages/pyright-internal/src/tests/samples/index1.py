@@ -51,3 +51,21 @@ t_a1: Literal["ClassA"] = reveal_type(a1)
 
 # This should generate an error
 ClassA["1"]
+
+
+class ClassB:
+    def __setitem__(self, index: int, value: "ClassB"):
+        ...
+
+
+class ClassC:
+    def __setitem__(self, index: int, value: "ClassC"):
+        ...
+
+
+B_or_C = TypeVar("B_or_C", ClassB, ClassC)
+
+
+def func1(bar: B_or_C):
+    a = bar
+    a[1] = bar
