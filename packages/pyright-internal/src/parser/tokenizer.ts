@@ -132,6 +132,8 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 
 const _byteOrderMarker = 0xfeff;
 
+const _maxStringTokenLength = 32 * 1024;
+
 export interface TokenizerOutput {
     // List of all tokens.
     tokens: TextRangeCollection<Token>;
@@ -1098,7 +1100,7 @@ export class Tokenizer {
     private _skipToEndOfStringLiteral(flags: StringTokenFlags): StringScannerOutput {
         const quoteChar = flags & StringTokenFlags.SingleQuote ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
-        const escapedValueParts: number[] = [];
+        let escapedValueParts: number[] = [];
 
         while (true) {
             if (this._cs.isEndOfStream()) {
@@ -1156,6 +1158,15 @@ export class Tokenizer {
                 escapedValueParts.push(this._cs.currentChar);
                 this._cs.moveNext();
             }
+        }
+
+        // String.fromCharCode.apply crashes (stack overflow) if passed an array
+        // that is too long. Cut off the extra characters in this case to avoid
+        // the crash. It's unlikely that the full string value will be used as
+        // a string literal, an f-string, or a docstring, so this should be fine.
+        if (escapedValueParts.length > _maxStringTokenLength) {
+            escapedValueParts = escapedValueParts.slice(0, _maxStringTokenLength);
+            flags |= StringTokenFlags.ExceedsMaxSize;
         }
 
         return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };

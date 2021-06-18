@@ -162,6 +162,7 @@ export const enum StringTokenFlags {
 
     // Error conditions
     Unterminated = 1 << 16,
+    ExceedsMaxSize = 1 << 17,
 }
 
 export interface Comment extends TextRange {
