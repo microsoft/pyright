@@ -17573,13 +17573,14 @@ export function createTypeEvaluator(
                     }
                 }
 
-                // Look for "X is Y" or "X is not Y" where Y is a an enum.
+                // Look for "X is Y" or "X is not Y" where Y is a an enum or False or True.
                 if (isOrIsNotOperator) {
                     if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
                         const rightType = getTypeOfExpression(testExpression.rightExpression).type;
                         if (
                             isObject(rightType) &&
-                            ClassType.isEnumClass(rightType.classType) &&
+                            (ClassType.isEnumClass(rightType.classType) ||
+                                ClassType.isBuiltIn(rightType.classType, 'bool')) &&
                             rightType.classType.literalValue !== undefined
                         ) {
                             return (type: Type) => {

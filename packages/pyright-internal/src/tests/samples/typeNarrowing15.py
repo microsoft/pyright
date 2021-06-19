@@ -1,9 +1,9 @@
 # This sample tests the type narrowing logic for
-# enum values that are compared using the "is" and
-# "is not" operators.
+# enum values or False/True that are compared using the
+# "is" and "is not" operators.
 
 from enum import Enum
-from typing import NoReturn
+from typing import Literal, NoReturn, Union
 
 
 class SomeEnum(Enum):
@@ -49,3 +49,23 @@ def func4(a: SomeEnum):
         # This should generate an error because
         # a hasn't been narrowed to Never.
         assert_never(a)
+
+
+def func5(a: Union[str, Literal[False]]) -> str:
+    if a is False:
+        return "no"
+    return a
+
+
+def func6(a: Union[str, Literal[False]]) -> str:
+    if a is not False:
+        return a
+    return "no"
+
+
+def func7(a: Union[str, bool]) -> str:
+    if a is False:
+        return "False"
+    elif a is True:
+        return "True"
+    return a
