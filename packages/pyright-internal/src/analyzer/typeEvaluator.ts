@@ -7467,7 +7467,11 @@ export function createTypeEvaluator(
                             }
                         }
 
-                        if (!isTypeObject && ClassType.hasAbstractMethods(expandedSubtype) && !isTypeVar(unexpandedSubtype)) {
+                        if (
+                            !isTypeObject &&
+                            ClassType.hasAbstractMethods(expandedSubtype) &&
+                            !isTypeVar(unexpandedSubtype)
+                        ) {
                             // If the class is abstract, it can't be instantiated.
                             const abstractMethods = getAbstractMethods(expandedSubtype);
                             const diagAddendum = new DiagnosticAddendum();
