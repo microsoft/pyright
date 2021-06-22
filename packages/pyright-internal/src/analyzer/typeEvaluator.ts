@@ -3704,6 +3704,13 @@ export function createTypeEvaluator(
                 break;
             }
 
+            case ParseNodeType.Tuple: {
+                node.expressions.forEach((expr) => {
+                    verifyDeleteExpression(expr);
+                });
+                break;
+            }
+
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
