@@ -2277,7 +2277,7 @@ export class Parser {
         while (true) {
             const identifier = this._getTokenIfIdentifier([KeywordType.Import]);
             if (!identifier) {
-                if (!allowJustDots || moduleNameNode.leadingDots === 0) {
+                if (!allowJustDots || moduleNameNode.leadingDots === 0 || moduleNameNode.nameParts.length > 0) {
                     this._addError(Localizer.Diagnostic.expectedModuleName(), this._peekToken());
                     moduleNameNode.hasTrailingDot = true;
                 }
