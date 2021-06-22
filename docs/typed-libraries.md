@@ -55,22 +55,22 @@ A “known type” is defined as follows:
 
 Classes:
 
-    * All class variables, instance variables, and methods that are “visible” (not overridden) are annotated and refer to known types
-    * If a class is a subclass of a generic class, type arguments are provided for each generic type parameter, and these type arguments are known types
+* All class variables, instance variables, and methods that are “visible” (not overridden) are annotated and refer to known types
+* If a class is a subclass of a generic class, type arguments are provided for each generic type parameter, and these type arguments are known types
 
 Functions and Methods:
 
-    * All input parameters have type annotations that refer to known types
-    * The return parameter is annotated and refers to a known type
-    * The result of applying one or more decorators results in a known type
+* All input parameters have type annotations that refer to known types
+* The return parameter is annotated and refers to a known type
+* The result of applying one or more decorators results in a known type
 
 Type Aliases:
 
-    * All of the types referenced by the type alias are known
+* All of the types referenced by the type alias are known
 
 Variables:
 
-    * All variables have type annotations that refer to known types
+* All variables have type annotations that refer to known types
 
 Type annotations can be omitted in a few specific cases where the type is obvious from the context:
 
