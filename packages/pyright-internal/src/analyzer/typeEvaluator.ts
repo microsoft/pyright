@@ -8131,7 +8131,12 @@ export function createTypeEvaluator(
                         if (mappingType && isClass(mappingType) && strObjType && isObject(strObjType)) {
                             const mappingTypeVarMap = new TypeVarMap(getTypeVarScopeId(mappingType));
                             let isValidMappingType = false;
-                            if (
+
+                            // If this was a TypeVar (e.g. for pseudo-generic classes),
+                            // don't emit this error.
+                            if (isTypeVar(argType)) {
+                                isValidMappingType = true;
+                            } else if (
                                 canAssignType(
                                     ObjectType.create(mappingType),
                                     argType,
