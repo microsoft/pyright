@@ -7615,8 +7615,11 @@ export function createTypeEvaluator(
 
                     // TypeVars should have been expanded in most cases,
                     // but we still need to handle the case of Type[T] where
-                    // T is a constrained type that contains a union.
+                    // T is a constrained type that contains a union. We also
+                    // need to handle recursive type aliases.
                     case TypeCategory.TypeVar: {
+                        expandedSubtype = transformPossibleRecursiveTypeAlias(expandedSubtype);
+
                         const callResult = validateCallArguments(
                             errorNode,
                             argList,
