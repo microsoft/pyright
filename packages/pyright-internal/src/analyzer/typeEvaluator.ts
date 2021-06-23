@@ -6481,6 +6481,28 @@ export function createTypeEvaluator(
                     node.arguments[1].valueExpression
                 );
             }
+        } else {
+            if (isClass(targetClassType)) {
+                bindToType = targetClassType;
+            }
+        }
+
+        // Determine whether super() should return an instance of the class or
+        // the class itself. It depends on whether the super() call is located
+        // within an instance method or not.
+        let resultIsInstance = true;
+        const enclosingMethod = ParseTreeUtils.getEnclosingFunction(node);
+        if (enclosingMethod) {
+            const methodType = getTypeOfFunction(enclosingMethod);
+            if (methodType) {
+                if (
+                    FunctionType.isStaticMethod(methodType.functionType) ||
+                    FunctionType.isConstructorMethod(methodType.functionType) ||
+                    FunctionType.isClassMethod(methodType.functionType)
+                ) {
+                    resultIsInstance = false;
+                }
+            }
         }
 
         // Python docs indicate that super() isn't valid for
@@ -6495,9 +6517,12 @@ export function createTypeEvaluator(
             );
             if (lookupResults && isClass(lookupResults.classType)) {
                 return {
-                    type: ObjectType.create(lookupResults.classType),
+                    type: resultIsInstance ? ObjectType.create(lookupResults.classType) : lookupResults.classType,
                     node,
-                    bindToType,
+                    bindToType:
+                        resultIsInstance && bindToType && isClass(bindToType)
+                            ? ObjectType.create(bindToType)
+                            : bindToType,
                 };
             }
         }
@@ -6519,7 +6544,7 @@ export function createTypeEvaluator(
                 const baseClassType = baseClasses[0];
                 if (isClass(baseClassType)) {
                     return {
-                        type: ObjectType.create(baseClassType),
+                        type: resultIsInstance ? ObjectType.create(baseClassType) : baseClassType,
                         node,
                     };
                 }
