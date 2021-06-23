@@ -767,7 +767,7 @@ export class Program {
 
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
-        if (fileToAnalyze.builtinsImport) {
+        if (fileToAnalyze.builtinsImport && fileToAnalyze.builtinsImport !== fileToAnalyze) {
             this._bindFile(fileToAnalyze.builtinsImport);
 
             // Get the builtins scope to pass to the binding pass.
