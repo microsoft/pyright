@@ -2217,7 +2217,6 @@ export function requiresTypeArguments(classType: ClassType) {
             'Type',
             'Optional',
             'Union',
-            'Final',
             'Literal',
             'Annotated',
             'TypeGuard',
