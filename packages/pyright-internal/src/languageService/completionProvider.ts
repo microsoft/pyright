@@ -273,9 +273,12 @@ interface CompletionDetail {
     documentation?: string | undefined;
     autoImportText?: string | undefined;
     edits?: Edits | undefined;
+    sortText?: string | undefined;
+    itemDetail?: string | undefined;
 }
 
 export const autoImportDetail = 'Auto-import';
+export const dictionaryKeyDetail = 'Dictionary key';
 
 // We'll use a somewhat-arbitrary cutoff value here to determine
 // whether it's sufficiently similar.
@@ -1230,14 +1233,10 @@ export class CompletionProvider {
                     return;
                 }
 
-                this._addNameToCompletionList(
-                    key,
-                    CompletionItemKind.Constant,
-                    priorWord,
-                    completionList,
-                    /*detail*/ undefined,
-                    this._makeSortText(SortCategory.LiteralValue, key)
-                );
+                this._addNameToCompletionList(key, CompletionItemKind.Constant, priorWord, completionList, {
+                    sortText: this._makeSortText(SortCategory.LiteralValue, key),
+                    itemDetail: dictionaryKeyDetail,
+                });
             });
         }
 
@@ -1386,7 +1385,7 @@ export class CompletionProvider {
         );
         collector.collect();
 
-        const keys: string[] = [];
+        const keys: Set<string> = new Set<string>();
         for (const nameNode of results) {
             const node = nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation ? nameNode.parent : nameNode;
 
@@ -1402,7 +1401,7 @@ export class CompletionProvider {
                         const key = this._parseResults.text
                             .substr(entry.keyExpression.start, entry.keyExpression.length)
                             .trim();
-                        if (key.length > 0) keys.push(key);
+                        if (key.length > 0) keys.add(key);
                     }
                 }
 
@@ -1417,7 +1416,7 @@ export class CompletionProvider {
                         const key = arg.name?.value.trim() ?? '';
                         const quote = this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
                         if (key.length > 0) {
-                            keys.push(`${quote}${key}${quote}`);
+                            keys.add(`${quote}${key}${quote}`);
                         }
                     }
                 }
@@ -1433,11 +1432,11 @@ export class CompletionProvider {
                 const key = this._parseResults.text
                     .substr(indexArgument.valueExpression.start, indexArgument.valueExpression.length)
                     .trim();
-                if (key.length > 0) keys.push(key);
+                if (key.length > 0) keys.add(key);
             }
         }
 
-        return keys;
+        return [...keys];
     }
 
     private _getStringLiteralCompletions(
@@ -1475,7 +1474,7 @@ export class CompletionProvider {
                 )
             ) {
                 const keys = this._getDictionaryKeys(parentNode.parent, parseNode)
-                    .filter((k) => /["|']\w+["|']/.test(k))
+                    .filter((k) => /^["|'].*["|']$/.test(k))
                     .map((k) => k.substr(1, k.length - 2));
                 if (keys.length === 0) {
                     return undefined;
@@ -1488,7 +1487,8 @@ export class CompletionProvider {
                         quoteValue.stringValue,
                         postText,
                         quoteValue.quoteCharacter,
-                        completionList
+                        completionList,
+                        dictionaryKeyDetail
                     );
                 });
             }
@@ -1577,7 +1577,8 @@ export class CompletionProvider {
         priorString: string | undefined,
         postText: string | undefined,
         quoteCharacter: string,
-        completionList: CompletionList
+        completionList: CompletionList,
+        detail?: string
     ) {
         if (StringUtils.isPatternInSymbol(priorString || '', value)) {
             const valueWithQuotes = `${quoteCharacter}${value}${quoteCharacter}`;
@@ -1604,6 +1605,7 @@ export class CompletionProvider {
                 end: { line: this._position.line, character: rangeEndCol },
             };
             completionItem.textEdit = TextEdit.replace(range, valueWithQuotes);
+            completionItem.detail = detail;
 
             completionList.items.push(completionItem);
         }
@@ -2093,8 +2095,7 @@ export class CompletionProvider {
         itemKind: CompletionItemKind,
         filter: string,
         completionList: CompletionList,
-        detail?: CompletionDetail,
-        sortText?: string
+        detail?: CompletionDetail
     ) {
         // Auto importer already filtered out unnecessary ones. No need to do it again.
         const similarity = detail?.autoImportText ? true : StringUtils.isPatternInSymbol(filter, name);
@@ -2117,8 +2118,9 @@ export class CompletionProvider {
 
         completionItem.data = completionItemData;
 
-        if (sortText) {
-            completionItem.sortText = sortText;
+        if (detail?.sortText || detail?.itemDetail) {
+            completionItem.sortText = detail.sortText;
+            completionItem.detail = detail.itemDetail;
         } else if (detail?.autoImportText) {
             // Force auto-import entries to the end.
             completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, detail.autoImportText);

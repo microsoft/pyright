@@ -34,30 +34,30 @@
     await helper.verifyCompletion('included', 'markdown', {
         marker1: {
             completions: [
-                { label: '1', kind: Consts.CompletionItemKind.Constant },
-                { label: '2', kind: Consts.CompletionItemKind.Constant },
+                { label: '1', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                { label: '2', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
             ],
         },
         marker2: {
             completions: [
-                { label: '(1, 2)', kind: Consts.CompletionItemKind.Constant },
-                { label: '(2, 3)', kind: Consts.CompletionItemKind.Constant },
+                { label: '(1, 2)', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                { label: '(2, 3)', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
             ],
         },
         marker3: {
             completions: [
-                { label: '1 + 2', kind: Consts.CompletionItemKind.Constant },
-                { label: '2 + 3', kind: Consts.CompletionItemKind.Constant },
+                { label: '1 + 2', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                { label: '2 + 3', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
             ],
         },
         marker4: {
             completions: [
-                { label: '"key"', kind: Consts.CompletionItemKind.Constant },
-                { label: '"key2"', kind: Consts.CompletionItemKind.Constant },
+                { label: '"key"', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+                { label: '"key2"', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
             ],
         },
         marker5: {
-            completions: [{ label: 'C.key', kind: Consts.CompletionItemKind.Constant }],
+            completions: [{ label: 'C.key', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' }],
         },
     });
 }
