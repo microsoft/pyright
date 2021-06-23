@@ -288,7 +288,7 @@ interface EffectiveTypeCacheEntry {
     result: EffectiveTypeResult;
 }
 
-interface FunctionArgument {
+interface FunctionArgumentBase {
     argumentCategory: ArgumentCategory;
     node?: ArgumentNode | undefined;
     name?: NameNode | undefined;
@@ -296,6 +296,16 @@ interface FunctionArgument {
     valueExpression?: ExpressionNode | undefined;
     active?: boolean | undefined;
 }
+
+interface FunctionArgumentWithType extends FunctionArgumentBase {
+    type: Type;
+}
+
+interface FunctionArgumentWithExpression extends FunctionArgumentBase {
+    valueExpression: ExpressionNode;
+}
+
+type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithExpression;
 
 interface ValidateArgTypeParams {
     paramCategory: ParameterCategory;
@@ -4978,7 +4988,7 @@ export function createTypeEvaluator(
                         // Provide "value" argument.
                         argList.push({
                             argumentCategory: ArgumentCategory.Simple,
-                            type: usage.setType,
+                            type: usage.setType || UnknownType.create(),
                         });
                     }
 
@@ -7238,10 +7248,15 @@ export function createTypeEvaluator(
         callType: Type,
         typeVarMap?: TypeVarMap,
         skipUnknownArgCheck = false,
-        expectedType?: Type
+        expectedType?: Type,
+        recursionCount = 0
     ): CallResult {
         let argumentErrors = false;
         let isTypeIncomplete = false;
+
+        if (recursionCount > maxTypeRecursionCount) {
+            return { returnType: UnknownType.create(), argumentErrors: true };
+        }
 
         if (TypeBase.isNonCallable(callType)) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
@@ -7586,7 +7601,8 @@ export function createTypeEvaluator(
                                 memberType,
                                 typeVarMap,
                                 skipUnknownArgCheck,
-                                expectedType
+                                expectedType,
+                                recursionCount + 1
                             );
                             if (functionResult.argumentErrors) {
                                 argumentErrors = true;
@@ -7626,7 +7642,8 @@ export function createTypeEvaluator(
                             expandedSubtype,
                             typeVarMap,
                             skipUnknownArgCheck,
-                            expectedType
+                            expectedType,
+                            recursionCount + 1
                         );
 
                         if (callResult.argumentErrors) {
@@ -7939,7 +7956,11 @@ export function createTypeEvaluator(
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
 
                 // Note that the parameter has received an argument.
-                if (paramName && typeParams[paramIndex].category === ParameterCategory.Simple) {
+                if (
+                    paramName &&
+                    typeParams[paramIndex].category === ParameterCategory.Simple &&
+                    paramMap.has(paramName)
+                ) {
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
@@ -8020,7 +8041,7 @@ export function createTypeEvaluator(
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
 
                 // Note that the parameter has received an argument.
-                if (paramName) {
+                if (paramName && paramMap.has(paramName)) {
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
@@ -8282,6 +8303,7 @@ export function createTypeEvaluator(
                         param.category === ParameterCategory.Simple &&
                         param.name &&
                         !param.hasDefault &&
+                        paramMap.has(param.name) &&
                         paramMap.get(param.name)!.argsReceived === 0
                     ) {
                         const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
@@ -8309,7 +8331,7 @@ export function createTypeEvaluator(
             if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(type)) {
                 const unassignedParams = [...paramMap.keys()].filter((name) => {
                     const entry = paramMap.get(name)!;
-                    return entry.argsReceived < entry.argsNeeded;
+                    return !entry || entry.argsReceived < entry.argsNeeded;
                 });
 
                 if (unassignedParams.length > 0) {
@@ -18661,9 +18683,14 @@ export function createTypeEvaluator(
             return arg.type;
         }
 
+        if (!arg.valueExpression) {
+            // We shouldn't ever get here, but just in case.
+            return UnknownType.create();
+        }
+
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        return getTypeOfExpression(arg.valueExpression!).type;
+        return getTypeOfExpression(arg.valueExpression).type;
     }
 
     // This function is like getTypeForArgument except that it is
@@ -20216,7 +20243,7 @@ export function createTypeEvaluator(
 
     // This function is used to validate the variance of type variables
     // within a protocol class.
-    function canAssignProtocolClassToSelf(destType: ClassType, srcType: ClassType, recursionCount = 1): boolean {
+    function canAssignProtocolClassToSelf(destType: ClassType, srcType: ClassType, recursionCount = 0): boolean {
         assert(ClassType.isProtocolClass(destType));
         assert(ClassType.isProtocolClass(srcType));
         assert(ClassType.isSameGenericClass(destType, srcType));
@@ -20929,7 +20956,14 @@ export function createTypeEvaluator(
 
             if (isTypeVar(srcType)) {
                 if (
-                    canAssignType(destType, concreteSrcType, new DiagnosticAddendum(), new TypeVarMap(destType.scopeId))
+                    canAssignType(
+                        destType,
+                        concreteSrcType,
+                        new DiagnosticAddendum(),
+                        new TypeVarMap(destType.scopeId),
+                        /* flags */ undefined,
+                        recursionCount + 1
+                    )
                 ) {
                     constrainedType = srcType;
                 }
@@ -20951,8 +20985,27 @@ export function createTypeEvaluator(
 
                     let constraintIndexUsed: number | undefined;
                     destType.details.constraints.forEach((t, i) => {
-                        if (canAssignType(t, srcSubtype, new DiagnosticAddendum())) {
-                            if (!constrainedSubtype || canAssignType(constrainedSubtype, t, new DiagnosticAddendum())) {
+                        if (
+                            canAssignType(
+                                t,
+                                srcSubtype,
+                                new DiagnosticAddendum(),
+                                /* typeVarMap */ undefined,
+                                /* flags */ undefined,
+                                recursionCount + 1
+                            )
+                        ) {
+                            if (
+                                !constrainedSubtype ||
+                                canAssignType(
+                                    constrainedSubtype,
+                                    t,
+                                    new DiagnosticAddendum(),
+                                    /* typeVarMap */ undefined,
+                                    /* flags */ undefined,
+                                    recursionCount + 1
+                                )
+                            ) {
                                 constrainedSubtype = addConditionToType(t, getTypeCondition(srcSubtype));
                                 constraintIndexUsed = i;
                             }
@@ -21003,11 +21056,29 @@ export function createTypeEvaluator(
             }
 
             if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
-                if (!canAssignType(curNarrowTypeBound, constrainedType, new DiagnosticAddendum())) {
+                if (
+                    !canAssignType(
+                        curNarrowTypeBound,
+                        constrainedType,
+                        new DiagnosticAddendum(),
+                        /* typeVarMap */ undefined,
+                        /* flags */ undefined,
+                        recursionCount + 1
+                    )
+                ) {
                     // Handle the case where one of the constrained types is a wider
                     // version of another constrained type that was previously assigned
                     // to the type variable.
-                    if (canAssignType(constrainedType, curNarrowTypeBound, new DiagnosticAddendum())) {
+                    if (
+                        canAssignType(
+                            constrainedType,
+                            curNarrowTypeBound,
+                            new DiagnosticAddendum(),
+                            /* typeVarMap */ undefined,
+                            /* flags */ undefined,
+                            recursionCount + 1
+                        )
+                    ) {
                         if (!typeVarMap.isLocked() && isTypeVarInScope) {
                             typeVarMap.setTypeVarType(destType, constrainedType);
                         }
@@ -21054,10 +21125,28 @@ export function createTypeEvaluator(
             if (!curWideTypeBound) {
                 newWideTypeBound = adjSrcType;
             } else if (!isTypeSame(curWideTypeBound, adjSrcType)) {
-                if (canAssignType(curWideTypeBound, adjSrcType, diagAddendum)) {
+                if (
+                    canAssignType(
+                        curWideTypeBound,
+                        adjSrcType,
+                        diagAddendum,
+                        /* typeVarMap */ undefined,
+                        /* flags */ undefined,
+                        recursionCount + 1
+                    )
+                ) {
                     // The srcType is narrower than the current wideTypeBound, so replace it.
                     newWideTypeBound = srcType;
-                } else if (!canAssignType(adjSrcType, curWideTypeBound, diagAddendum)) {
+                } else if (
+                    !canAssignType(
+                        adjSrcType,
+                        curWideTypeBound,
+                        diagAddendum,
+                        /* typeVarMap */ undefined,
+                        /* flags */ undefined,
+                        recursionCount + 1
+                    )
+                ) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
                             sourceType: printType(adjSrcType),
@@ -21071,7 +21160,16 @@ export function createTypeEvaluator(
 
             // Make sure we haven't narrowed it beyond the current narrow bound.
             if (curNarrowTypeBound) {
-                if (!canAssignType(newWideTypeBound!, curNarrowTypeBound, new DiagnosticAddendum())) {
+                if (
+                    !canAssignType(
+                        newWideTypeBound!,
+                        curNarrowTypeBound,
+                        new DiagnosticAddendum(),
+                        /* typeVarMap */ undefined,
+                        /* flags */ undefined,
+                        recursionCount + 1
+                    )
+                ) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
                             sourceType: printType(adjSrcType),
