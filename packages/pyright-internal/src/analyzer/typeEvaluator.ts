@@ -17973,7 +17973,11 @@ export function createTypeEvaluator(
                                 ClassType.isProtocolClass(concreteFilterType) &&
                                 canAssignType(concreteFilterType, varType, new DiagnosticAddendum())) ||
                             (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType)));
-                    const filterIsSubclass = ClassType.isDerivedFrom(concreteFilterType, varType);
+                    const filterIsSubclass =
+                        ClassType.isDerivedFrom(concreteFilterType, varType) ||
+                        (isInstanceCheck &&
+                            ClassType.isProtocolClass(varType) &&
+                            canAssignType(varType, concreteFilterType, new DiagnosticAddendum()));
 
                     if (filterIsSuperclass) {
                         foundSuperclass = true;

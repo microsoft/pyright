@@ -2358,7 +2358,11 @@ export class Checker extends ParseTreeWalker {
                         ClassType.isProtocolClass(filterType) &&
                         this._evaluator.canAssignType(filterType, varType, new DiagnosticAddendum())) ||
                     (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
-                const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
+                const filterIsSubclass =
+                    ClassType.isDerivedFrom(filterType, varType) ||
+                    (isInstanceCheck &&
+                        ClassType.isProtocolClass(varType) &&
+                        this._evaluator.canAssignType(varType, filterType, new DiagnosticAddendum()));
 
                 // Normally, a class should never be both a subclass and a
                 // superclass. However, this can happen if one of the classes
