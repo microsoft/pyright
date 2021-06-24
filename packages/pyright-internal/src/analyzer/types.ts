@@ -1873,6 +1873,10 @@ export function getTypeAliasInfo(type: Type) {
 // type arguments for "pseudo-generic" classes (non-generic classes whose init
 // methods are not annotated and are therefore treated as generic) are ignored.
 export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false, recursionCount = 0): boolean {
+    if (type1 === type2) {
+        return true;
+    }
+
     if (type1.category !== type2.category) {
         return false;
     }
