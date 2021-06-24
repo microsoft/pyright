@@ -8615,12 +8615,19 @@ export function createTypeEvaluator(
         // extra type variables because they are still potentially relevant within this
         // scope.
         let eliminateUnsolvedInUnions = true;
-        const typeVarScopeNode = ParseTreeUtils.getTypeVarScopeNode(errorNode);
-        if (typeVarScopeNode) {
+        let curNode: ParseNode | undefined = errorNode;
+        while (true) {
+            const typeVarScopeNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
+            if (!typeVarScopeNode) {
+                break;
+            }
+
             const typeVarScopeId = getScopeIdForNode(typeVarScopeNode);
             if (typeVarMap.hasSolveForScope(typeVarScopeId)) {
                 eliminateUnsolvedInUnions = false;
             }
+
+            curNode = typeVarScopeNode;
         }
 
         let specializedReturnType = addConditionToType(

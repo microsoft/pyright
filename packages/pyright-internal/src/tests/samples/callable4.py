@@ -19,3 +19,14 @@ def g(f: Callable[[T], Optional[U]], x: T) -> U:
         return y
 
     raise ValueError()
+
+
+def h(x: T, f: Callable[[T], Optional[U]]) -> U:
+    def g() -> U:
+        y = f(x)
+        if y is not None:
+            return y
+
+        raise ValueError()
+
+    return g()
