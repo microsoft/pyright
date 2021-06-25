@@ -2009,15 +2009,13 @@ export class Binder extends ParseTreeWalker {
             if (!symbol) {
                 symbol = this._currentScope.addSymbol(
                     slotName,
-                    SymbolFlags.InitiallyUnbound | SymbolFlags.InstanceMember
+                    SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember | SymbolFlags.InstanceMember
                 );
                 const honorPrivateNaming = this._fileInfo.diagnosticRuleSet.reportPrivateUsage !== 'none';
                 if (isPrivateOrProtectedName(slotName) && honorPrivateNaming) {
                     symbol.setIsPrivateMember();
                 }
             }
-
-            symbol.setIsInstanceMember();
 
             const declaration: VariableDeclaration = {
                 type: DeclarationType.Variable,

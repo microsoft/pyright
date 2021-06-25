@@ -45,6 +45,12 @@ class Slots1(object):
         pass
 
 
+Slots1.bbb
+
+# This should generate an error
+Slots1.ddd
+
+
 class Slots1_1(Slots1):
     __slots__ = ["ddd", "eee"]
 
@@ -55,6 +61,13 @@ class Slots1_1(Slots1):
 
         # This should generate an error
         self.fff = 1
+
+
+Slots1_1.ddd
+Slots1_1.bbb
+
+# This should generate an error
+Slots1_1.fff
 
 
 class NoSlots1_1(Slots1, NoSlots2):
