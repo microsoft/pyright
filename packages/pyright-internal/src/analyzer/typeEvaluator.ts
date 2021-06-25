@@ -11524,7 +11524,9 @@ export function createTypeEvaluator(
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
     function createCallableType(typeArgs: TypeResult[] | undefined, errorNode: ParseNode): FunctionType {
-        const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
+        // Create a new function that is marked as "static" so there is later
+        // no attempt to bind it as though it's an instance or class method.
+        const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.StaticMethod);
         TypeBase.setNonCallable(functionType);
         functionType.details.declaredReturnType = UnknownType.create();
 
