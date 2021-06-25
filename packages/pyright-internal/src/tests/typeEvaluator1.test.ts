@@ -917,3 +917,9 @@ test('Slots1', () => {
 
     TestUtils.validateResults(analysisResults, 2);
 });
+
+test('Slots2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['slots2.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});

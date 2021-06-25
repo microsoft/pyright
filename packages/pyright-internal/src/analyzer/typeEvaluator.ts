@@ -3115,8 +3115,8 @@ export function createTypeEvaluator(
                 // Check for an attempt to write to an instance variable that is
                 // not defined by __slots__.
                 if (isThisClass && isInstanceMember) {
-                    if (memberClass?.details.slotsNames) {
-                        if (!memberClass.details.slotsNames.some((name) => name === memberName)) {
+                    if (memberClass?.details.inheritedSlotsNames) {
+                        if (!memberClass.details.inheritedSlotsNames.some((name) => name === memberName)) {
                             const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                             if (!declaredType || !isProperty(declaredType)) {
                                 addDiagnostic(
@@ -12884,6 +12884,8 @@ export function createTypeEvaluator(
         // all slots names defined by the class hierarchy.
         const slotsNames = innerScope?.getSlotsNames();
         if (slotsNames) {
+            classType.details.localSlotsNames = slotsNames;
+
             let isLimitedToSlots = true;
             const extendedSlotsNames = [...slotsNames];
 
@@ -12894,10 +12896,10 @@ export function createTypeEvaluator(
                         !ClassType.isBuiltIn(baseClass, 'type') &&
                         !ClassType.isBuiltIn(baseClass, 'Generic')
                     ) {
-                        if (baseClass.details.slotsNames === undefined) {
+                        if (baseClass.details.inheritedSlotsNames === undefined) {
                             isLimitedToSlots = false;
                         } else {
-                            extendedSlotsNames.push(...baseClass.details.slotsNames);
+                            extendedSlotsNames.push(...baseClass.details.inheritedSlotsNames);
                         }
                     }
                 } else {
@@ -12906,7 +12908,7 @@ export function createTypeEvaluator(
             });
 
             if (isLimitedToSlots) {
-                classType.details.slotsNames = extendedSlotsNames;
+                classType.details.inheritedSlotsNames = extendedSlotsNames;
             }
         }
         if (ClassType.isTypedDictClass(classType)) {

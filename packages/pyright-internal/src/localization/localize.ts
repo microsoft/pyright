@@ -607,6 +607,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.singleOverload'));
         export const slotsAttributeError = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.slotsAttributeError'));
+        export const slotsClassVarConflict = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.slotsClassVarConflict'));
         export const starStarWildcardNotAllowed = () => getRawString('Diagnostic.starStarWildcardNotAllowed');
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
         export const stringNonAsciiBytes = () => getRawString('Diagnostic.stringNonAsciiBytes');

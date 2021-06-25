@@ -247,9 +247,12 @@ export class Checker extends ParseTreeWalker {
             }
 
             // Skip the overrides check for stub files. Many of the built-in
-            // typeshed stub files trigger this diagnostic.
+            // typeshed stub files trigger this diagnostic. Also skip the slots
+            // check because class variables declared in a stub file are
+            // interpreted as instance variables.
             if (!this._fileInfo.isStubFile) {
                 this._validateBaseClassOverrides(classTypeResult.classType);
+                this._validateSlotsClassVarConflict(classTypeResult.classType);
             }
 
             this._validateFinalMemberOverrides(classTypeResult.classType);
@@ -2901,6 +2904,41 @@ export class Checker extends ParseTreeWalker {
                     message,
                     errorNode.name
                 );
+            }
+        });
+    }
+
+    // Validates that a class variable doesn't conflict with a __slots__
+    // name. This will generate a runtime exception.
+    private _validateSlotsClassVarConflict(classType: ClassType) {
+        if (!classType.details.localSlotsNames) {
+            // Nothing to check, since this class doesn't use __slots__.
+            return;
+        }
+
+        classType.details.fields.forEach((symbol, name) => {
+            const decls = symbol.getDeclarations();
+            const isDefinedBySlots = decls.some(
+                (decl) => decl.type === DeclarationType.Variable && decl.isDefinedBySlots
+            );
+
+            if (isDefinedBySlots) {
+                decls.forEach((decl) => {
+                    if (
+                        decl.type === DeclarationType.Variable &&
+                        !decl.isDefinedBySlots &&
+                        !decl.isDefinedByMemberAccess
+                    ) {
+                        if (decl.node.nodeType === ParseNodeType.Name && ParseTreeUtils.isWriteAccess(decl.node)) {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.slotsClassVarConflict().format({ name }),
+                                decl.node
+                            );
+                        }
+                    }
+                });
             }
         });
     }

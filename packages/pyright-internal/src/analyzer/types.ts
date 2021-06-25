@@ -394,7 +394,8 @@ interface ClassDetails {
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     typedDictEntries?: Map<string, TypedDictEntry> | undefined;
-    slotsNames?: string[];
+    inheritedSlotsNames?: string[];
+    localSlotsNames?: string[];
 
     // Transforms to apply if this class is used as a metaclass.
     metaclassDataClassTransform?: DataClassBehaviors | undefined;
