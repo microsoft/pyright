@@ -76,6 +76,10 @@ export class Scope {
     // (either nonlocal or global).
     readonly notLocalBindings = new Map<string, NameBindingType>();
 
+    // Names defined by __slots__ within this scope (used only
+    // for class scopes).
+    slotsNames: string[] | undefined;
+
     constructor(type: ScopeType, parent?: Scope) {
         this.type = type;
         this.parent = parent;
@@ -169,5 +173,13 @@ export class Scope {
 
     setBindingType(name: string, bindingType: NameBindingType) {
         return this.notLocalBindings.set(name, bindingType);
+    }
+
+    setSlotsNames(names: string[]) {
+        this.slotsNames = names;
+    }
+
+    getSlotsNames(): string[] | undefined {
+        return this.slotsNames;
     }
 }

@@ -65,6 +65,7 @@ import {
     RaiseNode,
     ReturnNode,
     StatementNode,
+    StringListNode,
     SuiteNode,
     TernaryNode,
     TryNode,
@@ -730,6 +731,54 @@ export class Binder extends ParseTreeWalker {
                         Localizer.Diagnostic.unsupportedDunderAllOperation(),
                         node
                     );
+                }
+            }
+        }
+
+        // Is this an assignment to dunder slots?
+        if (this._currentScope.type === ScopeType.Class) {
+            if (
+                (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === '__slots__') ||
+                (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+                    node.leftExpression.valueExpression.nodeType === ParseNodeType.Name &&
+                    node.leftExpression.valueExpression.value === '__slots__')
+            ) {
+                const expr = node.rightExpression;
+                const dunderSlotsNames: StringListNode[] = [];
+                let isExpressionUnderstood = true;
+
+                if (expr.nodeType === ParseNodeType.StringList) {
+                    dunderSlotsNames.push(expr);
+                } else if (expr.nodeType === ParseNodeType.List) {
+                    expr.entries.forEach((listEntryNode) => {
+                        if (
+                            listEntryNode.nodeType === ParseNodeType.StringList &&
+                            listEntryNode.strings.length === 1 &&
+                            listEntryNode.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            dunderSlotsNames.push(listEntryNode);
+                        } else {
+                            isExpressionUnderstood = false;
+                        }
+                    });
+                } else if (expr.nodeType === ParseNodeType.Tuple) {
+                    expr.expressions.forEach((tupleEntryNode) => {
+                        if (
+                            tupleEntryNode.nodeType === ParseNodeType.StringList &&
+                            tupleEntryNode.strings.length === 1 &&
+                            tupleEntryNode.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            dunderSlotsNames.push(tupleEntryNode);
+                        } else {
+                            isExpressionUnderstood = false;
+                        }
+                    });
+                } else {
+                    isExpressionUnderstood = false;
+                }
+
+                if (isExpressionUnderstood) {
+                    this._addSlotsToCurrentScope(dunderSlotsNames);
                 }
             }
         }
@@ -1941,6 +1990,54 @@ export class Binder extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    private _addSlotsToCurrentScope(slotNameNodes: StringListNode[]) {
+        assert(this._currentScope.type === ScopeType.Class);
+
+        let slotsContainsDict = false;
+
+        for (const slotNameNode of slotNameNodes) {
+            const slotName = slotNameNode.strings[0].value;
+
+            if (slotName === '__dict__') {
+                slotsContainsDict = true;
+                continue;
+            }
+
+            let symbol = this._currentScope.lookUpSymbol(slotName);
+            if (!symbol) {
+                symbol = this._currentScope.addSymbol(
+                    slotName,
+                    SymbolFlags.InitiallyUnbound | SymbolFlags.InstanceMember
+                );
+                const honorPrivateNaming = this._fileInfo.diagnosticRuleSet.reportPrivateUsage !== 'none';
+                if (isPrivateOrProtectedName(slotName) && honorPrivateNaming) {
+                    symbol.setIsPrivateMember();
+                }
+            }
+
+            symbol.setIsInstanceMember();
+
+            const declaration: VariableDeclaration = {
+                type: DeclarationType.Variable,
+                node: slotNameNode,
+                isConstant: isConstantName(slotName),
+                isDefinedBySlots: true,
+                path: this._fileInfo.filePath,
+                range: convertOffsetsToRange(
+                    slotNameNode.start,
+                    slotNameNode.start + slotNameNode.length,
+                    this._fileInfo.lines
+                ),
+                moduleName: this._fileInfo.moduleName,
+            };
+            symbol.addDeclaration(declaration);
+        }
+
+        if (!slotsContainsDict) {
+            this._currentScope.setSlotsNames(slotNameNodes.map((node) => node.strings[0].value));
+        }
     }
 
     private _isInListComprehension(node: ParseNode) {

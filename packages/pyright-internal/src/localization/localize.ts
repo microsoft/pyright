@@ -605,6 +605,8 @@ export namespace Localizer {
         export const starPatternInOrPattern = () => getRawString('Diagnostic.starPatternInOrPattern');
         export const singleOverload = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.singleOverload'));
+        export const slotsAttributeError = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.slotsAttributeError'));
         export const starStarWildcardNotAllowed = () => getRawString('Diagnostic.starStarWildcardNotAllowed');
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
         export const stringNonAsciiBytes = () => getRawString('Diagnostic.stringNonAsciiBytes');

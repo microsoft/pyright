@@ -299,6 +299,7 @@
         "revealTypeArgs": "Expected a single positional argument for \"reveal_type\" call",
         "setterGetterTypeMismatch": "Property setter value type is not assignable to the getter return type",
         "singleOverload": "\"{name}\" is marked as overload, but additional overloads are missing",
+        "slotsAttributeError": "\"{name}\" is not specified in __slots__",
         "starPatternInAsPattern": "Star pattern cannot be used with \"as\" target",
         "starPatternInOrPattern": "Star pattern cannot be ORed within other patterns",
         "starStarWildcardNotAllowed": "** cannot be used with wildcard \"_\"",

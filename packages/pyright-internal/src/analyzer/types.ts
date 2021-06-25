@@ -365,7 +365,7 @@ export const enum ClassTypeFlags {
     // The class is a protocol that defines only a __call__ method.
     CallbackProtocolClass = 1 << 22,
 
-    // Class is declared within a type stub fille
+    // Class is declared within a type stub file.
     DefinedInStub = 1 << 23,
 }
 
@@ -394,6 +394,7 @@ interface ClassDetails {
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     typedDictEntries?: Map<string, TypedDictEntry> | undefined;
+    slotsNames?: string[];
 
     // Transforms to apply if this class is used as a metaclass.
     metaclassDataClassTransform?: DataClassBehaviors | undefined;

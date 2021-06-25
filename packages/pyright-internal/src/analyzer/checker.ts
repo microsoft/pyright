@@ -246,7 +246,11 @@ export class Checker extends ParseTreeWalker {
                 this._validateProtocolTypeParamVariance(node, classTypeResult.classType);
             }
 
-            this._validateClassMethods(classTypeResult.classType);
+            // Skip the overrides check for stub files. Many of the built-in
+            // typeshed stub files trigger this diagnostic.
+            if (!this._fileInfo.isStubFile) {
+                this._validateBaseClassOverrides(classTypeResult.classType);
+            }
 
             this._validateFinalMemberOverrides(classTypeResult.classType);
 
@@ -2901,17 +2905,9 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    // Validates that any overridden methods contain the same signatures
-    // as the original method. Also marks the class as abstract if one or
-    // more abstract methods are not overridden.
-    private _validateClassMethods(classType: ClassType) {
-        // Skip the overrides check for stub files. Many of the built-in
-        // typeshed stub files trigger this diagnostic.
-        if (!this._fileInfo.isStubFile) {
-            this._validateBaseClassOverrides(classType);
-        }
-    }
-
+    // Validates that any overridden methods or variables contain the same
+    // types as the original method. Also marks the class as abstract if one
+    // or more abstract methods are not overridden.
     private _validateBaseClassOverrides(classType: ClassType) {
         classType.details.fields.forEach((symbol, name) => {
             // Private symbols do not need to match in type since their

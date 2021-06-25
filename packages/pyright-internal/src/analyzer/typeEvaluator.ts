@@ -3109,9 +3109,26 @@ export function createTypeEvaluator(
             if (memberInfo) {
                 // Are we accessing an existing member on this class, or is
                 // it a member on a parent class?
-                const isThisClass =
-                    isClass(memberInfo.classType) &&
-                    ClassType.isSameGenericClass(classTypeInfo.classType, memberInfo.classType);
+                const memberClass = isClass(memberInfo.classType) ? memberInfo.classType : undefined;
+                const isThisClass = memberClass && ClassType.isSameGenericClass(classTypeInfo.classType, memberClass);
+
+                // Check for an attempt to write to an instance variable that is
+                // not defined by __slots__.
+                if (isThisClass && isInstanceMember) {
+                    if (memberClass?.details.slotsNames) {
+                        if (!memberClass.details.slotsNames.some((name) => name === memberName)) {
+                            const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
+                            if (!declaredType || !isProperty(declaredType)) {
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.slotsAttributeError().format({ name: memberName }),
+                                    node.memberName
+                                );
+                            }
+                        }
+                    }
+                }
 
                 if (isThisClass && memberInfo.isInstanceMember === isInstanceMember) {
                     const symbol = memberFields.get(memberName)!;
@@ -12862,6 +12879,36 @@ export function createTypeEvaluator(
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
         classType.details.fields = innerScope?.symbolTable || new Map<string, Symbol>();
 
+        // Determine whether the class's instance variables are constrained
+        // to those defined by __slots__. If so, build a complete list of
+        // all slots names defined by the class hierarchy.
+        const slotsNames = innerScope?.getSlotsNames();
+        if (slotsNames) {
+            let isLimitedToSlots = true;
+            const extendedSlotsNames = [...slotsNames];
+
+            classType.details.baseClasses.forEach((baseClass) => {
+                if (isClass(baseClass)) {
+                    if (
+                        !ClassType.isBuiltIn(baseClass, 'object') &&
+                        !ClassType.isBuiltIn(baseClass, 'type') &&
+                        !ClassType.isBuiltIn(baseClass, 'Generic')
+                    ) {
+                        if (baseClass.details.slotsNames === undefined) {
+                            isLimitedToSlots = false;
+                        } else {
+                            extendedSlotsNames.push(...baseClass.details.slotsNames);
+                        }
+                    }
+                } else {
+                    isLimitedToSlots = false;
+                }
+            });
+
+            if (isLimitedToSlots) {
+                classType.details.slotsNames = extendedSlotsNames;
+            }
+        }
         if (ClassType.isTypedDictClass(classType)) {
             synthesizeTypedDictClassMethods(node, classType);
         }

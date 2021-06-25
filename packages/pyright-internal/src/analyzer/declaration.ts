@@ -118,6 +118,9 @@ export interface VariableDeclaration extends DeclarationBase {
     // Is the declaration annotated with "NotRequired"?
     isNotRequired?: boolean;
 
+    // Is the declaration an entry in __slots__?
+    isDefinedBySlots?: boolean;
+
     // Points to the "TypeAlias" annotation described in PEP 613.
     typeAliasAnnotation?: ExpressionNode | undefined;
 
