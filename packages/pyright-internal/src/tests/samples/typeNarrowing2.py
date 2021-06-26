@@ -123,3 +123,28 @@ def func7(a: Union[List[int], int]):
         t1: Literal["List[int]"] = reveal_type(a)
     else:
         t2: Literal["int"] = reveal_type(a)
+
+# Test handling of member access expressions whose types change based
+# on isinstance checks.
+
+class Base1:
+    ...
+
+
+class Sub1(Base1):
+
+    value: str
+
+
+class Sub2(Base1):
+
+    value: Base1
+
+
+def handler(node: Base1) -> Any:
+    if isinstance(node, Sub1):
+        t1: Literal["str"] = reveal_type(node.value)
+    elif isinstance(node, Sub2):
+        t2: Literal["Base1"] = reveal_type(node.value)
+        if isinstance(node.value, Sub1):
+            t3: Literal["Sub1"] = reveal_type(node.value)

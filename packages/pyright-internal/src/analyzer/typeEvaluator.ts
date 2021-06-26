@@ -17081,12 +17081,11 @@ export function createTypeEvaluator(
                                 //    a = Foo()
                                 //    x = a.b
                                 // The type of "a.b" can no longer be assumed to be Literal[3].
-                                return setCacheEntry(
-                                    curFlowNode,
-                                    initialType,
+                                return {
+                                    type: initialType,
                                     usedOuterScopeAlias,
-                                    isInitialTypeIncomplete
-                                );
+                                    isIncomplete: isInitialTypeIncomplete,
+                                };
                             }
                         }
 
