@@ -50,7 +50,7 @@ test('Multiple files', () => {
 
 test('Configuration', () => {
     const code = `
-// @filename: mspythonconfig.json
+// @filename: pyrightconfig.json
 //// {
 ////   "include": [
 ////     "src"
@@ -124,7 +124,7 @@ test('Configuration', () => {
 
 test('stubPath configuration', () => {
     const code = `
-// @filename: mspythonconfig.json
+// @filename: pyrightconfig.json
 //// {
 ////   "stubPath": "src/typestubs"
 //// }
@@ -136,7 +136,7 @@ test('stubPath configuration', () => {
 
 test('Duplicated stubPath configuration', () => {
     const code = `
-// @filename: mspythonconfig.json
+// @filename: pyrightconfig.json
 //// {
 ////   "typingsPath": "src/typestubs1",
 ////   "stubPath": "src/typestubs2"

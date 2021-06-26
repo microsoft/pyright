@@ -242,7 +242,7 @@ test('AutoSearchPathsOnWithConfigExecEnv', () => {
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
-    commandLineOptions.configFilePath = combinePaths(cwd, 'mspythonconfig.json');
+    commandLineOptions.configFilePath = combinePaths(cwd, 'pyrightconfig.json');
     commandLineOptions.autoSearchPaths = true;
     service.setOptions(commandLineOptions);
 
