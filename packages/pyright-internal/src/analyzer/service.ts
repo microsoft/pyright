@@ -64,7 +64,7 @@ import { MaxAnalysisTime } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { TypeEvaluator } from './typeEvaluator';
 
-export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
+export const configFileNames = ['pyrightconfig.json'];
 export const pyprojectTomlName = 'pyproject.toml';
 
 // How long since the last user activity should we wait until running

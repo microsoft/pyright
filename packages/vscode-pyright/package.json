@@ -24,8 +24,7 @@
     ],
     "activationEvents": [
         "onLanguage:python",
-        "workspaceContains:pyrightconfig.json",
-        "workspaceContains:mspythonconfig.json"
+        "workspaceContains:pyrightconfig.json"
     ],
     "icon": "images/pyright-icon.png",
     "main": "./dist/extension.js",
@@ -743,10 +742,6 @@
         "jsonValidation": [
             {
                 "fileMatch": "pyrightconfig.json",
-                "url": "./schemas/pyrightconfig.schema.json"
-            },
-            {
-                "fileMatch": "mspythonconfig.json",
                 "url": "./schemas/pyrightconfig.schema.json"
             }
         ]
