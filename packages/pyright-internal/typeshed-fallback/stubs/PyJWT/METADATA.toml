@@ -1,0 +1,3 @@
+version = "1.7"
+requires = ["types-cryptography"]
+obsolete_since = "2.0.0"

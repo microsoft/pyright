@@ -1,7 +1,7 @@
 import sys
-from typing import Callable, FrozenSet, Tuple
+from typing import FrozenSet, Tuple
 
-from .connections import Connection as _Connection
+from .connections import Connection as Connection
 from .constants import FIELD_TYPE as FIELD_TYPE
 from .converters import escape_dict as escape_dict, escape_sequence as escape_sequence, escape_string as escape_string
 from .err import (
@@ -50,14 +50,15 @@ if sys.version_info >= (3, 0):
 else:
     def Binary(x) -> bytearray: ...
 
-def Connect(*args, **kwargs) -> _Connection: ...
 def get_client_info() -> str: ...
 
-connect: Callable[..., _Connection]
-Connection: Callable[..., _Connection]
 __version__: str
 version_info: Tuple[int, int, int, str, int]
 NULL: str
+
+# pymysql/__init__.py says "Connect = connect = Connection = connections.Connection"
+Connect = Connection
+connect = Connection
 
 def thread_safe() -> bool: ...
 def install_as_MySQLdb() -> None: ...

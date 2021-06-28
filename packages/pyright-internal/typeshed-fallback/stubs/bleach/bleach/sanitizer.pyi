@@ -38,7 +38,7 @@ class Cleaner(object):
     def clean(self, text: Text) -> Text: ...
 
 _AttributeFilter = Callable[[Text, Text, Text], bool]
-_AttributeDict = Dict[Text, Union[Container[Text], _AttributeFilter]]
+_AttributeDict = Union[Dict[Text, Union[List[Text], _AttributeFilter]], Dict[Text, List[Text]], Dict[Text, _AttributeFilter]]
 _Attributes = Union[_AttributeFilter, _AttributeDict, List[Text]]
 
 def attribute_filter_factory(attributes: _Attributes) -> _AttributeFilter: ...

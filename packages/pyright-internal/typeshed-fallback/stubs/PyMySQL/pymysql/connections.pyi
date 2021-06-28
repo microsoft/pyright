@@ -1,5 +1,5 @@
 from socket import socket as _socket
-from typing import Any, AnyStr, Mapping, Optional, Tuple, Type
+from typing import Any, AnyStr, Generic, Mapping, Tuple, Type, TypeVar, overload
 
 from .charset import charset_by_id as charset_by_id, charset_by_name as charset_by_name
 from .constants import CLIENT as CLIENT, COMMAND as COMMAND, FIELD_TYPE as FIELD_TYPE, SERVER_STATUS as SERVER_STATUS
@@ -10,6 +10,9 @@ SSL_ENABLED: Any
 DEFAULT_USER: Any
 DEBUG: Any
 DEFAULT_CHARSET: Any
+
+_C = TypeVar("_C", bound=Cursor)
+_C2 = TypeVar("_C2", bound=Cursor)
 
 def dump_packet(data): ...
 def pack_int24(n): ...
@@ -49,7 +52,7 @@ class FieldDescriptorPacket(MysqlPacket):
     def description(self): ...
     def get_column_length(self): ...
 
-class Connection:
+class Connection(Generic[_C]):
     ssl: Any
     host: Any
     port: Any
@@ -71,40 +74,91 @@ class Connection:
     init_command: Any
     max_allowed_packet: int
     server_public_key: bytes
+    @overload
     def __init__(
-        self,
-        host: Optional[str] = ...,
-        user: Optional[Any] = ...,
+        self: Connection[Cursor],  # different between overloads
+        *,
+        host: str | None = ...,
+        user: Any | None = ...,
         password: str = ...,
-        database: Optional[Any] = ...,
+        database: Any | None = ...,
         port: int = ...,
-        unix_socket: Optional[Any] = ...,
+        unix_socket: Any | None = ...,
         charset: str = ...,
-        sql_mode: Optional[Any] = ...,
-        read_default_file: Optional[Any] = ...,
+        sql_mode: Any | None = ...,
+        read_default_file: Any | None = ...,
         conv=...,
-        use_unicode: Optional[bool] = ...,
+        use_unicode: bool | None = ...,
         client_flag: int = ...,
-        cursorclass: Optional[Type[Cursor]] = ...,
-        init_command: Optional[Any] = ...,
-        connect_timeout: Optional[int] = ...,
+        cursorclass: None = ...,  # different between overloads
+        init_command: Any | None = ...,
+        connect_timeout: int | None = ...,
         ssl: Mapping[Any, Any] | None = ...,
-        read_default_group: Optional[Any] = ...,
-        compress: Optional[Any] = ...,
-        named_pipe: Optional[Any] = ...,
-        autocommit: Optional[bool] = ...,
-        db: Optional[Any] = ...,
-        passwd: Optional[Any] = ...,
-        local_infile: Optional[Any] = ...,
+        ssl_ca=...,
+        ssl_cert=...,
+        ssl_disabled=...,
+        ssl_key=...,
+        ssl_verify_cert=...,
+        ssl_verify_identity=...,
+        read_default_group: Any | None = ...,
+        compress: Any | None = ...,
+        named_pipe: Any | None = ...,
+        autocommit: bool | None = ...,
+        db: Any | None = ...,
+        passwd: Any | None = ...,
+        local_infile: Any | None = ...,
         max_allowed_packet: int = ...,
-        defer_connect: Optional[bool] = ...,
+        defer_connect: bool | None = ...,
         auth_plugin_map: Mapping[Any, Any] | None = ...,
-        read_timeout: Optional[float] = ...,
-        write_timeout: Optional[float] = ...,
-        bind_address: Optional[Any] = ...,
-        binary_prefix: Optional[bool] = ...,
-        program_name: Optional[Any] = ...,
-        server_public_key: Optional[bytes] = ...,
+        read_timeout: float | None = ...,
+        write_timeout: float | None = ...,
+        bind_address: Any | None = ...,
+        binary_prefix: bool | None = ...,
+        program_name: Any | None = ...,
+        server_public_key: bytes | None = ...,
+    ): ...
+    @overload
+    def __init__(
+        self: Connection[_C],  # different between overloads
+        *,
+        host: str | None = ...,
+        user: Any | None = ...,
+        password: str = ...,
+        database: Any | None = ...,
+        port: int = ...,
+        unix_socket: Any | None = ...,
+        charset: str = ...,
+        sql_mode: Any | None = ...,
+        read_default_file: Any | None = ...,
+        conv=...,
+        use_unicode: bool | None = ...,
+        client_flag: int = ...,
+        cursorclass: Type[_C] = ...,  # different between overloads
+        init_command: Any | None = ...,
+        connect_timeout: int | None = ...,
+        ssl: Mapping[Any, Any] | None = ...,
+        ssl_ca=...,
+        ssl_cert=...,
+        ssl_disabled=...,
+        ssl_key=...,
+        ssl_verify_cert=...,
+        ssl_verify_identity=...,
+        read_default_group: Any | None = ...,
+        compress: Any | None = ...,
+        named_pipe: Any | None = ...,
+        autocommit: bool | None = ...,
+        db: Any | None = ...,
+        passwd: Any | None = ...,
+        local_infile: Any | None = ...,
+        max_allowed_packet: int = ...,
+        defer_connect: bool | None = ...,
+        auth_plugin_map: Mapping[Any, Any] | None = ...,
+        read_timeout: float | None = ...,
+        write_timeout: float | None = ...,
+        bind_address: Any | None = ...,
+        binary_prefix: bool | None = ...,
+        program_name: Any | None = ...,
+        server_public_key: bytes | None = ...,
     ): ...
     socket: Any
     rfile: Any
@@ -121,14 +175,17 @@ class Connection:
     def escape(self, obj, mapping: Mapping[Any, Any] | None = ...): ...
     def literal(self, obj): ...
     def escape_string(self, s: AnyStr) -> AnyStr: ...
-    def cursor(self, cursor: Optional[Type[Cursor]] = ...) -> Cursor: ...
+    @overload
+    def cursor(self, cursor: None = ...) -> _C: ...
+    @overload
+    def cursor(self, cursor: Type[_C2]) -> _C2: ...
     def query(self, sql, unbuffered: bool = ...) -> int: ...
     def next_result(self, unbuffered: bool = ...) -> int: ...
     def affected_rows(self): ...
     def kill(self, thread_id): ...
     def ping(self, reconnect: bool = ...) -> None: ...
     def set_charset(self, charset) -> None: ...
-    def connect(self, sock: Optional[_socket] = ...) -> None: ...
+    def connect(self, sock: _socket | None = ...) -> None: ...
     def write_packet(self, payload) -> None: ...
     def _read_packet(self, packet_type=...): ...
     def insert_id(self): ...
@@ -160,13 +217,13 @@ class MySQLResult:
     description: Any
     rows: Any
     has_next: Any
-    def __init__(self, connection: Connection) -> None: ...
+    def __init__(self, connection: Connection[Any]) -> None: ...
     first_packet: Any
     def read(self) -> None: ...
     def init_unbuffered_query(self) -> None: ...
 
 class LoadLocalFile:
     filename: Any
-    connection: Connection
-    def __init__(self, filename: Any, connection: Connection) -> None: ...
+    connection: Connection[Any]
+    def __init__(self, filename: Any, connection: Connection[Any]) -> None: ...
     def send_data(self) -> None: ...

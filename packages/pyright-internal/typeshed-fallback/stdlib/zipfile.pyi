@@ -2,9 +2,25 @@ import io
 import sys
 from _typeshed import StrPath
 from types import TracebackType
-from typing import IO, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Sequence, Tuple, Type, Union, overload
+from typing import (
+    IO,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    overload,
+)
 from typing_extensions import Literal
 
+_T = TypeVar("_T")
 _DateTuple = Tuple[int, int, int, int, int, int]
 
 class BadZipFile(Exception): ...
@@ -128,7 +144,7 @@ class ZipFile:
         def __init__(
             self, file: Union[StrPath, IO[bytes]], mode: str = ..., compression: int = ..., allowZip64: bool = ...
         ) -> None: ...
-    def __enter__(self) -> ZipFile: ...
+    def __enter__(self: _T) -> _T: ...
     def __exit__(
         self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]
     ) -> None: ...

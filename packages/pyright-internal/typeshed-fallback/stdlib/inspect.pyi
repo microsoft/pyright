@@ -1,5 +1,6 @@
 import enum
 import sys
+from _typeshed import Self
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Generator, Mapping, Sequence, Set
 from types import (
@@ -128,7 +129,7 @@ class Signature:
     return_annotation: Any
     def bind(self, *args: Any, **kwargs: Any) -> BoundArguments: ...
     def bind_partial(self, *args: Any, **kwargs: Any) -> BoundArguments: ...
-    def replace(self, *, parameters: Optional[Sequence[Parameter]] = ..., return_annotation: Any = ...) -> Signature: ...
+    def replace(self: Self, *, parameters: Optional[Sequence[Parameter]] = ..., return_annotation: Any = ...) -> Self: ...
     if sys.version_info >= (3, 10):
         @classmethod
         def from_callable(
@@ -178,8 +179,8 @@ class Parameter:
     KEYWORD_ONLY: ClassVar[Literal[_ParameterKind.KEYWORD_ONLY]]
     VAR_KEYWORD: ClassVar[Literal[_ParameterKind.VAR_KEYWORD]]
     def replace(
-        self, *, name: Optional[str] = ..., kind: Optional[_ParameterKind] = ..., default: Any = ..., annotation: Any = ...
-    ) -> Parameter: ...
+        self: Self, *, name: Optional[str] = ..., kind: Optional[_ParameterKind] = ..., default: Any = ..., annotation: Any = ...
+    ) -> Self: ...
 
 class BoundArguments:
     arguments: OrderedDict[str, Any]

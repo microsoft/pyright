@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, Dict, Iterator, List, Optional, Text, Union
+from json import JSONDecoder
+from typing import Any, Callable, Dict, Iterator, List, Optional, Text, Type, Union
 
 from . import auth, cookies, exceptions, hooks, status_codes, structures, utils
 from .cookies import RequestsCookieJar
@@ -122,7 +123,17 @@ class Response:
     def content(self) -> bytes: ...
     @property
     def text(self) -> str: ...
-    def json(self, **kwargs) -> Any: ...
+    def json(
+        self,
+        *,
+        cls: Type[JSONDecoder] | None = ...,
+        object_hook: Callable[[dict[Any, Any]], Any] | None = ...,
+        parse_float: Callable[[str], Any] | None = ...,
+        parse_int: Callable[[str], Any] | None = ...,
+        parse_constant: Callable[[str], Any] | None = ...,
+        object_pairs_hook: Callable[[list[tuple[Any, Any]]], Any] | None = ...,
+        **kwds: Any,
+    ) -> Any: ...
     @property
     def links(self) -> Dict[Any, Any]: ...
     def raise_for_status(self) -> None: ...

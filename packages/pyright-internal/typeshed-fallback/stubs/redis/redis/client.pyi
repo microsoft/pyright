@@ -486,7 +486,7 @@ class Redis(Generic[_StrType]):
     def randomkey(self): ...
     def rename(self, src, dst): ...
     def renamenx(self, src, dst): ...
-    def restore(self, name, ttl, value): ...
+    def restore(self, name, ttl, value, replace: bool = ...): ...
     def set(
         self,
         name: _Key,
@@ -947,7 +947,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def randomkey(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def rename(self, src, dst) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def renamenx(self, src, dst) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def restore(self, name, ttl, value) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def restore(self, name, ttl, value, replace: bool = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def set(  # type: ignore [override]
         self,
         name: _Key,
