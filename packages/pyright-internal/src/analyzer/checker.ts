@@ -1742,14 +1742,27 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     if (!implementationFunction) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.overloadWithoutImplementation().format({
-                                name: primaryDecl.node.name.value,
-                            }),
-                            primaryDecl.node.name
-                        );
+                        let isProtocolMethod = false;
+                        const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
+                        if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
+                            const classType = this._evaluator.getTypeOfClass(containingClassNode);
+                            if (classType && ClassType.isProtocolClass(classType.classType)) {
+                                isProtocolMethod = true;
+                            }
+                        }
+
+                        // If this is a method within a protocol class, don't require that
+                        // there is an implementation.
+                        if (!isProtocolMethod) {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.overloadWithoutImplementation().format({
+                                    name: primaryDecl.node.name.value,
+                                }),
+                                primaryDecl.node.name
+                            );
+                        }
                     } else if (isOverloadedFunction(type)) {
                         // Verify that all overload signatures are assignable to implementation signature.
                         type.overloads.forEach((overload, index) => {
