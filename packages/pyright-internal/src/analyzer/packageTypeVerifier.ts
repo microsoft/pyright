@@ -31,7 +31,17 @@ import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolTable } from './symbol';
 import { isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { ClassType, FunctionType, isClass, isModule, isUnknown, ModuleType, Type, TypeCategory } from './types';
+import {
+    ClassType,
+    FunctionType,
+    isInstantiableClass,
+    isModule,
+    isUnknown,
+    ModuleType,
+    Type,
+    TypeBase,
+    TypeCategory,
+} from './types';
 import {
     doForEachSubtype,
     getFullNameOfType,
@@ -241,7 +251,7 @@ export class PackageTypeVerifier {
                         // If so, add the symbols declared within it.
                         const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
                         if (classDecl) {
-                            if (isClass(symbolType)) {
+                            if (isInstantiableClass(symbolType)) {
                                 this._getPublicSymbolsInSymbolTable(
                                     symbolMap,
                                     alternateSymbolNames,
@@ -445,7 +455,7 @@ export class PackageTypeVerifier {
                 const primaryDecl = typedDecls.length > 0 ? typedDecls[typedDecls.length - 1] : undefined;
                 let symbolInfo: SymbolInfo;
 
-                if (primaryDecl?.type === DeclarationType.Class && isClass(symbolType)) {
+                if (primaryDecl?.type === DeclarationType.Class && isInstantiableClass(symbolType)) {
                     symbolInfo = this._getSymbolForClass(report, symbolType, publicSymbolMap);
                 } else if (primaryDecl?.type === DeclarationType.Alias && isModule(symbolType)) {
                     symbolInfo = this._getSymbolForModule(report, symbolType, publicSymbolMap);
@@ -518,48 +528,6 @@ export class PackageTypeVerifier {
                 return false;
             }
 
-            case TypeCategory.Object: {
-                // Properties require special handling.
-                if (ClassType.isPropertyClass(type.classType)) {
-                    let isTypeKnown = true;
-                    const accessors = ['fget', 'fset', 'fdel'];
-                    const propertyClass = type.classType;
-
-                    accessors.forEach((accessorName) => {
-                        const accessSymbol = propertyClass.details.fields.get(accessorName);
-                        const accessType = accessSymbol ? this._program.getTypeForSymbol(accessSymbol) : undefined;
-
-                        if (!accessType) {
-                            return;
-                        }
-
-                        if (
-                            !this._validateSymbolType(
-                                report,
-                                symbolInfo,
-                                accessType,
-                                getEmptyRange(),
-                                '',
-                                publicSymbolMap
-                            )
-                        ) {
-                            isTypeKnown = false;
-                        }
-                    });
-
-                    return isTypeKnown;
-                } else {
-                    return this._validateSymbolType(
-                        report,
-                        symbolInfo,
-                        type.classType,
-                        declRange,
-                        declFilePath,
-                        publicSymbolMap
-                    );
-                }
-            }
-
             case TypeCategory.Union: {
                 let isKnown = true;
                 doForEachSubtype(type, (subtype) => {
@@ -614,6 +582,37 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Class: {
+                // Properties require special handling.
+                if (TypeBase.isInstance(type) && ClassType.isPropertyClass(type)) {
+                    let isTypeKnown = true;
+                    const accessors = ['fget', 'fset', 'fdel'];
+                    const propertyClass = type;
+
+                    accessors.forEach((accessorName) => {
+                        const accessSymbol = propertyClass.details.fields.get(accessorName);
+                        const accessType = accessSymbol ? this._program.getTypeForSymbol(accessSymbol) : undefined;
+
+                        if (!accessType) {
+                            return;
+                        }
+
+                        if (
+                            !this._validateSymbolType(
+                                report,
+                                symbolInfo,
+                                accessType,
+                                getEmptyRange(),
+                                '',
+                                publicSymbolMap
+                            )
+                        ) {
+                            isTypeKnown = false;
+                        }
+                    });
+
+                    return isTypeKnown;
+                }
+
                 let isKnown = true;
 
                 if (!this._shouldIgnoreType(report, type.details.fullName)) {
@@ -913,7 +912,7 @@ export class PackageTypeVerifier {
 
         // Add information for the metaclass.
         if (type.details.effectiveMetaclass) {
-            if (!isClass(type.details.effectiveMetaclass)) {
+            if (!isInstantiableClass(type.details.effectiveMetaclass)) {
                 this._addSymbolError(symbolInfo, `Type of metaclass unknown`, getEmptyRange(), '');
                 symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
             } else {
@@ -933,7 +932,7 @@ export class PackageTypeVerifier {
 
         // Add information for base classes.
         type.details.baseClasses.forEach((baseClass) => {
-            if (!isClass(baseClass)) {
+            if (!isInstantiableClass(baseClass)) {
                 this._addSymbolError(symbolInfo, `Type of base class unknown`, getEmptyRange(), '');
                 symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
             } else {
@@ -1009,10 +1008,6 @@ export class PackageTypeVerifier {
 
             case TypeCategory.Unknown: {
                 return false;
-            }
-
-            case TypeCategory.Object: {
-                return this._isTypeKnown(report, type.classType, publicSymbolMap, diag);
             }
 
             case TypeCategory.Union: {
@@ -1101,10 +1096,6 @@ export class PackageTypeVerifier {
         }
 
         switch (type.category) {
-            case TypeCategory.Class: {
-                return SymbolCategory.Class;
-            }
-
             case TypeCategory.Function:
             case TypeCategory.OverloadedFunction: {
                 const funcDecl = symbol
@@ -1117,7 +1108,11 @@ export class PackageTypeVerifier {
                 return SymbolCategory.Function;
             }
 
-            case TypeCategory.Object: {
+            case TypeCategory.Class: {
+                if (TypeBase.isInstantiable(type)) {
+                    return SymbolCategory.Class;
+                }
+
                 const varDecl = symbol
                     .getDeclarations()
                     .find((decl) => decl.type === DeclarationType.Variable) as VariableDeclaration;

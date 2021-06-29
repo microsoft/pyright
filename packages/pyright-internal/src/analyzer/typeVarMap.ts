@@ -299,10 +299,6 @@ export class TypeVarMap {
                 // score of its type arguments.
                 return this._getComplexityScoreForClass(type, recursionCount + 1);
             }
-
-            case TypeCategory.Object: {
-                return this._getComplexityScoreForClass(type.classType, recursionCount + 1);
-            }
         }
 
         // For all other types, return a score of 0.

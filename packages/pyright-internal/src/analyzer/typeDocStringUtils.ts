@@ -23,8 +23,8 @@ import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import {
     ClassType,
     FunctionType,
-    isClass,
     isFunction,
+    isInstantiableClass,
     isOverloadedFunction,
     ModuleType,
     OverloadedFunctionType,
@@ -243,7 +243,7 @@ function _getPropertyDocStringInherited(
     const classItr = getClassIterator(classType, ClassIteratorFlags.Default);
     // Walk the inheritance list starting with the current class searching for docStrings
     for (const [mroClass] of classItr) {
-        if (!isClass(mroClass)) {
+        if (!isInstantiableClass(mroClass)) {
             continue;
         }
 

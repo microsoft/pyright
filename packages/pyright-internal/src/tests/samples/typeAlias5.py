@@ -2,7 +2,7 @@
 # TypeVars.
 
 from datetime import datetime
-from typing import IO, List, TypeVar, Union
+from typing import IO, List, Type, TypeVar, Union
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")

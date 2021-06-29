@@ -22,8 +22,8 @@ import {
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
     FunctionType,
-    isClass,
     isFunction,
+    isInstantiableClass,
     isModule,
     isOverloadedFunction,
     OverloadedFunctionType,
@@ -81,7 +81,7 @@ export function getDocumentationPartsForTypeAndDecl(
         if (doc) {
             return [doc];
         }
-    } else if (isClass(type)) {
+    } else if (isInstantiableClass(type)) {
         const doc = getClassDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
             return [doc];

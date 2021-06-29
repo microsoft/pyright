@@ -14,9 +14,9 @@ import {
     EnumLiteral,
     FunctionType,
     isAnyOrUnknown,
-    isClass,
+    isClassInstance,
+    isInstantiableClass,
     isNever,
-    isObject,
     isParamSpec,
     isVariadicTypeVar,
     maxTypeRecursionCount,
@@ -105,11 +105,11 @@ export function printType(
                                 // If this type argument maps to a variadic type parameter, unpack it.
                                 if (
                                     isVariadicTypeVar(typeParam) &&
-                                    isObject(typeArg) &&
-                                    isTupleClass(typeArg.classType) &&
-                                    typeArg.classType.tupleTypeArguments
+                                    isClassInstance(typeArg) &&
+                                    isTupleClass(typeArg) &&
+                                    typeArg.tupleTypeArguments
                                 ) {
-                                    typeArg.classType.tupleTypeArguments.forEach((tupleTypeArg) => {
+                                    typeArg.tupleTypeArguments.forEach((tupleTypeArg) => {
                                         argumentStrings!.push(
                                             printType(tupleTypeArg, printTypeFlags, returnTypeCallback, recursionTypes)
                                         );
@@ -181,29 +181,29 @@ export function printType(
             }
 
             case TypeCategory.Class: {
-                if (type.literalValue !== undefined) {
-                    return `Type[Literal[${printLiteralValue(type)}]]${getConditionalIndicator(type)}`;
+                if (TypeBase.isInstance(type)) {
+                    if (type.literalValue !== undefined) {
+                        return `Literal[${printLiteralValue(type)}]`;
+                    }
+
+                    return `${printObjectTypeForClass(
+                        type,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        recursionTypes
+                    )}${getConditionalIndicator(type)}`;
+                } else {
+                    if (type.literalValue !== undefined) {
+                        return `Type[Literal[${printLiteralValue(type)}]]${getConditionalIndicator(type)}`;
+                    }
+
+                    return `Type[${printObjectTypeForClass(
+                        type,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        recursionTypes
+                    )}]${getConditionalIndicator(type)}`;
                 }
-
-                return `Type[${printObjectTypeForClass(
-                    type,
-                    printTypeFlags,
-                    returnTypeCallback,
-                    recursionTypes
-                )}]${getConditionalIndicator(type)}`;
-            }
-
-            case TypeCategory.Object: {
-                if (type.classType.literalValue !== undefined) {
-                    return `Literal[${printLiteralValue(type.classType)}]`;
-                }
-
-                return `${printObjectTypeForClass(
-                    type.classType,
-                    printTypeFlags,
-                    returnTypeCallback,
-                    recursionTypes
-                )}${getConditionalIndicator(type.classType)}`;
             }
 
             case TypeCategory.Function: {
@@ -258,9 +258,9 @@ export function printType(
                 const literalObjectStrings = new Set<string>();
                 const literalClassStrings = new Set<string>();
                 doForEachSubtype(type, (subtype) => {
-                    if (isObject(subtype) && subtype.classType.literalValue !== undefined) {
-                        literalObjectStrings.add(printLiteralValue(subtype.classType));
-                    } else if (isClass(subtype) && subtype.literalValue !== undefined) {
+                    if (isClassInstance(subtype) && subtype.literalValue !== undefined) {
+                        literalObjectStrings.add(printLiteralValue(subtype));
+                    } else if (isInstantiableClass(subtype) && subtype.literalValue !== undefined) {
                         literalClassStrings.add(printLiteralValue(subtype));
                     } else {
                         subtypeStrings.add(printType(subtype, printTypeFlags, returnTypeCallback, recursionTypes));
@@ -426,12 +426,12 @@ export function printObjectTypeForClass(
                     if (
                         typeParam &&
                         typeParam.details.isVariadic &&
-                        isObject(typeArg) &&
-                        ClassType.isBuiltIn(typeArg.classType, 'tuple') &&
-                        typeArg.classType.tupleTypeArguments
+                        isClassInstance(typeArg) &&
+                        ClassType.isBuiltIn(typeArg, 'tuple') &&
+                        typeArg.tupleTypeArguments
                     ) {
                         // Expand the tuple type that maps to the variadic type parameter.
-                        if (typeArg.classType.tupleTypeArguments.length === 0) {
+                        if (typeArg.tupleTypeArguments.length === 0) {
                             if (!isAnyOrUnknown(typeArg)) {
                                 isAllAny = false;
                             }
@@ -439,7 +439,7 @@ export function printObjectTypeForClass(
                             typeArgStrings.push('()');
                         } else {
                             typeArgStrings.push(
-                                ...typeArg.classType.tupleTypeArguments!.map((typeArg) => {
+                                ...typeArg.tupleTypeArguments.map((typeArg) => {
                                     if (!isAnyOrUnknown(typeArg)) {
                                         isAllAny = false;
                                     }
@@ -503,11 +503,11 @@ export function printFunctionParts(
         ) {
             const specializedParamType = FunctionType.getEffectiveParameterType(type, index);
             if (
-                isObject(specializedParamType) &&
-                ClassType.isBuiltIn(specializedParamType.classType, 'tuple') &&
-                specializedParamType.classType.tupleTypeArguments
+                isClassInstance(specializedParamType) &&
+                ClassType.isBuiltIn(specializedParamType, 'tuple') &&
+                specializedParamType.tupleTypeArguments
             ) {
-                specializedParamType.classType.tupleTypeArguments.forEach((paramType, paramIndex) => {
+                specializedParamType.tupleTypeArguments.forEach((paramType, paramIndex) => {
                     const paramString = `_p${(index + paramIndex).toString()}: ${printType(
                         paramType,
                         printTypeFlags,

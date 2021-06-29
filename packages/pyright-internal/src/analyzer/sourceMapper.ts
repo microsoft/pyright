@@ -29,7 +29,7 @@ import {
 import { ImportResolver } from './importResolver';
 import { SourceFile } from './sourceFile';
 import { TypeEvaluator } from './typeEvaluator';
-import { ClassType, isClass, isFunction, isOverloadedFunction } from './types';
+import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction } from './types';
 import { lookUpClassMember } from './typeUtils';
 
 type ClassOrFunctionOrVariableDeclaration = ClassDeclaration | FunctionDeclaration | VariableDeclaration;
@@ -481,7 +481,7 @@ export class SourceMapper {
                 for (const overloadDecl of type.overloads.map((o) => o.details.declaration).filter(isDefined)) {
                     this._addClassOrFunctionDeclarations(overloadDecl, result, recursiveDeclCache);
                 }
-            } else if (isClass(type)) {
+            } else if (isInstantiableClass(type)) {
                 this._addClassTypeDeclarations(decl.path, type, result, recursiveDeclCache);
             }
         }

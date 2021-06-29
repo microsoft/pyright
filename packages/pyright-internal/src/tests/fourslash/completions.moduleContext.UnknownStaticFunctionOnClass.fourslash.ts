@@ -28,7 +28,7 @@ await helper.verifyCompletion('included', 'markdown', {
         completions: [],
         memberAccessInfo: { lastKnownModule: 'test', lastKnownMemberName: 'foo', unknownMemberName: 'foo' },
     },
-    // tests: _getLastKnownModule():  else if (curNode.nodeType === ParseNodeType.Name && isClass(curType))
+    // tests: _getLastKnownModule():  else if (curNode.nodeType === ParseNodeType.Name && isClassAndInstantiable(curType))
     marker2: {
         completions: [],
         memberAccessInfo: {

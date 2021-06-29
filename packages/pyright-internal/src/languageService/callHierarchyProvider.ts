@@ -21,7 +21,7 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, isClass, isFunction, isObject } from '../analyzer/types';
+import { ClassType, isClassInstance, isFunction, isInstantiableClass } from '../analyzer/types';
 import {
     ClassMemberLookupFlags,
     doForEachSubtype,
@@ -98,7 +98,7 @@ export class CallHierarchyProvider {
         } else if (declaration.type === DeclarationType.Class) {
             // Look up the __init__ method for this class.
             const classType = evaluator.getTypeForDeclaration(declaration);
-            if (classType && isClass(classType)) {
+            if (classType && isInstantiableClass(classType)) {
                 // Don't perform a recursive search of parent classes in this
                 // case because we don't want to find an inherited __init__
                 // method defined in a different module.
@@ -216,7 +216,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                 // This could be a bound TypeVar (e.g. used for "self" and "cls").
                 baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
-                if (!isObject(baseType)) {
+                if (!isClassInstance(baseType)) {
                     return;
                 }
 
@@ -232,7 +232,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                     return;
                 }
 
-                if (isObject(memberType) && ClassType.isPropertyClass(memberType.classType)) {
+                if (isClassInstance(memberType) && ClassType.isPropertyClass(memberType)) {
                     propertyDecls.forEach((decl) => {
                         this._addOutgoingCallForDeclaration(node.memberName, decl);
                     });
@@ -348,7 +348,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                     // This could be a bound TypeVar (e.g. used for "self" and "cls").
                     baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
-                    if (!isObject(baseType)) {
+                    if (!isClassInstance(baseType)) {
                         return;
                     }
 

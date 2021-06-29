@@ -18,10 +18,10 @@ import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
     getTypeAliasInfo,
-    isClass,
+    isClassInstance,
     isFunction,
+    isInstantiableClass,
     isModule,
-    isObject,
     isOverloadedFunction,
     isTypeVar,
     Type,
@@ -275,7 +275,7 @@ export class HoverProvider {
 
         // Get the init method for this class.
         const classType = evaluator.getType(node);
-        if (!classType || !isClass(classType)) {
+        if (!classType || !isInstantiableClass(classType)) {
             return false;
         }
 
@@ -292,7 +292,7 @@ export class HoverProvider {
         const instanceType = evaluator.getType(callLeftNode.parent);
         const functionType = evaluator.getTypeOfMember(initMethodMember);
 
-        if (!instanceType || !functionType || !isObject(instanceType) || !isFunction(functionType)) {
+        if (!instanceType || !functionType || !isClassInstance(instanceType) || !isFunction(functionType)) {
             return false;
         }
 

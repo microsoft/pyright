@@ -44,17 +44,16 @@ import {
     FunctionType,
     getTypeAliasInfo,
     isClass,
+    isClassInstance,
     isFunction,
+    isInstantiableClass,
     isModule,
     isNone,
-    isObject,
     isOverloadedFunction,
     isUnbound,
     isUnknown,
-    ObjectType,
     Type,
     TypeBase,
-    TypeCategory,
     UnknownType,
 } from '../analyzer/types';
 import {
@@ -263,7 +262,7 @@ interface SymbolDetail {
     funcParensDisabled?: boolean | undefined;
     autoImportSource?: string | undefined;
     autoImportAlias?: string | undefined;
-    boundObject?: ObjectType | undefined;
+    boundObject?: ClassType | undefined;
     edits?: Edits | undefined;
 }
 
@@ -791,7 +790,7 @@ export class CompletionProvider {
 
                 const symbolTable = new Map<string, Symbol>();
                 for (const mroClass of classResults.classType.details.mro) {
-                    if (isClass(mroClass)) {
+                    if (isInstantiableClass(mroClass)) {
                         getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
                     }
                 }
@@ -828,7 +827,7 @@ export class CompletionProvider {
         const symbolTable = new Map<string, Symbol>();
         for (let i = 1; i < classResults.classType.details.mro.length; i++) {
             const mroClass = classResults.classType.details.mro[i];
-            if (isClass(mroClass)) {
+            if (isInstantiableClass(mroClass)) {
                 getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
             }
         }
@@ -847,7 +846,7 @@ export class CompletionProvider {
                         return;
                     }
 
-                    let isProperty = isObject(declaredType) && ClassType.isPropertyClass(declaredType.classType);
+                    let isProperty = isClassInstance(declaredType) && ClassType.isPropertyClass(declaredType);
 
                     if (SymbolNameUtils.isDunderName(name)) {
                         // Don't offer suggestions for built-in properties like "__class__", etc.
@@ -978,7 +977,7 @@ export class CompletionProvider {
 
         if (
             classType.details.baseClasses.length === 1 &&
-            classType.details.baseClasses[0].category === TypeCategory.Class &&
+            isClass(classType.details.baseClasses[0]) &&
             classType.details.baseClasses[0].details.fullName === 'builtins.object'
         ) {
             sb += this._options.snippet ? '${0:pass}' : 'pass';
@@ -1043,25 +1042,25 @@ export class CompletionProvider {
             doForEachSubtype(leftType, (subtype) => {
                 subtype = this._evaluator.makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(subtype));
 
-                if (isObject(subtype)) {
-                    getMembersForClass(subtype.classType, symbolTable, /* includeInstanceVars */ true);
-                } else if (isClass(subtype)) {
+                if (isClassInstance(subtype)) {
+                    getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ true);
+                } else if (isInstantiableClass(subtype)) {
                     getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ false);
                 } else if (isModule(subtype)) {
                     getMembersForModule(subtype, symbolTable);
                 } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
                     const functionClass = this._evaluator.getBuiltInType(leftExprNode, 'function');
-                    if (functionClass && isClass(functionClass)) {
+                    if (functionClass && isInstantiableClass(functionClass)) {
                         getMembersForClass(functionClass, symbolTable, /* includeInstanceVars */ true);
                     }
                 } else if (isNone(subtype)) {
                     const objectClass = this._evaluator.getBuiltInType(leftExprNode, 'object');
-                    if (objectClass && isClass(objectClass)) {
+                    if (objectClass && isInstantiableClass(objectClass)) {
                         getMembersForClass(objectClass, symbolTable, TypeBase.isInstance(subtype));
                     }
                 }
 
-                const boundObject = isObject(subtype) ? subtype : undefined;
+                const boundObject = isClassInstance(subtype) ? subtype : undefined;
                 this._addSymbolsForSymbolTable(
                     symbolTable,
                     (_) => true,
@@ -1121,10 +1120,10 @@ export class CompletionProvider {
 
             if (curNode.nodeType === ParseNodeType.MemberAccess) {
                 memberAccessInfo.lastKnownMemberName = curNode.memberName.value;
-            } else if (curNode.nodeType === ParseNodeType.Name && isClass(curType)) {
+            } else if (curNode.nodeType === ParseNodeType.Name && isInstantiableClass(curType)) {
                 memberAccessInfo.lastKnownMemberName = curType.details.name;
-            } else if (curNode.nodeType === ParseNodeType.Name && isObject(curType)) {
-                memberAccessInfo.lastKnownMemberName = curType.classType.details.name;
+            } else if (curNode.nodeType === ParseNodeType.Name && isClassInstance(curType)) {
+                memberAccessInfo.lastKnownMemberName = curType.details.name;
             }
 
             memberAccessInfo.unknownMemberName = unknownMemberName;
@@ -1329,13 +1328,9 @@ export class CompletionProvider {
     ) {
         const quoteValue = this._getQuoteValueFromPriorText(priorText);
         doForEachSubtype(type, (subtype) => {
-            if (
-                isObject(subtype) &&
-                ClassType.isBuiltIn(subtype.classType, 'str') &&
-                subtype.classType.literalValue !== undefined
-            ) {
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'str') && subtype.literalValue !== undefined) {
                 this._addStringLiteralToCompletionList(
-                    subtype.classType.literalValue as string,
+                    subtype.literalValue as string,
                     quoteValue.stringValue,
                     postText,
                     quoteValue.quoteCharacter,
@@ -1352,13 +1347,12 @@ export class CompletionProvider {
         }
 
         const baseType = this._evaluator.getType(indexNode.baseExpression);
-        if (!baseType || !isObject(baseType)) {
+        if (!baseType || !isClassInstance(baseType)) {
             return [];
         }
 
         // Must be dict type
-        const classType = baseType.classType;
-        if (!ClassType.isBuiltIn(classType, 'dict')) {
+        if (!ClassType.isBuiltIn(baseType, 'dict')) {
             return [];
         }
 
@@ -1408,7 +1402,7 @@ export class CompletionProvider {
                 if (node.parent.rightExpression.nodeType === ParseNodeType.Call) {
                     const call = node.parent.rightExpression;
                     const type = this._evaluator.getType(call.leftExpression);
-                    if (!type || !isClass(type) || !ClassType.isBuiltIn(type, 'dict')) {
+                    if (!type || !isInstantiableClass(type) || !ClassType.isBuiltIn(type, 'dict')) {
                         continue;
                     }
 
@@ -1544,17 +1538,16 @@ export class CompletionProvider {
         }
 
         const baseType = this._evaluator.getType(indexNode.baseExpression);
-        if (!baseType || !isObject(baseType)) {
+        if (!baseType || !isClassInstance(baseType)) {
             return false;
         }
 
         // We currently handle only TypedDict objects.
-        const classType = baseType.classType;
-        if (!ClassType.isTypedDictClass(classType)) {
+        if (!ClassType.isTypedDictClass(baseType)) {
             return false;
         }
 
-        const entries = this._evaluator.getTypedDictMembersForClass(classType, /* allowNarrowed */ true);
+        const entries = this._evaluator.getTypedDictMembersForClass(baseType, /* allowNarrowed */ true);
         const quoteValue = priorText ? this._getQuoteValueFromPriorText(priorText) : undefined;
 
         entries.forEach((_, key) => {
@@ -1818,9 +1811,9 @@ export class CompletionProvider {
                 // If this is a class scope, add symbols from parent classes.
                 if (curNode.nodeType === ParseNodeType.Class) {
                     const classType = this._evaluator.getTypeOfClass(curNode);
-                    if (classType && isClass(classType.classType)) {
+                    if (classType && isInstantiableClass(classType.classType)) {
                         classType.classType.details.mro.forEach((baseClass, index) => {
-                            if (isClass(baseClass)) {
+                            if (isInstantiableClass(baseClass)) {
                                 this._addSymbolsForSymbolTable(
                                     baseClass.details.fields,
                                     (name) => {
@@ -1855,7 +1848,7 @@ export class CompletionProvider {
         includeSymbolCallback: (name: string) => boolean,
         priorWord: string,
         isInImport: boolean,
-        boundObject: ObjectType | undefined,
+        boundObject: ClassType | undefined,
         completionList: CompletionList
     ) {
         symbolTable.forEach((symbol, name) => {
@@ -1939,7 +1932,7 @@ export class CompletionProvider {
                                         if (isProperty(functionType) && detail.boundObject) {
                                             const propertyType =
                                                 this._evaluator.getGetterTypeFromProperty(
-                                                    functionType.classType,
+                                                    functionType as ClassType,
                                                     /* inferTypeIfNeeded */ true
                                                 ) || UnknownType.create();
                                             typeDetail =
@@ -1989,7 +1982,7 @@ export class CompletionProvider {
 
                             if (isModule(type)) {
                                 documentation = getModuleDocString(type, primaryDecl, this._sourceMapper);
-                            } else if (isClass(type)) {
+                            } else if (isInstantiableClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isFunction(type)) {
                                 documentation = getFunctionDocStringFromType(type, this._sourceMapper, this._evaluator);
