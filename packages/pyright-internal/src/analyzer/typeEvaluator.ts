@@ -3115,8 +3115,13 @@ export function createTypeEvaluator(
                 // Check for an attempt to write to an instance variable that is
                 // not defined by __slots__.
                 if (isThisClass && isInstanceMember) {
-                    if (memberClass?.details.inheritedSlotsNames) {
-                        if (!memberClass.details.inheritedSlotsNames.some((name) => name === memberName)) {
+                    if (memberClass?.details.inheritedSlotsNames && memberClass?.details.localSlotsNames) {
+                        // Skip this check if the local slots is specified but empty because this pattern
+                        // is used in a legitimate manner for mix-in classes.
+                        if (
+                            memberClass.details.localSlotsNames.length > 0 &&
+                            !memberClass.details.inheritedSlotsNames.some((name) => name === memberName)
+                        ) {
                             const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                             if (!declaredType || !isProperty(declaredType)) {
                                 addDiagnostic(
