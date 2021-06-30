@@ -244,7 +244,6 @@ import {
     stripLiteralValue,
     transformExpectedTypeForConstructor,
     transformPossibleRecursiveTypeAlias,
-    transformTypeObjectToClass,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -1316,8 +1315,6 @@ export function createTypeEvaluator(
         }
 
         if (reportExpectingTypeErrors && !typeResult.isIncomplete) {
-            const resultType = transformTypeObjectToClass(typeResult.type);
-
             if (flags & EvaluatorFlags.TypeVarTupleDisallowed) {
                 if (
                     isTypeVar(typeResult.type) &&
@@ -1329,11 +1326,11 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (!TypeBase.isInstantiable(resultType)) {
+            if (!TypeBase.isInstantiable(typeResult.type)) {
                 const isEmptyVariadic =
-                    isClassInstance(resultType) &&
-                    ClassType.isTupleClass(resultType) &&
-                    resultType.tupleTypeArguments?.length === 0;
+                    isClassInstance(typeResult.type) &&
+                    ClassType.isTupleClass(typeResult.type) &&
+                    typeResult.type.tupleTypeArguments?.length === 0;
 
                 if (!isEmptyVariadic) {
                     addExpectedClassDiagnostic(typeResult.type, node);
@@ -1758,8 +1755,6 @@ export function createTypeEvaluator(
         }
 
         doForEachSubtype(callType, (subtype) => {
-            subtype = transformTypeObjectToClass(subtype);
-
             switch (subtype.category) {
                 case TypeCategory.Function:
                 case TypeCategory.OverloadedFunction: {
@@ -2038,7 +2033,7 @@ export function createTypeEvaluator(
         }
 
         const iterableType = mapSubtypes(type, (subtype) => {
-            subtype = makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(subtype));
+            subtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
@@ -2146,8 +2141,6 @@ export function createTypeEvaluator(
         }
 
         const iterableType = mapSubtypes(type, (subtype) => {
-            subtype = transformTypeObjectToClass(subtype);
-
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -3968,10 +3961,6 @@ export function createTypeEvaluator(
                     if (!type.typeArguments) {
                         type = createSpecializedClassType(type, undefined, flags, node);
                     }
-                } else if (isClassInstance(type)) {
-                    // If this is an object that contains a Type[X], transform it
-                    // into class X.
-                    type = transformTypeObjectToClass(type);
                 }
 
                 if (
@@ -4499,22 +4488,6 @@ export function createTypeEvaluator(
                         isIncomplete = true;
                     }
                 } else {
-                    const classFromTypeObject = transformTypeObjectToClass(baseType);
-                    if (TypeBase.isInstantiable(classFromTypeObject)) {
-                        // Handle the case where the object is a 'type' object, which
-                        // represents a class.
-                        return getTypeFromMemberAccessWithBaseType(
-                            node,
-                            {
-                                type: classFromTypeObject,
-                                node: baseTypeResult.node,
-                                bindToType: baseTypeResult.bindToType,
-                            },
-                            usage,
-                            flags
-                        );
-                    }
-
                     // Handle the special case of 'name' and 'value' members within an enum.
                     if (ClassType.isEnumClass(baseType)) {
                         const literalValue = baseType.literalValue;
@@ -5447,8 +5420,6 @@ export function createTypeEvaluator(
             baseType,
             /* conditionFilter */ undefined,
             (concreteSubtype, unexpandedSubtype) => {
-                concreteSubtype = transformTypeObjectToClass(concreteSubtype);
-
                 if (isAnyOrUnknown(concreteSubtype)) {
                     return concreteSubtype;
                 }
@@ -6002,8 +5973,6 @@ export function createTypeEvaluator(
             } else {
                 typeResult = getTypeArg(expr, adjFlags);
             }
-
-            typeResult.type = transformTypeObjectToClass(typeResult.type);
 
             return typeResult;
         };
@@ -7336,13 +7305,6 @@ export function createTypeEvaluator(
             callType,
             /* conditionFilter */ undefined,
             (expandedSubtype, unexpandedSubtype) => {
-                let isTypeObject = false;
-                unexpandedSubtype = transformTypeObjectToClass(unexpandedSubtype);
-                if (isClassInstance(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype, 'Type')) {
-                    expandedSubtype = transformTypeObjectToClass(expandedSubtype);
-                    isTypeObject = true;
-                }
-
                 switch (expandedSubtype.category) {
                     case TypeCategory.Unknown:
                     case TypeCategory.Any: {
@@ -7557,8 +7519,8 @@ export function createTypeEvaluator(
                             }
 
                             if (
-                                !isTypeObject &&
                                 ClassType.hasAbstractMethods(expandedSubtype) &&
+                                !expandedSubtype.includeSubclasses &&
                                 !isTypeVar(unexpandedSubtype)
                             ) {
                                 // If the class is abstract, it can't be instantiated.
@@ -7596,7 +7558,7 @@ export function createTypeEvaluator(
                                 );
                             }
 
-                            if (!isTypeObject && ClassType.isProtocolClass(expandedSubtype)) {
+                            if (ClassType.isProtocolClass(expandedSubtype) && !expandedSubtype.includeSubclasses) {
                                 // If the class is a protocol, it can't be instantiated.
                                 addDiagnostic(
                                     getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -9403,7 +9365,7 @@ export function createTypeEvaluator(
         }
 
         if (argList.length >= 2) {
-            const baseClass = transformTypeObjectToClass(getTypeForArgumentExpectingType(argList[1]));
+            const baseClass = getTypeForArgumentExpectingType(argList[1]);
 
             if (isInstantiableClass(baseClass)) {
                 if (ClassType.isProtocolClass(baseClass)) {
@@ -10163,7 +10125,7 @@ export function createTypeEvaluator(
             expectedOperandType || expectedLeftOperandType,
             flags
         );
-        let leftType = transformTypeObjectToClass(leftTypeResult.type);
+        let leftType = leftTypeResult.type;
 
         // If there is no expected type, use the type of the left operand. This
         // allows us to infer a better type for expressions like `x or []`.
@@ -10172,7 +10134,7 @@ export function createTypeEvaluator(
         }
 
         const rightTypeResult = getTypeOfExpression(rightExpression, expectedOperandType, flags);
-        let rightType = transformTypeObjectToClass(rightTypeResult.type);
+        let rightType = rightTypeResult.type;
 
         if (leftTypeResult.isIncomplete || rightTypeResult.isIncomplete) {
             isIncomplete = true;
@@ -10205,10 +10167,7 @@ export function createTypeEvaluator(
                 }
 
                 return {
-                    type: combineTypes([
-                        transformTypeObjectToClass(leftType),
-                        transformTypeObjectToClass(adjustedRightType),
-                    ]),
+                    type: combineTypes([leftType, adjustedRightType]),
                     node,
                 };
             }
@@ -10899,7 +10858,7 @@ export function createTypeEvaluator(
                       dictClass,
                       [keyType, valueType],
                       /* isTypeArgumentExplicit */ true,
-                      /* skipAbstractClassTest */ false,
+                      /* includeSubclasses */ undefined,
                       /* TupleTypeArguments */ undefined,
                       isEmptyContainer
                   )
@@ -11184,7 +11143,7 @@ export function createTypeEvaluator(
                       listOrSetClass,
                       [inferredEntryType],
                       /* isTypeArgumentExplicit */ true,
-                      /* skipAbstractClassTest */ false,
+                      /* includeSubclasses */ undefined,
                       /* TupleTypeArguments */ undefined,
                       isEmptyContainer
                   )
@@ -12724,8 +12683,6 @@ export function createTypeEvaluator(
                 }
 
                 if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
-                    // Handle "Type[X]" object.
-                    argType = transformTypeObjectToClass(argType);
                     if (!isInstantiableClass(argType)) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -13970,22 +13927,10 @@ export function createTypeEvaluator(
                 // The self/cls parameter is allowed to skip the abstract class test
                 // because the caller is possibly passing in a non-abstract subclass.
                 selfType.details.boundType = ClassType.cloneAsInstance(
-                    selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
+                    selfSpecializeClassType(containingClassType, /* includeSubclasses */ true)
                 );
 
-                if (!hasClsParam) {
-                    return selfType;
-                }
-
-                const typeClass = getTypingType(functionNode, 'Type');
-                if (typeClass && isInstantiableClass(typeClass)) {
-                    return ClassType.cloneAsInstance(
-                        ClassType.cloneForSpecialization(typeClass, [selfType], /* isTypeArgumentExplicit */ true)
-                    );
-                } else {
-                    // This path is taken when analyzing the typing.pyi file.
-                    return AnyType.create();
-                }
+                return hasClsParam ? convertToInstantiable(selfType) : selfType;
             }
         }
 
@@ -14888,10 +14833,6 @@ export function createTypeEvaluator(
                 return exceptionType;
             }
 
-            if (isClassInstance(exceptionType)) {
-                exceptionType = transformTypeObjectToClass(exceptionType);
-            }
-
             if (isInstantiableClass(exceptionType)) {
                 return ClassType.cloneAsInstance(exceptionType);
             }
@@ -14903,11 +14844,6 @@ export function createTypeEvaluator(
                 return mapSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
                         return subtype;
-                    }
-
-                    const transformedSubtype = transformTypeObjectToClass(subtype);
-                    if (isInstantiableClass(transformedSubtype)) {
-                        return ClassType.cloneAsInstance(transformedSubtype);
                     }
 
                     return UnknownType.create();
@@ -17986,8 +17922,6 @@ export function createTypeEvaluator(
     // of classes. This method determines which form and returns a list of classes
     // or undefined.
     function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType)[] | undefined {
-        argType = transformTypeObjectToClass(argType);
-
         if (
             (isClass(argType) && TypeBase.isInstantiable(argType)) ||
             (isTypeVar(argType) && TypeBase.isInstantiable(argType))
@@ -18000,7 +17934,6 @@ export function createTypeEvaluator(
                 let foundNonClassType = false;
                 const classTypeList: (ClassType | TypeVarType | NoneType)[] = [];
                 argType.tupleTypeArguments.forEach((typeArg) => {
-                    typeArg = transformTypeObjectToClass(typeArg);
                     if (isInstantiableClass(typeArg) || (isTypeVar(typeArg) && TypeBase.isInstantiable(typeArg))) {
                         classTypeList.push(typeArg);
                     } else if (isNone(typeArg) && TypeBase.isInstantiable(typeArg)) {
@@ -18049,9 +17982,6 @@ export function createTypeEvaluator(
     ): Type {
         const expandedTypes = mapSubtypes(type, (subtype) => {
             return transformPossibleRecursiveTypeAlias(subtype);
-        });
-        const effectiveType = mapSubtypes(expandedTypes, (subtype) => {
-            return transformTypeObjectToClass(subtype);
         });
 
         // Filters the varType by the parameters of the isinstance
@@ -18190,7 +18120,7 @@ export function createTypeEvaluator(
         const anyOrUnknown: Type[] = [];
 
         const filteredType = mapSubtypesExpandTypeVars(
-            effectiveType,
+            expandedTypes,
             /* conditionFilter */ undefined,
             (subtype, unexpandedSubtype) => {
                 // If we fail to filter anything in the negative case, we need to decide
@@ -18453,8 +18383,6 @@ export function createTypeEvaluator(
         let canNarrow = true;
 
         const narrowedType = mapSubtypes(referenceType, (subtype) => {
-            subtype = transformTypeObjectToClass(subtype);
-
             let memberInfo: ClassMember | undefined;
             if (isClassInstance(subtype)) {
                 memberInfo = lookUpObjectMember(subtype, memberName);
@@ -18571,12 +18499,6 @@ export function createTypeEvaluator(
 
                 case TypeCategory.Class: {
                     if (TypeBase.isInstantiable(concreteSubtype)) {
-                        return isPositiveTest ? subtype : undefined;
-                    }
-
-                    const classFromTypeObject = transformTypeObjectToClass(concreteSubtype);
-                    if (TypeBase.isInstantiable(classFromTypeObject)) {
-                        // It's a Type object, which is a class.
                         return isPositiveTest ? subtype : undefined;
                     }
 
@@ -19061,7 +18983,7 @@ export function createTypeEvaluator(
         ) {
             let baseType = getType(node.parent.leftExpression);
             if (baseType) {
-                baseType = transformTypeObjectToClass(makeTopLevelTypeVarsConcrete(baseType));
+                baseType = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = node.parent.memberName.value;
                 doForEachSubtype(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
@@ -21428,18 +21350,19 @@ export function createTypeEvaluator(
 
         // If there's a bound type, make sure the source is assignable to it.
         if (destType.details.boundType) {
-            const boundType = TypeBase.isInstantiable(destType)
-                ? convertToInstantiable(destType.details.boundType)
-                : destType.details.boundType;
             const updatedType = (newNarrowTypeBound || newWideTypeBound)!;
-            const adjustedUpdatedType =
-                isTypeVar(srcType) && TypeBase.isInstantiable(srcType)
-                    ? convertToInstantiable(updatedType)
-                    : updatedType;
+
+            // If the dest is a Type[T] but the source is not a valid Type,
+            // skip the canAssignType check and the diagnostic addendum, which will
+            // be confusing and inaccurate.
+            if (TypeBase.isInstantiable(destType) && !TypeBase.isInstantiable(srcType)) {
+                return false;
+            }
+
             if (
                 !canAssignType(
-                    boundType,
-                    adjustedUpdatedType,
+                    destType.details.boundType,
+                    updatedType,
                     diag.createAddendum(),
                     typeVarMap,
                     CanAssignFlags.Default,
@@ -21451,8 +21374,8 @@ export function createTypeEvaluator(
                 if (!destType.details.isSynthesized) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeBound().format({
-                            sourceType: printType(adjustedUpdatedType),
-                            destType: printType(boundType),
+                            sourceType: printType(updatedType),
+                            destType: printType(destType.details.boundType),
                             name: TypeVarType.getReadableName(destType),
                         })
                     );
@@ -21849,7 +21772,7 @@ export function createTypeEvaluator(
         }
 
         if (isNone(destType) && isNone(srcType)) {
-            return true;
+            return TypeBase.isInstance(destType) === TypeBase.isInstance(srcType);
         }
 
         // Is the src a specialized "Type" object?
@@ -21860,13 +21783,13 @@ export function createTypeEvaluator(
                     if (isClassInstance(destType) && ClassType.isBuiltIn(srcType, 'type')) {
                         return true;
                     }
-                    return TypeBase.isInstantiable(transformTypeObjectToClass(destType));
+                    return TypeBase.isInstantiable(destType);
                 }
 
                 if (isClassInstance(srcTypeArgs[0]) || isTypeVar(srcTypeArgs[0])) {
                     if (
                         canAssignType(
-                            transformTypeObjectToClass(destType),
+                            destType,
                             convertToInstantiable(srcTypeArgs[0]),
                             diag.createAddendum(),
                             typeVarMap,
@@ -21920,11 +21843,10 @@ export function createTypeEvaluator(
             if (ClassType.isBuiltIn(destType, 'Type')) {
                 const destTypeArgs = destType.typeArguments;
                 if (destTypeArgs && destTypeArgs.length >= 1) {
-                    const convertedSrc = transformTypeObjectToClass(srcType);
-                    if (TypeBase.isInstance(destTypeArgs[0]) && TypeBase.isInstantiable(convertedSrc)) {
+                    if (TypeBase.isInstance(destTypeArgs[0]) && TypeBase.isInstantiable(srcType)) {
                         return canAssignType(
                             destTypeArgs[0],
-                            convertToInstance(convertedSrc),
+                            convertToInstance(srcType),
                             diag,
                             typeVarMap,
                             flags,

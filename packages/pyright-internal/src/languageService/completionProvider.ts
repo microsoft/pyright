@@ -62,7 +62,6 @@ import {
     getMembersForClass,
     getMembersForModule,
     isProperty,
-    transformTypeObjectToClass,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -1040,7 +1039,7 @@ export class CompletionProvider {
             leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
 
             doForEachSubtype(leftType, (subtype) => {
-                subtype = this._evaluator.makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(subtype));
+                subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
                 if (isClassInstance(subtype)) {
                     getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ true);

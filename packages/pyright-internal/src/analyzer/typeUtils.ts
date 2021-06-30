@@ -228,8 +228,7 @@ export function areTypesSame(types: Type[], ignorePseudoGeneric: boolean): boole
 export function isUnionableType(subtypes: Type[]): boolean {
     let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
 
-    for (let subtype of subtypes) {
-        subtype = transformTypeObjectToClass(subtype);
+    for (const subtype of subtypes) {
         typeFlags &= subtype.flags;
     }
 
@@ -355,24 +354,6 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
         case TypeCategory.Function:
             return type.condition;
     }
-}
-
-// If the type is a concrete class X described by the object Type[X],
-// returns X. Otherwise returns the original type.
-export function transformTypeObjectToClass(type: Type): Type {
-    if (!isClassInstance(type)) {
-        return type;
-    }
-
-    if (!ClassType.isBuiltIn(type, 'Type')) {
-        return type;
-    }
-
-    if (!type.typeArguments || type.typeArguments.length < 1) {
-        return UnknownType.create();
-    }
-
-    return convertToInstantiable(type.typeArguments[0]);
 }
 
 // Indicates whether the specified type is a recursive type alias
@@ -1048,18 +1029,13 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
 // If the class is generic, the type is cloned, and its own
 // type parameters are used as type arguments. This is useful
 // for typing "self" or "cls" within a class's implementation.
-export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTest = false): ClassType {
-    if (!ClassType.isGeneric(type) && !setSkipAbstractClassTest) {
+export function selfSpecializeClassType(type: ClassType, includeSubclasses = false): ClassType {
+    if (!ClassType.isGeneric(type) && !includeSubclasses) {
         return type;
     }
 
     const typeArgs = ClassType.getTypeParameters(type);
-    return ClassType.cloneForSpecialization(
-        type,
-        typeArgs,
-        /* isTypeArgumentExplicit */ false,
-        setSkipAbstractClassTest
-    );
+    return ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ false, includeSubclasses);
 }
 
 // Creates a specialized version of the class, filling in any unspecified
@@ -1364,10 +1340,17 @@ export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type
 
 export function convertToInstance(type: Type): Type {
     let result = mapSubtypes(type, (subtype) => {
-        subtype = transformTypeObjectToClass(subtype);
-
         switch (subtype.category) {
             case TypeCategory.Class: {
+                // Handle Type[x] as a special case.
+                if (ClassType.isBuiltIn(subtype, 'Type')) {
+                    if (!subtype.typeArguments || subtype.typeArguments.length < 1) {
+                        return UnknownType.create();
+                    } else {
+                        return convertToInstantiable(subtype.typeArguments[0]);
+                    }
+                }
+
                 return ClassType.cloneAsInstance(subtype);
             }
 
@@ -1685,7 +1668,7 @@ export function specializeTupleClass(
         classType,
         [combinedTupleType],
         isTypeArgumentExplicit,
-        /* skipAbstractClassTest */ undefined,
+        /* includeSubclasses */ undefined,
         typeArgs
     );
 
@@ -1801,51 +1784,12 @@ export function _transformTypeVars(
     }
 
     if (isClassInstance(type)) {
-        let classType: ClassType | undefined;
-
-        // Handle the "Type" special class.
-        if (ClassType.isBuiltIn(type, 'Type')) {
-            const typeArgs = type.typeArguments;
-            if (typeArgs && typeArgs.length >= 1) {
-                if (isClassInstance(typeArgs[0])) {
-                    let transformedObj = _transformTypeVars(
-                        ClassType.cloneAsInstantiable(typeArgs[0]),
-                        callbacks,
-                        recursionMap,
-                        recursionLevel + 1
-                    );
-                    if (transformedObj !== typeArgs[0]) {
-                        if (!TypeBase.isInstance(transformedObj)) {
-                            transformedObj = convertToInstance(transformedObj);
-                        }
-
-                        classType = ClassType.cloneForSpecialization(
-                            ClassType.cloneAsInstantiable(type),
-                            [transformedObj],
-                            /* usTypeArgumentExplicit */ true
-                        );
-                    }
-                } else if (isTypeVar(typeArgs[0])) {
-                    const replacementType = callbacks.transformTypeVar(typeArgs[0]);
-                    if (replacementType && isClassInstance(replacementType)) {
-                        classType = ClassType.cloneForSpecialization(
-                            ClassType.cloneAsInstantiable(type),
-                            [replacementType],
-                            /* usTypeArgumentExplicit */ true
-                        );
-                    }
-                }
-            }
-        }
-
-        if (!classType) {
-            classType = _transformTypeVarsInClassType(
-                ClassType.cloneAsInstantiable(type),
-                callbacks,
-                recursionMap,
-                recursionLevel + 1
-            );
-        }
+        const classType = _transformTypeVarsInClassType(
+            ClassType.cloneAsInstantiable(type),
+            callbacks,
+            recursionMap,
+            recursionLevel + 1
+        );
 
         return ClassType.cloneAsInstance(classType);
     }
@@ -2013,7 +1957,7 @@ function _transformTypeVarsInClassType(
         classType,
         newTypeArgs,
         /* isTypeArgumentExplicit */ true,
-        /* skipAbstractClassTest */ undefined,
+        /* includeSubclasses */ undefined,
         newVariadicTypeArgs
     );
 }

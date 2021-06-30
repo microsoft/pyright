@@ -135,7 +135,6 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     transformPossibleRecursiveTypeAlias,
-    transformTypeObjectToClass,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -1147,14 +1146,12 @@ export class Checker extends ParseTreeWalker {
                     return;
                 }
 
-                leftSubtype = transformTypeObjectToClass(leftSubtype);
                 leftSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(leftSubtype);
                 doForEachSubtype(rightType, (rightSubtype) => {
                     if (isComparable) {
                         return;
                     }
 
-                    rightSubtype = transformTypeObjectToClass(rightSubtype);
                     rightSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(rightSubtype);
 
                     if (this._isTypeComparable(leftSubtype, rightSubtype)) {
@@ -1623,11 +1620,6 @@ export class Checker extends ParseTreeWalker {
         if (isAnyOrUnknown(exceptionType)) {
             resultingExceptionType = exceptionType;
         } else {
-            // Handle the case where we have a Type[X] object.
-            if (isClassInstance(exceptionType)) {
-                exceptionType = transformTypeObjectToClass(exceptionType);
-            }
-
             if (isInstantiableClass(exceptionType)) {
                 if (!derivesFromBaseException(exceptionType)) {
                     diagAddendum.addMessage(
@@ -1647,9 +1639,8 @@ export class Checker extends ParseTreeWalker {
                         return subtype;
                     }
 
-                    const transformedSubtype = transformTypeObjectToClass(subtype);
-                    if (isInstantiableClass(transformedSubtype)) {
-                        if (!derivesFromBaseException(transformedSubtype)) {
+                    if (isInstantiableClass(subtype)) {
+                        if (!derivesFromBaseException(subtype)) {
                             diagAddendum.addMessage(
                                 Localizer.Diagnostic.exceptionTypeIncorrect().format({
                                     type: this._evaluator.printType(exceptionType, /* expandTypeAlias */ false),
@@ -1657,7 +1648,7 @@ export class Checker extends ParseTreeWalker {
                             );
                         }
 
-                        return ClassType.cloneAsInstance(transformedSubtype);
+                        return ClassType.cloneAsInstance(subtype);
                     }
 
                     diagAddendum.addMessage(
@@ -2190,7 +2181,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
         arg0Type = mapSubtypes(arg0Type, (subtype) => {
-            return transformPossibleRecursiveTypeAlias(transformTypeObjectToClass(subtype));
+            return transformPossibleRecursiveTypeAlias(subtype);
         });
 
         if (derivesFromAnyOrUnknown(arg0Type)) {
@@ -2217,14 +2208,10 @@ export class Checker extends ParseTreeWalker {
                         break;
 
                     case TypeCategory.Class:
-                        if (TypeBase.isInstance(subtype)) {
-                            isSupported = ClassType.isBuiltIn(subtype, 'type');
-                        } else {
-                            // If it's a class, make sure that it has not been given explicit
-                            // type arguments. This will result in a TypeError exception.
-                            if (subtype.isTypeArgumentExplicit) {
-                                isSupported = false;
-                            }
+                        // If it's a class, make sure that it has not been given explicit
+                        // type arguments. This will result in a TypeError exception.
+                        if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
+                            isSupported = false;
                         }
                         break;
 
@@ -3433,7 +3420,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const paramType = this._evaluator.makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(paramInfo.type));
+        const paramType = this._evaluator.makeTopLevelTypeVarsConcrete(paramInfo.type);
         const expectedType = isCls ? classType : convertToInstance(classType);
         const diag = new DiagnosticAddendum();
 

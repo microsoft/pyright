@@ -42,13 +42,7 @@ import {
     TypeBase,
     TypeCategory,
 } from './types';
-import {
-    doForEachSubtype,
-    getFullNameOfType,
-    isEllipsisType,
-    isPartlyUnknown,
-    transformTypeObjectToClass,
-} from './typeUtils';
+import { doForEachSubtype, getFullNameOfType, isEllipsisType, isPartlyUnknown } from './typeUtils';
 
 type PublicSymbolMap = Map<string, string>;
 
@@ -505,8 +499,6 @@ export class PackageTypeVerifier {
         declFilePath: string,
         publicSymbolMap: PublicSymbolMap
     ): boolean {
-        type = transformTypeObjectToClass(type);
-
         switch (type.category) {
             case TypeCategory.Unbound:
             case TypeCategory.Any:

@@ -434,7 +434,11 @@ export interface ClassType extends TypeBase {
     // provided explicitly in the code)?
     isTypeArgumentExplicit?: boolean | undefined;
 
-    skipAbstractClassTest: boolean;
+    // This class type represents the class and any classes that
+    // derive from it, as opposed to the original class only. This
+    // distinction is important in certain scenarios like instantiation
+    // of abstract or protocol classes.
+    includeSubclasses?: boolean;
 
     // Some types can be further constrained to have
     // literal types (e.g. true or 'string' or 3).
@@ -480,7 +484,6 @@ export namespace ClassType {
                 typeParameters: [],
                 docString,
             },
-            skipAbstractClassTest: false,
             flags: TypeFlags.Instantiable,
         };
 
@@ -491,6 +494,7 @@ export namespace ClassType {
         const objectType = { ...classType };
         objectType.flags &= ~(TypeFlags.Instantiable | TypeFlags.NonCallable);
         objectType.flags |= TypeFlags.Instance;
+        objectType.includeSubclasses = true;
         return objectType;
     }
 
@@ -505,7 +509,7 @@ export namespace ClassType {
         classType: ClassType,
         typeArguments: Type[] | undefined,
         isTypeArgumentExplicit: boolean,
-        skipAbstractClassTest = false,
+        includeSubclasses = false,
         tupleTypeArguments?: Type[],
         isEmptyContainer?: boolean
     ): ClassType {
@@ -517,7 +521,9 @@ export namespace ClassType {
             : undefined;
 
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
-        newClassType.skipAbstractClassTest = skipAbstractClassTest;
+        if (includeSubclasses) {
+            newClassType.includeSubclasses = true;
+        }
         newClassType.tupleTypeArguments = tupleTypeArguments
             ? tupleTypeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
             : undefined;
@@ -611,7 +617,7 @@ export namespace ClassType {
     }
 
     export function hasAbstractMethods(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.HasAbstractMethods) && !classType.skipAbstractClassTest;
+        return !!(classType.details.flags & ClassTypeFlags.HasAbstractMethods);
     }
 
     export function supportsAbstractMethods(classType: ClassType) {

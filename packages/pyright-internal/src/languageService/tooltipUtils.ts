@@ -29,7 +29,6 @@ import {
     OverloadedFunctionType,
     Type,
 } from '../analyzer/types';
-import { transformTypeObjectToClass } from '../analyzer/typeUtils';
 
 // 70 is vscode's default hover width size.
 export function getOverloadedFunctionTooltip(
@@ -74,8 +73,6 @@ export function getDocumentationPartsForTypeAndDecl(
     resolvedDecl: Declaration | undefined,
     evaluator: TypeEvaluator
 ): string[] {
-    type = transformTypeObjectToClass(type);
-
     if (isModule(type)) {
         const doc = getModuleDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
