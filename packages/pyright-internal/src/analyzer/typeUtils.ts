@@ -985,23 +985,29 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         });
 
         return combinedList;
-    } else if (isTypeVar(type)) {
+    }
+
+    if (isTypeVar(type)) {
         // Don't return any recursive type alias placeholders.
         if (type.details.recursiveTypeAliasName) {
             return [];
         }
-        return [type];
-    } else if (isInstantiableClass(type)) {
+        return [TypeBase.isInstantiable(type) ? TypeVarType.cloneAsInstance(type) : type];
+    }
+
+    if (isClass(type)) {
         return getTypeVarsFromClass(type);
-    } else if (isClassInstance(type)) {
-        return getTypeVarsFromClass(type);
-    } else if (isUnion(type)) {
+    }
+
+    if (isUnion(type)) {
         const combinedList: TypeVarType[] = [];
         doForEachSubtype(type, (subtype) => {
             addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(subtype, recursionCount + 1));
         });
         return combinedList;
-    } else if (isFunction(type)) {
+    }
+
+    if (isFunction(type)) {
         const combinedList: TypeVarType[] = [];
 
         for (let i = 0; i < type.details.parameters.length; i++) {
