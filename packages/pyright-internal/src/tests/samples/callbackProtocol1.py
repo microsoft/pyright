@@ -96,3 +96,15 @@ def func5(x: int) -> None:
 
 # This should generate an error because of the presence of foo.
 var4: TestClass4 = func5
+
+
+class TestClass5(Protocol):
+    def __call__(self, *, a: int, b: str) -> int:
+        ...
+
+
+def func6(a: int, b: str) -> int:
+    return 123
+
+
+f: TestClass5 = func6

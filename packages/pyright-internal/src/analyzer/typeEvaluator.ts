@@ -22558,13 +22558,15 @@ export function createTypeEvaluator(
                     ).length;
                     if (destArgsIndex < 0) {
                         if (destPositionals.length < nonDefaultSrcParamCount) {
-                            diag.createAddendum().addMessage(
-                                Localizer.DiagnosticAddendum.functionTooFewParams().format({
-                                    expected: nonDefaultSrcParamCount,
-                                    received: destPositionals.length,
-                                })
-                            );
-                            canAssign = false;
+                            if (destPositionalOnlyIndex >= 0 && destPositionalOnlyIndex < srcPositionals.length) {
+                                diag.createAddendum().addMessage(
+                                    Localizer.DiagnosticAddendum.functionTooFewParams().format({
+                                        expected: nonDefaultSrcParamCount,
+                                        received: destPositionals.length,
+                                    })
+                                );
+                                canAssign = false;
+                            }
                         }
                     } else {
                         // Make sure the remaining positional arguments are of the
@@ -22670,8 +22672,8 @@ export function createTypeEvaluator(
             }
 
             // Handle matching of named (keyword) parameters.
-            // Build a dictionary of named parameters in the dest.
             if (!destType.details.paramSpec) {
+                // Build a dictionary of named parameters in the dest.
                 const destParamMap = new Map<string, FunctionParameter>();
                 let destHasKwargsParam = false;
                 if (destStartOfNamed >= 0) {
