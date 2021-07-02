@@ -29,7 +29,6 @@ import {
 import { doForEachSubtype, isOptionalType, isTupleClass } from './typeUtils';
 
 const singleTickRegEx = /'/g;
-const tripleTickRegEx = /'''/g;
 
 export const enum PrintTypeFlags {
     None = 0,
@@ -381,12 +380,8 @@ export function printLiteralValue(type: ClassType): string {
     let literalStr: string;
     if (typeof literalValue === 'string') {
         const prefix = type.details.name === 'bytes' ? 'b' : '';
-        literalStr = literalValue.toString();
-        if (literalStr.indexOf('\n') >= 0) {
-            literalStr = `${prefix}'''${literalStr.replace(tripleTickRegEx, "\\'\\'\\'")}'''`;
-        } else {
-            literalStr = `${prefix}'${literalStr.replace(singleTickRegEx, "\\'")}'`;
-        }
+        literalStr = JSON.stringify(literalValue).toString();
+        literalStr = `${prefix}'${literalStr.substring(1, literalStr.length - 1).replace(singleTickRegEx, "\\'")}'`;
     } else if (typeof literalValue === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
     } else if (literalValue instanceof EnumLiteral) {
