@@ -3313,9 +3313,15 @@ export function createTypeEvaluator(
         return mapSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
-                    return TypeBase.isInstantiable(subtype)
+                    const boundType = TypeBase.isInstantiable(subtype)
                         ? convertToInstantiable(subtype.details.boundType)
                         : convertToInstance(subtype.details.boundType);
+
+                    return subtype.details.isSynthesized
+                        ? boundType
+                        : addConditionToType(boundType, [
+                              { typeVarName: TypeVarType.getNameWithScope(subtype), constraintIndex: 0 },
+                          ]);
                 }
 
                 // If this is a recursive type alias placeholder
@@ -3363,12 +3369,25 @@ export function createTypeEvaluator(
                 // Convert to an "object" or "type" instance depending on whether
                 // it's instantiable.
                 if (TypeBase.isInstantiable(subtype)) {
-                    return typeClassType && isInstantiableClass(typeClassType)
-                        ? ClassType.cloneAsInstance(typeClassType)
-                        : AnyType.create();
+                    if (typeClassType && isInstantiableClass(typeClassType)) {
+                        return subtype.details.isSynthesized
+                            ? typeClassType
+                            : addConditionToType(ClassType.cloneAsInstance(typeClassType), [
+                                  {
+                                      typeVarName: TypeVarType.getNameWithScope(subtype),
+                                      constraintIndex: 0,
+                                  },
+                              ]);
+                    }
+                } else if (objectType) {
+                    return subtype.details.isSynthesized
+                        ? objectType
+                        : addConditionToType(objectType, [
+                              { typeVarName: TypeVarType.getNameWithScope(subtype), constraintIndex: 0 },
+                          ]);
                 }
 
-                return objectType || AnyType.create();
+                return AnyType.create();
             }
 
             return subtype;
@@ -18039,17 +18058,11 @@ export function createTypeEvaluator(
                         if (filterIsSuperclass) {
                             // If the variable type is a subclass of the isinstance filter,
                             // we haven't learned anything new about the variable type.
-                            // For TypeVars (those that have no constraints), we'll use the
-                            // unexpanded type to preserve the TypeVar.
-                            if (isTypeVar(unexpandedType) && unexpandedType.details.constraints.length === 0) {
-                                filteredTypes.push(unexpandedType);
-                            } else {
-                                filteredTypes.push(combineTypes([addConditionToType(varType, constraints)]));
-                            }
+                            filteredTypes.push(addConditionToType(varType, constraints));
                         } else if (filterIsSubclass) {
                             // If the variable type is a superclass of the isinstance
                             // filter, we can narrow the type to the subclass.
-                            filteredTypes.push(filterType);
+                            filteredTypes.push(addConditionToType(filterType, constraints));
                         } else if (
                             ClassType.isProtocolClass(concreteFilterType) &&
                             ClassType.isProtocolClass(varType)
@@ -21447,32 +21460,31 @@ export function createTypeEvaluator(
             // the source are constrained using that same type variable and have
             // compatible types, we'll consider it assignable.
             const destTypeVar = destType;
-            if (destTypeVar.details.constraints.length > 0) {
-                if (
-                    findSubtype(srcType, (srcSubtype) => {
-                        if (isTypeSame(destTypeVar, srcSubtype, /* ignorePseudoGeneric */ true)) {
+            if (
+                findSubtype(srcType, (srcSubtype) => {
+                    if (isTypeSame(destTypeVar, srcSubtype, /* ignorePseudoGeneric */ true)) {
+                        return false;
+                    }
+
+                    if (
+                        getTypeCondition(srcSubtype)?.find(
+                            (constraint) => constraint.typeVarName === TypeVarType.getNameWithScope(destTypeVar)
+                        )
+                    ) {
+                        if (
+                            destTypeVar.details.constraints.length === 0 ||
+                            destTypeVar.details.constraints.some((constraintType) => {
+                                return canAssignType(constraintType, srcSubtype, new DiagnosticAddendum());
+                            })
+                        ) {
                             return false;
                         }
+                    }
 
-                        if (
-                            getTypeCondition(srcSubtype)?.find(
-                                (constraint) => constraint.typeVarName === TypeVarType.getNameWithScope(destTypeVar)
-                            )
-                        ) {
-                            if (
-                                destTypeVar.details.constraints.some((constraintType) => {
-                                    return canAssignType(constraintType, srcSubtype, new DiagnosticAddendum());
-                                })
-                            ) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    }) === undefined
-                ) {
                     return true;
-                }
+                }) === undefined
+            ) {
+                return true;
             }
 
             // If the dest is a variadic type variable, and the source is a tuple
