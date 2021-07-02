@@ -65,8 +65,8 @@ import { TypeEvaluator } from './typeEvaluator';
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
 
-// Allow files up to 16MB in length.
-const _maxSourceFileSize = 16 * 1024 * 1024;
+// Allow files up to 32MB in length.
+const _maxSourceFileSize = 32 * 1024 * 1024;
 
 interface ResolveImportResult {
     imports: ImportResult[];
