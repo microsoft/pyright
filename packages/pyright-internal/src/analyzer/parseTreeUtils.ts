@@ -368,7 +368,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Dictionary: {
-            return `{ ${node.entries.map((entry) => {
+            const dictContents = `${node.entries.map((entry) => {
                 if (entry.nodeType === ParseNodeType.DictionaryKeyEntry) {
                     return (
                         `${printExpression(entry.keyExpression, flags)}: ` +
@@ -377,7 +377,13 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 } else {
                     return printExpression(entry, flags);
                 }
-            })} }`;
+            })}`;
+
+            if (dictContents) {
+                return `{ ${dictContents} }`;
+            }
+
+            return '{}';
         }
 
         case ParseNodeType.DictionaryExpandEntry: {
