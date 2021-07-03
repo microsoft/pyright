@@ -17891,7 +17891,27 @@ export function createTypeEvaluator(
                         const classTypeList = getIsInstanceClassTypes(arg1Type);
                         if (classTypeList) {
                             return (type: Type) => {
-                                return narrowTypeForIsInstance(type, classTypeList, isInstanceCheck, isPositiveTest);
+                                const narrowedType = narrowTypeForIsInstance(
+                                    type,
+                                    classTypeList,
+                                    isInstanceCheck,
+                                    isPositiveTest,
+                                    /* allowIntersections */ false,
+                                    testExpression
+                                );
+                                if (!isNever(narrowedType)) {
+                                    return narrowedType;
+                                }
+
+                                // Try again with intersection types allowed.
+                                return narrowTypeForIsInstance(
+                                    type,
+                                    classTypeList,
+                                    isInstanceCheck,
+                                    isPositiveTest,
+                                    /* allowIntersections */ true,
+                                    testExpression
+                                );
                             };
                         }
                     }
@@ -18018,7 +18038,9 @@ export function createTypeEvaluator(
         type: Type,
         classTypeList: (ClassType | TypeVarType | NoneType)[],
         isInstanceCheck: boolean,
-        isPositiveTest: boolean
+        isPositiveTest: boolean,
+        allowIntersections: boolean,
+        errorNode: ExpressionNode
     ): Type {
         const expandedTypes = mapSubtypes(type, (subtype) => {
             return transformPossibleRecursiveTypeAlias(subtype);
@@ -18084,15 +18106,34 @@ export function createTypeEvaluator(
                             // If the variable type is a superclass of the isinstance
                             // filter, we can narrow the type to the subclass.
                             filteredTypes.push(addConditionToType(filterType, constraints));
-                        } else if (
-                            ClassType.isProtocolClass(concreteFilterType) &&
-                            ClassType.isProtocolClass(varType)
-                        ) {
-                            // If both the filter type and the variable type are protocol classes,
-                            // the correct answer is an intersection of the two types, but we don't
-                            // support intersections in the type system, so the best we can do
-                            // is to choose one.
-                            filteredTypes.push(filterType);
+                        } else if (allowIntersections) {
+                            // The two types appear to have no relation. It's possible that the
+                            // two types are protocols or the program is expecting one type to
+                            // be a mix-in class used with the other. In this case, we'll
+                            // synthesize a new class type that represents an intersection of
+                            // the two types.
+                            const className = `<subclass of ${varType.details.name} and ${concreteFilterType.details.name}>`;
+                            const fileInfo = getFileInfo(errorNode);
+                            const newClassType = ClassType.createInstantiable(
+                                className,
+                                getClassFullName(errorNode, fileInfo.moduleName, className),
+                                fileInfo.moduleName,
+                                fileInfo.filePath,
+                                ClassTypeFlags.None,
+                                getTypeSourceId(errorNode),
+                                /* declaredMetaclass */ undefined,
+                                varType.details.effectiveMetaclass,
+                                varType.details.docString
+                            );
+                            newClassType.details.baseClasses = [
+                                ClassType.cloneAsInstantiable(varType),
+                                concreteFilterType,
+                            ];
+                            computeMroLinearization(newClassType);
+
+                            filteredTypes.push(
+                                isInstanceCheck ? ClassType.cloneAsInstance(newClassType) : newClassType
+                            );
                         }
                     }
                 } else if (isTypeVar(filterType) && TypeBase.isInstantiable(filterType)) {

@@ -10,6 +10,6 @@ def f(v: Any) -> bool:
     if isinstance(v, Iterable):
         t_v1: Literal["Iterable[Unknown]"] = reveal_type(v)
         if isinstance(v, Sized):
-            t_v2: Literal["Sized"] = reveal_type(v)
+            t_v2: Literal["<subclass of Iterable and Sized>"] = reveal_type(v)
             return True
     return False
