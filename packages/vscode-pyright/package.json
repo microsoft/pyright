@@ -533,7 +533,7 @@
                         },
                         "reportUnnecessaryIsInstance": {
                             "type": "string",
-                            "description": "Diagnostics for 'isinstance' or 'issubclass' calls where the result is statically determined to be always true or always false. Such calls are often indicative of a programming error.",
+                            "description": "Diagnostics for 'isinstance' or 'issubclass' calls where the result is statically determined to be always true. Such calls are often indicative of a programming error.",
                             "default": "none",
                             "enum": [
                                 "none",

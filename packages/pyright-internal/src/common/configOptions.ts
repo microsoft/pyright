@@ -220,7 +220,7 @@ export interface DiagnosticRuleSet {
     reportCallInDefaultInitializer: DiagnosticLevel;
 
     // Report calls to isinstance or issubclass that are statically determined
-    // to always be true or false.
+    // to always be true.
     reportUnnecessaryIsInstance: DiagnosticLevel;
 
     // Report calls to cast that are statically determined

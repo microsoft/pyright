@@ -11,7 +11,6 @@ def foo(p1: Type[int], p2: Union[Type[int], Type[str]]):
     # This should generate an error because this is always true.
     c = issubclass(p2, (float, dict, int, str))
 
-    # This should generate an error because this is always false.
     d = issubclass(p1, float)
 
     e = issubclass(p2, (float, dict, int))

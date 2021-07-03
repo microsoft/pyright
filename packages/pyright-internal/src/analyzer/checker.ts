@@ -2380,10 +2380,6 @@ export class Checker extends ParseTreeWalker {
                     // If the variable type is a superclass of the isinstance
                     // filter, we can narrow the type to the subclass.
                     filteredTypes.push(filterType);
-                } else if (ClassType.isProtocolClass(filterType) && ClassType.isProtocolClass(varType)) {
-                    // If the both the filter and variable types are protocol classes,
-                    // assume the narrowed type is the filter type.
-                    filteredTypes.push(filterType);
                 }
             }
 
@@ -2433,22 +2429,7 @@ export class Checker extends ParseTreeWalker {
             return combineTypes(objTypeList);
         };
 
-        if (isNever(filteredType)) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
-                DiagnosticRule.reportUnnecessaryIsInstance,
-                isInstanceCheck
-                    ? Localizer.Diagnostic.unnecessaryIsInstanceNever().format({
-                          testType: this._evaluator.printType(arg0Type, /* expandTypeAlias */ false),
-                          classType: this._evaluator.printType(getTestType(), /* expandTypeAlias */ false),
-                      })
-                    : Localizer.Diagnostic.unnecessaryIsSubclassNever().format({
-                          testType: this._evaluator.printType(arg0Type, /* expandTypeAlias */ false),
-                          classType: this._evaluator.printType(getTestType(), /* expandTypeAlias */ false),
-                      }),
-                node
-            );
-        } else if (isTypeSame(filteredType, arg0Type, /* ignorePseudoGeneric */ true)) {
+        if (isTypeSame(filteredType, arg0Type, /* ignorePseudoGeneric */ true)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
