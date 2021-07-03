@@ -6,3 +6,8 @@ a: Hashable = None
 
 # This should generate an error because None isn't iterable.
 b: Iterable = None
+
+c = None
+c.__class__
+c.__doc__
+

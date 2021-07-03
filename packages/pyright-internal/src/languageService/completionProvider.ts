@@ -1041,10 +1041,8 @@ export class CompletionProvider {
             doForEachSubtype(leftType, (subtype) => {
                 subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
-                if (isClassInstance(subtype)) {
-                    getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ true);
-                } else if (isInstantiableClass(subtype)) {
-                    getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ false);
+                if (isClass(subtype)) {
+                    getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ TypeBase.isInstance(subtype));
                 } else if (isModule(subtype)) {
                     getMembersForModule(subtype, symbolTable);
                 } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {

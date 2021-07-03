@@ -4650,6 +4650,27 @@ export function createTypeEvaluator(
                 break;
             }
 
+            case TypeCategory.None: {
+                if (noneType && isInstantiableClass(noneType)) {
+                    const typeResult = getTypeFromObjectMember(
+                        node.memberName,
+                        noneType,
+                        memberName,
+                        usage,
+                        diag,
+                        /* memberAccessFlags */ undefined,
+                        baseTypeResult.bindToType
+                    );
+                    if (typeResult) {
+                        type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                    }
+                    if (typeResult?.isIncomplete) {
+                        isIncomplete = true;
+                    }
+                }
+                break;
+            }
+
             default:
                 diag.addMessage(Localizer.DiagnosticAddendum.typeUnsupported().format({ type: printType(baseType) }));
                 break;
