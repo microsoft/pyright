@@ -67,6 +67,7 @@ interface IncompleteFormatStringSegment {
     length: number;
     valueParts: string[];
     isExpression: boolean;
+    hasFormatSpecifier: boolean;
 }
 
 function completeUnescapedString(incomplete: IncompleteUnescapedString): UnescapedString {
@@ -123,6 +124,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         length: 0,
         valueParts: [],
         isExpression: false,
+        hasFormatSpecifier: false,
     };
     let strOffset = 0;
     const output: IncompleteUnescapedString = {
@@ -206,7 +208,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         }
 
         if (curChar === Char.Backslash) {
-            if (isFormat && formatSegment.isExpression) {
+            if (isFormat && formatSegment.isExpression && !formatSegment.hasFormatSpecifier) {
                 // Backslashes aren't allowed within format string expressions.
                 output.unescapeErrors.push({
                     offset: strOffset,
@@ -394,6 +396,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                         length: 0,
                         valueParts: [],
                         isExpression: true,
+                        hasFormatSpecifier: false,
                     };
                 } else {
                     appendOutputChar(curChar);
@@ -428,6 +431,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                         length: 0,
                         valueParts: [],
                         isExpression: false,
+                        hasFormatSpecifier: false,
                     };
                 } else {
                     appendOutputChar(curChar);
@@ -488,6 +492,10 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 appendOutputChar(strChar);
             }
         } else {
+            if (formatSegment.isExpression && curChar === Char.Colon) {
+                formatSegment.hasFormatSpecifier = true;
+            }
+
             // There's nothing to unescape, so output the escaped character directly.
             if (isBytes && curChar >= 128) {
                 output.nonAsciiInBytes = true;
