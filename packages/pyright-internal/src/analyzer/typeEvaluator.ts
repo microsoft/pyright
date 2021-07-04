@@ -4423,6 +4423,22 @@ export function createTypeEvaluator(
             return { type: UnknownType.create(), node, isIncomplete: true };
         }
 
+        const getTypeFromNoneBase = () => {
+            if (noneType && isInstantiableClass(noneType)) {
+                const typeResult = getTypeFromObjectMember(
+                    node.memberName,
+                    noneType,
+                    memberName,
+                    usage,
+                    diag,
+                    /* memberAccessFlags */ undefined,
+                    baseTypeResult.bindToType
+                );
+                return typeResult;
+            }
+            return undefined;
+        };
+
         switch (baseType.category) {
             case TypeCategory.Any:
             case TypeCategory.Unknown: {
@@ -4609,13 +4625,22 @@ export function createTypeEvaluator(
             case TypeCategory.Union: {
                 type = mapSubtypes(baseType, (subtype) => {
                     if (isNone(subtype)) {
-                        addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
-                            DiagnosticRule.reportOptionalMemberAccess,
-                            Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
-                            node.memberName
-                        );
-                        return undefined;
+                        const typeResult = getTypeFromNoneBase();
+                        if (typeResult) {
+                            type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                            if (typeResult.isIncomplete) {
+                                isIncomplete = true;
+                            }
+                            return type;
+                        } else {
+                            addDiagnostic(
+                                getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
+                                DiagnosticRule.reportOptionalMemberAccess,
+                                Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
+                                node.memberName
+                            );
+                            return undefined;
+                        }
                     } else if (isUnbound(subtype)) {
                         // Don't do anything if it's unbound. The error will already
                         // be reported elsewhere.
@@ -4630,6 +4655,9 @@ export function createTypeEvaluator(
                             usage,
                             EvaluatorFlags.None
                         );
+                        if (typeResult.isIncomplete) {
+                            isIncomplete = true;
+                        }
                         return typeResult.type;
                     }
                 });
@@ -4651,20 +4679,10 @@ export function createTypeEvaluator(
             }
 
             case TypeCategory.None: {
-                if (noneType && isInstantiableClass(noneType)) {
-                    const typeResult = getTypeFromObjectMember(
-                        node.memberName,
-                        noneType,
-                        memberName,
-                        usage,
-                        diag,
-                        /* memberAccessFlags */ undefined,
-                        baseTypeResult.bindToType
-                    );
-                    if (typeResult) {
-                        type = addConditionToType(typeResult.type, getTypeCondition(baseType));
-                    }
-                    if (typeResult?.isIncomplete) {
+                const typeResult = getTypeFromNoneBase();
+                if (typeResult) {
+                    type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                    if (typeResult.isIncomplete) {
                         isIncomplete = true;
                     }
                 }
