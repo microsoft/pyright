@@ -56,6 +56,7 @@ import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames } from './analyzer/service';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
+import { CommandResult } from './commands/commandResult';
 import { CancelAfter, getCancellationStrategyFromArgv } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
 import {
@@ -950,8 +951,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 const result = await this.executeCommand(params, token);
                 if (WorkspaceEdit.is(result)) {
                     // Tell client to apply edits.
-                    this._connection.workspace.applyEdit(result);
+                    await this._connection.workspace.applyEdit(result);
                 }
+
+                if (CommandResult.is(result)) {
+                    // Tell client to apply edits.
+                    await this._connection.workspace.applyEdit(result.edits);
+                }
+
+                return result;
             };
 
             if (this.isLongRunningCommand(params.command)) {
@@ -965,13 +973,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 this._pendingCommandCancellationSource = source;
 
                 try {
-                    await executeCommand(source.token);
+                    const result = await executeCommand(source.token);
+                    return result;
                 } finally {
                     progress.reporter.done();
                     source.dispose();
                 }
             } else {
-                executeCommand(token);
+                const result = await executeCommand(token);
+                return result;
             }
         });
     }

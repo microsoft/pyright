@@ -10,11 +10,11 @@ import { stableSort } from './collectionUtils';
 import { AnyFunction, compareValues, hasProperty, isString } from './core';
 
 export function assert(
-    expression: boolean,
+    expression: any,
     message?: string,
     verboseDebugInfo?: string | (() => string),
     stackCrawlMark?: AnyFunction
-): void {
+): asserts expression {
     if (!expression) {
         if (verboseDebugInfo) {
             message +=
