@@ -1,21 +1,25 @@
 from collections.abc import Container
-from typing import Any, Tuple, Union, overload
+from typing import Any, Sequence, Tuple, Union, overload
 from typing_extensions import Literal
 
 from .Image import Image
 from .ImageFont import _Font
 
-_Ink = Union[str, Tuple[int, int, int]]
+_Ink = Union[str, int, Tuple[int, int, int]]
+_XY = Sequence[Union[float, Tuple[float, float]]]
+_Outline = Any
 
 class ImageDraw:
     def __init__(self, im: Image, mode: str | None = ...) -> None: ...
     def getfont(self): ...
-    def arc(self, xy, start, end, fill: _Ink | None = ..., width: float = ...) -> None: ...
-    def bitmap(self, xy, bitmap, fill: _Ink | None = ...) -> None: ...
-    def chord(self, xy, start, end, fill: _Ink | None = ..., outline: _Ink | None = ..., width: float = ...) -> None: ...
-    def ellipse(self, xy, fill: _Ink | None = ..., outline: _Ink | None = ..., width: float = ...) -> None: ...
-    def line(self, xy, fill: _Ink | None = ..., width: float = ..., joint=...) -> None: ...
-    def shape(self, shape, fill: _Ink | None = ..., outline: _Ink | None = ...) -> None: ...
+    def arc(self, xy: _XY, start: float, end: float, fill: _Ink | None = ..., width: float = ...) -> None: ...
+    def bitmap(self, xy: _XY, bitmap: Image, fill: _Ink | None = ...) -> None: ...
+    def chord(
+        self, xy: _XY, start: float, end: float, fill: _Ink | None = ..., outline: _Ink | None = ..., width: float = ...
+    ) -> None: ...
+    def ellipse(self, xy: _XY, fill: _Ink | None = ..., outline: _Ink | None = ..., width: float = ...) -> None: ...
+    def line(self, xy: _XY, fill: _Ink | None = ..., width: float = ..., joint: Literal["curve"] | None = ...) -> None: ...
+    def shape(self, shape: _Outline, fill: _Ink | None = ..., outline: _Ink | None = ...) -> None: ...
     def pieslice(
         self,
         xy: tuple[tuple[float, float], tuple[float, float]],
@@ -25,11 +29,16 @@ class ImageDraw:
         outline: _Ink | None = ...,
         width: float = ...,
     ) -> None: ...
-    def point(self, xy, fill: _Ink | None = ...) -> None: ...
-    def polygon(self, xy, fill: _Ink | None = ..., outline: _Ink | None = ...) -> None: ...
+    def point(self, xy: _XY, fill: _Ink | None = ...) -> None: ...
+    def polygon(self, xy: _XY, fill: _Ink | None = ..., outline: _Ink | None = ...) -> None: ...
     def regular_polygon(
-        self, bounding_circle, n_sides: int, rotation: float = ..., fill: _Ink | None = ..., outline: _Ink | None = ...
-    ): ...
+        self,
+        bounding_circle: tuple[float, float] | tuple[float, float, float] | list[int],
+        n_sides: int,
+        rotation: float = ...,
+        fill: _Ink | None = ...,
+        outline: _Ink | None = ...,
+    ) -> None: ...
     def rectangle(
         self,
         xy: tuple[float, float, float, float] | tuple[tuple[float, float], tuple[float, float]],
@@ -51,11 +60,11 @@ class ImageDraw:
         text: str | bytes,
         fill: _Ink | None = ...,
         font: _Font | None = ...,
-        anchor=...,
+        anchor: str | None = ...,
         spacing: float = ...,
         align: Literal["left", "center", "right"] = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
-        features=...,
+        features: Sequence[str] | None = ...,
         language: str | None = ...,
         stroke_width: float = ...,
         stroke_fill: _Ink | None = ...,
@@ -69,7 +78,7 @@ class ImageDraw:
         text: str | bytes,
         fill: _Ink | None = ...,
         font: _Font | None = ...,
-        anchor: Any | None = ...,
+        anchor: str | None = ...,
         spacing: float = ...,
         align: Literal["left", "center", "right"] = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
@@ -85,7 +94,7 @@ class ImageDraw:
         font: _Font | None = ...,
         spacing: float = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
-        features=...,
+        features: Sequence[str] | None = ...,
         language: str | None = ...,
         stroke_width: float = ...,
     ) -> tuple[int, int]: ...
@@ -95,7 +104,7 @@ class ImageDraw:
         font: _Font | None = ...,
         spacing: float = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
-        features=...,
+        features: Sequence[str] | None = ...,
         language: str | None = ...,
         stroke_width: float = ...,
     ) -> tuple[int, int]: ...
@@ -104,7 +113,7 @@ class ImageDraw:
         text: str | bytes,
         font: _Font | None = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
-        features=...,
+        features: Sequence[str] | None = ...,
         language: str | None = ...,
         embedded_color: bool = ...,
     ) -> int: ...
@@ -113,7 +122,7 @@ class ImageDraw:
         xy: tuple[float, float],
         text: str | bytes,
         font: _Font | None = ...,
-        anchor: Any | None = ...,
+        anchor: str | None = ...,
         spacing: float = ...,
         align: Literal["left", "center", "right"] = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
@@ -127,7 +136,7 @@ class ImageDraw:
         xy: tuple[float, float],
         text: str | bytes,
         font: _Font | None = ...,
-        anchor: Any | None = ...,
+        anchor: str | None = ...,
         spacing: float = ...,
         align: Literal["left", "center", "right"] = ...,
         direction: Literal["rtl", "ltr", "ttb"] | None = ...,
@@ -138,9 +147,7 @@ class ImageDraw:
     ) -> tuple[int, int, int, int]: ...
 
 def Draw(im: Image, mode: str | None = ...) -> ImageDraw: ...
-
-Outline: Any
-
+def Outline() -> _Outline: ...
 @overload
 def getdraw(im: None = ..., hints: Container[Literal["nicest"]] | None = ...) -> tuple[None, Any]: ...
 @overload

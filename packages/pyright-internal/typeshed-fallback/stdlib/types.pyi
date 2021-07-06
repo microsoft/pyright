@@ -222,10 +222,12 @@ class _StaticFunctionType:
     def __get__(self, obj: Optional[object], type: Optional[type]) -> FunctionType: ...
 
 class MethodType:
+    __closure__: Optional[Tuple[_Cell, ...]]  # inherited from the added function
+    __defaults__: Optional[Tuple[Any, ...]]  # inherited from the added function
     __func__: _StaticFunctionType
     __self__: object
-    __name__: str
-    __qualname__: str
+    __name__: str  # inherited from the added function
+    __qualname__: str  # inherited from the added function
     def __init__(self, func: Callable[..., Any], obj: object) -> None: ...
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 

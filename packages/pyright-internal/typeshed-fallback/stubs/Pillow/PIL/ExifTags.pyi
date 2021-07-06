@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Mapping
 
-TAGS: Any
-GPSTAGS: Any
+TAGS: Mapping[int, str]
+GPSTAGS: Mapping[int, str]

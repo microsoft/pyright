@@ -1,3 +1,4 @@
+from _typeshed import Self
 from types import CodeType, FrameType, TracebackType, coroutine
 from typing import Any, Coroutine, Generator, Generic, Iterator, Optional, Type, TypeVar, Union
 
@@ -8,7 +9,7 @@ _T_contra = TypeVar("_T_contra", contravariant=True)
 
 class AsyncBase(Generic[_T]):
     def __init__(self, file: str, loop: Any, executor: Any) -> None: ...
-    async def __aiter__(self) -> Iterator[_T]: ...
+    async def __aiter__(self: Self) -> Self: ...
     async def __anext__(self) -> _T: ...
 
 class AiofilesContextManager(Generic[_T_co, _T_contra, _V_co]):

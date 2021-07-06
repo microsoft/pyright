@@ -7,12 +7,14 @@ from string import Template
 from time import struct_time
 from types import FrameType, TracebackType
 from typing import Any, ClassVar, Generic, Optional, Pattern, TextIO, Tuple, Type, TypeVar, Union, overload
+from typing_extensions import Literal
 
 _SysExcInfoType = Union[Tuple[Type[BaseException], BaseException, Optional[TracebackType]], Tuple[None, None, None]]
 _ExcInfoType = Union[None, bool, _SysExcInfoType, BaseException]
 _ArgsType = Union[Tuple[Any, ...], Mapping[str, Any]]
 _FilterType = Union[Filter, Callable[[LogRecord], int]]
 _Level = Union[int, str]
+_FormatStyle = Literal["%", "{", "$"]
 
 raiseExceptions: bool
 logThreads: bool
@@ -301,10 +303,10 @@ class Formatter:
 
     if sys.version_info >= (3, 8):
         def __init__(
-            self, fmt: Optional[str] = ..., datefmt: Optional[str] = ..., style: str = ..., validate: bool = ...
+            self, fmt: Optional[str] = ..., datefmt: Optional[str] = ..., style: _FormatStyle = ..., validate: bool = ...
         ) -> None: ...
     else:
-        def __init__(self, fmt: Optional[str] = ..., datefmt: Optional[str] = ..., style: str = ...) -> None: ...
+        def __init__(self, fmt: Optional[str] = ..., datefmt: Optional[str] = ..., style: _FormatStyle = ...) -> None: ...
     def format(self, record: LogRecord) -> str: ...
     def formatTime(self, record: LogRecord, datefmt: Optional[str] = ...) -> str: ...
     def formatException(self, ei: _SysExcInfoType) -> str: ...
@@ -326,7 +328,9 @@ class Filter:
     def filter(self, record: LogRecord) -> bool: ...
 
 class LogRecord:
-    args: _ArgsType
+    # args can be set to None by logging.handlers.QueueHandler
+    # (see https://bugs.python.org/issue44473)
+    args: _ArgsType | None
     asctime: str
     created: float
     exc_info: Optional[_SysExcInfoType]
@@ -355,7 +359,7 @@ class LogRecord:
         pathname: str,
         lineno: int,
         msg: Any,
-        args: _ArgsType,
+        args: _ArgsType | None,
         exc_info: Optional[_SysExcInfoType],
         func: Optional[str] = ...,
         sinfo: Optional[str] = ...,
@@ -709,7 +713,7 @@ if sys.version_info >= (3, 9):
         filemode: str = ...,
         format: str = ...,
         datefmt: Optional[str] = ...,
-        style: str = ...,
+        style: _FormatStyle = ...,
         level: Optional[_Level] = ...,
         stream: Optional[SupportsWrite[str]] = ...,
         handlers: Optional[Iterable[Handler]] = ...,
@@ -725,7 +729,7 @@ elif sys.version_info >= (3, 8):
         filemode: str = ...,
         format: str = ...,
         datefmt: Optional[str] = ...,
-        style: str = ...,
+        style: _FormatStyle = ...,
         level: Optional[_Level] = ...,
         stream: Optional[SupportsWrite[str]] = ...,
         handlers: Optional[Iterable[Handler]] = ...,
@@ -739,7 +743,7 @@ else:
         filemode: str = ...,
         format: str = ...,
         datefmt: Optional[str] = ...,
-        style: str = ...,
+        style: _FormatStyle = ...,
         level: Optional[_Level] = ...,
         stream: Optional[SupportsWrite[str]] = ...,
         handlers: Optional[Iterable[Handler]] = ...,

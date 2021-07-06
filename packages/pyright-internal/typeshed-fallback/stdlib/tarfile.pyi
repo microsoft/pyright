@@ -1,7 +1,7 @@
 import bz2
 import io
 import sys
-from _typeshed import StrOrBytesPath, StrPath
+from _typeshed import Self, StrOrBytesPath, StrPath
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from gzip import _ReadableFileobj as _GzipReadableFileobj, _WritableFileobj as _GzipWritableFileobj
 from types import TracebackType
@@ -124,7 +124,7 @@ class TarFile:
         errorlevel: Optional[int] = ...,
         copybufsize: Optional[int] = ...,  # undocumented
     ) -> None: ...
-    def __enter__(self: _TF) -> _TF: ...
+    def __enter__(self: Self) -> Self: ...
     def __exit__(
         self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]
     ) -> None: ...

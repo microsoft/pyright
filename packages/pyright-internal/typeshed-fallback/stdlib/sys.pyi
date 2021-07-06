@@ -22,6 +22,7 @@ from typing import (
     Union,
     overload,
 )
+from typing_extensions import Literal
 
 _T = TypeVar("_T")
 
@@ -43,7 +44,7 @@ if sys.platform != "win32":
 argv: List[str]
 base_exec_prefix: str
 base_prefix: str
-byteorder: str
+byteorder: Literal["little", "big"]
 builtin_module_names: Sequence[str]  # actually a tuple of strings
 copyright: str
 if sys.platform == "win32":
