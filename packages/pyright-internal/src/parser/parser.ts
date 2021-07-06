@@ -4148,11 +4148,14 @@ export class Parser {
                         if (braceDepth > 0) {
                             braceDepth--;
                             if (braceDepth === 0) {
+                                const formatSegmentLength = this._getFormatStringExpressionLength(
+                                    segment.value.substr(segmentExprLength + startOfExprOffset, i - startOfExprOffset)
+                                );
                                 const parseTree = this._parseFormatStringSegment(
                                     stringToken,
                                     segment,
                                     segmentExprLength + startOfExprOffset,
-                                    i - startOfExprOffset
+                                    formatSegmentLength
                                 );
                                 if (parseTree) {
                                     formatExpressions.push(parseTree);
