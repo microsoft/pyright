@@ -364,6 +364,10 @@ export class Program {
         return this._sourceFileList.length;
     }
 
+    getTracked(): SourceFileInfo[] {
+        return this._sourceFileList.filter((s) => s.isTracked);
+    }
+
     getFilesToAnalyzeCount() {
         let sourceFileCount = 0;
 
