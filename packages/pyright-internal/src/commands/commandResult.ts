@@ -1,3 +1,11 @@
+/*
+ * commandResult.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * wrapper for returning custom command data
+ */
+
 import { WorkspaceEdit } from 'vscode-languageserver-types';
 
 export interface CommandResult {
