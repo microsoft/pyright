@@ -6766,7 +6766,11 @@ export function createTypeEvaluator(
             // the expectedType. We'll use this to determine whether we need to do
             // union expansion.
             contextFreeArgTypes = argList.map((arg) =>
-                arg.valueExpression ? getTypeOfExpression(arg.valueExpression).type : AnyType.create()
+                arg.type
+                    ? arg.type
+                    : arg.valueExpression
+                    ? getTypeOfExpression(arg.valueExpression).type
+                    : AnyType.create()
             );
         });
 
@@ -8961,7 +8965,12 @@ export function createTypeEvaluator(
                 writeTypeCache(argParam.argument.name, expectedType || argType, isTypeIncomplete);
             }
         } else {
-            argType = getTypeForArgument(argParam.argument);
+            // was the argument's type precomputed by the caller?
+            if (argParam.argType) {
+                argType = argParam.argType;
+            } else {
+                argType = getTypeForArgument(argParam.argument);
+            }
         }
 
         // If we're assigning to a var arg dictionary with a TypeVar type,
