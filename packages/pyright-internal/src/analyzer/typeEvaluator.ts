@@ -10534,6 +10534,28 @@ export function createTypeEvaluator(
                                 }
                             }
 
+                            // Special-case __add__ for tuples when the types for both tuples are known.
+                            if (
+                                operator === OperatorType.Add &&
+                                isClassInstance(leftSubtypeExpanded) &&
+                                isTupleClass(leftSubtypeExpanded) &&
+                                leftSubtypeExpanded.tupleTypeArguments &&
+                                !isOpenEndedTupleClass(leftSubtypeExpanded) &&
+                                isClassInstance(rightSubtypeExpanded) &&
+                                isTupleClass(rightSubtypeExpanded) &&
+                                rightSubtypeExpanded.tupleTypeArguments &&
+                                !isOpenEndedTupleClass(rightSubtypeExpanded) &&
+                                tupleClassType &&
+                                isInstantiableClass(tupleClassType)
+                            ) {
+                                return ClassType.cloneAsInstance(
+                                    specializeTupleClass(tupleClassType, [
+                                        ...leftSubtypeExpanded.tupleTypeArguments,
+                                        ...rightSubtypeExpanded.tupleTypeArguments,
+                                    ])
+                                );
+                            }
+
                             const magicMethodName = binaryOperatorMap[operator][0];
                             let resultType = getTypeFromMagicMethodReturn(
                                 leftSubtypeUnexpanded,
