@@ -25,18 +25,20 @@ def simple_filter(list: Sequence[object], fn: Callable[[object], bool]) -> List[
 @overload
 def overloaded_filter(
     list: Sequence[object], fn: Callable[[object], TypeGuard[_T]]
-) -> List[_T]:
+) -> Sequence[_T]:
     ...
 
 
 @overload
 def overloaded_filter(
     list: Sequence[object], fn: Callable[[object], bool]
-) -> List[object]:
+) -> Sequence[object]:
     ...
 
 
-def overloaded_filter(list: Sequence[object], fn: Callable[[object], Any]) -> List[Any]:
+def overloaded_filter(
+    list: Sequence[object], fn: Callable[[object], Any]
+) -> Sequence[Any]:
     ...
 
 
@@ -50,7 +52,7 @@ sf2 = simple_filter([], cb2)
 t_sf2: Literal["List[object]"] = reveal_type(sf2)
 
 of1 = overloaded_filter([], cb1)
-t_of1: Literal["List[int]"] = reveal_type(of1)
+t_of1: Literal["Sequence[int]"] = reveal_type(of1)
 
 of2 = overloaded_filter([], cb2)
-t_of2: Literal["List[object]"] = reveal_type(of2)
+t_of2: Literal["Sequence[object]"] = reveal_type(of2)

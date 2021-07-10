@@ -20472,17 +20472,19 @@ export function createTypeEvaluator(
                         ) {
                             isAssignable = false;
                         }
-                    } else if (
-                        !canAssignType(
-                            destMemberType,
-                            srcMemberType,
-                            diag,
-                            typeVarMap,
-                            CanAssignFlags.Default,
-                            recursionCount + 1
-                        )
-                    ) {
-                        isAssignable = false;
+                    } else {
+                        const primaryDecl = symbol.getDeclarations()[0];
+                        // Class and instance variables that are mutable need to
+                        // enforce invariance.
+                        const flags =
+                            primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal
+                                ? CanAssignFlags.EnforceInvariance
+                                : CanAssignFlags.Default;
+                        if (
+                            !canAssignType(destMemberType, srcMemberType, diag, typeVarMap, flags, recursionCount + 1)
+                        ) {
+                            isAssignable = false;
+                        }
                     }
                 }
             }
@@ -21655,6 +21657,18 @@ export function createTypeEvaluator(
                         originalFlags,
                         recursionCount + 1
                     );
+                }
+            }
+
+            if ((flags & CanAssignFlags.EnforceInvariance) !== 0) {
+                if (!isAnyOrUnknown(destType)) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                    return false;
                 }
             }
         }

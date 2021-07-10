@@ -2,9 +2,9 @@
 
 from typing import List, Literal, Protocol, TypeVar
 
-_T1 = TypeVar("_T1", covariant=True)
-_T2 = TypeVar("_T2", covariant=True)
-_T3 = TypeVar("_T3", covariant=True)
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
+_T3 = TypeVar("_T3")
 
 
 class Animal(Protocol[_T1]):
