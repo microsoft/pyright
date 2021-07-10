@@ -19,7 +19,7 @@ class Foo(ABC):
     @overload
     @abstractmethod
     def func1(self, a: str) -> str:
-        return ""
+        ...
 
     # This should generate an error because this overload is
     # missing an abstractmethod overload.
@@ -28,7 +28,7 @@ class Foo(ABC):
 
     @overload
     def func2(self, a: str) -> str:
-        return ""
+        ...
 
     @overload
     @abstractmethod

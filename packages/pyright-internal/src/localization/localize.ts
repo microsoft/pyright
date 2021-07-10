@@ -514,6 +514,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; newIndex: number; prevIndex: number }>(
                 getRawString('Diagnostic.overloadReturnTypeMismatch')
             );
+        export const overloadWithImplementation = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithImplementation'));
         export const overloadWithoutImplementation = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithoutImplementation'));
         export const paramAfterKwargsParam = () => getRawString('Diagnostic.paramAfterKwargsParam');
@@ -894,6 +896,7 @@ export namespace Localizer {
         export const overloadNotAssignable = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));
         export const overloadTooManyUnions = () => getRawString('DiagnosticAddendum.overloadTooManyUnions');
+        export const overloadWithImplementation = () => getRawString('DiagnosticAddendum.overloadWithImplementation');
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
         export const overriddenSymbol = () => getRawString('DiagnosticAddendum.overriddenSymbol');
         export const overrideParamCount = () =>

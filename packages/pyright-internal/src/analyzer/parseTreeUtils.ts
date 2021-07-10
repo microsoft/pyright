@@ -1680,3 +1680,28 @@ export function getFileInfoFromNode(node: ParseNode) {
     const current = getModuleNode(node);
     return current ? AnalyzerNodeInfo.getFileInfo(current) : undefined;
 }
+
+export function isFunctionSuiteEmpty(node: FunctionNode) {
+    let isEmpty = true;
+
+    node.suite.statements.forEach((statement) => {
+        if (statement.nodeType === ParseNodeType.Error) {
+            return;
+        } else if (statement.nodeType === ParseNodeType.StatementList) {
+            statement.statements.forEach((subStatement) => {
+                // Allow docstrings, ellipsis, and pass statements.
+                if (
+                    subStatement.nodeType !== ParseNodeType.Ellipsis &&
+                    subStatement.nodeType !== ParseNodeType.StringList &&
+                    subStatement.nodeType !== ParseNodeType.Pass
+                ) {
+                    isEmpty = false;
+                }
+            });
+        } else {
+            isEmpty = false;
+        }
+    });
+
+    return isEmpty;
+}
