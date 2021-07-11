@@ -1,7 +1,7 @@
 # This sample tests the type engine's narrowing logic for
 # callable expressions.
 
-from typing import Callable, Optional, Type, TypeVar, Union
+from typing import Callable, Literal, Optional, Type, TypeVar, Union
 
 
 class CallableObj:
@@ -38,7 +38,28 @@ def g(a: Optional[Callable[[int], int]]):
 T = TypeVar("T")
 
 
-def test(arg: Union[T, Callable[[], T]]) -> T:
+def test1(arg: Union[T, Callable[[], T]]) -> T:
     if callable(arg):
         return arg()
     return arg
+
+
+class Foo:
+    def bar(self) -> None:
+        pass
+
+
+def test2(o: Foo) -> None:
+    if callable(o):
+        t_1: Literal["<callable subtype of Foo>"] = reveal_type(o)
+
+        # This should generate an error
+        o.foo()
+        o.bar()
+        r1 = o(1, 2, 3)
+        t_r1: Literal["Unknown"] = reveal_type(r1)
+    else:
+        o.bar()
+
+        # This should generate an error
+        o(1, 2, 3)

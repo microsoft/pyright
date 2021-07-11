@@ -17975,7 +17975,23 @@ export function createTypeEvaluator(
                     const arg0Expr = testExpression.arguments[0].valueExpression;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                         return (type: Type) => {
-                            return narrowTypeForCallable(type, isPositiveTest, testExpression);
+                            let narrowedType = narrowTypeForCallable(
+                                type,
+                                isPositiveTest,
+                                testExpression,
+                                /* allowIntersections */ false
+                            );
+                            if (isPositiveTest && isNever(narrowedType)) {
+                                // Try again with intersections allowed.
+                                narrowedType = narrowTypeForCallable(
+                                    type,
+                                    isPositiveTest,
+                                    testExpression,
+                                    /* allowIntersections */ true
+                                );
+                            }
+
+                            return narrowedType;
                         };
                     }
                 }
@@ -18610,7 +18626,12 @@ export function createTypeEvaluator(
     // call to "callable". For example, if the original type of expression "x" is
     // Union[Callable[..., Any], Type[int], int], it would remove the "int" because
     // it's not callable.
-    function narrowTypeForCallable(type: Type, isPositiveTest: boolean, errorNode: ExpressionNode): Type {
+    function narrowTypeForCallable(
+        type: Type,
+        isPositiveTest: boolean,
+        errorNode: ExpressionNode,
+        allowIntersections: boolean
+    ): Type {
         return mapSubtypes(type, (subtype) => {
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
@@ -18633,7 +18654,55 @@ export function createTypeEvaluator(
                     // See if the object is callable.
                     const callMemberType = getTypeFromObjectMember(errorNode, concreteSubtype, '__call__');
                     if (!callMemberType) {
-                        return isPositiveTest ? undefined : subtype;
+                        if (!isPositiveTest) {
+                            return subtype;
+                        }
+
+                        if (allowIntersections) {
+                            // The type appears to not be callable. It's possible that the
+                            // two type is a subclass that is callable. We'll synthesize a
+                            // new intersection type.
+                            const className = `<callable subtype of ${concreteSubtype.details.name}>`;
+                            const fileInfo = getFileInfo(errorNode);
+                            const newClassType = ClassType.createInstantiable(
+                                className,
+                                getClassFullName(errorNode, fileInfo.moduleName, className),
+                                fileInfo.moduleName,
+                                fileInfo.filePath,
+                                ClassTypeFlags.None,
+                                getTypeSourceId(errorNode),
+                                /* declaredMetaclass */ undefined,
+                                concreteSubtype.details.effectiveMetaclass,
+                                concreteSubtype.details.docString
+                            );
+                            newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(concreteSubtype)];
+                            computeMroLinearization(newClassType);
+
+                            // Add a __call__ method to the new class.
+                            const callMethod = FunctionType.createInstance(
+                                '__call__',
+                                '',
+                                '',
+                                FunctionTypeFlags.SynthesizedMethod
+                            );
+                            const selfParam: FunctionParameter = {
+                                category: ParameterCategory.Simple,
+                                name: 'self',
+                                type: ClassType.cloneAsInstance(newClassType),
+                                hasDeclaredType: true,
+                            };
+                            FunctionType.addParameter(callMethod, selfParam);
+                            FunctionType.addDefaultParameters(callMethod);
+                            callMethod.details.declaredReturnType = UnknownType.create();
+                            newClassType.details.fields.set(
+                                '__call__',
+                                Symbol.createWithType(SymbolFlags.ClassMember, callMethod)
+                            );
+
+                            return ClassType.cloneAsInstance(newClassType);
+                        }
+
+                        return undefined;
                     } else {
                         return isPositiveTest ? subtype : undefined;
                     }
