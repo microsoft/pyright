@@ -21755,7 +21755,7 @@ export function createTypeEvaluator(
                                 }
 
                                 remainingDestSubtypes.splice(destTypeIndex, 1);
-                                remainingSrcSubtypes = remainingSrcSubtypes.filter(t => t !== srcSubtype);
+                                remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
                             }
                         });
                     }
