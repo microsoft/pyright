@@ -7700,12 +7700,16 @@ export function createTypeEvaluator(
                                 return functionResult.returnType || UnknownType.create();
                             }
 
-                            addDiagnostic(
-                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.objectNotCallable().format({ type: printType(expandedSubtype) }),
-                                errorNode
-                            );
+                            if (!memberType || !isAnyOrUnknown(memberType)) {
+                                addDiagnostic(
+                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.objectNotCallable().format({
+                                        type: printType(expandedSubtype),
+                                    }),
+                                    errorNode
+                                );
+                            }
                             return UnknownType.create();
                         }
                     }
