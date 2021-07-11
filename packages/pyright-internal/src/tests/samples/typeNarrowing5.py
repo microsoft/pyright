@@ -1,14 +1,19 @@
-# This sample tests the type narrowing logic for "continue"
-# statements within a loop.
+# This sample tests type narrowing for assignments
+# where the source contains Unknown or Any type
+# arguments.
 
-from typing import List, Optional
+from typing import Any, Dict, Literal
 
 
-def foo(args: List[Optional[int]]):
-    for arg in args:
-        if arg is None:
-            continue
+def func1(struct: Dict[Any, Any]):
+    a1: Dict[str, Any] = struct
+    t1: Literal["Dict[str, Any]"] = reveal_type(a1)
 
-        # This should not generate an error because
-        # arg is known to be an int at this point.
-        print(arg.bit_length())
+
+def func2(struct: Any):
+    a1: Dict[Any, str] = struct
+    t1: Literal["Dict[Any, str]"] = reveal_type(a1)
+
+    if isinstance(struct, Dict):
+        a2: Dict[str, Any] = struct
+        t2: Literal["Dict[str, Any]"] = reveal_type(a2)

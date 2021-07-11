@@ -18632,10 +18632,8 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         allowIntersections: boolean
     ): Type {
-        return mapSubtypes(type, (subtype) => {
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-
-            switch (concreteSubtype.category) {
+        return mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (subtype) => {
+            switch (subtype.category) {
                 case TypeCategory.Function:
                 case TypeCategory.OverloadedFunction: {
                     return isPositiveTest ? subtype : undefined;
@@ -18647,12 +18645,12 @@ export function createTypeEvaluator(
                 }
 
                 case TypeCategory.Class: {
-                    if (TypeBase.isInstantiable(concreteSubtype)) {
+                    if (TypeBase.isInstantiable(subtype)) {
                         return isPositiveTest ? subtype : undefined;
                     }
 
                     // See if the object is callable.
-                    const callMemberType = getTypeFromObjectMember(errorNode, concreteSubtype, '__call__');
+                    const callMemberType = getTypeFromObjectMember(errorNode, subtype, '__call__');
                     if (!callMemberType) {
                         if (!isPositiveTest) {
                             return subtype;
@@ -18662,7 +18660,7 @@ export function createTypeEvaluator(
                             // The type appears to not be callable. It's possible that the
                             // two type is a subclass that is callable. We'll synthesize a
                             // new intersection type.
-                            const className = `<callable subtype of ${concreteSubtype.details.name}>`;
+                            const className = `<callable subtype of ${subtype.details.name}>`;
                             const fileInfo = getFileInfo(errorNode);
                             const newClassType = ClassType.createInstantiable(
                                 className,
@@ -18672,10 +18670,10 @@ export function createTypeEvaluator(
                                 ClassTypeFlags.None,
                                 getTypeSourceId(errorNode),
                                 /* declaredMetaclass */ undefined,
-                                concreteSubtype.details.effectiveMetaclass,
-                                concreteSubtype.details.docString
+                                subtype.details.effectiveMetaclass,
+                                subtype.details.docString
                             );
-                            newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(concreteSubtype)];
+                            newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(subtype)];
                             computeMroLinearization(newClassType);
 
                             // Add a __call__ method to the new class.

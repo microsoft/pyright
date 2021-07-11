@@ -1,50 +1,24 @@
-# This sample exercises the type analyzer's type narrowing
-# logic for assert statements, specifically for tests of the
-# form "type(X) is Y" or "type(X) is not Y".
+# This sample tests the type narrowing logic for
+# conditional expression involving assignment expressions
+# (walrus operator).
 
-from typing import Any, Dict, Literal, Optional, Union
+# pyright: strict
 
-
-def func1(a: Union[str, int]) -> int:
-
-    if type(a) is not str:
-        # This should generate an error because
-        # "a" is potentially a subclass of str.
-        return a
-
-    # This should generate an error because
-    # "a" is provably type str at this point.
-    return a
+from typing import Optional
 
 
-def func2(a: Optional[str]) -> str:
-
-    if type(a) is str:
-        return a
-
-    # This should generate an error because
-    # "a" is provably type str at this point.
-    return a
+class C:
+    def foo(self):
+        pass
 
 
-def func3(a: Dict[str, Any]) -> str:
-    val = a.get("hello")
-    if type(val) is str:
-        return val
-
-    return "none"
+def good(b: Optional[C]) -> None:
+    a = b
+    if a:
+        a.foo()
 
 
-class A:
-    pass
-
-
-class B(A):
-    pass
-
-
-def func4(a: Union[str, A]):
-    if type(a) is B:
-        t1: Literal["B"] = reveal_type(a)
-    else:
-        t2: Literal["str | A"] = reveal_type(a)
+def bad(b: Optional[C]) -> None:
+    if c := b:
+        c.foo()
+        b.foo()

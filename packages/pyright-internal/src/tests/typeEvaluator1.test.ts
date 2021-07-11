@@ -229,7 +229,7 @@ test('TypeNarrowing1', () => {
 test('TypeNarrowing2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing2.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeNarrowing3', () => {
@@ -241,7 +241,7 @@ test('TypeNarrowing3', () => {
 test('TypeNarrowing4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing4.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeNarrowing5', () => {
@@ -253,7 +253,7 @@ test('TypeNarrowing5', () => {
 test('TypeNarrowing6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing6.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeNarrowing7', () => {
@@ -262,100 +262,100 @@ test('TypeNarrowing7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeNarrowing8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing8.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing9.py']);
-
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('TypeNarrowing10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing10.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing11.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing12.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing13', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing13.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing14.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing15.py']);
-
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('TypeNarrowing16', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing16.py']);
-
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('TypeNarrowing17', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing17.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing18', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing18.py']);
-
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('TypeNarrowing19', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing19.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing20', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing20.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing21', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing21.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing22', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing22.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeNarrowing23', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing23.py']);
+test('TypeNarrowingIsinstance1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance1.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('TypeNarrowingAssert1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingAssert1.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypeNarrowingTypeIs1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypeIs1.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('TypeNarrowingIsNone1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsNone1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingIsNone2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsNone2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingLiteral1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLiteral1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingLiteral2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLiteral2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingEnum1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingEnum1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingEnum2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingEnum2.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypeNarrowingIsinstance2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingIsinstance3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance3.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('TypeNarrowingIn1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypeNarrowingLiteralMember1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLiteralMember1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowingTypedDict1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypeNarrowingTypedDict2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('typeNarrowingCallable1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingCallable1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('ReturnTypes1', () => {

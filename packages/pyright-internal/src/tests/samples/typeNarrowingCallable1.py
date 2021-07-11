@@ -63,3 +63,16 @@ def test2(o: Foo) -> None:
 
         # This should generate an error
         o(1, 2, 3)
+
+
+T = TypeVar("T", int, str, Callable[[], int], Callable[[], str])
+
+
+def test3(v: T) -> T:
+    if callable(v):
+        t1: Literal["() -> int | () -> str"] = reveal_type(v)
+        t2: Literal["int* | str*"] = reveal_type(v())
+        return v()
+    else:
+        t3: Literal["int* | str*"] = reveal_type(v)
+        return v
