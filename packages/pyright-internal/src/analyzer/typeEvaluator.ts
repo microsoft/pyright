@@ -21705,45 +21705,88 @@ export function createTypeEvaluator(
             }
 
             // Handle the case where the source and dest are both unions and
-            // invariance is being enforced and the dest contains a type variable.
-            // In this case, the non-matched subtypes in the source will get assigned
-            // to the remaining type variable.
+            // invariance is being enforced and the dest contains type variables.
             if (flags & CanAssignFlags.EnforceInvariance) {
-                if (
-                    isUnion(destType) &&
-                    destType.subtypes.some((t) => isTypeVar(t) && !t.details.recursiveTypeAliasName)
-                ) {
-                    const remainingDestSubtypes: Type[] = [...destType.subtypes];
-                    const remainingSrcSubtypes: Type[] = [];
+                if (isUnion(destType)) {
+                    const remainingDestSubtypes: Type[] = [];
+                    let remainingSrcSubtypes: Type[] = [...srcType.subtypes];
+                    let isIncompatible = false;
 
-                    srcType.subtypes.forEach((srcSubtype) => {
-                        const destIndex = remainingDestSubtypes.findIndex((t) => isTypeSame(t, srcSubtype));
-                        if (destIndex >= 0) {
-                            remainingDestSubtypes.splice(destIndex, 1);
+                    // First attempt to match all of the non-generic types in the dest
+                    // to non-generic types in the source.
+                    destType.subtypes.forEach((destSubtype) => {
+                        if (requiresSpecialization(destSubtype)) {
+                            remainingDestSubtypes.push(destSubtype);
                         } else {
-                            remainingSrcSubtypes.push(srcSubtype);
+                            const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
+                                isTypeSame(srcSubtype, destSubtype)
+                            );
+                            if (srcTypeIndex >= 0) {
+                                remainingSrcSubtypes.splice(srcTypeIndex, 1);
+                            } else {
+                                isIncompatible = true;
+                            }
                         }
                     });
 
-                    if (remainingDestSubtypes.length === 1) {
-                        const remainingDestType = remainingDestSubtypes[0];
-                        if (isTypeVar(remainingDestType) && !remainingDestType.details.recursiveTypeAliasName) {
-                            return canAssignType(
+                    // For all remaining source subtypes, attempt to find a dest subtype
+                    // whose primary type matches.
+                    if (!isIncompatible) {
+                        [...remainingSrcSubtypes].forEach((srcSubtype) => {
+                            const destTypeIndex = remainingDestSubtypes.findIndex(
+                                (destSubtype) =>
+                                    isClass(srcSubtype) &&
+                                    isClass(destSubtype) &&
+                                    TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
+                                    ClassType.isSameGenericClass(srcSubtype, destSubtype)
+                            );
+                            if (destTypeIndex >= 0) {
+                                if (
+                                    !canAssignType(
+                                        remainingDestSubtypes[destTypeIndex],
+                                        srcSubtype,
+                                        diag.createAddendum(),
+                                        typeVarMap,
+                                        flags,
+                                        recursionCount + 1
+                                    )
+                                ) {
+                                    isIncompatible = true;
+                                }
+
+                                remainingDestSubtypes.splice(destTypeIndex, 1);
+                                remainingSrcSubtypes = remainingSrcSubtypes.filter(t => t !== srcSubtype);
+                            }
+                        });
+                    }
+
+                    // If there is a remaining dest subtype and it's a type variable, attempt
+                    // to assign the remaining source subtypes to it.
+                    if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
+                        if (
+                            remainingDestSubtypes.length !== 1 ||
+                            !isTypeVar(remainingDestSubtypes[0]) ||
+                            !canAssignType(
                                 remainingDestSubtypes[0],
                                 combineTypes(remainingSrcSubtypes),
                                 diag.createAddendum(),
                                 typeVarMap,
                                 flags,
                                 recursionCount + 1
-                            );
+                            )
+                        ) {
+                            isIncompatible = true;
                         }
+                    }
+
+                    if (!isIncompatible) {
+                        return true;
                     }
                 }
             }
 
-            let isIncompatible = false;
-
             // For union sources, all of the types need to be assignable to the dest.
+            let isIncompatible = false;
             doForEachSubtype(srcType, (subtype) => {
                 if (
                     !canAssignType(destType, subtype, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)
