@@ -106,6 +106,7 @@ import {
     isTypeVar,
     isUnion,
     isUnknown,
+    isVariadicTypeVar,
     NoneType,
     Type,
     TypeBase,
@@ -2823,7 +2824,9 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Replace all of the type parameters with invariant TypeVars.
-        const updatedTypeParams = origTypeParams.map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
+        const updatedTypeParams = origTypeParams
+            .filter((typeParam) => !isParamSpec(typeParam) && !isVariadicTypeVar(typeParam))
+            .map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
         const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
         const objectObject = ClassType.cloneAsInstance(objectType);

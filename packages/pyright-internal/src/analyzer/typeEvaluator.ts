@@ -18751,7 +18751,12 @@ export function createTypeEvaluator(
                 }
 
                 case 'Protocol': {
-                    return createSpecialType(classType, typeArgs, /* paramLimit */ undefined);
+                    return createSpecialType(
+                        classType,
+                        typeArgs,
+                        /* paramLimit */ undefined,
+                        /* allowParamSpec */ true
+                    );
                 }
 
                 case 'Tuple': {
