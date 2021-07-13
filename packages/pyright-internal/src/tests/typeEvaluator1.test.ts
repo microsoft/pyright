@@ -328,6 +328,12 @@ test('TypeNarrowingIsinstance3', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('TypeNarrowingIsinstance4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingIn1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn1.py']);
 

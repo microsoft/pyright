@@ -18118,7 +18118,7 @@ export function createTypeEvaluator(
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after
         // applying the filter.
-        const filterType = (
+        const filterClassType = (
             varType: ClassType,
             unexpandedType: Type,
             constraints: TypeCondition[] | undefined,
@@ -18260,6 +18260,24 @@ export function createTypeEvaluator(
             return filteredTypes.map((t) => convertToInstance(t));
         };
 
+        const filterFunctionType = (varType: FunctionType | OverloadedFunctionType, unexpandedType: Type): Type[] => {
+            const filteredTypes: Type[] = [];
+
+            if (isPositiveTest) {
+                for (const filterType of classTypeList) {
+                    const concreteFilterType = makeTopLevelTypeVarsConcrete(filterType);
+
+                    if (canAssignType(varType, convertToInstance(concreteFilterType), new DiagnosticAddendum())) {
+                        filteredTypes.push(convertToInstance(filterType));
+                    }
+                }
+            } else {
+                filteredTypes.push(unexpandedType);
+            }
+
+            return filteredTypes;
+        };
+
         const anyOrUnknownSubstitutions: Type[] = [];
         const anyOrUnknown: Type[] = [];
 
@@ -18321,13 +18339,17 @@ export function createTypeEvaluator(
 
                     if (isClassInstance(subtype) && !isSubtypeTypeObject) {
                         return combineTypes(
-                            filterType(
+                            filterClassType(
                                 ClassType.cloneAsInstantiable(subtype),
                                 convertToInstance(unexpandedSubtype),
                                 getTypeCondition(subtype),
                                 negativeFallback
                             )
                         );
+                    }
+
+                    if ((isFunction(subtype) || isOverloadedFunction(subtype)) && isInstanceCheck) {
+                        return combineTypes(filterFunctionType(subtype, convertToInstance(unexpandedSubtype)));
                     }
 
                     if (isInstantiableClass(subtype) || isSubtypeTypeObject) {
@@ -18344,14 +18366,14 @@ export function createTypeEvaluator(
                 } else {
                     if (isInstantiableClass(subtype)) {
                         return combineTypes(
-                            filterType(subtype, unexpandedSubtype, getTypeCondition(subtype), negativeFallback)
+                            filterClassType(subtype, unexpandedSubtype, getTypeCondition(subtype), negativeFallback)
                         );
                     }
 
                     if (isSubtypeTypeObject) {
                         if (objectType && isClassInstance(objectType)) {
                             return combineTypes(
-                                filterType(
+                                filterClassType(
                                     ClassType.cloneAsInstantiable(objectType),
                                     convertToInstantiable(unexpandedSubtype),
                                     getTypeCondition(subtype),
