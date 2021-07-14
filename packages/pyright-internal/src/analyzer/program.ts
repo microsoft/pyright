@@ -295,10 +295,11 @@ export class Program {
         } else {
             sourceFileInfo.isOpenByClient = true;
 
-            // Reset the diagnostic version so we force an update
-            // to the diagnostics, which can change based on whether
-            // the file is open.
-            sourceFileInfo.diagnosticsVersion = undefined;
+            // Reset the diagnostic version so we force an update to the
+            // diagnostics, which can change based on whether the file is open.
+            // We do not set the version to undefined here because that implies
+            // there are no diagnostics currently reported for this file.
+            sourceFileInfo.diagnosticsVersion = 0;
         }
 
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
