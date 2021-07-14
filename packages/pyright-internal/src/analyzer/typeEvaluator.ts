@@ -21552,6 +21552,7 @@ export function createTypeEvaluator(
             // Make sure we don't exceed the wide type bound.
             if (curWideTypeBound) {
                 if (
+                    !isTypeSame(curWideTypeBound, newNarrowTypeBound!) &&
                     !canAssignType(
                         makeTopLevelTypeVarsConcrete(curWideTypeBound),
                         newNarrowTypeBound!,
