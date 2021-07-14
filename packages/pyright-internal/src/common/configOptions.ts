@@ -530,7 +530,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleMethodOverride: 'error',
         reportIncompatibleVariableOverride: 'error',
         reportOverlappingOverload: 'error',
-        reportUninitializedInstanceVariable: 'error',
+        reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
         reportUnknownArgumentType: 'error',
