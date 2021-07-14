@@ -13,7 +13,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { isCodeUnreachable } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
 import { areDeclarationsSame } from '../analyzer/declarationUtils';
-import { getEvaluationScopeNode, getFileInfoFromNode, getModuleNode } from '../analyzer/parseTreeUtils';
+import { getModuleNode } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -30,11 +30,12 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         node: NameNode,
         private _evaluator: TypeEvaluator,
         private _results: NameNode[],
-        private _cancellationToken: CancellationToken
+        private _cancellationToken: CancellationToken,
+        startingNode?: ParseNode
     ) {
         super();
-
         this._symbolName = node.value;
+
         const declarations = this._evaluator.getDeclarationsForNameNode(node) || [];
 
         declarations.forEach((decl) => {
@@ -44,15 +45,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             }
         });
 
-        this._startingNode = getModuleNode(node);
-        if (this._declarations.length > 0 && declarations[0].node) {
-            const scopeRoot = getEvaluationScopeNode(declarations[0].node);
-
-            // Find the lowest tree to search the symbol.
-            if (getFileInfoFromNode(node)?.filePath === getFileInfoFromNode(scopeRoot)?.filePath) {
-                this._startingNode = scopeRoot;
-            }
-        }
+        this._startingNode = startingNode ?? getModuleNode(node);
     }
 
     collect() {

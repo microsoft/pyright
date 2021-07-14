@@ -27,6 +27,10 @@
 //// d = dict(keyString=1)
 //// d[keyStr/*marker6*/]
 
+// @filename: dict_key_mixed_literals.py
+//// d = { "key": 1, 1 + 2: 1 }
+//// d[[|/*marker7*/|]]
+
 {
     helper.openFiles(helper.getMarkers().map((m) => m.fileName));
 
@@ -75,6 +79,11 @@
         marker5: {
             completions: [
                 {
+                    label: 'name',
+                    kind: Consts.CompletionItemKind.Constant,
+                    detail: 'Dictionary key',
+                },
+                {
                     label: '"key2"',
                     kind: Consts.CompletionItemKind.Constant,
                     textEdit: { range: helper.getPositionRange('marker5'), newText: '"key2"' },
@@ -86,6 +95,21 @@
             completions: [
                 { label: 'keyString', kind: Consts.CompletionItemKind.Variable },
                 { label: '"keyString"', kind: Consts.CompletionItemKind.Constant, detail: 'Dictionary key' },
+            ],
+        },
+        marker7: {
+            completions: [
+                {
+                    label: '"key"',
+                    kind: Consts.CompletionItemKind.Constant,
+                    textEdit: { range: helper.getPositionRange('marker7'), newText: '"key"' },
+                    detail: 'Dictionary key',
+                },
+                {
+                    label: '1 + 2',
+                    kind: Consts.CompletionItemKind.Constant,
+                    detail: 'Dictionary key',
+                },
             ],
         },
     });

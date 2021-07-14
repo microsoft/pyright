@@ -119,3 +119,7 @@ dist
 junit.xml
 
 .webpack_cache/
+
+# OS files
+.DS_Store
+Thumbs.db

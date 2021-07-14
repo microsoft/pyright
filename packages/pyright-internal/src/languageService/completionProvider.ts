@@ -389,7 +389,7 @@ export class CompletionProvider {
             throwIfCancellationRequested(this._cancellationToken);
 
             if (curNode.nodeType === ParseNodeType.String) {
-                return this._getStringLiteralCompletions(curNode, priorWord, priorText, postText);
+                return this._getLiteralCompletions(curNode, priorWord, priorText, postText);
             }
 
             if (curNode.nodeType === ParseNodeType.StringList || curNode.nodeType === ParseNodeType.FormatString) {
@@ -692,7 +692,7 @@ export class CompletionProvider {
             }
 
             case ErrorExpressionCategory.MissingIndexOrSlice: {
-                let completionResults = this._getStringLiteralCompletions(node, priorWord, priorText, postText);
+                let completionResults = this._getLiteralCompletions(node, priorWord, priorText, postText);
 
                 if (!completionResults || !completionResults.completionList) {
                     completionResults = this._getExpressionCompletions(node, priorWord, priorText, postText);
@@ -1367,12 +1367,26 @@ export class CompletionProvider {
             return [];
         }
 
+        let startingNode: ParseNode = indexNode.baseExpression;
+        if (declaration.node) {
+            const scopeRoot = ParseTreeUtils.getEvaluationScopeNode(declaration.node);
+
+            // Find the lowest tree to search the symbol.
+            if (
+                ParseTreeUtils.getFileInfoFromNode(startingNode)?.filePath ===
+                ParseTreeUtils.getFileInfoFromNode(scopeRoot)?.filePath
+            ) {
+                startingNode = scopeRoot;
+            }
+        }
+
         const results: NameNode[] = [];
         const collector = new DocumentSymbolCollector(
             indexNode.baseExpression,
             this._evaluator,
             results,
-            this._cancellationToken
+            this._cancellationToken,
+            startingNode
         );
         collector.collect();
 
@@ -1430,7 +1444,7 @@ export class CompletionProvider {
         return [...keys];
     }
 
-    private _getStringLiteralCompletions(
+    private _getLiteralCompletions(
         parseNode: StringNode | ErrorNode,
         priorWord: string,
         priorText: string,
@@ -1454,7 +1468,6 @@ export class CompletionProvider {
         }
 
         const completionList = CompletionList.create();
-
         if (parentNode.nodeType === ParseNodeType.Argument && parentNode.parent?.nodeType === ParseNodeType.Index) {
             if (
                 !this._tryAddTypedDictStringLiteral(
@@ -1464,24 +1477,37 @@ export class CompletionProvider {
                     completionList
                 )
             ) {
-                const keys = this._getDictionaryKeys(parentNode.parent, parseNode)
-                    .filter((k) => /^["|'].*["|']$/.test(k))
-                    .map((k) => k.substr(1, k.length - 2));
-                if (keys.length === 0) {
-                    return undefined;
+                const keys = this._getDictionaryKeys(parentNode.parent, parseNode);
+                const quoteValue = this._getQuoteValueFromPriorText(priorText);
+
+                for (const key of keys) {
+                    const stringLiteral = /^["|'].*["|']$/.test(key);
+                    if (parseNode.nodeType === ParseNodeType.String && !stringLiteral) {
+                        continue;
+                    }
+
+                    if (stringLiteral) {
+                        const keyWithoutQuote = key.substr(1, key.length - 2);
+
+                        this._addStringLiteralToCompletionList(
+                            keyWithoutQuote,
+                            quoteValue.stringValue,
+                            postText,
+                            quoteValue.quoteCharacter,
+                            completionList,
+                            dictionaryKeyDetail
+                        );
+                    } else {
+                        this._addNameToCompletionList(key, CompletionItemKind.Constant, priorWord, completionList, {
+                            sortText: this._makeSortText(SortCategory.LiteralValue, key),
+                            itemDetail: dictionaryKeyDetail,
+                        });
+                    }
                 }
 
-                const quoteValue = this._getQuoteValueFromPriorText(priorText);
-                keys.forEach((key) => {
-                    this._addStringLiteralToCompletionList(
-                        key,
-                        quoteValue.stringValue,
-                        postText,
-                        quoteValue.quoteCharacter,
-                        completionList,
-                        dictionaryKeyDetail
-                    );
-                });
+                if (completionList.items.length === 0) {
+                    return undefined;
+                }
             }
         } else if (parentNode.nodeType === ParseNodeType.Assignment) {
             const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(parentNode.leftExpression);

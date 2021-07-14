@@ -64,7 +64,7 @@ interface SupportedVersionRange {
 }
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
-const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
+export const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
 
 // Should we allow partial resolution for third-party packages? Some use tricks
 // to populate their package namespaces, so we might be able to partially resolve
@@ -356,7 +356,7 @@ export class ImportResolver {
         // Is this a stdlib typeshed path?
         const stdLibTypeshedPath = this._getStdlibTypeshedPath(execEnv, importFailureInfo);
         if (stdLibTypeshedPath) {
-            moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath);
+            moduleName = this.getModuleNameFromPath(stdLibTypeshedPath, filePath);
             if (moduleName) {
                 const moduleDescriptor: ImportedModuleDescriptor = {
                     leadingDots: 0,
@@ -371,10 +371,10 @@ export class ImportResolver {
         }
 
         // Look for it in the root directory of the execution environment.
-        moduleName = this._getModuleNameFromPath(execEnv.root, filePath);
+        moduleName = this.getModuleNameFromPath(execEnv.root, filePath);
 
         for (const extraPath of execEnv.extraPaths) {
-            const candidateModuleName = this._getModuleNameFromPath(extraPath, filePath);
+            const candidateModuleName = this.getModuleNameFromPath(extraPath, filePath);
 
             // Does this candidate look better than the previous best module name?
             // We'll always try to use the shortest version.
@@ -386,7 +386,7 @@ export class ImportResolver {
 
         // Check for a typings file.
         if (this._configOptions.stubPath) {
-            const candidateModuleName = this._getModuleNameFromPath(this._configOptions.stubPath, filePath);
+            const candidateModuleName = this.getModuleNameFromPath(this._configOptions.stubPath, filePath);
 
             // Does this candidate look better than the previous best module name?
             // We'll always try to use the shortest version.
@@ -402,7 +402,7 @@ export class ImportResolver {
         // Check for a typeshed file.
         const thirdPartyTypeshedPath = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
         if (thirdPartyTypeshedPath) {
-            const candidateModuleName = this._getModuleNameFromPath(
+            const candidateModuleName = this.getModuleNameFromPath(
                 thirdPartyTypeshedPath,
                 filePath,
                 /* stripTopContainerDir */ true
@@ -418,7 +418,7 @@ export class ImportResolver {
 
         const thirdPartyTypeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
         if (thirdPartyTypeshedPathEx) {
-            const candidateModuleName = this._getModuleNameFromPath(thirdPartyTypeshedPathEx, filePath);
+            const candidateModuleName = this.getModuleNameFromPath(thirdPartyTypeshedPathEx, filePath);
 
             // Does this candidate look better than the previous best module name?
             // We'll always try to use the shortest version.
@@ -431,7 +431,7 @@ export class ImportResolver {
         // Look for the import in the list of third-party packages.
         const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
         for (const searchPath of pythonSearchPaths) {
-            const candidateModuleName = this._getModuleNameFromPath(searchPath, filePath);
+            const candidateModuleName = this.getModuleNameFromPath(searchPath, filePath);
 
             // Does this candidate look better than the previous best module name?
             // We'll always try to use the shortest version.
@@ -951,7 +951,7 @@ export class ImportResolver {
         return true;
     }
 
-    private _getModuleNameFromPath(
+    protected getModuleNameFromPath(
         containerPath: string,
         filePath: string,
         stripTopContainerDir = false
