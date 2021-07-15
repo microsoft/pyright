@@ -21272,10 +21272,13 @@ export function createTypeEvaluator(
                     }
 
                     let constraintIndexUsed: number | undefined;
-                    destType.details.constraints.forEach((t, i) => {
+                    destType.details.constraints.forEach((constraint, i) => {
+                        const adjustedConstraint = TypeBase.isInstantiable(destType)
+                            ? convertToInstantiable(constraint)
+                            : constraint;
                         if (
                             canAssignType(
-                                t,
+                                adjustedConstraint,
                                 srcSubtype,
                                 new DiagnosticAddendum(),
                                 /* typeVarMap */ undefined,
@@ -21287,14 +21290,14 @@ export function createTypeEvaluator(
                                 !constrainedSubtype ||
                                 canAssignType(
                                     constrainedSubtype,
-                                    t,
+                                    adjustedConstraint,
                                     new DiagnosticAddendum(),
                                     /* typeVarMap */ undefined,
                                     /* flags */ undefined,
                                     recursionCount + 1
                                 )
                             ) {
-                                constrainedSubtype = addConditionToType(t, getTypeCondition(srcSubtype));
+                                constrainedSubtype = addConditionToType(constraint, getTypeCondition(srcSubtype));
                                 constraintIndexUsed = i;
                             }
                         }
