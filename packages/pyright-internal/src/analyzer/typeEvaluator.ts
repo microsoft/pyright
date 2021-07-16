@@ -3910,7 +3910,7 @@ export function createTypeEvaluator(
             // If we're using code flow analysis, pass the usage node so we consider
             // only the assignment nodes that are reachable from this usage.
             const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(symbol, useCodeFlowAnalysis ? node : undefined);
-            const effectiveType = effectiveTypeInfo.type;
+            const effectiveType = transformPossibleRecursiveTypeAlias(effectiveTypeInfo.type);
 
             if (effectiveTypeInfo.isIncomplete) {
                 isIncomplete = true;
