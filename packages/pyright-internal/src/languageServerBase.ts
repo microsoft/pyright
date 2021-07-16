@@ -24,8 +24,6 @@ import {
     CompletionTriggerKind,
     ConfigurationItem,
     Connection,
-    ConnectionOptions,
-    createConnection,
     Diagnostic,
     DiagnosticRelatedInformation,
     DiagnosticSeverity,
@@ -48,7 +46,7 @@ import {
     WorkDoneProgressReporter,
     WorkspaceEdit,
     WorkspaceFolder,
-} from 'vscode-languageserver/node';
+} from 'vscode-languageserver';
 
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
@@ -57,7 +55,7 @@ import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames } from './analyzer/service';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
-import { CancelAfter, getCancellationStrategyFromArgv } from './common/cancellationUtils';
+import { CancelAfter } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
 import {
     DiagnosticSeverityOverrides,
@@ -182,8 +180,6 @@ interface ClientCapabilities {
 }
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
-    // Create a connection for the server. The connection type can be changed by the process's arguments
-    protected _connection: Connection = createConnection(this._GetConnectionOptions());
     protected _workspaceMap: WorkspaceMap;
     protected _defaultClientConfig: any;
 
@@ -226,7 +222,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     readonly console: ConsoleInterface;
 
-    constructor(private _serverOptions: ServerOptions) {
+    constructor(private _serverOptions: ServerOptions, protected _connection: Connection) {
         // Stash the base directory into a global variable.
         // This must happen before fs.getModulePath().
         (global as any).__rootDirectory = _serverOptions.rootDirectory;
@@ -1281,10 +1277,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             reporter: serverInitiatedReporter,
             token: serverInitiatedReporter.token,
         };
-    }
-
-    private _GetConnectionOptions(): ConnectionOptions {
-        return { cancellationStrategy: getCancellationStrategyFromArgv(process.argv) };
     }
 
     private _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {

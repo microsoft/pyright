@@ -10,14 +10,14 @@ import {
     CodeActionKind,
     CodeActionParams,
     Command,
+    Connection,
     ExecuteCommandParams,
     WorkDoneProgressServerReporter,
-} from 'vscode-languageserver/node';
-import { isMainThread } from 'worker_threads';
+} from 'vscode-languageserver';
 
 import { AnalysisResults } from './analyzer/analysis';
 import { isPythonBinary } from './analyzer/pythonPathUtils';
-import { BackgroundAnalysis, BackgroundAnalysisRunner } from './backgroundAnalysis';
+import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
@@ -30,10 +30,10 @@ import { CodeActionProvider } from './languageService/codeActionProvider';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
-class PyrightServer extends LanguageServerBase {
+export class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
 
-    constructor() {
+    constructor(connection: Connection) {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
 
@@ -41,13 +41,16 @@ class PyrightServer extends LanguageServerBase {
         // already defined. When executed from VSCode extension, rootDirectory should
         // be __dirname.
         const rootDirectory = (global as any).__rootDirectory || __dirname;
-        super({
-            productName: 'Pyright',
-            rootDirectory,
-            version,
-            maxAnalysisTimeInForeground,
-            supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
-        });
+        super(
+            {
+                productName: 'Pyright',
+                rootDirectory,
+                version,
+                maxAnalysisTimeInForeground,
+                supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
+            },
+            connection
+        );
 
         this._controller = new CommandController(this);
     }
@@ -257,19 +260,5 @@ class PyrightServer extends LanguageServerBase {
                 }
             },
         };
-    }
-}
-
-export function main() {
-    if (process.env.NODE_ENV === 'production') {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('source-map-support').install();
-    }
-
-    if (isMainThread) {
-        new PyrightServer();
-    } else {
-        const runner = new BackgroundAnalysisRunner();
-        runner.start();
     }
 }

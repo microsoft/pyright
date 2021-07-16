@@ -606,7 +606,7 @@ function printUsage() {
 
 function getVersionString() {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const version = require('package.json').version;
+    const version = require('../package.json').version;
     return version.toString();
 }
 

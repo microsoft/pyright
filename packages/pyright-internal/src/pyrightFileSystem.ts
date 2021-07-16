@@ -9,7 +9,7 @@
  * files is treated as one.
  */
 
-import * as fs from 'fs';
+import type * as fs from 'fs';
 
 import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
@@ -353,39 +353,38 @@ export class PyrightFileSystem implements FileSystem {
     }
 }
 
-class FakeFile extends fs.Dirent {
-    override name: string;
+class FakeFile {
+    name: string;
 
     constructor(name: string) {
-        super();
         this.name = name;
     }
 
-    override isFile(): boolean {
+    isFile(): boolean {
         return true;
     }
 
-    override isDirectory(): boolean {
+    isDirectory(): boolean {
         return false;
     }
 
-    override isBlockDevice(): boolean {
+    isBlockDevice(): boolean {
         return false;
     }
 
-    override isCharacterDevice(): boolean {
+    isCharacterDevice(): boolean {
         return false;
     }
 
-    override isSymbolicLink(): boolean {
+    isSymbolicLink(): boolean {
         return false;
     }
 
-    override isFIFO(): boolean {
+    isFIFO(): boolean {
         return false;
     }
 
-    override isSocket(): boolean {
+    isSocket(): boolean {
         return false;
     }
 }
