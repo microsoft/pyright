@@ -1,3 +1,3 @@
-import { main } from 'pyright-internal/server';
+import { main } from 'pyright-internal/nodeMain';
 
 main();

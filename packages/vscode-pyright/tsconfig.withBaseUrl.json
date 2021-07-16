@@ -1,9 +1,0 @@
-{
-    "extends": "./tsconfig.json",
-    "compilerOptions": {
-        "baseUrl": ".",
-        "paths": {
-            "pyright-internal/*": ["../pyright-internal/src/*"]
-        }
-    }
-}

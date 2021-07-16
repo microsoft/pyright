@@ -5,8 +5,7 @@
 
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
-const { TsconfigPathsPlugin } = require('tsconfig-paths-webpack-plugin');
-const { cacheConfig, monorepoResourceNameMapper } = require('../../build/lib/webpack');
+const { cacheConfig, monorepoResourceNameMapper, tsconfigResolveAliases } = require('../../build/lib/webpack');
 
 const outPath = path.resolve(__dirname, 'dist');
 const typeshedFallback = path.resolve(__dirname, '..', 'pyright-internal', 'typeshed-fallback');
@@ -37,12 +36,7 @@ module.exports = (_, { mode }) => {
         },
         resolve: {
             extensions: ['.ts', '.js'],
-            plugins: [
-                new TsconfigPathsPlugin({
-                    configFile: 'tsconfig.withBaseUrl.json', // TODO: Remove once the plugin understands TS 4.1's implicit baseUrl.
-                    extensions: ['.ts', '.js'],
-                }),
-            ],
+            alias: tsconfigResolveAliases('tsconfig.json'),
         },
         externals: {
             vscode: 'commonjs vscode',

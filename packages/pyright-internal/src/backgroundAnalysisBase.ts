@@ -6,7 +6,7 @@
  * run analyzer from background thread
  */
 
-import { CancellationToken } from 'vscode-languageserver/node';
+import { CancellationToken } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { MessageChannel, MessagePort, parentPort, threadId, Worker, workerData } from 'worker_threads';
 
