@@ -96,6 +96,12 @@ test('AugmentedAssignment1', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('AugmentedAssignment2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment2.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Super1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super1.py']);
 

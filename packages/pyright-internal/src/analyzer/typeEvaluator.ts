@@ -10268,11 +10268,25 @@ export function createTypeEvaluator(
             }
         }
 
-        return {
-            type: validateBinaryOperation(node.operator, leftType, rightType, node, expectedType),
-            node,
-            isIncomplete,
-        };
+        const diag = new DiagnosticAddendum();
+        let type = validateBinaryOperation(node.operator, leftType, rightType, node, expectedType, diag);
+
+        if (!diag.isEmpty() || !type || isNever(type)) {
+            const fileInfo = getFileInfo(node);
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                    operator: ParseTreeUtils.printOperator(node.operator),
+                    leftType: printType(leftType),
+                    rightType: printType(rightType),
+                }) + diag.getString(),
+                node
+            );
+            type = UnknownType.create();
+        }
+
+        return { type, node, isIncomplete };
     }
 
     function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {
@@ -10319,6 +10333,7 @@ export function createTypeEvaluator(
         };
 
         let type: Type | undefined;
+        const diag = new DiagnosticAddendum();
 
         const leftTypeResult = getTypeOfExpression(node.leftExpression);
         const leftType = leftTypeResult.type;
@@ -10344,7 +10359,7 @@ export function createTypeEvaluator(
                         }
 
                         const magicMethodName = operatorMap[node.operator][0];
-                        let returnResult = getTypeFromMagicMethodReturn(
+                        let returnType = getTypeFromMagicMethodReturn(
                             leftSubtypeUnexpanded,
                             [rightSubtypeUnexpanded],
                             magicMethodName,
@@ -10352,9 +10367,9 @@ export function createTypeEvaluator(
                             expectedType
                         );
 
-                        if (!returnResult && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
+                        if (!returnType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
                             // Try with the expanded left type.
-                            returnResult = getTypeFromMagicMethodReturn(
+                            returnType = getTypeFromMagicMethodReturn(
                                 leftSubtypeExpanded,
                                 [rightSubtypeUnexpanded],
                                 magicMethodName,
@@ -10363,9 +10378,9 @@ export function createTypeEvaluator(
                             );
                         }
 
-                        if (!returnResult && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
+                        if (!returnType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
                             // Try with the expanded left and right type.
-                            returnResult = getTypeFromMagicMethodReturn(
+                            returnType = getTypeFromMagicMethodReturn(
                                 leftSubtypeExpanded,
                                 [rightSubtypeExpanded],
                                 magicMethodName,
@@ -10374,7 +10389,21 @@ export function createTypeEvaluator(
                             );
                         }
 
-                        return returnResult;
+                        if (!returnType) {
+                            // If the LHS class didn't support the magic method for augmented
+                            // assignment, fall back on the normal binary expression evaluator.
+                            const binaryOperator = operatorMap[node.operator][1];
+                            returnType = validateBinaryOperation(
+                                binaryOperator,
+                                leftSubtypeUnexpanded,
+                                rightSubtypeUnexpanded,
+                                node,
+                                expectedType,
+                                diag
+                            );
+                        }
+
+                        return returnType;
                     }
                 );
             }
@@ -10382,9 +10411,19 @@ export function createTypeEvaluator(
 
         // If the LHS class didn't support the magic method for augmented
         // assignment, fall back on the normal binary expression evaluator.
-        if (!type || isNever(type)) {
-            const binaryOperator = operatorMap[node.operator][1];
-            type = validateBinaryOperation(binaryOperator, leftType!, rightType, node, expectedType);
+        if (!diag.isEmpty() || !type || isNever(type)) {
+            const fileInfo = getFileInfo(node);
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                    operator: ParseTreeUtils.printOperator(node.operator),
+                    leftType: printType(leftType),
+                    rightType: printType(rightType),
+                }) + diag.getString(),
+                node
+            );
+            type = UnknownType.create();
         }
 
         return { node, type, isIncomplete };
@@ -10395,11 +10434,10 @@ export function createTypeEvaluator(
         leftType: Type,
         rightType: Type,
         errorNode: ExpressionNode,
-        expectedType: Type | undefined
-    ): Type {
+        expectedType: Type | undefined,
+        diag: DiagnosticAddendum
+    ): Type | undefined {
         let type: Type | undefined;
-        const diag = new DiagnosticAddendum();
-
         let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
 
         if (booleanOperatorMap[operator] !== undefined) {
@@ -10484,8 +10522,8 @@ export function createTypeEvaluator(
                                     diag.addMessage(
                                         Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
                                             operator: ParseTreeUtils.printOperator(operator),
-                                            leftType: printType(leftType),
-                                            rightType: printType(rightType),
+                                            leftType: printType(leftSubtype),
+                                            rightType: printType(rightSubtypeExpanded),
                                         })
                                     );
                                 }
@@ -10629,8 +10667,8 @@ export function createTypeEvaluator(
                                 diag.addMessage(
                                     Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
                                         operator: ParseTreeUtils.printOperator(operator),
-                                        leftType: printType(leftType),
-                                        rightType: printType(rightType),
+                                        leftType: printType(leftSubtypeExpanded),
+                                        rightType: printType(rightSubtypeExpanded),
                                     })
                                 );
                             }
@@ -10639,21 +10677,6 @@ export function createTypeEvaluator(
                     );
                 }
             );
-        }
-
-        if (!diag.isEmpty() || !type || isNever(type)) {
-            const fileInfo = getFileInfo(errorNode);
-            addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                    operator: ParseTreeUtils.printOperator(operator),
-                    leftType: printType(leftType),
-                    rightType: printType(rightType),
-                }) + diag.getString(),
-                errorNode
-            );
-            type = UnknownType.create();
         }
 
         return type;
