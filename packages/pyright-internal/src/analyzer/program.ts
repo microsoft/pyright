@@ -810,7 +810,7 @@ export class Program {
 
         return {
             symbolTable,
-            dunderAllNames: AnalyzerNodeInfo.getDunderAllNames(parseResults!.parseTree),
+            dunderAllNames: AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree)?.names,
             get docString() {
                 return getDocString(moduleNode.statements);
             },

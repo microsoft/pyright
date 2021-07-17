@@ -59,6 +59,7 @@ import {
     StatementListNode,
     StatementNode,
     StringListNode,
+    StringNode,
     SuiteNode,
     TernaryNode,
     TupleNode,
@@ -167,9 +168,11 @@ export class Checker extends ParseTreeWalker {
         this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
         // Mark symbols accessed by __all__ as accessed.
-        const dunderAllNames = AnalyzerNodeInfo.getDunderAllNames(this._moduleNode);
-        if (dunderAllNames) {
-            this._evaluator.markNamesAccessed(this._moduleNode, dunderAllNames);
+        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(this._moduleNode);
+        if (dunderAllInfo) {
+            this._evaluator.markNamesAccessed(this._moduleNode, dunderAllInfo.names);
+
+            this._reportUnusedDunderAllSymbols(dunderAllInfo.stringNodes);
         }
 
         // Perform a one-time validation of symbols in all scopes
@@ -1674,6 +1677,29 @@ export class Checker extends ParseTreeWalker {
         }
 
         return resultingExceptionType || UnknownType.create();
+    }
+
+    private _reportUnusedDunderAllSymbols(nodes: StringNode[]) {
+        // If this rule is disabled, don't bother doing the work.
+        if (this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll === 'none') {
+            return;
+        }
+
+        const moduleScope = AnalyzerNodeInfo.getScope(this._moduleNode);
+        if (!moduleScope) {
+            return;
+        }
+
+        nodes.forEach((node) => {
+            if (!moduleScope.symbolTable.has(node.value)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
+                    DiagnosticRule.reportUnsupportedDunderAll,
+                    Localizer.Diagnostic.dunderAllSymbolNotPresent().format({ name: node.value }),
+                    node
+                );
+            }
+        });
     }
 
     private _validateSymbolTables() {

@@ -18,12 +18,18 @@ import {
     ListComprehensionNode,
     ModuleNode,
     ParseNode,
+    StringNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowFlags, FlowNode } from './codeFlow';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { Scope } from './scope';
+
+export interface DunderAllInfo {
+    names: string[];
+    stringNodes: StringNode[];
+}
 
 interface AnalyzerNodeInfo {
     //---------------------------------------------------------------
@@ -57,7 +63,7 @@ interface AnalyzerNodeInfo {
     codeFlowExpressions?: Map<string, string>;
 
     // List of __all__ symbols in the module.
-    dunderAllNames?: string[] | undefined;
+    dunderAllInfo?: DunderAllInfo | undefined;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ListComprehensionNode;
@@ -143,14 +149,14 @@ export function setCodeFlowExpressions(node: ExecutionScopeNode, map: Map<string
     analyzerNode.codeFlowExpressions = map;
 }
 
-export function getDunderAllNames(node: ModuleNode): string[] | undefined {
+export function getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.dunderAllNames;
+    return analyzerNode.dunderAllInfo;
 }
 
-export function setDunderAllNames(node: ModuleNode, names: string[] | undefined) {
+export function setDunderAllInfo(node: ModuleNode, names: DunderAllInfo | undefined) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode.dunderAllNames = names;
+    analyzerNode.dunderAllInfo = names;
 }
 
 export function isCodeUnreachable(node: ParseNode): boolean {

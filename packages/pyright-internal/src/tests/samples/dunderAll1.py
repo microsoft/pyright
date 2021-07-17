@@ -5,6 +5,10 @@
 from typing import Any
 import mock
 
+test = 3
+hello = 3
+bar = 3
+
 __all__: Any
 
 __all__ = ("test", "hello")

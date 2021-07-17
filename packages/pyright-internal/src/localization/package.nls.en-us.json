@@ -70,6 +70,7 @@
         "dictInAnnotation": "Dictionary expression not allowed in type annotation",
         "dictKeyValuePairs": "Dictionary entries must contain key/value pairs",
         "dictUnpackIsNotMapping": "Expected mapping for dictionary unpack operator",
+        "dunderAllSymbolNotPresent": "\"{name}\" is specified in __all__ but is not present in module",
         "duplicateArgsParam": "Only one \"*\" parameter allowed",
         "duplicateBaseClass": "Duplicate base class not allowed",
         "duplicateCatchAll": "Only one catch-all except clause allowed",

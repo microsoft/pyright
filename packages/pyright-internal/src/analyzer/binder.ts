@@ -66,6 +66,7 @@ import {
     ReturnNode,
     StatementNode,
     StringListNode,
+    StringNode,
     SuiteNode,
     TernaryNode,
     TryNode,
@@ -188,6 +189,9 @@ export class Binder extends ParseTreeWalker {
     // List of names statically assigned to __all__ symbol.
     private _dunderAllNames: string[] | undefined;
 
+    // List of string nodes associated with the "__all__" symbol.
+    private _dunderAllStringNodes: StringNode[] = [];
+
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
         flags: FlowFlags.Unreachable,
@@ -255,7 +259,14 @@ export class Binder extends ParseTreeWalker {
             }
         });
 
-        AnalyzerNodeInfo.setDunderAllNames(node, this._dunderAllNames);
+        if (this._dunderAllNames) {
+            AnalyzerNodeInfo.setDunderAllInfo(node, {
+                names: this._dunderAllNames,
+                stringNodes: this._dunderAllStringNodes,
+            });
+        } else {
+            AnalyzerNodeInfo.setDunderAllInfo(node, undefined);
+        }
 
         // Set __all__ flags on the module symbols.
         const scope = AnalyzerNodeInfo.getScope(node);
@@ -596,6 +607,7 @@ export class Binder extends ParseTreeWalker {
                             listEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
                             this._dunderAllNames?.push(listEntryNode.strings[0].value);
+                            this._dunderAllStringNodes?.push(listEntryNode.strings[0]);
                             emitDunderAllWarning = false;
                         }
                     });
@@ -623,6 +635,9 @@ export class Binder extends ParseTreeWalker {
                     this._dunderAllNames
                 ) {
                     this._dunderAllNames = this._dunderAllNames.filter((name) => name !== argExpr.strings[0].value);
+                    this._dunderAllStringNodes = this._dunderAllStringNodes.filter(
+                        (node) => node.value !== argExpr.strings[0].value
+                    );
                     emitDunderAllWarning = false;
                 }
             } else if (node.leftExpression.memberName.value === 'append' && node.arguments.length === 1) {
@@ -634,6 +649,7 @@ export class Binder extends ParseTreeWalker {
                     argExpr.strings[0].nodeType === ParseNodeType.String
                 ) {
                     this._dunderAllNames?.push(argExpr.strings[0].value);
+                    this._dunderAllStringNodes?.push(argExpr.strings[0]);
                     emitDunderAllWarning = false;
                 }
             }
@@ -704,6 +720,7 @@ export class Binder extends ParseTreeWalker {
                             listEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
                             this._dunderAllNames!.push(listEntryNode.strings[0].value);
+                            this._dunderAllStringNodes.push(listEntryNode.strings[0]);
                         } else {
                             emitDunderAllWarning = true;
                         }
@@ -716,6 +733,7 @@ export class Binder extends ParseTreeWalker {
                             tupleEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
                             this._dunderAllNames!.push(tupleEntryNode.strings[0].value);
+                            this._dunderAllStringNodes.push(tupleEntryNode.strings[0]);
                         } else {
                             emitDunderAllWarning = true;
                         }
@@ -859,6 +877,7 @@ export class Binder extends ParseTreeWalker {
                         listEntryNode.strings[0].nodeType === ParseNodeType.String
                     ) {
                         this._dunderAllNames?.push(listEntryNode.strings[0].value);
+                        this._dunderAllStringNodes.push(listEntryNode.strings[0]);
                     }
                 });
                 emitDunderAllWarning = false;

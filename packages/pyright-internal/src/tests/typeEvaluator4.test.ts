@@ -191,6 +191,24 @@ test('DunderAll1', () => {
     TestUtils.validateResults(analysisResults, 0, 0);
 });
 
+test('DunderAll2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, reportUnsupportedDunderAll is a warning.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 3);
+
+    // Turn on error.
+    configOptions.diagnosticRuleSet.reportUnsupportedDunderAll = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3, 0);
+
+    // Turn off diagnostic.
+    configOptions.diagnosticRuleSet.reportUnsupportedDunderAll = 'none';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0);
+});
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     TestUtils.validateResults(analysisResults, 2);

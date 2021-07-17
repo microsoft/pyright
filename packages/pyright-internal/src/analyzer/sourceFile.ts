@@ -398,7 +398,7 @@ export class SourceFile {
         if (this._parseResults) {
             if (
                 this._parseResults.containsWildcardImport ||
-                AnalyzerNodeInfo.getDunderAllNames(this._parseResults.parseTree)
+                AnalyzerNodeInfo.getDunderAllInfo(this._parseResults.parseTree) !== undefined
             ) {
                 this._parseTreeNeedsCleaning = true;
                 this._isBindingNeeded = true;

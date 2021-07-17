@@ -257,12 +257,14 @@ export namespace Localizer {
         export const defaultValueContainsCall = () => getRawString('Diagnostic.defaultValueContainsCall');
         export const defaultValueNotAllowed = () => getRawString('Diagnostic.defaultValueNotAllowed');
         export const defaultValueNotEllipsis = () => getRawString('Diagnostic.defaultValueNotEllipsis');
+        export const dictExpandIllegalInComprehension = () =>
+            getRawString('Diagnostic.dictExpandIllegalInComprehension');
         export const dictInAnnotation = () => getRawString('Diagnostic.dictInAnnotation');
         export const dictKeyValuePairs = () => getRawString('Diagnostic.dictKeyValuePairs');
         export const dictUnpackIsNotMapping = () => getRawString('Diagnostic.dictUnpackIsNotMapping');
         export const delTargetExpr = () => getRawString('Diagnostic.delTargetExpr');
-        export const dictExpandIllegalInComprehension = () =>
-            getRawString('Diagnostic.dictExpandIllegalInComprehension');
+        export const dunderAllSymbolNotPresent = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.dunderAllSymbolNotPresent'));
         export const duplicateArgsParam = () => getRawString('Diagnostic.duplicateArgsParam');
         export const duplicateBaseClass = () => getRawString('Diagnostic.duplicateBaseClass');
         export const duplicateCatchAll = () => getRawString('Diagnostic.duplicateCatchAll');
