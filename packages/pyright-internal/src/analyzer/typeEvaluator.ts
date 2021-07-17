@@ -3963,42 +3963,8 @@ export function createTypeEvaluator(
                 }
             }
 
-            if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-                if (isInstantiableClass(type)) {
-                    if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
-                        if (requiresTypeArguments(type) && !type.typeArguments) {
-                            addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-                                DiagnosticRule.reportMissingTypeArgument,
-                                Localizer.Diagnostic.typeArgsMissingForClass().format({
-                                    name: type.aliasName || type.details.name,
-                                }),
-                                node
-                            );
-                        }
-                    }
-                    if (!type.typeArguments) {
-                        type = createSpecializedClassType(type, undefined, flags, node);
-                    }
-                }
-
-                if (
-                    (flags & EvaluatorFlags.ExpectingType) !== 0 &&
-                    type.typeAliasInfo &&
-                    type.typeAliasInfo.typeParameters &&
-                    type.typeAliasInfo.typeParameters.length > 0 &&
-                    !type.typeAliasInfo.typeArguments
-                ) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-                        DiagnosticRule.reportMissingTypeArgument,
-                        Localizer.Diagnostic.typeArgsMissingForAlias().format({
-                            name: type.typeAliasInfo.name,
-                        }),
-                        node
-                    );
-                }
-            }
+            // Detect, report, and fill in missing type arguments if appropriate.
+            type = reportMissingTypeArguments(node, type, flags);
 
             // If there is a resolution cycle, don't report it as an unbound symbol
             // at this time. It will be re-evaluated as the call stack unwinds, and
@@ -4199,6 +4165,59 @@ export function createTypeEvaluator(
         return type;
     }
 
+    // Determines if the type is a generic class or type alias with missing
+    // type arguments. If so, it fills in these type arguments with Unknown
+    // and optionally reports an error.
+    function reportMissingTypeArguments(node: ExpressionNode, type: Type, flags: EvaluatorFlags): Type {
+        if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
+            if (isInstantiableClass(type)) {
+                if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
+                    if (requiresTypeArguments(type) && !type.typeArguments) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                            DiagnosticRule.reportMissingTypeArgument,
+                            Localizer.Diagnostic.typeArgsMissingForClass().format({
+                                name: type.aliasName || type.details.name,
+                            }),
+                            node
+                        );
+                    }
+                }
+                if (!type.typeArguments) {
+                    type = createSpecializedClassType(type, undefined, flags, node);
+                }
+            }
+
+            if (
+                (flags & EvaluatorFlags.ExpectingType) !== 0 &&
+                type.typeAliasInfo &&
+                type.typeAliasInfo.typeParameters &&
+                type.typeAliasInfo.typeParameters.length > 0 &&
+                !type.typeAliasInfo.typeArguments
+            ) {
+                addDiagnostic(
+                    getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                    DiagnosticRule.reportMissingTypeArgument,
+                    Localizer.Diagnostic.typeArgsMissingForAlias().format({
+                        name: type.typeAliasInfo.name,
+                    }),
+                    node
+                );
+
+                type = TypeBase.cloneForTypeAlias(
+                    type,
+                    type.typeAliasInfo.name,
+                    type.typeAliasInfo.fullName,
+                    type.typeAliasInfo.typeVarScopeId,
+                    type.typeAliasInfo.typeParameters,
+                    type.typeAliasInfo.typeParameters.map((param) => UnknownType.create())
+                );
+            }
+        }
+
+        return type;
+    }
+
     // Creates an ID that identifies this parse node in a way that will
     // not change each time the file is parsed (unless, of course, the
     // file contents change).
@@ -4392,6 +4411,9 @@ export function createTypeEvaluator(
             if (codeFlowTypeResult.isIncomplete) {
                 memberTypeResult.isIncomplete = true;
             }
+
+            // Detect, report, and fill in missing type arguments if appropriate.
+            memberTypeResult.type = reportMissingTypeArguments(node, memberTypeResult.type, flags);
 
             deleteTypeCacheEntry(node);
             deleteTypeCacheEntry(node.memberName);
