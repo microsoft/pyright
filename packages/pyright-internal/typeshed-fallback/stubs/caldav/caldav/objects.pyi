@@ -5,13 +5,14 @@ from typing import Any, Type, TypeVar, overload
 from typing_extensions import Literal
 from urllib.parse import ParseResult, SplitResult
 
+from vobject.base import VBase
+
 from .davclient import DAVClient
 from .elements.cdav import CompFilter, ScheduleInboxURL, ScheduleOutboxURL
 from .lib.url import URL
 
 _CC = TypeVar("_CC", bound=CalendarObjectResource)
 
-_VBase = Any  # actually vobject.base.VBase
 _vCalAddress = Any  # actually icalendar.vCalAddress
 
 class DAVObject:
@@ -160,9 +161,9 @@ class CalendarObjectResource(DAVObject):
         self: Self, no_overwrite: bool = ..., no_create: bool = ..., obj_type: Any | None = ..., if_schedule_tag_match: bool = ...
     ) -> Self: ...
     data: Any
-    vobject_instance: _VBase
+    vobject_instance: VBase
     icalendar_instance: Any
-    instance: _VBase
+    instance: VBase
 
 class Event(CalendarObjectResource): ...
 class Journal(CalendarObjectResource): ...

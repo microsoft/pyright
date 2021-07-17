@@ -1,0 +1,9 @@
+import argparse
+from typing import Any, Optional
+
+def main_inner(parser, argns): ...
+
+class HelpFormatter(argparse.HelpFormatter):
+    def __init__(self, prog, indent_increment: int = ..., max_help_position: int = ..., width: Optional[Any] = ...) -> None: ...
+
+def main(args=...): ...
