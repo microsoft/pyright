@@ -22742,6 +22742,11 @@ export function createTypeEvaluator(
 
         const destPositionalOnlyIndex = destParams.findIndex((p) => p.category === ParameterCategory.Simple && !p.name);
 
+        const isParamSpecInvolved =
+            (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0
+                ? !!srcType.details.paramSpec
+                : !!destType.details.paramSpec;
+
         if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
             // Match positional parameters.
             for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
@@ -22867,7 +22872,7 @@ export function createTypeEvaluator(
             } else if (destPositionals.length < srcPositionals.length) {
                 // If the dest type includes a ParamSpec, the additional parameters
                 // can be assigned to it, so no need to report an error here.
-                if (!destType.details.paramSpec) {
+                if (!isParamSpecInvolved) {
                     const nonDefaultSrcParamCount = srcParams.filter(
                         (p) => !!p.name && !p.hasDefault && p.category === ParameterCategory.Simple
                     ).length;
@@ -22987,7 +22992,7 @@ export function createTypeEvaluator(
             }
 
             // Handle matching of named (keyword) parameters.
-            if (!destType.details.paramSpec) {
+            if (!isParamSpecInvolved) {
                 // Build a dictionary of named parameters in the dest.
                 const destParamMap = new Map<string, FunctionParameter>();
                 let destHasKwargsParam = false;
@@ -23161,23 +23166,31 @@ export function createTypeEvaluator(
             });
 
             // Are we assigning to a function with a ParamSpec?
-            if (destType.details.paramSpec) {
-                typeVarMap.setParamSpec(destType.details.paramSpec, {
-                    concrete: {
-                        parameters: srcType.details.parameters
-                            .map((p, index) => {
-                                const paramSpecEntry: ParamSpecEntry = {
-                                    category: p.category,
-                                    name: p.name,
-                                    hasDefault: !!p.hasDefault,
-                                    type: FunctionType.getEffectiveParameterType(srcType, index),
-                                };
-                                return paramSpecEntry;
-                            })
-                            .slice(destType.details.parameters.length, srcType.details.parameters.length),
-                        flags: srcType.details.flags,
-                    },
-                });
+            if (isParamSpecInvolved) {
+                const effectiveDestType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destType : srcType;
+                const effectiveSrcType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
+
+                if (effectiveDestType.details.paramSpec) {
+                    typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
+                        concrete: {
+                            parameters: effectiveSrcType.details.parameters
+                                .map((p, index) => {
+                                    const paramSpecEntry: ParamSpecEntry = {
+                                        category: p.category,
+                                        name: p.name,
+                                        hasDefault: !!p.hasDefault,
+                                        type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
+                                    };
+                                    return paramSpecEntry;
+                                })
+                                .slice(
+                                    effectiveDestType.details.parameters.length,
+                                    effectiveSrcType.details.parameters.length
+                                ),
+                            flags: effectiveSrcType.details.flags,
+                        },
+                    });
+                }
             }
         }
 
