@@ -2319,9 +2319,15 @@ export function createTypeEvaluator(
                         // Don't include class vars. PEP 557 indicates that they shouldn't
                         // be considered data class entries.
                         const variableSymbol = classType.details.fields.get(variableName);
-                        if (variableSymbol?.isClassVar()) {
+                        const isFinal = variableSymbol
+                            ?.getDeclarations()
+                            .some((decl) => decl.type === DeclarationType.Variable && decl.isFinal);
+
+                        if (variableSymbol?.isClassVar() && !isFinal) {
                             // If an ancestor class declared an instance variable but this dataclass
                             // declares a ClassVar, delete the older one from the full data class entries.
+                            // We exclude final variables here because a Final type annotation is implicitly
+                            // considered a ClassVar by the binder, but dataclass rules are different.
                             const index = fullDataClassEntries.findIndex((p) => p.name === variableName);
                             if (index >= 0) {
                                 fullDataClassEntries.splice(index, 1);

@@ -23,12 +23,10 @@ class DataTuple(NamedTuple):
 
     name: Optional[str] = None
 
-    # An initialized Final implies ClassVar, so this
-    # should not be included.
     name2: Final[Optional[str]] = None
 
 
-d1 = DataTuple(id=1, aid=Other())
+d1 = DataTuple(id=1, aid=Other(), name2="hi")
 d2 = DataTuple(id=1, aid=Other(), value="v")
 d3 = DataTuple(id=1, aid=Other(), name="hello")
 d4 = DataTuple(id=1, aid=Other(), name=None)
