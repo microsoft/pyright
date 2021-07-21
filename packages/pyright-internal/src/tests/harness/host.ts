@@ -8,7 +8,6 @@ import * as os from 'os';
 import * as pathModule from 'path';
 
 import { NullConsole } from '../../common/console';
-import { createFromRealFileSystem } from '../../common/fileSystem';
 import {
     combinePaths,
     directoryExists,
@@ -17,6 +16,7 @@ import {
     getFileSize,
     resolvePaths,
 } from '../../common/pathUtils';
+import { createFromRealFileSystem } from '../../common/realFileSystem';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
 
 export const HOST: TestHost = createHost();

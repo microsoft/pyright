@@ -10,7 +10,7 @@ import { Connection, ConnectionOptions } from 'vscode-languageserver';
 import { createConnection } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
 
-import { getCancellationStrategyFromArgv } from './common/cancellationUtils';
+import { getCancellationStrategyFromArgv } from './common/fileBasedCancellationUtils';
 
 export function run(runServer: (connection: Connection) => void, runBackgroundThread: () => void) {
     if (process.env.NODE_ENV === 'production') {

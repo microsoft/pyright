@@ -7,8 +7,8 @@
 import * as assert from 'assert';
 import * as path from 'path';
 
-import { createFromRealFileSystem } from '../common/fileSystem';
 import { combinePaths } from '../common/pathUtils';
+import { createFromRealFileSystem } from '../common/realFileSystem';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 
 function runTests(p: string): void {

@@ -11,7 +11,6 @@
 
 import './common/extensions';
 
-import * as fs from 'fs';
 import {
     CancellationToken,
     CancellationTokenSource,
@@ -53,9 +52,9 @@ import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram'
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames } from './analyzer/service';
-import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
+import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
-import { CancelAfter } from './common/cancellationUtils';
+import { CancelAfter, CancellationProvider } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
 import {
     DiagnosticSeverityOverrides,
@@ -64,20 +63,12 @@ import {
 } from './common/commandLineOptions';
 import { ConfigOptions, getDiagLevelDiagnosticRules } from './common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
-import { isDefined } from './common/core';
 import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
 import { LanguageServiceExtension } from './common/extensibility';
-import {
-    createFromRealFileSystem,
-    FileSystem,
-    FileWatcher,
-    FileWatcherEventHandler,
-    FileWatcherEventType,
-    isInZipOrEgg,
-} from './common/fileSystem';
-import { containsPath, convertPathToUri, convertUriToPath } from './common/pathUtils';
+import { FileSystem, FileWatcherEventType, FileWatcherProvider, isInZipOrEgg } from './common/fileSystem';
+import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position } from './common/textRange';
 import { convertWorkspaceEdits } from './common/workspaceEditUtils';
@@ -147,18 +138,14 @@ export interface ServerOptions {
     productName: string;
     rootDirectory: string;
     version: string;
+    workspaceMap: WorkspaceMap;
+    fileSystem: FileSystem;
+    fileWatcherProvider: FileWatcherProvider;
+    cancellationProvider: CancellationProvider;
     extension?: LanguageServiceExtension;
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
     supportedCommands?: string[];
     supportedCodeActions?: string[];
-}
-
-interface InternalFileWatcher extends FileWatcher {
-    // Paths that are being watched within the workspace
-    workspacePaths: string[];
-
-    // Event handler to call
-    eventHandler: FileWatcherEventHandler;
 }
 
 interface ClientCapabilities {
@@ -180,8 +167,9 @@ interface ClientCapabilities {
 }
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
-    protected _workspaceMap: WorkspaceMap;
     protected _defaultClientConfig: any;
+    protected _workspaceMap: WorkspaceMap;
+    protected _fileWatcherProvider: FileWatcherProvider;
 
     protected client: ClientCapabilities = {
         hasConfigurationCapability: false,
@@ -200,9 +188,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         supportsUnnecessaryDiagnosticTag: false,
         completionItemResolveSupportsAdditionalTextEdits: false,
     };
-
-    // Tracks active file system watchers.
-    private _fileWatchers: InternalFileWatcher[] = [];
 
     // We support running only one "find all reference" at a time.
     private _pendingFindAllRefsCancellationSource: CancellationTokenSource | undefined;
@@ -237,7 +222,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this.console.info(`Server root directory: ${_serverOptions.rootDirectory}`);
 
-        this.fs = new PyrightFileSystem(createFromRealFileSystem(this.console, this));
+        this._workspaceMap = this._serverOptions.workspaceMap;
+        this._fileWatcherProvider = this._serverOptions.fileWatcherProvider;
+        this.fs = new PyrightFileSystem(this._serverOptions.fileSystem);
 
         // Set the working directory to a known location within
         // the extension directory. Otherwise the execution of
@@ -246,9 +233,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         if (moduleDirectory) {
             this.fs.chdir(moduleDirectory);
         }
-
-        // Create workspace map.
-        this._workspaceMap = new WorkspaceMap(this);
 
         // Set up callbacks.
         this.setupConnection(_serverOptions.supportedCommands ?? [], _serverOptions.supportedCodeActions ?? []);
@@ -363,7 +347,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this._serverOptions.extension,
             this.createBackgroundAnalysis(),
             this._serverOptions.maxAnalysisTimeInForeground,
-            this.createBackgroundAnalysisProgram.bind(this)
+            this.createBackgroundAnalysisProgram.bind(this),
+            this._serverOptions.cancellationProvider
         );
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(results));
@@ -372,7 +357,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     async getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance> {
-        const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+        const workspace = this._workspaceMap.getWorkspaceForFile(this, filePath);
         await workspace.isInitialized.promise;
         return workspace;
     }
@@ -387,65 +372,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._workspaceMap.forEach((workspace) => {
             workspace.serviceInstance.restart();
         });
-    }
-
-    createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        // Capture "this" so we can reference it within the "close" method below.
-        const lsBase = this;
-
-        // Determine which paths are located within one or more workspaces.
-        // Those are already covered by existing file watchers handled by
-        // the client.
-        const workspacePaths: string[] = [];
-        const nonWorkspacePaths: string[] = [];
-        const workspaces = this._workspaceMap.getNonDefaultWorkspaces();
-
-        paths.forEach((path) => {
-            if (workspaces.some((workspace) => containsPath(workspace.rootPath, path))) {
-                workspacePaths.push(path);
-            } else {
-                nonWorkspacePaths.push(path);
-            }
-        });
-
-        // For any non-workspace paths, use the node file watcher.
-        const nodeWatchers = nonWorkspacePaths
-            .map((path) => {
-                // Skip paths that don't exist; fs.watch will throw when it tries to watch them,
-                // and won't give us a watcher that would work if it were created later.
-                if (!fs.existsSync(path)) {
-                    return undefined;
-                }
-
-                try {
-                    return fs.watch(path, { recursive: true }, (event, filename) =>
-                        listener(event as FileWatcherEventType, filename)
-                    );
-                } catch (e: any) {
-                    this.console.warn(`Exception received when installing recursive file system watcher: ${e}`);
-                    return undefined;
-                }
-            })
-            .filter(isDefined);
-
-        const fileWatcher: InternalFileWatcher = {
-            close() {
-                // Stop listening for workspace paths.
-                lsBase._fileWatchers = lsBase._fileWatchers.filter((watcher) => watcher !== fileWatcher);
-
-                // Close the node watchers.
-                nodeWatchers.forEach((watcher) => {
-                    watcher.close();
-                });
-            },
-            workspacePaths,
-            eventHandler: listener,
-        };
-
-        // Record the file watcher.
-        this._fileWatchers.push(fileWatcher);
-
-        return fileWatcher;
     }
 
     protected setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
@@ -892,11 +818,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             params.changes.forEach((change) => {
                 const filePath = convertUriToPath(this.fs, change.uri);
                 const eventType: FileWatcherEventType = change.type === 1 ? 'add' : 'change';
-                this._fileWatchers.forEach((watcher) => {
-                    if (watcher.workspacePaths.some((dirPath) => containsPath(dirPath, filePath))) {
-                        watcher.eventHandler(eventType, filePath);
-                    }
-                });
+                this._fileWatcherProvider.onFileChange(eventType, filePath);
             });
         });
 

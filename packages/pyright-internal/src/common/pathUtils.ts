@@ -7,8 +7,7 @@
  * Pathname utility functions.
  */
 
-import { randomBytes } from 'crypto';
-import { Dirent } from 'fs';
+import type { Dirent } from 'fs';
 import * as path from 'path';
 import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
@@ -16,6 +15,7 @@ import { URI } from 'vscode-uri';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
+import { randomBytesHex } from './crypto';
 import * as debug from './debug';
 import { FileSystem, Stats } from './fileSystem';
 import {
@@ -924,7 +924,7 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
         let name: string;
         let mangledFilePath: string;
         do {
-            name = `${randomBytes(21).toString('hex')}-a`;
+            name = `${randomBytesHex(21)}-a`;
             filePath = path.join(fs.tmpdir(), name);
             mangledFilePath = path.join(fs.tmpdir(), name.toUpperCase());
         } while (fs.existsSync(filePath) || fs.existsSync(mangledFilePath));

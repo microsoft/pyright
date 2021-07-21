@@ -24,7 +24,7 @@ import { StderrConsole } from './common/console';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
-import { createFromRealFileSystem } from './common/fileSystem';
+import { createFromRealFileSystem } from './common/realFileSystem';
 import { isEmptyRange, Range } from './common/textRange';
 import { versionFromString } from './common/pythonVersion';
 import { PyrightFileSystem } from './pyrightFileSystem';

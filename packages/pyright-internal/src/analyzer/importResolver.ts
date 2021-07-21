@@ -8,7 +8,7 @@
  * runtime rules of Python.
  */
 
-import { Dirent } from 'fs';
+import type { Dirent } from 'fs';
 
 import { getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';

@@ -13,9 +13,9 @@ import { AnalyzerService } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
-import { createFromRealFileSystem } from '../common/fileSystem';
 import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
+import { createFromRealFileSystem } from '../common/realFileSystem';
 
 test('FindFilesWithConfigFile', () => {
     const cwd = normalizePath(process.cwd());

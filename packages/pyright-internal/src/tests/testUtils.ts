@@ -21,7 +21,7 @@ import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../
 import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { createFromRealFileSystem } from '../common/fileSystem';
+import { createFromRealFileSystem } from '../common/realFileSystem';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed

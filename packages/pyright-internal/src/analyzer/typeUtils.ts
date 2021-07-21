@@ -7,8 +7,7 @@
  * Collection of functions that operate on Type objects.
  */
 
-import { assert } from 'console';
-
+import { assert } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';

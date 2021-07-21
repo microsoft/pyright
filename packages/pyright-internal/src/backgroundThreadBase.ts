@@ -12,8 +12,9 @@ import { OperationCanceledException, setCancellationFolderName } from './common/
 import { ConfigOptions } from './common/configOptions';
 import { LogLevel } from './common/console';
 import * as debug from './common/debug';
-import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
+import { FileSystem } from './common/fileSystem';
 import { FileSpec } from './common/pathUtils';
+import { createFromRealFileSystem } from './common/realFileSystem';
 import { PyrightFileSystem } from './pyrightFileSystem';
 
 export class BackgroundThreadBase {

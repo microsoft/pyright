@@ -23,10 +23,13 @@ import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
+import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
 import { convertUriToPath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
+import { createFromRealFileSystem, WorkspaceFileWatcherProvider } from './common/realFileSystem';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
+import { WorkspaceMap } from './workspaceMap';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -41,11 +44,20 @@ export class PyrightServer extends LanguageServerBase {
         // already defined. When executed from VSCode extension, rootDirectory should
         // be __dirname.
         const rootDirectory = (global as any).__rootDirectory || __dirname;
+
+        const workspaceMap = new WorkspaceMap();
+        const fileWatcherProvider = new WorkspaceFileWatcherProvider(workspaceMap);
+        const fileSystem = createFromRealFileSystem(connection.console, fileWatcherProvider);
+
         super(
             {
                 productName: 'Pyright',
                 rootDirectory,
                 version,
+                workspaceMap,
+                fileSystem,
+                fileWatcherProvider,
+                cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
             },
@@ -54,6 +66,7 @@ export class PyrightServer extends LanguageServerBase {
 
         this._controller = new CommandController(this);
     }
+
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,

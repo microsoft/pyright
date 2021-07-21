@@ -26,7 +26,7 @@ import {
 } from 'vscode-languageserver-types';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
-import { createBackgroundThreadCancellationTokenSource } from '../common/cancellationUtils';
+import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/console';
@@ -97,6 +97,7 @@ export class AnalyzerService {
     private _maxAnalysisTimeInForeground: MaxAnalysisTime | undefined;
     private _backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory | undefined;
     private _disposed = false;
+    private _cancellationProvider: CancellationProvider;
 
     constructor(
         instanceName: string,
@@ -107,7 +108,8 @@ export class AnalyzerService {
         extension?: LanguageServiceExtension,
         backgroundAnalysis?: BackgroundAnalysisBase,
         maxAnalysisTime?: MaxAnalysisTime,
-        backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory
+        backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory,
+        cancellationProvider?: CancellationProvider
     ) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
@@ -116,6 +118,7 @@ export class AnalyzerService {
         this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
         this._maxAnalysisTimeInForeground = maxAnalysisTime;
         this._backgroundAnalysisProgramFactory = backgroundAnalysisProgramFactory;
+        this._cancellationProvider = cancellationProvider ?? new DefaultCancellationProvider();
 
         configOptions = configOptions ?? new ConfigOptions(process.cwd());
         const importResolver = this._importResolverFactory(fs, configOptions);
@@ -150,7 +153,8 @@ export class AnalyzerService {
             this._extension,
             backgroundAnalysis,
             this._maxAnalysisTimeInForeground,
-            this._backgroundAnalysisProgramFactory
+            this._backgroundAnalysisProgramFactory,
+            this._cancellationProvider
         );
     }
 
@@ -1398,7 +1402,7 @@ export class AnalyzerService {
             }
 
             // This creates a cancellation source only if it actually gets used.
-            this._backgroundAnalysisCancellationSource = createBackgroundThreadCancellationTokenSource();
+            this._backgroundAnalysisCancellationSource = this._cancellationProvider.createCancellationTokenSource();
             const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(
                 this._backgroundAnalysisCancellationSource.token
             );
