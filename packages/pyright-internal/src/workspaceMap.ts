@@ -10,10 +10,6 @@ import { LanguageServerBase, WorkspaceServiceInstance } from './languageServerBa
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
     private _defaultWorkspacePath = '<default>';
 
-    constructor(private _ls: LanguageServerBase) {
-        super();
-    }
-
     getNonDefaultWorkspaces(): WorkspaceServiceInstance[] {
         const workspaces: WorkspaceServiceInstance[] = [];
         this.forEach((workspace) => {
@@ -25,7 +21,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         return workspaces;
     }
 
-    getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
+    getWorkspaceForFile(ls: LanguageServerBase, filePath: string): WorkspaceServiceInstance {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;
 
@@ -62,13 +58,13 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     workspaceName: '',
                     rootPath: '',
                     rootUri: '',
-                    serviceInstance: this._ls.createAnalyzerService(this._defaultWorkspacePath),
+                    serviceInstance: ls.createAnalyzerService(this._defaultWorkspacePath),
                     disableLanguageServices: false,
                     disableOrganizeImports: false,
                     isInitialized: createDeferred<boolean>(),
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
-                this._ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
+                ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
             }
 
             return defaultWorkspace;

@@ -6,7 +6,6 @@
  * Helper methods around cancellation
  */
 
-import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -17,6 +16,8 @@ import {
     CancellationStrategy,
     Disposable,
 } from 'vscode-languageserver';
+
+import { randomBytesHex } from 'pyright-internal/common/crypto';
 
 function getCancellationFolderPath(folderName: string) {
     return path.join(os.tmpdir(), 'python-languageserver-cancellation', folderName);
@@ -74,7 +75,7 @@ export class FileBasedCancellationStrategy implements CancellationStrategy, Disp
     private _sender: FileCancellationSenderStrategy;
 
     constructor() {
-        const folderName = randomBytes(21).toString('hex');
+        const folderName = randomBytesHex(21);
         this._sender = new FileCancellationSenderStrategy(folderName);
     }
 

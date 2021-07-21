@@ -20,18 +20,18 @@ import {
     LogData,
     run,
 } from './backgroundThreadBase';
-import {
-    disposeCancellationToken,
-    getCancellationTokenFromId,
-    getCancellationTokenId,
-    throwIfCancellationRequested,
-} from './common/cancellationUtils';
+import { throwIfCancellationRequested } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, log, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { LanguageServiceExtension } from './common/extensibility';
+import {
+    disposeCancellationToken,
+    getCancellationTokenFromId,
+    getCancellationTokenId,
+} from './common/fileBasedCancellationUtils';
 import { FileSystem } from './common/fileSystem';
 import { LogTracker } from './common/logTracker';
 import { Range } from './common/textRange';
