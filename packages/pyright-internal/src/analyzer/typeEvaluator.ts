@@ -21459,7 +21459,17 @@ export function createTypeEvaluator(
         let adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
 
         if (TypeBase.isInstantiable(destType)) {
-            adjSrcType = convertToInstance(adjSrcType);
+            if (TypeBase.isInstantiable(adjSrcType)) {
+                adjSrcType = convertToInstance(adjSrcType);
+            } else {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(adjSrcType),
+                        destType: printType(destType),
+                    })
+                );
+                return false;
+            }
         }
 
         if (isContravariant || (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0) {
