@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of the NoReturn annotation type.
 
-from typing import NoReturn
+from typing import Callable, NoReturn
 
 
 # This should generate an error because the function
@@ -38,3 +38,6 @@ def func5(x: bool) -> NoReturn:
         yield 4
 
     raise Exception()
+
+
+x1: Callable[[bool], bool] = func2

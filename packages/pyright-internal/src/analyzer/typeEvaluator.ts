@@ -23219,7 +23219,11 @@ export function createTypeEvaluator(
 
                 let isReturnTypeCompatible = false;
 
-                if (
+                if (isNoReturnType(srcReturnType)) {
+                    // We'll allow any function that returns NoReturn to match any
+                    // function return type, consistent with other type checkers.
+                    isReturnTypeCompatible = true;
+                } else if (
                     canAssignType(
                         destReturnType,
                         srcReturnType,
