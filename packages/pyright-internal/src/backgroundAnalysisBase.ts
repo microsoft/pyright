@@ -134,7 +134,6 @@ export class BackgroundAnalysisBase {
                 }
 
                 case 'analysisPaused': {
-                    disposeCancellationToken(token);
                     port2.close();
                     port1.close();
 
