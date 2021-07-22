@@ -4222,7 +4222,7 @@ export class Parser {
 
                     if (quoteStack.length > 0 && quoteStack[quoteStack.length - 1] === quoteSequence) {
                         quoteStack.pop();
-                    } else {
+                    } else if (quoteStack.length === 0) {
                         quoteStack.push(quoteSequence);
                     }
                 } else if (curChar === '(') {

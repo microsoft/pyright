@@ -61,3 +61,6 @@ i = f"{*my_dict.keys(),}"
 
 # f-string with empty expression should generate error.
 j = f"{}"
+
+# f-string with quotes within quotes within quotes.
+k = f"""{"#M's#".replace(f"'", '')!r}"""
