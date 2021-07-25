@@ -1943,6 +1943,13 @@ export class CompletionProvider {
                                         }
                                     }
                                     typeDetail = name + ': ' + this._evaluator.printType(type, expandTypeAlias);
+
+                                    const declWithDocString = symbol
+                                        .getDeclarations()
+                                        .find((decl) => decl.type === DeclarationType.Variable && !!decl.docString);
+                                    if (declWithDocString?.type === DeclarationType.Variable) {
+                                        documentation = declWithDocString.docString;
+                                    }
                                     break;
                                 }
 
@@ -2031,9 +2038,17 @@ export class CompletionProvider {
                                     this._evaluator
                                 );
                             } else if (primaryDecl?.type === DeclarationType.Variable) {
-                                documentation = getVariableInStubFileDocStrings(primaryDecl, this._sourceMapper).find(
-                                    (doc) => doc
-                                );
+                                const declWithDocString = symbol
+                                    .getDeclarations()
+                                    .find((decl) => decl.type === DeclarationType.Variable && !!decl.docString);
+                                if (declWithDocString?.type === DeclarationType.Variable) {
+                                    documentation = declWithDocString.docString;
+                                } else {
+                                    documentation = getVariableInStubFileDocStrings(
+                                        primaryDecl,
+                                        this._sourceMapper
+                                    ).find((doc) => doc);
+                                }
                             }
 
                             if (this._options.format === MarkupKind.Markdown) {

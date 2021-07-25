@@ -77,7 +77,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
-import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
@@ -3092,6 +3092,7 @@ export class Binder extends ParseTreeWalker {
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
+                        docString: this._getVariableDocString(target),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
                 }
@@ -3142,6 +3143,7 @@ export class Binder extends ParseTreeWalker {
                             this._fileInfo.lines
                         ),
                         moduleName: this._fileInfo.moduleName,
+                        docString: this._getVariableDocString(target),
                     };
                     symbol.addDeclaration(declaration);
                 }
@@ -3210,6 +3212,7 @@ export class Binder extends ParseTreeWalker {
                         typeAnnotationNode,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
+                        docString: this._getVariableDocString(target),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
 
@@ -3287,6 +3290,7 @@ export class Binder extends ParseTreeWalker {
                             this._fileInfo.lines
                         ),
                         moduleName: this._fileInfo.moduleName,
+                        docString: this._getVariableDocString(target),
                     };
                     symbol.addDeclaration(declaration);
 
@@ -3322,6 +3326,105 @@ export class Binder extends ParseTreeWalker {
         }
 
         return false;
+    }
+
+    private _getVariableDocString(node: ExpressionNode): string | undefined {
+        // Walk up the parse tree to find an assignment expression.
+        let curNode: ParseNode | undefined = node;
+        let annotationNode: TypeAnnotationNode | undefined;
+
+        while (curNode) {
+            if (curNode.nodeType === ParseNodeType.Assignment) {
+                break;
+            }
+
+            if (curNode.nodeType === ParseNodeType.TypeAnnotation && !annotationNode) {
+                annotationNode = curNode;
+            }
+
+            curNode = curNode.parent;
+        }
+
+        if (curNode?.nodeType !== ParseNodeType.Assignment) {
+            // Allow a simple annotation statement to have a docstring even
+            // though PEP 258 doesn't mention this case. This PEP pre-dated
+            // PEP 526, so it didn't contemplate this situation.
+            if (annotationNode) {
+                curNode = annotationNode;
+            } else {
+                return undefined;
+            }
+        }
+
+        const parentNode = curNode.parent;
+        if (parentNode?.nodeType !== ParseNodeType.StatementList) {
+            return undefined;
+        }
+
+        const suiteOrModule = parentNode.parent;
+        if (
+            !suiteOrModule ||
+            (suiteOrModule.nodeType !== ParseNodeType.Module && suiteOrModule.nodeType !== ParseNodeType.Suite)
+        ) {
+            return undefined;
+        }
+
+        const assignmentIndex = suiteOrModule.statements.findIndex((node) => node === parentNode);
+        if (assignmentIndex < 0 || assignmentIndex === suiteOrModule.statements.length - 1) {
+            return undefined;
+        }
+
+        const nextStatement = suiteOrModule.statements[assignmentIndex + 1];
+        if (
+            nextStatement.nodeType !== ParseNodeType.StatementList ||
+            nextStatement.statements.length === 0 ||
+            nextStatement.statements[0].nodeType !== ParseNodeType.StringList
+        ) {
+            return undefined;
+        }
+
+        // A docstring can consist of multiple joined strings in a single expression.
+        const strings = nextStatement.statements[0].strings;
+
+        // Any f-strings invalidate the entire docstring.
+        if (strings.some((n) => (n.token.flags & StringTokenFlags.Format) !== 0)) {
+            return undefined;
+        }
+
+        // See if the assignment is within one of the contexts specified in PEP 258.
+        let isValidContext = false;
+        if (parentNode?.parent?.nodeType === ParseNodeType.Module) {
+            // If we're at the top level of a module, the attribute docstring is valid.
+            isValidContext = true;
+        } else if (
+            parentNode?.parent?.nodeType === ParseNodeType.Suite &&
+            parentNode?.parent?.parent?.nodeType === ParseNodeType.Class
+        ) {
+            // If we're at the top level of a class, the attribute docstring is valid.
+            isValidContext = true;
+        } else {
+            const func = ParseTreeUtils.getEnclosingFunction(parentNode);
+
+            // If we're within an __init__ method, the attribute docstring is valid.
+            if (
+                func &&
+                func.name.value === '__init__' &&
+                ParseTreeUtils.getEnclosingClass(func, /* stopAtFunction */ true)
+            ) {
+                isValidContext = true;
+            }
+        }
+
+        if (!isValidContext) {
+            return undefined;
+        }
+
+        if (strings.length === 1) {
+            // Common case.
+            return strings[0].value;
+        }
+
+        return strings.map((s) => s.value).join('');
     }
 
     // Determines if the specified type annotation expression is a "Final".

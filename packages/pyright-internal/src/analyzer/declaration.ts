@@ -131,6 +131,9 @@ export interface VariableDeclaration extends DeclarationBase {
     // by a member access, or is it a direct variable declaration
     // within the class?
     isDefinedByMemberAccess?: boolean;
+
+    // If an "attribute docstring" (as defined in PEP 258) is present...
+    docString?: string | undefined;
 }
 
 // Alias declarations are used for imports. They are resolved
