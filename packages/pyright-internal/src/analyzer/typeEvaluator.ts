@@ -21860,10 +21860,11 @@ export function createTypeEvaluator(
             return true;
         }
 
-        if (isUnion(srcType)) {
+        const expandedSrcType = makeTopLevelTypeVarsConcrete(srcType);
+        if (isUnion(expandedSrcType)) {
             // Start by checking for an exact match. This is needed to handle unions
             // that contain recursive type aliases.
-            if (isTypeSame(srcType, destType)) {
+            if (isTypeSame(expandedSrcType, destType)) {
                 return true;
             }
 
@@ -21872,7 +21873,7 @@ export function createTypeEvaluator(
             if (flags & CanAssignFlags.EnforceInvariance) {
                 if (isUnion(destType)) {
                     const remainingDestSubtypes: Type[] = [];
-                    let remainingSrcSubtypes: Type[] = [...srcType.subtypes];
+                    let remainingSrcSubtypes: Type[] = [...expandedSrcType.subtypes];
                     let isIncompatible = false;
 
                     // First attempt to match all of the non-generic types in the dest
@@ -21950,7 +21951,7 @@ export function createTypeEvaluator(
 
             // For union sources, all of the types need to be assignable to the dest.
             let isIncompatible = false;
-            doForEachSubtype(srcType, (subtype) => {
+            doForEachSubtype(expandedSrcType, (subtype) => {
                 if (
                     !canAssignType(destType, subtype, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)
                 ) {
