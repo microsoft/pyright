@@ -4071,7 +4071,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (isTypeVar(type)) {
+        if (isTypeVar(type) && !type.details.isSynthesized) {
             type = validateTypeVarUsage(node, type, flags);
         }
 
