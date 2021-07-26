@@ -18655,8 +18655,10 @@ export function createTypeEvaluator(
                         );
                     }
                 }
-            } else if (isIsOperator && isPositiveTest) {
-                return undefined;
+            } else if (isPositiveTest) {
+                if (isIsOperator || isNone(subtype)) {
+                    return undefined;
+                }
             }
 
             return subtype;

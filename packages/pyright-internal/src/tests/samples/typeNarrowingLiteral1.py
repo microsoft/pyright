@@ -1,7 +1,7 @@
 # This sample tests the type analyzer's type narrowing
 # logic for literals.
 
-from typing import Literal
+from typing import Literal, Union
 
 
 def requires_a(p1: Literal["a"]):
@@ -39,3 +39,8 @@ def func2(p1: Literal[1, 4, 7]):
         pass
     else:
         requires_7(p1)
+
+
+def func3(a: Union[int, None]):
+    if a == 1 or a == 2:
+        t1: Literal["Literal[1, 2]"] = reveal_type(a)
