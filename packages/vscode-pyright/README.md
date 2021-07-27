@@ -16,6 +16,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * [PEP 561](https://www.python.org/dev/peps/pep-0561/) distributing and packaging type information
 * [PEP 563](https://www.python.org/dev/peps/pep-0563/) postponed evaluation of annotations
+* [PEP 570](https://www.python.org/dev/peps/pep-0570/) position-only parameters
 * [PEP 585](https://www.python.org/dev/peps/pep-0585/) type hinting generics in standard collections
 * [PEP 586](https://www.python.org/dev/peps/pep-0586/) literal types
 * [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
