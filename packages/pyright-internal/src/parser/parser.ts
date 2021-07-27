@@ -2275,7 +2275,7 @@ export class Parser {
         }
 
         while (true) {
-            const identifier = this._getTokenIfIdentifier([KeywordType.Import]);
+            const identifier = this._getTokenIfIdentifier();
             if (!identifier) {
                 if (!allowJustDots || moduleNameNode.leadingDots === 0 || moduleNameNode.nameParts.length > 0) {
                     this._addError(Localizer.Diagnostic.expectedModuleName(), this._peekToken());
@@ -4461,7 +4461,7 @@ export class Parser {
         return (nextToken as OperatorToken).operatorType;
     }
 
-    private _getTokenIfIdentifier(disallowedKeywords: KeywordType[] = []): IdentifierToken | undefined {
+    private _getTokenIfIdentifier(): IdentifierToken | undefined {
         const nextToken = this._peekToken();
         if (nextToken.type === TokenType.Identifier) {
             return this._getNextToken() as IdentifierToken;
@@ -4474,11 +4474,11 @@ export class Parser {
             return IdentifierToken.create(nextToken.start, nextToken.length, '', nextToken.comments);
         }
 
-        // If keywords are allowed in this context, convert the keyword
-        // to an identifier token.
+        // If this is a "soft keyword", it can be converted into an identifier.
         if (nextToken.type === TokenType.Keyword) {
             const keywordType = this._peekKeywordType();
-            if (!disallowedKeywords.find((type) => type === keywordType)) {
+            const softKeywords = [KeywordType.Debug, KeywordType.Match, KeywordType.Case];
+            if (softKeywords.find((type) => type === keywordType)) {
                 const keywordText = this._fileContents!.substr(nextToken.start, nextToken.length);
                 this._getNextToken();
                 return IdentifierToken.create(nextToken.start, nextToken.length, keywordText, nextToken.comments);
