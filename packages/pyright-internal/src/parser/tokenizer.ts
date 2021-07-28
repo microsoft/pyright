@@ -43,46 +43,47 @@ import {
     TokenType,
 } from './tokenizerTypes';
 
-const _keywords: { [key: string]: KeywordType } = {
-    and: KeywordType.And,
-    as: KeywordType.As,
-    assert: KeywordType.Assert,
-    async: KeywordType.Async,
-    await: KeywordType.Await,
-    break: KeywordType.Break,
-    case: KeywordType.Case,
-    class: KeywordType.Class,
-    continue: KeywordType.Continue,
-    __debug__: KeywordType.Debug,
-    def: KeywordType.Def,
-    del: KeywordType.Del,
-    elif: KeywordType.Elif,
-    else: KeywordType.Else,
-    except: KeywordType.Except,
-    finally: KeywordType.Finally,
-    for: KeywordType.For,
-    from: KeywordType.From,
-    global: KeywordType.Global,
-    if: KeywordType.If,
-    import: KeywordType.Import,
-    in: KeywordType.In,
-    is: KeywordType.Is,
-    lambda: KeywordType.Lambda,
-    match: KeywordType.Match,
-    nonlocal: KeywordType.Nonlocal,
-    not: KeywordType.Not,
-    or: KeywordType.Or,
-    pass: KeywordType.Pass,
-    raise: KeywordType.Raise,
-    return: KeywordType.Return,
-    try: KeywordType.Try,
-    while: KeywordType.While,
-    with: KeywordType.With,
-    yield: KeywordType.Yield,
-    False: KeywordType.False,
-    None: KeywordType.None,
-    True: KeywordType.True,
-};
+// This must be a Map, as operations like {}["constructor"] succeed.
+const _keywords: Map<string, KeywordType> = new Map([
+    ['and', KeywordType.And],
+    ['as', KeywordType.As],
+    ['assert', KeywordType.Assert],
+    ['async', KeywordType.Async],
+    ['await', KeywordType.Await],
+    ['break', KeywordType.Break],
+    ['case', KeywordType.Case],
+    ['class', KeywordType.Class],
+    ['continue', KeywordType.Continue],
+    ['__debug__', KeywordType.Debug],
+    ['def', KeywordType.Def],
+    ['del', KeywordType.Del],
+    ['elif', KeywordType.Elif],
+    ['else', KeywordType.Else],
+    ['except', KeywordType.Except],
+    ['finally', KeywordType.Finally],
+    ['for', KeywordType.For],
+    ['from', KeywordType.From],
+    ['global', KeywordType.Global],
+    ['if', KeywordType.If],
+    ['import', KeywordType.Import],
+    ['in', KeywordType.In],
+    ['is', KeywordType.Is],
+    ['lambda', KeywordType.Lambda],
+    ['match', KeywordType.Match],
+    ['nonlocal', KeywordType.Nonlocal],
+    ['not', KeywordType.Not],
+    ['or', KeywordType.Or],
+    ['pass', KeywordType.Pass],
+    ['raise', KeywordType.Raise],
+    ['return', KeywordType.Return],
+    ['try', KeywordType.Try],
+    ['while', KeywordType.While],
+    ['with', KeywordType.With],
+    ['yield', KeywordType.Yield],
+    ['False', KeywordType.False],
+    ['None', KeywordType.None],
+    ['True', KeywordType.True],
+]);
 
 const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.Add]: OperatorFlags.Unary | OperatorFlags.Binary,
@@ -659,9 +660,9 @@ export class Tokenizer {
 
         if (this._cs.position > start) {
             const value = this._cs.getText().substr(start, this._cs.position - start);
-            if (_keywords[value] !== undefined) {
+            if (_keywords.has(value)) {
                 this._tokens.push(
-                    KeywordToken.create(start, this._cs.position - start, _keywords[value], this._getComments())
+                    KeywordToken.create(start, this._cs.position - start, _keywords.get(value)!, this._getComments())
                 );
             } else {
                 this._tokens.push(IdentifierToken.create(start, this._cs.position - start, value, this._getComments()));
