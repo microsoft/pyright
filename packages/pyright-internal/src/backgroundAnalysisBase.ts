@@ -98,8 +98,13 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { executionRoot } });
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
-        this.enqueueRequest({ requestType: 'setFileOpened', data: { filePath, version, contents } });
+    setFileOpened(
+        filePath: string,
+        version: number | null,
+        contents: TextDocumentContentChangeEvent[],
+        isTracked: boolean
+    ) {
+        this.enqueueRequest({ requestType: 'setFileOpened', data: { filePath, version, contents, isTracked } });
     }
 
     setFileClosed(filePath: string) {
@@ -378,8 +383,8 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
             }
 
             case 'setFileOpened': {
-                const { filePath, version, contents } = msg.data;
-                this.program.setFileOpened(filePath, version, contents);
+                const { filePath, version, contents, isTracked } = msg.data;
+                this.program.setFileOpened(filePath, version, contents, isTracked);
                 break;
             }
 

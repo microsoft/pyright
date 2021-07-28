@@ -72,6 +72,7 @@ export const pyprojectTomlName = 'pyproject.toml';
 const _userActivityBackoffTimeInMs = 250;
 
 const _gitDirectory = normalizeSlashes('/.git/');
+const _includeFileRegex = /\.pyi?$/;
 
 export class AnalyzerService {
     private _instanceName: string;
@@ -202,12 +203,12 @@ export class AnalyzerService {
     }
 
     setFileOpened(path: string, version: number | null, contents: string) {
-        this._backgroundAnalysisProgram.setFileOpened(path, version, contents);
+        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, this._isTracked(path));
         this._scheduleReanalysis(false);
     }
 
     updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
-        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents);
+        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, this._isTracked(path));
         this._scheduleReanalysis(false);
     }
 
@@ -1017,12 +1018,7 @@ export class AnalyzerService {
         this._requireTrackedFileUpdate = false;
     }
 
-    private _isInExcludePath(path: string, excludePaths: FileSpec[]) {
-        return !!excludePaths.find((excl) => excl.regExp.test(path));
-    }
-
     private _matchFiles(include: FileSpec[], exclude: FileSpec[]): string[] {
-        const includeFileRegex = /\.pyi?$/;
         const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
         const results: string[] = [];
         const startTime = Date.now();
@@ -1064,10 +1060,8 @@ export class AnalyzerService {
             for (const file of files) {
                 const filePath = combinePaths(absolutePath, file);
 
-                if (includeRegExp.test(filePath)) {
-                    if (!this._isInExcludePath(filePath, exclude) && includeFileRegex.test(filePath)) {
-                        results.push(filePath);
-                    }
+                if (this._matchIncludeFileSpec(includeRegExp, exclude, filePath)) {
+                    results.push(filePath);
                 }
             }
 
@@ -1108,7 +1102,7 @@ export class AnalyzerService {
 
                 const stat = tryStat(this._fs, includeSpec.wildcardRoot);
                 if (stat?.isFile()) {
-                    if (includeFileRegex.test(includeSpec.wildcardRoot)) {
+                    if (this._shouldIncludeFile(includeSpec.wildcardRoot)) {
                         results.push(includeSpec.wildcardRoot);
                         foundFileSpec = true;
                     }
@@ -1449,5 +1443,33 @@ export class AnalyzerService {
                 elapsedTime: 0,
             });
         }
+    }
+
+    private _shouldIncludeFile(filePath: string) {
+        return _includeFileRegex.test(filePath);
+    }
+
+    private _isInExcludePath(path: string, excludePaths: FileSpec[]) {
+        return !!excludePaths.find((excl) => excl.regExp.test(path));
+    }
+
+    private _matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], filePath: string) {
+        if (includeRegExp.test(filePath)) {
+            if (!this._isInExcludePath(filePath, exclude) && this._shouldIncludeFile(filePath)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private _isTracked(filePath: string): boolean {
+        for (const includeSpec of this._configOptions.include) {
+            if (this._matchIncludeFileSpec(includeSpec.regExp, this._configOptions.exclude, filePath)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

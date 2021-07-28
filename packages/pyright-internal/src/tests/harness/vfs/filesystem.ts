@@ -8,6 +8,7 @@
 
 /* eslint-disable no-dupe-class-members */
 import { Dirent, ReadStream, WriteStream } from 'fs';
+import { URI } from 'vscode-uri';
 
 import { FileSystem, FileWatcher, FileWatcherEventHandler, TmpfileOptions } from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
@@ -337,6 +338,24 @@ export class TestFileSystem implements FileSystem {
 
     realCasePath(path: string): string {
         return path;
+    }
+
+    isMappedFilePath(filepath: string): boolean {
+        return false;
+    }
+
+    // Get original filepath if the given filepath is mapped.
+    getOriginalFilePath(mappedFilePath: string) {
+        return mappedFilePath;
+    }
+
+    // Get mapped filepath if the given filepath is mapped.
+    getMappedFilePath(originalFilepath: string) {
+        return originalFilepath;
+    }
+
+    getUri(path: string): string {
+        return URI.file(path).toString();
     }
 
     private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {
