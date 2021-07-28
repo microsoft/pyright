@@ -8606,9 +8606,11 @@ export function createTypeEvaluator(
             ) {
                 const typeParams = type.strippedFirstParamType.details.typeParameters;
                 type.strippedFirstParamType.typeArguments.forEach((typeArg, index) => {
-                    const typeParam = typeParams[index];
-                    if (!isTypeSame(typeParam, typeArg, /* ignorePseudoGeneric */ true)) {
-                        typeVarMap.setTypeVarType(typeParams[index], typeArg);
+                    if (index < typeParams.length) {
+                        const typeParam = typeParams[index];
+                        if (!isTypeSame(typeParam, typeArg, /* ignorePseudoGeneric */ true)) {
+                            typeVarMap.setTypeVarType(typeParams[index], typeArg);
+                        }
                     }
                 });
             }

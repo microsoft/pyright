@@ -313,33 +313,37 @@ export class Checker extends ParseTreeWalker {
 
                 // Allow unknown param types if the param is named '_'.
                 if (param.name && param.name.value !== '_') {
-                    const paramType = functionTypeResult.functionType.details.parameters[index].type;
-                    if (
-                        isUnknown(paramType) ||
-                        (isTypeVar(paramType) &&
-                            paramType.details.isSynthesized &&
-                            !paramType.details.isSynthesizedSelfCls)
-                    ) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
-                            DiagnosticRule.reportUnknownParameterType,
-                            Localizer.Diagnostic.paramTypeUnknown().format({ paramName: param.name.value }),
-                            param.name
-                        );
-                    } else if (isPartlyUnknown(paramType)) {
-                        const diagAddendum = new DiagnosticAddendum();
-                        diagAddendum.addMessage(
-                            Localizer.DiagnosticAddendum.paramType().format({
-                                paramType: this._evaluator.printType(paramType, /* expandTypeAlias */ true),
-                            })
-                        );
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
-                            DiagnosticRule.reportUnknownParameterType,
-                            Localizer.Diagnostic.paramTypePartiallyUnknown().format({ paramName: param.name.value }) +
-                                diagAddendum.getString(),
-                            param.name
-                        );
+                    if (index < functionTypeResult.functionType.details.parameters.length) {
+                        const paramType = functionTypeResult.functionType.details.parameters[index].type;
+
+                        if (
+                            isUnknown(paramType) ||
+                            (isTypeVar(paramType) &&
+                                paramType.details.isSynthesized &&
+                                !paramType.details.isSynthesizedSelfCls)
+                        ) {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
+                                DiagnosticRule.reportUnknownParameterType,
+                                Localizer.Diagnostic.paramTypeUnknown().format({ paramName: param.name.value }),
+                                param.name
+                            );
+                        } else if (isPartlyUnknown(paramType)) {
+                            const diagAddendum = new DiagnosticAddendum();
+                            diagAddendum.addMessage(
+                                Localizer.DiagnosticAddendum.paramType().format({
+                                    paramType: this._evaluator.printType(paramType, /* expandTypeAlias */ true),
+                                })
+                            );
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
+                                DiagnosticRule.reportUnknownParameterType,
+                                Localizer.Diagnostic.paramTypePartiallyUnknown().format({
+                                    paramName: param.name.value,
+                                }) + diagAddendum.getString(),
+                                param.name
+                            );
+                        }
                     }
                 }
 
