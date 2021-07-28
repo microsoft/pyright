@@ -87,14 +87,19 @@ export class BackgroundAnalysisProgram {
         this._program.setAllowedThirdPartyImports(importNames);
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: string) {
-        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }]);
-        this._program.setFileOpened(filePath, version, [{ text: contents }]);
+    setFileOpened(filePath: string, version: number | null, contents: string, isTracked: boolean) {
+        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }], isTracked);
+        this._program.setFileOpened(filePath, version, [{ text: contents }], isTracked);
     }
 
-    updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
-        this._backgroundAnalysis?.setFileOpened(path, version, contents);
-        this._program.setFileOpened(path, version, contents);
+    updateOpenFileContents(
+        path: string,
+        version: number | null,
+        contents: TextDocumentContentChangeEvent[],
+        isTracked: boolean
+    ) {
+        this._backgroundAnalysis?.setFileOpened(path, version, contents, isTracked);
+        this._program.setFileOpened(path, version, contents, isTracked);
         this.markFilesDirty([path], true);
     }
 

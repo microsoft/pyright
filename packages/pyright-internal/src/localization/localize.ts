@@ -85,7 +85,17 @@ function initialize(): StringLookupMap {
     return loadStringsForLocale(currentLocale);
 }
 
+declare let navigator: { language: string } | undefined;
+
 function getLocaleFromEnv() {
+    try {
+        if (navigator?.language) {
+            return navigator.language.toLowerCase();
+        }
+    } catch {
+        // Fall through
+    }
+
     const env = process.env;
 
     // Start with the VSCode environment variables.

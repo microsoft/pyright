@@ -73,6 +73,17 @@ export interface FileSystem {
 
     // Return path in casing on OS.
     realCasePath(path: string): string;
+
+    // See whether the file is mapped to another location.
+    isMappedFilePath(filepath: string): boolean;
+
+    // Get original filepath if the given filepath is mapped.
+    getOriginalFilePath(mappedFilePath: string): string;
+
+    // Get mapped filepath if the given filepath is mapped.
+    getMappedFilePath(originalFilepath: string): string;
+
+    getUri(path: string): string;
 }
 
 // File watchers can give "changed" event even for a file open. but for those cases,
@@ -110,3 +121,35 @@ export const nullFileWatcherProvider: FileWatcherProvider = {
         // do nothing
     },
 };
+
+export class VirtualDirent implements fs.Dirent {
+    constructor(public name: string, public _file: boolean) {}
+
+    isFile(): boolean {
+        return this._file;
+    }
+
+    isDirectory(): boolean {
+        return !this._file;
+    }
+
+    isBlockDevice(): boolean {
+        return false;
+    }
+
+    isCharacterDevice(): boolean {
+        return false;
+    }
+
+    isSymbolicLink(): boolean {
+        return false;
+    }
+
+    isFIFO(): boolean {
+        return false;
+    }
+
+    isSocket(): boolean {
+        return false;
+    }
+}

@@ -12,7 +12,6 @@ import * as path from 'path';
 import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
 
-import { PyrightFileSystem } from '../pyrightFileSystem';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import { randomBytesHex } from './crypto';
@@ -874,27 +873,24 @@ function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSyst
 }
 
 export function convertUriToPath(fs: FileSystem, uriString: string): string {
+    return fs.getMappedFilePath(extractPathFromUri(uriString));
+}
+
+export function extractPathFromUri(uriString: string) {
     const uri = URI.parse(uriString);
     let convertedPath = normalizePath(uri.path);
+
     // If this is a DOS-style path with a drive letter, remove
     // the leading slash.
     if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
         convertedPath = convertedPath.substr(1);
     }
 
-    if (fs instanceof PyrightFileSystem) {
-        return fs.getMappedFilePath(convertedPath);
-    }
-
     return convertedPath;
 }
 
 export function convertPathToUri(fs: FileSystem, path: string): string {
-    if (fs instanceof PyrightFileSystem) {
-        path = fs.getOriginalFilePath(path);
-    }
-
-    return URI.file(path).toString();
+    return fs.getUri(fs.getOriginalFilePath(path));
 }
 
 // For file systems that are case-insensitive, returns a lowercase

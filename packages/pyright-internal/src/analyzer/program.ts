@@ -265,7 +265,12 @@ export class Program {
         return sourceFile;
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
+    setFileOpened(
+        filePath: string,
+        version: number | null,
+        contents: TextDocumentContentChangeEvent[],
+        isTracked = false
+    ) {
         let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
@@ -280,7 +285,7 @@ export class Program {
             );
             sourceFileInfo = {
                 sourceFile,
-                isTracked: false,
+                isTracked: isTracked,
                 isOpenByClient: true,
                 isTypeshedFile: false,
                 isThirdPartyImport: false,

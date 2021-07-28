@@ -8,6 +8,7 @@ import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipOpenFS 
 import { getLibzipSync } from '@yarnpkg/libzip';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
+import { URI } from 'vscode-uri';
 
 import { WorkspaceMap } from '../workspaceMap';
 import { ConsoleInterface, NullConsole } from './console';
@@ -341,6 +342,22 @@ class RealFileSystem implements FileSystem {
 
             return path;
         }
+    }
+
+    isMappedFilePath(filepath: string): boolean {
+        return false;
+    }
+
+    getOriginalFilePath(mappedFilePath: string) {
+        return mappedFilePath;
+    }
+
+    getMappedFilePath(originalFilepath: string) {
+        return originalFilepath;
+    }
+
+    getUri(path: string): string {
+        return URI.file(path).toString();
     }
 }
 
