@@ -155,7 +155,8 @@ export class Program {
         initialConfigOptions: ConfigOptions,
         console?: ConsoleInterface,
         private _extension?: LanguageServiceExtension,
-        logTracker?: LogTracker
+        logTracker?: LogTracker,
+        private _disableChecker?: boolean
     ) {
         this._console = console || new StandardConsole();
         this._logTracker = logTracker ?? new LogTracker(console, 'FG');
@@ -376,6 +377,10 @@ export class Program {
 
     getFilesToAnalyzeCount() {
         let sourceFileCount = 0;
+
+        if (this._disableChecker) {
+            return sourceFileCount;
+        }
 
         this._sourceFileList.forEach((fileInfo) => {
             if (fileInfo.sourceFile.isCheckingRequired()) {
@@ -884,7 +889,9 @@ export class Program {
                 }
             }
 
-            fileToCheck.sourceFile.check(this._evaluator!);
+            if (!this._disableChecker) {
+                fileToCheck.sourceFile.check(this._evaluator!);
+            }
 
             // For very large programs, we may need to discard the evaluator and
             // its cached types to avoid running out of heap space.

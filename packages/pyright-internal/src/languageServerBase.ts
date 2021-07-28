@@ -144,6 +144,7 @@ export interface ServerOptions {
     cancellationProvider: CancellationProvider;
     extension?: LanguageServiceExtension;
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
+    disableChecker?: boolean;
     supportedCommands?: string[];
     supportedCodeActions?: string[];
 }
@@ -207,7 +208,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     readonly console: ConsoleInterface;
 
-    constructor(private _serverOptions: ServerOptions, protected _connection: Connection) {
+    constructor(protected _serverOptions: ServerOptions, protected _connection: Connection) {
         // Stash the base directory into a global variable.
         // This must happen before fs.getModulePath().
         (global as any).__rootDirectory = _serverOptions.rootDirectory;

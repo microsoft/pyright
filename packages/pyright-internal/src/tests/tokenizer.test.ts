@@ -1487,3 +1487,15 @@ test('TypeIgnoreLine2', () => {
     assert.equal(results.tokens.contains(41), true);
     assert.equal(results.tokens.contains(42), false);
 });
+
+test('Constructor', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('def constructor');
+    assert.equal(results.tokens.count, 2 + _implicitTokenCount);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Keyword);
+    assert.equal(results.tokens.getItemAt(0).length, 3);
+
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(1).length, 11);
+});
