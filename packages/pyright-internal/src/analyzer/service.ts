@@ -1025,8 +1025,33 @@ export class AnalyzerService {
         const includeFileRegex = /\.pyi?$/;
         const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
         const results: string[] = [];
+        const startTime = Date.now();
+        const longOperationLimitInSec = 10;
+        let loggedLongOperationError = false;
 
         const visitDirectoryUnchecked = (absolutePath: string, includeRegExp: RegExp) => {
+            if (!loggedLongOperationError) {
+                const secondsSinceStart = (Date.now() - startTime) * 0.001;
+
+                // If this is taking a long time, log an error to help the user
+                // diagnose and mitigate the problem.
+                if (secondsSinceStart >= longOperationLimitInSec) {
+                    this._console.error(
+                        `Enumeration of workspace source files is taking longer than ${longOperationLimitInSec} seconds.\n` +
+                            'This may be because:\n' +
+                            '* You have opened your home directory or entire hard drive as a workspace\n' +
+                            '* Your workspace contains a very large number of directories and files\n' +
+                            '* Your workspace contains a symlink to a directory with many files\n' +
+                            '* Your workspace is remote, and file enumeration is slow\n' +
+                            'To reduce this time, open a workspace directory with fewer files ' +
+                            'or add a pyrightconfig.json configuration file with an "exclude" section to exclude ' +
+                            'subdirectories from your workspace. For more details, refer to ' +
+                            'https://github.com/microsoft/pyright/blob/main/docs/configuration.md.'
+                    );
+                    loggedLongOperationError = true;
+                }
+            }
+
             if (this._configOptions.autoExcludeVenv) {
                 if (envMarkers.some((f) => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
                     this._console.info(`Auto-excluding ${absolutePath}`);
