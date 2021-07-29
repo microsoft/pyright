@@ -343,6 +343,8 @@ export namespace Localizer {
         export const expectedSliceIndex = () => getRawString('Diagnostic.expectedSliceIndex');
         export const expectedTypeNotString = () => getRawString('Diagnostic.expectedTypeNotString');
         export const expectedYieldExpr = () => getRawString('Diagnostic.expectedYieldExpr');
+        export const finalClassIsAbstract = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.finalClassIsAbstract'));
         export const finalContext = () => getRawString('Diagnostic.finalContext');
         export const finalMethodOverride = () =>
             new ParameterizedString<{ name: string; className: string }>(

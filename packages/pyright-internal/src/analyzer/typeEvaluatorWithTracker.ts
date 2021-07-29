@@ -104,6 +104,7 @@ export function createTypeEvaluatorWithTracker(
             run('getCallSignatureInfo', () => typeEvaluator.getCallSignatureInfo(n, i, a), n),
         getTypeAnnotationForParameter: (n, p) =>
             run('getTypeAnnotationForParameter', () => typeEvaluator.getTypeAnnotationForParameter(n, p), n),
+        getAbstractMethods: (c) => run('getAbstractMethods', () => typeEvaluator.getAbstractMethods(c), c),
         canAssignType: (d, s, a, m, f) => run('canAssignType', () => typeEvaluator.canAssignType(d, s, a, m, f), d),
         canOverrideMethod: (b, o, d, e) =>
             run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d, e), o),

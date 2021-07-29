@@ -133,6 +133,7 @@
         "expectedSliceIndex": "Expected index or slice expression",
         "expectedTypeNotString": "Expected type but received a string literal",
         "expectedYieldExpr": "Expected expression in yield statement",
+        "finalClassIsAbstract": "Class \"{type}\" is marked final and must implement all abstract methods",
         "finalContext": "\"Final\" not allowed in this context",
         "finalMethodOverride": "Method \"{name}\" cannot override final method defined in class \"{className}\"",
         "finalReassigned": "\"{name}\" is declared as Final and cannot be reassigned",

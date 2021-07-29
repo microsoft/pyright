@@ -638,6 +638,7 @@ export interface TypeEvaluator {
     ) => FunctionType | OverloadedFunctionType | undefined;
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getTypeAnnotationForParameter: (node: FunctionNode, paramIndex: number) => ExpressionNode | undefined;
+    getAbstractMethods: (classType: ClassType) => AbstractMethod[];
 
     canAssignType: (
         destType: Type,
@@ -24162,6 +24163,7 @@ export function createTypeEvaluator(
         bindFunctionToClassOrObject,
         getCallSignatureInfo,
         getTypeAnnotationForParameter,
+        getAbstractMethods,
         canAssignType,
         canOverrideMethod,
         canAssignProtocolClassToSelf,

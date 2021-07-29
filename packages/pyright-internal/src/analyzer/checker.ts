@@ -262,6 +262,8 @@ export class Checker extends ParseTreeWalker {
 
             this._validateInstanceVariableInitialization(classTypeResult.classType);
 
+            this._validateFinalClassNotAbstract(classTypeResult.classType, node);
+
             if (ClassType.isTypedDictClass(classTypeResult.classType)) {
                 this._validateTypedDictClassSuite(node.suite);
             }
@@ -2837,6 +2839,51 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         });
+    }
+
+    // If a class is marked final, it must implement all abstract methods,
+    // otherwise it is of no use.
+    private _validateFinalClassNotAbstract(classType: ClassType, errorNode: ClassNode) {
+        if (!ClassType.isFinal(classType)) {
+            return;
+        }
+
+        if (!ClassType.hasAbstractMethods(classType)) {
+            return;
+        }
+
+        const abstractMethods = this._evaluator.getAbstractMethods(classType);
+        const diagAddendum = new DiagnosticAddendum();
+        const errorsToDisplay = 2;
+
+        abstractMethods.forEach((abstractMethod, index) => {
+            if (index === errorsToDisplay) {
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                        count: abstractMethods.length - errorsToDisplay,
+                    })
+                );
+            } else if (index < errorsToDisplay) {
+                if (isInstantiableClass(abstractMethod.classType)) {
+                    const className = abstractMethod.classType.details.name;
+                    diagAddendum.addMessage(
+                        Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                            type: className,
+                            name: abstractMethod.symbolName,
+                        })
+                    );
+                }
+            }
+        });
+
+        this._evaluator.addDiagnostic(
+            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.finalClassIsAbstract().format({
+                type: classType.details.name,
+            }) + diagAddendum.getString(),
+            errorNode.name
+        );
     }
 
     // Reports the case where an instance variable is not declared or initialized
