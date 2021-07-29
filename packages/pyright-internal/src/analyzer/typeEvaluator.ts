@@ -17817,7 +17817,13 @@ export function createTypeEvaluator(
                                                 ClassType.cloneAsInstantiable(subtype)
                                             );
                                             if (adjIsPositiveTest) {
-                                                return matches ? ClassType.cloneAsInstance(classType) : undefined;
+                                                if (matches) {
+                                                    if (ClassType.isSameGenericClass(subtype, classType)) {
+                                                        return subtype;
+                                                    }
+                                                    return ClassType.cloneAsInstance(classType);
+                                                }
+                                                return undefined;
                                             } else {
                                                 // We can't eliminate the subtype in the negative
                                                 // case because it could be a subclass of the type,
