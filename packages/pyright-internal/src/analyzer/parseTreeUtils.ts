@@ -807,6 +807,15 @@ export function isFinalAllowedForAssignmentTarget(targetNode: ExpressionNode): b
     return false;
 }
 
+export function isClassVarAllowedForAssignmentTarget(targetNode: ExpressionNode): boolean {
+    const classNode = getEnclosingClass(targetNode, /* stopAtFunction */ true);
+    if (!classNode) {
+        return false;
+    }
+
+    return true;
+}
+
 export function isNodeContainedWithin(node: ParseNode, potentialContainer: ParseNode): boolean {
     let curNode: ParseNode | undefined = node;
     while (curNode) {

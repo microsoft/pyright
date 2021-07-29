@@ -222,13 +222,14 @@ export namespace Localizer {
         export const callableFirstArg = () => getRawString('Diagnostic.callableFirstArg');
         export const callableSecondArg = () => getRawString('Diagnostic.callableSecondArg');
         export const casePatternIsIrrefutable = () => getRawString('Diagnostic.casePatternIsIrrefutable');
-        export const classMethodClsParam = () => getRawString('Diagnostic.classMethodClsParam');
-        export const classNotRuntimeSubscriptable = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classNotRuntimeSubscriptable'));
         export const classDecoratorTypeUnknown = () => getRawString('Diagnostic.classDecoratorTypeUnknown');
         export const classDefinitionCycle = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classDefinitionCycle'));
         export const classGetItemClsParam = () => getRawString('Diagnostic.classGetItemClsParam');
+        export const classMethodClsParam = () => getRawString('Diagnostic.classMethodClsParam');
+        export const classNotRuntimeSubscriptable = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classNotRuntimeSubscriptable'));
+        export const classVarNotAllowed = () => getRawString('Diagnostic.classVarNotAllowed');
         export const classVarFirstArgMissing = () => getRawString('Diagnostic.classVarFirstArgMissing');
         export const classVarOverridesInstanceVar = () =>
             new ParameterizedString<{ name: string; className: string }>(

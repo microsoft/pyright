@@ -417,6 +417,9 @@ export const enum EvaluatorFlags {
     // Emit an error if an incomplete recursive type alias is
     // used in this context.
     DisallowRecursiveTypeAliasPlaceholder = 1 << 16,
+
+    // 'ClassVar' is not allowed in this context.
+    ClassVarDisallowed = 1 << 17,
 }
 
 interface EvaluatorUsage {
@@ -1374,6 +1377,7 @@ export function createTypeEvaluator(
         options?: {
             isVariableAnnotation?: boolean;
             allowFinal?: boolean;
+            allowClassVar?: boolean;
             associateTypeVarsWithScope?: boolean;
             allowTypeVarTuple?: boolean;
             disallowRecursiveTypeAlias?: boolean;
@@ -1403,6 +1407,10 @@ export function createTypeEvaluator(
 
         if (!options?.allowFinal) {
             evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
+        }
+
+        if (!options?.allowClassVar) {
+            evaluatorFlags |= EvaluatorFlags.ClassVarDisallowed;
         }
 
         if (!options?.allowTypeVarTuple) {
@@ -2255,6 +2263,7 @@ export function createTypeEvaluator(
                                 getTypeOfAnnotation((statement.leftExpression as TypeAnnotationNode).typeAnnotation, {
                                     isVariableAnnotation: true,
                                     allowFinal: true,
+                                    allowClassVar: true,
                                 });
                         }
 
@@ -2310,6 +2319,7 @@ export function createTypeEvaluator(
                                 getTypeOfAnnotation(statement.typeAnnotation, {
                                     isVariableAnnotation: true,
                                     allowFinal: true,
+                                    allowClassVar: true,
                                 });
                         }
                     }
@@ -6034,13 +6044,14 @@ export function createTypeEvaluator(
         hasCustomClassGetItem = false
     ): TypeResult[] {
         const typeArgs: TypeResult[] = [];
-        const adjFlags =
+        let adjFlags =
             flags &
             ~(
                 EvaluatorFlags.DoNotSpecialize |
                 EvaluatorFlags.ParamSpecDisallowed |
                 EvaluatorFlags.TypeVarTupleDisallowed
             );
+        adjFlags |= EvaluatorFlags.ClassVarDisallowed;
 
         // Create a local function that validates a single type argument.
         const getTypeArgTypeResult = (expr: ExpressionNode, argIndex: number) => {
@@ -6055,7 +6066,8 @@ export function createTypeEvaluator(
                     /* expectedType */ undefined,
                     EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed |
-                        EvaluatorFlags.DoNotSpecialize
+                        EvaluatorFlags.DoNotSpecialize |
+                        EvaluatorFlags.ClassVarDisallowed
                 );
             } else {
                 typeResult = getTypeArg(expr, adjFlags);
@@ -6112,7 +6124,8 @@ export function createTypeEvaluator(
             EvaluatorFlags.ExpectingTypeAnnotation |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
-            EvaluatorFlags.FinalDisallowed;
+            EvaluatorFlags.FinalDisallowed |
+            EvaluatorFlags.ClassVarDisallowed;
 
         const fileInfo = getFileInfo(node);
         if (fileInfo.isStubFile) {
@@ -6130,6 +6143,11 @@ export function createTypeEvaluator(
 
             // "Protocol" is not allowed as a type argument.
             if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'Protocol')) {
+                addError(Localizer.Diagnostic.protocolNotAllowedInTypeArgument(), node);
+            }
+
+            // "ClassVar" is not allowed as a type argument.
+            if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ClassVar')) {
                 addError(Localizer.Diagnostic.protocolNotAllowedInTypeArgument(), node);
             }
         }
@@ -11931,7 +11949,12 @@ export function createTypeEvaluator(
     }
 
     // Creates a ClassVar type.
-    function createClassVarType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
+    function createClassVarType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
+        if (flags & EvaluatorFlags.ClassVarDisallowed) {
+            addError(Localizer.Diagnostic.classVarNotAllowed(), errorNode);
+            return AnyType.create();
+        }
+
         if (!typeArgs || typeArgs.length === 0) {
             addError(Localizer.Diagnostic.classVarFirstArgMissing(), errorNode);
             return UnknownType.create();
@@ -16367,6 +16390,7 @@ export function createTypeEvaluator(
                 const annotationType = getTypeOfAnnotation(node.typeAnnotation, {
                     isVariableAnnotation: true,
                     allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.valueExpression),
+                    allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(node.valueExpression),
                 });
                 if (annotationType) {
                     writeTypeCache(node.valueExpression, annotationType, /* isIncomplete */ false);
@@ -18836,7 +18860,7 @@ export function createTypeEvaluator(
                 }
 
                 case 'ClassVar': {
-                    return createClassVarType(errorNode, typeArgs);
+                    return createClassVarType(errorNode, typeArgs, flags);
                 }
 
                 case 'Protocol': {
@@ -19071,7 +19095,8 @@ export function createTypeEvaluator(
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ParamSpecDisallowed |
-            EvaluatorFlags.TypeVarTupleDisallowed;
+            EvaluatorFlags.TypeVarTupleDisallowed |
+            EvaluatorFlags.ClassVarDisallowed;
 
         const fileInfo = getFileInfo(node);
         if (fileInfo.isStubFile) {
@@ -19511,7 +19536,12 @@ export function createTypeEvaluator(
                     const typeAliasNode = isDeclaredTypeAlias(typeAnnotationNode)
                         ? ParseTreeUtils.getTypeAnnotationNode(typeAnnotationNode)
                         : undefined;
-                    let declaredType = getTypeOfAnnotation(typeAnnotationNode, { isVariableAnnotation: true });
+                    let declaredType = getTypeOfAnnotation(typeAnnotationNode, {
+                        isVariableAnnotation: true,
+                        allowClassVar:
+                            !declaration.isFinal &&
+                            ParseTreeUtils.isClassVarAllowedForAssignmentTarget(declaration.node),
+                    });
 
                     if (declaredType) {
                         // Apply enum transform if appropriate.

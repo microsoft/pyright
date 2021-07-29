@@ -44,6 +44,7 @@
         "classGetItemClsParam": "__class_getitem__ override should take a \"cls\" parameter",
         "classMethodClsParam": "Class methods should take a \"cls\" parameter",
         "classNotRuntimeSubscriptable": "Subscript for class \"{name}\" will generate runtime exception; enclose type annotation in quotes",
+        "classVarNotAllowed": "\"ClassVar\" is not allowed in this context",
         "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
         "classVarOverridesInstanceVar": "Class variable \"{name}\" overrides instance variable of same name in class \"{className}\"",
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
