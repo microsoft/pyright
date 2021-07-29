@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of generic protocol types.
 
-from typing import TypeVar, Protocol
+from typing import List, TypeVar, Protocol
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -69,3 +69,8 @@ another_var2: NotProto2 = NotProto2()
 
 # This should generate an error because T is invariant.
 var = another_var2
+
+
+# This should generate an error because "Protocol" cannot be used
+# as a type argument.
+var2: List[Protocol] = []

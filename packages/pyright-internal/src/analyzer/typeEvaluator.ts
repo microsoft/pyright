@@ -6126,6 +6126,11 @@ export function createTypeEvaluator(
             };
         } else {
             typeResult = getTypeOfExpression(node, /* expectedType */ undefined, adjustedFlags);
+
+            // "Protocol" is not allowed as a type argument.
+            if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'Protocol')) {
+                addError(Localizer.Diagnostic.protocolNotAllowedInTypeArgument(), node);
+            }
         }
 
         return typeResult;

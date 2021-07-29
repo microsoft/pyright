@@ -282,6 +282,7 @@
         "protectedUsedOutsideOfClass": "\"{name}\" is protected and used outside of the class in which it is declared",
         "protocolBaseClass": "Protocol class \"{classType}\" cannot derive from non-protocol class \"{baseType}\"",
         "protocolIllegal": "Use of \"Protocol\" requires Python 3.7 or newer",
+        "protocolNotAllowedInTypeArgument": "\"Protocol\" cannot be used as a type argument",
         "protocolVarianceContravariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be contravariant",
         "protocolVarianceCovariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be covariant",
         "protocolVarianceInvariant": "Type variable \"{variable}\" used in generic protocol \"{class}\" should be invariant",
