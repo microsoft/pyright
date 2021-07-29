@@ -518,31 +518,31 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
 // are not subscriptable at runtime on older versions of Python.
 // It lists the first version of Python where subscripting is
 // allowed.
-const nonSubscriptableBuiltinTypes: { [builtinName: string]: PythonVersion } = {
-    'asyncio.futures.Future': PythonVersion.V3_9,
-    'builtins.dict': PythonVersion.V3_9,
-    'builtins.frozenset': PythonVersion.V3_9,
-    'builtins.list': PythonVersion.V3_9,
-    'builtins._PathLike': PythonVersion.V3_9,
-    'builtins.set': PythonVersion.V3_9,
-    'builtins.tuple': PythonVersion.V3_9,
-    'collections.ChainMap': PythonVersion.V3_9,
-    'collections.Counter': PythonVersion.V3_9,
-    'collections.defaultdict': PythonVersion.V3_9,
-    'collections.DefaultDict': PythonVersion.V3_9,
-    'collections.deque': PythonVersion.V3_9,
-    'collections.OrderedDict': PythonVersion.V3_9,
-    'queue.Queue': PythonVersion.V3_9,
-};
+const nonSubscriptableBuiltinTypes: Map<string, PythonVersion> = new Map([
+    ['asyncio.futures.Future', PythonVersion.V3_9],
+    ['builtins.dict', PythonVersion.V3_9],
+    ['builtins.frozenset', PythonVersion.V3_9],
+    ['builtins.list', PythonVersion.V3_9],
+    ['builtins._PathLike', PythonVersion.V3_9],
+    ['builtins.set', PythonVersion.V3_9],
+    ['builtins.tuple', PythonVersion.V3_9],
+    ['collections.ChainMap', PythonVersion.V3_9],
+    ['collections.Counter', PythonVersion.V3_9],
+    ['collections.defaultdict', PythonVersion.V3_9],
+    ['collections.DefaultDict', PythonVersion.V3_9],
+    ['collections.deque', PythonVersion.V3_9],
+    ['collections.OrderedDict', PythonVersion.V3_9],
+    ['queue.Queue', PythonVersion.V3_9],
+]);
 
 // Some types that do not inherit from others are still considered
 // "compatible" based on the Python spec. These are sometimes referred
 // to as "type promotions".
-const typePromotions: { [destType: string]: string[] } = {
-    'builtins.float': ['builtins.int'],
-    'builtins.complex': ['builtins.float', 'builtins.int'],
-    'builtins.bytes': ['builtins.bytearray', 'builtins.memoryview'],
-};
+const typePromotions: Map<string, string[]> = new Map([
+    ['builtins.float', ['builtins.int']],
+    ['builtins.complex', ['builtins.float', 'builtins.int']],
+    ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
+]);
 
 // PEP 634 indicates that several built-in classes are handled differently
 // when used with class pattern matching.
@@ -5311,7 +5311,7 @@ export function createTypeEvaluator(
                     ClassType.isBuiltIn(baseTypeResult.type) &&
                     !baseTypeResult.type.aliasName
                 ) {
-                    const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
+                    const minPythonVersion = nonSubscriptableBuiltinTypes.get(baseTypeResult.type.details.fullName);
                     if (
                         minPythonVersion !== undefined &&
                         fileInfo.executionEnvironment.pythonVersion < minPythonVersion &&
@@ -12455,28 +12455,28 @@ export function createTypeEvaluator(
         const nameNode = node.parent.valueExpression;
         const assignedName = nameNode.value;
 
-        const specialTypes: { [name: string]: AliasMapEntry } = {
-            Tuple: { alias: 'tuple', module: 'builtins' },
-            Generic: { alias: '', module: 'builtins' },
-            Protocol: { alias: '', module: 'builtins' },
-            Callable: { alias: '', module: 'builtins' },
-            Type: { alias: 'type', module: 'builtins' },
-            ClassVar: { alias: '', module: 'builtins' },
-            Final: { alias: '', module: 'builtins' },
-            Literal: { alias: '', module: 'builtins' },
-            TypedDict: { alias: '_TypedDict', module: 'self' },
-            Union: { alias: '', module: 'builtins' },
-            Optional: { alias: '', module: 'builtins' },
-            Annotated: { alias: '', module: 'builtins' },
-            TypeAlias: { alias: '', module: 'builtins' },
-            Concatenate: { alias: '', module: 'builtins' },
-            TypeGuard: { alias: '', module: 'builtins' },
-            Unpack: { alias: '', module: 'builtins' },
-            Required: { alias: '', module: 'builtins' },
-            NotRequired: { alias: '', module: 'builtins' },
-        };
+        const specialTypes: Map<string, AliasMapEntry> = new Map([
+            ['Tuple', { alias: 'tuple', module: 'builtins' }],
+            ['Generic', { alias: '', module: 'builtins' }],
+            ['Protocol', { alias: '', module: 'builtins' }],
+            ['Callable', { alias: '', module: 'builtins' }],
+            ['Type', { alias: 'type', module: 'builtins' }],
+            ['ClassVar', { alias: '', module: 'builtins' }],
+            ['Final', { alias: '', module: 'builtins' }],
+            ['Literal', { alias: '', module: 'builtins' }],
+            ['TypedDict', { alias: '_TypedDict', module: 'self' }],
+            ['Union', { alias: '', module: 'builtins' }],
+            ['Optional', { alias: '', module: 'builtins' }],
+            ['Annotated', { alias: '', module: 'builtins' }],
+            ['TypeAlias', { alias: '', module: 'builtins' }],
+            ['Concatenate', { alias: '', module: 'builtins' }],
+            ['TypeGuard', { alias: '', module: 'builtins' }],
+            ['Unpack', { alias: '', module: 'builtins' }],
+            ['Required', { alias: '', module: 'builtins' }],
+            ['NotRequired', { alias: '', module: 'builtins' }],
+        ]);
 
-        const aliasMapEntry = specialTypes[assignedName];
+        const aliasMapEntry = specialTypes.get(assignedName);
         if (aliasMapEntry) {
             const cachedType = readTypeCache(node);
             if (cachedType) {
@@ -12505,24 +12505,24 @@ export function createTypeEvaluator(
             return AnyType.create();
         }
 
-        const specialTypes: { [name: string]: AliasMapEntry } = {
-            overload: { alias: '', module: 'builtins' },
-            TypeVar: { alias: '', module: 'builtins' },
-            _promote: { alias: '', module: 'builtins' },
-            no_type_check: { alias: '', module: 'builtins' },
-            NoReturn: { alias: '', module: 'builtins' },
-            Counter: { alias: 'Counter', module: 'collections' },
-            List: { alias: 'list', module: 'builtins' },
-            Dict: { alias: 'dict', module: 'builtins' },
-            DefaultDict: { alias: 'defaultdict', module: 'collections' },
-            Set: { alias: 'set', module: 'builtins' },
-            FrozenSet: { alias: 'frozenset', module: 'builtins' },
-            Deque: { alias: 'deque', module: 'collections' },
-            ChainMap: { alias: 'ChainMap', module: 'collections' },
-            OrderedDict: { alias: 'OrderedDict', module: 'collections' },
-        };
+        const specialTypes: Map<string, AliasMapEntry> = new Map([
+            ['overload', { alias: '', module: 'builtins' }],
+            ['TypeVar', { alias: '', module: 'builtins' }],
+            ['_promote', { alias: '', module: 'builtins' }],
+            ['no_type_check', { alias: '', module: 'builtins' }],
+            ['NoReturn', { alias: '', module: 'builtins' }],
+            ['Counter', { alias: 'Counter', module: 'collections' }],
+            ['List', { alias: 'list', module: 'builtins' }],
+            ['Dict', { alias: 'dict', module: 'builtins' }],
+            ['DefaultDict', { alias: 'defaultdict', module: 'collections' }],
+            ['Set', { alias: 'set', module: 'builtins' }],
+            ['FrozenSet', { alias: 'frozenset', module: 'builtins' }],
+            ['Deque', { alias: 'deque', module: 'collections' }],
+            ['ChainMap', { alias: 'ChainMap', module: 'collections' }],
+            ['OrderedDict', { alias: 'OrderedDict', module: 'collections' }],
+        ]);
 
-        const aliasMapEntry = specialTypes[assignedName];
+        const aliasMapEntry = specialTypes.get(assignedName);
         if (aliasMapEntry) {
             // Evaluate the expression so symbols are marked as accessed.
             getTypeOfExpression(node.rightExpression);
@@ -20741,7 +20741,7 @@ export function createTypeEvaluator(
         }
 
         // Handle special-case type promotions.
-        const promotionList = typePromotions[destType.details.fullName];
+        const promotionList = typePromotions.get(destType.details.fullName);
         if (promotionList && promotionList.some((srcName) => srcName === srcType.details.fullName)) {
             if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
                 return true;

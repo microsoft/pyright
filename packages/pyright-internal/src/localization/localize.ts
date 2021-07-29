@@ -35,16 +35,16 @@ export class ParameterizedString<T extends {}> {
 }
 
 const defaultLocale = 'en-us';
-const stringMapsByLocale: { [locale: string]: any } = {
-    de: deStrings,
-    'en-us': enUsStrings,
-    es: esStrings,
-    fr: frStrings,
-    ja: jaStrings,
-    ru: ruStrings,
-    'zh-cn': zhCnStrings,
-    'zh-tw': zhTwStrings,
-};
+const stringMapsByLocale: Map<string, any> = new Map([
+    ['de', deStrings],
+    ['en-us', enUsStrings],
+    ['es', esStrings],
+    ['fr', frStrings],
+    ['ja', jaStrings],
+    ['ru', ruStrings],
+    ['zh-cn', zhCnStrings],
+    ['zh-tw', zhTwStrings],
+]);
 
 type StringLookupMap = { [key: string]: string | StringLookupMap };
 let localizedStrings: StringLookupMap | undefined = undefined;
@@ -156,7 +156,7 @@ function loadStringsForLocale(locale: string): StringLookupMap {
 }
 
 function loadStringsFromJsonFile(locale: string): StringLookupMap | undefined {
-    return stringMapsByLocale[locale];
+    return stringMapsByLocale.get(locale);
 }
 
 export namespace Localizer {

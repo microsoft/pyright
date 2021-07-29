@@ -3609,29 +3609,29 @@ export class Binder extends ParseTreeWalker {
         }
 
         const assignedNameNode = annotationNode.valueExpression;
-        const specialTypes: { [name: string]: boolean } = {
-            Tuple: true,
-            Generic: true,
-            Protocol: true,
-            Callable: true,
-            Type: true,
-            ClassVar: true,
-            Final: true,
-            Literal: true,
-            TypedDict: true,
-            Union: true,
-            Optional: true,
-            Annotated: true,
-            TypeAlias: true,
-            OrderedDict: true,
-            Concatenate: true,
-            TypeGuard: true,
-            Unpack: true,
-        };
+        const specialTypes: Map<string, boolean> = new Map([
+            ['Tuple', true],
+            ['Generic', true],
+            ['Protocol', true],
+            ['Callable', true],
+            ['Type', true],
+            ['ClassVar', true],
+            ['Final', true],
+            ['Literal', true],
+            ['TypedDict', true],
+            ['Union', true],
+            ['Optional', true],
+            ['Annotated', true],
+            ['TypeAlias', true],
+            ['OrderedDict', true],
+            ['Concatenate', true],
+            ['TypeGuard', true],
+            ['Unpack', true],
+        ]);
 
         const assignedName = assignedNameNode.value;
 
-        if (!specialTypes[assignedName]) {
+        if (!specialTypes.has(assignedName)) {
             return false;
         }
         const symbol = this._bindNameToScope(this._currentScope, assignedName);
