@@ -2117,12 +2117,15 @@ export class Parser {
                 this._containsWildcardImport = true;
             } else {
                 const inParen = this._consumeTokenIfType(TokenType.OpenParenthesis);
+                let trailingCommaToken: Token | undefined;
 
                 while (true) {
                     const importName = this._getTokenIfIdentifier();
                     if (!importName) {
                         break;
                     }
+
+                    trailingCommaToken = undefined;
 
                     const importFromAsNode = ImportFromAsNode.create(NameNode.create(importName));
 
@@ -2146,9 +2149,11 @@ export class Parser {
                         this._futureImportMap.set(importName.value, true);
                     }
 
+                    const nextToken = this._peekToken();
                     if (!this._consumeTokenIfType(TokenType.Comma)) {
                         break;
                     }
+                    trailingCommaToken = nextToken;
                 }
 
                 if (importFromNode.imports.length === 0) {
@@ -2164,6 +2169,8 @@ export class Parser {
                     } else {
                         extendRange(importFromNode, nextToken);
                     }
+                } else if (trailingCommaToken) {
+                    this._addError(Localizer.Diagnostic.trailingCommaInFromImport(), trailingCommaToken);
                 }
             }
         }
