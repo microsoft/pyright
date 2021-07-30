@@ -5342,25 +5342,39 @@ export function createTypeEvaluator(
         const indexTypeResult = getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
-            // Before performing code flow analysis, update the cache to prevent recursion.
-            writeTypeCache(node, indexTypeResult.type, /* isIncomplete */ false);
+            // We limit type narrowing for index expressions to built-in types that are
+            // known to have symmetric __getitem__ and __setitem__ methods (i.e. the value
+            // passed to __setitem__ is the same type as the value returned by __getitem__).
+            let baseTypeSupportsIndexNarrowing = true;
+            mapSubtypesExpandTypeVars(baseTypeResult.type, /* conditionFilter */ undefined, (subtype) => {
+                if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype)) {
+                    baseTypeSupportsIndexNarrowing = false;
+                }
 
-            // See if we can refine the type based on code flow analysis.
-            const codeFlowTypeResult = getFlowTypeOfReference(
-                node,
-                indeterminateSymbolId,
-                indexTypeResult.type,
-                !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete
-            );
-            if (codeFlowTypeResult.type) {
-                indexTypeResult.type = codeFlowTypeResult.type;
+                return undefined;
+            });
+
+            if (baseTypeSupportsIndexNarrowing) {
+                // Before performing code flow analysis, update the cache to prevent recursion.
+                writeTypeCache(node, indexTypeResult.type, /* isIncomplete */ false);
+
+                // See if we can refine the type based on code flow analysis.
+                const codeFlowTypeResult = getFlowTypeOfReference(
+                    node,
+                    indeterminateSymbolId,
+                    indexTypeResult.type,
+                    !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete
+                );
+                if (codeFlowTypeResult.type) {
+                    indexTypeResult.type = codeFlowTypeResult.type;
+                }
+
+                if (codeFlowTypeResult.isIncomplete) {
+                    indexTypeResult.isIncomplete = true;
+                }
+
+                deleteTypeCacheEntry(node);
             }
-
-            if (codeFlowTypeResult.isIncomplete) {
-                indexTypeResult.isIncomplete = true;
-            }
-
-            deleteTypeCacheEntry(node);
         }
 
         if (baseTypeResult.isIncomplete) {
@@ -20387,14 +20401,22 @@ export function createTypeEvaluator(
                             typesAreConsistent = false;
                         }
 
-                        const isDestFinal = symbol.getTypedDeclarations().some(decl => decl.type === DeclarationType.Variable && !!decl.isFinal);
-                        const isSrcFinal = srcMemberInfo.symbol.getTypedDeclarations().some(decl => decl.type === DeclarationType.Variable && !!decl.isFinal);
+                        const isDestFinal = symbol
+                            .getTypedDeclarations()
+                            .some((decl) => decl.type === DeclarationType.Variable && !!decl.isFinal);
+                        const isSrcFinal = srcMemberInfo.symbol
+                            .getTypedDeclarations()
+                            .some((decl) => decl.type === DeclarationType.Variable && !!decl.isFinal);
 
                         if (isDestFinal !== isSrcFinal) {
                             if (isDestFinal) {
-                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsFinalInProtocol().format({ name }));
+                                subDiag.addMessage(
+                                    Localizer.DiagnosticAddendum.memberIsFinalInProtocol().format({ name })
+                                );
                             } else {
-                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name }));
+                                subDiag.addMessage(
+                                    Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name })
+                                );
                             }
                             typesAreConsistent = false;
                         }
