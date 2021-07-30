@@ -20270,7 +20270,7 @@ export function createTypeEvaluator(
         destClassFields.forEach((symbol, name) => {
             if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
                 let isMemberFromMetaclass = false;
-                let memberInfo: ClassMember | undefined;
+                let srcMemberInfo: ClassMember | undefined;
 
                 // Look up in the metaclass first if allowed.
                 if (
@@ -20278,22 +20278,22 @@ export function createTypeEvaluator(
                     srcType.details.effectiveMetaclass &&
                     isInstantiableClass(srcType.details.effectiveMetaclass)
                 ) {
-                    memberInfo = lookUpClassMember(srcType.details.effectiveMetaclass, name);
+                    srcMemberInfo = lookUpClassMember(srcType.details.effectiveMetaclass, name);
                     srcClassTypeVarMap.addSolveForScope(getTypeVarScopeId(srcType.details.effectiveMetaclass));
                     isMemberFromMetaclass = true;
                 }
 
-                if (!memberInfo) {
-                    memberInfo = lookUpClassMember(srcType, name);
+                if (!srcMemberInfo) {
+                    srcMemberInfo = lookUpClassMember(srcType, name);
                 }
 
-                if (!memberInfo) {
+                if (!srcMemberInfo) {
                     diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                 } else {
                     let destMemberType = getDeclaredTypeOfSymbol(symbol);
                     if (destMemberType) {
-                        let srcMemberType = getTypeOfMember(memberInfo);
+                        let srcMemberType = getTypeOfMember(srcMemberInfo);
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                             if (isMemberFromMetaclass) {
@@ -20324,11 +20324,11 @@ export function createTypeEvaluator(
                                         destMemberType = boundDeclaredType;
                                     }
                                 }
-                            } else if (isInstantiableClass(memberInfo.classType)) {
+                            } else if (isInstantiableClass(srcMemberInfo.classType)) {
                                 const boundSrcFunction = bindFunctionToClassOrObject(
                                     ClassType.cloneAsInstance(srcType),
                                     srcMemberType,
-                                    memberInfo.classType,
+                                    srcMemberInfo.classType,
                                     /* errorNode */ undefined,
                                     recursionCount + 1
                                 );
@@ -20340,7 +20340,7 @@ export function createTypeEvaluator(
                                     const boundDeclaredType = bindFunctionToClassOrObject(
                                         ClassType.cloneAsInstance(srcType),
                                         destMemberType,
-                                        memberInfo.classType,
+                                        srcMemberInfo.classType,
                                         /* errorNode */ undefined,
                                         recursionCount + 1
                                     );
@@ -20386,9 +20386,21 @@ export function createTypeEvaluator(
                             subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                             typesAreConsistent = false;
                         }
+
+                        const isDestFinal = symbol.getTypedDeclarations().some(decl => decl.type === DeclarationType.Variable && !!decl.isFinal);
+                        const isSrcFinal = srcMemberInfo.symbol.getTypedDeclarations().some(decl => decl.type === DeclarationType.Variable && !!decl.isFinal);
+
+                        if (isDestFinal !== isSrcFinal) {
+                            if (isDestFinal) {
+                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsFinalInProtocol().format({ name }));
+                            } else {
+                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name }));
+                            }
+                            typesAreConsistent = false;
+                        }
                     }
 
-                    if (symbol.isClassVar() && !memberInfo.symbol.isClassMember()) {
+                    if (symbol.isClassVar() && !srcMemberInfo.symbol.isClassMember()) {
                         diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
                         typesAreConsistent = false;
                     }
