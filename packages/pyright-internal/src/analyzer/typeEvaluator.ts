@@ -2294,7 +2294,10 @@ export function createTypeEvaluator(
                                 }
 
                                 hasDefaultValue = statement.rightExpression.arguments.some(
-                                    (arg) => arg.name?.value === 'default' || arg.name?.value === 'default_factory'
+                                    (arg) =>
+                                        arg.name?.value === 'default' ||
+                                        arg.name?.value === 'default_factory' ||
+                                        arg.name?.value === 'factory'
                                 );
 
                                 const aliasArg = statement.rightExpression.arguments.find(
@@ -14335,7 +14338,23 @@ export function createTypeEvaluator(
                         inputFunctionType,
                         getTypeSourceId(decoratorNode)
                     );
-                } else {
+                } else if (isClassInstance(inputFunctionType)) {
+                    const callMember = lookUpObjectMember(inputFunctionType, '__call__');
+                    if (callMember) {
+                        const memberType = getTypeOfMember(callMember);
+                        if (isFunction(memberType) || isOverloadedFunction(memberType)) {
+                            const boundMethod = bindFunctionToClassOrObject(inputFunctionType, memberType);
+                            if (boundMethod && isFunction(boundMethod)) {
+                                return createProperty(
+                                    decoratorNode,
+                                    decoratorType.details.name,
+                                    boundMethod,
+                                    getTypeSourceId(decoratorNode)
+                                );
+                            }
+                        }
+                    }
+
                     return UnknownType.create();
                 }
             }
@@ -14425,7 +14444,7 @@ export function createTypeEvaluator(
             defaultType: AnyType.create(),
         });
         getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
-            ? fget.details.declaredReturnType
+            ? FunctionType.getSpecializedReturnType(fget)
             : propertyObject;
         getFunction1.details.declaration = fget.details.declaration;
 
@@ -14463,7 +14482,7 @@ export function createTypeEvaluator(
             hasDefault: true,
             defaultType: AnyType.create(),
         });
-        getFunction2.details.declaredReturnType = fget.details.declaredReturnType;
+        getFunction2.details.declaredReturnType = FunctionType.getSpecializedReturnType(fget);
         getFunction2.details.declaration = fget.details.declaration;
 
         // Override the scope ID since we're using parameter types from the
