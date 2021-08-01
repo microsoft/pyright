@@ -363,9 +363,10 @@ export class AnalyzerService {
         filePath: string,
         position: Position,
         newName: string,
+        isDefaultWorkspace: boolean,
         token: CancellationToken
     ): FileEditAction[] | undefined {
-        return this._program.renameSymbolAtPosition(filePath, position, newName, token);
+        return this._program.renameSymbolAtPosition(filePath, position, newName, isDefaultWorkspace, token);
     }
 
     getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {

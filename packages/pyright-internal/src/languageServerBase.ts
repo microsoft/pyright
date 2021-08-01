@@ -696,6 +696,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 filePath,
                 position,
                 params.newName,
+                workspace.rootPath === '',
                 token
             );
 

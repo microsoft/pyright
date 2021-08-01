@@ -1191,6 +1191,7 @@ export class TestState {
                 fileName,
                 position,
                 expected.newName,
+                /* isDefaultWorkspace */ false,
                 CancellationToken.None
             );
 

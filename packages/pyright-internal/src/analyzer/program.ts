@@ -1571,6 +1571,7 @@ export class Program {
         filePath: string,
         position: Position,
         newName: string,
+        isDefaultWorkspace: boolean,
         token: CancellationToken
     ): FileEditAction[] | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1594,18 +1595,21 @@ export class Program {
                 return undefined;
             }
 
-            if (referencesResult.declarations.some((d) => !this._isUserCode(this._getSourceFileInfoFromPath(d.path)))) {
-                // Some declarations come from non-user code, so do not allow rename
+            if (
+                !isDefaultWorkspace &&
+                referencesResult.declarations.some((d) => !this._isUserCode(this._getSourceFileInfoFromPath(d.path)))
+            ) {
+                // Some declarations come from non-user code, so do not allow rename.
                 return undefined;
             }
 
             if (referencesResult.declarations.length === 0) {
-                // There is no symbol we can rename
+                // There is no symbol we can rename.
                 return undefined;
             }
 
             // Do we need to do a global search as well?
-            if (referencesResult.requiresGlobalSearch) {
+            if (referencesResult.requiresGlobalSearch && !isDefaultWorkspace) {
                 for (const curSourceFileInfo of this._sourceFileList) {
                     // Make sure we only add user code to the references to prevent us
                     // from accidentally changing third party library or type stub.
@@ -1619,7 +1623,7 @@ export class Program {
                     // for situations where we need to discard the type cache.
                     this._handleMemoryHighUsage();
                 }
-            } else if (this._isUserCode(sourceFileInfo)) {
+            } else if (isDefaultWorkspace || this._isUserCode(sourceFileInfo)) {
                 sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
             }
 
