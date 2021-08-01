@@ -13,17 +13,32 @@ import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
 
-class NullValue(metaclass=_NullValue):
+# `NullValue` is a singleton enumeration to represent the null value for the
+# `Value` type union.
+#
+#  The JSON representation for `NullValue` is JSON `null`.
+class NullValue(_NullValue, metaclass=_NullValueEnumTypeWrapper):
+    pass
+class _NullValue:
     V = typing.NewType('V', builtins.int)
-
-global___NullValue = NullValue
-
-NULL_VALUE = NullValue.V(0)
-
-class _NullValue(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[NullValue.V], builtins.type):  # type: ignore
+class _NullValueEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_NullValue.V], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
+    # Null value.
     NULL_VALUE = NullValue.V(0)
 
+# Null value.
+NULL_VALUE = NullValue.V(0)
+global___NullValue = NullValue
+
+
+# `Struct` represents a structured data value, consisting of fields
+# which map to dynamically typed values. In some languages, `Struct`
+# might be supported by a native representation. For example, in
+# scripting languages like JS a struct is represented as an
+# object. The details of that representation are described together
+# with the proto support for the language.
+#
+# The JSON representation for `Struct` is JSON object.
 class Struct(google.protobuf.message.Message, google.protobuf.internal.well_known_types.Struct):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     class FieldsEntry(google.protobuf.message.Message):
@@ -31,10 +46,8 @@ class Struct(google.protobuf.message.Message, google.protobuf.internal.well_know
         KEY_FIELD_NUMBER: builtins.int
         VALUE_FIELD_NUMBER: builtins.int
         key: typing.Text = ...
-
         @property
         def value(self) -> global___Value: ...
-
         def __init__(self,
             *,
             key : typing.Text = ...,
@@ -44,10 +57,9 @@ class Struct(google.protobuf.message.Message, google.protobuf.internal.well_know
         def ClearField(self, field_name: typing_extensions.Literal[u"key",b"key",u"value",b"value"]) -> None: ...
 
     FIELDS_FIELD_NUMBER: builtins.int
-
+    # Unordered map of dynamically typed values.
     @property
     def fields(self) -> google.protobuf.internal.containers.MessageMap[typing.Text, global___Value]: ...
-
     def __init__(self,
         *,
         fields : typing.Optional[typing.Mapping[typing.Text, global___Value]] = ...,
@@ -55,6 +67,12 @@ class Struct(google.protobuf.message.Message, google.protobuf.internal.well_know
     def ClearField(self, field_name: typing_extensions.Literal[u"fields",b"fields"]) -> None: ...
 global___Struct = Struct
 
+# `Value` represents a dynamically typed value which can be either
+# null, a number, a string, a boolean, a recursive struct value, or a
+# list of values. A producer of value is expected to set one of that
+# variants, absence of any variant indicates an error.
+#
+# The JSON representation for `Value` is JSON value.
 class Value(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     NULL_VALUE_FIELD_NUMBER: builtins.int
@@ -63,17 +81,20 @@ class Value(google.protobuf.message.Message):
     BOOL_VALUE_FIELD_NUMBER: builtins.int
     STRUCT_VALUE_FIELD_NUMBER: builtins.int
     LIST_VALUE_FIELD_NUMBER: builtins.int
+    # Represents a null value.
     null_value: global___NullValue.V = ...
+    # Represents a double value.
     number_value: builtins.float = ...
+    # Represents a string value.
     string_value: typing.Text = ...
+    # Represents a boolean value.
     bool_value: builtins.bool = ...
-
+    # Represents a structured value.
     @property
     def struct_value(self) -> global___Struct: ...
-
+    # Represents a repeated `Value`.
     @property
     def list_value(self) -> global___ListValue: ...
-
     def __init__(self,
         *,
         null_value : global___NullValue.V = ...,
@@ -88,13 +109,15 @@ class Value(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal[u"kind",b"kind"]) -> typing.Optional[typing_extensions.Literal["null_value","number_value","string_value","bool_value","struct_value","list_value"]]: ...
 global___Value = Value
 
+# `ListValue` is a wrapper around a repeated field of values.
+#
+# The JSON representation for `ListValue` is JSON array.
 class ListValue(google.protobuf.message.Message, google.protobuf.internal.well_known_types.ListValue):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     VALUES_FIELD_NUMBER: builtins.int
-
+    # Repeated field of dynamically typed values.
     @property
     def values(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Value]: ...
-
     def __init__(self,
         *,
         values : typing.Optional[typing.Iterable[global___Value]] = ...,

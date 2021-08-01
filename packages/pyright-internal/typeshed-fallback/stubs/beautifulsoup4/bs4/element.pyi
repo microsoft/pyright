@@ -27,9 +27,9 @@ class ContentMetaAttributeValue(AttributeValueWithCharsetSubstitution):
 
 _PageElementT = TypeVar("_PageElementT", bound=PageElement)
 # The wrapping Union[] can be removed once mypy fully supports | in type aliases.
-_SimpleStrainable = Union[str, bool, None, bytes, Pattern[str], Callable[[str], bool]]
+_SimpleStrainable = Union[str, bool, None, bytes, Pattern[str], Callable[[str], bool], Callable[[Tag], bool]]
 _Strainable = Union[_SimpleStrainable, Iterable[_SimpleStrainable]]
-_SimpleNormalizedStrainable = Union[str, bool, None, Pattern[str], Callable[[str], bool]]
+_SimpleNormalizedStrainable = Union[str, bool, None, Pattern[str], Callable[[str], bool], Callable[[Tag], bool]]
 _NormalizedStrainable = Union[_SimpleNormalizedStrainable, Iterable[_SimpleNormalizedStrainable]]
 
 class PageElement:

@@ -10,13 +10,16 @@ from typing import (
     Dict,
     Generator,
     Generic,
+    ItemsView,
     Iterable,
     Iterator,
+    KeysView,
     Mapping,
     Optional,
     Tuple,
     Type,
     TypeVar,
+    ValuesView,
     overload,
 )
 from typing_extensions import Literal, final
@@ -24,10 +27,12 @@ from typing_extensions import Literal, final
 # Note, all classes "defined" here require special handling.
 
 _T = TypeVar("_T")
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
 _T_co = TypeVar("_T_co", covariant=True)
 _T_contra = TypeVar("_T_contra", contravariant=True)
 _KT = TypeVar("_KT")
-_VT = TypeVar("_VT")
+_VT_co = TypeVar("_VT_co", covariant=True)
 _V_co = TypeVar("_V_co", covariant=True)
 
 class _Cell:
@@ -137,12 +142,21 @@ class CodeType:
             co_lnotab: bytes = ...,
         ) -> CodeType: ...
 
-class MappingProxyType(Mapping[_KT, _VT], Generic[_KT, _VT]):
-    def __init__(self, mapping: Mapping[_KT, _VT]) -> None: ...
-    def __getitem__(self, k: _KT) -> _VT: ...
+class MappingProxyType(Mapping[_KT, _VT_co], Generic[_KT, _VT_co]):
+    __hash__: None  # type: ignore
+    def __init__(self, mapping: Mapping[_KT, _VT_co]) -> None: ...
+    def __getitem__(self, k: _KT) -> _VT_co: ...
     def __iter__(self) -> Iterator[_KT]: ...
     def __len__(self) -> int: ...
-    def copy(self) -> Dict[_KT, _VT]: ...
+    def copy(self) -> Dict[_KT, _VT_co]: ...
+    def keys(self) -> KeysView[_KT]: ...
+    def values(self) -> ValuesView[_VT_co]: ...
+    def items(self) -> ItemsView[_KT, _VT_co]: ...
+    if sys.version_info >= (3, 9):
+        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
+        def __reversed__(self) -> Iterator[_KT]: ...
+        def __or__(self, __value: Mapping[_T1, _T2]) -> dict[_KT | _T1, _VT_co | _T2]: ...
+        def __ror__(self, __value: Mapping[_T1, _T2]) -> dict[_KT | _T1, _VT_co | _T2]: ...
 
 class SimpleNamespace:
     def __init__(self, **kwargs: Any) -> None: ...
