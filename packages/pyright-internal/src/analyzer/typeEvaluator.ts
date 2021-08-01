@@ -17870,35 +17870,10 @@ export function createTypeEvaluator(
                         const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
                         if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                             const classType = getTypeOfExpression(testExpression.rightExpression).type;
+
                             if (isInstantiableClass(classType)) {
                                 return (type: Type) => {
-                                    // Narrow the type based on whether the type derives from the specified type.
-                                    return mapSubtypes(type, (subtype) => {
-                                        if (isClassInstance(subtype)) {
-                                            const matches = ClassType.isDerivedFrom(
-                                                classType,
-                                                ClassType.cloneAsInstantiable(subtype)
-                                            );
-                                            if (adjIsPositiveTest) {
-                                                if (matches) {
-                                                    if (ClassType.isSameGenericClass(subtype, classType)) {
-                                                        return subtype;
-                                                    }
-                                                    return ClassType.cloneAsInstance(classType);
-                                                }
-                                                return undefined;
-                                            } else {
-                                                // We can't eliminate the subtype in the negative
-                                                // case because it could be a subclass of the type,
-                                                // in which case `type(x) is y` would fail.
-                                                return subtype;
-                                            }
-                                        } else if (isNone(subtype)) {
-                                            return adjIsPositiveTest ? undefined : subtype;
-                                        }
-
-                                        return subtype;
-                                    });
+                                    return narrowTypeForTypeIs(type, classType, adjIsPositiveTest);
                                 };
                             }
                         }
@@ -18695,6 +18670,39 @@ export function createTypeEvaluator(
         });
 
         return canNarrow ? narrowedType : referenceType;
+    }
+
+    // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.
+    function narrowTypeForTypeIs(type: Type, classType: ClassType, isPositiveTest: boolean) {
+        return mapSubtypes(type, (subtype) => {
+            if (isClassInstance(subtype)) {
+                const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
+                if (isPositiveTest) {
+                    if (matches) {
+                        if (ClassType.isSameGenericClass(subtype, classType)) {
+                            return subtype;
+                        }
+                        return ClassType.cloneAsInstance(classType);
+                    }
+                    return undefined;
+                } else {
+                    // If the class if marked final and it matches, then
+                    // we can eliminate it in the negative case.
+                    if (matches && ClassType.isFinal(subtype)) {
+                        return undefined;
+                    }
+
+                    // We can't eliminate the subtype in the negative
+                    // case because it could be a subclass of the type,
+                    // in which case `type(x) is y` would fail.
+                    return subtype;
+                }
+            } else if (isNone(subtype)) {
+                return isPositiveTest ? undefined : subtype;
+            }
+
+            return subtype;
+        });
     }
 
     // Attempts to narrow a type (make it more constrained) based on a comparison
