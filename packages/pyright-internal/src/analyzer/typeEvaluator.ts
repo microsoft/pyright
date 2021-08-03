@@ -13288,6 +13288,9 @@ export function createTypeEvaluator(
             }
         }
 
+        // Clear the "partially constructed" flag.
+        classType.details.flags &= ~ClassTypeFlags.PartiallyConstructed;
+
         // Synthesize dataclass methods.
         if (ClassType.isDataClass(classType)) {
             let skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
@@ -13309,9 +13312,6 @@ export function createTypeEvaluator(
 
             synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
         }
-
-        // Clear the "partially constructed" flag.
-        classType.details.flags &= ~ClassTypeFlags.PartiallyConstructed;
 
         // Update the undecorated class type.
         writeTypeCache(node.name, classType, /* isIncomplete */ false);
