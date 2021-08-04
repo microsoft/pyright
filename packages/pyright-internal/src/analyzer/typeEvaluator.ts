@@ -17836,19 +17836,23 @@ export function createTypeEvaluator(
                                         return subtype;
                                     }
 
+                                    // If this is a TypeVar that isn't constrained, use the unexpanded
+                                    // TypeVar. For all other cases (including constrained TypeVars),
+                                    // use the expanded subtype.
+                                    const adjustedSubtype =
+                                        isTypeVar(unexpandedSubtype) &&
+                                        unexpandedSubtype.details.constraints.length === 0
+                                            ? unexpandedSubtype
+                                            : subtype;
+
+                                    // See if it's a match for object.
+                                    if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+                                        return adjIsPositiveTest ? NoneType.createInstance() : adjustedSubtype;
+                                    }
+
                                     // See if it's a match for None.
                                     if (isNone(subtype) === adjIsPositiveTest) {
-                                        // If this is a TypeVar that isn't constrained, use the unexpanded
-                                        // TypeVar. For all other cases (including constrained TypeVars),
-                                        // use the expanded subtype.
-                                        if (
-                                            isTypeVar(unexpandedSubtype) &&
-                                            unexpandedSubtype.details.constraints.length === 0
-                                        ) {
-                                            return unexpandedSubtype;
-                                        } else {
-                                            return subtype;
-                                        }
+                                        return adjustedSubtype;
                                     }
 
                                     return undefined;

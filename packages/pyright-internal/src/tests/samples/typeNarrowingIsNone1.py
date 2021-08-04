@@ -25,13 +25,32 @@ def func1(x: Optional[int]):
         x.bit_length()
 
 
-_T = TypeVar("_T", None, str)
+_T1 = TypeVar("_T1", None, str)
 
 
-def func2(val: _T) -> _T:
+def func2(val: _T1) -> _T1:
     if val is not None:
         t1: Literal["str*"] = reveal_type(val)
         return val
     else:
         t2: Literal["None*"] = reveal_type(val)
         return val
+
+
+def func3(x: object):
+    if x is None:
+        t1: Literal["None"] = reveal_type(x)
+    else:
+        t2: Literal["object"] = reveal_type(x)
+
+
+_T2 = TypeVar("_T2")
+
+
+def func4(x: _T2) -> _T2:
+    if x is None:
+        t1: Literal["None*"] = reveal_type(x)
+        raise ValueError()
+    else:
+        t2: Literal["_T2@func4"] = reveal_type(x)
+        return x
