@@ -2235,10 +2235,6 @@ export class Checker extends ParseTreeWalker {
             return transformPossibleRecursiveTypeAlias(subtype);
         });
 
-        if (derivesFromAnyOrUnknown(arg0Type)) {
-            return;
-        }
-
         const arg1Type = this._evaluator.getType(node.arguments[1].valueExpression);
         if (!arg1Type) {
             return;
@@ -2387,6 +2383,10 @@ export class Checker extends ParseTreeWalker {
                 Localizer.Diagnostic.protocolUsedInCall().format({ name: callName }),
                 node.arguments[1].valueExpression
             );
+        }
+
+        if (derivesFromAnyOrUnknown(arg0Type)) {
+            return;
         }
 
         const finalizeFilteredTypeList = (types: Type[]): Type => {
