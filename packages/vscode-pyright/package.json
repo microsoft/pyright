@@ -775,15 +775,15 @@
     },
     "devDependencies": {
         "@types/copy-webpack-plugin": "^8.0.1",
-        "@types/node": "^12.20.16",
+        "@types/node": "^12.20.19",
         "@types/vscode": "~1.57.0",
         "copy-webpack-plugin": "^9.0.1",
         "detect-indent": "^6.1.0",
         "shx": "^0.3.3",
-        "ts-loader": "^9.2.3",
+        "ts-loader": "^9.2.5",
         "typescript": "~4.3.5",
-        "vsce": "^1.95.1",
-        "webpack": "^5.44.0",
+        "vsce": "^1.96.1",
+        "webpack": "^5.48.0",
         "webpack-cli": "^4.7.2"
     }
 }
