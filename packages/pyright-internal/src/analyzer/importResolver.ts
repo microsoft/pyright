@@ -83,7 +83,7 @@ export class ImportResolver {
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedStdLibModuleVersions: Map<string, SupportedVersionRange> | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
-    private _cachedTypeshedThirdPartyPackagePaths: Map<string, string> | undefined;
+    private _cachedTypeshedThirdPartyPackagePaths: Map<string, string[]> | undefined;
     private _cachedTypeshedThirdPartyPackageRoots: string[] | undefined;
     private _cachedEntriesForPath = new Map<string, Dirent[]>();
 
@@ -479,7 +479,7 @@ export class ImportResolver {
                 roots.push(combinePaths(thirdPartyRoot, '...'));
             }
         } else {
-            const thirdPartyPaths = this._getThirdPartyTypeshedPackagePaths(execEnv, importFailureInfo);
+            const thirdPartyPaths = this._getThirdPartyTypeshedPackageRoots(execEnv, importFailureInfo);
             roots.push(...thirdPartyPaths);
         }
 
@@ -1254,21 +1254,31 @@ export class ImportResolver {
             } path`
         );
 
-        const typeshedPath = isStdLib
-            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo, moduleDescriptor)
-            : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
+        let typeshedPaths: string[] | undefined;
+        if (isStdLib) {
+            const path = this._getStdlibTypeshedPath(execEnv, importFailureInfo, moduleDescriptor);
+            if (path) {
+                typeshedPaths = [path];
+            }
+        } else {
+            typeshedPaths = this._getThirdPartyTypeshedPackagePaths(moduleDescriptor, execEnv, importFailureInfo);
+        }
 
-        if (typeshedPath && this.dirExistsCached(typeshedPath)) {
-            const importInfo = this.resolveAbsoluteImport(
-                typeshedPath,
-                execEnv,
-                moduleDescriptor,
-                importName,
-                importFailureInfo
-            );
-            if (importInfo.isImportFound) {
-                importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
-                return importInfo;
+        if (typeshedPaths) {
+            for (const typeshedPath of typeshedPaths) {
+                if (this.dirExistsCached(typeshedPath)) {
+                    const importInfo = this.resolveAbsoluteImport(
+                        typeshedPath,
+                        execEnv,
+                        moduleDescriptor,
+                        importName,
+                        importFailureInfo
+                    );
+                    if (importInfo.isImportFound) {
+                        importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
+                        return importInfo;
+                    }
+                }
             }
         }
 
@@ -1282,7 +1292,7 @@ export class ImportResolver {
     // the name of the package as it is referenced by import statements. These
     // don't always match.
     private _buildTypeshedThirdPartyPackageMap(thirdPartyDir: string | undefined) {
-        this._cachedTypeshedThirdPartyPackagePaths = new Map<string, string>();
+        this._cachedTypeshedThirdPartyPackagePaths = new Map<string, string[]>();
 
         if (thirdPartyDir) {
             this.readdirEntriesCached(thirdPartyDir).forEach((outerEntry) => {
@@ -1295,13 +1305,21 @@ export class ImportResolver {
                         }
 
                         if (innerEntry.isDirectory()) {
-                            this._cachedTypeshedThirdPartyPackagePaths!.set(innerEntry.name, innerDirPath);
+                            const pathList = this._cachedTypeshedThirdPartyPackagePaths!.get(innerEntry.name);
+                            if (pathList) {
+                                pathList.push(innerDirPath);
+                            } else {
+                                this._cachedTypeshedThirdPartyPackagePaths!.set(innerEntry.name, [innerDirPath]);
+                            }
                         } else if (innerEntry.isFile()) {
                             if (innerEntry.name.endsWith('.pyi')) {
-                                this._cachedTypeshedThirdPartyPackagePaths!.set(
-                                    stripFileExtension(innerEntry.name),
-                                    innerDirPath
-                                );
+                                const strippedFileName = stripFileExtension(innerEntry.name);
+                                const pathList = this._cachedTypeshedThirdPartyPackagePaths!.get(strippedFileName);
+                                if (pathList) {
+                                    pathList.push(innerDirPath);
+                                } else {
+                                    this._cachedTypeshedThirdPartyPackagePaths!.set(strippedFileName, [innerDirPath]);
+                                }
                             }
                         }
                     });
@@ -1310,7 +1328,7 @@ export class ImportResolver {
         }
 
         this._cachedTypeshedThirdPartyPackageRoots = [
-            ...new Set(this._cachedTypeshedThirdPartyPackagePaths.values()),
+            ...new Set(...this._cachedTypeshedThirdPartyPackagePaths.values()),
         ].sort();
     }
 
@@ -1323,17 +1341,25 @@ export class ImportResolver {
     ) {
         const importFailureInfo: string[] = [];
 
-        const typeshedPath = isStdLib
-            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo, moduleDescriptor)
-            : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
+        let typeshedPaths: string[] | undefined;
+        if (isStdLib) {
+            const path = this._getStdlibTypeshedPath(execEnv, importFailureInfo, moduleDescriptor);
+            if (path) {
+                typeshedPaths = [path];
+            }
+        } else {
+            typeshedPaths = this._getThirdPartyTypeshedPackagePaths(moduleDescriptor, execEnv, importFailureInfo);
+        }
 
-        if (!typeshedPath) {
+        if (!typeshedPaths) {
             return;
         }
 
-        if (this.dirExistsCached(typeshedPath)) {
-            this.getCompletionSuggestionsAbsolute(typeshedPath, moduleDescriptor, suggestions, similarityLimit);
-        }
+        typeshedPaths.forEach((typeshedPath) => {
+            if (this.dirExistsCached(typeshedPath)) {
+                this.getCompletionSuggestionsAbsolute(typeshedPath, moduleDescriptor, suggestions, similarityLimit);
+            }
+        });
     }
 
     // Returns the directory for a module within the stdlib typeshed directory.
@@ -1448,11 +1474,11 @@ export class ImportResolver {
         return versionRangeMap;
     }
 
-    private _getThirdPartyTypeshedPackagePath(
+    private _getThirdPartyTypeshedPackagePaths(
         moduleDescriptor: ImportedModuleDescriptor,
         execEnv: ExecutionEnvironment,
         importFailureInfo: string[]
-    ) {
+    ): string[] | undefined {
         const typeshedPath = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
 
         if (!this._cachedTypeshedThirdPartyPackagePaths) {
@@ -1463,7 +1489,7 @@ export class ImportResolver {
         return this._cachedTypeshedThirdPartyPackagePaths!.get(firstNamePart);
     }
 
-    private _getThirdPartyTypeshedPackagePaths(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+    private _getThirdPartyTypeshedPackageRoots(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
         const typeshedPath = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
 
         if (!this._cachedTypeshedThirdPartyPackagePaths) {
