@@ -2328,7 +2328,12 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
 
             // If we're adding Literal[False] or Literal[True] to its
             // opposite, combine them into a non-literal 'bool' type.
-            if (ClassType.isBuiltIn(type, 'bool') && ClassType.isBuiltIn(typeToAdd, 'bool')) {
+            if (
+                ClassType.isBuiltIn(type, 'bool') &&
+                !type.condition &&
+                ClassType.isBuiltIn(typeToAdd, 'bool') &&
+                !typeToAdd.condition
+            ) {
                 if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
                     unionType.subtypes[i] = ClassType.cloneWithLiteral(type, undefined);
                     return;
