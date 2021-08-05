@@ -2,7 +2,7 @@
 name: Feature request
 about: Suggest an idea for pyright
 title: ''
-labels: enhancement
+labels: enhancement request
 assignees: ''
 
 ---
