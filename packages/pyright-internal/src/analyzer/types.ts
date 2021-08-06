@@ -254,6 +254,7 @@ export namespace ModuleType {
 export interface DataClassEntry {
     name: string;
     isClassVar: boolean;
+    isKeywordOnly: boolean;
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
     defaultValueExpression?: ExpressionNode | undefined;

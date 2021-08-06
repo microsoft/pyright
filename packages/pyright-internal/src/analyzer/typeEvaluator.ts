@@ -2242,6 +2242,7 @@ export function createTypeEvaluator(
         // Maintain a list of "type evaluators".
         type TypeEvaluator = () => Type;
         const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: TypeEvaluator }[] = [];
+        let sawKeywordOnlySeparator = false;
 
         node.suite.statements.forEach((statementList) => {
             if (statementList.nodeType === ParseNodeType.StatementList) {
@@ -2250,6 +2251,7 @@ export function createTypeEvaluator(
                     let aliasName: string | undefined;
                     let variableTypeEvaluator: TypeEvaluator | undefined;
                     let hasDefaultValue = false;
+                    let isKeywordOnly = ClassType.isDataClassKeywordOnlyParams(classType) || sawKeywordOnlySeparator;
                     let defaultValueExpression: ExpressionNode | undefined;
                     let includeInInit = true;
 
@@ -2293,6 +2295,21 @@ export function createTypeEvaluator(
                                     }
                                 }
 
+                                const kwOnlyArg = statement.rightExpression.arguments.find(
+                                    (arg) => arg.name?.value === 'kw_only'
+                                );
+                                if (kwOnlyArg && kwOnlyArg.valueExpression) {
+                                    const value = evaluateStaticBoolExpression(
+                                        kwOnlyArg.valueExpression,
+                                        getFileInfo(node).executionEnvironment
+                                    );
+                                    if (value === false) {
+                                        isKeywordOnly = false;
+                                    } else if (value === true) {
+                                        isKeywordOnly = true;
+                                    }
+                                }
+
                                 hasDefaultValue = statement.rightExpression.arguments.some(
                                     (arg) =>
                                         arg.name?.value === 'default' ||
@@ -2324,6 +2341,17 @@ export function createTypeEvaluator(
                                     allowFinal: true,
                                     allowClassVar: true,
                                 });
+
+                            // Is this a KW_ONLY separator introduced in Python 3.10?
+                            if (statement.valueExpression.value === '_') {
+                                const annotatedType = variableTypeEvaluator();
+
+                                if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
+                                    sawKeywordOnlySeparator = true;
+                                    variableNameNode = undefined;
+                                    variableTypeEvaluator = undefined;
+                                }
+                            }
                         }
                     }
 
@@ -2349,6 +2377,7 @@ export function createTypeEvaluator(
                             const dataClassEntry: DataClassEntry = {
                                 name: variableName,
                                 alias: aliasName,
+                                isKeywordOnly: false,
                                 hasDefault: hasDefaultValue,
                                 defaultValueExpression,
                                 includeInInit,
@@ -2363,6 +2392,7 @@ export function createTypeEvaluator(
                             const dataClassEntry: DataClassEntry = {
                                 name: variableName,
                                 alias: aliasName,
+                                isKeywordOnly,
                                 hasDefault: hasDefaultValue,
                                 defaultValueExpression,
                                 includeInInit,
@@ -2390,14 +2420,9 @@ export function createTypeEvaluator(
 
                             // If we've already seen a entry with a default value defined,
                             // all subsequent entries must also have default values.
-                            if (
-                                !ClassType.isDataClassKeywordOnlyParams(classType) &&
-                                includeInInit &&
-                                !skipSynthesizeInit &&
-                                !hasDefaultValue
-                            ) {
+                            if (!isKeywordOnly && includeInInit && !skipSynthesizeInit && !hasDefaultValue) {
                                 const firstDefaultValueIndex = fullDataClassEntries.findIndex(
-                                    (p) => p.hasDefault && p.includeInInit
+                                    (p) => p.hasDefault && p.includeInInit && !p.isKeywordOnly
                                 );
                                 if (firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
                                     addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
@@ -2421,14 +2446,9 @@ export function createTypeEvaluator(
         });
 
         const symbolTable = classType.details.fields;
-        if (!skipSynthesizeInit && allAncestorsKnown) {
-            if (ClassType.isDataClassKeywordOnlyParams(classType)) {
-                FunctionType.addParameter(initType, {
-                    category: ParameterCategory.VarArgList,
-                    type: AnyType.create(),
-                });
-            }
+        const keywordOnlyParams: FunctionParameter[] = [];
 
+        if (!skipSynthesizeInit && allAncestorsKnown) {
             fullDataClassEntries.forEach((entry) => {
                 if (entry.includeInInit) {
                     const functionParam: FunctionParameter = {
@@ -2440,9 +2460,23 @@ export function createTypeEvaluator(
                         hasDeclaredType: true,
                     };
 
-                    FunctionType.addParameter(initType, functionParam);
+                    if (entry.isKeywordOnly) {
+                        keywordOnlyParams.push(functionParam);
+                    } else {
+                        FunctionType.addParameter(initType, functionParam);
+                    }
                 }
             });
+
+            if (keywordOnlyParams.length > 0) {
+                FunctionType.addParameter(initType, {
+                    category: ParameterCategory.VarArgList,
+                    type: AnyType.create(),
+                });
+                keywordOnlyParams.forEach((param) => {
+                    FunctionType.addParameter(initType, param);
+                });
+            }
 
             symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
             symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));

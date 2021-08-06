@@ -448,6 +448,14 @@ test('DataClass14', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('DataClass15', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass15.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Callable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable1.py']);
 
