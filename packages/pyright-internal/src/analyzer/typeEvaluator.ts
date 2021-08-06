@@ -19884,6 +19884,7 @@ export function createTypeEvaluator(
         const isFinalVar = isFinalVariable(symbol);
         let isIncomplete = false;
         let includesVariableDecl = false;
+        let includesSpeculativeResult = false;
 
         decls.forEach((decl, index) => {
             // If useLastDecl is true, consider only the last declaration.
@@ -19953,6 +19954,10 @@ export function createTypeEvaluator(
                                 }
                             }
                             typesToCombine.push(type);
+
+                            if (speculativeTypeTracker.isSpeculative(decl.node)) {
+                                includesSpeculativeResult = true;
+                            }
                         } else {
                             isIncomplete = true;
                         }
@@ -19975,17 +19980,19 @@ export function createTypeEvaluator(
                 isRecursiveDefinition: false,
             };
 
-            // Add the entry to the cache so we don't need to compute it next time.
-            if (!cacheEntries) {
-                cacheEntries = [];
-                effectiveTypeCache.set(symbol.id, cacheEntries);
-            }
+            if (!includesSpeculativeResult) {
+                // Add the entry to the cache so we don't need to compute it next time.
+                if (!cacheEntries) {
+                    cacheEntries = [];
+                    effectiveTypeCache.set(symbol.id, cacheEntries);
+                }
 
-            cacheEntries.push({
-                usageNodeId,
-                useLastDecl,
-                result,
-            });
+                cacheEntries.push({
+                    usageNodeId,
+                    useLastDecl,
+                    result,
+                });
+            }
 
             return result;
         }
