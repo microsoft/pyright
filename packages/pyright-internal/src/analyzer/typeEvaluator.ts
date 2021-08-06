@@ -19390,6 +19390,14 @@ export function createTypeEvaluator(
                         if (!member) {
                             member = lookUpClassMember(subtype, memberName);
                         }
+
+                        if (!member) {
+                            const metaclass = subtype.details.effectiveMetaclass;
+                            if (metaclass && isInstantiableClass(metaclass)) {
+                                member = lookUpClassMember(metaclass, memberName);
+                            }
+                        }
+
                         if (member) {
                             symbol = member.symbol;
                         }
