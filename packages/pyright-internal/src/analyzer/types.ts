@@ -2052,6 +2052,22 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
                 return false;
             }
 
+            // Handle the case where this is a generic recursive type alias. Make
+            // sure that the type argument types match.
+            const type1TypeArgs = type1?.typeAliasInfo?.typeArguments || [];
+            const type2TypeArgs = type2?.typeAliasInfo?.typeArguments || [];
+            const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
+
+            for (let i = 0; i < typeArgCount; i++) {
+                // Assume that missing type args are "Any".
+                const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
+                const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
+
+                if (!isTypeSame(typeArg1, typeArg2, ignorePseudoGeneric, recursionCount + 1)) {
+                    return false;
+                }
+            }
+
             if (type1.details === type2TypeVar.details) {
                 return true;
             }
