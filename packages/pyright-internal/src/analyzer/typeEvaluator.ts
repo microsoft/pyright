@@ -1927,6 +1927,11 @@ export function createTypeEvaluator(
                                 }
                             }
                         }
+                    } else if (ClassType.isTypedDictClass(baseType)) {
+                        const typeFromTypedDict = getTypeFromIndexedTypedDict(expression, baseType, { method: 'get' });
+                        if (typeFromTypedDict) {
+                            return typeFromTypedDict.type;
+                        }
                     }
                 }
                 break;
