@@ -346,6 +346,12 @@ test('TypeNarrowingLiteralMember1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingTuple1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTuple1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingTypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict1.py']);
 

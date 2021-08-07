@@ -18008,21 +18008,31 @@ export function createTypeEvaluator(
                             testExpression.leftExpression.items[0].valueExpression
                         ).type;
 
-                        if (
-                            isClassInstance(indexType) &&
-                            ClassType.isBuiltIn(indexType, 'str') &&
-                            isLiteralType(indexType)
-                        ) {
-                            const rightType = getTypeOfExpression(testExpression.rightExpression).type;
-                            if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
-                                return (type: Type) => {
-                                    return narrowTypeForDiscriminatedDictEntryComparison(
-                                        type,
-                                        indexType,
-                                        rightType,
-                                        adjIsPositiveTest
-                                    );
-                                };
+                        if (isClassInstance(indexType) && isLiteralType(indexType)) {
+                            if (ClassType.isBuiltIn(indexType, 'str')) {
+                                const rightType = getTypeOfExpression(testExpression.rightExpression).type;
+                                if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                                    return (type: Type) => {
+                                        return narrowTypeForDiscriminatedDictEntryComparison(
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        );
+                                    };
+                                }
+                            } else if (ClassType.isBuiltIn(indexType, 'int')) {
+                                const rightType = getTypeOfExpression(testExpression.rightExpression).type;
+                                if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                                    return (type: Type) => {
+                                        return narrowTypeForDiscriminatedTupleComparison(
+                                            type,
+                                            indexType,
+                                            rightType,
+                                            adjIsPositiveTest
+                                        );
+                                    };
+                                }
                             }
                         }
                     }
@@ -18666,6 +18676,40 @@ export function createTypeEvaluator(
                         return canAssignType(literalType, tdEntry.valueType, new DiagnosticAddendum())
                             ? undefined
                             : subtype;
+                    }
+                }
+            }
+
+            canNarrow = false;
+            return subtype;
+        });
+
+        return canNarrow ? narrowedType : referenceType;
+    }
+
+    function narrowTypeForDiscriminatedTupleComparison(
+        referenceType: Type,
+        indexLiteralType: ClassType,
+        literalType: ClassType,
+        isPositiveTest: boolean
+    ): Type {
+        let canNarrow = true;
+
+        const narrowedType = mapSubtypes(referenceType, (subtype) => {
+            if (isClassInstance(subtype) && ClassType.isTupleClass(subtype) && !isOpenEndedTupleClass(subtype)) {
+                const indexValue = indexLiteralType.literalValue as number;
+                if (subtype.tupleTypeArguments && indexValue >= 0 && indexValue < subtype.tupleTypeArguments.length) {
+                    const tupleEntryType = subtype.tupleTypeArguments[indexValue];
+                    if (tupleEntryType && isLiteralTypeOrUnion(tupleEntryType)) {
+                        if (isPositiveTest) {
+                            return canAssignType(tupleEntryType, literalType, new DiagnosticAddendum())
+                                ? subtype
+                                : undefined;
+                        } else {
+                            return canAssignType(literalType, tupleEntryType, new DiagnosticAddendum())
+                                ? undefined
+                                : subtype;
+                        }
                     }
                 }
             }
