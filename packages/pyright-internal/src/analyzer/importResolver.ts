@@ -694,7 +694,11 @@ export class ImportResolver {
         allowPyi: boolean,
         lookForPyTyped: boolean
     ): ImportResult {
-        importFailureInfo.push(`Attempting to resolve using root path '${rootPath}'`);
+        if (useStubPackage) {
+            importFailureInfo.push(`Attempting to resolve stub package using root path '${rootPath}'`);
+        } else {
+            importFailureInfo.push(`Attempting to resolve using root path '${rootPath}'`);
+        }
 
         // Starting at the specified path, walk the file system to find the
         // specified module.
