@@ -436,6 +436,12 @@ test('Expressions8', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Expressions9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Unpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack1.py']);
 
