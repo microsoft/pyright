@@ -5068,7 +5068,10 @@ export function createTypeEvaluator(
                 // use its metaclass instead.
                 let lookupClass = subtype;
                 if (TypeBase.isInstantiable(subtype)) {
-                    if (!subtype.details.effectiveMetaclass || !isInstantiableClass(subtype.details.effectiveMetaclass)) {
+                    if (
+                        !subtype.details.effectiveMetaclass ||
+                        !isInstantiableClass(subtype.details.effectiveMetaclass)
+                    ) {
                         return undefined;
                     }
                     lookupClass = convertToInstance(subtype.details.effectiveMetaclass) as ClassType;
