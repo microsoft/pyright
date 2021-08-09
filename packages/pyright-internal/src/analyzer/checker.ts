@@ -3099,11 +3099,7 @@ export class Checker extends ParseTreeWalker {
                     continue;
                 }
 
-                const baseClassAndSymbol = lookUpClassMember(
-                    mroBaseClass,
-                    name,
-                    ClassMemberLookupFlags.Default
-                );
+                const baseClassAndSymbol = lookUpClassMember(mroBaseClass, name, ClassMemberLookupFlags.Default);
 
                 if (!baseClassAndSymbol || !isInstantiableClass(baseClassAndSymbol.classType)) {
                     continue;
