@@ -44,7 +44,8 @@ q4: List[Tuple[int, ...]] = [
     (3, 6),
 ]
 
-# This should generate an error because int isn't assignable to str.
+# This should generate two errors because int isn't assignable to parameter
+# b or c.
 [X(*item) for item in q4]
 
 

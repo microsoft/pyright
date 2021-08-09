@@ -10,6 +10,7 @@
 import { DiagnosticLevel } from './configOptions';
 import { Diagnostic, DiagnosticAction, DiagnosticCategory } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
+import { hashString } from './stringUtils';
 import { Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
 
@@ -61,7 +62,7 @@ export class DiagnosticSink {
         // adding duplicates.
         const key =
             `${diag.range.start.line},${diag.range.start.character}-` +
-            `${diag.range.end.line}-${diag.range.end.character}:${diag.message.substr(0, 25)}}`;
+            `${diag.range.end.line}-${diag.range.end.character}:${hashString(diag.message)}}`;
         if (!this._diagnosticMap.has(key)) {
             this._diagnosticList.push(diag);
             this._diagnosticMap.set(key, diag);

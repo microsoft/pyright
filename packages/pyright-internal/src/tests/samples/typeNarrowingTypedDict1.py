@@ -63,7 +63,7 @@ def f5(p: Union[TD1, TD3]):
 
 
 def f6(p: Union[TD1, TD2, TD3]):
-    # This should generate an error
+    # This should generate an error for TD3.
     v1 = p["a"]
 
     v2 = p.get("a")
@@ -79,7 +79,7 @@ def f6(p: Union[TD1, TD2, TD3]):
         v5 = p["d"]
         t_v5: Literal["str"] = reveal_type(v5)
 
-    # This should generate an error
+    # This should generate two errors, one for TD1 and another for TD2.
     v6 = p["d"]
 
 

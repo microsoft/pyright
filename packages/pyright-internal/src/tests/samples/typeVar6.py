@@ -85,7 +85,7 @@ class ClassA(Generic[_T1]):
         # This should generate an error.
         _ = a(3.3)
 
-        # This should generate an error.
+        # This should generate two errors.
         _ = a[0]
 
         # This should generate an error.

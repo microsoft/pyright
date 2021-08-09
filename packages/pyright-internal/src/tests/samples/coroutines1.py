@@ -51,8 +51,8 @@ class ScopedClass1:
 async def consumer2():
     a = ScopedClass1()
 
-    # This should generate an error because
-    # there is no __enter__ method on ScopedClass1.
+    # This should generate two errors because
+    # there is no __enter__ or __exit__ method on ScopedClass1.
     with a as b:
         needs_int(b)
 
