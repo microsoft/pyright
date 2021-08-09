@@ -24208,11 +24208,7 @@ export function createTypeEvaluator(
         firstParamType: ClassType | TypeVarType | undefined,
         stripFirstParam = true
     ): FunctionType | undefined {
-        // If the class has already been specialized (fully or partially), use its
-        // existing type arg mappings. If it hasn't, use a fresh type arg map.
-        const typeVarMap = memberClass.typeArguments
-            ? buildTypeVarMapFromSpecializedClass(memberClass)
-            : new TypeVarMap(getTypeVarScopeId(memberClass));
+        const typeVarMap = new TypeVarMap(getTypeVarScopeId(memberClass));
 
         if (firstParamType && memberType.details.parameters.length > 0) {
             const memberTypeFirstParam = memberType.details.parameters[0];
