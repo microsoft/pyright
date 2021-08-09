@@ -5063,7 +5063,17 @@ export function createTypeEvaluator(
         let isTypeValid = true;
 
         type = mapSubtypes(type, (subtype) => {
-            if (isClassInstance(subtype)) {
+            if (isClass(subtype)) {
+                // If it's an object, use its class to lookup the descriptor. If it's a class,
+                // use its metaclass instead.
+                let lookupClass = subtype;
+                if (TypeBase.isInstantiable(subtype)) {
+                    if (!subtype.details.effectiveMetaclass || !isInstantiableClass(subtype.details.effectiveMetaclass)) {
+                        return undefined;
+                    }
+                    lookupClass = convertToInstance(subtype.details.effectiveMetaclass) as ClassType;
+                }
+
                 let accessMethodName: string;
 
                 if (usage.method === 'get') {
@@ -5075,13 +5085,13 @@ export function createTypeEvaluator(
                 }
 
                 const accessMethod = lookUpClassMember(
-                    subtype,
+                    lookupClass,
                     accessMethodName,
                     ClassMemberLookupFlags.SkipInstanceVariables
                 );
 
                 // Handle properties specially.
-                if (ClassType.isPropertyClass(subtype)) {
+                if (ClassType.isPropertyClass(lookupClass)) {
                     if (usage.method === 'set') {
                         if (!accessMethod) {
                             diag.addMessage(
@@ -5107,7 +5117,7 @@ export function createTypeEvaluator(
                         {
                             // Provide "self" argument.
                             argumentCategory: ArgumentCategory.Simple,
-                            type: subtype,
+                            type: lookupClass,
                         },
                         {
                             // Provide "instance" argument.
@@ -5133,7 +5143,7 @@ export function createTypeEvaluator(
                     }
 
                     if (
-                        ClassType.isPropertyClass(subtype) &&
+                        ClassType.isPropertyClass(lookupClass) &&
                         memberInfo &&
                         isInstantiableClass(memberInfo!.classType)
                     ) {
@@ -5162,12 +5172,22 @@ export function createTypeEvaluator(
                         // they will be redundant.
                         const returnType = suppressDiagnostics(errorNode, () => {
                             // Bind the accessor to the base object type.
+                            let bindToClass: ClassType | undefined;
+
+                            // The "bind-to" class depends on whether the descriptor is defined
+                            // on the metaclass or the class.
+                            if (TypeBase.isInstantiable(subtype)) {
+                                if (isInstantiableClass(accessMethod.classType)) {
+                                    bindToClass = accessMethod.classType;
+                                }
+                            } else if (memberInfo && isInstantiableClass(memberInfo.classType)) {
+                                bindToClass = memberInfo.classType;
+                            }
+
                             const boundMethodType = bindFunctionToClassOrObject(
-                                subtype,
+                                lookupClass,
                                 methodType,
-                                memberInfo && isInstantiableClass(memberInfo.classType)
-                                    ? memberInfo.classType
-                                    : undefined,
+                                bindToClass,
                                 errorNode
                             );
 
