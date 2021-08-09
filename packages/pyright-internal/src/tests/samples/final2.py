@@ -57,3 +57,20 @@ class ClassB(ClassA):
     # underscore symbols are exempt from this check.
     def __func6(self):
         pass
+
+
+class Base4:
+    ...
+
+
+class Base5:
+    @final
+    def __init__(self, v: int) -> None:
+        ...
+
+
+class C(Base4, Base5):
+    # This should generate an error because it overrides Base5,
+    # and __init__ is marked final there.
+    def __init__(self) -> None:
+        ...

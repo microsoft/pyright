@@ -330,3 +330,20 @@ class Derived3(Base3):
 
     def case(self, value: Any) -> Iterable[Any]:
         return []
+
+
+class Base4:
+    def a(self) -> int:
+        ...
+
+
+class Base5:
+    def a(self) -> int:
+        ...
+
+
+class C(Base4, Base5):
+    # This should generate two error if reportIncompatibleMethodOverride
+    # is enabled.
+    def a(self) -> float:
+        ...

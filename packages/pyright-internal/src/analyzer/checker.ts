@@ -3085,289 +3085,130 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            // Get the symbol defined in the base class.
-            const baseClassAndSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
-
-            if (!baseClassAndSymbol || !isInstantiableClass(baseClassAndSymbol.classType)) {
-                return;
-            }
-
-            // If the base class doesn't provide a type declaration, we won't bother
-            // proceeding with additional checks. Type inference is too inaccurate
-            // in this case, plus it would be very slow.
-            if (!baseClassAndSymbol.symbol.hasTypedDeclarations()) {
-                return;
-            }
-
-            const baseClassSymbolType = partiallySpecializeType(
-                this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
-                baseClassAndSymbol.classType
-            );
-
-            if (isFunction(baseClassSymbolType) || isOverloadedFunction(baseClassSymbolType)) {
-                const diagAddendum = new DiagnosticAddendum();
-                let overrideFunction: FunctionType | undefined;
-
-                if (isFunction(typeOfSymbol)) {
-                    overrideFunction = typeOfSymbol;
-                } else if (isOverloadedFunction(typeOfSymbol)) {
-                    // Use the last overload.
-                    overrideFunction = typeOfSymbol.overloads[typeOfSymbol.overloads.length - 1];
+            for (const baseClass of classType.details.baseClasses) {
+                if (!isClass(baseClass)) {
+                    continue;
                 }
 
-                if (overrideFunction) {
-                    const exemptMethods = ['__init__', '__new__', '__init_subclass__'];
-
-                    // Don't enforce parameter names for dundered methods. Many of them
-                    // are misnamed in typeshed stubs, so this would result in many
-                    // false positives.
-                    const enforceParamNameMatch = !SymbolNameUtils.isDunderName(name);
-
-                    // Don't check certain magic functions or private symbols.
-                    if (!exemptMethods.some((exempt) => exempt === name) && !SymbolNameUtils.isPrivateName(name)) {
-                        if (
-                            !this._evaluator.canOverrideMethod(
-                                baseClassSymbolType,
-                                overrideFunction,
-                                diagAddendum,
-                                enforceParamNameMatch
-                            )
-                        ) {
-                            const decl = overrideFunction.details.declaration;
-                            if (decl && decl.type === DeclarationType.Function) {
-                                const diag = this._evaluator.addDiagnostic(
-                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                                    DiagnosticRule.reportIncompatibleMethodOverride,
-                                    Localizer.Diagnostic.incompatibleMethodOverride().format({
-                                        name,
-                                        className: baseClassAndSymbol.classType.details.name,
-                                    }) + diagAddendum.getString(),
-                                    decl.node.name
-                                );
-
-                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-                                if (diag && origDecl) {
-                                    diag.addRelatedInfo(
-                                        Localizer.DiagnosticAddendum.overriddenMethod(),
-                                        origDecl.path,
-                                        origDecl.range
-                                    );
-                                }
-                            }
-                        }
-                    }
-
-                    if (isFunction(baseClassSymbolType)) {
-                        // Private names (starting with double underscore) are exempt from this check.
-                        if (!SymbolNameUtils.isPrivateName(name) && FunctionType.isFinal(baseClassSymbolType)) {
-                            const decl = getLastTypedDeclaredForSymbol(symbol);
-                            if (decl && decl.type === DeclarationType.Function) {
-                                const diag = this._evaluator.addError(
-                                    Localizer.Diagnostic.finalMethodOverride().format({
-                                        name,
-                                        className: baseClassAndSymbol.classType.details.name,
-                                    }),
-                                    decl.node.name
-                                );
-
-                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-                                if (diag && origDecl) {
-                                    diag.addRelatedInfo(
-                                        Localizer.DiagnosticAddendum.finalMethod(),
-                                        origDecl.path,
-                                        origDecl.range
-                                    );
-                                }
-                            }
-                        }
-                    }
-                } else if (!isAnyOrUnknown(typeOfSymbol)) {
-                    const decls = symbol.getDeclarations();
-                    if (decls.length > 0) {
-                        const lastDecl = decls[decls.length - 1];
-                        const diag = this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                            DiagnosticRule.reportIncompatibleMethodOverride,
-                            Localizer.Diagnostic.methodOverridden().format({
-                                name,
-                                className: baseClassAndSymbol.classType.details.name,
-                                type: this._evaluator.printType(typeOfSymbol, /* expandTypeAlias */ false),
-                            }),
-                            lastDecl.node
-                        );
-
-                        const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-                        if (diag && origDecl) {
-                            diag.addRelatedInfo(
-                                Localizer.DiagnosticAddendum.overriddenMethod(),
-                                origDecl.path,
-                                origDecl.range
-                            );
-                        }
-                    }
+                // Look up the base class in the MRO list. It's the same generic class
+                // but has already been specialized using the type variables of the classType.
+                const mroBaseClass = classType.details.mro.find(
+                    (mroClass) => isClass(mroClass) && ClassType.isSameGenericClass(mroClass, baseClass)
+                );
+                if (!mroBaseClass) {
+                    continue;
                 }
-            } else if (isProperty(baseClassSymbolType)) {
-                // Handle properties specially.
-                if (!isProperty(typeOfSymbol)) {
-                    const decls = symbol.getDeclarations();
-                    if (decls.length > 0) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                            DiagnosticRule.reportIncompatibleMethodOverride,
-                            Localizer.Diagnostic.propertyOverridden().format({
-                                name,
-                                className: baseClassAndSymbol.classType.details.name,
-                            }),
-                            decls[decls.length - 1].node
-                        );
+
+                const baseClassAndSymbol = lookUpClassMember(
+                    mroBaseClass,
+                    name,
+                    ClassMemberLookupFlags.Default
+                );
+
+                if (!baseClassAndSymbol || !isInstantiableClass(baseClassAndSymbol.classType)) {
+                    continue;
+                }
+
+                // If the base class doesn't provide a type declaration, we won't bother
+                // proceeding with additional checks. Type inference is too inaccurate
+                // in this case, plus it would be very slow.
+                if (!baseClassAndSymbol.symbol.hasTypedDeclarations()) {
+                    continue;
+                }
+
+                const baseClassSymbolType = partiallySpecializeType(
+                    this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
+                    baseClassAndSymbol.classType
+                );
+
+                if (isFunction(baseClassSymbolType) || isOverloadedFunction(baseClassSymbolType)) {
+                    const diagAddendum = new DiagnosticAddendum();
+                    let overrideFunction: FunctionType | undefined;
+
+                    if (isFunction(typeOfSymbol)) {
+                        overrideFunction = typeOfSymbol;
+                    } else if (isOverloadedFunction(typeOfSymbol)) {
+                        // Use the last overload.
+                        overrideFunction = typeOfSymbol.overloads[typeOfSymbol.overloads.length - 1];
                     }
-                } else {
-                    const basePropFields = (baseClassSymbolType as ClassType).details.fields;
-                    const subclassPropFields = (typeOfSymbol as ClassType).details.fields;
-                    const baseClassType = baseClassAndSymbol.classType;
 
-                    ['fget', 'fset', 'fdel'].forEach((methodName) => {
-                        const diagAddendum = new DiagnosticAddendum();
-                        const baseClassPropMethod = basePropFields.get(methodName);
-                        const subclassPropMethod = subclassPropFields.get(methodName);
+                    if (overrideFunction) {
+                        const exemptMethods = ['__init__', '__new__', '__init_subclass__'];
 
-                        // Is the method present on the base class but missing in the subclass?
-                        if (baseClassPropMethod) {
-                            const baseClassMethodType = partiallySpecializeType(
-                                this._evaluator.getEffectiveTypeOfSymbol(baseClassPropMethod),
-                                baseClassType
-                            );
-                            if (isFunction(baseClassMethodType)) {
-                                if (!subclassPropMethod) {
-                                    // The method is missing.
-                                    diagAddendum.addMessage(
-                                        Localizer.DiagnosticAddendum.propertyMethodMissing().format({
-                                            name: methodName,
-                                        })
+                        // Don't enforce parameter names for dundered methods. Many of them
+                        // are misnamed in typeshed stubs, so this would result in many
+                        // false positives.
+                        const enforceParamNameMatch = !SymbolNameUtils.isDunderName(name);
+
+                        // Don't check certain magic functions or private symbols.
+                        if (!exemptMethods.some((exempt) => exempt === name) && !SymbolNameUtils.isPrivateName(name)) {
+                            if (
+                                !this._evaluator.canOverrideMethod(
+                                    baseClassSymbolType,
+                                    overrideFunction,
+                                    diagAddendum,
+                                    enforceParamNameMatch
+                                )
+                            ) {
+                                const decl = overrideFunction.details.declaration;
+                                if (decl && decl.type === DeclarationType.Function) {
+                                    const diag = this._evaluator.addDiagnostic(
+                                        this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                                        DiagnosticRule.reportIncompatibleMethodOverride,
+                                        Localizer.Diagnostic.incompatibleMethodOverride().format({
+                                            name,
+                                            className: baseClassAndSymbol.classType.details.name,
+                                        }) + diagAddendum.getString(),
+                                        decl.node.name
                                     );
-                                    const decls = symbol.getDeclarations();
-                                    if (decls.length > 0) {
-                                        const diag = this._evaluator.addDiagnostic(
-                                            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                                            DiagnosticRule.reportIncompatibleMethodOverride,
-                                            Localizer.Diagnostic.propertyOverridden().format({
-                                                name,
-                                                className: baseClassType.details.name,
-                                            }) + diagAddendum.getString(),
-                                            decls[decls.length - 1].node
+
+                                    const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                                    if (diag && origDecl) {
+                                        diag.addRelatedInfo(
+                                            Localizer.DiagnosticAddendum.overriddenMethod(),
+                                            origDecl.path,
+                                            origDecl.range
                                         );
-
-                                        const origDecl = baseClassMethodType.details.declaration;
-                                        if (diag && origDecl) {
-                                            diag.addRelatedInfo(
-                                                Localizer.DiagnosticAddendum.overriddenMethod(),
-                                                origDecl.path,
-                                                origDecl.range
-                                            );
-                                        }
-                                    }
-                                } else {
-                                    const subclassMethodType = partiallySpecializeType(
-                                        this._evaluator.getEffectiveTypeOfSymbol(subclassPropMethod),
-                                        classType
-                                    );
-                                    if (isFunction(subclassMethodType)) {
-                                        if (
-                                            !this._evaluator.canOverrideMethod(
-                                                baseClassMethodType,
-                                                subclassMethodType,
-                                                diagAddendum.createAddendum()
-                                            )
-                                        ) {
-                                            diagAddendum.addMessage(
-                                                Localizer.DiagnosticAddendum.propertyMethodIncompatible().format({
-                                                    name: methodName,
-                                                })
-                                            );
-                                            const decl = subclassMethodType.details.declaration;
-                                            if (decl && decl.type === DeclarationType.Function) {
-                                                const diag = this._evaluator.addDiagnostic(
-                                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                                                    DiagnosticRule.reportIncompatibleMethodOverride,
-                                                    Localizer.Diagnostic.propertyOverridden().format({
-                                                        name,
-                                                        className: baseClassType.details.name,
-                                                    }) + diagAddendum.getString(),
-                                                    decl.node.name
-                                                );
-
-                                                const origDecl = baseClassMethodType.details.declaration;
-                                                if (diag && origDecl) {
-                                                    diag.addRelatedInfo(
-                                                        Localizer.DiagnosticAddendum.overriddenMethod(),
-                                                        origDecl.path,
-                                                        origDecl.range
-                                                    );
-                                                }
-                                            }
-                                        }
                                     }
                                 }
                             }
                         }
-                    });
-                }
-            } else {
-                // This check can be expensive, so don't perform it if the corresponding
-                // rule is disabled.
-                if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
-                    const decls = symbol.getDeclarations();
-                    if (decls.length > 0) {
-                        const lastDecl = decls[decls.length - 1];
-                        // Verify that the override type is assignable to (same or narrower than)
-                        // the declared type of the base symbol.
-                        const diagAddendum = new DiagnosticAddendum();
-                        if (!this._evaluator.canAssignType(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
-                            const diag = this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
-                                DiagnosticRule.reportIncompatibleVariableOverride,
-                                Localizer.Diagnostic.symbolOverridden().format({
-                                    name,
-                                    className: baseClassAndSymbol.classType.details.name,
-                                }) + diagAddendum.getString(),
-                                lastDecl.node
-                            );
 
-                            const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-                            if (diag && origDecl) {
-                                diag.addRelatedInfo(
-                                    Localizer.DiagnosticAddendum.overriddenSymbol(),
-                                    origDecl.path,
-                                    origDecl.range
-                                );
+                        if (isFunction(baseClassSymbolType)) {
+                            // Private names (starting with double underscore) are exempt from this check.
+                            if (!SymbolNameUtils.isPrivateName(name) && FunctionType.isFinal(baseClassSymbolType)) {
+                                const decl = getLastTypedDeclaredForSymbol(symbol);
+                                if (decl && decl.type === DeclarationType.Function) {
+                                    const diag = this._evaluator.addError(
+                                        Localizer.Diagnostic.finalMethodOverride().format({
+                                            name,
+                                            className: baseClassAndSymbol.classType.details.name,
+                                        }),
+                                        decl.node.name
+                                    );
+
+                                    const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                                    if (diag && origDecl) {
+                                        diag.addRelatedInfo(
+                                            Localizer.DiagnosticAddendum.finalMethod(),
+                                            origDecl.path,
+                                            origDecl.range
+                                        );
+                                    }
+                                }
                             }
                         }
-
-                        // Verify that a class variable isn't overriding an instance
-                        // variable or vice versa.
-                        const isBaseClassVar = baseClassAndSymbol.symbol.isClassVar();
-                        let isClassVar = symbol.isClassVar();
-
-                        // If the subclass doesn't redeclare the type but simply assigns
-                        // it without declaring its type, we won't consider it an instance
-                        // variable.
-                        if (isBaseClassVar && !isClassVar) {
-                            if (!symbol.hasTypedDeclarations()) {
-                                isClassVar = true;
-                            }
-                        }
-
-                        if (isBaseClassVar !== isClassVar) {
-                            const unformattedMessage = symbol.isClassVar()
-                                ? Localizer.Diagnostic.classVarOverridesInstanceVar()
-                                : Localizer.Diagnostic.instanceVarOverridesClassVar();
-
+                    } else if (!isAnyOrUnknown(typeOfSymbol)) {
+                        const decls = symbol.getDeclarations();
+                        if (decls.length > 0) {
+                            const lastDecl = decls[decls.length - 1];
                             const diag = this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
-                                DiagnosticRule.reportIncompatibleVariableOverride,
-                                unformattedMessage.format({
+                                this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                                DiagnosticRule.reportIncompatibleMethodOverride,
+                                Localizer.Diagnostic.methodOverridden().format({
                                     name,
                                     className: baseClassAndSymbol.classType.details.name,
+                                    type: this._evaluator.printType(typeOfSymbol, /* expandTypeAlias */ false),
                                 }),
                                 lastDecl.node
                             );
@@ -3375,10 +3216,188 @@ export class Checker extends ParseTreeWalker {
                             const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
                             if (diag && origDecl) {
                                 diag.addRelatedInfo(
-                                    Localizer.DiagnosticAddendum.overriddenSymbol(),
+                                    Localizer.DiagnosticAddendum.overriddenMethod(),
                                     origDecl.path,
                                     origDecl.range
                                 );
+                            }
+                        }
+                    }
+                } else if (isProperty(baseClassSymbolType)) {
+                    // Handle properties specially.
+                    if (!isProperty(typeOfSymbol)) {
+                        const decls = symbol.getDeclarations();
+                        if (decls.length > 0) {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                                DiagnosticRule.reportIncompatibleMethodOverride,
+                                Localizer.Diagnostic.propertyOverridden().format({
+                                    name,
+                                    className: baseClassAndSymbol.classType.details.name,
+                                }),
+                                decls[decls.length - 1].node
+                            );
+                        }
+                    } else {
+                        const basePropFields = (baseClassSymbolType as ClassType).details.fields;
+                        const subclassPropFields = (typeOfSymbol as ClassType).details.fields;
+                        const baseClassType = baseClassAndSymbol.classType;
+
+                        ['fget', 'fset', 'fdel'].forEach((methodName) => {
+                            const diagAddendum = new DiagnosticAddendum();
+                            const baseClassPropMethod = basePropFields.get(methodName);
+                            const subclassPropMethod = subclassPropFields.get(methodName);
+
+                            // Is the method present on the base class but missing in the subclass?
+                            if (baseClassPropMethod) {
+                                const baseClassMethodType = partiallySpecializeType(
+                                    this._evaluator.getEffectiveTypeOfSymbol(baseClassPropMethod),
+                                    baseClassType
+                                );
+                                if (isFunction(baseClassMethodType)) {
+                                    if (!subclassPropMethod) {
+                                        // The method is missing.
+                                        diagAddendum.addMessage(
+                                            Localizer.DiagnosticAddendum.propertyMethodMissing().format({
+                                                name: methodName,
+                                            })
+                                        );
+                                        const decls = symbol.getDeclarations();
+                                        if (decls.length > 0) {
+                                            const diag = this._evaluator.addDiagnostic(
+                                                this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                                                DiagnosticRule.reportIncompatibleMethodOverride,
+                                                Localizer.Diagnostic.propertyOverridden().format({
+                                                    name,
+                                                    className: baseClassType.details.name,
+                                                }) + diagAddendum.getString(),
+                                                decls[decls.length - 1].node
+                                            );
+
+                                            const origDecl = baseClassMethodType.details.declaration;
+                                            if (diag && origDecl) {
+                                                diag.addRelatedInfo(
+                                                    Localizer.DiagnosticAddendum.overriddenMethod(),
+                                                    origDecl.path,
+                                                    origDecl.range
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        const subclassMethodType = partiallySpecializeType(
+                                            this._evaluator.getEffectiveTypeOfSymbol(subclassPropMethod),
+                                            classType
+                                        );
+                                        if (isFunction(subclassMethodType)) {
+                                            if (
+                                                !this._evaluator.canOverrideMethod(
+                                                    baseClassMethodType,
+                                                    subclassMethodType,
+                                                    diagAddendum.createAddendum()
+                                                )
+                                            ) {
+                                                diagAddendum.addMessage(
+                                                    Localizer.DiagnosticAddendum.propertyMethodIncompatible().format({
+                                                        name: methodName,
+                                                    })
+                                                );
+                                                const decl = subclassMethodType.details.declaration;
+                                                if (decl && decl.type === DeclarationType.Function) {
+                                                    const diag = this._evaluator.addDiagnostic(
+                                                        this._fileInfo.diagnosticRuleSet
+                                                            .reportIncompatibleMethodOverride,
+                                                        DiagnosticRule.reportIncompatibleMethodOverride,
+                                                        Localizer.Diagnostic.propertyOverridden().format({
+                                                            name,
+                                                            className: baseClassType.details.name,
+                                                        }) + diagAddendum.getString(),
+                                                        decl.node.name
+                                                    );
+
+                                                    const origDecl = baseClassMethodType.details.declaration;
+                                                    if (diag && origDecl) {
+                                                        diag.addRelatedInfo(
+                                                            Localizer.DiagnosticAddendum.overriddenMethod(),
+                                                            origDecl.path,
+                                                            origDecl.range
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    // This check can be expensive, so don't perform it if the corresponding
+                    // rule is disabled.
+                    if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
+                        const decls = symbol.getDeclarations();
+                        if (decls.length > 0) {
+                            const lastDecl = decls[decls.length - 1];
+                            // Verify that the override type is assignable to (same or narrower than)
+                            // the declared type of the base symbol.
+                            const diagAddendum = new DiagnosticAddendum();
+                            if (!this._evaluator.canAssignType(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
+                                const diag = this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                                    DiagnosticRule.reportIncompatibleVariableOverride,
+                                    Localizer.Diagnostic.symbolOverridden().format({
+                                        name,
+                                        className: baseClassAndSymbol.classType.details.name,
+                                    }) + diagAddendum.getString(),
+                                    lastDecl.node
+                                );
+
+                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                                if (diag && origDecl) {
+                                    diag.addRelatedInfo(
+                                        Localizer.DiagnosticAddendum.overriddenSymbol(),
+                                        origDecl.path,
+                                        origDecl.range
+                                    );
+                                }
+                            }
+
+                            // Verify that a class variable isn't overriding an instance
+                            // variable or vice versa.
+                            const isBaseClassVar = baseClassAndSymbol.symbol.isClassVar();
+                            let isClassVar = symbol.isClassVar();
+
+                            // If the subclass doesn't redeclare the type but simply assigns
+                            // it without declaring its type, we won't consider it an instance
+                            // variable.
+                            if (isBaseClassVar && !isClassVar) {
+                                if (!symbol.hasTypedDeclarations()) {
+                                    isClassVar = true;
+                                }
+                            }
+
+                            if (isBaseClassVar !== isClassVar) {
+                                const unformattedMessage = symbol.isClassVar()
+                                    ? Localizer.Diagnostic.classVarOverridesInstanceVar()
+                                    : Localizer.Diagnostic.instanceVarOverridesClassVar();
+
+                                const diag = this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                                    DiagnosticRule.reportIncompatibleVariableOverride,
+                                    unformattedMessage.format({
+                                        name,
+                                        className: baseClassAndSymbol.classType.details.name,
+                                    }),
+                                    lastDecl.node
+                                );
+
+                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                                if (diag && origDecl) {
+                                    diag.addRelatedInfo(
+                                        Localizer.DiagnosticAddendum.overriddenSymbol(),
+                                        origDecl.path,
+                                        origDecl.range
+                                    );
+                                }
                             }
                         }
                     }
