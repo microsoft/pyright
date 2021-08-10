@@ -33,30 +33,30 @@ class AnonymousIP(SimpleModel):
     is_hosting_provider: bool
     is_public_proxy: bool
     is_tor_exit_node: bool
-    ip_address: Optional[Text]
+    ip_address: Text | None
     raw: _RawResponse
     def __init__(self, raw: _RawResponse) -> None: ...
 
 class ASN(SimpleModel):
-    autonomous_system_number: Optional[int]
-    autonomous_system_organization: Optional[Text]
-    ip_address: Optional[Text]
+    autonomous_system_number: int | None
+    autonomous_system_organization: Text | None
+    ip_address: Text | None
     raw: _RawResponse
     def __init__(self, raw: _RawResponse) -> None: ...
 
 class ConnectionType(SimpleModel):
-    connection_type: Optional[Text]
-    ip_address: Optional[Text]
+    connection_type: Text | None
+    ip_address: Text | None
     raw: _RawResponse
     def __init__(self, raw: _RawResponse) -> None: ...
 
 class Domain(SimpleModel):
-    domain: Optional[Text]
-    ip_address: Optional[Text]
-    raw: Optional[Text]
+    domain: Text | None
+    ip_address: Text | None
+    raw: Text | None
     def __init__(self, raw: _RawResponse) -> None: ...
 
 class ISP(ASN):
-    isp: Optional[Text]
-    organization: Optional[Text]
+    isp: Text | None
+    organization: Text | None
     def __init__(self, raw: _RawResponse) -> None: ...

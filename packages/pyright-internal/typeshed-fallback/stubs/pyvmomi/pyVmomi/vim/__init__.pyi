@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, List
+from typing import Any
 
 from ..vmodl.query import PropertyCollector
 from .event import EventManager
@@ -44,15 +44,15 @@ class PerformanceManager:
         def __getattr__(self, name: str) -> Any: ...  # incomplete
     class QuerySpec:
         entity: ManagedEntity
-        metricId: List[PerformanceManager.MetricId]
+        metricId: list[PerformanceManager.MetricId]
         intervalId: int
         maxSample: int
         startTime: datetime
         def __getattr__(self, name: str) -> Any: ...  # incomplete
     class EntityMetricBase:
         entity: ManagedEntity
-    def QueryPerfCounterByLevel(self, collection_level: int) -> List[PerformanceManager.PerfCounterInfo]: ...
-    def QueryPerf(self, querySpec: List[PerformanceManager.QuerySpec]) -> List[PerformanceManager.EntityMetricBase]: ...
+    def QueryPerfCounterByLevel(self, collection_level: int) -> list[PerformanceManager.PerfCounterInfo]: ...
+    def QueryPerf(self, querySpec: list[PerformanceManager.QuerySpec]) -> list[PerformanceManager.EntityMetricBase]: ...
     def __getattr__(self, name: str) -> Any: ...  # incomplete
 
 class ClusterComputeResource(ManagedEntity): ...

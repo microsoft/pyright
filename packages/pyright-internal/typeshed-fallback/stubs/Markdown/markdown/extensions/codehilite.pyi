@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
@@ -18,19 +18,19 @@ class CodeHilite:
     tab_length: Any
     hl_lines: Any
     use_pygments: Any
-    options: Dict[str, Any]
+    options: dict[str, Any]
     def __init__(
         self,
-        src: Optional[Any] = ...,
+        src: Any | None = ...,
         *,
-        linenums: Optional[Any] = ...,
+        linenums: Any | None = ...,
         guess_lang: bool = ...,
         css_class: str = ...,
-        lang: Optional[Any] = ...,
+        lang: Any | None = ...,
         style: str = ...,
         noclasses: bool = ...,
         tab_length: int = ...,
-        hl_lines: Optional[Any] = ...,
+        hl_lines: Any | None = ...,
         use_pygments: bool = ...,
         **options: Any,
     ) -> None: ...

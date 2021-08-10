@@ -61,10 +61,10 @@ v11: List[Any] = [["hi", ["hi"], [[{}]]]]
 t_v11: Literal["list[Any]"] = reveal_type(v11)
 
 v12: List[Optional[int]] = [None] * 3
-t_v12: Literal["List[int | None]"] = reveal_type(v12)
+t_v12: Literal["list[int | None]"] = reveal_type(v12)
 
 v13: List[Optional[str]] = ["3", None] * 2
-t_v13: Literal["List[str | None]"] = reveal_type(v13)
+t_v13: Literal["list[str | None]"] = reveal_type(v13)
 
 x1 = 3
 v14: List[Optional[str]] = [None] * x1

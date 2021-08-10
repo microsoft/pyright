@@ -1,11 +1,11 @@
-from typing import Any, List, Pattern
+from typing import Any, Pattern
 
 from . import util
 
 def build_preprocessors(md, **kwargs): ...
 
 class Preprocessor(util.Processor):
-    def run(self, lines: List[str]) -> List[str]: ...
+    def run(self, lines: list[str]) -> list[str]: ...
 
 class NormalizeWhitespace(Preprocessor): ...
 

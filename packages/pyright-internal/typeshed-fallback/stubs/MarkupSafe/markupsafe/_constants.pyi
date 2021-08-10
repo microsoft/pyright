@@ -1,3 +1,3 @@
-from typing import Dict, Text
+from typing import Text
 
-HTML_ENTITIES: Dict[Text, int]
+HTML_ENTITIES: dict[Text, int]

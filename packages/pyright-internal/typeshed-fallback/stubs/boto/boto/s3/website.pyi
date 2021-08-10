@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List
 
 def tag(key, value): ...
 
@@ -9,10 +9,10 @@ class WebsiteConfiguration:
     routing_rules: Any
     def __init__(
         self,
-        suffix: Optional[Any] = ...,
-        error_key: Optional[Any] = ...,
-        redirect_all_requests_to: Optional[Any] = ...,
-        routing_rules: Optional[Any] = ...,
+        suffix: Any | None = ...,
+        error_key: Any | None = ...,
+        redirect_all_requests_to: Any | None = ...,
+        routing_rules: Any | None = ...,
     ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
@@ -21,7 +21,7 @@ class WebsiteConfiguration:
 class _XMLKeyValue:
     translator: Any
     container: Any
-    def __init__(self, translator, container: Optional[Any] = ...) -> None: ...
+    def __init__(self, translator, container: Any | None = ...) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
     def to_xml(self): ...
@@ -30,7 +30,7 @@ class RedirectLocation(_XMLKeyValue):
     TRANSLATOR: Any
     hostname: Any
     protocol: Any
-    def __init__(self, hostname: Optional[Any] = ..., protocol: Optional[Any] = ...) -> None: ...
+    def __init__(self, hostname: Any | None = ..., protocol: Any | None = ...) -> None: ...
     def to_xml(self): ...
 
 class RoutingRules(List[RoutingRule]):
@@ -42,26 +42,26 @@ class RoutingRules(List[RoutingRule]):
 class RoutingRule:
     condition: Any
     redirect: Any
-    def __init__(self, condition: Optional[Any] = ..., redirect: Optional[Any] = ...) -> None: ...
+    def __init__(self, condition: Any | None = ..., redirect: Any | None = ...) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
     def to_xml(self): ...
     @classmethod
-    def when(cls, key_prefix: Optional[Any] = ..., http_error_code: Optional[Any] = ...): ...
+    def when(cls, key_prefix: Any | None = ..., http_error_code: Any | None = ...): ...
     def then_redirect(
         self,
-        hostname: Optional[Any] = ...,
-        protocol: Optional[Any] = ...,
-        replace_key: Optional[Any] = ...,
-        replace_key_prefix: Optional[Any] = ...,
-        http_redirect_code: Optional[Any] = ...,
+        hostname: Any | None = ...,
+        protocol: Any | None = ...,
+        replace_key: Any | None = ...,
+        replace_key_prefix: Any | None = ...,
+        http_redirect_code: Any | None = ...,
     ): ...
 
 class Condition(_XMLKeyValue):
     TRANSLATOR: Any
     key_prefix: Any
     http_error_code: Any
-    def __init__(self, key_prefix: Optional[Any] = ..., http_error_code: Optional[Any] = ...) -> None: ...
+    def __init__(self, key_prefix: Any | None = ..., http_error_code: Any | None = ...) -> None: ...
     def to_xml(self): ...
 
 class Redirect(_XMLKeyValue):
@@ -73,10 +73,10 @@ class Redirect(_XMLKeyValue):
     http_redirect_code: Any
     def __init__(
         self,
-        hostname: Optional[Any] = ...,
-        protocol: Optional[Any] = ...,
-        replace_key: Optional[Any] = ...,
-        replace_key_prefix: Optional[Any] = ...,
-        http_redirect_code: Optional[Any] = ...,
+        hostname: Any | None = ...,
+        protocol: Any | None = ...,
+        replace_key: Any | None = ...,
+        replace_key_prefix: Any | None = ...,
+        http_redirect_code: Any | None = ...,
     ) -> None: ...
     def to_xml(self): ...

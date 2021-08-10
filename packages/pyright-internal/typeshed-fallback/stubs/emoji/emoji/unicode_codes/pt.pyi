@@ -1,4 +1,4 @@
-from typing import Dict, Text
+from typing import Text
 
-EMOJI_UNICODE_PORTUGUESE: Dict[Text, Text]
-UNICODE_EMOJI_PORTUGUESE: Dict[Text, Text]
+EMOJI_UNICODE_PORTUGUESE: dict[Text, Text]
+UNICODE_EMOJI_PORTUGUESE: dict[Text, Text]

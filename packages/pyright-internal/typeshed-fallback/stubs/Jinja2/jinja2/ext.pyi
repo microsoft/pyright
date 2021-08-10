@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 GETTEXT_FUNCTIONS: Any
 
@@ -11,18 +11,18 @@ class Extension:
     environment: Any
     def __init__(self, environment) -> None: ...
     def bind(self, environment): ...
-    def preprocess(self, source, name, filename: Optional[Any] = ...): ...
+    def preprocess(self, source, name, filename: Any | None = ...): ...
     def filter_stream(self, stream): ...
     def parse(self, parser): ...
-    def attr(self, name, lineno: Optional[Any] = ...): ...
+    def attr(self, name, lineno: Any | None = ...): ...
     def call_method(
         self,
         name,
-        args: Optional[Any] = ...,
-        kwargs: Optional[Any] = ...,
-        dyn_args: Optional[Any] = ...,
-        dyn_kwargs: Optional[Any] = ...,
-        lineno: Optional[Any] = ...,
+        args: Any | None = ...,
+        kwargs: Any | None = ...,
+        dyn_args: Any | None = ...,
+        dyn_kwargs: Any | None = ...,
+        lineno: Any | None = ...,
     ): ...
 
 class InternationalizationExtension(Extension):

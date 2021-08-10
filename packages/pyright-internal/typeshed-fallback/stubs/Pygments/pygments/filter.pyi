@@ -1,10 +1,10 @@
 from collections.abc import Iterable, Iterator
-from typing import Any, Optional
+from typing import Any
 
 from pygments.lexer import Lexer
 from pygments.token import _TokenType
 
-def apply_filters(stream, filters, lexer: Optional[Any] = ...): ...
+def apply_filters(stream, filters, lexer: Any | None = ...): ...
 def simplefilter(f): ...
 
 class Filter:

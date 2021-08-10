@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List
 
 class CORSRule:
     allowed_method: Any
@@ -9,12 +9,12 @@ class CORSRule:
     expose_header: Any
     def __init__(
         self,
-        allowed_method: Optional[Any] = ...,
-        allowed_origin: Optional[Any] = ...,
-        id: Optional[Any] = ...,
-        allowed_header: Optional[Any] = ...,
-        max_age_seconds: Optional[Any] = ...,
-        expose_header: Optional[Any] = ...,
+        allowed_method: Any | None = ...,
+        allowed_origin: Any | None = ...,
+        id: Any | None = ...,
+        allowed_header: Any | None = ...,
+        max_age_seconds: Any | None = ...,
+        expose_header: Any | None = ...,
     ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
@@ -28,8 +28,8 @@ class CORSConfiguration(List[CORSRule]):
         self,
         allowed_method,
         allowed_origin,
-        id: Optional[Any] = ...,
-        allowed_header: Optional[Any] = ...,
-        max_age_seconds: Optional[Any] = ...,
-        expose_header: Optional[Any] = ...,
+        id: Any | None = ...,
+        allowed_header: Any | None = ...,
+        max_age_seconds: Any | None = ...,
+        expose_header: Any | None = ...,
     ): ...

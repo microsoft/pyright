@@ -1,5 +1,5 @@
 from _typeshed import Self, SupportsRead
-from typing import Any, List, Sequence, Type
+from typing import Any, Sequence, Type
 
 from .builder import TreeBuilder
 from .element import PageElement, SoupStrainer, Tag
@@ -10,7 +10,7 @@ class MarkupResemblesLocatorWarning(UserWarning): ...
 
 class BeautifulSoup(Tag):
     ROOT_TAG_NAME: str
-    DEFAULT_BUILDER_FEATURES: List[str]
+    DEFAULT_BUILDER_FEATURES: list[str]
     ASCII_SPACES: str
     NO_PARSER_SPECIFIED_WARNING: str
     element_classes: Any

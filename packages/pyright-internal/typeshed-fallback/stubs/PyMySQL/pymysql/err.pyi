@@ -1,5 +1,5 @@
 import builtins
-from typing import Dict, NoReturn, Type
+from typing import NoReturn, Type
 
 from .constants import ER as ER
 
@@ -15,6 +15,6 @@ class InternalError(DatabaseError): ...
 class ProgrammingError(DatabaseError): ...
 class NotSupportedError(DatabaseError): ...
 
-error_map: Dict[int, Type[DatabaseError]]
+error_map: dict[int, Type[DatabaseError]]
 
 def raise_mysql_exception(data) -> NoReturn: ...

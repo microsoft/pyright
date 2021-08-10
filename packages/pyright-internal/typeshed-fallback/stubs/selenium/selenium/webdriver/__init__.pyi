@@ -29,7 +29,6 @@ __all__ = [
     "Ie",
     "IeOptions",
     "Edge",
-    "EdgeOptions",
     "Opera",
     "Safari",
     "BlackBerry",

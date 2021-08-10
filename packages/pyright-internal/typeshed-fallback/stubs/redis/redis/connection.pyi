@@ -1,4 +1,4 @@
-from typing import Any, List, Mapping, Optional, Text, Tuple, Type, Union
+from typing import Any, Mapping, Text, Tuple, Type
 
 ssl_available: Any
 hiredis_version: Any
@@ -53,8 +53,8 @@ DefaultParser: Any
 
 class Encoder:
     def __init__(self, encoding, encoding_errors, decode_responses: bool) -> None: ...
-    def encode(self, value: Union[Text, bytes, memoryview, bool, float]) -> bytes: ...
-    def decode(self, value: Union[Text, bytes, memoryview], force: bool = ...) -> Text: ...
+    def encode(self, value: Text | bytes | memoryview | bool | float) -> bytes: ...
+    def decode(self, value: Text | bytes | memoryview, force: bool = ...) -> Text: ...
 
 class Connection:
     description_format: Any
@@ -76,11 +76,11 @@ class Connection:
         host: Text = ...,
         port: int = ...,
         db: int = ...,
-        password: Optional[Text] = ...,
-        socket_timeout: Optional[float] = ...,
-        socket_connect_timeout: Optional[float] = ...,
+        password: Text | None = ...,
+        socket_timeout: float | None = ...,
+        socket_connect_timeout: float | None = ...,
         socket_keepalive: bool = ...,
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]] = ...,
+        socket_keepalive_options: Mapping[str, int | str] | None = ...,
         socket_type: int = ...,
         retry_on_timeout: bool = ...,
         encoding: Text = ...,
@@ -89,8 +89,8 @@ class Connection:
         parser_class: Type[BaseParser] = ...,
         socket_read_size: int = ...,
         health_check_interval: int = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> None: ...
     def __del__(self): ...
     def register_connect_callback(self, callback): ...
@@ -105,7 +105,7 @@ class Connection:
     def read_response(self): ...
     def pack_command(self, *args): ...
     def pack_commands(self, commands): ...
-    def repr_pieces(self) -> List[Tuple[Text, Text]]: ...
+    def repr_pieces(self) -> list[Tuple[Text, Text]]: ...
 
 class SSLConnection(Connection):
     description_format: Any
@@ -144,13 +144,13 @@ class UnixDomainSocketConnection(Connection):
         health_check_interval: int = ...,
         client_name=...,
     ) -> None: ...
-    def repr_pieces(self) -> List[Tuple[Text, Text]]: ...
+    def repr_pieces(self) -> list[Tuple[Text, Text]]: ...
 
 def to_bool(value: object) -> bool: ...
 
 class ConnectionPool:
     @classmethod
-    def from_url(cls, url: Text, db: Optional[int] = ..., decode_components: bool = ..., **kwargs) -> ConnectionPool: ...
+    def from_url(cls, url: Text, db: int | None = ..., decode_components: bool = ..., **kwargs) -> ConnectionPool: ...
     connection_class: Any
     connection_kwargs: Any
     max_connections: Any

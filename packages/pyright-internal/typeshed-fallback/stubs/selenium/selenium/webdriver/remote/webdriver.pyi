@@ -24,7 +24,7 @@ class WebDriver:
     error_handler: Any
     def __init__(
         self,
-        command_executor: str = ...,
+        command_executor: str | RemoteConnection = ...,
         desired_capabilities: Any | None = ...,
         browser_profile: Any | None = ...,
         proxy: Any | None = ...,

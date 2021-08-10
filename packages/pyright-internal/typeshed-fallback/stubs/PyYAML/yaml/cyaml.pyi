@@ -1,5 +1,5 @@
 from _typeshed import SupportsRead
-from typing import IO, Any, Mapping, Optional, Sequence, Text, Union
+from typing import IO, Any, Mapping, Sequence, Text, Union
 
 from yaml.constructor import BaseConstructor, Constructor, SafeConstructor
 from yaml.representer import BaseRepresenter, Representer, SafeRepresenter
@@ -9,16 +9,16 @@ from yaml.serializer import Serializer
 _Readable = SupportsRead[Union[Text, bytes]]
 
 class CParser:
-    def __init__(self, stream: Union[str, bytes, _Readable]) -> None: ...
+    def __init__(self, stream: str | bytes | _Readable) -> None: ...
 
 class CBaseLoader(CParser, BaseConstructor, BaseResolver):
-    def __init__(self, stream: Union[str, bytes, _Readable]) -> None: ...
+    def __init__(self, stream: str | bytes | _Readable) -> None: ...
 
 class CLoader(CParser, SafeConstructor, Resolver):
-    def __init__(self, stream: Union[str, bytes, _Readable]) -> None: ...
+    def __init__(self, stream: str | bytes | _Readable) -> None: ...
 
 class CSafeLoader(CParser, SafeConstructor, Resolver):
-    def __init__(self, stream: Union[str, bytes, _Readable]) -> None: ...
+    def __init__(self, stream: str | bytes | _Readable) -> None: ...
 
 class CDangerLoader(CParser, Constructor, Resolver): ...  # undocumented
 
@@ -26,34 +26,34 @@ class CEmitter(object):
     def __init__(
         self,
         stream: IO[Any],
-        canonical: Optional[Any] = ...,
-        indent: Optional[int] = ...,
-        width: Optional[int] = ...,
-        allow_unicode: Optional[Any] = ...,
-        line_break: Optional[str] = ...,
-        encoding: Optional[Text] = ...,
-        explicit_start: Optional[Any] = ...,
-        explicit_end: Optional[Any] = ...,
-        version: Optional[Sequence[int]] = ...,
-        tags: Optional[Mapping[Text, Text]] = ...,
+        canonical: Any | None = ...,
+        indent: int | None = ...,
+        width: int | None = ...,
+        allow_unicode: Any | None = ...,
+        line_break: str | None = ...,
+        encoding: Text | None = ...,
+        explicit_start: Any | None = ...,
+        explicit_end: Any | None = ...,
+        version: Sequence[int] | None = ...,
+        tags: Mapping[Text, Text] | None = ...,
     ) -> None: ...
 
 class CBaseDumper(CEmitter, BaseRepresenter, BaseResolver):
     def __init__(
         self,
         stream: IO[Any],
-        default_style: Optional[str] = ...,
-        default_flow_style: Optional[bool] = ...,
-        canonical: Optional[Any] = ...,
-        indent: Optional[int] = ...,
-        width: Optional[int] = ...,
-        allow_unicode: Optional[Any] = ...,
-        line_break: Optional[str] = ...,
-        encoding: Optional[Text] = ...,
-        explicit_start: Optional[Any] = ...,
-        explicit_end: Optional[Any] = ...,
-        version: Optional[Sequence[int]] = ...,
-        tags: Optional[Mapping[Text, Text]] = ...,
+        default_style: str | None = ...,
+        default_flow_style: bool | None = ...,
+        canonical: Any | None = ...,
+        indent: int | None = ...,
+        width: int | None = ...,
+        allow_unicode: Any | None = ...,
+        line_break: str | None = ...,
+        encoding: Text | None = ...,
+        explicit_start: Any | None = ...,
+        explicit_end: Any | None = ...,
+        version: Sequence[int] | None = ...,
+        tags: Mapping[Text, Text] | None = ...,
     ) -> None: ...
 
 class CDumper(CEmitter, SafeRepresenter, Resolver): ...

@@ -1,5 +1,5 @@
 import io
-from typing import IO, Any, BinaryIO, ContextManager, Dict, Iterable, List, Mapping, Optional, Text, Tuple, Union
+from typing import IO, Any, BinaryIO, ContextManager, Iterable, Mapping, Text, Tuple
 from typing_extensions import Literal
 
 from .core import BaseCommand
@@ -11,16 +11,16 @@ class EchoingStdin:
     def __getattr__(self, x: str) -> Any: ...
     def read(self, n: int = ...) -> bytes: ...
     def readline(self, n: int = ...) -> bytes: ...
-    def readlines(self) -> List[bytes]: ...
+    def readlines(self) -> list[bytes]: ...
     def __iter__(self) -> Iterable[bytes]: ...
 
-def make_input_stream(input: Optional[Union[bytes, Text, IO[Any]]], charset: Text) -> BinaryIO: ...
+def make_input_stream(input: bytes | Text | IO[Any] | None, charset: Text) -> BinaryIO: ...
 
 class Result:
     runner: CliRunner
     exit_code: int
     exception: Any
-    exc_info: Optional[Any]
+    exc_info: Any | None
     stdout_bytes: bytes
     stderr_bytes: bytes
     def __init__(
@@ -30,7 +30,7 @@ class Result:
         stderr_bytes: bytes,
         exit_code: int,
         exception: Any,
-        exc_info: Optional[Any] = ...,
+        exc_info: Any | None = ...,
     ) -> None: ...
     @property
     def output(self) -> Text: ...
@@ -45,23 +45,19 @@ class CliRunner:
     echo_stdin: bool
     mix_stderr: bool
     def __init__(
-        self,
-        charset: Optional[Text] = ...,
-        env: Optional[Mapping[str, str]] = ...,
-        echo_stdin: bool = ...,
-        mix_stderr: bool = ...,
+        self, charset: Text | None = ..., env: Mapping[str, str] | None = ..., echo_stdin: bool = ..., mix_stderr: bool = ...
     ) -> None: ...
     def get_default_prog_name(self, cli: BaseCommand) -> str: ...
-    def make_env(self, overrides: Optional[Mapping[str, str]] = ...) -> Dict[str, str]: ...
+    def make_env(self, overrides: Mapping[str, str] | None = ...) -> dict[str, str]: ...
     def isolation(
-        self, input: Optional[Union[bytes, Text, IO[Any]]] = ..., env: Optional[Mapping[str, str]] = ..., color: bool = ...
-    ) -> ContextManager[Tuple[io.BytesIO, Union[io.BytesIO, Literal[False]]]]: ...
+        self, input: bytes | Text | IO[Any] | None = ..., env: Mapping[str, str] | None = ..., color: bool = ...
+    ) -> ContextManager[Tuple[io.BytesIO, io.BytesIO | Literal[False]]]: ...
     def invoke(
         self,
         cli: BaseCommand,
-        args: Optional[Union[str, Iterable[str]]] = ...,
-        input: Optional[Union[bytes, Text, IO[Any]]] = ...,
-        env: Optional[Mapping[str, str]] = ...,
+        args: str | Iterable[str] | None = ...,
+        input: bytes | Text | IO[Any] | None = ...,
+        env: Mapping[str, str] | None = ...,
         catch_exceptions: bool = ...,
         color: bool = ...,
         **extra: Any,

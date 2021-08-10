@@ -1,14 +1,9 @@
-from typing import Any, Iterable, Iterator, Optional
+from typing import Any, Iterable, Iterator
 
 from .key import Key
 
 def bucket_lister(
-    bucket,
-    prefix: str = ...,
-    delimiter: str = ...,
-    marker: str = ...,
-    headers: Optional[Any] = ...,
-    encoding_type: Optional[Any] = ...,
+    bucket, prefix: str = ..., delimiter: str = ..., marker: str = ..., headers: Any | None = ..., encoding_type: Any | None = ...
 ): ...
 
 class BucketListResultSet(Iterable[Key]):
@@ -20,12 +15,12 @@ class BucketListResultSet(Iterable[Key]):
     encoding_type: Any
     def __init__(
         self,
-        bucket: Optional[Any] = ...,
+        bucket: Any | None = ...,
         prefix: str = ...,
         delimiter: str = ...,
         marker: str = ...,
-        headers: Optional[Any] = ...,
-        encoding_type: Optional[Any] = ...,
+        headers: Any | None = ...,
+        encoding_type: Any | None = ...,
     ) -> None: ...
     def __iter__(self) -> Iterator[Key]: ...
 
@@ -35,8 +30,8 @@ def versioned_bucket_lister(
     delimiter: str = ...,
     key_marker: str = ...,
     version_id_marker: str = ...,
-    headers: Optional[Any] = ...,
-    encoding_type: Optional[Any] = ...,
+    headers: Any | None = ...,
+    encoding_type: Any | None = ...,
 ): ...
 
 class VersionedBucketListResultSet:
@@ -49,18 +44,18 @@ class VersionedBucketListResultSet:
     encoding_type: Any
     def __init__(
         self,
-        bucket: Optional[Any] = ...,
+        bucket: Any | None = ...,
         prefix: str = ...,
         delimiter: str = ...,
         key_marker: str = ...,
         version_id_marker: str = ...,
-        headers: Optional[Any] = ...,
-        encoding_type: Optional[Any] = ...,
+        headers: Any | None = ...,
+        encoding_type: Any | None = ...,
     ) -> None: ...
     def __iter__(self) -> Iterator[Key]: ...
 
 def multipart_upload_lister(
-    bucket, key_marker: str = ..., upload_id_marker: str = ..., headers: Optional[Any] = ..., encoding_type: Optional[Any] = ...
+    bucket, key_marker: str = ..., upload_id_marker: str = ..., headers: Any | None = ..., encoding_type: Any | None = ...
 ): ...
 
 class MultiPartUploadListResultSet:
@@ -71,10 +66,10 @@ class MultiPartUploadListResultSet:
     encoding_type: Any
     def __init__(
         self,
-        bucket: Optional[Any] = ...,
+        bucket: Any | None = ...,
         key_marker: str = ...,
         upload_id_marker: str = ...,
-        headers: Optional[Any] = ...,
-        encoding_type: Optional[Any] = ...,
+        headers: Any | None = ...,
+        encoding_type: Any | None = ...,
     ) -> None: ...
     def __iter__(self): ...

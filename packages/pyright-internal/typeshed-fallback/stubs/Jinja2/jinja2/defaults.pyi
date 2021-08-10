@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from jinja2.filters import FILTERS
 from jinja2.tests import TESTS
@@ -12,11 +12,11 @@ VARIABLE_START_STRING: str
 VARIABLE_END_STRING: str
 COMMENT_START_STRING: str
 COMMENT_END_STRING: str
-LINE_STATEMENT_PREFIX: Optional[str]
-LINE_COMMENT_PREFIX: Optional[str]
+LINE_STATEMENT_PREFIX: str | None
+LINE_COMMENT_PREFIX: str | None
 TRIM_BLOCKS: bool
 LSTRIP_BLOCKS: bool
 NEWLINE_SEQUENCE: str
 KEEP_TRAILING_NEWLINE: bool
-DEFAULT_NAMESPACE: Dict[str, Any]
+DEFAULT_NAMESPACE: dict[str, Any]
 DEFAULT_POLICIES = Dict[str, Any]

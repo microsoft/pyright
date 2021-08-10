@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, List
+from typing import Any
 
 def __getattr__(name: str) -> Any: ...  # incomplete
 
@@ -13,4 +13,4 @@ class EventFilterSpec:
 
 class EventManager:
     latestEvent: Event
-    def QueryEvents(self, filer: EventFilterSpec) -> List[Event]: ...
+    def QueryEvents(self, filer: EventFilterSpec) -> list[Event]: ...

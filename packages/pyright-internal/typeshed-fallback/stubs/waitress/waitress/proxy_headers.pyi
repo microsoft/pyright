@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import Any, Callable, Mapping, NamedTuple, Optional, Sequence, Set
+from typing import Any, Callable, Mapping, NamedTuple, Sequence, Set
 
 from .utilities import BadRequest as BadRequest
 
@@ -19,9 +19,9 @@ class MalformedProxyHeader(Exception):
 
 def proxy_headers_middleware(
     app: Any,
-    trusted_proxy: Optional[str] = ...,
+    trusted_proxy: str | None = ...,
     trusted_proxy_count: int = ...,
-    trusted_proxy_headers: Optional[Set[str]] = ...,
+    trusted_proxy_headers: Set[str] | None = ...,
     clear_untrusted: bool = ...,
     log_untrusted: bool = ...,
     logger: Logger = ...,

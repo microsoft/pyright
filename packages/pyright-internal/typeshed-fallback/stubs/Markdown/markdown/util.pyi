@@ -1,4 +1,4 @@
-from typing import Any, Optional, Pattern
+from typing import Any, Pattern
 
 PY37: Any
 __deprecated__: Any
@@ -24,7 +24,7 @@ class AtomicString(str): ...
 
 class Processor:
     md: Any
-    def __init__(self, md: Optional[Any] = ...) -> None: ...
+    def __init__(self, md: Any | None = ...) -> None: ...
     @property
     def markdown(self): ...
 

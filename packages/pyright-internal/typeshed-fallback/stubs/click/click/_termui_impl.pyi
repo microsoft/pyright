@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Generic, Optional, Type, TypeVar
+from typing import Generic, Type, TypeVar
 
 _T = TypeVar("_T")
 
@@ -8,10 +8,10 @@ class ProgressBar(Generic[_T]):
     def finish(self) -> None: ...
     def __enter__(self) -> ProgressBar[_T]: ...
     def __exit__(
-        self, exctype: Optional[Type[BaseException]], excinst: Optional[BaseException], exctb: Optional[TracebackType]
+        self, exctype: Type[BaseException] | None, excinst: BaseException | None, exctb: TracebackType | None
     ) -> None: ...
     def __iter__(self) -> ProgressBar[_T]: ...
     def next(self) -> _T: ...
     def __next__(self) -> _T: ...
-    length: Optional[int]
+    length: int | None
     label: str

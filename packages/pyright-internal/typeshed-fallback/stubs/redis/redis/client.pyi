@@ -1,23 +1,5 @@
 from datetime import datetime, timedelta
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Set,
-    Text,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import Any, Callable, Generic, Iterable, Iterator, Mapping, Sequence, Set, Text, Tuple, Type, TypeVar, Union, overload
 from typing_extensions import Literal
 
 from .connection import ConnectionPool
@@ -71,100 +53,100 @@ class Redis(Generic[_StrType]):
     def from_url(
         cls,
         url: Text,
-        host: Optional[Text],
-        port: Optional[int],
-        db: Optional[int],
-        password: Optional[Text],
-        socket_timeout: Optional[float],
-        socket_connect_timeout: Optional[float],
-        socket_keepalive: Optional[bool],
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]],
-        connection_pool: Optional[ConnectionPool],
-        unix_socket_path: Optional[Text],
+        host: Text | None,
+        port: int | None,
+        db: int | None,
+        password: Text | None,
+        socket_timeout: float | None,
+        socket_connect_timeout: float | None,
+        socket_keepalive: bool | None,
+        socket_keepalive_options: Mapping[str, int | str] | None,
+        connection_pool: ConnectionPool | None,
+        unix_socket_path: Text | None,
         encoding: Text,
         encoding_errors: Text,
-        charset: Optional[Text],
-        errors: Optional[Text],
+        charset: Text | None,
+        errors: Text | None,
         decode_responses: Literal[True],
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> Redis[str]: ...
     @overload
     @classmethod
     def from_url(
         cls,
         url: Text,
-        host: Optional[Text] = ...,
-        port: Optional[int] = ...,
-        db: Optional[int] = ...,
-        password: Optional[Text] = ...,
-        socket_timeout: Optional[float] = ...,
-        socket_connect_timeout: Optional[float] = ...,
-        socket_keepalive: Optional[bool] = ...,
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]] = ...,
-        connection_pool: Optional[ConnectionPool] = ...,
-        unix_socket_path: Optional[Text] = ...,
+        host: Text | None = ...,
+        port: int | None = ...,
+        db: int | None = ...,
+        password: Text | None = ...,
+        socket_timeout: float | None = ...,
+        socket_connect_timeout: float | None = ...,
+        socket_keepalive: bool | None = ...,
+        socket_keepalive_options: Mapping[str, int | str] | None = ...,
+        connection_pool: ConnectionPool | None = ...,
+        unix_socket_path: Text | None = ...,
         encoding: Text = ...,
         encoding_errors: Text = ...,
-        charset: Optional[Text] = ...,
-        errors: Optional[Text] = ...,
+        charset: Text | None = ...,
+        errors: Text | None = ...,
         *,
         decode_responses: Literal[True],
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> Redis[str]: ...
     @overload
     @classmethod
     def from_url(
         cls,
         url: Text,
-        host: Optional[Text] = ...,
-        port: Optional[int] = ...,
-        db: Optional[int] = ...,
-        password: Optional[Text] = ...,
-        socket_timeout: Optional[float] = ...,
-        socket_connect_timeout: Optional[float] = ...,
-        socket_keepalive: Optional[bool] = ...,
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]] = ...,
-        connection_pool: Optional[ConnectionPool] = ...,
-        unix_socket_path: Optional[Text] = ...,
+        host: Text | None = ...,
+        port: int | None = ...,
+        db: int | None = ...,
+        password: Text | None = ...,
+        socket_timeout: float | None = ...,
+        socket_connect_timeout: float | None = ...,
+        socket_keepalive: bool | None = ...,
+        socket_keepalive_options: Mapping[str, int | str] | None = ...,
+        connection_pool: ConnectionPool | None = ...,
+        unix_socket_path: Text | None = ...,
         encoding: Text = ...,
         encoding_errors: Text = ...,
-        charset: Optional[Text] = ...,
+        charset: Text | None = ...,
         decode_responses: Literal[False] = ...,
-        errors: Optional[Text] = ...,
+        errors: Text | None = ...,
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> Redis[bytes]: ...
     connection_pool: Any
     response_callbacks: Any
@@ -174,30 +156,30 @@ class Redis(Generic[_StrType]):
         host: Text,
         port: int,
         db: int,
-        password: Optional[Text],
-        socket_timeout: Optional[float],
-        socket_connect_timeout: Optional[float],
-        socket_keepalive: Optional[bool],
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]],
-        connection_pool: Optional[ConnectionPool],
-        unix_socket_path: Optional[Text],
+        password: Text | None,
+        socket_timeout: float | None,
+        socket_connect_timeout: float | None,
+        socket_keepalive: bool | None,
+        socket_keepalive_options: Mapping[str, int | str] | None,
+        connection_pool: ConnectionPool | None,
+        unix_socket_path: Text | None,
         encoding: Text,
         encoding_errors: Text,
-        charset: Optional[Text],
+        charset: Text | None,
         decode_responses: Literal[True],
-        errors: Optional[Text] = ...,
+        errors: Text | None = ...,
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> Redis[str]: ...
     @overload
     def __new__(
@@ -205,31 +187,31 @@ class Redis(Generic[_StrType]):
         host: Text = ...,
         port: int = ...,
         db: int = ...,
-        password: Optional[Text] = ...,
-        socket_timeout: Optional[float] = ...,
-        socket_connect_timeout: Optional[float] = ...,
-        socket_keepalive: Optional[bool] = ...,
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]] = ...,
-        connection_pool: Optional[ConnectionPool] = ...,
-        unix_socket_path: Optional[Text] = ...,
+        password: Text | None = ...,
+        socket_timeout: float | None = ...,
+        socket_connect_timeout: float | None = ...,
+        socket_keepalive: bool | None = ...,
+        socket_keepalive_options: Mapping[str, int | str] | None = ...,
+        connection_pool: ConnectionPool | None = ...,
+        unix_socket_path: Text | None = ...,
         encoding: Text = ...,
         encoding_errors: Text = ...,
-        charset: Optional[Text] = ...,
+        charset: Text | None = ...,
         *,
         decode_responses: Literal[True],
-        errors: Optional[Text] = ...,
+        errors: Text | None = ...,
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> Redis[str]: ...
     @overload
     def __new__(
@@ -237,30 +219,30 @@ class Redis(Generic[_StrType]):
         host: Text = ...,
         port: int = ...,
         db: int = ...,
-        password: Optional[Text] = ...,
-        socket_timeout: Optional[float] = ...,
-        socket_connect_timeout: Optional[float] = ...,
-        socket_keepalive: Optional[bool] = ...,
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]] = ...,
-        connection_pool: Optional[ConnectionPool] = ...,
-        unix_socket_path: Optional[Text] = ...,
+        password: Text | None = ...,
+        socket_timeout: float | None = ...,
+        socket_connect_timeout: float | None = ...,
+        socket_keepalive: bool | None = ...,
+        socket_keepalive_options: Mapping[str, int | str] | None = ...,
+        connection_pool: ConnectionPool | None = ...,
+        unix_socket_path: Text | None = ...,
         encoding: Text = ...,
         encoding_errors: Text = ...,
-        charset: Optional[Text] = ...,
-        errors: Optional[Text] = ...,
+        charset: Text | None = ...,
+        errors: Text | None = ...,
         decode_responses: Literal[False] = ...,
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> Redis[bytes]: ...
     @overload
     def __init__(
@@ -268,30 +250,30 @@ class Redis(Generic[_StrType]):
         host: Text,
         port: int,
         db: int,
-        password: Optional[Text],
-        socket_timeout: Optional[float],
-        socket_connect_timeout: Optional[float],
-        socket_keepalive: Optional[bool],
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]],
-        connection_pool: Optional[ConnectionPool],
-        unix_socket_path: Optional[Text],
+        password: Text | None,
+        socket_timeout: float | None,
+        socket_connect_timeout: float | None,
+        socket_keepalive: bool | None,
+        socket_keepalive_options: Mapping[str, int | str] | None,
+        connection_pool: ConnectionPool | None,
+        unix_socket_path: Text | None,
         encoding: Text,
         encoding_errors: Text,
-        charset: Optional[Text],
-        errors: Optional[Text],
+        charset: Text | None,
+        errors: Text | None,
         decode_responses: Literal[True],
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> None: ...
     @overload
     def __init__(
@@ -299,31 +281,31 @@ class Redis(Generic[_StrType]):
         host: Text = ...,
         port: int = ...,
         db: int = ...,
-        password: Optional[Text] = ...,
-        socket_timeout: Optional[float] = ...,
-        socket_connect_timeout: Optional[float] = ...,
-        socket_keepalive: Optional[bool] = ...,
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]] = ...,
-        connection_pool: Optional[ConnectionPool] = ...,
-        unix_socket_path: Optional[Text] = ...,
+        password: Text | None = ...,
+        socket_timeout: float | None = ...,
+        socket_connect_timeout: float | None = ...,
+        socket_keepalive: bool | None = ...,
+        socket_keepalive_options: Mapping[str, int | str] | None = ...,
+        connection_pool: ConnectionPool | None = ...,
+        unix_socket_path: Text | None = ...,
         encoding: Text = ...,
         encoding_errors: Text = ...,
-        charset: Optional[Text] = ...,
-        errors: Optional[Text] = ...,
+        charset: Text | None = ...,
+        errors: Text | None = ...,
         *,
         decode_responses: Literal[True],
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> None: ...
     @overload
     def __init__(
@@ -331,30 +313,30 @@ class Redis(Generic[_StrType]):
         host: Text = ...,
         port: int = ...,
         db: int = ...,
-        password: Optional[Text] = ...,
-        socket_timeout: Optional[float] = ...,
-        socket_connect_timeout: Optional[float] = ...,
-        socket_keepalive: Optional[bool] = ...,
-        socket_keepalive_options: Optional[Mapping[str, Union[int, str]]] = ...,
-        connection_pool: Optional[ConnectionPool] = ...,
-        unix_socket_path: Optional[Text] = ...,
+        password: Text | None = ...,
+        socket_timeout: float | None = ...,
+        socket_connect_timeout: float | None = ...,
+        socket_keepalive: bool | None = ...,
+        socket_keepalive_options: Mapping[str, int | str] | None = ...,
+        connection_pool: ConnectionPool | None = ...,
+        unix_socket_path: Text | None = ...,
         encoding: Text = ...,
         encoding_errors: Text = ...,
-        charset: Optional[Text] = ...,
-        errors: Optional[Text] = ...,
+        charset: Text | None = ...,
+        errors: Text | None = ...,
         decode_responses: Literal[False] = ...,
         retry_on_timeout: bool = ...,
         ssl: bool = ...,
-        ssl_keyfile: Optional[Text] = ...,
-        ssl_certfile: Optional[Text] = ...,
-        ssl_cert_reqs: Optional[Union[str, int]] = ...,
-        ssl_ca_certs: Optional[Text] = ...,
+        ssl_keyfile: Text | None = ...,
+        ssl_certfile: Text | None = ...,
+        ssl_cert_reqs: str | int | None = ...,
+        ssl_ca_certs: Text | None = ...,
         ssl_check_hostname: bool = ...,
-        max_connections: Optional[int] = ...,
+        max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
-        client_name: Optional[Text] = ...,
-        username: Optional[Text] = ...,
+        client_name: Text | None = ...,
+        username: Text | None = ...,
     ) -> None: ...
     def set_response_callback(self, command, callback): ...
     def pipeline(self, transaction: bool = ..., shard_hint: Any = ...) -> Pipeline[_StrType]: ...
@@ -363,9 +345,9 @@ class Redis(Generic[_StrType]):
     def lock(
         self,
         name: _Key,
-        timeout: Optional[float] = ...,
+        timeout: float | None = ...,
         sleep: float = ...,
-        blocking_timeout: Optional[float] = ...,
+        blocking_timeout: float | None = ...,
         lock_class: None = ...,
         thread_local: bool = ...,
     ) -> Lock: ...
@@ -373,9 +355,9 @@ class Redis(Generic[_StrType]):
     def lock(
         self,
         name: _Key,
-        timeout: Optional[float],
+        timeout: float | None,
         sleep: float,
-        blocking_timeout: Optional[float],
+        blocking_timeout: float | None,
         lock_class: Type[_LockType],
         thread_local: bool = ...,
     ) -> _LockType: ...
@@ -383,9 +365,9 @@ class Redis(Generic[_StrType]):
     def lock(
         self,
         name: _Key,
-        timeout: Optional[float] = ...,
+        timeout: float | None = ...,
         sleep: float = ...,
-        blocking_timeout: Optional[float] = ...,
+        blocking_timeout: float | None = ...,
         *,
         lock_class: Type[_LockType],
         thread_local: bool = ...,
@@ -393,34 +375,34 @@ class Redis(Generic[_StrType]):
     def pubsub(self, shard_hint: Any = ..., ignore_subscribe_messages: bool = ...) -> PubSub: ...
     def execute_command(self, *args, **options): ...
     def parse_response(self, connection, command_name, **options): ...
-    def acl_cat(self, category: Optional[Text] = ...) -> List[str]: ...
+    def acl_cat(self, category: Text | None = ...) -> list[str]: ...
     def acl_deluser(self, username: Text) -> int: ...
     def acl_genpass(self) -> Text: ...
-    def acl_getuser(self, username: Text) -> Optional[Any]: ...
-    def acl_list(self) -> List[Text]: ...
+    def acl_getuser(self, username: Text) -> Any | None: ...
+    def acl_list(self) -> list[Text]: ...
     def acl_load(self) -> bool: ...
     def acl_setuser(
         self,
         username: Text = ...,
         enabled: bool = ...,
         nopass: bool = ...,
-        passwords: Optional[Sequence[Text]] = ...,
-        hashed_passwords: Optional[Sequence[Text]] = ...,
-        categories: Optional[Sequence[Text]] = ...,
-        commands: Optional[Sequence[Text]] = ...,
-        keys: Optional[Sequence[Text]] = ...,
+        passwords: Sequence[Text] | None = ...,
+        hashed_passwords: Sequence[Text] | None = ...,
+        categories: Sequence[Text] | None = ...,
+        commands: Sequence[Text] | None = ...,
+        keys: Sequence[Text] | None = ...,
         reset: bool = ...,
         reset_keys: bool = ...,
         reset_passwords: bool = ...,
     ) -> bool: ...
-    def acl_users(self) -> List[Text]: ...
+    def acl_users(self) -> list[Text]: ...
     def acl_whoami(self) -> Text: ...
     def bgrewriteaof(self): ...
     def bgsave(self): ...
     def client_id(self) -> int: ...
     def client_kill(self, address: Text) -> bool: ...
-    def client_list(self) -> List[Dict[str, str]]: ...
-    def client_getname(self) -> Optional[str]: ...
+    def client_list(self) -> list[dict[str, str]]: ...
+    def client_getname(self) -> str | None: ...
     def client_setname(self, name: Text) -> bool: ...
     def readwrite(self) -> bool: ...
     def readonly(self) -> bool: ...
@@ -433,7 +415,7 @@ class Redis(Generic[_StrType]):
     def echo(self, value: _Value) -> bytes: ...
     def flushall(self) -> bool: ...
     def flushdb(self) -> bool: ...
-    def info(self, section: Optional[_Key] = ...) -> Mapping[str, Any]: ...
+    def info(self, section: _Key | None = ...) -> Mapping[str, Any]: ...
     def lastsave(self): ...
     def object(self, infotype, key): ...
     def ping(self) -> bool: ...
@@ -454,7 +436,7 @@ class Redis(Generic[_StrType]):
     def slowlog_reset(self): ...
     def time(self): ...
     def append(self, key, value): ...
-    def bitcount(self, key: _Key, start: Optional[int] = ..., end: Optional[int] = ...) -> int: ...
+    def bitcount(self, key: _Key, start: int | None = ..., end: int | None = ...) -> int: ...
     def bitop(self, operation, dest, *keys): ...
     def bitpos(self, key, bit, start=..., end=...): ...
     def decr(self, name, amount=...): ...
@@ -463,24 +445,24 @@ class Redis(Generic[_StrType]):
     def dump(self, name): ...
     def exists(self, *names: _Key) -> int: ...
     __contains__: Any
-    def expire(self, name: _Key, time: Union[int, timedelta]) -> bool: ...
+    def expire(self, name: _Key, time: int | timedelta) -> bool: ...
     def expireat(self, name, when): ...
-    def get(self, name: _Key) -> Optional[_StrType]: ...
+    def get(self, name: _Key) -> _StrType | None: ...
     def __getitem__(self, name): ...
     def getbit(self, name: _Key, offset: int) -> int: ...
     def getrange(self, key, start, end): ...
-    def getset(self, name, value) -> Optional[_StrType]: ...
+    def getset(self, name, value) -> _StrType | None: ...
     def incr(self, name: _Key, amount: int = ...) -> int: ...
     def incrby(self, name: _Key, amount: int = ...) -> int: ...
     def incrbyfloat(self, name: _Key, amount: float = ...) -> float: ...
-    def keys(self, pattern: _Key = ...) -> List[_StrType]: ...
-    def mget(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> List[Optional[_StrType]]: ...
+    def keys(self, pattern: _Key = ...) -> list[_StrType]: ...
+    def mget(self, keys: _Key | Iterable[_Key], *args: _Key) -> list[_StrType | None]: ...
     def mset(self, mapping: Mapping[_Key, _Value]) -> Literal[True]: ...
     def msetnx(self, mapping: Mapping[_Key, _Value]) -> bool: ...
     def move(self, name: _Key, db: int) -> bool: ...
     def persist(self, name: _Key) -> bool: ...
-    def pexpire(self, name: _Key, time: Union[int, timedelta]) -> Literal[1, 0]: ...
-    def pexpireat(self, name: _Key, when: Union[int, datetime]) -> Literal[1, 0]: ...
+    def pexpire(self, name: _Key, time: int | timedelta) -> Literal[1, 0]: ...
+    def pexpireat(self, name: _Key, when: int | datetime) -> Literal[1, 0]: ...
     def psetex(self, name, time_ms, value): ...
     def pttl(self, name): ...
     def randomkey(self): ...
@@ -491,15 +473,15 @@ class Redis(Generic[_StrType]):
         self,
         name: _Key,
         value: _Value,
-        ex: Union[None, int, timedelta] = ...,
-        px: Union[None, int, timedelta] = ...,
+        ex: None | int | timedelta = ...,
+        px: None | int | timedelta = ...,
         nx: bool = ...,
         xx: bool = ...,
         keepttl: bool = ...,
-    ) -> Optional[bool]: ...
+    ) -> bool | None: ...
     def __setitem__(self, name, value): ...
     def setbit(self, name: _Key, offset: int, value: int) -> int: ...
-    def setex(self, name: _Key, time: Union[int, timedelta], value: _Value) -> bool: ...
+    def setex(self, name: _Key, time: int | timedelta, value: _Value) -> bool: ...
     def setnx(self, name: _Key, value: _Value) -> bool: ...
     def setrange(self, name, offset, value): ...
     def strlen(self, name): ...
@@ -510,15 +492,15 @@ class Redis(Generic[_StrType]):
     def unlink(self, *names: _Key) -> int: ...
     def unwatch(self): ...
     @overload
-    def blpop(self, keys: Union[_Value, Iterable[_Value]], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType]: ...
+    def blpop(self, keys: _Value | Iterable[_Value], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType]: ...
     @overload
-    def blpop(self, keys: Union[_Value, Iterable[_Value]], timeout: float) -> Optional[Tuple[_StrType, _StrType]]: ...
+    def blpop(self, keys: _Value | Iterable[_Value], timeout: float) -> Tuple[_StrType, _StrType] | None: ...
     @overload
-    def brpop(self, keys: Union[_Value, Iterable[_Value]], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType]: ...
+    def brpop(self, keys: _Value | Iterable[_Value], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType]: ...
     @overload
-    def brpop(self, keys: Union[_Value, Iterable[_Value]], timeout: float) -> Optional[Tuple[_StrType, _StrType]]: ...
+    def brpop(self, keys: _Value | Iterable[_Value], timeout: float) -> Tuple[_StrType, _StrType] | None: ...
     def brpoplpush(self, src, dst, timeout=...): ...
-    def lindex(self, name: _Key, index: int) -> Optional[_StrType]: ...
+    def lindex(self, name: _Key, index: int) -> _StrType | None: ...
     def linsert(
         self, name: _Key, where: Literal["BEFORE", "AFTER", "before", "after"], refvalue: _Value, value: _Value
     ) -> int: ...
@@ -526,7 +508,7 @@ class Redis(Generic[_StrType]):
     def lpop(self, name): ...
     def lpush(self, name: _Value, *values: _Value) -> int: ...
     def lpushx(self, name, value): ...
-    def lrange(self, name: _Key, start: int, end: int) -> List[_StrType]: ...
+    def lrange(self, name: _Key, start: int, end: int) -> list[_StrType]: ...
     def lrem(self, name: _Key, count: int, value: _Value) -> int: ...
     def lset(self, name: _Key, index: int, value: _Value) -> bool: ...
     def ltrim(self, name: _Key, start: int, end: int) -> bool: ...
@@ -538,23 +520,23 @@ class Redis(Generic[_StrType]):
     def sort(
         self,
         name: _Key,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
-        by: Optional[_Key] = ...,
-        get: Optional[Union[_Key, Sequence[_Key]]] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
+        by: _Key | None = ...,
+        get: _Key | Sequence[_Key] | None = ...,
         desc: bool = ...,
         alpha: bool = ...,
         store: None = ...,
         groups: bool = ...,
-    ) -> List[_StrType]: ...
+    ) -> list[_StrType]: ...
     @overload
     def sort(
         self,
         name: _Key,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
-        by: Optional[_Key] = ...,
-        get: Optional[Union[_Key, Sequence[_Key]]] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
+        by: _Key | None = ...,
+        get: _Key | Sequence[_Key] | None = ...,
         desc: bool = ...,
         alpha: bool = ...,
         *,
@@ -565,45 +547,45 @@ class Redis(Generic[_StrType]):
     def sort(
         self,
         name: _Key,
-        start: Optional[int],
-        num: Optional[int],
-        by: Optional[_Key],
-        get: Optional[Union[_Key, Sequence[_Key]]],
+        start: int | None,
+        num: int | None,
+        by: _Key | None,
+        get: _Key | Sequence[_Key] | None,
         desc: bool,
         alpha: bool,
         store: _Key,
         groups: bool = ...,
     ) -> int: ...
-    def scan(self, cursor: int = ..., match: Optional[_Key] = ..., count: Optional[int] = ...) -> Tuple[int, List[_StrType]]: ...
-    def scan_iter(self, match: Optional[Text] = ..., count: Optional[int] = ...) -> Iterator[_StrType]: ...
-    def sscan(self, name: _Key, cursor: int = ..., match: Text = ..., count: int = ...) -> Tuple[int, List[_StrType]]: ...
+    def scan(self, cursor: int = ..., match: _Key | None = ..., count: int | None = ...) -> Tuple[int, list[_StrType]]: ...
+    def scan_iter(self, match: Text | None = ..., count: int | None = ...) -> Iterator[_StrType]: ...
+    def sscan(self, name: _Key, cursor: int = ..., match: Text = ..., count: int = ...) -> Tuple[int, list[_StrType]]: ...
     def sscan_iter(self, name, match=..., count=...): ...
     def hscan(
         self, name: _Key, cursor: int = ..., match: Text = ..., count: int = ...
-    ) -> Tuple[int, Dict[_StrType, _StrType]]: ...
+    ) -> Tuple[int, dict[_StrType, _StrType]]: ...
     def hscan_iter(self, name, match=..., count=...): ...
     def zscan(self, name, cursor=..., match=..., count=..., score_cast_func=...): ...
     def zscan_iter(self, name, match=..., count=..., score_cast_func=...): ...
     def sadd(self, name: _Key, *values: _Value) -> int: ...
     def scard(self, name: _Key) -> int: ...
-    def sdiff(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Set[_Value]: ...
-    def sdiffstore(self, dest: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> int: ...
-    def sinter(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Set[_Value]: ...
-    def sinterstore(self, dest: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> int: ...
+    def sdiff(self, keys: _Key | Iterable[_Key], *args: _Key) -> Set[_Value]: ...
+    def sdiffstore(self, dest: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> int: ...
+    def sinter(self, keys: _Key | Iterable[_Key], *args: _Key) -> Set[_Value]: ...
+    def sinterstore(self, dest: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> int: ...
     def sismember(self, name: _Key, value: _Value) -> bool: ...
     def smembers(self, name: _Key) -> Set[_StrType]: ...
     def smove(self, src: _Key, dst: _Key, value: _Value) -> bool: ...
     @overload
-    def spop(self, name: _Key, count: None = ...) -> Optional[_Value]: ...
+    def spop(self, name: _Key, count: None = ...) -> _Value | None: ...
     @overload
-    def spop(self, name: _Key, count: int) -> List[_Value]: ...
+    def spop(self, name: _Key, count: int) -> list[_Value]: ...
     @overload
-    def srandmember(self, name: _Key, number: None = ...) -> Optional[_Value]: ...
+    def srandmember(self, name: _Key, number: None = ...) -> _Value | None: ...
     @overload
-    def srandmember(self, name: _Key, number: int) -> List[_Value]: ...
+    def srandmember(self, name: _Key, number: int) -> list[_Value]: ...
     def srem(self, name: _Key, *values: _Value) -> int: ...
-    def sunion(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Set[_Value]: ...
-    def sunionstore(self, dest: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> int: ...
+    def sunion(self, keys: _Key | Iterable[_Key], *args: _Key) -> Set[_Value]: ...
+    def sunionstore(self, dest: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> int: ...
     def xack(self, name, groupname, *ids): ...
     def xadd(self, name, fields, id=..., maxlen=..., approximate=...): ...
     def xclaim(
@@ -633,16 +615,16 @@ class Redis(Generic[_StrType]):
     def zincrby(self, name: _Key, amount: float, value: _Value) -> float: ...
     def zinterstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] = ...) -> int: ...
     def zlexcount(self, name: _Key, min: _Value, max: _Value) -> int: ...
-    def zpopmax(self, name: _Key, count: Optional[int] = ...) -> List[_StrType]: ...
-    def zpopmin(self, name: _Key, count: Optional[int] = ...) -> List[_StrType]: ...
+    def zpopmax(self, name: _Key, count: int | None = ...) -> list[_StrType]: ...
+    def zpopmin(self, name: _Key, count: int | None = ...) -> list[_StrType]: ...
     @overload
-    def bzpopmax(self, keys: Union[_Key, Iterable[_Key]], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType, float]: ...
+    def bzpopmax(self, keys: _Key | Iterable[_Key], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType, float]: ...
     @overload
-    def bzpopmax(self, keys: Union[_Key, Iterable[_Key]], timeout: float) -> Optional[Tuple[_StrType, _StrType, float]]: ...
+    def bzpopmax(self, keys: _Key | Iterable[_Key], timeout: float) -> Tuple[_StrType, _StrType, float] | None: ...
     @overload
-    def bzpopmin(self, keys: Union[_Key, Iterable[_Key]], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType, float]: ...
+    def bzpopmin(self, keys: _Key | Iterable[_Key], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType, float]: ...
     @overload
-    def bzpopmin(self, keys: Union[_Key, Iterable[_Key]], timeout: float) -> Optional[Tuple[_StrType, _StrType, float]]: ...
+    def bzpopmin(self, keys: _Key | Iterable[_Key], timeout: float) -> Tuple[_StrType, _StrType, float] | None: ...
     @overload
     def zrange(
         self,
@@ -653,7 +635,7 @@ class Redis(Generic[_StrType]):
         *,
         withscores: Literal[True],
         score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
-    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    ) -> list[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
     @overload
     def zrange(
         self,
@@ -663,34 +645,34 @@ class Redis(Generic[_StrType]):
         desc: bool = ...,
         withscores: bool = ...,
         score_cast_func: Callable[[Any], Any] = ...,
-    ) -> List[_StrType]: ...
+    ) -> list[_StrType]: ...
     def zrangebylex(
-        self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...
-    ) -> List[_StrType]: ...
+        self, name: _Key, min: _Value, max: _Value, start: int | None = ..., num: int | None = ...
+    ) -> list[_StrType]: ...
     @overload
     def zrangebyscore(
         self,
         name: _Key,
         min: _Value,
         max: _Value,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
         *,
         withscores: Literal[True],
         score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
-    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    ) -> list[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
     @overload
     def zrangebyscore(
         self,
         name: _Key,
         min: _Value,
         max: _Value,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
         withscores: bool = ...,
         score_cast_func: Callable[[Any], Any] = ...,
-    ) -> List[_StrType]: ...
-    def zrank(self, name: _Key, value: _Value) -> Optional[int]: ...
+    ) -> list[_StrType]: ...
+    def zrank(self, name: _Key, value: _Value) -> int | None: ...
     def zrem(self, name: _Key, *values: _Value) -> int: ...
     def zremrangebylex(self, name: _Key, min: _Value, max: _Value) -> int: ...
     def zremrangebyrank(self, name: _Key, min: int, max: int) -> int: ...
@@ -705,7 +687,7 @@ class Redis(Generic[_StrType]):
         *,
         withscores: Literal[True],
         score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
-    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    ) -> list[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
     @overload
     def zrevrange(
         self,
@@ -715,57 +697,57 @@ class Redis(Generic[_StrType]):
         desc: bool = ...,
         withscores: bool = ...,
         score_cast_func: Callable[[Any], Any] = ...,
-    ) -> List[_StrType]: ...
+    ) -> list[_StrType]: ...
     @overload
     def zrevrangebyscore(
         self,
         name: _Key,
         min: _Value,
         max: _Value,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
         *,
         withscores: Literal[True],
         score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
-    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    ) -> list[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
     @overload
     def zrevrangebyscore(
         self,
         name: _Key,
         min: _Value,
         max: _Value,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
         withscores: bool = ...,
         score_cast_func: Callable[[Any], Any] = ...,
-    ) -> List[_StrType]: ...
+    ) -> list[_StrType]: ...
     def zrevrangebylex(
-        self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...
-    ) -> List[_StrType]: ...
-    def zrevrank(self, name: _Key, value: _Value) -> Optional[int]: ...
-    def zscore(self, name: _Key, value: _Value) -> Optional[float]: ...
+        self, name: _Key, min: _Value, max: _Value, start: int | None = ..., num: int | None = ...
+    ) -> list[_StrType]: ...
+    def zrevrank(self, name: _Key, value: _Value) -> int | None: ...
+    def zscore(self, name: _Key, value: _Value) -> float | None: ...
     def zunionstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] = ...) -> int: ...
     def pfadd(self, name: _Key, *values: _Value) -> int: ...
     def pfcount(self, name: _Key) -> int: ...
     def pfmerge(self, dest: _Key, *sources: _Key) -> bool: ...
     def hdel(self, name: _Key, *keys: _Key) -> int: ...
     def hexists(self, name: _Key, key: _Key) -> bool: ...
-    def hget(self, name: _Key, key: _Key) -> Optional[_StrType]: ...
-    def hgetall(self, name: _Key) -> Dict[_StrType, _StrType]: ...
+    def hget(self, name: _Key, key: _Key) -> _StrType | None: ...
+    def hgetall(self, name: _Key) -> dict[_StrType, _StrType]: ...
     def hincrby(self, name: _Key, key: _Key, amount: int = ...) -> int: ...
     def hincrbyfloat(self, name: _Key, key: _Key, amount: float = ...) -> float: ...
-    def hkeys(self, name: _Key) -> List[_StrType]: ...
+    def hkeys(self, name: _Key) -> list[_StrType]: ...
     def hlen(self, name: _Key) -> int: ...
     @overload
-    def hset(self, name: _Key, key: _Key, value: _Value, mapping: Optional[Mapping[_Key, _Value]] = ...) -> int: ...
+    def hset(self, name: _Key, key: _Key, value: _Value, mapping: Mapping[_Key, _Value] | None = ...) -> int: ...
     @overload
     def hset(self, name: _Key, key: None, value: None, mapping: Mapping[_Key, _Value]) -> int: ...
     @overload
     def hset(self, name: _Key, *, mapping: Mapping[_Key, _Value]) -> int: ...
     def hsetnx(self, name: _Key, key: _Key, value: _Value) -> int: ...
     def hmset(self, name: _Key, mapping: Mapping[_Key, _Value]) -> bool: ...
-    def hmget(self, name: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> List[Optional[_StrType]]: ...
-    def hvals(self, name: _Key) -> List[_StrType]: ...
+    def hmget(self, name: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> list[_StrType | None]: ...
+    def hvals(self, name: _Key) -> list[_StrType]: ...
     def publish(self, channel: _Key, message: _Key) -> int: ...
     def eval(self, script, numkeys, *keys_and_args): ...
     def evalsha(self, sha, numkeys, *keys_and_args): ...
@@ -773,9 +755,9 @@ class Redis(Generic[_StrType]):
     def script_flush(self): ...
     def script_kill(self): ...
     def script_load(self, script): ...
-    def register_script(self, script: Union[Text, _StrType]) -> Script: ...
-    def pubsub_channels(self, pattern: _Key = ...) -> List[Text]: ...
-    def pubsub_numsub(self, *args: _Key) -> List[Tuple[Text, int]]: ...
+    def register_script(self, script: Text | _StrType) -> Script: ...
+    def pubsub_channels(self, pattern: _Key = ...) -> list[Text]: ...
+    def pubsub_numsub(self, *args: _Key) -> list[Tuple[Text, int]]: ...
     def pubsub_numpat(self) -> int: ...
     def monitor(self) -> Monitor: ...
     def cluster(self, cluster_arg: str, *args: Any) -> Any: ...
@@ -814,10 +796,10 @@ class PubSub:
     def subscribe(self, *args: _Key, **kwargs: Callable[[Any], None]) -> None: ...
     def unsubscribe(self, *args: _Key) -> None: ...
     def listen(self): ...
-    def get_message(self, ignore_subscribe_messages: bool = ..., timeout: float = ...) -> Optional[Dict[str, Any]]: ...
-    def handle_message(self, response, ignore_subscribe_messages: bool = ...) -> Optional[Dict[str, Any]]: ...
+    def get_message(self, ignore_subscribe_messages: bool = ..., timeout: float = ...) -> dict[str, Any] | None: ...
+    def handle_message(self, response, ignore_subscribe_messages: bool = ...) -> dict[str, Any] | None: ...
     def run_in_thread(self, sleep_time=...): ...
-    def ping(self, message: Optional[_Value] = ...) -> None: ...
+    def ping(self, message: _Value | None = ...) -> None: ...
 
 class Pipeline(Redis[_StrType], Generic[_StrType]):
     UNWATCH_COMMANDS: Any
@@ -846,7 +828,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def annotate_exception(self, exception, number, command): ...
     def parse_response(self, connection, command_name, **options): ...
     def load_scripts(self): ...
-    def execute(self, raise_on_error: bool = ...) -> List[Any]: ...
+    def execute(self, raise_on_error: bool = ...) -> list[Any]: ...
     def watch(self, *names: _Key) -> bool: ...
     def unwatch(self) -> bool: ...
     # in the Redis implementation, the following methods are inherited from client.
@@ -854,7 +836,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def pipeline(self, transaction: bool = ..., shard_hint: Any = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def lock(self, name, timeout=..., sleep=..., blocking_timeout=..., lock_class=..., thread_local=...): ...
     def pubsub(self, shard_hint: Any = ..., ignore_subscribe_messages: bool = ...) -> PubSub: ...
-    def acl_cat(self, category: Optional[Text] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def acl_cat(self, category: Text | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def acl_deluser(self, username: Text) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def acl_genpass(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def acl_getuser(self, username: Text) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -865,11 +847,11 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
         username: Text = ...,
         enabled: bool = ...,
         nopass: bool = ...,
-        passwords: Optional[Sequence[Text]] = ...,
-        hashed_passwords: Optional[Sequence[Text]] = ...,
-        categories: Optional[Sequence[Text]] = ...,
-        commands: Optional[Sequence[Text]] = ...,
-        keys: Optional[Sequence[Text]] = ...,
+        passwords: Sequence[Text] | None = ...,
+        hashed_passwords: Sequence[Text] | None = ...,
+        categories: Sequence[Text] | None = ...,
+        commands: Sequence[Text] | None = ...,
+        keys: Sequence[Text] | None = ...,
         reset: bool = ...,
         reset_keys: bool = ...,
         reset_passwords: bool = ...,
@@ -894,7 +876,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def echo(self, value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def flushall(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def flushdb(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def info(self, section: Optional[_Key] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def info(self, section: _Key | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def lastsave(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def object(self, infotype, key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def ping(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -915,7 +897,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def slowlog_reset(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def time(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def append(self, key, value) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def bitcount(self, key: _Key, start: Optional[int] = ..., end: Optional[int] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def bitcount(self, key: _Key, start: int | None = ..., end: int | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def bitop(self, operation, dest, *keys) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def bitpos(self, key, bit, start=..., end=...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def decr(self, name, amount=...) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -924,7 +906,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def dump(self, name) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def exists(self, *names: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def __contains__(self, *names: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def expire(self, name: _Key, time: Union[int, timedelta]) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def expire(self, name: _Key, time: int | timedelta) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def expireat(self, name, when) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def get(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def __getitem__(self, name) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -935,13 +917,13 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def incrby(self, name, amount=...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def incrbyfloat(self, name, amount=...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def keys(self, pattern: _Key = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def mget(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def mget(self, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def mset(self, mapping: Mapping[_Key, _Value]) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def msetnx(self, mapping: Mapping[_Key, _Value]) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def move(self, name: _Key, db: int) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def persist(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def pexpire(self, name: _Key, time: Union[int, timedelta]) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def pexpireat(self, name: _Key, when: Union[int, datetime]) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def pexpire(self, name: _Key, time: int | timedelta) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def pexpireat(self, name: _Key, when: int | datetime) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def psetex(self, name, time_ms, value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def pttl(self, name) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def randomkey(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -952,15 +934,15 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
         self,
         name: _Key,
         value: _Value,
-        ex: Union[None, int, timedelta] = ...,
-        px: Union[None, int, timedelta] = ...,
+        ex: None | int | timedelta = ...,
+        px: None | int | timedelta = ...,
         nx: bool = ...,
         xx: bool = ...,
         keepttl: bool = ...,
     ) -> Pipeline[_StrType]: ...
     def __setitem__(self, name, value) -> None: ...
     def setbit(self, name: _Key, offset: int, value: int) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def setex(self, name: _Key, time: Union[int, timedelta], value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def setex(self, name: _Key, time: int | timedelta, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def setnx(self, name, value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def setrange(self, name, offset, value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def strlen(self, name) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -968,8 +950,8 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def ttl(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def type(self, name) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def unlink(self, *names: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def blpop(self, keys: Union[_Value, Iterable[_Value]], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def brpop(self, keys: Union[_Value, Iterable[_Value]], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def blpop(self, keys: _Value | Iterable[_Value], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def brpop(self, keys: _Value | Iterable[_Value], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def brpoplpush(self, src, dst, timeout=...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def lindex(self, name: _Key, index: int) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def linsert(  # type: ignore [override]
@@ -990,17 +972,17 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def sort(  # type: ignore [override]
         self,
         name: _Key,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
-        by: Optional[_Key] = ...,
-        get: Optional[Union[_Key, Sequence[_Key]]] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
+        by: _Key | None = ...,
+        get: _Key | Sequence[_Key] | None = ...,
         desc: bool = ...,
         alpha: bool = ...,
-        store: Optional[_Key] = ...,
+        store: _Key | None = ...,
         groups: bool = ...,
     ) -> Pipeline[_StrType]: ...
-    def scan(self, cursor: int = ..., match: Optional[_Key] = ..., count: Optional[int] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def scan_iter(self, match: Optional[Text] = ..., count: Optional[int] = ...) -> Iterator[Any]: ...
+    def scan(self, cursor: int = ..., match: _Key | None = ..., count: int | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def scan_iter(self, match: Text | None = ..., count: int | None = ...) -> Iterator[Any]: ...
     def sscan(self, name: _Key, cursor: int = ..., match: Text = ..., count: int = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def sscan_iter(self, name, match=..., count=...) -> Iterator[Any]: ...
     def hscan(self, name: _Key, cursor: int = ..., match: Text = ..., count: int = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -1009,18 +991,18 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def zscan_iter(self, name, match=..., count=..., score_cast_func=...) -> Iterator[Any]: ...
     def sadd(self, name: _Key, *values: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def scard(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def sdiff(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def sdiffstore(self, dest: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def sinter(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def sinterstore(self, dest: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def sdiff(self, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def sdiffstore(self, dest: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def sinter(self, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def sinterstore(self, dest: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def sismember(self, name: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def smembers(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def smove(self, src: _Key, dst: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def spop(self, name: _Key, count: Optional[int] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def srandmember(self, name: _Key, number: Optional[int] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def spop(self, name: _Key, count: int | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def srandmember(self, name: _Key, number: int | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def srem(self, name: _Key, *values: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def sunion(self, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def sunionstore(self, dest: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def sunion(self, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def sunionstore(self, dest: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def xack(self, name, groupname, *ids) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def xadd(self, name, fields, id=..., maxlen=..., approximate=...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def xclaim(
@@ -1050,10 +1032,10 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def zincrby(self, name: _Key, amount: float, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def zinterstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def zlexcount(self, name: _Key, min: _Value, max: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def zpopmax(self, name: _Key, count: Optional[int] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def zpopmin(self, name: _Key, count: Optional[int] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def bzpopmax(self, keys: Union[_Key, Iterable[_Key]], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def bzpopmin(self, keys: Union[_Key, Iterable[_Key]], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def zpopmax(self, name: _Key, count: int | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def zpopmin(self, name: _Key, count: int | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def bzpopmax(self, keys: _Key | Iterable[_Key], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def bzpopmin(self, keys: _Key | Iterable[_Key], timeout: float = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def zrange(  # type: ignore [override]
         self,
         name: _Key,
@@ -1063,14 +1045,14 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
         withscores: bool = ...,
         score_cast_func: Callable[[Any], Any] = ...,
     ) -> Pipeline[_StrType]: ...
-    def zrangebylex(self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def zrangebylex(self, name: _Key, min: _Value, max: _Value, start: int | None = ..., num: int | None = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def zrangebyscore(  # type: ignore [override]
         self,
         name: _Key,
         min: _Value,
         max: _Value,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
         withscores: bool = ...,
         score_cast_func: Callable[[Any], Any] = ...,
     ) -> Pipeline[_StrType]: ...
@@ -1093,13 +1075,13 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
         name: _Key,
         min: _Value,
         max: _Value,
-        start: Optional[int] = ...,
-        num: Optional[int] = ...,
+        start: int | None = ...,
+        num: int | None = ...,
         withscores: bool = ...,
         score_cast_func: Callable[[Any], Any] = ...,
     ) -> Pipeline[_StrType]: ...
     def zrevrangebylex(  # type: ignore [override]
-        self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...
+        self, name: _Key, min: _Value, max: _Value, start: int | None = ..., num: int | None = ...
     ) -> Pipeline[_StrType]: ...
     def zrevrank(self, name: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def zscore(self, name: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -1116,16 +1098,14 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def hkeys(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def hlen(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     @overload  # type: ignore [override]
-    def hset(
-        self, name: _Key, key: _Key, value: _Value, mapping: Optional[Mapping[_Key, _Value]] = ...
-    ) -> Pipeline[_StrType]: ...
+    def hset(self, name: _Key, key: _Key, value: _Value, mapping: Mapping[_Key, _Value] | None = ...) -> Pipeline[_StrType]: ...
     @overload  # type: ignore [override]
     def hset(self, name: _Key, key: None, value: None, mapping: Mapping[_Key, _Value]) -> Pipeline[_StrType]: ...
     @overload  # type: ignore [override]
     def hset(self, name: _Key, *, mapping: Mapping[_Key, _Value]) -> Pipeline[_StrType]: ...
     def hsetnx(self, name: _Key, key: _Key, value: _Value) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def hmset(self, name: _Key, mapping: Mapping[_Key, _Value]) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def hmget(self, name: _Key, keys: Union[_Key, Iterable[_Key]], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
+    def hmget(self, name: _Key, keys: _Key | Iterable[_Key], *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def hvals(self, name: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def publish(self, channel: _Key, message: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def eval(self, script, numkeys, *keys_and_args) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -1134,7 +1114,7 @@ class Pipeline(Redis[_StrType], Generic[_StrType]):
     def script_flush(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def script_kill(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def script_load(self, script) -> Pipeline[_StrType]: ...  # type: ignore [override]
-    def register_script(self, script: Union[Text, _StrType]) -> Script: ...
+    def register_script(self, script: Text | _StrType) -> Script: ...
     def pubsub_channels(self, pattern: _Key = ...) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def pubsub_numsub(self, *args: _Key) -> Pipeline[_StrType]: ...  # type: ignore [override]
     def pubsub_numpat(self) -> Pipeline[_StrType]: ...  # type: ignore [override]
@@ -1153,5 +1133,5 @@ class Monitor(object):
     def __init__(self, connection_pool) -> None: ...
     def __enter__(self) -> Monitor: ...
     def __exit__(self, *args: Any) -> None: ...
-    def next_command(self) -> Dict[Text, Any]: ...
-    def listen(self) -> Iterable[Dict[Text, Any]]: ...
+    def next_command(self) -> dict[Text, Any]: ...
+    def listen(self) -> Iterable[dict[Text, Any]]: ...

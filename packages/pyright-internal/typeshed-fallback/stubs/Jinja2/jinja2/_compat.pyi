@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Optional
+from typing import Any
 
 if sys.version_info >= (3,):
     from urllib.parse import quote_from_bytes
@@ -22,7 +22,7 @@ itervalues: Any
 iteritems: Any
 NativeStringIO: Any
 
-def reraise(tp, value, tb: Optional[Any] = ...): ...
+def reraise(tp, value, tb: Any | None = ...): ...
 
 ifilter: Any
 imap: Any

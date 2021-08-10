@@ -1,11 +1,11 @@
-from typing import IO, Any, Iterable, Mapping, Optional, Text, TypeVar, Union
+from typing import IO, Any, Iterable, Mapping, Text, TypeVar
 
 from click import BaseCommand
 from click.testing import CliRunner, Result
 from werkzeug.test import Client, EnvironBuilder as WerkzeugEnvironBuilder
 
 # Response type for the client below.
-# By default _R is Tuple[Iterable[Any], Union[Text, int], werkzeug.datastructures.Headers], however
+# By default _R is Tuple[Iterable[Any], Text | int, werkzeug.datastructures.Headers], however
 # most commonly it is wrapped in a Reponse object.
 _R = TypeVar("_R")
 
@@ -22,10 +22,10 @@ class FlaskCliRunner(CliRunner):
     def __init__(self, app: Any, **kwargs: Any) -> None: ...
     def invoke(
         self,
-        cli: Optional[BaseCommand] = ...,
-        args: Optional[Union[str, Iterable[str]]] = ...,
-        input: Optional[Union[bytes, IO[Any], Text]] = ...,
-        env: Optional[Mapping[str, str]] = ...,
+        cli: BaseCommand | None = ...,
+        args: str | Iterable[str] | None = ...,
+        input: bytes | IO[Any] | Text | None = ...,
+        env: Mapping[str, str] | None = ...,
         catch_exceptions: bool = ...,
         color: bool = ...,
         **extra: Any,
@@ -37,9 +37,9 @@ class EnvironBuilder(WerkzeugEnvironBuilder):
         self,
         app: Any,
         path: str = ...,
-        base_url: Optional[Any] = ...,
-        subdomain: Optional[Any] = ...,
-        url_scheme: Optional[Any] = ...,
+        base_url: Any | None = ...,
+        subdomain: Any | None = ...,
+        url_scheme: Any | None = ...,
         *args: Any,
         **kwargs: Any,
     ) -> None: ...
@@ -48,9 +48,9 @@ class EnvironBuilder(WerkzeugEnvironBuilder):
 def make_test_environ_builder(
     app: Any,
     path: str = ...,
-    base_url: Optional[Any] = ...,
-    subdomain: Optional[Any] = ...,
-    url_scheme: Optional[Any] = ...,
+    base_url: Any | None = ...,
+    subdomain: Any | None = ...,
+    url_scheme: Any | None = ...,
     *args: Any,
     **kwargs: Any,
 ): ...

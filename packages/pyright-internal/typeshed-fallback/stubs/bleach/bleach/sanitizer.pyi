@@ -1,24 +1,25 @@
-from typing import Any, Callable, Container, Dict, Iterable, List, Optional, Pattern, Text, Union
+from collections.abc import Callable, Container, Iterable
+from typing import Any, Dict, List, Pattern, Union
 
 from .html5lib_shim import BleachHTMLParser, BleachHTMLSerializer, SanitizerFilter
 
-ALLOWED_TAGS: List[Text]
-ALLOWED_ATTRIBUTES: Dict[Text, List[Text]]
-ALLOWED_STYLES: List[Text]
-ALLOWED_PROTOCOLS: List[Text]
+ALLOWED_TAGS: list[str]
+ALLOWED_ATTRIBUTES: dict[str, list[str]]
+ALLOWED_STYLES: list[str]
+ALLOWED_PROTOCOLS: list[str]
 
-INVISIBLE_CHARACTERS: Text
-INVISIBLE_CHARACTERS_RE: Pattern[Text]
-INVISIBLE_REPLACEMENT_CHAR: Text
+INVISIBLE_CHARACTERS: str
+INVISIBLE_CHARACTERS_RE: Pattern[str]
+INVISIBLE_REPLACEMENT_CHAR: str
 
 # A html5lib Filter class
 _Filter = Any
 
 class Cleaner(object):
-    tags: Container[Text]
+    tags: Container[str]
     attributes: _Attributes
-    styles: Container[Text]
-    protocols: Container[Text]
+    styles: Container[str]
+    protocols: Container[str]
     strip: bool
     strip_comments: bool
     filters: Iterable[_Filter]
@@ -27,19 +28,19 @@ class Cleaner(object):
     serializer: BleachHTMLSerializer
     def __init__(
         self,
-        tags: Container[Text] = ...,
+        tags: Container[str] = ...,
         attributes: _Attributes = ...,
-        styles: Container[Text] = ...,
-        protocols: Container[Text] = ...,
+        styles: Container[str] = ...,
+        protocols: Container[str] = ...,
         strip: bool = ...,
         strip_comments: bool = ...,
-        filters: Optional[Iterable[_Filter]] = ...,
+        filters: Iterable[_Filter] | None = ...,
     ) -> None: ...
-    def clean(self, text: Text) -> Text: ...
+    def clean(self, text: str) -> str: ...
 
-_AttributeFilter = Callable[[Text, Text, Text], bool]
-_AttributeDict = Union[Dict[Text, Union[List[Text], _AttributeFilter]], Dict[Text, List[Text]], Dict[Text, _AttributeFilter]]
-_Attributes = Union[_AttributeFilter, _AttributeDict, List[Text]]
+_AttributeFilter = Callable[[str, str, str], bool]
+_AttributeDict = Union[Dict[str, Union[List[str], _AttributeFilter]], Dict[str, List[str]], Dict[str, _AttributeFilter]]
+_Attributes = Union[_AttributeFilter, _AttributeDict, List[str]]
 
 def attribute_filter_factory(attributes: _Attributes) -> _AttributeFilter: ...
 

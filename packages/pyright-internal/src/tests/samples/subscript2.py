@@ -11,25 +11,25 @@ def func1(p1: List[int], p2: _T):
     t_a1: Literal["int"] = reveal_type(a1)
 
     a2 = p1[:]
-    t_a2: Literal["List[int]"] = reveal_type(a2)
+    t_a2: Literal["list[int]"] = reveal_type(a2)
 
     a3 = p1[1:]
-    t_a3: Literal["List[int]"] = reveal_type(a3)
+    t_a3: Literal["list[int]"] = reveal_type(a3)
 
     a4 = p1[1:2]
-    t_a4: Literal["List[int]"] = reveal_type(a4)
+    t_a4: Literal["list[int]"] = reveal_type(a4)
 
     a5 = p1[0:1:3]
-    t_a5: Literal["List[int]"] = reveal_type(a5)
+    t_a5: Literal["list[int]"] = reveal_type(a5)
 
     a6 = p1[:3]
-    t_a6: Literal["List[int]"] = reveal_type(a6)
+    t_a6: Literal["list[int]"] = reveal_type(a6)
 
     a7 = p1[::]
-    t_a7: Literal["List[int]"] = reveal_type(a7)
+    t_a7: Literal["list[int]"] = reveal_type(a7)
 
     a8 = p1[::2]
-    t_a8: Literal["List[int]"] = reveal_type(a8)
+    t_a8: Literal["list[int]"] = reveal_type(a8)
 
     # This should generate a syntax error.
     b1 = p1[0:1:3:4]

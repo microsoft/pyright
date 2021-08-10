@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from six.moves import http_client
 
@@ -42,7 +42,7 @@ class HTTPRequest:
 
 class HTTPResponse(http_client.HTTPResponse):
     def __init__(self, *args, **kwargs) -> None: ...
-    def read(self, amt: Optional[Any] = ...): ...
+    def read(self, amt: Any | None = ...): ...
 
 class AWSAuthConnection:
     suppress_consec_slashes: Any
@@ -67,22 +67,22 @@ class AWSAuthConnection:
     def __init__(
         self,
         host,
-        aws_access_key_id: Optional[Any] = ...,
-        aws_secret_access_key: Optional[Any] = ...,
+        aws_access_key_id: Any | None = ...,
+        aws_secret_access_key: Any | None = ...,
         is_secure: bool = ...,
-        port: Optional[Any] = ...,
-        proxy: Optional[Any] = ...,
-        proxy_port: Optional[Any] = ...,
-        proxy_user: Optional[Any] = ...,
-        proxy_pass: Optional[Any] = ...,
+        port: Any | None = ...,
+        proxy: Any | None = ...,
+        proxy_port: Any | None = ...,
+        proxy_user: Any | None = ...,
+        proxy_pass: Any | None = ...,
         debug: int = ...,
-        https_connection_factory: Optional[Any] = ...,
+        https_connection_factory: Any | None = ...,
         path: str = ...,
         provider: str = ...,
-        security_token: Optional[Any] = ...,
+        security_token: Any | None = ...,
         suppress_consec_slashes: bool = ...,
         validate_certs: bool = ...,
-        profile_name: Optional[Any] = ...,
+        profile_name: Any | None = ...,
     ) -> None: ...
     auth_region_name: Any
     @property
@@ -100,7 +100,7 @@ class AWSAuthConnection:
     @property
     def profile_name(self): ...
     def get_path(self, path: str = ...): ...
-    def server_name(self, port: Optional[Any] = ...): ...
+    def server_name(self, port: Any | None = ...): ...
     proxy: Any
     proxy_port: Any
     proxy_user: Any
@@ -112,8 +112,8 @@ class AWSAuthConnection:
     def skip_proxy(self, host): ...
     def new_http_connection(self, host, port, is_secure): ...
     def put_http_connection(self, host, port, is_secure, connection): ...
-    def proxy_ssl(self, host: Optional[Any] = ..., port: Optional[Any] = ...): ...
-    def prefix_proxy_to_path(self, path, host: Optional[Any] = ...): ...
+    def proxy_ssl(self, host: Any | None = ..., port: Any | None = ...): ...
+    def prefix_proxy_to_path(self, path, host: Any | None = ...): ...
     def get_proxy_auth_header(self): ...
     def get_proxy_url_with_auth(self): ...
     def set_host_header(self, request): ...
@@ -123,23 +123,23 @@ class AWSAuthConnection:
         method,
         path,
         auth_path,
-        params: Optional[Any] = ...,
-        headers: Optional[Any] = ...,
+        params: Any | None = ...,
+        headers: Any | None = ...,
         data: str = ...,
-        host: Optional[Any] = ...,
+        host: Any | None = ...,
     ): ...
     def make_request(
         self,
         method,
         path,
-        headers: Optional[Any] = ...,
+        headers: Any | None = ...,
         data: str = ...,
-        host: Optional[Any] = ...,
-        auth_path: Optional[Any] = ...,
-        sender: Optional[Any] = ...,
-        override_num_retries: Optional[Any] = ...,
-        params: Optional[Any] = ...,
-        retry_handler: Optional[Any] = ...,
+        host: Any | None = ...,
+        auth_path: Any | None = ...,
+        sender: Any | None = ...,
+        override_num_retries: Any | None = ...,
+        params: Any | None = ...,
+        retry_handler: Any | None = ...,
     ): ...
     def close(self): ...
 
@@ -148,27 +148,27 @@ class AWSQueryConnection(AWSAuthConnection):
     ResponseError: Any
     def __init__(
         self,
-        aws_access_key_id: Optional[Any] = ...,
-        aws_secret_access_key: Optional[Any] = ...,
+        aws_access_key_id: Any | None = ...,
+        aws_secret_access_key: Any | None = ...,
         is_secure: bool = ...,
-        port: Optional[Any] = ...,
-        proxy: Optional[Any] = ...,
-        proxy_port: Optional[Any] = ...,
-        proxy_user: Optional[Any] = ...,
-        proxy_pass: Optional[Any] = ...,
-        host: Optional[Any] = ...,
+        port: Any | None = ...,
+        proxy: Any | None = ...,
+        proxy_port: Any | None = ...,
+        proxy_user: Any | None = ...,
+        proxy_pass: Any | None = ...,
+        host: Any | None = ...,
         debug: int = ...,
-        https_connection_factory: Optional[Any] = ...,
+        https_connection_factory: Any | None = ...,
         path: str = ...,
-        security_token: Optional[Any] = ...,
+        security_token: Any | None = ...,
         validate_certs: bool = ...,
-        profile_name: Optional[Any] = ...,
+        profile_name: Any | None = ...,
         provider: str = ...,
     ) -> None: ...
     def get_utf8_value(self, value): ...
-    def make_request(self, action, params: Optional[Any] = ..., path: str = ..., verb: str = ..., *args, **kwargs): ...  # type: ignore # https://github.com/python/mypy/issues/1237
+    def make_request(self, action, params: Any | None = ..., path: str = ..., verb: str = ..., *args, **kwargs): ...  # type: ignore # https://github.com/python/mypy/issues/1237
     def build_list_params(self, params, items, label): ...
     def build_complex_list_params(self, params, items, label, names): ...
-    def get_list(self, action, params, markers, path: str = ..., parent: Optional[Any] = ..., verb: str = ...): ...
-    def get_object(self, action, params, cls, path: str = ..., parent: Optional[Any] = ..., verb: str = ...): ...
-    def get_status(self, action, params, path: str = ..., parent: Optional[Any] = ..., verb: str = ...): ...
+    def get_list(self, action, params, markers, path: str = ..., parent: Any | None = ..., verb: str = ...): ...
+    def get_object(self, action, params, cls, path: str = ..., parent: Any | None = ..., verb: str = ...): ...
+    def get_status(self, action, params, path: str = ..., parent: Any | None = ..., verb: str = ...): ...

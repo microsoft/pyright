@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Text, Type
+from typing import Any, Text, Type
 
 from boto.connection import AWSAuthConnection
 from boto.exception import BotoClientError
@@ -52,26 +52,26 @@ class S3Connection(AWSAuthConnection):
     anon: Any
     def __init__(
         self,
-        aws_access_key_id: Optional[Any] = ...,
-        aws_secret_access_key: Optional[Any] = ...,
+        aws_access_key_id: Any | None = ...,
+        aws_secret_access_key: Any | None = ...,
         is_secure: bool = ...,
-        port: Optional[Any] = ...,
-        proxy: Optional[Any] = ...,
-        proxy_port: Optional[Any] = ...,
-        proxy_user: Optional[Any] = ...,
-        proxy_pass: Optional[Any] = ...,
+        port: Any | None = ...,
+        proxy: Any | None = ...,
+        proxy_port: Any | None = ...,
+        proxy_user: Any | None = ...,
+        proxy_pass: Any | None = ...,
         host: Any = ...,
         debug: int = ...,
-        https_connection_factory: Optional[Any] = ...,
+        https_connection_factory: Any | None = ...,
         calling_format: Any = ...,
         path: str = ...,
         provider: str = ...,
         bucket_class: Type[Bucket] = ...,
-        security_token: Optional[Any] = ...,
+        security_token: Any | None = ...,
         suppress_consec_slashes: bool = ...,
         anon: bool = ...,
-        validate_certs: Optional[Any] = ...,
-        profile_name: Optional[Any] = ...,
+        validate_certs: Any | None = ...,
+        profile_name: Any | None = ...,
     ) -> None: ...
     def __iter__(self): ...
     def __contains__(self, bucket_name): ...
@@ -82,14 +82,14 @@ class S3Connection(AWSAuthConnection):
         bucket_name,
         key,
         expires_in: int = ...,
-        acl: Optional[Any] = ...,
-        success_action_redirect: Optional[Any] = ...,
-        max_content_length: Optional[Any] = ...,
+        acl: Any | None = ...,
+        success_action_redirect: Any | None = ...,
+        max_content_length: Any | None = ...,
         http_method: str = ...,
-        fields: Optional[Any] = ...,
-        conditions: Optional[Any] = ...,
+        fields: Any | None = ...,
+        conditions: Any | None = ...,
         storage_class: str = ...,
-        server_side_encryption: Optional[Any] = ...,
+        server_side_encryption: Any | None = ...,
     ): ...
     def generate_url_sigv4(
         self,
@@ -97,11 +97,11 @@ class S3Connection(AWSAuthConnection):
         method,
         bucket: str = ...,
         key: str = ...,
-        headers: Optional[Dict[Text, Text]] = ...,
+        headers: dict[Text, Text] | None = ...,
         force_http: bool = ...,
-        response_headers: Optional[Dict[Text, Text]] = ...,
-        version_id: Optional[Any] = ...,
-        iso_date: Optional[Any] = ...,
+        response_headers: dict[Text, Text] | None = ...,
+        version_id: Any | None = ...,
+        iso_date: Any | None = ...,
     ): ...
     def generate_url(
         self,
@@ -109,20 +109,20 @@ class S3Connection(AWSAuthConnection):
         method,
         bucket: str = ...,
         key: str = ...,
-        headers: Optional[Dict[Text, Text]] = ...,
+        headers: dict[Text, Text] | None = ...,
         query_auth: bool = ...,
         force_http: bool = ...,
-        response_headers: Optional[Dict[Text, Text]] = ...,
+        response_headers: dict[Text, Text] | None = ...,
         expires_in_absolute: bool = ...,
-        version_id: Optional[Any] = ...,
+        version_id: Any | None = ...,
     ): ...
-    def get_all_buckets(self, headers: Optional[Dict[Text, Text]] = ...): ...
-    def get_canonical_user_id(self, headers: Optional[Dict[Text, Text]] = ...): ...
-    def get_bucket(self, bucket_name: Text, validate: bool = ..., headers: Optional[Dict[Text, Text]] = ...) -> Bucket: ...
-    def head_bucket(self, bucket_name, headers: Optional[Dict[Text, Text]] = ...): ...
-    def lookup(self, bucket_name, validate: bool = ..., headers: Optional[Dict[Text, Text]] = ...): ...
+    def get_all_buckets(self, headers: dict[Text, Text] | None = ...): ...
+    def get_canonical_user_id(self, headers: dict[Text, Text] | None = ...): ...
+    def get_bucket(self, bucket_name: Text, validate: bool = ..., headers: dict[Text, Text] | None = ...) -> Bucket: ...
+    def head_bucket(self, bucket_name, headers: dict[Text, Text] | None = ...): ...
+    def lookup(self, bucket_name, validate: bool = ..., headers: dict[Text, Text] | None = ...): ...
     def create_bucket(
-        self, bucket_name, headers: Optional[Dict[Text, Text]] = ..., location: Any = ..., policy: Optional[Any] = ...
+        self, bucket_name, headers: dict[Text, Text] | None = ..., location: Any = ..., policy: Any | None = ...
     ): ...
-    def delete_bucket(self, bucket, headers: Optional[Dict[Text, Text]] = ...): ...
-    def make_request(self, method, bucket: str = ..., key: str = ..., headers: Optional[Any] = ..., data: str = ..., query_args: Optional[Any] = ..., sender: Optional[Any] = ..., override_num_retries: Optional[Any] = ..., retry_handler: Optional[Any] = ..., *args, **kwargs): ...  # type: ignore # https://github.com/python/mypy/issues/1237
+    def delete_bucket(self, bucket, headers: dict[Text, Text] | None = ...): ...
+    def make_request(self, method, bucket: str = ..., key: str = ..., headers: Any | None = ..., data: str = ..., query_args: Any | None = ..., sender: Any | None = ..., override_num_retries: Any | None = ..., retry_handler: Any | None = ..., *args, **kwargs): ...  # type: ignore # https://github.com/python/mypy/issues/1237
