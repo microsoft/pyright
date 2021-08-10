@@ -46,9 +46,6 @@ export const enum SymbolFlags {
 
     // Indicates that the symbol is in __all__.
     InDunderAll = 1 << 8,
-
-    // Indicates that the member cannot be accessed from an instance.
-    ExclusiveClassMember = 1 << 9,
 }
 
 let nextSymbolId = 1;
@@ -122,18 +119,6 @@ export class Symbol {
 
     isInstanceMember() {
         return !!(this._flags & SymbolFlags.InstanceMember);
-    }
-
-    setIsExclusiveClassMember() {
-        this._flags |= SymbolFlags.ExclusiveClassMember;
-    }
-
-    setIsNotExclusiveClassMember() {
-        this._flags &= ~SymbolFlags.ExclusiveClassMember;
-    }
-
-    isExclusiveClassMember() {
-        return !!(this._flags & SymbolFlags.ExclusiveClassMember);
     }
 
     setIsClassVar() {

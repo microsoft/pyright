@@ -4877,17 +4877,6 @@ export function createTypeEvaluator(
             memberInfo = lookUpClassMember(classType, memberName, classLookupFlags);
         }
 
-        // If this is an "exclusive" class member (i.e. it's not accessible from
-        // a class instance even for 'get') and the access was through an instance,
-        // make it look as though the lookup failed.
-        if (
-            memberInfo &&
-            memberInfo.symbol.isExclusiveClassMember() &&
-            (flags & MemberAccessFlags.DisallowClassVarWrites) !== 0
-        ) {
-            memberInfo = undefined;
-        }
-
         if (memberInfo) {
             let type: Type | undefined;
             let isTypeIncomplete = false;

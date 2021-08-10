@@ -7,7 +7,6 @@ class TestClass:
     print(__doc__)
     print(__module__)
     print(__name__)
-    print(__qualname__)
 
 
 base = TestClass.__base__
@@ -35,3 +34,14 @@ instance.__module__
 # These should generate an error because they are not visible to instances.
 instance.__name__
 instance.__qualname__
+
+
+class Meta(type):
+    def method1(self) -> str:
+        return self.__name__
+
+
+class NonMeta:
+    def method1(self) -> str:
+        # This should generate an error
+        return self.__name__
