@@ -1606,22 +1606,34 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
     let isValid = true;
 
     doForEachSubtype(type, (subtype) => {
-        if (
-            isClassInstance(subtype) &&
-            isTupleClass(subtype) &&
-            !isOpenEndedTupleClass(subtype) &&
-            subtype.tupleTypeArguments
-        ) {
-            if (tupleEntries) {
-                if (tupleEntries.length === subtype.tupleTypeArguments.length) {
-                    subtype.tupleTypeArguments.forEach((entry, index) => {
-                        tupleEntries![index].push(entry);
-                    });
+        if (isClassInstance(subtype)) {
+            let tupleClass: ClassType | undefined;
+            if (isClass(subtype) && isTupleClass(subtype) && !isOpenEndedTupleClass(subtype)) {
+                tupleClass = subtype;
+            }
+
+            if (!tupleClass) {
+                // Look in the mro list to see if this subtype derives from a
+                // tuple with a known size. This includes named tuples.
+                tupleClass = subtype.details.mro.find(
+                    (mroClass) => isClass(mroClass) && isTupleClass(mroClass) && !isOpenEndedTupleClass(mroClass)
+                ) as ClassType | undefined;
+            }
+
+            if (tupleClass && isClass(tupleClass) && tupleClass.tupleTypeArguments) {
+                if (tupleEntries) {
+                    if (tupleEntries.length === tupleClass.tupleTypeArguments.length) {
+                        tupleClass.tupleTypeArguments.forEach((entry, index) => {
+                            tupleEntries![index].push(entry);
+                        });
+                    } else {
+                        isValid = false;
+                    }
                 } else {
-                    isValid = false;
+                    tupleEntries = tupleClass.tupleTypeArguments.map((entry) => [entry]);
                 }
             } else {
-                tupleEntries = subtype.tupleTypeArguments.map((entry) => [entry]);
+                isValid = false;
             }
         } else {
             isValid = false;
