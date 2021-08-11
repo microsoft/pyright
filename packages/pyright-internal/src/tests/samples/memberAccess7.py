@@ -8,7 +8,7 @@ class ClassA:
     def __init__(self):
         return
 
-    def __getattr__(self) -> Callable[[str], str]:
+    def __getattr__(self, key: str) -> Callable[[str], str]:
         return lambda a: a
 
 

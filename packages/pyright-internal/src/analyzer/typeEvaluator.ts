@@ -5009,7 +5009,7 @@ export function createTypeEvaluator(
                     memberInfo,
                     classType,
                     bindToType,
-                    /* isAccessedThroughObject */ false,
+                    /* isAccessedThroughObject */ !!bindToType,
                     flags,
                     errorNode,
                     memberName,
@@ -5217,7 +5217,7 @@ export function createTypeEvaluator(
             } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
-                if (!isAccessedThroughObject || !memberInfo?.isInstanceMember) {
+                if (!isAccessedThroughObject || (memberInfo && !memberInfo.isInstanceMember)) {
                     return bindFunctionToClassOrObject(
                         isAccessedThroughObject ? ClassType.cloneAsInstance(baseTypeClass) : baseTypeClass,
                         subtype,
@@ -11783,7 +11783,7 @@ export function createTypeEvaluator(
     function createCallableType(typeArgs: TypeResult[] | undefined, errorNode: ParseNode): FunctionType {
         // Create a new function that is marked as "static" so there is later
         // no attempt to bind it as though it's an instance or class method.
-        const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.StaticMethod);
+        const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
         TypeBase.setNonCallable(functionType);
         functionType.details.declaredReturnType = UnknownType.create();
 
@@ -22807,7 +22807,7 @@ export function createTypeEvaluator(
             '__new__',
             '',
             '',
-            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
+            FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
         );
         constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
         FunctionType.addDefaultParameters(constructorFunction);
