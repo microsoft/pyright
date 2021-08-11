@@ -5401,7 +5401,10 @@ export function createTypeEvaluator(
             // passed to __setitem__ is the same type as the value returned by __getitem__).
             let baseTypeSupportsIndexNarrowing = true;
             mapSubtypesExpandTypeVars(baseTypeResult.type, /* conditionFilter */ undefined, (subtype) => {
-                if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype)) {
+                if (
+                    !isClassInstance(subtype) ||
+                    !(ClassType.isBuiltIn(subtype) || ClassType.isTypedDictClass(subtype))
+                ) {
                     baseTypeSupportsIndexNarrowing = false;
                 }
 
