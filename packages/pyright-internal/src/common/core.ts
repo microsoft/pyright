@@ -89,7 +89,7 @@ export function isNumber(x: unknown): x is number {
     return typeof x === 'number';
 }
 
-export function isBoolean(x: unknown): x is number {
+export function isBoolean(x: unknown): x is boolean {
     return typeof x === 'boolean';
 }
 

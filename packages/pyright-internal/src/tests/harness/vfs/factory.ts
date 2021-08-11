@@ -9,7 +9,7 @@
 import * as pathConsts from '../../../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from '../../../common/pathUtils';
 import { GlobalMetadataOptionNames } from '../fourslash/fourSlashTypes';
-import { TestHost } from '../host';
+import { TestHost } from '../testHost';
 import { bufferFrom } from '../utils';
 import {
     FileSet,

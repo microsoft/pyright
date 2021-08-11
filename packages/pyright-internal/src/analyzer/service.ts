@@ -34,6 +34,7 @@ import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
 import { FileSystem, FileWatcher, ignoredWatchEventFunction } from '../common/fileSystem';
+import { Host, HostFactory, NoAccessHost } from '../common/host';
 import {
     combinePaths,
     FileSpec,
@@ -75,6 +76,7 @@ const _gitDirectory = normalizeSlashes('/.git/');
 const _includeFileRegex = /\.pyi?$/;
 
 export class AnalyzerService {
+    private _hostFactory: HostFactory;
     private _instanceName: string;
     private _importResolverFactory: ImportResolverFactory;
     private _executionRootPath: string;
@@ -104,6 +106,7 @@ export class AnalyzerService {
         instanceName: string,
         fs: FileSystem,
         console?: ConsoleInterface,
+        hostFactory?: HostFactory,
         importResolverFactory?: ImportResolverFactory,
         configOptions?: ConfigOptions,
         extension?: LanguageServiceExtension,
@@ -120,9 +123,10 @@ export class AnalyzerService {
         this._maxAnalysisTimeInForeground = maxAnalysisTime;
         this._backgroundAnalysisProgramFactory = backgroundAnalysisProgramFactory;
         this._cancellationProvider = cancellationProvider ?? new DefaultCancellationProvider();
+        this._hostFactory = hostFactory ?? (() => new NoAccessHost());
 
         configOptions = configOptions ?? new ConfigOptions(process.cwd());
-        const importResolver = this._importResolverFactory(fs, configOptions);
+        const importResolver = this._importResolverFactory(fs, configOptions, this._hostFactory());
 
         this._backgroundAnalysisProgram =
             backgroundAnalysisProgramFactory !== undefined
@@ -149,6 +153,7 @@ export class AnalyzerService {
             instanceName,
             this._fs,
             this._console,
+            this._hostFactory,
             this._importResolverFactory,
             this._backgroundAnalysisProgram.configOptions,
             this._extension,
@@ -173,8 +178,8 @@ export class AnalyzerService {
         return this._backgroundAnalysisProgram;
     }
 
-    static createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
-        return new ImportResolver(fs, options);
+    static createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
+        return new ImportResolver(fs, options, host);
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
@@ -185,21 +190,22 @@ export class AnalyzerService {
     setOptions(commandLineOptions: CommandLineOptions, reanalyze = true): void {
         this._commandLineOptions = commandLineOptions;
 
-        const configOptions = this._getConfigOptions(commandLineOptions);
+        const host = this._hostFactory();
+        const configOptions = this._getConfigOptions(host, commandLineOptions);
 
         if (configOptions.pythonPath) {
             // Make sure we have default python environment set.
-            configOptions.ensureDefaultPythonVersion(configOptions.pythonPath, this._console);
+            configOptions.ensureDefaultPythonVersion(host, this._console);
         }
 
-        configOptions.ensureDefaultPythonPlatform(this._console);
+        configOptions.ensureDefaultPythonPlatform(host, this._console);
 
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
         this._executionRootPath = normalizePath(
             combinePaths(commandLineOptions.executionRoot, configOptions.projectRoot)
         );
-        this._applyConfigOptions(reanalyze);
+        this._applyConfigOptions(host, reanalyze);
     }
 
     setFileOpened(path: string, version: number | null, contents: string) {
@@ -429,7 +435,7 @@ export class AnalyzerService {
     }
 
     test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
-        return this._getConfigOptions(commandLineOptions);
+        return this._getConfigOptions(this._backgroundAnalysisProgram.host, commandLineOptions);
     }
 
     test_getFileNamesFromFileSpecs(): string[] {
@@ -438,7 +444,7 @@ export class AnalyzerService {
 
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
-    private _getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
+    private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
         let projectRoot = commandLineOptions.executionRoot;
         let configFilePath: string | undefined;
         let pyprojectFilePath: string | undefined;
@@ -504,6 +510,13 @@ export class AnalyzerService {
         const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
         const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
 
+        if (commandLineOptions.pythonPath) {
+            this._console.info(
+                `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
+            );
+            configOptions.pythonPath = commandLineOptions.pythonPath;
+        }
+
         // The pythonPlatform and pythonVersion from the command-line can be overridden
         // by the config file, so initialize them upfront.
         configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
@@ -549,8 +562,8 @@ export class AnalyzerService {
                 configJsonObj,
                 this._typeCheckingMode,
                 this._console,
+                host,
                 commandLineOptions.diagnosticSeverityOverrides,
-                commandLineOptions.pythonPath,
                 commandLineOptions.fileSpecs.length > 0
             );
 
@@ -599,13 +612,6 @@ export class AnalyzerService {
             } else {
                 reportDuplicateSetting('venvPath', configOptions.venvPath);
             }
-        }
-
-        if (commandLineOptions.pythonPath) {
-            this._console.info(
-                `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
-            );
-            configOptions.pythonPath = commandLineOptions.pythonPath;
         }
 
         if (commandLineOptions.typeshedPath) {
@@ -664,7 +670,7 @@ export class AnalyzerService {
                     );
                 } else {
                     const importFailureInfo: string[] = [];
-                    if (findPythonSearchPaths(this._fs, configOptions, importFailureInfo) === undefined) {
+                    if (findPythonSearchPaths(this._fs, configOptions, host, importFailureInfo) === undefined) {
                         this._console.error(
                             `site-packages directory cannot be located for venvPath ` +
                                 `${configOptions.venvPath} and venv ${configOptions.venv}.`
@@ -738,7 +744,7 @@ export class AnalyzerService {
     // Forces the service to stop all analysis, discard all its caches,
     // and research for files.
     restart() {
-        this._applyConfigOptions();
+        this._applyConfigOptions(this._hostFactory());
 
         this._backgroundAnalysisProgram.restart();
     }
@@ -1218,6 +1224,7 @@ export class AnalyzerService {
         const watchList = findPythonSearchPaths(
             this._fs,
             this._backgroundAnalysisProgram.configOptions,
+            this._backgroundAnalysisProgram.host,
             importFailureInfo,
             true,
             this._executionRootPath
@@ -1339,19 +1346,26 @@ export class AnalyzerService {
         if (this._configFilePath) {
             this._console.info(`Reloading configuration file at ${this._configFilePath}`);
 
+            const host = this._backgroundAnalysisProgram.host;
+
             // We can't just reload config file when it is changed; we need to consider
             // command line options as well to construct new config Options.
-            const configOptions = this._getConfigOptions(this._commandLineOptions!);
+            const configOptions = this._getConfigOptions(host, this._commandLineOptions!);
             this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
-            this._applyConfigOptions();
+            this._applyConfigOptions(host);
         }
     }
 
-    private _applyConfigOptions(reanalyze = true) {
+    private _applyConfigOptions(host: Host, reanalyze = true) {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
-        const importResolver = this._importResolverFactory(this._fs, this._backgroundAnalysisProgram.configOptions);
+        const importResolver = this._importResolverFactory(
+            this._fs,
+            this._backgroundAnalysisProgram.configOptions,
+            host
+        );
+
         this._backgroundAnalysisProgram.setImportResolver(importResolver);
 
         if (this._commandLineOptions?.fromVsCodeExtension || this._configOptions.verboseOutput) {

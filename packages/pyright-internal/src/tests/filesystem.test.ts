@@ -9,7 +9,7 @@
 import assert from 'assert';
 
 import { combinePaths, normalizeSlashes } from '../common/pathUtils';
-import * as host from './harness/host';
+import * as host from './harness/testHost';
 import * as factory from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
 

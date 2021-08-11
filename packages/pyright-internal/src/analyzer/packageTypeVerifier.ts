@@ -12,6 +12,7 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
 import { FileSystem } from '../common/fileSystem';
+import { FullAccessHost } from '../common/fullAccessHost';
 import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension, tryStat } from '../common/pathUtils';
 import { getEmptyRange, Range } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
@@ -55,7 +56,11 @@ export class PackageTypeVerifier {
     constructor(private _fileSystem: FileSystem) {
         this._configOptions = new ConfigOptions('');
         this._execEnv = this._configOptions.findExecEnvironment('.');
-        this._importResolver = new ImportResolver(this._fileSystem, this._configOptions);
+        this._importResolver = new ImportResolver(
+            this._fileSystem,
+            this._configOptions,
+            new FullAccessHost(this._fileSystem)
+        );
         this._program = new Program(this._importResolver, this._configOptions);
     }
 

@@ -8,6 +8,7 @@ import assert from 'assert';
 
 import { ImportResolver } from '../analyzer/importResolver';
 import { ConfigOptions } from '../common/configOptions';
+import { FullAccessHost } from '../common/fullAccessHost';
 import { lib, sitePackages, typeshedFallback } from '../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
 import { PyrightFileSystem } from '../pyrightFileSystem';
@@ -100,7 +101,7 @@ test('side by side files', () => {
 
     const fs = createFileSystem(files);
     const configOptions = getConfigOption(fs);
-    const importResolver = new ImportResolver(fs, configOptions);
+    const importResolver = new ImportResolver(fs, configOptions, new FullAccessHost(fs));
 
     // Real side by side stub file win over virtual one.
     const sideBySideResult = importResolver.resolveImport(myFile, configOptions.findExecEnvironment(myFile), {
@@ -350,7 +351,7 @@ function getImportResult(
     const configOptions = getConfigOption(fs);
     setup(configOptions);
 
-    const importResolver = new ImportResolver(fs, configOptions);
+    const importResolver = new ImportResolver(fs, configOptions, new FullAccessHost(fs));
     const importResult = importResolver.resolveImport(file, configOptions.findExecEnvironment(file), {
         leadingDots: 0,
         nameParts: nameParts,

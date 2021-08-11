@@ -30,6 +30,7 @@ import { versionFromString } from './common/pythonVersion';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { PackageTypeReport, TypeKnownStatus } from './analyzer/packageTypeReport';
 import { createDeferred } from './common/deferred';
+import { FullAccessHost } from './common/fullAccessHost';
 
 const toolName = 'pyright';
 
@@ -269,8 +270,7 @@ async function processArgs(): Promise<ExitStatus> {
     options.watchForSourceChanges = watch;
     options.watchForConfigChanges = watch;
 
-    const service = new AnalyzerService('<default>', fileSystem, output);
-
+    const service = new AnalyzerService('<default>', fileSystem, output, () => new FullAccessHost(fileSystem));
     const exitStatus = createDeferred<ExitStatus>();
 
     service.setCompletionCallback((results) => {

@@ -9,7 +9,7 @@
 import * as ts from 'typescript';
 
 import { combinePaths } from '../../../common/pathUtils';
-import * as host from '../host';
+import * as host from '../testHost';
 import { parseTestData } from './fourSlashParser';
 import { FourSlashData } from './fourSlashTypes';
 import { HostSpecificFeatures, TestState } from './testState';

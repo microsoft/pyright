@@ -7,11 +7,10 @@
  * Utility routines used to resolve various paths in python.
  */
 
-import * as child_process from 'child_process';
-
 import { ConfigOptions } from '../common/configOptions';
 import { compareComparableValues } from '../common/core';
 import { FileSystem } from '../common/fileSystem';
+import { Host } from '../common/host';
 import * as pathConsts from '../common/pathConsts';
 import {
     combinePaths,
@@ -24,19 +23,10 @@ import {
     tryStat,
 } from '../common/pathUtils';
 
-interface PythonPathResult {
+export interface PythonPathResult {
     paths: string[];
     prefix: string;
 }
-
-const extractSys = [
-    'import os, os.path, sys',
-    'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
-    'cwd = normalize(os.getcwd())',
-    'sys.path[:] = [p for p in sys.path if p != "" and normalize(p) != cwd]',
-    'import json',
-    'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
-].join('; ');
 
 export const stdLibFolderName = 'stdlib';
 export const thirdPartyFolderName = 'stubs';
@@ -71,6 +61,7 @@ export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean)
 export function findPythonSearchPaths(
     fs: FileSystem,
     configOptions: ConfigOptions,
+    host: Host,
     importFailureInfo: string[],
     includeWatchPathsOnly?: boolean | undefined,
     workspaceRoot?: string | undefined
@@ -114,7 +105,7 @@ export function findPythonSearchPaths(
     }
 
     // Fall back on the python interpreter.
-    const pathResult = getPythonPathFromPythonInterpreter(fs, configOptions.pythonPath, importFailureInfo);
+    const pathResult = host.getPythonSearchPaths(configOptions.pythonPath, importFailureInfo);
     if (includeWatchPathsOnly && workspaceRoot) {
         const paths = pathResult.paths.filter(
             (p) => !containsPath(workspaceRoot, p, true) || containsPath(pathResult.prefix, p, true)
@@ -124,44 +115,6 @@ export function findPythonSearchPaths(
     }
 
     return pathResult.paths;
-}
-
-export function getPythonPathFromPythonInterpreter(
-    fs: FileSystem,
-    interpreterPath: string | undefined,
-    importFailureInfo: string[]
-): PythonPathResult {
-    let result: PythonPathResult | undefined;
-
-    if (interpreterPath) {
-        result = getPathResultFromInterpreter(fs, interpreterPath, importFailureInfo);
-    } else {
-        // On non-Windows platforms, always default to python3 first. We want to
-        // avoid this on Windows because it might invoke a script that displays
-        // a dialog box indicating that python can be downloaded from the app store.
-        if (process.platform !== 'win32') {
-            result = getPathResultFromInterpreter(fs, 'python3', importFailureInfo);
-        }
-
-        // On some platforms, 'python3' might not exist. Try 'python' instead.
-        if (!result) {
-            result = getPathResultFromInterpreter(fs, 'python', importFailureInfo);
-        }
-    }
-
-    if (!result) {
-        result = {
-            paths: [],
-            prefix: '',
-        };
-    }
-
-    importFailureInfo.push(`Received ${result.paths.length} paths from interpreter`);
-    result.paths.forEach((path) => {
-        importFailureInfo.push(`  ${path}`);
-    });
-
-    return result;
 }
 
 export function isPythonBinary(p: string): boolean {
@@ -202,54 +155,6 @@ function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo
     }
 
     return undefined;
-}
-
-function getPathResultFromInterpreter(
-    fs: FileSystem,
-    interpreter: string,
-    importFailureInfo: string[]
-): PythonPathResult | undefined {
-    const result: PythonPathResult = {
-        paths: [],
-        prefix: '',
-    };
-
-    try {
-        const commandLineArgs: string[] = ['-c', extractSys];
-
-        importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
-        const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
-
-        // Parse the execOutput. It should be a JSON-encoded array of paths.
-        try {
-            const execSplit = JSON.parse(execOutput);
-            for (let execSplitEntry of execSplit.path) {
-                execSplitEntry = execSplitEntry.trim();
-                if (execSplitEntry) {
-                    const normalizedPath = normalizePath(execSplitEntry);
-                    // Skip non-existent paths and broken zips/eggs.
-                    if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
-                        result.paths.push(normalizedPath);
-                    } else {
-                        importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
-                    }
-                }
-            }
-
-            result.prefix = execSplit.prefix;
-
-            if (result.paths.length === 0) {
-                importFailureInfo.push(`Found no valid directories`);
-            }
-        } catch (err) {
-            importFailureInfo.push(`Could not parse output: '${execOutput}'`);
-            throw err;
-        }
-    } catch {
-        return undefined;
-    }
-
-    return result;
 }
 
 function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {

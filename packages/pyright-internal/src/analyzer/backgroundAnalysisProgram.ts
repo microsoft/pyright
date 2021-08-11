@@ -58,6 +58,10 @@ export class BackgroundAnalysisProgram {
         return this._program;
     }
 
+    get host() {
+        return this._importResolver.host;
+    }
+
     get backgroundAnalysis() {
         return this._backgroundAnalysis;
     }
@@ -70,14 +74,10 @@ export class BackgroundAnalysisProgram {
 
     setImportResolver(importResolver: ImportResolver) {
         this._importResolver = importResolver;
+        this._backgroundAnalysis?.setImportResolver(importResolver);
+
         this._program.setImportResolver(importResolver);
-
         this._configOptions.getExecutionEnvironments().forEach((e) => this._ensurePartialStubPackages(e));
-
-        // Do nothing for background analysis.
-        // Background analysis updates importer when configOptions is changed rather than
-        // having two APIs to reduce the chance of the program and importer pointing to
-        // two different configOptions.
     }
 
     setTrackedFiles(filePaths: string[]) {
@@ -165,7 +165,7 @@ export class BackgroundAnalysisProgram {
             return;
         }
 
-        this._backgroundAnalysis?.startIndexing(this._configOptions, this._getIndices());
+        this._backgroundAnalysis?.startIndexing(this._configOptions, this.host.kind, this._getIndices());
     }
 
     refreshIndexing() {
@@ -173,7 +173,7 @@ export class BackgroundAnalysisProgram {
             return;
         }
 
-        this._backgroundAnalysis?.refreshIndexing(this._configOptions, this._indices);
+        this._backgroundAnalysis?.refreshIndexing(this._configOptions, this.host.kind, this._indices);
     }
 
     cancelIndexing() {

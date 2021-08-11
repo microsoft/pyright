@@ -16,14 +16,19 @@ import {
 } from 'vscode-languageserver';
 
 import { AnalysisResults } from './analyzer/analysis';
+import { ImportResolver } from './analyzer/importResolver';
 import { isPythonBinary } from './analyzer/pythonPathUtils';
 import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
-import { LogLevel } from './common/console';
+import { ConfigOptions } from './common/configOptions';
+import { ConsoleWithLogLevel, LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
+import { FileSystem } from './common/fileSystem';
+import { FullAccessHost } from './common/fullAccessHost';
+import { Host } from './common/host';
 import { convertUriToPath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import { createFromRealFileSystem, WorkspaceFileWatcherProvider } from './common/realFileSystem';
@@ -45,9 +50,10 @@ export class PyrightServer extends LanguageServerBase {
         // be __dirname.
         const rootDirectory = (global as any).__rootDirectory || __dirname;
 
+        const console = new ConsoleWithLogLevel(connection.console);
         const workspaceMap = new WorkspaceMap();
-        const fileWatcherProvider = new WorkspaceFileWatcherProvider(workspaceMap);
-        const fileSystem = createFromRealFileSystem(connection.console, fileWatcherProvider);
+        const fileWatcherProvider = new WorkspaceFileWatcherProvider(workspaceMap, console);
+        const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
 
         super(
             {
@@ -61,7 +67,8 @@ export class PyrightServer extends LanguageServerBase {
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
             },
-            connection
+            connection,
+            console
         );
 
         this._controller = new CommandController(this);
@@ -209,6 +216,14 @@ export class PyrightServer extends LanguageServerBase {
         }
 
         return new BackgroundAnalysis(this.console);
+    }
+
+    protected override createHost() {
+        return new FullAccessHost(this.fs);
+    }
+
+    protected override createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
+        return new ImportResolver(fs, options, host);
     }
 
     protected executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
