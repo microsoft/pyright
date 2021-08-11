@@ -17410,7 +17410,8 @@ export function createTypeEvaluator(
                             }
                         });
 
-                        const effectiveType = combineTypes(typesToCombine);
+                        const effectiveType =
+                            !!reference || typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
                         return setCacheEntry(curFlowNode, effectiveType, branchUsedOuterScopeAlias, sawIncomplete);
                     }
 

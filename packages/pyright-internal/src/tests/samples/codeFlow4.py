@@ -74,7 +74,7 @@ def func7(color: Color) -> str:
         return "no"
 
 
-def func8(color: Color):
+def func8(color: Color) -> bool:
     if color == Color.RED or color == Color.BLUE:
         return True
     elif color == Color.GREEN or color == Color.PERIWINKLE:
@@ -82,3 +82,13 @@ def func8(color: Color):
 
 
 t1: Literal["bool"] = reveal_type(func8(Color.RED))
+
+
+def func9(a: Union[str, int], b: Union[str, int]) -> bool:
+    if isinstance(a, str):
+        return True
+    elif isinstance(a, int):
+        if isinstance(b, str):
+            return False
+        elif isinstance(b, int):
+            return False
