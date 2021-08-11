@@ -16,9 +16,9 @@
 
 //// # escaped quotes
 //// [|/*marker9*/singleQuotesWithEscapedQuote|]= '\''
-//// [|/*marker10*/doubleQuotesWithEscapedQuote|]= "\"""
+//// [|/*marker10*/doubleQuotesWithEscapedQuote|]= "\""
 //// [|/*marker11*/tripleQuotesWithEscapedQuote|]= '''\n\'\'\''''
-//// [|/*marker12*/tripleDoubleQuotesWithEscapedQuote|]= """\n\"\"\"""""
+//// [|/*marker12*/tripleDoubleQuotesWithEscapedQuote|]= """\n\"\"\""""
 
 //// # mixing quotes
 //// [|/*marker13*/singleQuotesWithDouble|]= '"'
@@ -40,13 +40,13 @@ helper.verifyHover('markdown', {
     marker7: `\`\`\`python\n(variable) simpleTripleQuotes: Literal['foo\\nbar']\n\`\`\``,
     marker8: `\`\`\`python\n(variable) simpleTripleDoubleQuotes: Literal['foo\\nbar']\n\`\`\``,
     marker9: `\`\`\`python\n(variable) singleQuotesWithEscapedQuote: Literal['\\\'']\n\`\`\``,
-    marker10: `\`\`\`python\n(variable) doubleQuotesWithEscapedQuote: Literal['\\\"']\n\`\`\``,
+    marker10: `\`\`\`python\n(variable) doubleQuotesWithEscapedQuote: Literal['"']\n\`\`\``,
     marker11: `\`\`\`python\n(variable) tripleQuotesWithEscapedQuote: Literal['\\n\\'\\'\\'']\n\`\`\``,
-    marker12: `\`\`\`python\n(variable) tripleDoubleQuotesWithEscapedQuote: Literal['\\n\\\"\\\"\\\"']\n\`\`\``,
-    marker13: `\`\`\`python\n(variable) singleQuotesWithDouble: Literal['\\"']\n\`\`\``,
-    marker14: `\`\`\`python\n(variable) singleQuotesWithTripleDouble: Literal['\\"\\"\\"']\n\`\`\``,
-    marker15: `\`\`\`python\n(variable) singleTripleQuoteWithSingleAndDoubleQuote: Literal[' \\'\\"\\' ']\n\`\`\``,
-    marker16: `\`\`\`python\n(variable) html: Literal['<!DOCTYPE html><html lang=\\"en\\">\\n<head><title>Title</title></head></html>']\n\`\`\``,
-    marker17: `\`\`\`python\n(variable) htmlWithSingleQuotes: Literal['<!DOCTYPE html><html lang=\\"en\\">\\n<head><title>Title\\'s</title></head></html>']\n\`\`\``,
-    marker18: `\`\`\`python\n(variable) htmlWithTripleEscapedQuotes: Literal['<!DOCTYPE html><html lang=\\"en\\">\\n<head><title>Title\\'\\'\\'s</title></head></html>']\n\`\`\``,
+    marker12: `\`\`\`python\n(variable) tripleDoubleQuotesWithEscapedQuote: Literal['\\n"""']\n\`\`\``,
+    marker13: `\`\`\`python\n(variable) singleQuotesWithDouble: Literal['"']\n\`\`\``,
+    marker14: `\`\`\`python\n(variable) singleQuotesWithTripleDouble: Literal['"""']\n\`\`\``,
+    marker15: `\`\`\`python\n(variable) singleTripleQuoteWithSingleAndDoubleQuote: Literal[' \\'"\\' ']\n\`\`\``,
+    marker16: `\`\`\`python\n(variable) html: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title</title></head></html>']\n\`\`\``,
+    marker17: `\`\`\`python\n(variable) htmlWithSingleQuotes: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title\\'s</title></head></html>']\n\`\`\``,
+    marker18: `\`\`\`python\n(variable) htmlWithTripleEscapedQuotes: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title\\'\\'\\'s</title></head></html>']\n\`\`\``,
 });

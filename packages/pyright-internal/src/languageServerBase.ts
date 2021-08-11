@@ -68,6 +68,7 @@ import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/d
 import { DiagnosticRule } from './common/diagnosticRules';
 import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherProvider, isInZipOrEgg } from './common/fileSystem';
+import { Host } from './common/host';
 import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position } from './common/textRange';
@@ -206,14 +207,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // File system abstraction.
     fs: FileSystem;
 
-    readonly console: ConsoleInterface;
-
-    constructor(protected _serverOptions: ServerOptions, protected _connection: Connection) {
+    constructor(
+        protected _serverOptions: ServerOptions,
+        protected _connection: Connection,
+        readonly console: ConsoleInterface
+    ) {
         // Stash the base directory into a global variable.
         // This must happen before fs.getModulePath().
         (global as any).__rootDirectory = _serverOptions.rootDirectory;
-
-        this.console = new ConsoleWithLogLevel(this._connection.console);
 
         this.console.info(
             `${_serverOptions.productName} language server ${
@@ -304,9 +305,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return undefined;
     }
 
-    protected createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
-        return new ImportResolver(fs, options);
-    }
+    protected abstract createHost(): Host;
+    protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
 
     protected createBackgroundAnalysisProgram(
         console: ConsoleInterface,
@@ -343,6 +343,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             name,
             this.fs,
             this.console,
+            this.createHost.bind(this),
             this.createImportResolver.bind(this),
             undefined,
             this._serverOptions.extension,

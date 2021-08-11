@@ -7,7 +7,6 @@
  * Class that holds the configuration options for the analyzer.
  */
 
-import * as child_process from 'child_process';
 import { isAbsolute } from 'path';
 
 import * as pathConsts from '../common/pathConsts';
@@ -15,6 +14,7 @@ import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
+import { Host } from './host';
 import {
     combinePaths,
     ensureTrailingDirectorySeparator,
@@ -23,13 +23,7 @@ import {
     normalizePath,
     resolvePaths,
 } from './pathUtils';
-import {
-    latestStablePythonVersion,
-    PythonVersion,
-    versionFromMajorMinor,
-    versionFromString,
-    versionToString,
-} from './pythonVersion';
+import { latestStablePythonVersion, PythonVersion, versionFromString, versionToString } from './pythonVersion';
 
 export enum PythonPlatform {
     Darwin = 'Darwin',
@@ -726,8 +720,8 @@ export class ConfigOptions {
         configObj: any,
         typeCheckingMode: string | undefined,
         console: ConsoleInterface,
+        host: Host,
         diagnosticOverrides?: DiagnosticSeverityOverridesMap,
-        pythonPath?: string,
         skipIncludeSection = false
     ) {
         // Read the "include" entry.
@@ -1298,7 +1292,7 @@ export class ConfigOptions {
             }
         }
 
-        this.ensureDefaultPythonVersion(pythonPath, console);
+        this.ensureDefaultPythonVersion(host, console);
 
         // Read the default "pythonPlatform".
         if (configObj.pythonPlatform !== undefined) {
@@ -1309,7 +1303,7 @@ export class ConfigOptions {
             }
         }
 
-        this.ensureDefaultPythonPlatform(console);
+        this.ensureDefaultPythonPlatform(host, console);
 
         // Read the "typeshedPath" setting.
         this.typeshedPath = undefined;
@@ -1418,36 +1412,34 @@ export class ConfigOptions {
         }
     }
 
-    ensureDefaultPythonPlatform(console: ConsoleInterface) {
+    ensureDefaultPythonPlatform(host: Host, console: ConsoleInterface) {
         // If no default python platform was specified, assume that the
         // user wants to use the current platform.
         if (this.defaultPythonPlatform !== undefined) {
             return;
         }
 
-        if (process.platform === 'darwin') {
-            this.defaultPythonPlatform = PythonPlatform.Darwin;
-        } else if (process.platform === 'linux') {
-            this.defaultPythonPlatform = PythonPlatform.Linux;
-        } else if (process.platform === 'win32') {
-            this.defaultPythonPlatform = PythonPlatform.Windows;
-        }
-
+        this.defaultPythonPlatform = host.getPythonPlatform();
         if (this.defaultPythonPlatform !== undefined) {
             console.info(`Assuming Python platform ${this.defaultPythonPlatform}`);
         }
     }
 
-    ensureDefaultPythonVersion(pythonPath: string | undefined, console: ConsoleInterface) {
+    ensureDefaultPythonVersion(host: Host, console: ConsoleInterface) {
         // If no default python version was specified, retrieve the version
         // from the currently-selected python interpreter.
         if (this.defaultPythonVersion !== undefined) {
             return;
         }
 
-        this.defaultPythonVersion = this._getPythonVersionFromPythonInterpreter(pythonPath, console);
+        const importFailureInfo: string[] = [];
+        this.defaultPythonVersion = host.getPythonVersion(this.pythonPath, importFailureInfo);
         if (this.defaultPythonVersion !== undefined) {
             console.info(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
+        }
+
+        for (const log of importFailureInfo) {
+            console.info(log);
         }
     }
 
@@ -1579,39 +1571,5 @@ export class ConfigOptions {
         }
 
         return undefined;
-    }
-
-    private _getPythonVersionFromPythonInterpreter(
-        interpreterPath: string | undefined,
-        console: ConsoleInterface
-    ): PythonVersion | undefined {
-        try {
-            const commandLineArgs: string[] = [
-                '-c',
-                'import sys, json; json.dump(dict(major=sys.version_info[0], minor=sys.version_info[1]), sys.stdout)',
-            ];
-            let execOutput: string;
-
-            if (interpreterPath) {
-                execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
-            } else {
-                execOutput = child_process.execFileSync('python', commandLineArgs, { encoding: 'utf8' });
-            }
-
-            const versionJson: { major: number; minor: number } = JSON.parse(execOutput);
-
-            const version = versionFromMajorMinor(versionJson.major, versionJson.minor);
-            if (version === undefined) {
-                console.warn(
-                    `Python version ${versionJson.major}.${versionJson.minor} from interpreter is unsupported`
-                );
-                return undefined;
-            }
-
-            return version;
-        } catch {
-            console.info('Unable to get Python version from interpreter');
-            return undefined;
-        }
     }
 }

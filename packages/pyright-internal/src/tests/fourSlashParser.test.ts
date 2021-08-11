@@ -13,7 +13,7 @@ import { combinePaths, getBaseFileName, normalizeSlashes } from '../common/pathU
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { CompilerSettings } from './harness/fourslash/fourSlashTypes';
-import * as host from './harness/host';
+import * as host from './harness/testHost';
 import * as factory from './harness/vfs/factory';
 
 test('GlobalOptions', () => {

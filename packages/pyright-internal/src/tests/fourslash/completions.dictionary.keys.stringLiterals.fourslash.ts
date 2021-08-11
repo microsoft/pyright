@@ -25,7 +25,7 @@
 // @filename: dict_key_name_conflicts.py
 //// keyString = "key"
 //// d = dict(keyString=1)
-//// d[keyStr/*marker6*/]
+//// d[keyStr[|/*marker6*/|]]
 
 // @filename: dict_key_mixed_literals.py
 //// d = { "key": 1, 1 + 2: 1 }

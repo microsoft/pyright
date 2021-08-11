@@ -34,6 +34,7 @@ import * as debug from '../../../common/debug';
 import { createDeferred } from '../../../common/deferred';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { FileEditAction } from '../../../common/editAction';
+import { NoAccessHost } from '../../../common/host';
 import {
     combinePaths,
     comparePaths,
@@ -54,7 +55,7 @@ import { convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
-import * as host from '../host';
+import * as host from '../testHost';
 import { stringify } from '../utils';
 import { createFromFileSystem } from '../vfs/factory';
 import * as vfs from '../vfs/filesystem';
@@ -136,7 +137,7 @@ export class TestState {
                     throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }
 
-                configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole);
+                configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole, new NoAccessHost());
                 this._applyTestConfigOptions(configOptions);
             } else {
                 files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
@@ -1554,7 +1555,14 @@ export class TestState {
         configOptions: ConfigOptions
     ) {
         // we do not initiate automatic analysis or file watcher in test.
-        const service = new AnalyzerService('test service', this.fs, nullConsole, importResolverFactory, configOptions);
+        const service = new AnalyzerService(
+            'test service',
+            this.fs,
+            nullConsole,
+            () => new NoAccessHost(),
+            importResolverFactory,
+            configOptions
+        );
 
         // directly set files to track rather than using fileSpec from config
         // to discover those files from file system

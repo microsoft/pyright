@@ -372,7 +372,7 @@ interface WorkspaceFileWatcher extends FileWatcher {
 export class WorkspaceFileWatcherProvider implements FileWatcherProvider {
     private _fileWatchers: WorkspaceFileWatcher[] = [];
 
-    constructor(private _workspaceMap: WorkspaceMap) {}
+    constructor(private _workspaceMap: WorkspaceMap, private _console: ConsoleInterface) {}
 
     createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
         // Determine which paths are located within one or more workspaces.
@@ -404,7 +404,7 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider {
                         listener(event as FileWatcherEventType, filename)
                     );
                 } catch (e: any) {
-                    console.warn(`Exception received when installing recursive file system watcher: ${e}`);
+                    this._console.warn(`Exception received when installing file system watcher: ${e}`);
                     return undefined;
                 }
             })

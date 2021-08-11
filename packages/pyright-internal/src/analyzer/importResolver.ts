@@ -13,6 +13,7 @@ import type { Dirent } from 'fs';
 import { getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
+import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
 import {
     changeAnyExtension,
@@ -74,8 +75,6 @@ export const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExte
 const allowPartialResolutionForThirdPartyPackages = false;
 
 export class ImportResolver {
-    protected _configOptions: ConfigOptions;
-
     private _cachedPythonSearchPaths = new Map<string, string[]>();
     private _cachedImportResults = new Map<string, CachedImportResults>();
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
@@ -87,12 +86,11 @@ export class ImportResolver {
     private _cachedTypeshedThirdPartyPackageRoots: string[] | undefined;
     private _cachedEntriesForPath = new Map<string, Dirent[]>();
 
-    readonly fileSystem: FileSystem;
-
-    constructor(fs: FileSystem, configOptions: ConfigOptions) {
-        this.fileSystem = fs;
-        this._configOptions = configOptions;
-    }
+    constructor(
+        public readonly fileSystem: FileSystem,
+        protected _configOptions: ConfigOptions,
+        public readonly host: Host
+    ) {}
 
     invalidateCache() {
         this._cachedPythonSearchPaths = new Map<string, string[]>();
@@ -1233,7 +1231,12 @@ export class ImportResolver {
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths.has(cacheKey)) {
             let paths = (
-                PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, importFailureInfo) || []
+                PythonPathUtils.findPythonSearchPaths(
+                    this.fileSystem,
+                    this._configOptions,
+                    this.host,
+                    importFailureInfo
+                ) || []
             ).map((p) => this.fileSystem.realCasePath(p));
 
             // Remove duplicates (yes, it happens).
@@ -1892,4 +1895,4 @@ export class ImportResolver {
     }
 }
 
-export type ImportResolverFactory = (fs: FileSystem, options: ConfigOptions) => ImportResolver;
+export type ImportResolverFactory = (fs: FileSystem, options: ConfigOptions, host: Host) => ImportResolver;

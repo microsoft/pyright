@@ -29,6 +29,7 @@ import {
 import { doForEachSubtype, isOptionalType, isTupleClass } from './typeUtils';
 
 const singleTickRegEx = /'/g;
+const escapedDoubleQuoteRegEx = /\\"/g;
 
 export const enum PrintTypeFlags {
     None = 0,
@@ -371,7 +372,7 @@ export function printType(
     }
 }
 
-export function printLiteralValue(type: ClassType): string {
+export function printLiteralValue(type: ClassType, quotation = "'"): string {
     const literalValue = type.literalValue;
     if (literalValue === undefined) {
         return '';
@@ -380,8 +381,20 @@ export function printLiteralValue(type: ClassType): string {
     let literalStr: string;
     if (typeof literalValue === 'string') {
         const prefix = type.details.name === 'bytes' ? 'b' : '';
+
+        // JSON.stringify will perform proper escaping for " case.
+        // So, we only need to do our own escaping for ' case.
         literalStr = JSON.stringify(literalValue).toString();
-        literalStr = `${prefix}'${literalStr.substring(1, literalStr.length - 1).replace(singleTickRegEx, "\\'")}'`;
+        if (quotation !== '"') {
+            literalStr = `'${literalStr
+                .substring(1, literalStr.length - 1)
+                .replace(escapedDoubleQuoteRegEx, '"')
+                .replace(singleTickRegEx, "\\'")}'`;
+        }
+
+        if (prefix) {
+            literalStr = `${prefix}${literalStr}`;
+        }
     } else if (typeof literalValue === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
     } else if (literalValue instanceof EnumLiteral) {

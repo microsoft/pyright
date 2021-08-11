@@ -39,6 +39,7 @@ import {
     getVariableInStubFileDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
+import { printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,
     FunctionType,
@@ -61,6 +62,7 @@ import {
     getDeclaringModulesForType,
     getMembersForClass,
     getMembersForModule,
+    isLiteralType,
     isProperty,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -1171,7 +1173,14 @@ export class CompletionProvider {
         }
 
         // Add call argument completions.
-        this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
+        this._addCallArgumentCompletions(
+            parseNode,
+            priorWord,
+            priorText,
+            postText,
+            /*atArgument*/ false,
+            completionList
+        );
 
         // Add symbols that are in scope.
         this._addSymbols(parseNode, priorWord, completionList);
@@ -1209,7 +1218,13 @@ export class CompletionProvider {
                     );
 
                     if (declaredTypeOfTarget) {
-                        this._addLiteralValuesForTargetType(declaredTypeOfTarget, priorText, postText, completionList);
+                        this._addLiteralValuesForTargetType(
+                            declaredTypeOfTarget,
+                            priorText,
+                            priorWord,
+                            postText,
+                            completionList
+                        );
                     }
                 }
             }
@@ -1257,6 +1272,7 @@ export class CompletionProvider {
         priorWord: string,
         priorText: string,
         postText: string,
+        atArgument: boolean,
         completionList: CompletionList
     ) {
         // If we're within the argument list of a call, add parameter names.
@@ -1285,10 +1301,12 @@ export class CompletionProvider {
             );
 
             if (comparePositions(this._position, callNameEnd) > 0) {
-                this._addNamedParameters(signatureInfo, priorWord, completionList);
+                if (!atArgument) {
+                    this._addNamedParameters(signatureInfo, priorWord, completionList);
+                }
 
                 // Add literals that apply to this parameter.
-                this._addLiteralValuesForArgument(signatureInfo, priorText, postText, completionList);
+                this._addLiteralValuesForArgument(signatureInfo, priorText, priorWord, postText, completionList);
             }
         }
     }
@@ -1296,6 +1314,7 @@ export class CompletionProvider {
     private _addLiteralValuesForArgument(
         signatureInfo: CallSignatureInfo,
         priorText: string,
+        priorWord: string,
         postText: string,
         completionList: CompletionList
     ) {
@@ -1312,7 +1331,7 @@ export class CompletionProvider {
             }
 
             const paramType = type.details.parameters[paramIndex].type;
-            this._addLiteralValuesForTargetType(paramType, priorText, postText, completionList);
+            this._addLiteralValuesForTargetType(paramType, priorText, priorWord, postText, completionList);
             return undefined;
         });
     }
@@ -1320,21 +1339,41 @@ export class CompletionProvider {
     private _addLiteralValuesForTargetType(
         type: Type,
         priorText: string,
+        priorWord: string,
         postText: string,
         completionList: CompletionList
     ) {
         const quoteValue = this._getQuoteValueFromPriorText(priorText);
-        doForEachSubtype(type, (subtype) => {
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'str') && subtype.literalValue !== undefined) {
-                this._addStringLiteralToCompletionList(
-                    subtype.literalValue as string,
-                    quoteValue.stringValue,
-                    postText,
-                    quoteValue.quoteCharacter,
-                    completionList
-                );
+        this._getSubTypesWithLiteralValues(type).forEach((v) => {
+            if (ClassType.isBuiltIn(v, 'str')) {
+                const value = printLiteralValue(v, quoteValue.quoteCharacter);
+                if (quoteValue.stringValue === undefined) {
+                    this._addNameToCompletionList(value, CompletionItemKind.Constant, priorWord, completionList, {
+                        sortText: this._makeSortText(SortCategory.LiteralValue, v.literalValue as string),
+                    });
+                } else {
+                    this._addStringLiteralToCompletionList(
+                        value.substr(1, value.length - 2),
+                        quoteValue.stringValue,
+                        postText,
+                        quoteValue.quoteCharacter,
+                        completionList
+                    );
+                }
             }
         });
+    }
+
+    private _getSubTypesWithLiteralValues(type: Type) {
+        const values: ClassType[] = [];
+
+        doForEachSubtype(type, (subtype) => {
+            if (isClassInstance(subtype) && isLiteralType(subtype)) {
+                values.push(subtype);
+            }
+        });
+
+        return values;
     }
 
     private _getDictionaryKeys(indexNode: IndexNode, invocationNode: ParseNode) {
@@ -1349,8 +1388,32 @@ export class CompletionProvider {
         }
 
         // Must be dict type
-        if (!ClassType.isBuiltIn(baseType, 'dict')) {
+        if (!ClassType.isBuiltIn(baseType, 'dict') && !ClassType.isBuiltIn(baseType, 'Mapping')) {
             return [];
+        }
+
+        // See whether dictionary is typed using Literal types. If it is, return those literal keys.
+        // For now, we are not using __getitem__ since we don't have a way to get effective parameter type of __getitem__.
+        if (baseType.typeArguments?.length === 2) {
+            const keys: string[] = [];
+
+            this._getSubTypesWithLiteralValues(baseType.typeArguments[0]).forEach((v) => {
+                if (
+                    !ClassType.isBuiltIn(v, 'str') &&
+                    !ClassType.isBuiltIn(v, 'int') &&
+                    !ClassType.isBuiltIn(v, 'bool') &&
+                    !ClassType.isBuiltIn(v, 'bytes') &&
+                    !ClassType.isEnumClass(v)
+                ) {
+                    return;
+                }
+
+                keys.push(printLiteralValue(v, this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter));
+            });
+
+            if (keys.length > 0) {
+                return keys;
+            }
         }
 
         // Must be local variable/parameter
@@ -1513,16 +1576,20 @@ export class CompletionProvider {
             const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(parentNode.leftExpression);
 
             if (declaredTypeOfTarget) {
-                this._addLiteralValuesForTargetType(declaredTypeOfTarget, priorText, postText, completionList);
+                this._addLiteralValuesForTargetType(
+                    declaredTypeOfTarget,
+                    priorText,
+                    priorWord,
+                    postText,
+                    completionList
+                );
             }
         } else {
-            // Make sure we are not inside of the string literal.
             debug.assert(parseNode.nodeType === ParseNodeType.String);
 
             const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
-            if (offset <= parentNode.start || TextRange.getEnd(parseNode) <= offset) {
-                this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
-            }
+            const atArgument = parentNode.start < offset && offset < TextRange.getEnd(parseNode);
+            this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, atArgument, completionList);
         }
 
         return { completionList };
