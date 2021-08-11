@@ -17585,7 +17585,7 @@ export function createTypeEvaluator(
                     if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
                         const patternFlowNode = curFlowNode as FlowNarrowForPattern;
                         if (
-                            reference &&
+                            !reference ||
                             ParseTreeUtils.isMatchingExpression(reference, patternFlowNode.subjectExpression)
                         ) {
                             const typeResult = evaluateTypeForSubnode(patternFlowNode.statement, () => {
@@ -17596,12 +17596,23 @@ export function createTypeEvaluator(
                                 }
                             });
                             if (typeResult) {
-                                return setCacheEntry(
-                                    curFlowNode,
-                                    typeResult.type,
-                                    usedOuterScopeAlias,
-                                    !!typeResult.isIncomplete
-                                );
+                                if (!reference) {
+                                    if (isNever(typeResult.type)) {
+                                        return setCacheEntry(
+                                            curFlowNode,
+                                            undefined,
+                                            usedOuterScopeAlias,
+                                            !!typeResult.isIncomplete
+                                        );
+                                    }
+                                } else {
+                                    return setCacheEntry(
+                                        curFlowNode,
+                                        typeResult.type,
+                                        usedOuterScopeAlias,
+                                        !!typeResult.isIncomplete
+                                    );
+                                }
                             }
                         }
                         curFlowNode = patternFlowNode.antecedent;

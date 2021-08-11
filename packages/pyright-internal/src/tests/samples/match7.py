@@ -60,3 +60,8 @@ def func4(subj: int | str) -> str:
 
         case str():
             return "str"
+        
+        case _:
+            # This should be ignored because the pattern has already
+            # been exhaustively matched.
+            pass
