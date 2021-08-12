@@ -9071,7 +9071,7 @@ export function createTypeEvaluator(
                 expectedType = undefined;
             }
 
-            // was the argument's type precomputed by the caller?
+            // Was the argument's type precomputed by the caller?
             if (argParam.argType) {
                 argType = argParam.argType;
             } else {
@@ -9094,7 +9094,7 @@ export function createTypeEvaluator(
                 writeTypeCache(argParam.argument.name, expectedType || argType, isTypeIncomplete);
             }
         } else {
-            // was the argument's type precomputed by the caller?
+            // Was the argument's type precomputed by the caller?
             if (argParam.argType) {
                 argType = argParam.argType;
             } else {
