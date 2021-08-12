@@ -84,7 +84,6 @@ export function activate(context: ExtensionContext) {
         // Register the server for python source files.
         documentSelector: [
             {
-                scheme: 'file',
                 language: 'python',
             },
         ],
