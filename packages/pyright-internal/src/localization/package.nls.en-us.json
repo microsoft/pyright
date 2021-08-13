@@ -491,6 +491,7 @@
         "propertyMethodMissing": "Property method \"{name}\" is missing in override",
         "propertyMissingDeleter": "Property \"{name}\" has no defined deleter",
         "propertyMissingSetter": "Property \"{name}\" has no defined setter",
+        "protocolIncompatible": "\"{sourceType}\" is incompatible with protocol \"{destType}\"",
         "protocolMemberMissing": "\"{name}\" is not present",
         "protocolMemberClassVar": "\"{name}\" is not a class variable",
         "seeDeclaration": "See declaration",

@@ -21014,15 +21014,27 @@ export function createTypeEvaluator(
         // derive from the source. We also need to use this path if we're
         // testing to see if the metaclass matches the protocol.
         if (ClassType.isProtocolClass(destType) && (!isDerivedFrom || allowMetaclassForProtocols)) {
-            return canAssignClassToProtocol(
-                destType,
-                srcType,
-                diag,
-                typeVarMap,
-                flags,
-                allowMetaclassForProtocols,
-                recursionCount + 1
-            );
+            if (
+                !canAssignClassToProtocol(
+                    destType,
+                    srcType,
+                    diag.createAddendum(),
+                    typeVarMap,
+                    flags,
+                    allowMetaclassForProtocols,
+                    recursionCount + 1
+                )
+            ) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.protocolIncompatible().format({
+                        sourceType: printType(convertToInstance(srcType)),
+                        destType: printType(convertToInstance(destType)),
+                    })
+                );
+                return false;
+            }
+
+            return true;
         }
 
         if ((flags & CanAssignFlags.EnforceInvariance) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
@@ -22332,7 +22344,7 @@ export function createTypeEvaluator(
                     // Make a temporary clone of the typeVarMap. We don't want to modify
                     // the original typeVarMap until we find the "optimal" typeVar mapping.
                     const typeVarMapClone = typeVarMap?.clone();
-                    if (canAssignType(subtype, srcType, diagAddendum, typeVarMapClone, flags, recursionCount + 1)) {
+                    if (canAssignType(subtype, srcType, diagAddendum.createAddendum(), typeVarMapClone, flags, recursionCount + 1)) {
                         foundMatch = true;
 
                         if (typeVarMapClone) {
@@ -22361,7 +22373,7 @@ export function createTypeEvaluator(
                     foundMatch = canAssignType(
                         destType,
                         makeTopLevelTypeVarsConcrete(srcType),
-                        diagAddendum,
+                        diagAddendum.createAddendum(),
                         typeVarMap,
                         flags,
                         recursionCount + 1

@@ -958,6 +958,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.propertyMissingSetter'));
         export const protocolMemberClassVar = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.protocolMemberClassVar'));
+        export const protocolIncompatible = () =>
+            new ParameterizedString<{ sourceType: string; destType: string }>(
+                getRawString('DiagnosticAddendum.protocolIncompatible')
+            );
         export const protocolMemberMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.protocolMemberMissing'));
         export const seeDeclaration = () => getRawString('DiagnosticAddendum.seeDeclaration');
