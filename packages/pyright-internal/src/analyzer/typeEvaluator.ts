@@ -1833,7 +1833,7 @@ export function createTypeEvaluator(
 
     // Determines whether the specified expression is a symbol with a declared type
     // (either a simple name or a member variable). If so, the type is returned.
-    function getDeclaredTypeForExpression(expression: ExpressionNode): Type | undefined {
+    function getDeclaredTypeForExpression(expression: ExpressionNode, usage?: EvaluatorUsage): Type | undefined {
         let symbol: Symbol | undefined;
         let classOrObjectBase: ClassType | undefined;
         let memberAccessClass: Type | undefined;
@@ -1928,7 +1928,11 @@ export function createTypeEvaluator(
                             }
                         }
                     } else if (ClassType.isTypedDictClass(baseType)) {
-                        const typeFromTypedDict = getTypeFromIndexedTypedDict(expression, baseType, { method: 'get' });
+                        const typeFromTypedDict = getTypeFromIndexedTypedDict(
+                            expression,
+                            baseType,
+                            usage || { method: 'get' }
+                        );
                         if (typeFromTypedDict) {
                             return typeFromTypedDict.type;
                         }
@@ -4960,12 +4964,12 @@ export function createTypeEvaluator(
             }
             type = objectAccessType;
 
-            if (usage.method === 'set') {
+            if (usage.method === 'set' && usage.setType) {
                 // Verify that the assigned type is compatible.
-                if (!canAssignType(type, usage.setType!, diag.createAddendum())) {
+                if (!canAssignType(type, usage.setType, diag.createAddendum())) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.memberAssignment().format({
-                            type: printType(usage.setType!),
+                            type: printType(usage.setType),
                             name: memberName,
                             classType: printObjectTypeForClass(classType),
                         })
@@ -6057,7 +6061,7 @@ export function createTypeEvaluator(
                 }
 
                 if (usage.method === 'set') {
-                    canAssignType(entry.valueType, usage.setType!, diag);
+                    canAssignType(entry.valueType, usage.setType || AnyType.create(), diag);
                 } else if (usage.method === 'del' && entry.isRequired) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.keyRequiredDeleted().format({
@@ -12664,7 +12668,7 @@ export function createTypeEvaluator(
 
             if (!rightHandType) {
                 // Determine whether there is a declared type.
-                const declaredType = getDeclaredTypeForExpression(node.leftExpression);
+                const declaredType = getDeclaredTypeForExpression(node.leftExpression, { method: 'set' });
 
                 let flags: EvaluatorFlags = EvaluatorFlags.DoNotSpecialize;
                 if (fileInfo.isStubFile) {

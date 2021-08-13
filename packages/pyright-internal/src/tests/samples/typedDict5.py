@@ -38,3 +38,10 @@ movie3: Movie3 = Movie2(name="hello", year=1971)
 movie4: Movie4 = Movie3(name="hello", year=1971)
 
 movie5: Movie3 = Movie4(name="hello", year=1971, earnings=23)
+
+
+movie6 = Movie2(name="hello", year=1971)
+movie6["name"] = "goodbye"
+
+movie7 = {"name": "hello", "year": 1971}
+movie7["name"] = "goodbye"
