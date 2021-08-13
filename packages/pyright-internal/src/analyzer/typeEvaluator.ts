@@ -20810,8 +20810,20 @@ export function createTypeEvaluator(
                     return;
                 }
 
-                const boundDestAccessType = bindFunctionToClassOrObject(objectToBind, destAccessType);
-                const boundSrcAccessType = bindFunctionToClassOrObject(objectToBind, srcAccessType);
+                const boundDestAccessType = bindFunctionToClassOrObject(
+                    objectToBind,
+                    destAccessType,
+                    /* memberClass */ undefined,
+                    /* errorNode */ undefined,
+                    recursionCount + 1
+                );
+                const boundSrcAccessType = bindFunctionToClassOrObject(
+                    objectToBind,
+                    srcAccessType,
+                    /* memberClass */ undefined,
+                    /* errorNode */ undefined,
+                    recursionCount + 1
+                );
 
                 if (
                     !boundDestAccessType ||
