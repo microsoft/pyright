@@ -22344,7 +22344,16 @@ export function createTypeEvaluator(
                     // Make a temporary clone of the typeVarMap. We don't want to modify
                     // the original typeVarMap until we find the "optimal" typeVar mapping.
                     const typeVarMapClone = typeVarMap?.clone();
-                    if (canAssignType(subtype, srcType, diagAddendum.createAddendum(), typeVarMapClone, flags, recursionCount + 1)) {
+                    if (
+                        canAssignType(
+                            subtype,
+                            srcType,
+                            diagAddendum.createAddendum(),
+                            typeVarMapClone,
+                            flags,
+                            recursionCount + 1
+                        )
+                    ) {
                         foundMatch = true;
 
                         if (typeVarMapClone) {
