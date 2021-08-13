@@ -5060,6 +5060,7 @@ export function createTypeEvaluator(
                 // If it's an object, use its class to lookup the descriptor. If it's a class,
                 // use its metaclass instead.
                 let lookupClass = subtype;
+                let isAccessedThroughMetaclass = false;
                 if (TypeBase.isInstantiable(subtype)) {
                     if (
                         !subtype.details.effectiveMetaclass ||
@@ -5068,6 +5069,7 @@ export function createTypeEvaluator(
                         return undefined;
                     }
                     lookupClass = convertToInstance(subtype.details.effectiveMetaclass) as ClassType;
+                    isAccessedThroughMetaclass = true;
                 }
 
                 let accessMethodName: string;
@@ -5110,11 +5112,6 @@ export function createTypeEvaluator(
                 if (accessMethod) {
                     let accessMethodType = getTypeOfMember(accessMethod);
                     const argList: FunctionArgument[] = [
-                        {
-                            // Provide "self" argument.
-                            argumentCategory: ArgumentCategory.Simple,
-                            type: lookupClass,
-                        },
                         {
                             // Provide "instance" argument.
                             argumentCategory: ArgumentCategory.Simple,
@@ -5184,7 +5181,10 @@ export function createTypeEvaluator(
                                 lookupClass,
                                 methodType,
                                 bindToClass,
-                                errorNode
+                                errorNode,
+                                /* recursionCount */ undefined,
+                                /* treatConstructorAsClassMember */ undefined,
+                                isAccessedThroughMetaclass ? subtype : undefined
                             );
 
                             if (
@@ -5193,7 +5193,7 @@ export function createTypeEvaluator(
                             ) {
                                 const callResult = validateCallArguments(
                                     errorNode,
-                                    argList.slice(1),
+                                    argList,
                                     boundMethodType,
                                     /* typeVarMap */ undefined,
                                     /* skipUnknownArgCheck */ true
@@ -24169,17 +24169,19 @@ export function createTypeEvaluator(
         } else if (isOverloadedFunction(memberType)) {
             const newOverloadType = OverloadedFunctionType.create();
             memberType.overloads.forEach((overload) => {
-                const boundMethod = bindFunctionToClassOrObject(
-                    baseType,
-                    overload,
-                    memberClass,
-                    /* errorNode */ undefined,
-                    recursionCount + 1,
-                    treatConstructorAsClassMember,
-                    firstParamType
-                );
-                if (boundMethod) {
-                    OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
+                if (FunctionType.isOverloaded(overload)) {
+                    const boundMethod = bindFunctionToClassOrObject(
+                        baseType,
+                        overload,
+                        memberClass,
+                        /* errorNode */ undefined,
+                        recursionCount + 1,
+                        treatConstructorAsClassMember,
+                        firstParamType
+                    );
+                    if (boundMethod) {
+                        OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
+                    }
                 }
             });
 
