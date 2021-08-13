@@ -46,6 +46,19 @@ export interface TmpfileOptions {
     prefix?: string;
 }
 
+export interface SupportsCustomUri {
+    addUriMap(uriString: string, path: string): void;
+    removeUriMap(path: string): void;
+    pendingRequest(path: string, hasPendingRequest: boolean): void;
+}
+
+export namespace SupportsCustomUri {
+    export function is(value: any): value is SupportsCustomUri {
+        const customUri = value as SupportsCustomUri;
+        return !!customUri.addUriMap && !!customUri.removeUriMap;
+    }
+}
+
 export interface FileSystem {
     existsSync(path: string): boolean;
     mkdirSync(path: string, options?: MkDirOptions): void;

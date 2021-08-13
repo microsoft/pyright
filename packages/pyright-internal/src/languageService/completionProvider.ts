@@ -21,7 +21,13 @@ import {
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType, FunctionDeclaration, isFunctionDeclaration } from '../analyzer/declaration';
+import {
+    Declaration,
+    DeclarationType,
+    FunctionDeclaration,
+    isFunctionDeclaration,
+    VariableDeclaration,
+} from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
@@ -36,7 +42,7 @@ import {
     getModuleDocString,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
-    getVariableInStubFileDocStrings,
+    getVariableDocString,
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { printLiteralValue } from '../analyzer/typePrinter';
@@ -2010,13 +2016,6 @@ export class CompletionProvider {
                                         }
                                     }
                                     typeDetail = name + ': ' + this._evaluator.printType(type, expandTypeAlias);
-
-                                    const declWithDocString = symbol
-                                        .getDeclarations()
-                                        .find((decl) => decl.type === DeclarationType.Variable && !!decl.docString);
-                                    if (declWithDocString?.type === DeclarationType.Variable) {
-                                        documentation = declWithDocString.docString;
-                                    }
                                     break;
                                 }
 
@@ -2105,17 +2104,11 @@ export class CompletionProvider {
                                     this._evaluator
                                 );
                             } else if (primaryDecl?.type === DeclarationType.Variable) {
-                                const declWithDocString = symbol
+                                const decl = (symbol
                                     .getDeclarations()
-                                    .find((decl) => decl.type === DeclarationType.Variable && !!decl.docString);
-                                if (declWithDocString?.type === DeclarationType.Variable) {
-                                    documentation = declWithDocString.docString;
-                                } else {
-                                    documentation = getVariableInStubFileDocStrings(
-                                        primaryDecl,
-                                        this._sourceMapper
-                                    ).find((doc) => doc);
-                                }
+                                    .find((d) => d.type === DeclarationType.Variable && !!d.docString) ??
+                                    primaryDecl) as VariableDeclaration;
+                                documentation = getVariableDocString(decl, this._sourceMapper);
                             }
 
                             if (this._options.format === MarkupKind.Markdown) {

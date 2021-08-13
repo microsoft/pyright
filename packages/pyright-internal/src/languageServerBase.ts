@@ -67,7 +67,13 @@ import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
 import { LanguageServiceExtension } from './common/extensibility';
-import { FileSystem, FileWatcherEventType, FileWatcherProvider, isInZipOrEgg } from './common/fileSystem';
+import {
+    FileSystem,
+    FileWatcherEventType,
+    FileWatcherProvider,
+    isInZipOrEgg,
+    SupportsCustomUri,
+} from './common/fileSystem';
 import { Host } from './common/host';
 import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
@@ -794,8 +800,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._connection.onDidOpenTextDocument(async (params) => {
             const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-            const workspace = await this.getWorkspaceForFile(filePath);
+            if (SupportsCustomUri.is(this.fs)) {
+                this.fs.addUriMap(params.textDocument.uri, filePath);
+            }
 
+            const workspace = await this.getWorkspaceForFile(filePath);
             workspace.serviceInstance.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
         });
 
@@ -813,6 +822,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._connection.onDidCloseTextDocument(async (params) => {
             const filePath = convertUriToPath(this.fs, params.textDocument.uri);
+            if (SupportsCustomUri.is(this.fs)) {
+                this.fs.removeUriMap(filePath);
+            }
+
             const workspace = await this.getWorkspaceForFile(filePath);
             workspace.serviceInstance.setFileClosed(filePath);
         });
@@ -1055,6 +1068,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 uri: convertPathToUri(this.fs, fileDiag.filePath),
                 diagnostics: this._convertDiagnostics(fileDiag.diagnostics),
             });
+
+            if (SupportsCustomUri.is(this.fs)) {
+                this.fs.pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
+            }
         });
 
         if (!this._progressReporter.isEnabled(results)) {
