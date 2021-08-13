@@ -1,7 +1,7 @@
 # This sample tests the handling of a ParamSpec used with
 # *args: P.args, **kwargs: P.kwargs.
 
-from typing import Callable, ParamSpec
+from typing import Any, Callable, ParamSpec
 
 
 P = ParamSpec("P")
@@ -47,3 +47,11 @@ twice(a_int_b_str, 1)  # Rejected
 
 # This should generate an error because of too few arguments.
 twice(a_int_b_str)  # Rejected
+
+
+def func1(func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs):
+    pass
+
+
+def func2(func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs):
+    func1(func, *args, **kwargs)

@@ -4544,7 +4544,7 @@ export function createTypeEvaluator(
                             addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
                             return { type: UnknownType.create(), node };
                         }
-                        return { type: baseType, node };
+                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'args'), node };
                     }
 
                     if (memberName === 'kwargs') {
@@ -4553,7 +4553,7 @@ export function createTypeEvaluator(
                             addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
                             return { type: UnknownType.create(), node };
                         }
-                        return { type: baseType, node };
+                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'kwargs'), node };
                     }
 
                     addDiagnostic(
@@ -8085,7 +8085,7 @@ export function createTypeEvaluator(
                     typeParams[paramIndex].category === ParameterCategory.VarArgList && isVariadicTypeVar(paramType);
                 let isArgCompatibleWithVariadic = false;
                 const argType = getTypeForArgument(argList[argIndex]);
-                let listElementType: Type;
+                let listElementType: Type | undefined;
                 let advanceToNextArg = false;
 
                 // Handle the case where *args is being passed to a function defined
@@ -8137,21 +8137,20 @@ export function createTypeEvaluator(
                     // unpacked variadic type variable.
                     listElementType = argType;
                     isArgCompatibleWithVariadic = true;
+                } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
+                    listElementType = undefined;
                 } else {
                     listElementType =
                         getTypeFromIterator(argType, /* isAsync */ false, argList[argIndex].valueExpression!) ||
                         UnknownType.create();
-
-                    if (isParamSpec(listElementType)) {
-                        // Handle the case where the arg came from *P.args parameter.
-                        listElementType = AnyType.create();
-                    }
                 }
 
-                const funcArg: FunctionArgument = {
-                    argumentCategory: ArgumentCategory.Simple,
-                    type: listElementType,
-                };
+                const funcArg: FunctionArgument | undefined = listElementType
+                    ? {
+                          argumentCategory: ArgumentCategory.Simple,
+                          type: listElementType,
+                      }
+                    : undefined;
 
                 const paramName = typeParams[paramIndex].name;
 
@@ -8165,7 +8164,7 @@ export function createTypeEvaluator(
                         argList[argIndex].valueExpression || errorNode
                     );
                     reportedArgError = true;
-                } else {
+                } else if (funcArg) {
                     validateArgTypeParams.push({
                         paramCategory: typeParams[paramIndex].category,
                         paramType,
@@ -8378,6 +8377,8 @@ export function createTypeEvaluator(
                             );
                             reportedArgError = true;
                         }
+                    } else if (isParamSpec(argType) && argType.paramSpecAccess === 'kwargs') {
+                        unpackedDictionaryArgType = AnyType.create();
                     } else {
                         const mappingType = getTypingType(errorNode, 'Mapping');
                         const strObjType = getBuiltInObject(errorNode, 'str');
@@ -14203,6 +14204,10 @@ export function createTypeEvaluator(
             }
 
             case ParameterCategory.VarArgList: {
+                if (isTypeVar(type) && type.paramSpecAccess) {
+                    return type;
+                }
+
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
                     let tupleTypeArgs: Type[];
                     let isForVariadic = false;
@@ -14231,6 +14236,10 @@ export function createTypeEvaluator(
             }
 
             case ParameterCategory.VarArgDictionary: {
+                if (isTypeVar(type) && type.paramSpecAccess) {
+                    return type;
+                }
+
                 const dictType = getBuiltInType(node, 'dict');
                 const strType = getBuiltInObject(node, 'str');
 

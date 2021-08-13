@@ -1636,6 +1636,8 @@ export interface TypeVarDetails {
     recursiveTypeParameters?: TypeVarType[] | undefined;
 }
 
+export type ParamSpecAccess = 'args' | 'kwargs';
+
 export interface TypeVarType extends TypeBase {
     category: TypeCategory.TypeVar;
     details: TypeVarDetails;
@@ -1657,6 +1659,9 @@ export interface TypeVarType extends TypeBase {
     // Is this variadic TypeVar included in a Union[]? This allows us to
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
     isVariadicInUnion?: boolean | undefined;
+
+    // Represents access to "args" or "kwargs" of a ParamSpec.
+    paramSpecAccess?: ParamSpecAccess;
 }
 
 export namespace TypeVarType {
@@ -1726,6 +1731,12 @@ export namespace TypeVarType {
         newInstance.details.variance = Variance.Invariant;
         newInstance.details.boundType = undefined;
         newInstance.details.constraints = [];
+        return newInstance;
+    }
+
+    export function cloneForParamSpecAccess(type: TypeVarType, access: ParamSpecAccess) {
+        const newInstance: TypeVarType = { ...type };
+        newInstance.paramSpecAccess = access;
         return newInstance;
     }
 

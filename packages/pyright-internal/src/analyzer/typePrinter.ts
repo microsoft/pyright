@@ -336,6 +336,9 @@ export function printType(
                 }
 
                 if (type.details.isParamSpec) {
+                    if (type.paramSpecAccess) {
+                        return `${type.details.name}.${type.paramSpecAccess}`;
+                    }
                     return `${TypeVarType.getReadableName(type)}`;
                 }
 
