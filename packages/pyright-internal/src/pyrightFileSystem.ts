@@ -19,6 +19,7 @@ import {
     FileWatcherEventHandler,
     MkDirOptions,
     Stats,
+    SupportsCustomUri,
     TmpfileOptions,
     VirtualDirent,
 } from './common/fileSystem';
@@ -33,7 +34,7 @@ import {
     tryStat,
 } from './common/pathUtils';
 
-export class PyrightFileSystem implements FileSystem {
+export class PyrightFileSystem implements FileSystem, SupportsCustomUri {
     // Mapped file to original file map
     private readonly _fileMap = new Map<string, string>();
 
@@ -52,6 +53,8 @@ export class PyrightFileSystem implements FileSystem {
     // Conflicted files. We keep these in case we want something such as doc string
     // from files.
     private readonly _conflictMap = new Map<string, string>();
+
+    private readonly _customUriMap = new Map<string, { uri: string; closed: boolean; hasPendingRequest: boolean }>();
 
     constructor(private _realFS: FileSystem) {}
 
@@ -164,8 +167,66 @@ export class PyrightFileSystem implements FileSystem {
         return this._realFS.realCasePath(path);
     }
 
-    getUri(path: string): string {
-        return this._realFS.getUri(path);
+    getUri(originalPath: string): string {
+        const entry = this._customUriMap.get(this.getMappedFilePath(originalPath));
+        if (entry) {
+            return entry.uri;
+        }
+
+        return this._realFS.getUri(originalPath);
+    }
+
+    addUriMap(uriString: string, mappedPath: string): void {
+        if (!SupportsCustomUri.is(this._realFS)) {
+            const entry = this._customUriMap.get(mappedPath);
+            if (!entry) {
+                this._customUriMap.set(mappedPath, { uri: uriString, closed: false, hasPendingRequest: false });
+                return;
+            }
+
+            entry.closed = false;
+            return;
+        }
+
+        this._realFS.addUriMap(uriString, mappedPath);
+    }
+
+    removeUriMap(mappedPath: string): void {
+        if (!SupportsCustomUri.is(this._realFS)) {
+            const entry = this._customUriMap.get(mappedPath);
+            if (!entry) {
+                return;
+            }
+
+            if (entry.hasPendingRequest) {
+                entry.closed = true;
+                return;
+            }
+
+            this._customUriMap.delete(mappedPath);
+            return;
+        }
+
+        this._realFS.removeUriMap(mappedPath);
+    }
+
+    pendingRequest(mappedPath: string, hasPendingRequest: boolean): void {
+        if (!SupportsCustomUri.is(this._realFS)) {
+            const entry = this._customUriMap.get(mappedPath);
+            if (!entry) {
+                return;
+            }
+
+            if (!hasPendingRequest && entry.closed) {
+                this._customUriMap.delete(mappedPath);
+                return;
+            }
+
+            entry.hasPendingRequest = hasPendingRequest;
+            return;
+        }
+
+        this._realFS.pendingRequest(mappedPath, hasPendingRequest);
     }
 
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {

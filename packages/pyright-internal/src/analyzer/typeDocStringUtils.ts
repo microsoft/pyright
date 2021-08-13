@@ -16,6 +16,7 @@ import {
     FunctionDeclaration,
     isClassDeclaration,
     isFunctionDeclaration,
+    isVariableDeclaration,
     VariableDeclaration,
 } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -130,9 +131,12 @@ export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourc
         return docStrings;
     }
 
-    // See whether a variable symbol on the stub is actually a variable. If not, take the doc string.
     for (const implDecl of sourceMapper.findDeclarations(decl)) {
-        if (isClassDeclaration(implDecl) || isFunctionDeclaration(implDecl)) {
+        if (isVariableDeclaration(implDecl) && !!implDecl.docString) {
+            docStrings.push(implDecl.docString);
+        } else if (isClassDeclaration(implDecl) || isFunctionDeclaration(implDecl)) {
+            // It is possible that the variable on the stub is not actually a variable on the corresponding py file.
+            // in that case, get the doc string from original symbol if possible.
             const docString = getFunctionOrClassDeclDocString(implDecl);
             if (docString) {
                 docStrings.push(docString);
@@ -191,6 +195,21 @@ export function getClassDocString(
 
 export function getFunctionOrClassDeclDocString(decl: FunctionDeclaration | ClassDeclaration): string | undefined {
     return ParseTreeUtils.getDocString(decl.node?.suite?.statements ?? []);
+}
+
+export function getVariableDocString(
+    decl: VariableDeclaration | undefined,
+    sourceMapper: SourceMapper
+): string | undefined {
+    if (!decl) {
+        return undefined;
+    }
+
+    if (decl.docString !== undefined) {
+        return decl.docString;
+    } else {
+        return getVariableInStubFileDocStrings(decl, sourceMapper).find((doc) => doc);
+    }
 }
 
 function _getOverloadedFunctionDocStrings(
