@@ -7773,44 +7773,46 @@ export function createTypeEvaluator(
                                 }
                             }
 
-                            if (
-                                ClassType.hasAbstractMethods(expandedSubtype) &&
-                                !expandedSubtype.includeSubclasses &&
-                                !isTypeVar(unexpandedSubtype)
-                            ) {
-                                // If the class is abstract, it can't be instantiated.
+                            if (ClassType.supportsAbstractMethods(expandedSubtype)) {
                                 const abstractMethods = getAbstractMethods(expandedSubtype);
-                                const diagAddendum = new DiagnosticAddendum();
-                                const errorsToDisplay = 2;
+                                if (
+                                    abstractMethods.length > 0 &&
+                                    !expandedSubtype.includeSubclasses &&
+                                    !isTypeVar(unexpandedSubtype)
+                                ) {
+                                    // If the class is abstract, it can't be instantiated.
+                                    const diagAddendum = new DiagnosticAddendum();
+                                    const errorsToDisplay = 2;
 
-                                abstractMethods.forEach((abstractMethod, index) => {
-                                    if (index === errorsToDisplay) {
-                                        diagAddendum.addMessage(
-                                            Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
-                                                count: abstractMethods.length - errorsToDisplay,
-                                            })
-                                        );
-                                    } else if (index < errorsToDisplay) {
-                                        if (isInstantiableClass(abstractMethod.classType)) {
-                                            const className = abstractMethod.classType.details.name;
+                                    abstractMethods.forEach((abstractMethod, index) => {
+                                        if (index === errorsToDisplay) {
                                             diagAddendum.addMessage(
-                                                Localizer.DiagnosticAddendum.memberIsAbstract().format({
-                                                    type: className,
-                                                    name: abstractMethod.symbolName,
+                                                Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                                                    count: abstractMethods.length - errorsToDisplay,
                                                 })
                                             );
+                                        } else if (index < errorsToDisplay) {
+                                            if (isInstantiableClass(abstractMethod.classType)) {
+                                                const className = abstractMethod.classType.details.name;
+                                                diagAddendum.addMessage(
+                                                    Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                                                        type: className,
+                                                        name: abstractMethod.symbolName,
+                                                    })
+                                                );
+                                            }
                                         }
-                                    }
-                                });
+                                    });
 
-                                addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.instantiateAbstract().format({
-                                        type: expandedSubtype.details.name,
-                                    }) + diagAddendum.getString(),
-                                    errorNode
-                                );
+                                    addDiagnostic(
+                                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.instantiateAbstract().format({
+                                            type: expandedSubtype.details.name,
+                                        }) + diagAddendum.getString(),
+                                        errorNode
+                                    );
+                                }
                             }
 
                             if (ClassType.isProtocolClass(expandedSubtype) && !expandedSubtype.includeSubclasses) {
@@ -12597,9 +12599,7 @@ export function createTypeEvaluator(
                 // methods that are abstract are overridden and shouldn't
                 // cause the TypedDict to be marked as abstract.
                 if (isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, '_TypedDict')) {
-                    baseClass.details.flags &= ~(
-                        ClassTypeFlags.HasAbstractMethods | ClassTypeFlags.SupportsAbstractMethods
-                    );
+                    baseClass.details.flags &= ~ClassTypeFlags.SupportsAbstractMethods;
                 }
             }
         }
@@ -13354,13 +13354,6 @@ export function createTypeEvaluator(
         }
 
         classType.details.effectiveMetaclass = effectiveMetaclass;
-
-        // Determine if the class is abstract.
-        if (ClassType.supportsAbstractMethods(classType)) {
-            if (getAbstractMethods(classType).length > 0) {
-                classType.details.flags |= ClassTypeFlags.HasAbstractMethods;
-            }
-        }
 
         // If the class is a protocol class, determine if it's a "callback protocol" (i.e.
         // it defines only a '__call__' method).
