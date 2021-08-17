@@ -991,6 +991,12 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         if (type.details.recursiveTypeAliasName) {
             return [];
         }
+
+        // Don't return any P.args or P.kwargs types.
+        if (isParamSpec(type) && type.paramSpecAccess) {
+            return [];
+        }
+
         return [TypeBase.isInstantiable(type) ? TypeVarType.cloneAsInstance(type) : type];
     }
 

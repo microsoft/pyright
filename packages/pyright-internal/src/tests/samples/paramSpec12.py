@@ -46,7 +46,7 @@ def puts_p_into_scope(f: Callable[P, int]) -> None:
         pass
 
 
-# This should generate an error because P is not defined in this context.
+# This should generate two errors because P is not defined in this context.
 def out_of_scope(*args: P.args, **kwargs: P.kwargs) -> None:
     pass
 

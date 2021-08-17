@@ -778,6 +778,8 @@ export function createTypeEvaluator(
     let typeClassType: Type | undefined;
     let tupleClassType: Type | undefined;
     let boolClassType: Type | undefined;
+    let strClassType: Type | undefined;
+    let dictClassType: Type | undefined;
     let incompleteTypeCache: TypeCache | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
@@ -978,6 +980,8 @@ export function createTypeEvaluator(
             noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
             tupleClassType = getBuiltInType(node, 'tuple');
             boolClassType = getBuiltInType(node, 'bool');
+            strClassType = getBuiltInType(node, 'str');
+            dictClassType = getBuiltInType(node, 'dict');
         }
     }
 
@@ -3374,6 +3378,42 @@ export function createTypeEvaluator(
     // TypeVar, only the conditions that match the filter will be included.
     function makeTopLevelTypeVarsConcrete(type: Type, conditionFilter?: TypeCondition[]): Type {
         return mapSubtypes(type, (subtype) => {
+            if (isParamSpec(subtype)) {
+                if (subtype.paramSpecAccess === 'args') {
+                    if (
+                        tupleClassType &&
+                        isInstantiableClass(tupleClassType) &&
+                        objectType &&
+                        isClassInstance(objectType)
+                    ) {
+                        return ClassType.cloneAsInstance(
+                            specializeTupleClass(tupleClassType, [objectType, AnyType.create(/* isEllipsis */ true)])
+                        );
+                    }
+
+                    return UnknownType.create();
+                } else if (subtype.paramSpecAccess === 'kwargs') {
+                    if (
+                        dictClassType &&
+                        isInstantiableClass(dictClassType) &&
+                        strClassType &&
+                        isInstantiableClass(strClassType) &&
+                        objectType &&
+                        isClassInstance(objectType)
+                    ) {
+                        return ClassType.cloneAsInstance(
+                            ClassType.cloneForSpecialization(
+                                dictClassType,
+                                [convertToInstance(strClassType), objectType],
+                                /* isTypeArgumentExplicit */ true
+                            )
+                        );
+                    }
+
+                    return UnknownType.create();
+                }
+            }
+
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
                     const boundType = TypeBase.isInstantiable(subtype)
@@ -4495,7 +4535,7 @@ export function createTypeEvaluator(
         usage: EvaluatorUsage,
         flags: EvaluatorFlags
     ): TypeResult {
-        const baseType = baseTypeResult.type;
+        let baseType = baseTypeResult.type;
         const memberName = node.memberName.value;
         let diag = new DiagnosticAddendum();
         const fileInfo = getFileInfo(node);
@@ -4523,6 +4563,10 @@ export function createTypeEvaluator(
             }
             return undefined;
         };
+
+        if (isParamSpec(baseType) && baseType.paramSpecAccess) {
+            baseType = makeTopLevelTypeVarsConcrete(baseType);
+        }
 
         switch (baseType.category) {
             case TypeCategory.Any:

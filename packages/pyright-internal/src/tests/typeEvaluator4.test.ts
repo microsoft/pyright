@@ -635,7 +635,7 @@ test('ParamSpec12', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec12.py'], configOptions);
-    TestUtils.validateResults(results, 11);
+    TestUtils.validateResults(results, 12);
 });
 
 test('ParamSpec13', () => {
@@ -667,6 +667,14 @@ test('ParamSpec16', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec16.py'], configOptions);
+    TestUtils.validateResults(results, 0);
+});
+
+test('ParamSpec17', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec17.py'], configOptions);
     TestUtils.validateResults(results, 0);
 });
 
