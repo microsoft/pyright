@@ -14,3 +14,6 @@ def repr_func_call(func: Callable[P, object], *args: P.args, **kwargs: P.kwargs)
     arg_reprs.extend(k + "=" + repr(v) for k, v in kwargs.items())
 
     return func.__name__ + "(" + ", ".join(arg_reprs) + ")"
+
+
+repr_func_call(print)

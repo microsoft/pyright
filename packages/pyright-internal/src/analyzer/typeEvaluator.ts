@@ -8024,34 +8024,22 @@ export function createTypeEvaluator(
             const varArgListParam = typeParams[varArgListParamIndex];
             const varArgDictParam = typeParams[varArgDictParamIndex];
             if (
-                varArgListParam.name &&
-                varArgListParam.hasDeclaredType &&
-                varArgListParam.typeAnnotation &&
-                varArgListParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
-                varArgListParam.typeAnnotation.memberName.value === 'args' &&
-                varArgListParam.typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                varArgDictParam.name &&
-                varArgDictParam.hasDeclaredType &&
-                varArgDictParam.typeAnnotation &&
-                varArgDictParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
-                varArgDictParam.typeAnnotation.memberName.value === 'kwargs' &&
-                varArgDictParam.typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                varArgListParam.typeAnnotation.leftExpression.value ===
-                    varArgDictParam.typeAnnotation.leftExpression.value
+                isParamSpec(varArgListParam.type) &&
+                varArgListParam.type.paramSpecAccess === 'args' &&
+                isParamSpec(varArgDictParam.type) &&
+                varArgDictParam.type.paramSpecAccess === 'kwargs' &&
+                varArgListParam.type.details.name === varArgDictParam.type.details.name
             ) {
                 hasParamSpecArgsKwargs = true;
 
-                const baseType = getTypeOfExpression(varArgListParam.typeAnnotation.leftExpression).type;
-                if (isTypeVar(baseType) && baseType.details.isParamSpec) {
-                    // Does this function define the param spec, or is it an inner
-                    // function nested within another function that defines the param
-                    // spec? We need to handle these two cases differently.
-                    if (baseType.scopeId === type.details.typeVarScopeId) {
-                        paramSpecArgList = [];
-                        paramSpecTarget = baseType;
-                    } else {
-                        positionalOnlyIndex = varArgListParamIndex;
-                    }
+                // Does this function define the param spec, or is it an inner
+                // function nested within another function that defines the param
+                // spec? We need to handle these two cases differently.
+                if (varArgListParam.type.scopeId === type.details.typeVarScopeId) {
+                    paramSpecArgList = [];
+                    paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, undefined);
+                } else {
+                    positionalOnlyIndex = varArgListParamIndex;
                 }
             }
         }
@@ -9092,7 +9080,13 @@ export function createTypeEvaluator(
 
         // Report any missing parameters.
         if (!reportedArgError) {
-            const unassignedParams = [...paramMap.keys()];
+            let unassignedParams = [...paramMap.keys()];
+
+            // Parameters that have defaults can be left unspecified.
+            unassignedParams = unassignedParams.filter((name) => {
+                const paramInfo = paramMap.get(name)!;
+                return paramInfo.category === ParameterCategory.Simple && !paramInfo.hasDefault;
+            });
 
             if (unassignedParams.length > 0) {
                 const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');

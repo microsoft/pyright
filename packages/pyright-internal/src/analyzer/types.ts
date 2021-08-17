@@ -1734,7 +1734,7 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForParamSpecAccess(type: TypeVarType, access: ParamSpecAccess) {
+    export function cloneForParamSpecAccess(type: TypeVarType, access: ParamSpecAccess | undefined) {
         const newInstance: TypeVarType = { ...type };
         newInstance.paramSpecAccess = access;
         return newInstance;
