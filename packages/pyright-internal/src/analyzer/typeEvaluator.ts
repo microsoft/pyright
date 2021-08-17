@@ -8220,15 +8220,21 @@ export function createTypeEvaluator(
                         argList[argIndex].valueExpression || errorNode
                     );
                     reportedArgError = true;
-                } else if (funcArg) {
-                    validateArgTypeParams.push({
-                        paramCategory: typeParams[paramIndex].category,
-                        paramType,
-                        requiresTypeVarMatching: requiresSpecialization(paramType),
-                        argument: funcArg,
-                        errorNode: argList[argIndex].valueExpression || errorNode,
-                        paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
-                    });
+                } else {
+                    if (paramSpecArgList) {
+                        paramSpecArgList.push(argList[argIndex]);
+                    }
+
+                    if (funcArg) {
+                        validateArgTypeParams.push({
+                            paramCategory: typeParams[paramIndex].category,
+                            paramType,
+                            requiresTypeVarMatching: requiresSpecialization(paramType),
+                            argument: funcArg,
+                            errorNode: argList[argIndex].valueExpression || errorNode,
+                            paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
+                        });
+                    }
                 }
 
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
@@ -8486,6 +8492,10 @@ export function createTypeEvaluator(
                                 reportedArgError = true;
                             }
                         }
+                    }
+
+                    if (paramSpecArgList) {
+                        paramSpecArgList.push(argList[argIndex]);
                     }
                 } else {
                     // Protect against the case where a non-keyword argument appears after
@@ -9077,6 +9087,7 @@ export function createTypeEvaluator(
                 }
             } else {
                 // TODO - handle *args and **kwargs
+                paramMap.clear();
             }
         });
 
@@ -9189,6 +9200,12 @@ export function createTypeEvaluator(
         }
 
         let diag = new DiagnosticAddendum();
+
+        // Handle the case where we're assigning a *args or **kwargs argument
+        // to a *P.args or **P.kwargs parameter.
+        if (isParamSpec(argParam.paramType) && argParam.paramType.paramSpecAccess !== undefined) {
+            return { isCompatible: true, isTypeIncomplete };
+        }
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             // Mismatching parameter types are common in untyped code; don't bother spending time
