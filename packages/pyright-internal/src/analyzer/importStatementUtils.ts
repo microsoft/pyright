@@ -129,6 +129,18 @@ export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports
     return localImports;
 }
 
+// Return import symbol type to allow sorting similar to isort
+// CONSTANT_VARIABLE, CamelCaseClass, variable_or_function
+function _getImportSymbolNameType(symbolName: string): number {
+    if (SymbolNameUtils.isConstantName(symbolName)) {
+        return 0;
+    }
+    if (SymbolNameUtils.isTypeAliasName(symbolName)) {
+        return 1;
+    }
+    return 2;
+}
+
 export function getTextEditsForAutoImportSymbolAddition(
     symbolName: string,
     importStatement: ImportStatement,
@@ -145,9 +157,15 @@ export function getTextEditsForAutoImportSymbolAddition(
         // Make sure we're not attempting to auto-import a symbol that
         // already exists in the import list.
         if (!importStatement.node.imports.some((importAs) => importAs.name.value === symbolName)) {
-            // Do our best to insert the new symbol in alphabetical order.
+            // Insert new symbol by import symbol type and then alphabetical order.
+            // Match isort default behavior.
+            const symbolNameType = _getImportSymbolNameType(symbolName);
             for (const curImport of importStatement.node.imports) {
-                if (curImport.name.value > symbolName) {
+                const curImportNameType = _getImportSymbolNameType(curImport.name.value);
+                if (
+                    (curImportNameType === symbolNameType && curImport.name.value > symbolName) ||
+                    curImportNameType > symbolNameType
+                ) {
                     break;
                 }
 
