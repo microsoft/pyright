@@ -7773,44 +7773,46 @@ export function createTypeEvaluator(
                                 }
                             }
 
-                            if (
-                                ClassType.hasAbstractMethods(expandedSubtype) &&
-                                !expandedSubtype.includeSubclasses &&
-                                !isTypeVar(unexpandedSubtype)
-                            ) {
-                                // If the class is abstract, it can't be instantiated.
+                            if (ClassType.supportsAbstractMethods(expandedSubtype)) {
                                 const abstractMethods = getAbstractMethods(expandedSubtype);
-                                const diagAddendum = new DiagnosticAddendum();
-                                const errorsToDisplay = 2;
+                                if (
+                                    abstractMethods.length > 0 &&
+                                    !expandedSubtype.includeSubclasses &&
+                                    !isTypeVar(unexpandedSubtype)
+                                ) {
+                                    // If the class is abstract, it can't be instantiated.
+                                    const diagAddendum = new DiagnosticAddendum();
+                                    const errorsToDisplay = 2;
 
-                                abstractMethods.forEach((abstractMethod, index) => {
-                                    if (index === errorsToDisplay) {
-                                        diagAddendum.addMessage(
-                                            Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
-                                                count: abstractMethods.length - errorsToDisplay,
-                                            })
-                                        );
-                                    } else if (index < errorsToDisplay) {
-                                        if (isInstantiableClass(abstractMethod.classType)) {
-                                            const className = abstractMethod.classType.details.name;
+                                    abstractMethods.forEach((abstractMethod, index) => {
+                                        if (index === errorsToDisplay) {
                                             diagAddendum.addMessage(
-                                                Localizer.DiagnosticAddendum.memberIsAbstract().format({
-                                                    type: className,
-                                                    name: abstractMethod.symbolName,
+                                                Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                                                    count: abstractMethods.length - errorsToDisplay,
                                                 })
                                             );
+                                        } else if (index < errorsToDisplay) {
+                                            if (isInstantiableClass(abstractMethod.classType)) {
+                                                const className = abstractMethod.classType.details.name;
+                                                diagAddendum.addMessage(
+                                                    Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                                                        type: className,
+                                                        name: abstractMethod.symbolName,
+                                                    })
+                                                );
+                                            }
                                         }
-                                    }
-                                });
+                                    });
 
-                                addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.instantiateAbstract().format({
-                                        type: expandedSubtype.details.name,
-                                    }) + diagAddendum.getString(),
-                                    errorNode
-                                );
+                                    addDiagnostic(
+                                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.instantiateAbstract().format({
+                                            type: expandedSubtype.details.name,
+                                        }) + diagAddendum.getString(),
+                                        errorNode
+                                    );
+                                }
                             }
 
                             if (ClassType.isProtocolClass(expandedSubtype) && !expandedSubtype.includeSubclasses) {
@@ -8024,34 +8026,22 @@ export function createTypeEvaluator(
             const varArgListParam = typeParams[varArgListParamIndex];
             const varArgDictParam = typeParams[varArgDictParamIndex];
             if (
-                varArgListParam.name &&
-                varArgListParam.hasDeclaredType &&
-                varArgListParam.typeAnnotation &&
-                varArgListParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
-                varArgListParam.typeAnnotation.memberName.value === 'args' &&
-                varArgListParam.typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                varArgDictParam.name &&
-                varArgDictParam.hasDeclaredType &&
-                varArgDictParam.typeAnnotation &&
-                varArgDictParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
-                varArgDictParam.typeAnnotation.memberName.value === 'kwargs' &&
-                varArgDictParam.typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                varArgListParam.typeAnnotation.leftExpression.value ===
-                    varArgDictParam.typeAnnotation.leftExpression.value
+                isParamSpec(varArgListParam.type) &&
+                varArgListParam.type.paramSpecAccess === 'args' &&
+                isParamSpec(varArgDictParam.type) &&
+                varArgDictParam.type.paramSpecAccess === 'kwargs' &&
+                varArgListParam.type.details.name === varArgDictParam.type.details.name
             ) {
                 hasParamSpecArgsKwargs = true;
 
-                const baseType = getTypeOfExpression(varArgListParam.typeAnnotation.leftExpression).type;
-                if (isTypeVar(baseType) && baseType.details.isParamSpec) {
-                    // Does this function define the param spec, or is it an inner
-                    // function nested within another function that defines the param
-                    // spec? We need to handle these two cases differently.
-                    if (baseType.scopeId === type.details.typeVarScopeId) {
-                        paramSpecArgList = [];
-                        paramSpecTarget = baseType;
-                    } else {
-                        positionalOnlyIndex = varArgListParamIndex;
-                    }
+                // Does this function define the param spec, or is it an inner
+                // function nested within another function that defines the param
+                // spec? We need to handle these two cases differently.
+                if (varArgListParam.type.scopeId === type.details.typeVarScopeId) {
+                    paramSpecArgList = [];
+                    paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, undefined);
+                } else {
+                    positionalOnlyIndex = varArgListParamIndex;
                 }
             }
         }
@@ -8230,15 +8220,21 @@ export function createTypeEvaluator(
                         argList[argIndex].valueExpression || errorNode
                     );
                     reportedArgError = true;
-                } else if (funcArg) {
-                    validateArgTypeParams.push({
-                        paramCategory: typeParams[paramIndex].category,
-                        paramType,
-                        requiresTypeVarMatching: requiresSpecialization(paramType),
-                        argument: funcArg,
-                        errorNode: argList[argIndex].valueExpression || errorNode,
-                        paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
-                    });
+                } else {
+                    if (paramSpecArgList) {
+                        paramSpecArgList.push(argList[argIndex]);
+                    }
+
+                    if (funcArg) {
+                        validateArgTypeParams.push({
+                            paramCategory: typeParams[paramIndex].category,
+                            paramType,
+                            requiresTypeVarMatching: requiresSpecialization(paramType),
+                            argument: funcArg,
+                            errorNode: argList[argIndex].valueExpression || errorNode,
+                            paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
+                        });
+                    }
                 }
 
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
@@ -8496,6 +8492,10 @@ export function createTypeEvaluator(
                                 reportedArgError = true;
                             }
                         }
+                    }
+
+                    if (paramSpecArgList) {
+                        paramSpecArgList.push(argList[argIndex]);
                     }
                 } else {
                     // Protect against the case where a non-keyword argument appears after
@@ -9087,12 +9087,19 @@ export function createTypeEvaluator(
                 }
             } else {
                 // TODO - handle *args and **kwargs
+                paramMap.clear();
             }
         });
 
         // Report any missing parameters.
         if (!reportedArgError) {
-            const unassignedParams = [...paramMap.keys()];
+            let unassignedParams = [...paramMap.keys()];
+
+            // Parameters that have defaults can be left unspecified.
+            unassignedParams = unassignedParams.filter((name) => {
+                const paramInfo = paramMap.get(name)!;
+                return paramInfo.category === ParameterCategory.Simple && !paramInfo.hasDefault;
+            });
 
             if (unassignedParams.length > 0) {
                 const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
@@ -9193,6 +9200,12 @@ export function createTypeEvaluator(
         }
 
         let diag = new DiagnosticAddendum();
+
+        // Handle the case where we're assigning a *args or **kwargs argument
+        // to a *P.args or **P.kwargs parameter.
+        if (isParamSpec(argParam.paramType) && argParam.paramType.paramSpecAccess !== undefined) {
+            return { isCompatible: true, isTypeIncomplete };
+        }
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             // Mismatching parameter types are common in untyped code; don't bother spending time
@@ -12603,9 +12616,7 @@ export function createTypeEvaluator(
                 // methods that are abstract are overridden and shouldn't
                 // cause the TypedDict to be marked as abstract.
                 if (isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, '_TypedDict')) {
-                    baseClass.details.flags &= ~(
-                        ClassTypeFlags.HasAbstractMethods | ClassTypeFlags.SupportsAbstractMethods
-                    );
+                    baseClass.details.flags &= ~ClassTypeFlags.SupportsAbstractMethods;
                 }
             }
         }
@@ -13360,13 +13371,6 @@ export function createTypeEvaluator(
         }
 
         classType.details.effectiveMetaclass = effectiveMetaclass;
-
-        // Determine if the class is abstract.
-        if (ClassType.supportsAbstractMethods(classType)) {
-            if (getAbstractMethods(classType).length > 0) {
-                classType.details.flags |= ClassTypeFlags.HasAbstractMethods;
-            }
-        }
 
         // If the class is a protocol class, determine if it's a "callback protocol" (i.e.
         // it defines only a '__call__' method).

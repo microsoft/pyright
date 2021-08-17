@@ -2848,7 +2848,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (!ClassType.hasAbstractMethods(classType)) {
+        if (!ClassType.supportsAbstractMethods(classType)) {
             return;
         }
 
