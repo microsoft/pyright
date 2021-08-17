@@ -6544,6 +6544,10 @@ export function createTypeEvaluator(
                 if (callResult.argumentErrors) {
                     returnResult.typeErrors = true;
                 }
+
+                if (callResult.isTypeIncomplete) {
+                    returnResult.isIncomplete = true;
+                }
             }
 
             if (baseTypeResult.isIncomplete) {
@@ -6803,13 +6807,14 @@ export function createTypeEvaluator(
         typeVarMap: TypeVarMap | undefined,
         skipUnknownArgCheck: boolean,
         expectedType: Type | undefined
-    ) {
+    ): CallResult {
         const returnTypes: Type[] = [];
         const matchedOverloads: {
             overload: FunctionType;
             matchResults: MatchArgsToParamsResult;
             typeVarMap: TypeVarMap;
         }[] = [];
+        let isTypeIncomplete = false;
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
             let matchedOverload: FunctionType | undefined;
@@ -6851,6 +6856,10 @@ export function createTypeEvaluator(
                     );
                 });
 
+                if (callResult.isTypeIncomplete) {
+                    isTypeIncomplete = true;
+                }
+
                 if (!callResult.argumentErrors && callResult.returnType) {
                     matchedOverload = overload;
                     matchedOverloads.push({ overload: matchedOverload, matchResults, typeVarMap: effectiveTypeVarMap });
@@ -6860,7 +6869,7 @@ export function createTypeEvaluator(
             }
 
             if (!matchedOverload) {
-                return undefined;
+                return { argumentErrors: true, isTypeIncomplete };
             }
         }
 
@@ -6890,7 +6899,7 @@ export function createTypeEvaluator(
         // populate the type cache.
         const firstExpansionOverload = matchedOverloads[0].overload;
         matchedOverloads[0].typeVarMap.unlock();
-        validateFunctionArgumentTypes(
+        const finalCallResult = validateFunctionArgumentTypes(
             errorNode,
             matchedOverloads[0].matchResults,
             firstExpansionOverload,
@@ -6899,7 +6908,11 @@ export function createTypeEvaluator(
             expectedType
         );
 
-        return { argumentErrors: false, returnType: combineTypes(returnTypes) };
+        if (finalCallResult.isTypeIncomplete) {
+            isTypeIncomplete = true;
+        }
+
+        return { argumentErrors: false, returnType: combineTypes(returnTypes), isTypeIncomplete };
     }
 
     function validateOverloadedFunctionArguments(
@@ -6946,6 +6959,8 @@ export function createTypeEvaluator(
         });
 
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
+        let isTypeIncomplete = false;
+
         while (true) {
             const callResult = validateOverloadsWithExpandedTypes(
                 errorNode,
@@ -6957,7 +6972,11 @@ export function createTypeEvaluator(
                 expectedType
             );
 
-            if (callResult) {
+            if (callResult.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+
+            if (!callResult.argumentErrors) {
                 return callResult;
             }
 
@@ -6974,7 +6993,7 @@ export function createTypeEvaluator(
         // We couldn't find any valid overloads. Skip the error message if we're
         // in speculative mode because it's very expensive, and we're going to
         // suppress the diagnostic anyway.
-        if (!isDiagnosticSuppressedForNode(errorNode)) {
+        if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
             const functionName = type.overloads[0].details.name || '<anonymous function>';
             const diagAddendum = new DiagnosticAddendum();
             const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
@@ -6993,7 +7012,7 @@ export function createTypeEvaluator(
             );
         }
 
-        return { argumentErrors: true };
+        return { argumentErrors: true, isTypeIncomplete };
     }
 
     // Replaces each item in the expandedArgTypes with n items where n is
@@ -7572,9 +7591,11 @@ export function createTypeEvaluator(
                             skipUnknownArgCheck,
                             expectedType
                         );
+
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
                         }
+
                         if (functionResult.isTypeIncomplete) {
                             isTypeIncomplete = true;
                         }
@@ -7618,6 +7639,7 @@ export function createTypeEvaluator(
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
                         }
+
                         if (functionResult.isTypeIncomplete) {
                             isTypeIncomplete = true;
                         }
@@ -8833,9 +8855,12 @@ export function createTypeEvaluator(
                 skipUnknownArgCheck,
                 typeCondition
             );
+
             if (!argResult.isCompatible) {
                 argumentErrors = true;
-            } else if (argResult.isTypeIncomplete) {
+            }
+
+            if (argResult.isTypeIncomplete) {
                 isTypeIncomplete = true;
             }
         });
@@ -9130,7 +9155,7 @@ export function createTypeEvaluator(
                     isTypeIncomplete = true;
                 }
                 if (exprType.typeErrors) {
-                    return { isCompatible: false };
+                    return { isCompatible: false, isTypeIncomplete };
                 }
                 expectedTypeDiag = exprType.expectedTypeDiagAddendum;
             }
@@ -9226,7 +9251,7 @@ export function createTypeEvaluator(
                     argParam.errorNode
                 );
             }
-            return { isCompatible: false };
+            return { isCompatible: false, isTypeIncomplete };
         } else if (!skipUnknownCheck) {
             const simplifiedType = removeUnbound(argType);
             const fileInfo = getFileInfo(argParam.errorNode);
@@ -10452,17 +10477,20 @@ export function createTypeEvaluator(
         let type = validateBinaryOperation(node.operator, leftType, rightType, node, expectedType, diag);
 
         if (!diag.isEmpty() || !type || isNever(type)) {
-            const fileInfo = getFileInfo(node);
-            addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                    operator: ParseTreeUtils.printOperator(node.operator),
-                    leftType: printType(leftType),
-                    rightType: printType(rightType),
-                }) + diag.getString(),
-                node
-            );
+            if (!isIncomplete) {
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                        operator: ParseTreeUtils.printOperator(node.operator),
+                        leftType: printType(leftType),
+                        rightType: printType(rightType),
+                    }) + diag.getString(),
+                    node
+                );
+            }
+
             type = UnknownType.create();
         }
 
@@ -10592,17 +10620,20 @@ export function createTypeEvaluator(
         // If the LHS class didn't support the magic method for augmented
         // assignment, fall back on the normal binary expression evaluator.
         if (!diag.isEmpty() || !type || isNever(type)) {
-            const fileInfo = getFileInfo(node);
-            addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                    operator: ParseTreeUtils.printOperator(node.operator),
-                    leftType: printType(leftType),
-                    rightType: printType(rightType),
-                }) + diag.getString(),
-                node
-            );
+            if (!isIncomplete) {
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                        operator: ParseTreeUtils.printOperator(node.operator),
+                        leftType: printType(leftType),
+                        rightType: printType(rightType),
+                    }) + diag.getString(),
+                    node
+                );
+            }
+
             type = UnknownType.create();
         }
 
