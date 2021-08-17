@@ -307,11 +307,6 @@ export const enum ClassTypeFlags {
     // @abstractmethod decorators.
     SupportsAbstractMethods = 1 << 9,
 
-    // The class has at least one abstract method or derives
-    // from a base class that is abstract without providing
-    // non-abstract overrides for all abstract methods.
-    HasAbstractMethods = 1 << 10,
-
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).
     PropertyClass = 1 << 11,
@@ -615,10 +610,6 @@ export namespace ClassType {
         }
 
         return true;
-    }
-
-    export function hasAbstractMethods(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.HasAbstractMethods);
     }
 
     export function supportsAbstractMethods(classType: ClassType) {
