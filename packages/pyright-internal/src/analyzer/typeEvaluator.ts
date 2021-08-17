@@ -500,10 +500,10 @@ const binaryOperatorMap: { [operator: number]: [string, string, boolean] } = {
     [OperatorType.RightShift]: ['__rshift__', '__rrshift__', false],
     [OperatorType.Equals]: ['__eq__', '__ne__', true],
     [OperatorType.NotEquals]: ['__ne__', '__eq__', true],
-    [OperatorType.LessThan]: ['__lt__', '__gt__', true],
-    [OperatorType.LessThanOrEqual]: ['__le__', '__ge__', true],
-    [OperatorType.GreaterThan]: ['__gt__', '__lt__', true],
-    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__le__', true],
+    [OperatorType.LessThan]: ['__lt__', '__ge__', true],
+    [OperatorType.LessThanOrEqual]: ['__le__', '__gt__', true],
+    [OperatorType.GreaterThan]: ['__gt__', '__le__', true],
+    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__lt__', true],
 };
 
 // Maps boolean operators to a boolean value indicating whether
