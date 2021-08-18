@@ -578,8 +578,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitCall(node: CallNode): boolean {
-        this.walk(node.leftExpression);
-        this.walkMultiple(node.arguments);
+        this._disableTrueFalseTargets(() => {
+            this.walk(node.leftExpression);
+            this.walkMultiple(node.arguments);
+        });
         this._createCallFlowNode(node);
 
         // Is this an manipulation of dunder all?
@@ -2090,19 +2092,6 @@ export class Binder extends ParseTreeWalker {
         this._currentExceptTargets = prevExceptTargets;
     }
 
-    private _disableTrueFalseTargets(callback: () => void): void {
-        const savedTrueTarget = this._currentTrueTarget;
-        const savedFalseTarget = this._currentFalseTarget;
-
-        this._currentTrueTarget = undefined;
-        this._currentFalseTarget = undefined;
-
-        callback();
-
-        this._currentFalseTarget = savedFalseTarget;
-        this._currentTrueTarget = savedTrueTarget;
-    }
-
     // Attempts to resolve the module name, import it, and return
     // its __all__ symbols.
     private _getDunderAllNamesFromImport(varName: string): string[] | undefined {
@@ -2410,15 +2399,9 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindConditional(node: ExpressionNode, trueTarget: FlowLabel, falseTarget: FlowLabel) {
-        const savedTrueTarget = this._currentTrueTarget;
-        const savedFalseTarget = this._currentFalseTarget;
-        this._currentTrueTarget = trueTarget;
-        this._currentFalseTarget = falseTarget;
-
-        this.walk(node);
-
-        this._currentTrueTarget = savedTrueTarget;
-        this._currentFalseTarget = savedFalseTarget;
+        this._setTrueFalseTargets(trueTarget, falseTarget, () => {
+            this.walk(node);
+        });
 
         if (!this._isLogicalExpression(node)) {
             this._addAntecedent(
@@ -2430,6 +2413,26 @@ export class Binder extends ParseTreeWalker {
                 this._createFlowConditional(FlowFlags.FalseCondition, this._currentFlowNode!, node)
             );
         }
+    }
+
+    private _disableTrueFalseTargets(callback: () => void): void {
+        this._setTrueFalseTargets(undefined, undefined, callback);
+    }
+
+    private _setTrueFalseTargets(
+        trueTarget: FlowLabel | undefined,
+        falseTarget: FlowLabel | undefined,
+        callback: () => void
+    ) {
+        const savedTrueTarget = this._currentTrueTarget;
+        const savedFalseTarget = this._currentFalseTarget;
+        this._currentTrueTarget = trueTarget;
+        this._currentFalseTarget = falseTarget;
+
+        callback();
+
+        this._currentTrueTarget = savedTrueTarget;
+        this._currentFalseTarget = savedFalseTarget;
     }
 
     private _createFlowConditional(flags: FlowFlags, antecedent: FlowNode, expression: ExpressionNode): FlowNode {
