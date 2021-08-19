@@ -20,10 +20,15 @@ export const enum GlobalMetadataOptionNames {
 export const enum MetadataOptionNames {
     fileName = 'filename',
     library = 'library',
+    distLibrary = 'distlibrary',
 }
 
 /** List of allowed file metadata names */
-export const fileMetadataNames = [MetadataOptionNames.fileName, MetadataOptionNames.library];
+export const fileMetadataNames = [
+    MetadataOptionNames.fileName,
+    MetadataOptionNames.library,
+    MetadataOptionNames.distLibrary,
+];
 
 /** all the necessary information to set the right compiler settings */
 export interface CompilerSettings {
