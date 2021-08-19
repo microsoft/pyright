@@ -15,7 +15,7 @@ import {
     normalizePath,
     normalizeSlashes,
 } from '../../../common/pathUtils';
-import { libFolder } from '../vfs/factory';
+import { distlibFolder, libFolder } from '../vfs/factory';
 import { fileMetadataNames, FourSlashData, FourSlashFile, Marker, MetadataOptionNames, Range } from './fourSlashTypes';
 
 /**
@@ -61,6 +61,12 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
         if (toBoolean(currentFileOptions[MetadataOptionNames.library])) {
             currentFileName = normalizePath(
                 combinePaths(libFolder, getRelativePath(currentFileName, normalizedBasePath))
+            );
+        }
+
+        if (toBoolean(currentFileOptions[MetadataOptionNames.distLibrary])) {
+            currentFileName = normalizePath(
+                combinePaths(distlibFolder, getRelativePath(currentFileName, normalizedBasePath))
             );
         }
 

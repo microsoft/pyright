@@ -34,7 +34,6 @@ import * as debug from '../../../common/debug';
 import { createDeferred } from '../../../common/deferred';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { FileEditAction } from '../../../common/editAction';
-import { NoAccessHost } from '../../../common/host';
 import {
     combinePaths,
     comparePaths,
@@ -55,9 +54,10 @@ import { convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
+import { TestAccessHost } from '../testAccessHost';
 import * as host from '../testHost';
 import { stringify } from '../utils';
-import { createFromFileSystem } from '../vfs/factory';
+import { createFromFileSystem, distlibFolder, libFolder } from '../vfs/factory';
 import * as vfs from '../vfs/filesystem';
 import {
     CompilerSettings,
@@ -90,6 +90,8 @@ export interface HostSpecificFeatures {
 
     execute(ls: LanguageServerInterface, params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 }
+
+const testAccessHost = new TestAccessHost(vfs.MODULE_PATH, [libFolder, distlibFolder]);
 
 export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
@@ -137,7 +139,7 @@ export class TestState {
                     throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }
 
-                configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole, new NoAccessHost());
+                configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole, testAccessHost);
                 this._applyTestConfigOptions(configOptions);
             } else {
                 files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
@@ -1234,11 +1236,6 @@ export class TestState {
         // Always analyze all files
         configOptions.checkOnlyOpenFiles = false;
 
-        // run test in venv mode under root so that
-        // under test we can point to local lib folder
-        configOptions.venvPath = vfs.MODULE_PATH;
-        configOptions.venv = vfs.MODULE_PATH;
-
         // make sure we set typing path
         if (configOptions.stubPath === undefined) {
             configOptions.stubPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
@@ -1559,7 +1556,7 @@ export class TestState {
             'test service',
             this.fs,
             nullConsole,
-            () => new NoAccessHost(),
+            () => testAccessHost,
             importResolverFactory,
             configOptions
         );

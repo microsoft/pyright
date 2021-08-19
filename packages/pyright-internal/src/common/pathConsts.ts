@@ -11,5 +11,6 @@ export const lib = 'lib';
 export const libAlternate = 'Lib';
 export const lib64 = 'lib64';
 export const sitePackages = 'site-packages';
+export const distPackages = 'dist-packages';
 export const src = 'src';
 export const stubsSuffix = '-stubs';
