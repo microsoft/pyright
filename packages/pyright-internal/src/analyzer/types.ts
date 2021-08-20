@@ -354,9 +354,6 @@ export const enum ClassTypeFlags {
     // with keyword-only parameters?
     DataClassKeywordOnlyParams = 1 << 21,
 
-    // The class is a protocol that defines only a __call__ method.
-    CallbackProtocolClass = 1 << 22,
-
     // Class is declared within a type stub file.
     DefinedInStub = 1 << 23,
 }
@@ -662,10 +659,6 @@ export namespace ClassType {
 
     export function isProtocolClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.ProtocolClass);
-    }
-
-    export function isCallbackProtocolClass(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.CallbackProtocolClass);
     }
 
     export function isDefinedInStub(classType: ClassType) {

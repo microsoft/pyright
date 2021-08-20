@@ -94,7 +94,6 @@ def func5(x: int) -> None:
     pass
 
 
-# This should generate an error because of the presence of foo.
 var4: TestClass4 = func5
 
 

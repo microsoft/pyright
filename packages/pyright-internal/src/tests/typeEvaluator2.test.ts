@@ -15,7 +15,7 @@ import * as TestUtils from './testUtils';
 test('CallbackProtocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol1.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('CallbackProtocol2', () => {
@@ -32,6 +32,12 @@ test('CallbackProtocol3', () => {
 
 test('CallbackProtocol4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol4.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('CallbackProtocol5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol5.py']);
 
     TestUtils.validateResults(analysisResults, 2);
 });

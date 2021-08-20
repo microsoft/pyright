@@ -13372,32 +13372,6 @@ export function createTypeEvaluator(
 
         classType.details.effectiveMetaclass = effectiveMetaclass;
 
-        // If the class is a protocol class, determine if it's a "callback protocol" (i.e.
-        // it defines only a '__call__' method).
-        if (
-            ClassType.isProtocolClass(classType) &&
-            classType.details.fields.get('__call__') &&
-            !classType.details.baseClasses.find(
-                (base) =>
-                    isInstantiableClass(base) &&
-                    !ClassType.isBuiltIn(base, 'object') &&
-                    !ClassType.isBuiltIn(base, 'Protocol')
-            )
-        ) {
-            let symbolsToMatchCount = 0;
-            classType.details.fields.forEach((symbol, name) => {
-                if (!symbol.isIgnoredForProtocolMatch()) {
-                    symbolsToMatchCount++;
-                }
-            });
-
-            // If any symbols are present other than __call__, it's not considered
-            // a callback protocol class.
-            if (symbolsToMatchCount === 1) {
-                classType.details.flags |= ClassTypeFlags.CallbackProtocolClass;
-            }
-        }
-
         // Now determine the decorated type of the class.
         let decoratedType: Type = classType;
         let foundUnknown = false;
@@ -22940,10 +22914,6 @@ export function createTypeEvaluator(
     }
 
     function getCallbackProtocolType(objType: ClassType): FunctionType | OverloadedFunctionType | undefined {
-        if (!ClassType.isCallbackProtocolClass(objType)) {
-            return undefined;
-        }
-
         const callMember = lookUpObjectMember(objType, '__call__');
         if (!callMember) {
             return undefined;
