@@ -1820,7 +1820,7 @@ export class Parser {
     // with_item list.
     private _parseWithStatement(asyncToken?: KeywordToken): WithNode {
         const withToken = this._getKeywordToken(KeywordType.With);
-        const withItemList: WithItemNode[] = [];
+        let withItemList: WithItemNode[] = [];
 
         const possibleParen = this._peekToken();
 
@@ -1835,7 +1835,7 @@ export class Parser {
             this._suppressErrors(() => {
                 this._getNextToken();
                 while (true) {
-                    this._parseWithItem();
+                    withItemList.push(this._parseWithItem());
                     if (!this._consumeTokenIfType(TokenType.Comma)) {
                         break;
                     }
@@ -1849,10 +1849,11 @@ export class Parser {
                     this._peekToken().type === TokenType.CloseParenthesis &&
                     this._peekToken(1).type === TokenType.Colon
                 ) {
-                    isParenthesizedWithItemList = true;
+                    isParenthesizedWithItemList = withItemList.length !== 1 || withItemList[0].target !== undefined;
                 }
 
                 this._tokenIndex = openParenTokenIndex;
+                withItemList = [];
             });
         }
 
