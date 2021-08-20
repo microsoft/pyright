@@ -24334,7 +24334,12 @@ export function createTypeEvaluator(
                 // we attempt to call canAssignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVarType(memberTypeFirstParamType, nonLiteralFirstParamType);
+                    typeVarMap.setTypeVarType(
+                        memberTypeFirstParamType,
+                        TypeBase.isInstantiable(memberTypeFirstParamType)
+                            ? convertToInstance(nonLiteralFirstParamType)
+                            : nonLiteralFirstParamType
+                    );
                 }
             } else if (
                 !canAssignType(
