@@ -111,6 +111,7 @@ Pyright’s type-checking functionality and language features are now incorporat
 * [Building & Debugging](/docs/build-debug.md)
 * [Pyright Internals](/docs/internals.md)
 
+For additional information about Python static typing, refer to this community-maintained [Python Type School](https://github.com/python/typing/discussions).
 
 ## Limitations
 Pyright provides support for Python 3.0 and newer. There is currently no plan to support older versions.
