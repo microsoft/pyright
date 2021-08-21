@@ -9128,6 +9128,7 @@ export function createTypeEvaluator(
         let argType: Type | undefined;
         let expectedTypeDiag: DiagnosticAddendum | undefined;
         let isTypeIncomplete = false;
+        let isCompatible = true;
 
         if (argParam.argument.valueExpression) {
             // If the param type is a "bare" TypeVar, don't use it as an expected
@@ -9162,7 +9163,7 @@ export function createTypeEvaluator(
                     isTypeIncomplete = true;
                 }
                 if (exprType.typeErrors) {
-                    return { isCompatible: false, isTypeIncomplete };
+                    isCompatible = false;
                 }
                 expectedTypeDiag = exprType.expectedTypeDiagAddendum;
             }
@@ -9204,7 +9205,7 @@ export function createTypeEvaluator(
         // Handle the case where we're assigning a *args or **kwargs argument
         // to a *P.args or **P.kwargs parameter.
         if (isParamSpec(argParam.paramType) && argParam.paramType.paramSpecAccess !== undefined) {
-            return { isCompatible: true, isTypeIncomplete };
+            return { isCompatible, isTypeIncomplete };
         }
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
@@ -9265,7 +9266,9 @@ export function createTypeEvaluator(
                 );
             }
             return { isCompatible: false, isTypeIncomplete };
-        } else if (!skipUnknownCheck) {
+        }
+
+        if (!skipUnknownCheck) {
             const simplifiedType = removeUnbound(argType);
             const fileInfo = getFileInfo(argParam.errorNode);
 
@@ -9322,7 +9325,7 @@ export function createTypeEvaluator(
             }
         }
 
-        return { isCompatible: true, isTypeIncomplete };
+        return { isCompatible, isTypeIncomplete };
     }
 
     function createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
