@@ -119,7 +119,7 @@ else:
 class Signature:
     def __init__(self, parameters: Sequence[Parameter] | None = ..., *, return_annotation: Any = ...) -> None: ...
     # TODO: can we be more specific here?
-    empty: object = ...
+    empty: object
 
     parameters: Mapping[str, Parameter]
 
@@ -165,7 +165,7 @@ class _ParameterKind(enum.IntEnum):
 
 class Parameter:
     def __init__(self, name: str, kind: _ParameterKind, *, default: Any = ..., annotation: Any = ...) -> None: ...
-    empty: Any = ...
+    empty: Any
     name: str
     default: Any
     annotation: Any

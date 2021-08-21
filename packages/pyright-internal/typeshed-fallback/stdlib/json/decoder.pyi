@@ -12,7 +12,7 @@ class JSONDecoder:
     object_hook: Callable[[dict[str, Any]], Any]
     parse_float: Callable[[str], Any]
     parse_int: Callable[[str], Any]
-    parse_constant: Callable[[str], Any] = ...
+    parse_constant: Callable[[str], Any]
     strict: bool
     object_pairs_hook: Callable[[list[Tuple[str, Any]]], Any]
     def __init__(

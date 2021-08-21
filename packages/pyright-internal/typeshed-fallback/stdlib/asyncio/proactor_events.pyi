@@ -65,7 +65,7 @@ class _ProactorDuplexPipeTransport(_ProactorReadPipeTransport, _ProactorBaseWrit
 
 class _ProactorSocketTransport(_ProactorReadPipeTransport, _ProactorBaseWritePipeTransport, transports.Transport):
 
-    _sendfile_compatible: constants._SendfileMode = ...
+    _sendfile_compatible: constants._SendfileMode
     def __init__(
         self,
         loop: events.AbstractEventLoop,

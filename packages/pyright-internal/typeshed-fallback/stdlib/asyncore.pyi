@@ -7,7 +7,7 @@ from typing import Any, Dict, Tuple, overload
 _maptype = Dict[int, Any]
 _socket = socket
 
-socket_map: _maptype = ...  # undocumented
+socket_map: _maptype  # undocumented
 
 class ExitNow(Exception): ...
 

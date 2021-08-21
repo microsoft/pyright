@@ -8,7 +8,7 @@ _ValueType = Union[str, bytes]
 
 class error(OSError): ...
 
-library: str = ...
+library: str
 
 # Actual typename dbm, not exposed by the implementation
 class _dbm:

@@ -1,27 +1,13 @@
 from __future__ import print_function
 
 import types
-import typing
 import unittest
 from builtins import next as next
+from collections.abc import Callable, ItemsView, Iterable, Iterator as _Iterator, KeysView, Mapping, ValuesView
 from functools import wraps as wraps
 from io import BytesIO as BytesIO, StringIO as StringIO
-from typing import (
-    Any,
-    AnyStr,
-    Callable,
-    ItemsView,
-    Iterable,
-    KeysView,
-    Mapping,
-    NoReturn,
-    Pattern,
-    Tuple,
-    Type,
-    TypeVar,
-    ValuesView,
-    overload,
-)
+from typing import Any, AnyStr, NoReturn, Pattern, Tuple, Type, TypeVar, overload
+from typing_extensions import Literal
 
 from . import moves as moves
 
@@ -29,19 +15,18 @@ _T = TypeVar("_T")
 _K = TypeVar("_K")
 _V = TypeVar("_V")
 
+__author__: str
 __version__: str
 
-# TODO make constant, then move this stub to 2and3
-# https://github.com/python/typeshed/issues/17
-PY2 = False
-PY3 = True
-PY34: bool
+PY2: Literal[False]
+PY3: Literal[True]
+PY34: Literal[True]
 
-string_types = (str,)
-integer_types = (int,)
-class_types = (type,)
-text_type = str
-binary_type = bytes
+string_types: tuple[Type[str]]
+integer_types: tuple[Type[int]]
+class_types: tuple[Type[Type[Any]]]
+text_type: Type[str]
+binary_type: Type[bytes]
 
 MAXSIZE: int
 
@@ -58,24 +43,24 @@ def get_function_closure(fun: types.FunctionType) -> Tuple[types._Cell, ...] | N
 def get_function_code(fun: types.FunctionType) -> types.CodeType: ...
 def get_function_defaults(fun: types.FunctionType) -> Tuple[Any, ...] | None: ...
 def get_function_globals(fun: types.FunctionType) -> dict[str, Any]: ...
-def iterkeys(d: Mapping[_K, Any]) -> typing.Iterator[_K]: ...
-def itervalues(d: Mapping[Any, _V]) -> typing.Iterator[_V]: ...
-def iteritems(d: Mapping[_K, _V]) -> typing.Iterator[Tuple[_K, _V]]: ...
+def iterkeys(d: Mapping[_K, Any]) -> _Iterator[_K]: ...
+def itervalues(d: Mapping[Any, _V]) -> _Iterator[_V]: ...
+def iteritems(d: Mapping[_K, _V]) -> _Iterator[tuple[_K, _V]]: ...
 
 # def iterlists
 
 def viewkeys(d: Mapping[_K, Any]) -> KeysView[_K]: ...
 def viewvalues(d: Mapping[Any, _V]) -> ValuesView[_V]: ...
 def viewitems(d: Mapping[_K, _V]) -> ItemsView[_K, _V]: ...
-def b(s: str) -> binary_type: ...
-def u(s: str) -> text_type: ...
+def b(s: str) -> bytes: ...
+def u(s: str) -> str: ...
 
 unichr = chr
 
 def int2byte(i: int) -> bytes: ...
-def byte2int(bs: binary_type) -> int: ...
-def indexbytes(buf: binary_type, i: int) -> int: ...
-def iterbytes(buf: binary_type) -> typing.Iterator[int]: ...
+def byte2int(bs: bytes) -> int: ...
+def indexbytes(buf: bytes, i: int) -> int: ...
+def iterbytes(buf: bytes) -> _Iterator[int]: ...
 def assertCountEqual(self: unittest.TestCase, first: Iterable[_T], second: Iterable[_T], msg: str | None = ...) -> None: ...
 @overload
 def assertRaisesRegex(self: unittest.TestCase, msg: str | None = ...) -> Any: ...
@@ -99,17 +84,17 @@ def ensure_str(s: bytes | str, encoding: str = ..., errors: str = ...) -> str: .
 def ensure_text(s: bytes | str, encoding: str = ..., errors: str = ...) -> str: ...
 def python_2_unicode_compatible(klass: _T) -> _T: ...
 
-class _LazyDescriptor:
+class _LazyDescr:
     name: str
     def __init__(self, name: str) -> None: ...
-    def __get__(self, obj: object | None, type: type | None = ...) -> Any: ...
+    def __get__(self, obj: object | None, type: Type[Any] | None = ...) -> Any: ...
 
-class MovedModule(_LazyDescriptor):
+class MovedModule(_LazyDescr):
     mod: str
     def __init__(self, name: str, old: str, new: str | None = ...) -> None: ...
     def __getattr__(self, attr: str) -> Any: ...
 
-class MovedAttribute(_LazyDescriptor):
+class MovedAttribute(_LazyDescr):
     mod: str
     attr: str
     def __init__(self, name: str, old_mod: str, new_mod: str, old_attr: str | None = ..., new_attr: str | None = ...) -> None: ...

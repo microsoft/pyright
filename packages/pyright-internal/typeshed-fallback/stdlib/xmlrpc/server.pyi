@@ -64,8 +64,8 @@ class SimpleXMLRPCDispatcher:  # undocumented
 
 class SimpleXMLRPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
-    rpc_paths: Tuple[str, str] = ...
-    encode_threshold: int = ...  # undocumented
+    rpc_paths: Tuple[str, str]
+    encode_threshold: int  # undocumented
     aepattern: Pattern[str]  # undocumented
     def accept_encodings(self) -> dict[str, float]: ...
     def is_rpc_path_valid(self) -> bool: ...
@@ -76,8 +76,8 @@ class SimpleXMLRPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
 class SimpleXMLRPCServer(socketserver.TCPServer, SimpleXMLRPCDispatcher):
 
-    allow_reuse_address: bool = ...
-    _send_traceback_handler: bool = ...
+    allow_reuse_address: bool
+    _send_traceback_handler: bool
     def __init__(
         self,
         addr: Tuple[str, int],

@@ -30,8 +30,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
     MessageClass: type
     responses: Mapping[int, Tuple[str, str]]
     default_request_version: str  # undocumented
-    weekdayname: ClassVar[Sequence[str]] = ...  # undocumented
-    monthname: ClassVar[Sequence[str | None]] = ...  # undocumented
+    weekdayname: ClassVar[Sequence[str]]  # undocumented
+    monthname: ClassVar[Sequence[str | None]]  # undocumented
     def __init__(self, request: bytes, client_address: Tuple[str, int], server: socketserver.BaseServer) -> None: ...
     def handle(self) -> None: ...
     def handle_one_request(self) -> None: ...

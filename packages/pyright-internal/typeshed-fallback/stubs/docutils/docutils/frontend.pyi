@@ -1,8 +1,10 @@
 import optparse
+from collections.abc import Iterable, Mapping
 from configparser import RawConfigParser
-from typing import Any, ClassVar, Tuple
+from typing import Any, ClassVar, Tuple, Type
 
 from docutils import SettingsSpec
+from docutils.parsers import Parser
 from docutils.utils import DependencyList
 
 __docformat__: str
@@ -60,6 +62,14 @@ class OptionParser(optparse.OptionParser, SettingsSpec):
     default_error_encoding_error_handler: ClassVar[str]
     config_section: ClassVar[str]
     version_template: ClassVar[str]
+    def __init__(
+        self,
+        components: Iterable[Type[Parser]] = ...,
+        defaults: Mapping[str, Any] | None = ...,
+        read_config_files: bool | None = ...,
+        *args,
+        **kwargs,
+    ) -> None: ...
     def __getattr__(self, name: str) -> Any: ...  # incomplete
 
 class ConfigParser(RawConfigParser):

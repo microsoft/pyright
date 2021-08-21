@@ -58,7 +58,7 @@ topic concerning the project.
 
 If you have general questions about typing with Python, or you need
 a review of your type annotations or stubs outside of typeshed, head over to
-[our discussion forum](/python/typing/discussions).
+[our discussion forum](https://github.com/python/typing/discussions).
 For less formal discussion, try the typing chat room on
 [gitter.im](https://gitter.im/python/typing).  Some typeshed maintainers
 are almost always present; feel free to find us there and we're happy

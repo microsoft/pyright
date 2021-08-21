@@ -2,6 +2,7 @@ from typing import IO, Any, Text, Union
 
 from simplejson.decoder import JSONDecoder as JSONDecoder
 from simplejson.encoder import JSONEncoder as JSONEncoder, JSONEncoderForHTML as JSONEncoderForHTML
+from simplejson.raw_json import RawJSON as RawJSON
 from simplejson.scanner import JSONDecodeError as JSONDecodeError
 
 _LoadsString = Union[Text, bytes, bytearray]

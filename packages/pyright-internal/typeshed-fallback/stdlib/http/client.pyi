@@ -127,10 +127,10 @@ class _HTTPConnectionProtocol(Protocol):
         ) -> HTTPConnection: ...
 
 class HTTPConnection:
-    auto_open: int = ...  # undocumented
-    debuglevel: int = ...
-    default_port: int = ...  # undocumented
-    response_class: Type[HTTPResponse] = ...  # undocumented
+    auto_open: int  # undocumented
+    debuglevel: int
+    default_port: int  # undocumented
+    response_class: Type[HTTPResponse]  # undocumented
     timeout: float | None
     host: str
     port: int
@@ -205,6 +205,8 @@ class UnimplementedFileMode(HTTPException): ...
 
 class IncompleteRead(HTTPException):
     def __init__(self, partial: bytes, expected: int | None = ...) -> None: ...
+    partial: bytes
+    expected: int | None
 
 class ImproperConnectionState(HTTPException): ...
 class CannotSendRequest(ImproperConnectionState): ...

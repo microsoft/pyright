@@ -350,7 +350,7 @@ if sys.platform != "win32":
             f_favail: int
             f_flag: int
             f_namemax: int
-            f_fsid: int = ...
+            f_fsid: int
     else:
         class statvfs_result(_Tuple10Int):  # Unix only
             n_fields: int

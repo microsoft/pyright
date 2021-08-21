@@ -97,7 +97,7 @@ class Marshaller:
 
     dispatch: dict[
         Type[Any], Callable[[Marshaller, Any, Callable[[str], Any]], None]
-    ] = ...  # TODO: Replace 'Any' with some kind of binding
+    ]  # TODO: Replace 'Any' with some kind of binding
 
     memo: dict[Any, None]
     data: None
@@ -122,7 +122,7 @@ class Marshaller:
 
 class Unmarshaller:
 
-    dispatch: dict[str, Callable[[Unmarshaller, str], None]] = ...
+    dispatch: dict[str, Callable[[Unmarshaller, str], None]]
 
     _type: str | None
     _stack: list[_Marshallable]
@@ -212,9 +212,9 @@ class _Method:  # undocumented
 
 class Transport:
 
-    user_agent: str = ...
-    accept_gzip_encoding: bool = ...
-    encode_threshold: int | None = ...
+    user_agent: str
+    accept_gzip_encoding: bool
+    encode_threshold: int | None
 
     _use_datetime: bool
     _use_builtin_types: bool

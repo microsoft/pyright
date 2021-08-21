@@ -1,7 +1,7 @@
 import enum
 import socket
 import sys
-from _typeshed import ReadableBuffer, Self, StrPath, WriteableBuffer
+from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
 from typing import Any, Callable, ClassVar, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, Union, overload
 from typing_extensions import Literal, TypedDict
 
@@ -47,8 +47,8 @@ else:
 
 def wrap_socket(
     sock: socket.socket,
-    keyfile: str | None = ...,
-    certfile: str | None = ...,
+    keyfile: StrOrBytesPath | None = ...,
+    certfile: StrOrBytesPath | None = ...,
     server_side: bool = ...,
     cert_reqs: int = ...,
     ssl_version: int = ...,
@@ -58,7 +58,11 @@ def wrap_socket(
     ciphers: str | None = ...,
 ) -> SSLSocket: ...
 def create_default_context(
-    purpose: Any = ..., *, cafile: str | None = ..., capath: str | None = ..., cadata: str | bytes | None = ...
+    purpose: Purpose = ...,
+    *,
+    cafile: StrOrBytesPath | None = ...,
+    capath: StrOrBytesPath | None = ...,
+    cadata: str | bytes | None = ...,
 ) -> SSLContext: ...
 
 if sys.version_info >= (3, 7):
@@ -67,11 +71,11 @@ if sys.version_info >= (3, 7):
         *,
         cert_reqs: int = ...,
         check_hostname: bool = ...,
-        purpose: Any = ...,
-        certfile: str | None = ...,
-        keyfile: str | None = ...,
-        cafile: str | None = ...,
-        capath: str | None = ...,
+        purpose: Purpose = ...,
+        certfile: StrOrBytesPath | None = ...,
+        keyfile: StrOrBytesPath | None = ...,
+        cafile: StrOrBytesPath | None = ...,
+        capath: StrOrBytesPath | None = ...,
         cadata: str | bytes | None = ...,
     ) -> SSLContext: ...
 
@@ -81,11 +85,11 @@ else:
         *,
         cert_reqs: int | None = ...,
         check_hostname: bool = ...,
-        purpose: Any = ...,
-        certfile: str | None = ...,
-        keyfile: str | None = ...,
-        cafile: str | None = ...,
-        capath: str | None = ...,
+        purpose: Purpose = ...,
+        certfile: StrOrBytesPath | None = ...,
+        keyfile: StrOrBytesPath | None = ...,
+        cafile: StrOrBytesPath | None = ...,
+        capath: StrOrBytesPath | None = ...,
         cadata: str | bytes | None = ...,
     ) -> SSLContext: ...
 
@@ -380,10 +384,12 @@ class SSLContext:
     def __new__(cls, protocol: int = ..., *args: Any, **kwargs: Any) -> SSLContext: ...
     def __init__(self, protocol: int = ...) -> None: ...
     def cert_store_stats(self) -> dict[str, int]: ...
-    def load_cert_chain(self, certfile: StrPath, keyfile: StrPath | None = ..., password: _PasswordType | None = ...) -> None: ...
+    def load_cert_chain(
+        self, certfile: StrOrBytesPath, keyfile: StrOrBytesPath | None = ..., password: _PasswordType | None = ...
+    ) -> None: ...
     def load_default_certs(self, purpose: Purpose = ...) -> None: ...
     def load_verify_locations(
-        self, cafile: StrPath | None = ..., capath: StrPath | None = ..., cadata: str | bytes | None = ...
+        self, cafile: StrOrBytesPath | None = ..., capath: StrOrBytesPath | None = ..., cadata: str | bytes | None = ...
     ) -> None: ...
     def get_ca_certs(self, binary_form: bool = ...) -> list[_PeerCertRetDictType] | list[bytes]: ...
     def get_ciphers(self) -> list[_Cipher]: ...
