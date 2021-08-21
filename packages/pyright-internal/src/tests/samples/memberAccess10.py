@@ -32,3 +32,32 @@ X.number_cls = 1
 
 # This should generate an error
 X().number_cls = 1
+
+
+class FlagValue:
+    def __init__(self, func):
+        self.value: bool = bool(func(None))
+
+    def __set__(self, instance: "Flags", value: int):
+        self.value = bool(value)
+
+
+class Flags:
+    @FlagValue
+    def suppress(self):
+        return 2
+
+
+flags = Flags()
+
+
+def func1(new: Any):
+    flags.suppress = new
+
+
+def func2(new: int):
+    flags.suppress = new
+
+
+def func3(new: bool):
+    flags.suppress = new

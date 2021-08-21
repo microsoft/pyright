@@ -12831,7 +12831,9 @@ export function createTypeEvaluator(
 
                     if (canAssignType(declaredType, srcType, diagAddendum)) {
                         // Narrow the resulting type if possible.
-                        srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
+                        if (!isAnyOrUnknown(srcType)) {
+                            srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
+                        }
                     }
                 }
 
