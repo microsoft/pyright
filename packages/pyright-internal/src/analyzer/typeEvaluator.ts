@@ -11597,28 +11597,49 @@ export function createTypeEvaluator(
         // Pre-cache the newly-created function type.
         writeTypeCache(node, functionType, /* isIncomplete */ false);
 
-        let expectedFunctionType: FunctionType | undefined;
+        let expectedFunctionTypes: FunctionType[] = [];
         if (expectedType) {
-            if (isFunction(expectedType)) {
-                expectedFunctionType = expectedType;
-            } else if (isUnion(expectedType)) {
-                // It's not clear what we should do with a union type. For now,
-                // simply use the first function in the union.
-                expectedFunctionType = findSubtype(expectedType, (t) => isFunction(t)) as FunctionType;
-            } else if (isClassInstance(expectedType)) {
-                const callMember = lookUpObjectMember(expectedType, '__call__');
-                if (callMember) {
-                    const memberType = getTypeOfMember(callMember);
-                    if (memberType && isFunction(memberType)) {
-                        const boundMethod = bindFunctionToClassOrObject(expectedType, memberType);
+            mapSubtypes(expectedType, (subtype) => {
+                if (isFunction(subtype)) {
+                    expectedFunctionTypes.push(subtype);
+                }
 
-                        if (boundMethod) {
-                            expectedFunctionType = boundMethod as FunctionType;
+                if (isClassInstance(subtype)) {
+                    const callMember = lookUpObjectMember(subtype, '__call__');
+                    if (callMember) {
+                        const memberType = getTypeOfMember(callMember);
+                        if (memberType && isFunction(memberType)) {
+                            const boundMethod = bindFunctionToClassOrObject(subtype, memberType);
+
+                            if (boundMethod) {
+                                expectedFunctionTypes.push(boundMethod as FunctionType);
+                            }
                         }
                     }
                 }
-            }
+
+                return undefined;
+            });
+
+            // Determine the minimum number of parameters that are required to
+            // satisfy the lambda.
+            const lambdaParamCount = node.parameters.filter(
+                (param) => param.category === ParameterCategory.Simple && param.defaultValue === undefined
+            ).length;
+
+            // Remove any expected subtypes that don't satisfy the minimum
+            // parameter count requirement.
+            expectedFunctionTypes = expectedFunctionTypes.filter((functionType) => {
+                const functionParamCount = functionType.details.parameters.filter((param) => !!param.name).length;
+                const hasVarArgs = functionType.details.parameters.some(
+                    (param) => !!param.name && param.category !== ParameterCategory.Simple
+                );
+                return hasVarArgs || functionParamCount === lambdaParamCount;
+            });
         }
+
+        // For now, use only the first expected type.
+        const expectedFunctionType = expectedFunctionTypes.length > 0 ? expectedFunctionTypes[0] : undefined;
 
         node.parameters.forEach((param, index) => {
             let paramType: Type = UnknownType.create();
