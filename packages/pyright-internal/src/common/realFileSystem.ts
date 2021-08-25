@@ -4,7 +4,7 @@
  * Collection of helper functions that require real fs access.
  */
 
-import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipOpenFS } from '@yarnpkg/fslib';
+import { FakeFS, NativePath, PortablePath, PosixFS, ppath, VirtualFS, ZipFS, ZipOpenFS } from '@yarnpkg/fslib';
 import { getLibzipSync } from '@yarnpkg/libzip';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
@@ -116,6 +116,13 @@ class EggZipOpenFS extends ZipOpenFS {
     private override isZip!: Set<PortablePath>;
     private override notZip!: Set<PortablePath>;
 
+    // Hack to provide typed access to this private method.
+    private override getZipSync<T>(p: PortablePath, accept: (zipFs: ZipFS) => T): T {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
+        return super.getZipSync(p, accept);
+    }
+
     override findZip(p: PortablePath) {
         if (this.filter && !this.filter.test(p)) return null;
 
@@ -137,6 +144,19 @@ class EggZipOpenFS extends ZipOpenFS {
                     }
 
                     if (!hasZipMagic(this.baseFs, filePath)) {
+                        this.notZip.add(filePath);
+                        continue;
+                    }
+
+                    try {
+                        // We're pretty sure that it's a zip at this point (it has the magic), but
+                        // try accessing the zipfile anyway; if it's corrupt in some way, this will throw.
+                        // We don't need to do anything with the ZipFS instance given to the callback
+                        // below; ZipOpenFS already manages their lifetimes and we're very likely to
+                        // immediately call back into the FS to obtain info from the zip anyway.
+                        // eslint-disable-next-line @typescript-eslint/no-empty-function
+                        this.getZipSync(filePath, () => {});
+                    } catch {
                         this.notZip.add(filePath);
                         continue;
                     }
@@ -358,6 +378,10 @@ class RealFileSystem implements FileSystem {
 
     getUri(path: string): string {
         return URI.file(path).toString();
+    }
+
+    isInZipOrEgg(path: string): boolean {
+        return /[^\\/]\.(?:egg|zip)[\\/]/.test(path) && yarnFS.isZip(path);
     }
 }
 

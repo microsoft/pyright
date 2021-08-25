@@ -157,7 +157,7 @@ function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo
     return undefined;
 }
 
-function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
+export function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
     const searchPaths: string[] = [];
 
     // Get a list of all *.pth files within the specified directory.

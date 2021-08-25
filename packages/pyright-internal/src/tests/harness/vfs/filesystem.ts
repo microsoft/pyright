@@ -918,6 +918,10 @@ export class TestFileSystem implements FileSystem {
         return TestFileSystem._rootDiff(differences, changed, base, options) ? differences : undefined;
     }
 
+    isInZipOrEgg(path: string): boolean {
+        return false;
+    }
+
     private static _diffWorker(
         container: FileSet,
         changed: TestFileSystem,

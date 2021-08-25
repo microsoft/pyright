@@ -9,6 +9,7 @@
 
 import { isAbsolute } from 'path';
 
+import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface } from './console';
@@ -20,6 +21,7 @@ import {
     ensureTrailingDirectorySeparator,
     FileSpec,
     getFileSpec,
+    isDirectory,
     normalizePath,
     resolvePaths,
 } from './pathUtils';
@@ -1456,7 +1458,11 @@ export class ConfigOptions {
 
         if (extraPaths && extraPaths.length > 0) {
             for (const p of extraPaths) {
-                paths.push(resolvePaths(this.projectRoot, p));
+                const path = resolvePaths(this.projectRoot, p);
+                paths.push(path);
+                if (isDirectory(fs, path)) {
+                    paths.push(...getPathsFromPthFiles(fs, path));
+                }
             }
         }
 

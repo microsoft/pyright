@@ -19,7 +19,6 @@ import {
     FileWatcherEventHandler,
     MkDirOptions,
     Stats,
-    SupportsCustomUri,
     TmpfileOptions,
     VirtualDirent,
 } from './common/fileSystem';
@@ -34,7 +33,7 @@ import {
     tryStat,
 } from './common/pathUtils';
 
-export class PyrightFileSystem implements FileSystem, SupportsCustomUri {
+export class PyrightFileSystem implements FileSystem {
     // Mapped file to original file map
     private readonly _fileMap = new Map<string, string>();
 
@@ -176,57 +175,59 @@ export class PyrightFileSystem implements FileSystem, SupportsCustomUri {
         return this._realFS.getUri(originalPath);
     }
 
-    addUriMap(uriString: string, mappedPath: string): void {
-        if (!SupportsCustomUri.is(this._realFS)) {
-            const entry = this._customUriMap.get(mappedPath);
-            if (!entry) {
-                this._customUriMap.set(mappedPath, { uri: uriString, closed: false, hasPendingRequest: false });
-                return;
-            }
+    hasUriMapEntry(uriString: string, mappedPath: string): boolean {
+        const entry = this._customUriMap.get(mappedPath);
+        if (!entry || entry.uri !== uriString) {
+            // We don't support having 2 uri pointing to same file.
+            return false;
+        }
 
-            entry.closed = false;
+        return true;
+    }
+
+    addUriMap(uriString: string, mappedPath: string): boolean {
+        const entry = this._customUriMap.get(mappedPath);
+        if (!entry) {
+            this._customUriMap.set(mappedPath, { uri: uriString, closed: false, hasPendingRequest: false });
+            return true;
+        }
+
+        if (entry.uri !== uriString) {
+            // We don't support having 2 uri pointing to same file.
+            return false;
+        }
+
+        entry.closed = false;
+        return true;
+    }
+
+    removeUriMap(uriString: string, mappedPath: string): boolean {
+        const entry = this._customUriMap.get(mappedPath);
+        if (!entry || entry.uri !== uriString) {
+            return false;
+        }
+
+        if (entry.hasPendingRequest) {
+            entry.closed = true;
+            return true;
+        }
+
+        this._customUriMap.delete(mappedPath);
+        return true;
+    }
+
+    pendingRequest(mappedPath: string, hasPendingRequest: boolean): void {
+        const entry = this._customUriMap.get(mappedPath);
+        if (!entry) {
             return;
         }
 
-        this._realFS.addUriMap(uriString, mappedPath);
-    }
-
-    removeUriMap(mappedPath: string): void {
-        if (!SupportsCustomUri.is(this._realFS)) {
-            const entry = this._customUriMap.get(mappedPath);
-            if (!entry) {
-                return;
-            }
-
-            if (entry.hasPendingRequest) {
-                entry.closed = true;
-                return;
-            }
-
+        if (!hasPendingRequest && entry.closed) {
             this._customUriMap.delete(mappedPath);
             return;
         }
 
-        this._realFS.removeUriMap(mappedPath);
-    }
-
-    pendingRequest(mappedPath: string, hasPendingRequest: boolean): void {
-        if (!SupportsCustomUri.is(this._realFS)) {
-            const entry = this._customUriMap.get(mappedPath);
-            if (!entry) {
-                return;
-            }
-
-            if (!hasPendingRequest && entry.closed) {
-                this._customUriMap.delete(mappedPath);
-                return;
-            }
-
-            entry.hasPendingRequest = hasPendingRequest;
-            return;
-        }
-
-        this._realFS.pendingRequest(mappedPath, hasPendingRequest);
+        entry.hasPendingRequest = hasPendingRequest;
     }
 
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {
@@ -358,6 +359,10 @@ export class PyrightFileSystem implements FileSystem, SupportsCustomUri {
     // return it.
     getConflictedFile(filepath: string) {
         return this._conflictMap.get(filepath);
+    }
+
+    isInZipOrEgg(path: string): boolean {
+        return this._realFS.isInZipOrEgg(path);
     }
 
     private _recordVirtualFile(mappedFile: string, originalFile: string, reversible = true) {
