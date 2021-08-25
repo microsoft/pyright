@@ -67,13 +67,7 @@ import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
 import { LanguageServiceExtension } from './common/extensibility';
-import {
-    FileSystem,
-    FileWatcherEventType,
-    FileWatcherProvider,
-    isInZipOrEgg,
-    SupportsCustomUri,
-} from './common/fileSystem';
+import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/fileSystem';
 import { Host } from './common/host';
 import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
@@ -255,13 +249,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 
-    protected isLongRunningCommand(command: string): boolean {
-        // By default, all commands are considered "long-running" and should
-        // display a cancelable progress dialog. Servers can override this
-        // to avoid showing the progress dialog for commands that are
-        // guaranteed to be quick.
-        return true;
-    }
+    protected abstract isLongRunningCommand(command: string): boolean;
 
     protected abstract executeCodeAction(
         params: CodeActionParams,
@@ -421,7 +409,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return undefined;
             }
             return locations
-                .filter((loc) => !isInZipOrEgg(loc.path))
+                .filter((loc) => !this.fs.isInZipOrEgg(loc.path))
                 .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
         };
 
@@ -473,7 +461,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
                 const convert = (locs: DocumentRange[]): Location[] => {
                     return locs
-                        .filter((loc) => !isInZipOrEgg(loc.path))
+                        .filter((loc) => !this.fs.isInZipOrEgg(loc.path))
                         .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
                 };
 
@@ -732,7 +720,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return null;
             }
 
-            if (isInZipOrEgg(callItem.uri)) {
+            if (this.fs.isInZipOrEgg(callItem.uri)) {
                 return null;
             }
 
@@ -760,7 +748,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return null;
             }
 
-            callItems = callItems.filter((item) => !isInZipOrEgg(item.from.uri));
+            callItems = callItems.filter((item) => !this.fs.isInZipOrEgg(item.from.uri));
 
             // Convert the file paths in the items to proper URIs.
             callItems.forEach((item) => {
@@ -788,7 +776,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return null;
             }
 
-            callItems = callItems.filter((item) => !isInZipOrEgg(item.to.uri));
+            callItems = callItems.filter((item) => !this.fs.isInZipOrEgg(item.to.uri));
 
             // Convert the file paths in the items to proper URIs.
             callItems.forEach((item) => {
@@ -800,8 +788,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._connection.onDidOpenTextDocument(async (params) => {
             const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-            if (SupportsCustomUri.is(this.fs)) {
-                this.fs.addUriMap(params.textDocument.uri, filePath);
+            if (!(this.fs as PyrightFileSystem).addUriMap(params.textDocument.uri, filePath)) {
+                // We do not support opening 1 file with 2 different uri.
+                return;
             }
 
             const workspace = await this.getWorkspaceForFile(filePath);
@@ -812,6 +801,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(this.fs, params.textDocument.uri);
+            if (!(this.fs as PyrightFileSystem).hasUriMapEntry(params.textDocument.uri, filePath)) {
+                // We do not support opening 1 file with 2 different uri.
+                return;
+            }
+
             const workspace = await this.getWorkspaceForFile(filePath);
             workspace.serviceInstance.updateOpenFileContents(
                 filePath,
@@ -822,8 +816,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._connection.onDidCloseTextDocument(async (params) => {
             const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-            if (SupportsCustomUri.is(this.fs)) {
-                this.fs.removeUriMap(filePath);
+            if (!(this.fs as PyrightFileSystem).removeUriMap(params.textDocument.uri, filePath)) {
+                // We do not support opening 1 file with 2 different uri.
+                return;
             }
 
             const workspace = await this.getWorkspaceForFile(filePath);
@@ -885,11 +880,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 const result = await this.executeCommand(params, token);
                 if (WorkspaceEdit.is(result)) {
                     // Tell client to apply edits.
-                    await this._connection.workspace.applyEdit(result);
+                    // Do not await; the client isn't expecting a result.
+                    this._connection.workspace.applyEdit(result);
                 }
 
                 if (CommandResult.is(result)) {
                     // Tell client to apply edits.
+                    // Await so that we return after the edit is complete.
                     await this._connection.workspace.applyEdit(result.edits);
                 }
 
@@ -1060,7 +1057,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected onAnalysisCompletedHandler(results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
-            if (isInZipOrEgg(fileDiag.filePath)) {
+            if (this.fs.isInZipOrEgg(fileDiag.filePath)) {
                 return;
             }
 
@@ -1069,9 +1066,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 diagnostics: this._convertDiagnostics(fileDiag.diagnostics),
             });
 
-            if (SupportsCustomUri.is(this.fs)) {
-                this.fs.pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
-            }
+            (this.fs as PyrightFileSystem).pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
         });
 
         if (!this._progressReporter.isEnabled(results)) {
@@ -1251,7 +1246,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const relatedInfo = diag.getRelatedInfo();
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo
-                    .filter((info) => !isInZipOrEgg(info.filePath))
+                    .filter((info) => !this.fs.isInZipOrEgg(info.filePath))
                     .map((info) =>
                         DiagnosticRelatedInformation.create(
                             Location.create(convertPathToUri(this.fs, info.filePath), info.range),

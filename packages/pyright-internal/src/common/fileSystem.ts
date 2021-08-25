@@ -46,19 +46,6 @@ export interface TmpfileOptions {
     prefix?: string;
 }
 
-export interface SupportsCustomUri {
-    addUriMap(uriString: string, path: string): void;
-    removeUriMap(path: string): void;
-    pendingRequest(path: string, hasPendingRequest: boolean): void;
-}
-
-export namespace SupportsCustomUri {
-    export function is(value: any): value is SupportsCustomUri {
-        const customUri = value as SupportsCustomUri;
-        return !!customUri.addUriMap && !!customUri.removeUriMap;
-    }
-}
-
 export interface FileSystem {
     existsSync(path: string): boolean;
     mkdirSync(path: string, options?: MkDirOptions): void;
@@ -97,6 +84,8 @@ export interface FileSystem {
     getMappedFilePath(originalFilepath: string): string;
 
     getUri(path: string): string;
+
+    isInZipOrEgg(path: string): boolean;
 }
 
 // File watchers can give "changed" event even for a file open. but for those cases,
@@ -112,12 +101,6 @@ export function ignoredWatchEventFunction(paths: string[]) {
         const normalizedPath = path.toLowerCase();
         return normalizedPaths.every((p) => normalizedPath.indexOf(p) < 0);
     };
-}
-
-// Returns true if the specified path may be inside of a zip or egg file.
-// These files don't really exist, and will fail if navigated to in the editor.
-export function isInZipOrEgg(path: string): boolean {
-    return /[^\\/]\.(?:egg|zip)[\\/]/.test(path);
 }
 
 const nullFileWatcher: FileWatcher = {

@@ -141,6 +141,33 @@ test('multiple package installed', () => {
     assert.strictEqual(2, fs.readdirEntriesSync(combinePaths(extraRoot, 'myLib')).length);
 });
 
+test('uri tests', () => {
+    const files = [
+        {
+            path: combinePaths('/', 'test.pyi'),
+            content: '',
+        },
+    ];
+
+    const file = files[0].path;
+    const fs = createFileSystem(files);
+
+    assert(fs.addUriMap('file://test.pyi', file));
+    assert(fs.addUriMap('file://test.pyi', file));
+    assert(!fs.addUriMap('memvfs://test.pyi', file));
+
+    assert(fs.hasUriMapEntry('file://test.pyi', file));
+    assert(!fs.hasUriMapEntry('memvfs://test.pyi', file));
+
+    assert(!fs.removeUriMap('memfs://test.pyi', file));
+
+    fs.pendingRequest(file, true);
+    assert(fs.removeUriMap('file://test.pyi', file));
+
+    fs.pendingRequest(file, false);
+    assert(!fs.removeUriMap('file://test.pyi', file));
+});
+
 function createFileSystem(files: { path: string; content: string }[]): PyrightFileSystem {
     const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') });
 

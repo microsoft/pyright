@@ -230,7 +230,7 @@ export class PyrightServer extends LanguageServerBase {
         return this._controller.execute(params, token);
     }
 
-    protected override isLongRunningCommand(command: string): boolean {
+    protected isLongRunningCommand(command: string): boolean {
         return this._controller.isLongRunningCommand(command);
     }
 
