@@ -296,4 +296,4 @@ def add_one(value: _StrOrFloat) -> _StrOrFloat:
     return sum
 ```
 
-Notice that the type of variable `sum` is reported with asterisks (`*`). This indicates that internally the type checker is tracking the type as conditional. In this particular example, it indicates that `sum` is a `str` type if the parameter `input` is a `str` but is a `float` if `input` is a `float`. By tracking these conditional types, the type checker can verify that the return type is consistent with the return type `_StrOrFloat`.
+Notice that the type of variable `sum` is reported with asterisks (`*`). This indicates that internally the type checker is tracking the type as conditional. In this particular example, it indicates that `sum` is a `str` type if the parameter `value` is a `str` but is a `float` if `value` is a `float`. By tracking these conditional types, the type checker can verify that the return type is consistent with the return type `_StrOrFloat`.
