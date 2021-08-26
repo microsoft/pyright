@@ -2246,57 +2246,18 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // Create a helper function that determines whether the specified
-        // type is valid for the isinstance or issubclass call.
-        const isSupportedTypeForIsInstance = (type: Type) => {
-            let isSupported = true;
-
-            doForEachSubtype(type, (subtype) => {
-                subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
-
-                switch (subtype.category) {
-                    case TypeCategory.Any:
-                    case TypeCategory.Unknown:
-                    case TypeCategory.Unbound:
-                        break;
-
-                    case TypeCategory.Class:
-                        // If it's a class, make sure that it has not been given explicit
-                        // type arguments. This will result in a TypeError exception.
-                        if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
-                            isSupported = false;
-                        }
-                        break;
-
-                    case TypeCategory.None:
-                        if (!isInstanceCheck) {
-                            isSupported = false;
-                        } else {
-                            isSupported = TypeBase.isInstantiable(subtype);
-                        }
-                        break;
-
-                    case TypeCategory.Function:
-                        isSupported = TypeBase.isInstantiable(subtype);
-                        break;
-
-                    default:
-                        isSupported = false;
-                        break;
-                }
-            });
-
-            return isSupported;
-        };
-
         let isValidType = true;
         doForEachSubtype(arg1Type, (arg1Subtype) => {
             if (isClassInstance(arg1Subtype) && ClassType.isTupleClass(arg1Subtype) && arg1Subtype.tupleTypeArguments) {
-                if (arg1Subtype.tupleTypeArguments.some((typeArg) => !isSupportedTypeForIsInstance(typeArg))) {
+                if (
+                    arg1Subtype.tupleTypeArguments.some(
+                        (typeArg) => !this._isTypeSupportedTypeForIsInstance(typeArg, isInstanceCheck)
+                    )
+                ) {
                     isValidType = false;
                 }
             } else {
-                if (!isSupportedTypeForIsInstance(arg1Subtype)) {
+                if (!this._isTypeSupportedTypeForIsInstance(arg1Subtype, isInstanceCheck)) {
                     isValidType = false;
                 }
             }
@@ -2502,6 +2463,53 @@ export class Checker extends ParseTreeWalker {
                 node
             );
         }
+    }
+
+    // Determines whether the specified type is allowed as the second argument
+    // to an isinstance or issubclass check.
+    private _isTypeSupportedTypeForIsInstance(type: Type, isInstanceCheck: boolean) {
+        let isSupported = true;
+
+        doForEachSubtype(type, (subtype) => {
+            subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+            switch (subtype.category) {
+                case TypeCategory.Any:
+                case TypeCategory.Unknown:
+                case TypeCategory.Unbound:
+                    break;
+
+                case TypeCategory.Class:
+                    // If it's a class, make sure that it has not been given explicit
+                    // type arguments. This will result in a TypeError exception.
+                    if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
+                        isSupported = false;
+                    }
+                    break;
+
+                case TypeCategory.None:
+                    if (!isInstanceCheck) {
+                        isSupported = false;
+                    } else {
+                        isSupported = TypeBase.isInstantiable(subtype);
+                    }
+                    break;
+
+                case TypeCategory.Function:
+                    isSupported = TypeBase.isInstantiable(subtype);
+                    break;
+
+                case TypeCategory.Union:
+                    isSupported = this._isTypeSupportedTypeForIsInstance(subtype, isInstanceCheck);
+                    break;
+
+                default:
+                    isSupported = false;
+                    break;
+            }
+        });
+
+        return isSupported;
     }
 
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
