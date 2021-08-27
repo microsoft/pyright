@@ -21285,7 +21285,7 @@ export function createTypeEvaluator(
                                         srcTypeArgType,
                                         entryDiag.createAddendum(),
                                         curTypeVarMap,
-                                        effectiveFlags,
+                                        flags,
                                         recursionCount + 1
                                     )
                                 ) {

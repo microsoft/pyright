@@ -8,6 +8,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -149,14 +150,31 @@ _T2 = TypeVar("_T2", ClassB, ClassC)
 
 
 @overload
-def func(cls: Type[ClassB], var: int) -> ClassB:
+def func7(cls: Type[ClassB], var: int) -> ClassB:
     ...
 
 
 @overload
-def func(cls: Type[ClassC], var: str) -> ClassC:
+def func7(cls: Type[ClassC], var: str) -> ClassC:
     ...
 
 
-def func(cls: Type[_T2], var: Union[int, str]) -> _T2:
+def func7(cls: Type[_T2], var: Union[int, str]) -> _T2:
     return cls()
+
+
+_T3 = TypeVar("_T3")
+
+
+@overload
+def func8(foo: int) -> int:
+    ...
+
+
+@overload
+def func8(foo: _T3) -> Tuple[_T3]:
+    ...
+
+
+def func8(foo: Union[_T3, int]) -> Union[Tuple[_T3], int]:
+    ...
