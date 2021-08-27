@@ -2867,6 +2867,10 @@ export class Checker extends ParseTreeWalker {
         }
 
         const abstractMethods = this._evaluator.getAbstractMethods(classType);
+        if (abstractMethods.length === 0) {
+            return;
+        }
+
         const diagAddendum = new DiagnosticAddendum();
         const errorsToDisplay = 2;
 
