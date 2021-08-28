@@ -76,7 +76,7 @@ import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
-import { hasTypeForDeclaration, isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
+import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
 import { ImportType } from './importResult';
 import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
