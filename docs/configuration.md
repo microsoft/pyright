@@ -229,7 +229,7 @@ The following is an example of a pyright config file:
 }
 ```
 
-## Sample Pyproject.toml File
+## Sample pyproject.toml File
 ```toml
 [tool.pyright]
 include = ["src"]
