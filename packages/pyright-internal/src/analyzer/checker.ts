@@ -76,7 +76,7 @@ import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
-import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
+import { hasTypeForDeclaration, isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
 import { ImportType } from './importResult';
 import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -3092,6 +3092,12 @@ export class Checker extends ParseTreeWalker {
             // names are mangled, and subclasses can't access the value in
             // the parent class.
             if (SymbolNameUtils.isPrivateName(name)) {
+                return;
+            }
+
+            // If the symbol has no declaration, and the type is inferred,
+            // skip this check.
+            if (!symbol.hasTypedDeclarations()) {
                 return;
             }
 

@@ -3007,8 +3007,27 @@ export function createTypeEvaluator(
         }
 
         const declarations = symbolWithScope.symbol.getDeclarations();
-        const declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol);
+        let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol);
         const fileInfo = getFileInfo(nameNode);
+
+        // If this is a class scope and there is no type declared for this class variable,
+        // see if a parent class has a type declared.
+        if (declaredType === undefined && symbolWithScope.scope.type === ScopeType.Class) {
+            const containingClass = ParseTreeUtils.getEnclosingClass(nameNode);
+            if (containingClass) {
+                const classType = getTypeOfClass(containingClass);
+                if (classType) {
+                    const memberInfo = lookUpClassMember(
+                        classType.classType,
+                        nameNode.value,
+                        ClassMemberLookupFlags.SkipOriginalClass
+                    );
+                    if (memberInfo?.isTypeDeclared) {
+                        declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
+                    }
+                }
+            }
+        }
 
         // We found an existing declared type. Make sure the type is assignable.
         let destType = type;

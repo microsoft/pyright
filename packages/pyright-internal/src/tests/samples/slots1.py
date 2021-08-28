@@ -19,7 +19,7 @@ class NoSlots2:
 class NoSlots3:
     # Only lists and tuples of simple strings are supported, so this
     # will be treated as though there are no slots.
-    __slots__ = ("aaa", 3)
+    __slots__ = ("aaa", f"test{3 + 4}")
 
     def __init__(self):
         self.x = 1

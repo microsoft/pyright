@@ -147,7 +147,7 @@ class ChildClass(ParentClass):
 
     # This should generate an error because we're overriding a
     # method with a variable.
-    my_method15 = 3
+    my_method15: int = 3
 
     # This should generate an error because we're overriding a
     # method with a class.
