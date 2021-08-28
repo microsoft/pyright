@@ -1,7 +1,7 @@
 # This sample tests handling of tuples and tracking
 # of specific types within a tuple.
 
-from typing import Literal, Tuple, TypeVar
+from typing import List, Literal, Optional, Tuple, TypeVar
 
 _T = TypeVar("_T")
 
@@ -49,3 +49,8 @@ t_z: Literal["complex"] = reveal_type(z)
 xx2: complex = objB[0]
 yy2: complex = objB[1]
 zz2: complex = objB[2]
+
+
+def func1(lst: Optional[List[str]]) -> None:
+    for item in lst or ():
+        t1: Literal["str"] = reveal_type(item)

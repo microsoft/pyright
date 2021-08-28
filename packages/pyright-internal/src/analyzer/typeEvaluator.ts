@@ -2066,6 +2066,15 @@ export function createTypeEvaluator(
                 let iterReturnType: Type | undefined;
 
                 if (TypeBase.isInstance(subtype)) {
+                    // Handle an empty tuple specially.
+                    if (
+                        isTupleClass(subtype) &&
+                        subtype.tupleTypeArguments &&
+                        subtype.tupleTypeArguments.length === 0
+                    ) {
+                        return NeverType.create();
+                    }
+
                     iterReturnType = getSpecializedReturnType(subtype, iterMethodName, errorNode);
                 } else if (
                     TypeBase.isInstantiable(subtype) &&
