@@ -19739,6 +19739,10 @@ export function createTypeEvaluator(
                         return strType;
                     }
 
+                    if (declaration.intrinsicType === 'str | None') {
+                        return combineTypes([strType, NoneType.createInstance()]);
+                    }
+
                     if (declaration.intrinsicType === 'int') {
                         return intType;
                     }
