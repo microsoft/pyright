@@ -145,6 +145,10 @@ export class DiagnosticAddendum {
         return this._childAddenda;
     }
 
+    getMessages() {
+        return this._messages;
+    }
+
     private _getMessageCount(recursionCount = 0) {
         if (recursionCount > maxRecursionCount) {
             return 0;

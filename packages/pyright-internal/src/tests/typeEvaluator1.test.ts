@@ -846,6 +846,20 @@ test('Optional1', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('Optional2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Disable diagnostics.
+    configOptions.diagnosticRuleSet.reportOptionalOperand = 'none';
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportOptionalOperand = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Tuples1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples1.py']);
 

@@ -10507,21 +10507,13 @@ export function createTypeEvaluator(
         }
 
         // Optional checks apply to all operations except for boolean operations.
+        let isLeftOptionalType = false;
         if (booleanOperatorMap[node.operator] === undefined) {
-            if (isOptionalType(leftType)) {
-                // Skip the optional error reporting for == and !=, since
-                // None is a valid operand for these operators.
-                if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
-                    addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
-                        DiagnosticRule.reportOptionalOperand,
-                        Localizer.Diagnostic.noneOperator().format({
-                            operator: ParseTreeUtils.printOperator(node.operator),
-                        }),
-                        node.leftExpression
-                    );
-                }
+            // None is a valid operand for == and != even if the type stub says otherwise.
+            if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
                 leftType = removeNoneFromUnion(leftType);
+            } else {
+                isLeftOptionalType = isOptionalType(leftType);
             }
 
             // None is a valid operand for == and != even if the type stub says otherwise.
@@ -10536,16 +10528,32 @@ export function createTypeEvaluator(
         if (!diag.isEmpty() || !type || isNever(type)) {
             if (!isIncomplete) {
                 const fileInfo = getFileInfo(node);
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                        operator: ParseTreeUtils.printOperator(node.operator),
-                        leftType: printType(leftType),
-                        rightType: printType(rightType),
-                    }) + diag.getString(),
-                    node
-                );
+
+                if (isLeftOptionalType && diag.getMessages().length === 1) {
+                    // If the left was an optional type and there is just one diagnostic,
+                    // assume that it was due to a "None" not being supported. Report
+                    // this as a reportOptionalOperand diagnostic rather than a
+                    // reportGeneralTypeIssues diagnostic.
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
+                        DiagnosticRule.reportOptionalOperand,
+                        Localizer.Diagnostic.noneOperator().format({
+                            operator: ParseTreeUtils.printOperator(node.operator),
+                        }),
+                        node.leftExpression
+                    );
+                } else {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                            operator: ParseTreeUtils.printOperator(node.operator),
+                            leftType: printType(leftType),
+                            rightType: printType(rightType),
+                        }) + diag.getString(),
+                        node
+                    );
+                }
             }
 
             type = UnknownType.create();
