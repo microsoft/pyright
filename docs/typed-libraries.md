@@ -13,13 +13,13 @@ These recommendations are intended to provide the following benefits:
 ## Inlined Type Annotations and Type Stubs
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) documents several ways type information can be delivered for a library: inlined type annotations, type stub files included in the package, a separate companion type stub package, and type stubs in the typeshed repository. Some of these options fall short on delivering the benefits above. We therefore provide the following more specific guidance to library authors.
 
->All libraries should include inlined type annotations for the functions, classes, methods, and constants that comprise the public interface for the library.
+*All libraries should include inlined type annotations for the functions, classes, methods, and constants that comprise the public interface for the library.*
 
 Inlined type annotations should be included directly within the source code that ships with the package. Of the options listed in PEP 561, inlined type annotations offer the most benefits. They typically require the least effort to add and maintain, they are always consistent with the implementation, and docstrings and default parameter values are readily available, allowing language servers to enhance the development experience.
 
 There are cases where inlined type annotations are not possible — most notably when a library’s exposed functionality is implemented in a language other than Python.
 
->Libraries that expose symbols implemented in languages other than Python should include stub (“.pyi”) files that describe the types for those symbols. These stubs should also contain docstrings and default parameter values.
+*Libraries that expose symbols implemented in languages other than Python should include stub (“.pyi”) files that describe the types for those symbols. These stubs should also contain docstrings and default parameter values.*
 
 In many existing type stubs (such as those found in typeshed), default parameter values are replaced with with “...” and all docstrings are removed. We recommend that default values and docstrings remain within the type stub file so language servers can display this information to developers.
 
