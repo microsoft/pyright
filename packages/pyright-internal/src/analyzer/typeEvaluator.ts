@@ -4497,8 +4497,8 @@ export function createTypeEvaluator(
 
         if (isCodeFlowSupportedForReference(node)) {
             // Before performing code flow analysis, update the cache to prevent recursion.
-            writeTypeCache(node, memberTypeResult.type, /* isIncomplete */ false);
-            writeTypeCache(node.memberName, memberTypeResult.type, /* isIncomplete */ false);
+            writeTypeCache(node, memberTypeResult.type, /* isIncomplete */ true);
+            writeTypeCache(node.memberName, memberTypeResult.type, /* isIncomplete */ true);
 
             // If the type is initially unbound, see if there's a parent class that
             // potentially initialized the value.
@@ -4568,7 +4568,7 @@ export function createTypeEvaluator(
         let diag = new DiagnosticAddendum();
         const fileInfo = getFileInfo(node);
         let type: Type | undefined;
-        let isIncomplete = false;
+        let isIncomplete = !!baseTypeResult.isIncomplete;
 
         // If the base type was incomplete and unbound, don't proceed
         // because false positive errors will be generated.
@@ -4614,38 +4614,45 @@ export function createTypeEvaluator(
                         const paramNode = ParseTreeUtils.getEnclosingParameter(node);
                         if (!paramNode || paramNode.category !== ParameterCategory.VarArgList) {
                             addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
-                            return { type: UnknownType.create(), node };
+                            return { type: UnknownType.create(), node, isIncomplete };
                         }
-                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'args'), node };
+                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'args'), node, isIncomplete };
                     }
 
                     if (memberName === 'kwargs') {
                         const paramNode = ParseTreeUtils.getEnclosingParameter(node);
                         if (!paramNode || paramNode.category !== ParameterCategory.VarArgDictionary) {
                             addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
-                            return { type: UnknownType.create(), node };
+                            return { type: UnknownType.create(), node, isIncomplete };
                         }
-                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'kwargs'), node };
+                        return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'kwargs'), node, isIncomplete };
                     }
 
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.paramSpecUnknownMember().format({ name: memberName }),
-                        node
-                    );
-                    return { type: UnknownType.create(), node };
+                    if (!isIncomplete) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.paramSpecUnknownMember().format({ name: memberName }),
+                            node
+                        );
+                    }
+                    return { type: UnknownType.create(), node, isIncomplete };
                 }
 
                 if (flags & EvaluatorFlags.ExpectingType) {
-                    addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeVarNoMember().format({ type: printType(baseType), name: memberName }),
-                        node.leftExpression
-                    );
+                    if (!isIncomplete) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeVarNoMember().format({
+                                type: printType(baseType),
+                                name: memberName,
+                            }),
+                            node.leftExpression
+                        );
+                    }
 
-                    return { type: UnknownType.create(), node };
+                    return { type: UnknownType.create(), node, isIncomplete };
                 }
 
                 if (baseType.details.recursiveTypeAliasName) {
@@ -4658,6 +4665,7 @@ export function createTypeEvaluator(
                         type: makeTopLevelTypeVarsConcrete(baseType),
                         node,
                         bindToType: baseType,
+                        isIncomplete,
                     },
                     usage,
                     EvaluatorFlags.None
@@ -4692,10 +4700,11 @@ export function createTypeEvaluator(
                                         type: ClassType.cloneAsInstance(
                                             ClassType.cloneWithLiteral(strClass, literalValue.itemName)
                                         ),
+                                        isIncomplete,
                                     };
                                 }
                             } else if (memberName === 'value' || memberName === '_value_') {
-                                return { node, type: literalValue.itemType };
+                                return { node, type: literalValue.itemType, isIncomplete };
                             }
                         }
                     }
@@ -4767,12 +4776,14 @@ export function createTypeEvaluator(
                     }
 
                     if (!type) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.moduleUnknownMember().format({ name: memberName }),
-                            node.memberName
-                        );
+                        if (!isIncomplete) {
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.moduleUnknownMember().format({ name: memberName }),
+                                node.memberName
+                            );
+                        }
                         type = UnknownType.create();
                     }
                 }
@@ -4790,12 +4801,14 @@ export function createTypeEvaluator(
                             }
                             return type;
                         } else {
-                            addDiagnostic(
-                                getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
-                                DiagnosticRule.reportOptionalMemberAccess,
-                                Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
-                                node.memberName
-                            );
+                            if (!isIncomplete) {
+                                addDiagnostic(
+                                    getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
+                                    DiagnosticRule.reportOptionalMemberAccess,
+                                    Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
+                                    node.memberName
+                                );
+                            }
                             return undefined;
                         }
                     } else if (isUnbound(subtype)) {
