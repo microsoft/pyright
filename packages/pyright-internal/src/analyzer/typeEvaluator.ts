@@ -2101,38 +2101,50 @@ export function createTypeEvaluator(
 
                     diag.addMessage(Localizer.Diagnostic.methodNotDefined().format({ name: iterMethodName }));
                 } else {
-                    const concreteIterReturnType = makeTopLevelTypeVarsConcrete(iterReturnType);
+                    const iterReturnTypeDiag = new DiagnosticAddendum();
 
-                    if (isAnyOrUnknown(concreteIterReturnType)) {
-                        return concreteIterReturnType;
-                    }
-
-                    if (isClassInstance(concreteIterReturnType)) {
-                        const nextReturnType = getSpecializedReturnType(
-                            concreteIterReturnType,
-                            nextMethodName,
-                            errorNode
-                        );
-
-                        if (!nextReturnType) {
-                            diag.addMessage(
-                                Localizer.Diagnostic.methodNotDefinedOnType().format({
-                                    name: nextMethodName,
-                                    type: printType(iterReturnType),
-                                })
-                            );
-                        } else {
-                            if (!isAsync) {
-                                return nextReturnType;
+                    const returnType = mapSubtypesExpandTypeVars(
+                        iterReturnType,
+                        /* conditionFilter */ undefined,
+                        (subtype) => {
+                            if (isAnyOrUnknown(subtype)) {
+                                return subtype;
                             }
 
-                            // If it's an async iteration, there's an implicit
-                            // 'await' operator applied.
-                            return getTypeFromAwaitable(nextReturnType, errorNode);
+                            if (isClassInstance(subtype)) {
+                                const nextReturnType = getSpecializedReturnType(subtype, nextMethodName, errorNode);
+
+                                if (!nextReturnType) {
+                                    iterReturnTypeDiag.addMessage(
+                                        Localizer.Diagnostic.methodNotDefinedOnType().format({
+                                            name: nextMethodName,
+                                            type: printType(subtype!),
+                                        })
+                                    );
+                                } else {
+                                    if (!isAsync) {
+                                        return nextReturnType;
+                                    }
+
+                                    // If it's an async iteration, there's an implicit
+                                    // 'await' operator applied.
+                                    return getTypeFromAwaitable(nextReturnType, errorNode);
+                                }
+                            } else {
+                                iterReturnTypeDiag.addMessage(
+                                    Localizer.Diagnostic.methodReturnsNonObject().format({ name: iterMethodName })
+                                );
+                            }
+
+                            return undefined;
                         }
-                    } else {
-                        diag.addMessage(Localizer.Diagnostic.methodReturnsNonObject().format({ name: iterMethodName }));
+                    );
+
+                    if (iterReturnTypeDiag.isEmpty()) {
+                        return returnType;
                     }
+
+                    diag.addAddendum(iterReturnTypeDiag);
                 }
             }
 
