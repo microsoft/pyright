@@ -71,6 +71,14 @@ export interface FlowLabel extends FlowNode {
     antecedents: FlowNode[];
 }
 
+export interface FlowLoopLabel extends FlowLabel {
+    // Set of all expressions that require code flow analysis
+    // through the loop to determine their types. If an expression
+    // is not within this map, loop analysis can be skipped and
+    // determined from the first antecedent only.
+    expressions: Set<string> | undefined;
+}
+
 // FlowAssignment represents a node that assigns a value.
 export interface FlowAssignment extends FlowNode {
     node: CodeFlowReferenceExpressionNode;

@@ -90,6 +90,7 @@ import {
     FlowExhaustedMatch,
     FlowFlags,
     FlowLabel,
+    FlowLoopLabel,
     FlowNarrowForPattern,
     FlowNode,
     FlowPostContextManagerLabel,
@@ -2314,10 +2315,11 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _createLoopLabel() {
-        const flowNode: FlowLabel = {
+        const flowNode: FlowLoopLabel = {
             flags: FlowFlags.LoopLabel,
             id: getUniqueFlowNodeId(),
             antecedents: [],
+            expressions: undefined,
         };
         return flowNode;
     }
@@ -2889,14 +2891,25 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _bindLoopStatement(preLoopLabel: FlowLabel, postLoopLabel: FlowLabel, callback: () => void) {
+    private _bindLoopStatement(preLoopLabel: FlowLoopLabel, postLoopLabel: FlowLabel, callback: () => void) {
         const savedContinueTarget = this._currentContinueTarget;
         const savedBreakTarget = this._currentBreakTarget;
+        const savedExpressions = this._currentScopeCodeFlowExpressions;
         this._currentContinueTarget = preLoopLabel;
         this._currentBreakTarget = postLoopLabel;
+        this._currentScopeCodeFlowExpressions = new Set<string>();
 
         callback();
 
+        preLoopLabel.expressions = this._currentScopeCodeFlowExpressions;
+
+        if (savedExpressions) {
+            this._currentScopeCodeFlowExpressions.forEach((value) => {
+                savedExpressions.add(value);
+            });
+        }
+
+        this._currentScopeCodeFlowExpressions = savedExpressions;
         this._currentContinueTarget = savedContinueTarget;
         this._currentBreakTarget = savedBreakTarget;
     }

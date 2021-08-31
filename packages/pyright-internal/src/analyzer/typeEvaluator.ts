@@ -93,6 +93,7 @@ import {
     FlowExhaustedMatch,
     FlowFlags,
     FlowLabel,
+    FlowLoopLabel,
     FlowNarrowForPattern,
     FlowNode,
     FlowPostContextManagerLabel,
@@ -17576,7 +17577,18 @@ export function createTypeEvaluator(
                     }
 
                     if (curFlowNode.flags & FlowFlags.LoopLabel) {
-                        const loopNode = curFlowNode as FlowLabel;
+                        const loopNode = curFlowNode as FlowLoopLabel;
+
+                        // Is the current symbol modified in any way within the
+                        // loop? If not, we can skip all processing within the loop
+                        // and assume that the type comes from the first antecedent,
+                        // which feeds the loop.
+                        if (referenceKey) {
+                            if (!loopNode.expressions || !loopNode.expressions.has(referenceKey)) {
+                                curFlowNode = loopNode.antecedents[0];
+                                continue;
+                            }
+                        }
 
                         let firstWasIncomplete = false;
                         let isFirstTimeInLoop = false;
