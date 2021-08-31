@@ -8,6 +8,7 @@
  */
 
 import * as assert from 'assert';
+import * as JSONC from 'jsonc-parser';
 import Char from 'typescript-char';
 import {
     CancellationToken,
@@ -134,7 +135,7 @@ export class TestState {
             // if one of file is configuration file, set config options from the given json
             if (this._isConfig(file, ignoreCase)) {
                 try {
-                    this.rawConfigJson = JSON.parse(file.content);
+                    this.rawConfigJson = JSONC.parse(file.content);
                 } catch (e: any) {
                     throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }

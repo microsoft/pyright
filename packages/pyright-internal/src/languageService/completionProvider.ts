@@ -72,11 +72,12 @@ import {
     isProperty,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { ConfigOptions } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
+import { PythonVersion } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -108,46 +109,58 @@ import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
 import { getAutoImportText, getFunctionDocStringFromType, getOverloadedFunctionTooltip } from './tooltipUtils';
 
-const _keywords: string[] = [
-    // Expression keywords
-    'True',
-    'False',
-    'None',
-    'and',
-    'or',
-    'await',
-    'not',
-    'is',
-    'lambda',
-    'yield',
+namespace Keywords {
+    const base: string[] = [
+        // Expression keywords
+        'True',
+        'False',
+        'None',
+        'and',
+        'or',
+        'not',
+        'is',
+        'lambda',
+        'yield',
 
-    // Statement keywords
-    'assert',
-    'async',
-    'break',
-    'case',
-    'class',
-    'continue',
-    'def',
-    'del',
-    'elif',
-    'else',
-    'except',
-    'finally',
-    'for',
-    'from',
-    'global',
-    'if',
-    'import',
-    'in',
-    'match',
-    'nonlocal',
-    'pass',
-    'raise',
-    'return',
-    'try',
-    'while',
-];
+        // Statement keywords
+        'assert',
+        'break',
+        'class',
+        'continue',
+        'def',
+        'del',
+        'elif',
+        'else',
+        'except',
+        'finally',
+        'for',
+        'from',
+        'global',
+        'if',
+        'import',
+        'in',
+        'nonlocal',
+        'pass',
+        'raise',
+        'return',
+        'try',
+        'while',
+    ];
+
+    const python3_5: string[] = [...base, 'async', 'await'];
+
+    const python3_10: string[] = [...python3_5, 'case', 'match'];
+
+    export function forVersion(version: PythonVersion): string[] {
+        if (version >= PythonVersion.V3_10) {
+            return python3_10;
+        }
+        if (version >= PythonVersion.V3_5) {
+            return python3_5;
+        }
+        return base;
+    }
+}
 
 enum SortCategory {
     // The order of the following is important. We use
@@ -300,6 +313,8 @@ export class CompletionProvider {
     // original completion algorithm and look for this symbol.
     private _itemToResolve: CompletionItem | undefined;
 
+    private _execEnv: ExecutionEnvironment;
+
     constructor(
         private _workspacePath: string,
         private _parseResults: ParseResults,
@@ -314,7 +329,9 @@ export class CompletionProvider {
         private _sourceMapper: SourceMapper,
         private _autoImportMaps: AutoImportMaps | undefined,
         private _cancellationToken: CancellationToken
-    ) {}
+    ) {
+        this._execEnv = this._configOptions.findExecEnvironment(this._filePath);
+    }
 
     getCompletionsForPosition(): CompletionResults | undefined {
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
@@ -1192,7 +1209,7 @@ export class CompletionProvider {
         this._addSymbols(parseNode, priorWord, completionList);
 
         // Add keywords.
-        this._findMatchingKeywords(_keywords, priorWord).map((keyword) => {
+        this._findMatchingKeywords(Keywords.forVersion(this._execEnv.pythonVersion), priorWord).map((keyword) => {
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
             completionList.items.push(completionItem);
@@ -1718,7 +1735,7 @@ export class CompletionProvider {
         const moduleSymbolMap = this._autoImportMaps.getModuleSymbolsMap();
         const excludes = new Set(completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label));
         const autoImporter = new AutoImporter(
-            this._configOptions.findExecEnvironment(this._filePath),
+            this._execEnv,
             this._importResolver,
             this._parseResults,
             this._position,
@@ -2411,7 +2428,6 @@ export class CompletionProvider {
     }
 
     private _getImportModuleCompletions(node: ModuleNameNode): CompletionResults {
-        const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
         const moduleDescriptor: ImportedModuleDescriptor = {
             leadingDots: node.leadingDots,
             hasTrailingDot: node.hasTrailingDot || false,
@@ -2421,7 +2437,7 @@ export class CompletionProvider {
 
         const completions = this._importResolver.getCompletionSuggestions(
             this._filePath,
-            execEnvironment,
+            this._execEnv,
             moduleDescriptor,
             similarityLimit
         );

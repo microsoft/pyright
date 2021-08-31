@@ -1139,6 +1139,7 @@ export class Program {
                 if (diagnostics !== undefined) {
                     fileDiagnostics.push({
                         filePath: sourceFileInfo.sourceFile.getFilePath(),
+                        version: sourceFileInfo.sourceFile.getClientVersion(),
                         diagnostics,
                     });
 
@@ -1155,6 +1156,7 @@ export class Program {
                 // "open files only" mode. Clear all diagnostics for this file.
                 fileDiagnostics.push({
                     filePath: sourceFileInfo.sourceFile.getFilePath(),
+                    version: sourceFileInfo.sourceFile.getClientVersion(),
                     diagnostics: [],
                 });
                 sourceFileInfo.diagnosticsVersion = undefined;
@@ -1850,6 +1852,7 @@ export class Program {
             if (!this._isFileNeeded(fileInfo)) {
                 fileDiagnostics.push({
                     filePath: fileInfo.sourceFile.getFilePath(),
+                    version: fileInfo.sourceFile.getClientVersion(),
                     diagnostics: [],
                 });
 
@@ -1871,6 +1874,7 @@ export class Program {
                         if (indexToRemove >= 0 && indexToRemove < i) {
                             fileDiagnostics.push({
                                 filePath: importedFile.sourceFile.getFilePath(),
+                                version: importedFile.sourceFile.getClientVersion(),
                                 diagnostics: [],
                             });
 
@@ -1892,6 +1896,7 @@ export class Program {
                 if (!this._shouldCheckFile(fileInfo) && fileInfo.diagnosticsVersion !== undefined) {
                     fileDiagnostics.push({
                         filePath: fileInfo.sourceFile.getFilePath(),
+                        version: fileInfo.sourceFile.getClientVersion(),
                         diagnostics: [],
                     });
                     fileInfo.diagnosticsVersion = undefined;

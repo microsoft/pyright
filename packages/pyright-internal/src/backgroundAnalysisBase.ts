@@ -511,6 +511,7 @@ function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
     result.diagnostics = result.diagnostics.map((f: FileDiagnostics) => {
         return {
             filePath: f.filePath,
+            version: f.version,
             diagnostics: convertDiagnostics(f.diagnostics),
         };
     });

@@ -17,6 +17,7 @@ import { TextRangeCollection } from './textRangeCollection';
 // Represents a collection of diagnostics within a file.
 export interface FileDiagnostics {
     filePath: string;
+    version: number | undefined;
     diagnostics: Diagnostic[];
 }
 
