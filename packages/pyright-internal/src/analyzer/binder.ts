@@ -127,7 +127,7 @@ interface MemberAccessInfo {
 
 interface DeferredBindingTask {
     scope: Scope;
-    codeFlowExpressionMap: Map<string, string>;
+    codeFlowExpressions: Set<string>;
     callback: () => void;
 }
 
@@ -172,9 +172,9 @@ export class Binder extends ParseTreeWalker {
     // Flow nodes used for return statements.
     private _currentReturnTarget: FlowLabel | undefined;
 
-    // Map of symbols within the current execution scope
+    // Set of expressions within the current execution scope
     // and require code flow analysis to resolve.
-    private _currentExecutionScopeReferenceMap: Map<string, string> | undefined;
+    private _currentScopeCodeFlowExpressions: Set<string> | undefined;
 
     // Aliases of "typing" and "typing_extensions".
     private _typingImportAliases: string[] = [];
@@ -239,7 +239,7 @@ export class Binder extends ParseTreeWalker {
 
                 this._walkStatementsAndReportUnreachable(node.statements);
 
-                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
+                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
 
                 // Associate the code flow node at the end of the module with the module.
                 AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
@@ -516,7 +516,7 @@ export class Binder extends ParseTreeWalker {
                 AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
             });
 
-            AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
+            AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
         });
 
         this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ false, /* unbound */ false);
@@ -569,7 +569,7 @@ export class Binder extends ParseTreeWalker {
                 // Walk the expression that make up the lambda body.
                 this.walk(node.expression);
 
-                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
+                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
             });
         });
 
@@ -940,7 +940,7 @@ export class Binder extends ParseTreeWalker {
         if (this._isNarrowingExpression(node.valueExpression, expressionList)) {
             expressionList.forEach((expr) => {
                 const referenceKey = createKeyForReference(expr);
-                this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
+                this._currentScopeCodeFlowExpressions!.add(referenceKey);
             });
         }
 
@@ -1890,7 +1890,7 @@ export class Binder extends ParseTreeWalker {
         if (isSubjectNarrowable) {
             expressionList.forEach((expr) => {
                 const referenceKey = createKeyForReference(expr);
-                this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
+                this._currentScopeCodeFlowExpressions!.add(referenceKey);
             });
         }
 
@@ -2459,7 +2459,7 @@ export class Binder extends ParseTreeWalker {
 
         expressionList.forEach((expr) => {
             const referenceKey = createKeyForReference(expr);
-            this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
+            this._currentScopeCodeFlowExpressions!.add(referenceKey);
         });
 
         // Select the first name expression.
@@ -2819,7 +2819,7 @@ export class Binder extends ParseTreeWalker {
             };
 
             const referenceKey = createKeyForReference(node);
-            this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
+            this._currentScopeCodeFlowExpressions!.add(referenceKey);
 
             if (unbound) {
                 flowNode.flags |= FlowFlags.Unbind;
@@ -3045,15 +3045,15 @@ export class Binder extends ParseTreeWalker {
         // If this scope is an execution scope, allocate a new reference map.
         const isExecutionScope =
             scopeType === ScopeType.Builtin || scopeType === ScopeType.Module || scopeType === ScopeType.Function;
-        const prevReferenceMap = this._currentExecutionScopeReferenceMap;
+        const prevExpressions = this._currentScopeCodeFlowExpressions;
 
         if (isExecutionScope) {
-            this._currentExecutionScopeReferenceMap = new Map<string, string>();
+            this._currentScopeCodeFlowExpressions = new Set<string>();
         }
 
         callback();
 
-        this._currentExecutionScopeReferenceMap = prevReferenceMap;
+        this._currentScopeCodeFlowExpressions = prevExpressions;
         this._currentScope = prevScope;
 
         return newScope;
@@ -3645,7 +3645,7 @@ export class Binder extends ParseTreeWalker {
 
         this._deferredBindingTasks.push({
             scope: this._currentScope,
-            codeFlowExpressionMap: this._currentExecutionScopeReferenceMap!,
+            codeFlowExpressions: this._currentScopeCodeFlowExpressions!,
             callback,
         });
     }
@@ -3656,7 +3656,7 @@ export class Binder extends ParseTreeWalker {
 
             // Reset the state
             this._currentScope = nextItem.scope;
-            this._currentExecutionScopeReferenceMap = nextItem.codeFlowExpressionMap;
+            this._currentScopeCodeFlowExpressions = nextItem.codeFlowExpressions;
 
             nextItem.callback();
         }

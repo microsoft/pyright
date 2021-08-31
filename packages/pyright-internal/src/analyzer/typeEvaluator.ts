@@ -17172,7 +17172,7 @@ export function createTypeEvaluator(
         const executionScope = ParseTreeUtils.getExecutionScopeNode(reference);
         const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionScope);
 
-        if (!codeFlowExpressions || !codeFlowExpressions!.has(referenceKey)) {
+        if (!codeFlowExpressions || !codeFlowExpressions.has(referenceKey)) {
             return { type: undefined, usedOuterScopeAlias: false, isIncomplete: false };
         }
 
@@ -17248,14 +17248,15 @@ export function createTypeEvaluator(
             initialType: Type | undefined,
             isInitialTypeIncomplete: boolean
         ): FlowNodeTypeResult {
-            const referenceKey =
-                reference !== undefined && targetSymbolId !== undefined
-                    ? createKeyForReference(reference) + `.${targetSymbolId.toString()}`
+            const referenceKey = reference !== undefined ? createKeyForReference(reference) : undefined;
+            const referenceKeyWithSymbolId =
+                referenceKey !== undefined && targetSymbolId !== undefined
+                    ? referenceKey + `.${targetSymbolId.toString()}`
                     : '.';
-            let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKey);
+            let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKeyWithSymbolId);
             if (!flowNodeTypeCache) {
                 flowNodeTypeCache = new Map<number, CachedType | undefined>();
-                flowNodeTypeCacheSet.set(referenceKey, flowNodeTypeCache);
+                flowNodeTypeCacheSet.set(referenceKeyWithSymbolId, flowNodeTypeCache);
             }
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
@@ -17575,7 +17576,7 @@ export function createTypeEvaluator(
                     }
 
                     if (curFlowNode.flags & FlowFlags.LoopLabel) {
-                        const labelNode = curFlowNode as FlowLabel;
+                        const loopNode = curFlowNode as FlowLabel;
 
                         let firstWasIncomplete = false;
                         let isFirstTimeInLoop = false;
@@ -17594,7 +17595,7 @@ export function createTypeEvaluator(
                             );
                         }
 
-                        labelNode.antecedents.forEach((antecedent, index) => {
+                        loopNode.antecedents.forEach((antecedent, index) => {
                             // Have we already been here? If so, there will be an entry
                             // for this index, and we can use the type that was already
                             // computed.
