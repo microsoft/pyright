@@ -3035,7 +3035,7 @@ export function createTypeEvaluator(
                         ClassMemberLookupFlags.SkipOriginalClass
                     );
                     if (memberInfo?.isTypeDeclared) {
-                        declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
+                        declaredType = getTypeOfMember(memberInfo);
                     }
                 }
             }
