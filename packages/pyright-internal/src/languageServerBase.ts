@@ -1063,6 +1063,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             this._connection.sendDiagnostics({
                 uri: convertPathToUri(this.fs, fileDiag.filePath),
+                version: fileDiag.version,
                 diagnostics: this._convertDiagnostics(fileDiag.diagnostics),
             });
 
