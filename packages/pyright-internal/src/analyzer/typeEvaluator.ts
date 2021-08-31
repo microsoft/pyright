@@ -16917,7 +16917,10 @@ export function createTypeEvaluator(
                 })?.type;
             }
 
-            if (decl.type === DeclarationType.Alias) {
+            // If it is a symbol from an outer scope or an alias, it is safe to
+            // infer its type.
+            const scopeOfNode = ScopeUtils.getScopeForNode(node);
+            if (decl.type === DeclarationType.Alias || symbolWithScope.scope !== scopeOfNode) {
                 return getInferredTypeOfDeclaration(decl);
             }
 
