@@ -1,3 +1,4 @@
-version = "0.1"
+version = "3.0"
+obsolete_since = "4.0.2"
 python2 = true
 requires = ["types-maxminddb"]

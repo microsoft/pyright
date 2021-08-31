@@ -3,7 +3,6 @@
 # pyright: reportMissingModuleSource=false
 
 from typing import Any
-import mock
 
 test = 3
 hello = 3
@@ -17,8 +16,6 @@ __all__.append("foo")
 __all__.extend(["foo"])
 __all__.remove("foo")
 __all__ += ["bar"]
-__all__ += mock.__all__
-__all__.extend(mock.__all__)
 
 
 my_string = "foo"
@@ -32,6 +29,4 @@ __all__.append(my_string)
 __all__.extend([my_string])
 __all__.remove(my_string)
 __all__ += [my_string]
-__all__ += mock.AsyncMock
-__all__.extend(mock.AsyncMock)
 __all__.something()

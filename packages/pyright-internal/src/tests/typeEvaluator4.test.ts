@@ -178,12 +178,12 @@ test('DunderAll1', () => {
 
     // By default, reportUnsupportedDunderAll is a warning.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 9);
+    TestUtils.validateResults(analysisResults, 0, 7);
 
     // Turn on error.
     configOptions.diagnosticRuleSet.reportUnsupportedDunderAll = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9, 0);
+    TestUtils.validateResults(analysisResults, 7, 0);
 
     // Turn off diagnostic.
     configOptions.diagnosticRuleSet.reportUnsupportedDunderAll = 'none';

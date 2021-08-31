@@ -1,8 +1,9 @@
 import io
 import sys
 from _typeshed import Self, StrPath
+from os import PathLike
 from types import TracebackType
-from typing import IO, Callable, Iterable, Iterator, Protocol, Sequence, Tuple, Type, overload
+from typing import IO, Any, Callable, Iterable, Iterator, Protocol, Sequence, Tuple, Type, overload
 from typing_extensions import Literal
 
 _DateTuple = Tuple[int, int, int, int, int, int]
@@ -212,9 +213,12 @@ if sys.version_info >= (3, 8):
         def name(self) -> str: ...
         @property
         def parent(self) -> Path: ...  # undocumented
+        if sys.version_info >= (3, 10):
+            @property
+            def filename(self) -> PathLike[str]: ...
         def __init__(self, root: ZipFile | StrPath | IO[bytes], at: str = ...) -> None: ...
         if sys.version_info >= (3, 9):
-            def open(self, mode: str = ..., pwd: bytes | None = ..., *, force_zip64: bool = ...) -> IO[bytes]: ...
+            def open(self, mode: str = ..., *args: Any, pwd: bytes | None = ..., **kwargs: Any) -> IO[bytes]: ...
         else:
             @property
             def open(self) -> _PathOpenProtocol: ...

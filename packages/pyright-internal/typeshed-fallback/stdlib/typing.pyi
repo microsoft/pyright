@@ -2,7 +2,7 @@ import collections  # Needed by aliases like DefaultDict, see mypy issue 2986
 import sys
 from abc import ABCMeta, abstractmethod
 from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, MethodType, ModuleType, TracebackType
-from typing_extensions import Literal as _Literal
+from typing_extensions import Literal as _Literal, ParamSpec as _ParamSpec
 
 if sys.version_info >= (3, 7):
     from types import MethodDescriptorType, MethodWrapperType, WrapperDescriptorType
@@ -36,6 +36,8 @@ class _SpecialForm:
     def __getitem__(self, typeargs: Any) -> object: ...
 
 _F = TypeVar("_F", bound=Callable[..., Any])
+_P = _ParamSpec("_P")
+_T = TypeVar("_T")
 
 def overload(func: _F) -> _F: ...
 
@@ -50,7 +52,7 @@ Type: _SpecialForm = ...
 ClassVar: _SpecialForm = ...
 if sys.version_info >= (3, 8):
     Final: _SpecialForm = ...
-    def final(f: _F) -> _F: ...
+    def final(f: _T) -> _T: ...
     Literal: _SpecialForm = ...
     # TypedDict is a (non-subscriptable) special form.
     TypedDict: object
@@ -87,7 +89,6 @@ if sys.version_info >= (3, 10):
 NoReturn = Union[None]
 
 # These type variables are used by the container types.
-_T = TypeVar("_T")
 _S = TypeVar("_S")
 _KT = TypeVar("_KT")  # Key type.
 _VT = TypeVar("_VT")  # Value type.
@@ -99,7 +100,7 @@ _T_contra = TypeVar("_T_contra", contravariant=True)  # Ditto contravariant.
 _TC = TypeVar("_TC", bound=Type[object])
 
 def no_type_check(arg: _F) -> _F: ...
-def no_type_check_decorator(decorator: _F) -> _F: ...
+def no_type_check_decorator(decorator: Callable[_P, _T]) -> Callable[_P, _T]: ...  # type: ignore
 
 # Type aliases and type constructors
 
