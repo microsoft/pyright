@@ -524,6 +524,7 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
 // allowed.
 const nonSubscriptableBuiltinTypes: Map<string, PythonVersion> = new Map([
     ['asyncio.futures.Future', PythonVersion.V3_9],
+    ['asyncio.tasks.Task', PythonVersion.V3_9],
     ['builtins.dict', PythonVersion.V3_9],
     ['builtins.frozenset', PythonVersion.V3_9],
     ['builtins.list', PythonVersion.V3_9],
@@ -5469,9 +5470,17 @@ export function createTypeEvaluator(
         // Check for builtin classes that will generate runtime exceptions if subscripted.
         if ((flags & EvaluatorFlags.AllowForwardReferences) === 0) {
             // We can skip this check if the class is used within a PEP 526 variable
-            // type annotation. For some reason, they don't result in runtime exceptions
-            // when used in this manner.
-            if ((flags & EvaluatorFlags.VariableTypeAnnotation) === 0) {
+            // type annotation within a class or function. For some undocumented reason,
+            // they don't result in runtime exceptions when used in this manner.
+            let skipSubscriptCheck = (flags & EvaluatorFlags.VariableTypeAnnotation) !== 0;
+            if (skipSubscriptCheck) {
+                const scopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+                if (scopeNode?.nodeType === ParseNodeType.Module) {
+                    skipSubscriptCheck = false;
+                }
+            }
+
+            if (!skipSubscriptCheck) {
                 const fileInfo = getFileInfo(node);
                 if (
                     isInstantiableClass(baseTypeResult.type) &&

@@ -204,6 +204,7 @@ export class SourceFile {
             if (
                 this._filePath.endsWith(normalizeSlashes('stdlib/collections/__init__.pyi')) ||
                 this._filePath.endsWith(normalizeSlashes('stdlib/asyncio/futures.pyi')) ||
+                this._filePath.endsWith(normalizeSlashes('stdlib/asyncio/tasks.pyi')) ||
                 this._filePath.endsWith(normalizeSlashes('stdlib/builtins.pyi')) ||
                 this._filePath.endsWith(normalizeSlashes('stdlib/_importlib_modulespec.pyi')) ||
                 this._filePath.endsWith(normalizeSlashes('stdlib/dataclasses.pyi')) ||
