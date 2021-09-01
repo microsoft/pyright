@@ -2438,8 +2438,7 @@ export class CompletionProvider {
         const completions = this._importResolver.getCompletionSuggestions(
             this._filePath,
             this._execEnv,
-            moduleDescriptor,
-            similarityLimit
+            moduleDescriptor
         );
 
         const completionList = CompletionList.create();
