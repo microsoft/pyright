@@ -1,0 +1,29 @@
+/// <reference path="fourslash.ts" />
+
+// @filename: test.py
+//// from submodule.[|/*marker1*/|]
+
+// @filename: pyrightconfig.json
+//// {
+////   "extraPaths": ["submodule"]
+//// }
+
+// @filename: submodule/submodule/__init__.py
+////
+
+// @filename: submodule/submodule/submodule1.py
+//// def test_function():
+////     pass
+
+// @filename: submodule/setup.py
+////
+
+// @ts-ignore
+await helper.verifyCompletion('included', 'markdown', {
+    marker1: {
+        completions: [
+            { label: 'setup', kind: Consts.CompletionItemKind.Module },
+            { label: 'submodule1', kind: Consts.CompletionItemKind.Module },
+        ],
+    },
+});

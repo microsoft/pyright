@@ -110,6 +110,18 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
     ): ImportResult {
+        // wrap internal call to _resolveImport() to prevent calling any
+        // child class version of resolveImport()
+        return this._resolveImport(sourceFilePath, execEnv, moduleDescriptor);
+    }
+
+    // Resolves the import and returns the path if it exists, otherwise
+    // returns undefined.
+    protected _resolveImport(
+        sourceFilePath: string,
+        execEnv: ExecutionEnvironment,
+        moduleDescriptor: ImportedModuleDescriptor
+    ): ImportResult {
         const importName = this.formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
 
@@ -182,51 +194,51 @@ export class ImportResolver {
     getCompletionSuggestions(
         sourceFilePath: string,
         execEnv: ExecutionEnvironment,
-        moduleDescriptor: ImportedModuleDescriptor,
-        similarityLimit: number
+        moduleDescriptor: ImportedModuleDescriptor
     ): Set<string> {
         const importFailureInfo: string[] = [];
         const suggestions = new Set<string>();
 
         // Is it a relative import?
         if (moduleDescriptor.leadingDots > 0) {
-            this._getCompletionSuggestionsRelative(sourceFilePath, moduleDescriptor, suggestions, similarityLimit);
+            this._getCompletionSuggestionsRelative(sourceFilePath, moduleDescriptor, suggestions);
         } else {
             // First check for a typeshed file.
             if (moduleDescriptor.nameParts.length > 0) {
-                this._getCompletionSuggestionsTypeshedPath(
-                    execEnv,
-                    moduleDescriptor,
-                    true,
-                    suggestions,
-                    similarityLimit
-                );
+                this._getCompletionSuggestionsTypeshedPath(execEnv, moduleDescriptor, true, suggestions);
             }
 
             // Look for it in the root directory of the execution environment.
-            this.getCompletionSuggestionsAbsolute(execEnv.root, moduleDescriptor, suggestions, similarityLimit);
+            this.getCompletionSuggestionsAbsolute(execEnv.root, moduleDescriptor, suggestions, sourceFilePath, execEnv);
 
             for (const extraPath of execEnv.extraPaths) {
-                this.getCompletionSuggestionsAbsolute(extraPath, moduleDescriptor, suggestions, similarityLimit);
+                this.getCompletionSuggestionsAbsolute(
+                    extraPath,
+                    moduleDescriptor,
+                    suggestions,
+                    sourceFilePath,
+                    execEnv
+                );
             }
 
             // Check for a typings file.
             if (this._configOptions.stubPath) {
-                this.getCompletionSuggestionsAbsolute(
-                    this._configOptions.stubPath,
-                    moduleDescriptor,
-                    suggestions,
-                    similarityLimit
-                );
+                this.getCompletionSuggestionsAbsolute(this._configOptions.stubPath, moduleDescriptor, suggestions);
             }
 
             // Check for a typeshed file.
-            this._getCompletionSuggestionsTypeshedPath(execEnv, moduleDescriptor, false, suggestions, similarityLimit);
+            this._getCompletionSuggestionsTypeshedPath(execEnv, moduleDescriptor, false, suggestions);
 
             // Look for the import in the list of third-party packages.
             const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
             for (const searchPath of pythonSearchPaths) {
-                this.getCompletionSuggestionsAbsolute(searchPath, moduleDescriptor, suggestions, similarityLimit);
+                this.getCompletionSuggestionsAbsolute(
+                    searchPath,
+                    moduleDescriptor,
+                    suggestions,
+                    sourceFilePath,
+                    execEnv
+                );
             }
         }
 
@@ -1343,8 +1355,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
         isStdLib: boolean,
-        suggestions: Set<string>,
-        similarityLimit: number
+        suggestions: Set<string>
     ) {
         const importFailureInfo: string[] = [];
 
@@ -1364,7 +1375,7 @@ export class ImportResolver {
 
         typeshedPaths.forEach((typeshedPath) => {
             if (this.dirExistsCached(typeshedPath)) {
-                this.getCompletionSuggestionsAbsolute(typeshedPath, moduleDescriptor, suggestions, similarityLimit);
+                this.getCompletionSuggestionsAbsolute(typeshedPath, moduleDescriptor, suggestions);
             }
         });
     }
@@ -1604,8 +1615,7 @@ export class ImportResolver {
     private _getCompletionSuggestionsRelative(
         sourceFilePath: string,
         moduleDescriptor: ImportedModuleDescriptor,
-        suggestions: Set<string>,
-        similarityLimit: number
+        suggestions: Set<string>
     ) {
         // Determine which search path this file is part of.
         let curDir = getDirectoryPath(sourceFilePath);
@@ -1617,7 +1627,7 @@ export class ImportResolver {
         }
 
         // Now try to match the module parts from the current directory location.
-        this.getCompletionSuggestionsAbsolute(curDir, moduleDescriptor, suggestions, similarityLimit);
+        this.getCompletionSuggestionsAbsolute(curDir, moduleDescriptor, suggestions);
     }
 
     private _getFilesInDirectory(dirPath: string): string[] {
@@ -1639,7 +1649,8 @@ export class ImportResolver {
         rootPath: string,
         moduleDescriptor: ImportedModuleDescriptor,
         suggestions: Set<string>,
-        similarityLimit: number
+        sourceFilePath?: string,
+        execEnv?: ExecutionEnvironment
     ) {
         // Starting at the specified path, walk the file system to find the
         // specified module.
@@ -1652,16 +1663,25 @@ export class ImportResolver {
             nameParts.push('');
         }
 
+        const parentNameParts = nameParts.slice(0, -1);
+
         // Handle the case where the user has typed the first
         // dot (or multiple) in a relative path.
         if (nameParts.length === 0) {
-            this._addFilteredSuggestions(dirPath, '', suggestions, similarityLimit);
+            this._addFilteredSuggestionsAbsolute(dirPath, '', suggestions, parentNameParts, sourceFilePath, execEnv);
         } else {
             for (let i = 0; i < nameParts.length; i++) {
                 // Provide completions only if we're on the last part
                 // of the name.
                 if (i === nameParts.length - 1) {
-                    this._addFilteredSuggestions(dirPath, nameParts[i], suggestions, similarityLimit);
+                    this._addFilteredSuggestionsAbsolute(
+                        dirPath,
+                        nameParts[i],
+                        suggestions,
+                        parentNameParts,
+                        sourceFilePath,
+                        execEnv
+                    );
                 }
 
                 dirPath = combinePaths(dirPath, nameParts[i]);
@@ -1672,11 +1692,13 @@ export class ImportResolver {
         }
     }
 
-    private _addFilteredSuggestions(
+    private _addFilteredSuggestionsAbsolute(
         dirPath: string,
         filter: string,
         suggestions: Set<string>,
-        similarityLimit: number
+        parentNameParts: string[],
+        sourceFilePath?: string,
+        execEnv?: ExecutionEnvironment
     ) {
         // Enumerate all of the files and directories in the path, expanding links.
         const entries = getFileSystemEntriesFromDirEntries(
@@ -1694,35 +1716,62 @@ export class ImportResolver {
             if (supportedFileExtensions.some((ext) => ext === fileExtension)) {
                 if (fileWithoutExtension !== '__init__') {
                     if (!filter || StringUtils.isPatternInSymbol(filter, fileWithoutExtension)) {
-                        this._addUniqueSuggestion(fileWithoutExtension, suggestions);
+                        if (this._isUniqueValidSuggestion(fileWithoutExtension, suggestions)) {
+                            suggestions.add(fileWithoutExtension);
+                        }
                     }
                 }
             }
         });
 
         entries.directories.forEach((dir) => {
-            if (!filter || dir.startsWith(filter)) {
-                this._addUniqueSuggestion(dir, suggestions);
+            if (
+                (!filter || dir.startsWith(filter)) &&
+                this._isUniqueValidSuggestion(dir, suggestions) &&
+                this._isResolvableSuggestion(dir, parentNameParts, sourceFilePath, execEnv)
+            ) {
+                suggestions.add(dir);
             }
         });
     }
 
-    private _addUniqueSuggestion(suggestionToAdd: string, suggestions: Set<string>) {
+    // Fix for editable installed submodules where the suggested directory was a namespace directory that wouldn't resolve.
+    // only used for absolute imports
+    private _isResolvableSuggestion(
+        dir: string,
+        parentNameParts: string[],
+        sourceFilePath?: string,
+        execEnv?: ExecutionEnvironment
+    ) {
+        if (sourceFilePath && execEnv) {
+            const result = this._resolveImport(sourceFilePath, execEnv, {
+                leadingDots: 0,
+                nameParts: [...parentNameParts, dir],
+                importedSymbols: [],
+            });
+
+            return result.isImportFound;
+        }
+
+        return false;
+    }
+
+    private _isUniqueValidSuggestion(suggestionToAdd: string, suggestions: Set<string>) {
         if (suggestions.has(suggestionToAdd)) {
-            return;
+            return false;
         }
 
         // Don't add directories with illegal module names.
         if (/[.-]/.test(suggestionToAdd)) {
-            return;
+            return false;
         }
 
         // Don't add directories with dunder names like "__pycache__".
         if (isDunderName(suggestionToAdd) && suggestionToAdd !== '__future__') {
-            return;
+            return false;
         }
 
-        suggestions.add(suggestionToAdd);
+        return true;
     }
 
     // Potentially modifies the ImportResult by removing some or all of the
