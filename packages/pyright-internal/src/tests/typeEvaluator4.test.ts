@@ -107,6 +107,11 @@ test('AssignmentExpr8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('AssignmentExpr9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr9.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Import1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import1.py']);
     TestUtils.validateResults(analysisResults, 0);

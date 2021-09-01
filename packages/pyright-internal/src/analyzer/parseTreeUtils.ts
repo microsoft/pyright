@@ -616,10 +616,12 @@ export function getEvaluationNodeForAssignmentExpression(
 
             case ParseNodeType.ListComprehension:
                 sawListComprehension = true;
+                curNode = getEvaluationScopeNode(curNode.parent!);
                 break;
-        }
 
-        curNode = curNode.parent;
+            default:
+                return undefined;
+        }
     }
 
     return undefined;
