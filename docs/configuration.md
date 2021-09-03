@@ -266,6 +266,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | :---------------------------------------- | :--------- | :--------- | :--------- |
 | strictListInference                       | false      | false      | true       |
 | strictDictionaryInference                 | false      | false      | true       |
+| strictSetInference                        | false      | false      | true       |
 | strictParameterNoneValue                  | false      | false      | true       |
 | enableTypeIgnoreComments                  | true       | true       | true       |
 | reportGeneralTypeIssues                   | "none"     | "error"    | "error"    |
@@ -297,7 +298,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |
 | reportOverlappingOverload                 | "none"     | "none"     | "error"    |
-| reportUninitializedInstanceVariable       | "none"     | "none"     | "none"    |
+| reportUninitializedInstanceVariable       | "none"     | "none"     | "none"     |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "error"    |
 | reportUnknownParameterType                | "none"     | "none"     | "error"    |
 | reportUnknownArgumentType                 | "none"     | "none"     | "error"    |
