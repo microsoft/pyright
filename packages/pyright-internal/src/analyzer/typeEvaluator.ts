@@ -12898,6 +12898,9 @@ export function createTypeEvaluator(
                     // Write the type back to the type cache. It will be replaced below.
                     writeTypeCache(node, typeAliasTypeVar, /* isIncomplete */ false);
                     writeTypeCache(node.leftExpression, typeAliasTypeVar, /* isIncomplete */ false);
+                    if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
+                        writeTypeCache(node.leftExpression.valueExpression, typeAliasTypeVar, /* isIncomplete */ false);
+                    }
                 }
 
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
@@ -12943,6 +12946,9 @@ export function createTypeEvaluator(
                     // Clear out the temporary types we wrote above.
                     deleteTypeCacheEntry(node);
                     deleteTypeCacheEntry(node.leftExpression);
+                    if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
+                        deleteTypeCacheEntry(node.leftExpression.valueExpression);
+                    }
 
                     // If this was a speculative type alias, it becomes a real type alias
                     // only if the evaluated type is an instantiable type.

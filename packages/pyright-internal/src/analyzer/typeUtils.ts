@@ -370,6 +370,10 @@ export function isTypeAliasPlaceholder(type: Type): type is TypeVarType {
 // a type argument.
 export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Type) {
     if (type.category !== TypeCategory.Union) {
+        if (type === typeAliasPlaceholder) {
+            return true;
+        }
+
         // Handle the specific case where the type alias directly refers to itself.
         // In this case, the type will be unbound because it could not be resolved.
         return (
