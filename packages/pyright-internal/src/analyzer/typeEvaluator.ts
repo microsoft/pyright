@@ -5665,7 +5665,10 @@ export function createTypeEvaluator(
 
             const aliasTypeArgs: Type[] = [];
             baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
-                aliasTypeArgs.push(typeVarMap.getTypeVarType(typeParam) || UnknownType.create());
+                const typeVarType = isParamSpec(typeParam)
+                    ? typeVarMap.getParamSpec(typeParam)?.paramSpec
+                    : typeVarMap.getTypeVarType(typeParam);
+                aliasTypeArgs.push(typeVarType || UnknownType.create());
             });
 
             const type = TypeBase.cloneForTypeAlias(
