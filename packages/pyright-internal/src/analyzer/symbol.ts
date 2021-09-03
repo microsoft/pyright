@@ -183,6 +183,7 @@ export class Symbol {
 
                         if (declaration.typeAliasAnnotation) {
                             curDecl.typeAliasAnnotation = declaration.typeAliasAnnotation;
+                            curDecl.typeAliasName = declaration.typeAliasName;
                         }
 
                         if (!curDecl.inferredTypeSource && declaration.inferredTypeSource) {
