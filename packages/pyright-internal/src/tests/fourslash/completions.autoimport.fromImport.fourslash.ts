@@ -12,11 +12,15 @@
 //// [|Cls/*marker3*/|]
 //// [|ClsList/*marker4*/|]
 //// [|my_func/*marker5*/|]
+//// [|MYA_CONST_VAR/*marker6*/|]
+//// [|MY_CONSTA_VAR/*marker7*/|]
 
 // @filename: lib.py
 //// A_CONST = 1
 //// MY_CONST_VAR = 2
 //// MY_CONST_VAR2 = 3
+//// MY_CONSTA_VAR = 4
+//// MYA_CONST_VAR = 4
 //// class Cls: ...
 //// class ClsOther: ...
 //// ClsOtherList = list[ClsOther]
@@ -33,6 +37,8 @@
     const marker3Range = helper.getPositionRange('marker3');
     const marker4Range = helper.getPositionRange('marker4');
     const marker5Range = helper.getPositionRange('marker5');
+    const marker6Range = helper.getPositionRange('marker6');
+    const marker7Range = helper.getPositionRange('marker7');
 
     // @ts-ignore
     await helper.verifyCompletion('included', 'markdown', {
@@ -93,6 +99,30 @@
                     detail: 'Auto-import',
                     textEdit: { range: marker5Range, newText: 'my_func' },
                     additionalTextEdits: [{ range: import4Range, newText: ',\n    my_func' }],
+                },
+            ],
+        },
+        marker6: {
+            completions: [
+                {
+                    label: 'MYA_CONST_VAR',
+                    kind: Consts.CompletionItemKind.Constant,
+                    documentation: '```\nfrom lib import MYA_CONST_VAR\n```',
+                    detail: 'Auto-import',
+                    textEdit: { range: marker6Range, newText: 'MYA_CONST_VAR' },
+                    additionalTextEdits: [{ range: import2Range, newText: ',\n    MYA_CONST_VAR' }],
+                },
+            ],
+        },
+        marker7: {
+            completions: [
+                {
+                    label: 'MY_CONSTA_VAR',
+                    kind: Consts.CompletionItemKind.Constant,
+                    documentation: '```\nfrom lib import MY_CONSTA_VAR\n```',
+                    detail: 'Auto-import',
+                    textEdit: { range: marker7Range, newText: 'MY_CONSTA_VAR' },
+                    additionalTextEdits: [{ range: import2Range, newText: ',\n    MY_CONSTA_VAR' }],
                 },
             ],
         },

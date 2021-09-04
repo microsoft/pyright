@@ -160,10 +160,16 @@ export function getTextEditsForAutoImportSymbolAddition(
             // Insert new symbol by import symbol type and then alphabetical order.
             // Match isort default behavior.
             const symbolNameType = _getImportSymbolNameType(symbolName);
+            // isort will prefer '_' over alphanumerical chars
+            // This can't be reproduced by a normal string compare in TypeScript, since '_' > 'A'.
+            // Replace all '_' with '=' which guarantees '=' < 'A'.
+            // Safe to do as '=' is an invalid char in Python names.
+            const symbolNameCompare = symbolName.replace(/_/g, '=');
             for (const curImport of importStatement.node.imports) {
                 const curImportNameType = _getImportSymbolNameType(curImport.name.value);
                 if (
-                    (curImportNameType === symbolNameType && curImport.name.value > symbolName) ||
+                    (curImportNameType === symbolNameType &&
+                        curImport.name.value.replace(/_/g, '=') > symbolNameCompare) ||
                     curImportNameType > symbolNameType
                 ) {
                     break;
