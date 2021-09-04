@@ -493,7 +493,7 @@ test('GenericTypes33', () => {
 test('GenericTypes34', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes34.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 // This test is intentionally commented out for now. The functionality

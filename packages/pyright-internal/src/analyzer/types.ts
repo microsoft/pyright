@@ -354,6 +354,9 @@ export const enum ClassTypeFlags {
     // with keyword-only parameters?
     DataClassKeywordOnlyParams = 1 << 21,
 
+    // Properties that are defined using the @classmethod decorator.
+    ClassProperty = 1 << 22,
+
     // Class is declared within a type stub file.
     DefinedInStub = 1 << 23,
 }
@@ -651,6 +654,10 @@ export namespace ClassType {
 
     export function isPropertyClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.PropertyClass);
+    }
+
+    export function isClassProperty(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.ClassProperty);
     }
 
     export function isFinal(classType: ClassType) {

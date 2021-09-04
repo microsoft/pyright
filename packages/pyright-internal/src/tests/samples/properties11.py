@@ -2,7 +2,7 @@
 # are supported in Python 3.9 and newer.
 
 
-from typing import Literal
+from typing import Literal, Type, TypeVar
 
 
 class Class1:
@@ -25,3 +25,21 @@ Class1.prop1 = "hi"
 
 # This should generate an error
 Class1.prop1 = 1
+
+
+T = TypeVar("T", bound="Class2")
+
+
+class Class2:
+    @classmethod
+    @property
+    def prop1(cls: Type[T]) -> Type[T]:
+        return cls
+
+
+class Class3(Class2):
+    ...
+
+
+t3: Literal["Type[Class2]"] = reveal_type(Class2.prop1)
+t4: Literal["Type[Class3]"] = reveal_type(Class3.prop1)

@@ -2329,6 +2329,51 @@ export function createTypeEvaluator(
                                     if (value === false) {
                                         includeInInit = false;
                                     }
+                                } else {
+                                    // See if the field constructor has an `init` parameter with
+                                    // a default value.
+                                    let callTarget: FunctionType | undefined;
+                                    if (isFunction(callType)) {
+                                        callTarget = callType;
+                                    } else if (isOverloadedFunction(callType)) {
+                                        callTarget = getBestOverloadForArguments(
+                                            statement.rightExpression,
+                                            callType,
+                                            statement.rightExpression.arguments
+                                        );
+                                    } else if (isInstantiableClass(callType)) {
+                                        const initCall = getBoundMethod(callType, '__init__');
+                                        if (initCall) {
+                                            if (isFunction(initCall)) {
+                                                callTarget = initCall;
+                                            } else if (isOverloadedFunction(initCall)) {
+                                                callTarget = getBestOverloadForArguments(
+                                                    statement.rightExpression,
+                                                    initCall,
+                                                    statement.rightExpression.arguments
+                                                );
+                                            }
+                                        }
+                                    }
+
+                                    if (callTarget) {
+                                        const initParam = callTarget.details.parameters.find((p) => p.name === 'init');
+                                        if (
+                                            initParam &&
+                                            initParam.defaultValueExpression &&
+                                            initParam.hasDeclaredType
+                                        ) {
+                                            if (
+                                                isClass(initParam.type) &&
+                                                ClassType.isBuiltIn(initParam.type, 'bool') &&
+                                                isLiteralType(initParam.type)
+                                            ) {
+                                                if (initParam.type.literalValue === false) {
+                                                    includeInInit = false;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 const kwOnlyArg = statement.rightExpression.arguments.find(
@@ -5212,16 +5257,18 @@ export function createTypeEvaluator(
                     let accessMethodType = getTypeOfMember(accessMethod);
                     const argList: FunctionArgument[] = [
                         {
-                            // Provide "instance" argument.
+                            // Provide "obj" argument.
                             argumentCategory: ArgumentCategory.Simple,
-                            type: isAccessedThroughObject
+                            type: ClassType.isClassProperty(lookupClass)
+                                ? baseTypeClass
+                                : isAccessedThroughObject
                                 ? bindToType || ClassType.cloneAsInstance(baseTypeClass)
                                 : NoneType.createInstance(),
                         },
                     ];
 
                     if (usage.method === 'get') {
-                        // Provide "owner" argument.
+                        // Provide "objtype" argument.
                         argList.push({
                             argumentCategory: ArgumentCategory.Simple,
                             type: baseTypeClass,
@@ -6979,6 +7026,40 @@ export function createTypeEvaluator(
         }
 
         return { argumentErrors: false, returnType: combineTypes(returnTypes), isTypeIncomplete };
+    }
+
+    function getBestOverloadForArguments(
+        errorNode: ExpressionNode,
+        type: OverloadedFunctionType,
+        argList: FunctionArgument[]
+    ): FunctionType | undefined {
+        let firstMatch: FunctionType | undefined;
+
+        type.overloads.forEach((overload) => {
+            if (!firstMatch) {
+                useSpeculativeMode(errorNode, () => {
+                    if (FunctionType.isOverloaded(overload)) {
+                        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, overload);
+                        if (!matchResults.argumentErrors) {
+                            const callResult = validateFunctionArgumentTypes(
+                                errorNode,
+                                matchResults,
+                                overload,
+                                new TypeVarMap(getTypeVarScopeId(overload)),
+                                /* skipUnknownArgCheck */ true,
+                                /* expectedType */ undefined
+                            );
+
+                            if (callResult && !callResult.argumentErrors) {
+                                firstMatch = overload;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        return firstMatch;
     }
 
     function validateOverloadedFunctionArguments(
@@ -14648,6 +14729,10 @@ export function createTypeEvaluator(
         const fgetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fget);
         fields.set('fget', fgetSymbol);
 
+        if (FunctionType.isClassMethod(fget)) {
+            propertyClass.details.flags |= ClassTypeFlags.ClassProperty;
+        }
+
         // Fill in the __get__ method with an overload.
         const getFunction1 = FunctionType.createInstance(
             '__get__',
@@ -14669,7 +14754,7 @@ export function createTypeEvaluator(
         });
         getFunction1.details.parameters.push({
             category: ParameterCategory.Simple,
-            name: 'type',
+            name: 'objtype',
             type: AnyType.create(),
             hasDeclaredType: true,
             hasDefault: true,
@@ -14695,7 +14780,8 @@ export function createTypeEvaluator(
 
         // Use the type of the "self" parameter for the object type. If it
         // was a synthesized "self" TypeVar with a bound type, use the bound
-        // bound type instead.
+        // type instead. Note that this might also be a "cls" parameter if
+        // the property is a classmethod.
         let objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
         if (isTypeVar(objType) && objType.details.isSynthesized && objType.details.boundType) {
             objType = makeTopLevelTypeVarsConcrete(objType);
@@ -14703,12 +14789,12 @@ export function createTypeEvaluator(
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
-            type: FunctionType.isClassMethod(fget) ? convertToInstance(objType) : objType,
+            type: objType,
             hasDeclaredType: true,
         });
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
-            name: 'type',
+            name: 'objtype',
             type: AnyType.create(),
             hasDeclaredType: true,
             hasDefault: true,
@@ -24047,7 +24133,7 @@ export function createTypeEvaluator(
             if (isParamSpec(srcType)) {
                 return true;
             }
-        } else if (isParamSpec(srcType)) {
+        } else if (isTypeVar(srcType) && srcType.details.isParamSpec) {
             diag.addMessage(Localizer.Diagnostic.paramSpecContext());
             return false;
         } else {
@@ -24057,28 +24143,30 @@ export function createTypeEvaluator(
                 return true;
             }
 
-            // Try to find a match among the constraints.
-            for (const constraint of constraints) {
-                if (isAnyOrUnknown(constraint)) {
+            if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
+                // Make sure all the source constraint types map to constraint types in the dest.
+                if (
+                    srcType.details.constraints.every((sourceConstraint) => {
+                        return constraints.some((destConstraint) =>
+                            canAssignType(destConstraint, sourceConstraint, new DiagnosticAddendum())
+                        );
+                    })
+                ) {
                     return true;
-                } else if (isUnion(effectiveSrcType)) {
-                    // Does it match at least one of the constraints?
-                    if (
-                        findSubtype(effectiveSrcType, (subtype) =>
-                            canAssignType(constraint, subtype, new DiagnosticAddendum())
-                        )
-                    ) {
+                }
+            } else {
+                // Try to find a match among the constraints.
+                for (const constraint of constraints) {
+                    if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
                         return true;
                     }
-                } else if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
-                    return true;
                 }
             }
         }
 
         diag.addMessage(
             Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                type: printType(effectiveSrcType),
+                type: printType(srcType),
                 name: TypeVarType.getReadableName(destType),
             })
         );
@@ -24419,7 +24507,7 @@ export function createTypeEvaluator(
     }
 
     // Specializes the specified function for the specified class,
-    // optionally stripping the first first paramter (the "self" or "cls")
+    // optionally stripping the first first parameter (the "self" or "cls")
     // off of the specialized function in the process. The baseType
     // is the type used to reference the member, and the memberClass
     // is the class that provided the member (could be an ancestor of
