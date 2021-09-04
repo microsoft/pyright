@@ -5257,16 +5257,18 @@ export function createTypeEvaluator(
                     let accessMethodType = getTypeOfMember(accessMethod);
                     const argList: FunctionArgument[] = [
                         {
-                            // Provide "instance" argument.
+                            // Provide "obj" argument.
                             argumentCategory: ArgumentCategory.Simple,
-                            type: isAccessedThroughObject
+                            type: ClassType.isClassProperty(lookupClass)
+                                ? baseTypeClass
+                                : isAccessedThroughObject
                                 ? bindToType || ClassType.cloneAsInstance(baseTypeClass)
                                 : NoneType.createInstance(),
                         },
                     ];
 
                     if (usage.method === 'get') {
-                        // Provide "owner" argument.
+                        // Provide "objtype" argument.
                         argList.push({
                             argumentCategory: ArgumentCategory.Simple,
                             type: baseTypeClass,
@@ -14727,6 +14729,10 @@ export function createTypeEvaluator(
         const fgetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fget);
         fields.set('fget', fgetSymbol);
 
+        if (FunctionType.isClassMethod(fget)) {
+            propertyClass.details.flags |= ClassTypeFlags.ClassProperty;
+        }
+
         // Fill in the __get__ method with an overload.
         const getFunction1 = FunctionType.createInstance(
             '__get__',
@@ -14748,7 +14754,7 @@ export function createTypeEvaluator(
         });
         getFunction1.details.parameters.push({
             category: ParameterCategory.Simple,
-            name: 'type',
+            name: 'objtype',
             type: AnyType.create(),
             hasDeclaredType: true,
             hasDefault: true,
@@ -14774,7 +14780,8 @@ export function createTypeEvaluator(
 
         // Use the type of the "self" parameter for the object type. If it
         // was a synthesized "self" TypeVar with a bound type, use the bound
-        // bound type instead.
+        // type instead. Note that this might also be a "cls" parameter if
+        // the property is a classmethod.
         let objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
         if (isTypeVar(objType) && objType.details.isSynthesized && objType.details.boundType) {
             objType = makeTopLevelTypeVarsConcrete(objType);
@@ -14782,12 +14789,12 @@ export function createTypeEvaluator(
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
-            type: FunctionType.isClassMethod(fget) ? convertToInstance(objType) : objType,
+            type: objType,
             hasDeclaredType: true,
         });
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
-            name: 'type',
+            name: 'objtype',
             type: AnyType.create(),
             hasDeclaredType: true,
             hasDefault: true,
