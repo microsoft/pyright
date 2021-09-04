@@ -24126,7 +24126,7 @@ export function createTypeEvaluator(
             if (isParamSpec(srcType)) {
                 return true;
             }
-        } else if (isParamSpec(srcType)) {
+        } else if (isTypeVar(srcType) && srcType.details.isParamSpec) {
             diag.addMessage(Localizer.Diagnostic.paramSpecContext());
             return false;
         } else {
@@ -24136,28 +24136,30 @@ export function createTypeEvaluator(
                 return true;
             }
 
-            // Try to find a match among the constraints.
-            for (const constraint of constraints) {
-                if (isAnyOrUnknown(constraint)) {
+            if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
+                // Make sure all the source constraint types map to constraint types in the dest.
+                if (
+                    srcType.details.constraints.every((sourceConstraint) => {
+                        return constraints.some((destConstraint) =>
+                            canAssignType(destConstraint, sourceConstraint, new DiagnosticAddendum())
+                        );
+                    })
+                ) {
                     return true;
-                } else if (isUnion(effectiveSrcType)) {
-                    // Does it match at least one of the constraints?
-                    if (
-                        findSubtype(effectiveSrcType, (subtype) =>
-                            canAssignType(constraint, subtype, new DiagnosticAddendum())
-                        )
-                    ) {
+                }
+            } else {
+                // Try to find a match among the constraints.
+                for (const constraint of constraints) {
+                    if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
                         return true;
                     }
-                } else if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
-                    return true;
                 }
             }
         }
 
         diag.addMessage(
             Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                type: printType(effectiveSrcType),
+                type: printType(srcType),
                 name: TypeVarType.getReadableName(destType),
             })
         );
