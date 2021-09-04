@@ -273,7 +273,10 @@ can be positional and may use other names.
 
 `init` is an optional bool parameter that indicates whether the field should
 be included in the synthesized `__init__` method. If unspecified, it defaults
-to True.
+to True. Field descriptor functions can use overloads that implicitly specify
+the value of `init` using a literal bool value type (Literal[False] or
+Literal[True]).
+
 
 `default` is an optional parameter that provides the default value for the
 field.
@@ -287,19 +290,27 @@ provided a value when the class is instantiated.
 the field. This alternative name is used in the synthesized `__init__` method.
 
 
+
 This example demonstrates 
 ```python
 # Library code (within type stub or inline):
-class ModelField:
-    def __init__(
-        self,
+@overload
+def model_field(
         *,
         default: Optional[Any] = ...,
-        init: Optional[bool] = True,
-        **kwargs: Any
-    ) -> None: ...
+        resolver: Callable[[], Any],
+        init: Literal[False] = False,
+    ) -> Any: ...
 
-@typing.dataclass_transform(kw_only_default=True, field_descriptors=(ModelField, ))
+@overload
+def model_field(
+        *,
+        default: Optional[Any] = ...,
+        resolver: None = None,
+        init: bool = True,
+    ) -> Any: ...
+
+@typing.dataclass_transform(kw_only_default=True, field_descriptors=(model_field, ))
 def create_model(
     *,
     init: bool = True
@@ -309,7 +320,7 @@ def create_model(
 # Code that imports this library:
 @create_model(init=False)
 class CustomerModel:
-    id: int = ModelField(default=0)
+    id: int = ModelField(resolver=lambda : 0)
     name: str
 ```
 

@@ -2329,6 +2329,51 @@ export function createTypeEvaluator(
                                     if (value === false) {
                                         includeInInit = false;
                                     }
+                                } else {
+                                    // See if the field constructor has an `init` parameter with
+                                    // a default value.
+                                    let callTarget: FunctionType | undefined;
+                                    if (isFunction(callType)) {
+                                        callTarget = callType;
+                                    } else if (isOverloadedFunction(callType)) {
+                                        callTarget = getBestOverloadForArguments(
+                                            statement.rightExpression,
+                                            callType,
+                                            statement.rightExpression.arguments
+                                        );
+                                    } else if (isInstantiableClass(callType)) {
+                                        const initCall = getBoundMethod(callType, '__init__');
+                                        if (initCall) {
+                                            if (isFunction(initCall)) {
+                                                callTarget = initCall;
+                                            } else if (isOverloadedFunction(initCall)) {
+                                                callTarget = getBestOverloadForArguments(
+                                                    statement.rightExpression,
+                                                    initCall,
+                                                    statement.rightExpression.arguments
+                                                );
+                                            }
+                                        }
+                                    }
+
+                                    if (callTarget) {
+                                        const initParam = callTarget.details.parameters.find((p) => p.name === 'init');
+                                        if (
+                                            initParam &&
+                                            initParam.defaultValueExpression &&
+                                            initParam.hasDeclaredType
+                                        ) {
+                                            if (
+                                                isClass(initParam.type) &&
+                                                ClassType.isBuiltIn(initParam.type, 'bool') &&
+                                                isLiteralType(initParam.type)
+                                            ) {
+                                                if (initParam.type.literalValue === false) {
+                                                    includeInInit = false;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 const kwOnlyArg = statement.rightExpression.arguments.find(
@@ -6979,6 +7024,40 @@ export function createTypeEvaluator(
         }
 
         return { argumentErrors: false, returnType: combineTypes(returnTypes), isTypeIncomplete };
+    }
+
+    function getBestOverloadForArguments(
+        errorNode: ExpressionNode,
+        type: OverloadedFunctionType,
+        argList: FunctionArgument[]
+    ): FunctionType | undefined {
+        let firstMatch: FunctionType | undefined;
+
+        type.overloads.forEach((overload) => {
+            if (!firstMatch) {
+                useSpeculativeMode(errorNode, () => {
+                    if (FunctionType.isOverloaded(overload)) {
+                        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, overload);
+                        if (!matchResults.argumentErrors) {
+                            const callResult = validateFunctionArgumentTypes(
+                                errorNode,
+                                matchResults,
+                                overload,
+                                new TypeVarMap(getTypeVarScopeId(overload)),
+                                /* skipUnknownArgCheck */ true,
+                                /* expectedType */ undefined
+                            );
+
+                            if (callResult && !callResult.argumentErrors) {
+                                firstMatch = overload;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        return firstMatch;
     }
 
     function validateOverloadedFunctionArguments(
@@ -24419,7 +24498,7 @@ export function createTypeEvaluator(
     }
 
     // Specializes the specified function for the specified class,
-    // optionally stripping the first first paramter (the "self" or "cls")
+    // optionally stripping the first first parameter (the "self" or "cls")
     // off of the specialized function in the process. The baseType
     // is the type used to reference the member, and the memberClass
     // is the class that provided the member (could be an ancestor of
