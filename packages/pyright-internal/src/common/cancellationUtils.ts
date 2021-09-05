@@ -9,6 +9,8 @@
 import { AbstractCancellationTokenSource, CancellationTokenSource } from 'vscode-jsonrpc';
 import { CancellationToken, Disposable, LSPErrorCodes, ResponseError } from 'vscode-languageserver';
 
+import { isDebugMode } from './core';
+
 export interface CancellationProvider {
     createCancellationTokenSource(): AbstractCancellationTokenSource;
 }
@@ -34,7 +36,9 @@ export class OperationCanceledException extends ResponseError<void> {
 }
 
 export function throwIfCancellationRequested(token: CancellationToken) {
-    if (token.isCancellationRequested) {
+    // Don't use cancellation in debug mode because it interferes with
+    // debugging if requests are cancelled.
+    if (!isDebugMode() && token.isCancellationRequested) {
         throw new OperationCanceledException();
     }
 }
