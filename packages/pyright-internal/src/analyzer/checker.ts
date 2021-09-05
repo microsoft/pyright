@@ -1482,9 +1482,7 @@ export class Checker extends ParseTreeWalker {
             implementation,
             diag,
             /* typeVarMap */ undefined,
-            CanAssignFlags.SkipSolveTypeVars |
-                CanAssignFlags.SkipFunctionReturnTypeCheck |
-                CanAssignFlags.DisallowAssignFromAny
+            CanAssignFlags.SkipSolveTypeVars | CanAssignFlags.SkipFunctionReturnTypeCheck
         );
 
         // Now check the return types.
