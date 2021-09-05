@@ -2,7 +2,7 @@
 # type variables to other type variables.
 
 
-from typing import Callable, Generic, TypeVar, cast
+from typing import Callable, Generic, TypeVar
 
 
 T1 = TypeVar("T1")
@@ -24,4 +24,3 @@ def func(
     p1: Callable[[T3], object],
 ):
     ...
-

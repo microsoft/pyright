@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Any, Callable, Generic, Literal, Protocol, Tuple, Union
+from typing import Any, Callable, Literal, Protocol, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 _Xs = TypeVarTuple("_Xs")
