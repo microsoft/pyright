@@ -22326,18 +22326,28 @@ export function createTypeEvaluator(
                         makeTopLevelTypeVarsConcrete(srcType),
                         diag,
                         /* typeVarMap */ undefined,
-                        flags,
-                        recursionCount + 1
-                    );
-                } else {
-                    return canAssignTypeToTypeVar(
-                        destType,
-                        srcType,
-                        diag,
-                        typeVarMap || new TypeVarMap(),
                         originalFlags,
                         recursionCount + 1
                     );
+                } else {
+                    if (
+                        !canAssignTypeToTypeVar(
+                            destType,
+                            srcType,
+                            diag,
+                            typeVarMap || new TypeVarMap(),
+                            originalFlags,
+                            recursionCount + 1
+                        )
+                    ) {
+                        return false;
+                    }
+
+                    if (isAnyOrUnknown(srcType) && (flags & CanAssignFlags.DisallowAssignFromAny) !== 0) {
+                        return false;
+                    }
+
+                    return true;
                 }
             }
         }
@@ -22346,11 +22356,11 @@ export function createTypeEvaluator(
             if ((flags & CanAssignFlags.ReverseTypeVarMatching) !== 0) {
                 if ((flags & CanAssignFlags.SkipSolveTypeVars) !== 0) {
                     return canAssignType(
-                        makeTopLevelTypeVarsConcrete(srcType),
                         makeTopLevelTypeVarsConcrete(destType),
+                        makeTopLevelTypeVarsConcrete(srcType),
                         diag,
                         /* typeVarMap */ undefined,
-                        flags,
+                        originalFlags,
                         recursionCount + 1
                     );
                 } else {
@@ -22358,7 +22368,7 @@ export function createTypeEvaluator(
                         srcType,
                         destType,
                         diag,
-                        typeVarMap || new TypeVarMap(getTypeVarScopeId(srcType)),
+                        typeVarMap ?? new TypeVarMap(),
                         originalFlags,
                         recursionCount + 1
                     );
@@ -22938,7 +22948,7 @@ export function createTypeEvaluator(
                         destType,
                         srcFunction,
                         diag.createAddendum(),
-                        typeVarMap || new TypeVarMap(),
+                        typeVarMap ?? new TypeVarMap(),
                         flags,
                         recursionCount + 1
                     )
