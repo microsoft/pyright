@@ -22022,7 +22022,7 @@ export function createTypeEvaluator(
                 if (
                     canAssignType(
                         curWideTypeBound,
-                        adjSrcType,
+                        makeTopLevelTypeVarsConcrete(adjSrcType),
                         diagAddendum,
                         /* typeVarMap */ undefined,
                         /* flags */ undefined,
@@ -22030,7 +22030,7 @@ export function createTypeEvaluator(
                     )
                 ) {
                     // The srcType is narrower than the current wideTypeBound, so replace it.
-                    newWideTypeBound = srcType;
+                    newWideTypeBound = adjSrcType;
                 } else if (
                     !canAssignType(
                         adjSrcType,
@@ -22193,7 +22193,7 @@ export function createTypeEvaluator(
             if (
                 !canAssignType(
                     destType.details.boundType,
-                    updatedType,
+                    makeTopLevelTypeVarsConcrete(updatedType),
                     diag.createAddendum(),
                     typeVarMap,
                     /* flags */ undefined,
@@ -23181,18 +23181,33 @@ export function createTypeEvaluator(
             return true;
         }
 
-        // Call canAssignType once to perform any typeVarMap population.
-        canAssignType(
-            srcType,
-            destType,
-            new DiagnosticAddendum(),
-            destTypeVarMap,
-            flags ^ CanAssignFlags.ReverseTypeVarMatching,
-            recursionCount + 1
-        );
+        let specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
 
-        // Make sure we can assign the specialized dest type to the source type.
-        const specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
+        // If the destination includes type variables that still need to be solved,
+        // call canAssignType with ReverseTypeVarMatching to populate destTypeVarMap.
+        if (requiresSpecialization(specializedDestType)) {
+            if (
+                !canAssignType(
+                    srcType,
+                    specializedDestType,
+                    new DiagnosticAddendum(),
+                    destTypeVarMap,
+                    flags ^ CanAssignFlags.ReverseTypeVarMatching,
+                    recursionCount + 1
+                )
+            ) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.paramAssignment().format({
+                        index: paramIndex + 1,
+                        sourceType: printType(destType),
+                        destType: printType(srcType),
+                    })
+                );
+                return false;
+            }
+
+            specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
+        }
 
         if (
             !canAssignType(
