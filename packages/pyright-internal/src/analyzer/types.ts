@@ -487,6 +487,10 @@ export namespace ClassType {
     }
 
     export function cloneAsInstance(classType: ClassType) {
+        if (TypeBase.isInstance(classType)) {
+            return classType;
+        }
+
         const objectType = { ...classType };
         objectType.flags &= ~(TypeFlags.Instantiable | TypeFlags.NonCallable);
         objectType.flags |= TypeFlags.Instance;
@@ -495,6 +499,10 @@ export namespace ClassType {
     }
 
     export function cloneAsInstantiable(objectType: ClassType) {
+        if (TypeBase.isInstantiable(objectType)) {
+            return objectType;
+        }
+
         const classType = { ...objectType };
         classType.flags &= ~TypeFlags.Instance;
         classType.flags |= TypeFlags.Instantiable;
