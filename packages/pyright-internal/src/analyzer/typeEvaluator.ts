@@ -22349,6 +22349,15 @@ export function createTypeEvaluator(
 
                     return true;
                 }
+            } else if (!isTypeVar(srcType)) {
+                return canAssignType(
+                    makeTopLevelTypeVarsConcrete(destType),
+                    srcType,
+                    diag,
+                    typeVarMap,
+                    flags,
+                    recursionCount + 1
+                );
             }
         }
 
