@@ -21825,7 +21825,7 @@ export function createTypeEvaluator(
 
         const curEntry = typeVarMap.getTypeVar(destType);
         const curNarrowTypeBound = curEntry?.narrowBound;
-        const curWideTypeBound = curEntry?.wideBound;
+        const curWideTypeBound = curEntry?.wideBound ?? destType.details.boundType;
 
         // Handle the constrained case. This case needs to be handled specially
         // because type narrowing isn't used in this case. For example, if the
@@ -22092,7 +22092,7 @@ export function createTypeEvaluator(
                             curNarrowTypeBound,
                             new DiagnosticAddendum(),
                             typeVarMap,
-                            flags,
+                            /* flags */ undefined,
                             recursionCount + 1
                         )
                     ) {
@@ -22129,7 +22129,7 @@ export function createTypeEvaluator(
                             curNarrowTypeBound,
                             new DiagnosticAddendum(),
                             typeVarMap,
-                            flags,
+                            /* flags */ undefined,
                             recursionCount + 1
                         )
                     ) {
@@ -22164,7 +22164,7 @@ export function createTypeEvaluator(
                         newNarrowTypeBound!,
                         new DiagnosticAddendum(),
                         typeVarMap,
-                        flags,
+                        /* flags */ undefined,
                         recursionCount + 1
                     )
                 ) {
@@ -22196,7 +22196,7 @@ export function createTypeEvaluator(
                     updatedType,
                     diag.createAddendum(),
                     typeVarMap,
-                    CanAssignFlags.Default,
+                    /* flags */ undefined,
                     recursionCount + 1
                 )
             ) {
@@ -22319,7 +22319,9 @@ export function createTypeEvaluator(
                 }
             }
 
-            if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0) {
+            // If we're using ReverseTypeVarMatching and the source is a TypeVar,
+            // the logic below will handle this case.
+            if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 || !isTypeVar(srcType)) {
                 if (flags & CanAssignFlags.SkipSolveTypeVars) {
                     return canAssignType(
                         makeTopLevelTypeVarsConcrete(destType),
@@ -22335,7 +22337,7 @@ export function createTypeEvaluator(
                             destType,
                             srcType,
                             diag,
-                            typeVarMap || new TypeVarMap(),
+                            typeVarMap ?? new TypeVarMap(),
                             originalFlags,
                             recursionCount + 1
                         )
@@ -22349,21 +22351,16 @@ export function createTypeEvaluator(
 
                     return true;
                 }
-            } else if (!isTypeVar(srcType)) {
-                return canAssignType(
-                    makeTopLevelTypeVarsConcrete(destType),
-                    srcType,
-                    diag,
-                    typeVarMap,
-                    flags,
-                    recursionCount + 1
-                );
             }
         }
 
         if (isTypeVar(srcType)) {
             if ((flags & CanAssignFlags.ReverseTypeVarMatching) !== 0) {
-                if ((flags & CanAssignFlags.SkipSolveTypeVars) !== 0) {
+                // The caller has requested that we solve for source type variables
+                // rather than dest. If the type variable is not in the scope of the
+                // provided TypeVarMap, simply verify that the concrete types are
+                // compatible.
+                if (!typeVarMap || !typeVarMap.hasSolveForScope(getTypeVarScopeId(srcType))) {
                     return canAssignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
@@ -22373,12 +22370,14 @@ export function createTypeEvaluator(
                         recursionCount + 1
                     );
                 } else {
+                    // Reverse the order of assignment to populate the TypeVarMap for
+                    // the source TypeVar.
                     return canAssignTypeToTypeVar(
                         srcType,
                         destType,
                         diag,
-                        typeVarMap ?? new TypeVarMap(),
-                        originalFlags,
+                        typeVarMap,
+                        originalFlags | CanAssignFlags.AllowTypeVarNarrowing,
                         recursionCount + 1
                     );
                 }
@@ -22957,7 +22956,7 @@ export function createTypeEvaluator(
                         destType,
                         srcFunction,
                         diag.createAddendum(),
-                        typeVarMap ?? new TypeVarMap(),
+                        typeVarMap ?? new TypeVarMap(getTypeVarScopeId(destType)),
                         flags,
                         recursionCount + 1
                     )
