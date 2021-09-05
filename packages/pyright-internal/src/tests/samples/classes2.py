@@ -132,11 +132,11 @@ class ChildClass(ParentClass):
     def my_method11(self, a: int, b: int, *, c: str = "", **kwarg):
         return 1
 
-    def my_method12(self, a: str) -> int:
+    # This should generate an error because the type of 'a' is
+    # narrower than the original method.
+    def my_method12(self, a: int) -> int:
         return 1
 
-    # This should generate an error because the type of 'a' is
-    # wider than in the original method.
     def my_method13(self, a: Union[int, str]) -> int:
         return 1
 
