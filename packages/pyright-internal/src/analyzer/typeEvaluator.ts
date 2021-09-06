@@ -6656,6 +6656,15 @@ export function createTypeEvaluator(
 
                 if (callResult.argumentErrors) {
                     returnResult.typeErrors = true;
+
+                    // If there was an expected type specified, the argument errors
+                    // might be due to a mismatch with the expected type. We may need
+                    // to evaluate it with a different expected type (e.g. if there are
+                    // overloads involved). Mark the type as incomplete so the return
+                    // type doesn't get cached.
+                    if (expectedType) {
+                        returnResult.isIncomplete = true;
+                    }
                 }
 
                 if (callResult.isTypeIncomplete) {
