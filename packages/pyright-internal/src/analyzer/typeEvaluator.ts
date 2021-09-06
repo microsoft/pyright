@@ -22399,14 +22399,38 @@ export function createTypeEvaluator(
                 } else {
                     // Reverse the order of assignment to populate the TypeVarMap for
                     // the source TypeVar.
-                    return canAssignTypeToTypeVar(
-                        srcType,
-                        destType,
-                        diag,
-                        typeVarMap,
-                        originalFlags | CanAssignFlags.AllowTypeVarNarrowing,
-                        recursionCount + 1
-                    );
+                    if (
+                        canAssignTypeToTypeVar(
+                            srcType as TypeVarType,
+                            destType,
+                            diag,
+                            typeVarMap,
+                            originalFlags | CanAssignFlags.AllowTypeVarNarrowing,
+                            recursionCount + 1
+                        )
+                    ) {
+                        return true;
+                    }
+
+                    // If the dest type is a union, only one of the subtypes needs to match.
+                    let isAssignable = false;
+                    if (isUnion(destType)) {
+                        doForEachSubtype(destType, (destSubtype) => {
+                            if (
+                                canAssignTypeToTypeVar(
+                                    srcType as TypeVarType,
+                                    destSubtype,
+                                    diag,
+                                    typeVarMap,
+                                    originalFlags | CanAssignFlags.AllowTypeVarNarrowing,
+                                    recursionCount + 1
+                                )
+                            ) {
+                                isAssignable = true;
+                            }
+                        });
+                    }
+                    return isAssignable;
                 }
             }
 
