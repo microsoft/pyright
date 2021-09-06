@@ -21924,6 +21924,24 @@ export function createTypeEvaluator(
                 if (isNever(constrainedType) || !isCompatible) {
                     constrainedType = undefined;
                 }
+
+                // If the type is a union, see if the entire union is assignable to one
+                // of the constraints.
+                if (!constrainedType && isUnion(concreteSrcType)) {
+                    constrainedType = destType.details.constraints.find((constraint) => {
+                        const adjustedConstraint = TypeBase.isInstantiable(destType)
+                            ? convertToInstantiable(constraint)
+                            : constraint;
+                        return canAssignType(
+                            adjustedConstraint,
+                            concreteSrcType,
+                            new DiagnosticAddendum(),
+                            /* typeVarMap */ undefined,
+                            /* flags */ undefined,
+                            recursionCount + 1
+                        );
+                    });
+                }
             }
 
             // If there was no constrained type that was assignable
