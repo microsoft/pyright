@@ -226,7 +226,8 @@ export class Checker extends ParseTreeWalker {
                         if (
                             baseClassType &&
                             isInstantiableClass(baseClassType) &&
-                            !ClassType.isBuiltIn(baseClassType, 'Protocol')
+                            !ClassType.isBuiltIn(baseClassType, 'Protocol') &&
+                            !ClassType.isBuiltIn(baseClassType, 'Generic')
                         ) {
                             if (!ClassType.isProtocolClass(baseClassType)) {
                                 this._evaluator.addError(
