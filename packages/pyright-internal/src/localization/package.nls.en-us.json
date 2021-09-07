@@ -6,7 +6,6 @@
         "annotationNotSupported": "Type annotation not supported for this type of expression",
         "annotationSpansStrings": "Type annotations cannot span multiple string literals",
         "annotationStringEscape": "Type annotations cannot contain escape characters",
-        "annotationTripleQuote": "Type annotations cannot use triple quotes",
         "argAssignment": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\"",
         "argAssignmentFunction": "Argument of type \"{argType}\" cannot be assigned to parameter of type \"{paramType}\" in function \"{functionName}\"",
         "argAssignmentParam": "Argument of type \"{argType}\" cannot be assigned to parameter \"{paramName}\" of type \"{paramType}\"",

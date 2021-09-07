@@ -170,7 +170,6 @@ export namespace Localizer {
         export const annotationNotSupported = () => getRawString('Diagnostic.annotationNotSupported');
         export const annotationSpansStrings = () => getRawString('Diagnostic.annotationSpansStrings');
         export const annotationStringEscape = () => getRawString('Diagnostic.annotationStringEscape');
-        export const annotationTripleQuote = () => getRawString('Diagnostic.annotationTripleQuote');
         export const argAssignment = () =>
             new ParameterizedString<{ argType: string; paramType: string }>(getRawString('Diagnostic.argAssignment'));
         export const argAssignmentFunction = () =>

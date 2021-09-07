@@ -4296,8 +4296,6 @@ export class Parser {
             // parse errors that span strings.
             if (stringNode.strings.length > 1) {
                 this._addError(Localizer.Diagnostic.annotationSpansStrings(), stringNode);
-            } else if (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) {
-                this._addError(Localizer.Diagnostic.annotationTripleQuote(), stringNode);
             } else if (stringNode.strings[0].token.flags & StringTokenFlags.Format) {
                 this._addError(Localizer.Diagnostic.annotationFormatString(), stringNode);
             } else {
@@ -4318,7 +4316,8 @@ export class Parser {
                         tokenOffset + prefixLength,
                         unescapedString.length,
                         this._parseOptions,
-                        ParseTextMode.VariableAnnotation
+                        ParseTextMode.VariableAnnotation,
+                        (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) !== 0 ? 1 : 0
                     );
 
                     parseResults.diagnostics.forEach((diag) => {

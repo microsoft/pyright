@@ -1,7 +1,7 @@
 # This sample tests the handling of type annotations within a
 # python source file (as opposed to a stub file).
 
-from typing import Optional
+from typing import Optional, Union
 
 
 class ClassA:
@@ -43,3 +43,10 @@ def func10():
 # This should generate an error because function calls
 # are not allowed within a type annotation.
 x: func10()
+
+y: """
+    Union[
+        int,
+        str
+    ]
+"""
