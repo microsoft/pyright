@@ -59,6 +59,7 @@ import {
     isOverloadedFunction,
     isUnbound,
     isUnknown,
+    OverloadedFunctionType,
     Type,
     TypeBase,
     UnknownType,
@@ -2098,7 +2099,17 @@ export class CompletionProvider {
                             } else if (isInstantiableClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isFunction(type)) {
-                                documentation = getFunctionDocStringFromType(type, this._sourceMapper, this._evaluator);
+                                const functionType = detail.boundObject
+                                    ? (this._evaluator.bindFunctionToClassOrObject(
+                                          detail.boundObject,
+                                          type
+                                      ) as FunctionType)
+                                    : type;
+                                documentation = getFunctionDocStringFromType(
+                                    functionType,
+                                    this._sourceMapper,
+                                    this._evaluator
+                                );
                             } else if (isOverloadedFunction(type)) {
                                 const enclosingClass = isFunctionDeclaration(primaryDecl)
                                     ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)
@@ -2106,8 +2117,14 @@ export class CompletionProvider {
                                 const classResults = enclosingClass
                                     ? this._evaluator.getTypeOfClass(enclosingClass)
                                     : undefined;
+                                const functionType = detail.boundObject
+                                    ? (this._evaluator.bindFunctionToClassOrObject(
+                                          detail.boundObject,
+                                          type
+                                      ) as OverloadedFunctionType)
+                                    : type;
                                 documentation = getOverloadedFunctionDocStringsInherited(
-                                    type,
+                                    functionType,
                                     primaryDecl,
                                     this._sourceMapper,
                                     this._evaluator,

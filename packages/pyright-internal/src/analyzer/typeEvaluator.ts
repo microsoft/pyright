@@ -1626,11 +1626,7 @@ export function createTypeEvaluator(
         memberName: string,
         treatConstructorAsClassMember = false
     ): FunctionType | OverloadedFunctionType | undefined {
-        const memberInfo = lookUpClassMember(
-            classType,
-            memberName,
-            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
-        );
+        const memberInfo = lookUpClassMember(classType, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
 
         if (memberInfo) {
             const unboundMethodType = getTypeOfMember(memberInfo);

@@ -279,11 +279,7 @@ export class HoverProvider {
             return false;
         }
 
-        const initMethodMember = lookUpClassMember(
-            classType,
-            '__init__',
-            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
-        );
+        const initMethodMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
 
         if (!initMethodMember) {
             return false;

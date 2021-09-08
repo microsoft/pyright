@@ -36,7 +36,7 @@
 
 helper.verifyHover('markdown', {
     child_a_method1_docs: '```python\n(method) method1: () -> bool\n```\n---\nA.method1 docs',
-    child_a_docs: '```python\n(class) ChildA\n```',
-    child_a_inner_docs: '```python\n(class) ChildInner\n```',
+    child_a_docs: '```python\n(class) ChildA()\n```',
+    child_a_inner_docs: '```python\n(class) ChildInner()\n```',
     child_a_inner_method1_docs: '```python\n(method) method1: () -> bool\n```\n---\nA.Inner.method1 docs',
 });

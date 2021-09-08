@@ -71,9 +71,9 @@
 //// print(inner.[|/*inner_method1_docs*/method1|]())
 
 helper.verifyHover('markdown', {
-    a_docs: '```python\n(class) A\n```\n---\nA docs',
+    a_docs: '```python\n(class) A()\n```\n---\nA docs',
     b_docs: '```python\n(class) B()\n```\n---\nB init docs',
-    a_inner_docs: '```python\n(class) Inner\n```\n---\nA.Inner docs',
+    a_inner_docs: '```python\n(class) Inner()\n```\n---\nA.Inner docs',
     func1_docs: '```python\n(function) func1: () -> bool\n```\n---\nfunc1 docs',
     func2_docs: '```python\n(function) func2: () -> bool\n```\n---\nfunc2 docs',
     inner_method1_docs: '```python\n(method) method1: () -> bool\n```\n---\nA.Inner.method1 docs',
