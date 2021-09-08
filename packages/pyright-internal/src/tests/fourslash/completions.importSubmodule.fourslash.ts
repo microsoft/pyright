@@ -19,7 +19,7 @@
 ////
 
 // @ts-ignore
-await helper.verifyCompletion('included', 'markdown', {
+await helper.verifyCompletion('exact', 'markdown', {
     marker1: {
         completions: [
             { label: 'setup', kind: Consts.CompletionItemKind.Module },
