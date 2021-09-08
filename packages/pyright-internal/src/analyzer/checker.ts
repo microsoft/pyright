@@ -117,6 +117,7 @@ import {
     Variance,
 } from './types';
 import {
+    applySolvedTypeVars,
     CanAssignFlags,
     ClassMemberLookupFlags,
     convertToInstance,
@@ -125,6 +126,7 @@ import {
     doForEachSubtype,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
+    getTypeVarScopeId,
     isEllipsisType,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -1477,20 +1479,24 @@ export class Checker extends ParseTreeWalker {
         implementation: FunctionType,
         diag: DiagnosticAddendum
     ): boolean {
+        const typeVarMap = new TypeVarMap(getTypeVarScopeId(implementation));
+
         // First check the parameters to see if they are assignable.
         let isLegal = this._evaluator.canAssignType(
             overload,
             implementation,
             diag,
-            /* typeVarMap */ undefined,
-            CanAssignFlags.SkipSolveTypeVars | CanAssignFlags.SkipFunctionReturnTypeCheck
+            typeVarMap,
+            CanAssignFlags.SkipFunctionReturnTypeCheck | CanAssignFlags.ReverseTypeVarMatching
         );
 
         // Now check the return types.
         const overloadReturnType =
             overload.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(overload);
-        const implementationReturnType =
-            implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation);
+        const implementationReturnType = applySolvedTypeVars(
+            implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
+            typeVarMap
+        );
 
         const returnDiag = new DiagnosticAddendum();
         if (
@@ -1498,7 +1504,7 @@ export class Checker extends ParseTreeWalker {
                 implementationReturnType,
                 overloadReturnType,
                 returnDiag.createAddendum(),
-                /* typeVarMap */ undefined,
+                typeVarMap,
                 CanAssignFlags.SkipSolveTypeVars
             )
         ) {

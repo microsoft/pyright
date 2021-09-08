@@ -199,3 +199,21 @@ def func9(bar: _T4) -> _T4:
 
 def func9(bar: Optional[_T4] = None) -> Optional[_T4]:
     raise NotImplementedError
+
+
+_T5 = TypeVar("_T5", int, str)
+
+
+@overload
+def func10(option: Literal["a"], var: str) -> str:
+    ...
+
+
+@overload
+def func10(option: Literal["b"], var: int) -> str:
+    ...
+
+
+# This should generate an error.
+def func10(option: Literal["a", "b"], var: _T5) -> _T5:
+    ...
