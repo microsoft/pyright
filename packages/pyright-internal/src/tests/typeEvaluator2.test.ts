@@ -132,6 +132,12 @@ test('Super4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Super5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 

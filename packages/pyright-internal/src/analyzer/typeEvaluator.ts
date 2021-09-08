@@ -6768,7 +6768,7 @@ export function createTypeEvaluator(
 
         // Determine which class the "super" call is applied to. If
         // there is no first argument, then the class is implicit.
-        let targetClassType: Type;
+        let targetClassType: Type | undefined;
         if (node.arguments.length > 0) {
             targetClassType = getTypeOfExpression(node.arguments[0].valueExpression).type;
             const concreteTargetClassType = makeTopLevelTypeVarsConcrete(targetClassType);
@@ -6837,7 +6837,37 @@ export function createTypeEvaluator(
                 );
             }
         } else {
-            if (isInstantiableClass(targetClassType)) {
+            const enclosingMethod = ParseTreeUtils.getEnclosingFunction(node);
+            let implicitBindToType: Type | undefined;
+
+            // Get the type from the self or cls parameter if it is explicitly annotated.
+            if (enclosingMethod) {
+                const methodTypeInfo = getTypeOfFunction(enclosingMethod);
+                if (methodTypeInfo) {
+                    const methodType = methodTypeInfo.functionType;
+                    if (FunctionType.isClassMethod(methodType)) {
+                        if (
+                            methodType.details.parameters.length > 0 &&
+                            methodType.details.parameters[0].hasDeclaredType
+                        ) {
+                            implicitBindToType = makeTopLevelTypeVarsConcrete(methodType.details.parameters[0].type);
+                        }
+                    } else if (FunctionType.isInstanceMethod(methodType)) {
+                        if (
+                            methodType.details.parameters.length > 0 &&
+                            methodType.details.parameters[0].hasDeclaredType
+                        ) {
+                            implicitBindToType = makeTopLevelTypeVarsConcrete(
+                                convertToInstantiable(methodType.details.parameters[0].type)
+                            );
+                        }
+                    }
+                }
+            }
+
+            if (implicitBindToType && isInstantiableClass(implicitBindToType)) {
+                bindToType = implicitBindToType;
+            } else if (isInstantiableClass(targetClassType)) {
                 bindToType = targetClassType;
             }
         }
