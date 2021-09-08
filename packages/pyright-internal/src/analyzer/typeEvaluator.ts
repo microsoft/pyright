@@ -18544,52 +18544,47 @@ export function createTypeEvaluator(
     // that accepts a single class, and a more complex form that accepts a tuple
     // of classes. This method determines which form and returns a list of classes
     // or undefined.
-    function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType)[] | undefined {
-        if (
-            (isClass(argType) && TypeBase.isInstantiable(argType)) ||
-            (isTypeVar(argType) && TypeBase.isInstantiable(argType))
-        ) {
-            return [argType];
-        }
+    function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType | FunctionType)[] | undefined {
+        // Create a helper function that returns a list of class types or
+        // undefined if any of the types are not valid.
+        const getClassTypeList = (types: Type[]) => {
+            let foundNonClassType = false;
+            const classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[] = [];
 
-        if (isClass(argType) && TypeBase.isInstance(argType)) {
-            if (isTupleClass(argType) && argType.tupleTypeArguments) {
-                let foundNonClassType = false;
-                const classTypeList: (ClassType | TypeVarType | NoneType)[] = [];
-                argType.tupleTypeArguments.forEach((typeArg) => {
-                    if (isInstantiableClass(typeArg) || (isTypeVar(typeArg) && TypeBase.isInstantiable(typeArg))) {
-                        classTypeList.push(typeArg);
-                    } else if (isNone(typeArg) && TypeBase.isInstantiable(typeArg)) {
-                        classTypeList.push(typeArg);
-                    } else {
-                        foundNonClassType = true;
-                    }
-                });
-
-                if (!foundNonClassType) {
-                    return classTypeList;
+            types.forEach((subtype) => {
+                if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
+                    classTypeList.push(subtype);
+                } else if (isNone(subtype) && TypeBase.isInstantiable(subtype)) {
+                    classTypeList.push(subtype);
+                } else if (
+                    isFunction(subtype) &&
+                    subtype.details.parameters.length === 2 &&
+                    subtype.details.parameters[0].category === ParameterCategory.VarArgList &&
+                    subtype.details.parameters[1].category === ParameterCategory.VarArgDictionary
+                ) {
+                    classTypeList.push(subtype);
+                } else {
+                    foundNonClassType = true;
                 }
+            });
+
+            return foundNonClassType ? undefined : classTypeList;
+        };
+
+        if (isClass(argType) && TypeBase.isInstance(argType) && isTupleClass(argType)) {
+            if (!argType.tupleTypeArguments) {
+                return undefined;
             }
+
+            return getClassTypeList(argType.tupleTypeArguments);
         }
 
         // Python 3.10 supports unions within isinstance and issubclass calls.
         if (isUnion(argType)) {
-            let isValid = true;
-            const classList: (ClassType | TypeVarType)[] = [];
-            doForEachSubtype(argType, (subtype) => {
-                if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
-                    classList.push(subtype);
-                } else {
-                    isValid = false;
-                }
-            });
-
-            if (isValid && classList.length > 0) {
-                return classList;
-            }
+            return getClassTypeList(argType.subtypes);
         }
 
-        return undefined;
+        return getClassTypeList([argType]);
     }
 
     // Attempts to narrow a type (make it more constrained) based on a
@@ -18599,7 +18594,7 @@ export function createTypeEvaluator(
     // we can conclude that x must be constrained to "Cow".
     function narrowTypeForIsInstance(
         type: Type,
-        classTypeList: (ClassType | TypeVarType | NoneType)[],
+        classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[],
         isInstanceCheck: boolean,
         isPositiveTest: boolean,
         allowIntersections: boolean,
@@ -18733,6 +18728,27 @@ export function createTypeEvaluator(
                             }
                         }
                     }
+                } else if (isFunction(filterType)) {
+                    // Handle an isinstance check against Callable.
+                    if (isInstanceCheck) {
+                        let isCallable = false;
+
+                        if (isClass(varType)) {
+                            if (TypeBase.isInstantiable(unexpandedType)) {
+                                isCallable = true;
+                            } else {
+                                isCallable = !!lookUpClassMember(varType, '__call__');
+                            }
+                        }
+
+                        if (isCallable) {
+                            if (isPositiveTest) {
+                                filteredTypes.push(unexpandedType);
+                            } else {
+                                foundSuperclass = true;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -18762,10 +18778,24 @@ export function createTypeEvaluator(
                     const concreteFilterType = makeTopLevelTypeVarsConcrete(filterType);
 
                     if (canAssignType(varType, convertToInstance(concreteFilterType), new DiagnosticAddendum())) {
-                        filteredTypes.push(convertToInstance(filterType));
+                        // If the filter type is a Callable, use the original type. If the
+                        // filter type is a callback protocol, use the filter type.
+                        if (isFunction(filterType)) {
+                            filteredTypes.push(unexpandedType);
+                        } else {
+                            filteredTypes.push(convertToInstance(filterType));
+                        }
                     }
                 }
-            } else {
+            } else if (
+                !classTypeList.some((filterType) =>
+                    canAssignType(
+                        varType,
+                        convertToInstance(makeTopLevelTypeVarsConcrete(filterType)),
+                        new DiagnosticAddendum()
+                    )
+                )
+            ) {
                 filteredTypes.push(unexpandedType);
             }
 

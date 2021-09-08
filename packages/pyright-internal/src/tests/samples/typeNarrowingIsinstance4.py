@@ -19,26 +19,24 @@ class Baz:
         raise NotImplementedError
 
 
-def check_foo_or_bar(
-    val: Union[Callable[[int, str], None], Callable[[int], None]]
-) -> bool:
+def check_callable1(val: Union[Callable[[int, str], None], Callable[[int], None]]):
     if isinstance(val, Foo):
         t1: Literal["Foo"] = reveal_type(val)
-        print("Foo!")
-        return True
+    else:
+        t2: Literal["(_p0: int) -> None"] = reveal_type(val)
 
+
+def check_callable2(val: Union[Callable[[int, str], None], Callable[[int], None]]):
     if isinstance(val, Bar):
-        t2: Literal["Bar"] = reveal_type(val)
-        print("Bar!")
-        return True
+        t1: Literal["Bar"] = reveal_type(val)
+    else:
+        t2: Literal["(_p0: int, _p1: str) -> None"] = reveal_type(val)
 
+
+def check_callable3(val: Union[Callable[[int, str], None], Callable[[int], None]]):
     if isinstance(val, Baz):
-        t3: Literal["Never"] = reveal_type(val)
-        print("Baz!")
-        return True
-
-    t4: Literal["(_p0: int, _p1: str) -> None | (_p0: int) -> None"] = reveal_type(
-        val
-    )
-
-    return False
+        t1: Literal["Never"] = reveal_type(val)
+    else:
+        t2: Literal["(_p0: int, _p1: str) -> None | (_p0: int) -> None"] = reveal_type(
+            val
+        )
