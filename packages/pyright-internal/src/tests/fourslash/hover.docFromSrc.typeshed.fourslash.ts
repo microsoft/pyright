@@ -2,7 +2,7 @@
 
 // @filename: requests/__init__.pyi
 // @library: true
-//// from .api import head
+//// from .api import head as head
 
 // @filename: requests/api.pyi
 // @library: true

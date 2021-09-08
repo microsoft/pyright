@@ -239,7 +239,7 @@ export class PackageTypeVerifier {
             ) {
                 const fullName = `${scopeName}.${name}`;
 
-                if (!symbol.isExternallyHidden()) {
+                if (!symbol.isExternallyHidden() && !symbol.isPrivateMember()) {
                     const symbolType = this._program.getTypeForSymbol(symbol);
                     symbolMap.set(fullName, fullName);
 
@@ -435,6 +435,7 @@ export class PackageTypeVerifier {
             if (
                 !isPrivateOrProtectedName(name) &&
                 !symbol.isExternallyHidden() &&
+                !symbol.isPrivateMember() &&
                 !symbol.isIgnoredForProtocolMatch() &&
                 !this._isSymbolTypeImplied(scopeType, name)
             ) {

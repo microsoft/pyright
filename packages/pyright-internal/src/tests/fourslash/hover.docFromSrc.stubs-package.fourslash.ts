@@ -2,7 +2,7 @@
 
 // @filename: package1-stubs/__init__.pyi
 // @library: true
-//// from .api import func1
+//// from .api import func1 as func1
 
 // @filename: package1-stubs/api.pyi
 // @library: true
@@ -10,7 +10,7 @@
 
 // @filename: package1/__init__.py
 // @library: true
-//// from .api import func1
+//// from .api import func1 as func1
 
 // @filename: package1/api.py
 // @library: true

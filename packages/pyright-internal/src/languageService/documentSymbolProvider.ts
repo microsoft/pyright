@@ -70,16 +70,24 @@ export function getIndexAliasData(
         return undefined;
     }
 
-    const resolved = resolveAliasDeclaration(importLookup, declaration, /* resolveLocalNames */ true);
-    const nameValue = resolved ? getNameFromDeclaration(resolved) : undefined;
-    if (!nameValue || resolved!.path.length <= 0) {
+    const resolvedInfo = resolveAliasDeclaration(importLookup, declaration, /* resolveLocalNames */ true);
+    if (!resolvedInfo) {
         return undefined;
     }
 
-    const symbolKind = getSymbolKind(nameValue, resolved!) ?? SymbolKind.Module;
+    if (resolvedInfo.isPrivate) {
+        return undefined;
+    }
+
+    const nameValue = getNameFromDeclaration(resolvedInfo.declaration);
+    if (!nameValue || resolvedInfo.declaration.path.length <= 0) {
+        return undefined;
+    }
+
+    const symbolKind = getSymbolKind(nameValue, resolvedInfo.declaration) ?? SymbolKind.Module;
     return {
         originalName: nameValue,
-        modulePath: resolved!.path,
+        modulePath: resolvedInfo.declaration.path,
         kind: symbolKind,
         itemKind: convertSymbolKindToCompletionItemKind(symbolKind),
     };

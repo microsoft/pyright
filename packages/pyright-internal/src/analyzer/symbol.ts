@@ -33,7 +33,7 @@ export const enum SymbolFlags {
     InstanceMember = 1 << 3,
 
     // Indicates that the symbol is considered "private" to the
-    // class and should not be accessed outside or overridden.
+    // class or module and should not be accessed outside or overridden.
     PrivateMember = 1 << 5,
 
     // Indicates that the symbol is not considered for protocol

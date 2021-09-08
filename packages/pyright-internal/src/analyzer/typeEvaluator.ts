@@ -624,6 +624,10 @@ export interface TypeEvaluator {
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
     resolveAliasDeclaration: (declaration: Declaration, resolveLocalNames: boolean) => Declaration | undefined;
+    resolveAliasDeclarationWithInfo: (
+        declaration: Declaration,
+        resolveLocalNames: boolean
+    ) => DeclarationUtils.ResolvedAliasInfo | undefined;
     getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getTypeFromIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getTypedDictMembersForClass: (classType: ClassType, allowNarrowed: boolean) => Map<string, TypedDictEntry>;
@@ -4785,7 +4789,7 @@ export function createTypeEvaluator(
 
             case TypeCategory.Module: {
                 const symbol = ModuleType.getField(baseType, memberName);
-                if (symbol) {
+                if (symbol && !symbol.isExternallyHidden()) {
                     if (usage.method === 'get') {
                         setSymbolAccessed(getFileInfo(node), symbol, node.memberName);
                     }
@@ -4806,6 +4810,17 @@ export function createTypeEvaluator(
                     // leak into other modules that import it.
                     if (isUnbound(type)) {
                         type = UnknownType.create();
+                    }
+
+                    if (symbol.isPrivateMember()) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
+                            DiagnosticRule.reportPrivateUsage,
+                            Localizer.Diagnostic.privateUsedOutsideOfModule().format({
+                                name: memberName,
+                            }),
+                            node.memberName
+                        );
                     }
                 } else {
                     // Does the module export a top-level __getattr__ function?
@@ -16626,9 +16641,22 @@ export function createTypeEvaluator(
 
         assert(aliasDecl.type === DeclarationType.Alias);
 
-        const resolvedDecl = resolveAliasDeclaration(aliasDecl, /* resolveLocalNames */ true);
-        if (!resolvedDecl) {
-            return resolvedDecl;
+        // Try to resolve the alias while honoring external visibility.
+        const resolvedAliasInfo = resolveAliasDeclarationWithInfo(aliasDecl, /* resolveLocalNames */ true);
+
+        if (!resolvedAliasInfo) {
+            return undefined;
+        }
+
+        if (node.nodeType === ParseNodeType.ImportFromAs && resolvedAliasInfo.isPrivate) {
+            addDiagnostic(
+                getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
+                DiagnosticRule.reportPrivateUsage,
+                Localizer.Diagnostic.privateUsedOutsideOfModule().format({
+                    name: node.name.value,
+                }),
+                node.name
+            );
         }
 
         return getInferredTypeOfDeclaration(aliasDecl);
@@ -20249,6 +20277,13 @@ export function createTypeEvaluator(
     // lookup fails, undefined is returned. If resolveLocalNames is true, the method
     // resolves aliases through local renames ("as" clauses found in import statements).
     function resolveAliasDeclaration(declaration: Declaration, resolveLocalNames: boolean): Declaration | undefined {
+        return DeclarationUtils.resolveAliasDeclaration(importLookup, declaration, resolveLocalNames)?.declaration;
+    }
+
+    function resolveAliasDeclarationWithInfo(
+        declaration: Declaration,
+        resolveLocalNames: boolean
+    ): DeclarationUtils.ResolvedAliasInfo | undefined {
         return DeclarationUtils.resolveAliasDeclaration(importLookup, declaration, resolveLocalNames);
     }
 
@@ -24824,6 +24859,7 @@ export function createTypeEvaluator(
         getDeclarationsForNameNode,
         getTypeForDeclaration,
         resolveAliasDeclaration,
+        resolveAliasDeclarationWithInfo,
         getTypeFromIterable,
         getTypeFromIterator,
         getTypedDictMembersForClass,

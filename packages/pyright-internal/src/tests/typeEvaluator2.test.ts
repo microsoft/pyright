@@ -159,7 +159,7 @@ test('NewType3', () => {
 test('NewType4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType4.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('isInstance1', () => {
