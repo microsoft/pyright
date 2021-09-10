@@ -1180,10 +1180,16 @@ export class Parser {
         if (!this._consumeTokenIfType(TokenType.Colon)) {
             this._addError(Localizer.Diagnostic.expectedColon(), nextToken);
 
-            // Try to perform parse recovery by consuming tokens until
-            // we find the end of the line.
+            // Try to perform parse recovery by consuming tokens.
             if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
-                this._getNextToken();
+                if (this._peekTokenType() === TokenType.Colon) {
+                    this._getNextToken();
+                } else if (this._peekToken(1).type !== TokenType.Indent) {
+                    // Bail so we resume the at the next statement.
+                    // We can't parse as a simple statement as we've skipped all but the newline.
+                    this._getNextToken();
+                    return suite;
+                }
             }
         }
 
