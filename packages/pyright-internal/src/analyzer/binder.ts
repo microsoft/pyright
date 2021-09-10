@@ -199,13 +199,13 @@ export class Binder extends ParseTreeWalker {
         id: getUniqueFlowNodeId(),
     };
 
-    // Map of symbols at the module level that may be private depending
-    // on whether they are listed in the __all__ list.
-    private _potentialPrivateSymbols = new Map<string, Symbol>();
-
     // Map of symbols at the module level that may be externally
     // hidden depending on whether they are listed in the __all__ list.
     private _potentialHiddenSymbols = new Map<string, Symbol>();
+
+    // Map of symbols at the module level that may be private depending
+    // on whether they are listed in the __all__ list.
+    private _potentialPrivateSymbols = new Map<string, Symbol>();
 
     constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
         super();
@@ -255,7 +255,7 @@ export class Binder extends ParseTreeWalker {
         this._bindDeferred();
 
         // Use the __all__ list to determine whether any potential private
-        // symbols should be made externally invisible.
+        // symbols should be made externally hidden or private.
         this._potentialHiddenSymbols.forEach((symbol, name) => {
             if (!this._dunderAllNames?.some((sym) => sym === name)) {
                 symbol.setIsExternallyHidden();
