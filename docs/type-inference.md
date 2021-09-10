@@ -103,7 +103,7 @@ var1 = []                       # Type of RHS is ambiguous
 var2: List[int] = []            # Type of LHS now makes type of RHS unambiguous
 var3 = [4]                      # Type is assumed to be List[int] 
 var4: List[float] = [4]         # Type of RHS is now List[float]
-var5 = (3,)                     # Type is assumed to be Tuple[int]
+var5 = (3,)                     # Type is assumed to be Tuple[Literal[3]]
 var6: Tuple[float, ...] = (3,)  # Type of RHS is now Tuple[float, ...]
 ```
 
