@@ -35,3 +35,21 @@ test('FStringEmptyTuple', () => {
         TestUtils.parseSampleFile('fstring6.py', diagSink);
     });
 });
+
+test('SuiteExpectedColon1', () => {
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseSampleFile('suiteExpectedColon1.py', diagSink);
+    assert.strictEqual(diagSink.getErrors().length, 1);
+});
+
+test('SuiteExpectedColon2', () => {
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseSampleFile('suiteExpectedColon2.py', diagSink);
+    assert.strictEqual(diagSink.getErrors().length, 1);
+});
+
+test('SuiteExpectedColon3', () => {
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseSampleFile('suiteExpectedColon3.py', diagSink);
+    assert.strictEqual(diagSink.getErrors().length, 1);
+});
