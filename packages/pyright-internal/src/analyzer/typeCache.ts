@@ -20,6 +20,11 @@ export type TypeCache = Map<number, CachedType | undefined>;
 // object that refers to a type.
 export type CachedType = Type | IncompleteType;
 
+export interface IncompleteSubtypeInfo {
+    type: Type | undefined;
+    isIncomplete: boolean;
+}
+
 export interface IncompleteType {
     isIncompleteType?: true;
 
@@ -28,7 +33,11 @@ export interface IncompleteType {
 
     // Array of incomplete subtypes that have been computed so far
     // (used for loops)
-    incompleteSubtypes: (Type | undefined)[];
+    incompleteSubtypes: IncompleteSubtypeInfo[];
+
+    // Number of times this type has been encountered when recursively
+    // attempting to compute a type.
+    recursiveVisitCount?: number;
 
     // Tracks whether something has changed since this cache entry
     // was written that might change the incomplete type; if this

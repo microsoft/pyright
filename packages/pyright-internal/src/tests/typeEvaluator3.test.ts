@@ -162,6 +162,18 @@ test('Loops7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Loops8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loops9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ForLoop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop1.py']);
 
