@@ -21659,7 +21659,7 @@ export function createTypeEvaluator(
                                         srcTypeArgType,
                                         entryDiag.createAddendum(),
                                         curTypeVarMap,
-                                        flags,
+                                        flags | CanAssignFlags.RetainLiteralsForTypeVar,
                                         recursionCount + 1
                                     )
                                 ) {
