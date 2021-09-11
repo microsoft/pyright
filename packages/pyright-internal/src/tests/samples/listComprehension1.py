@@ -39,3 +39,7 @@ FooOrBar = Literal["foo", "bar"]
 
 def to_list(values: Iterable[FooOrBar]) -> List[FooOrBar]:
     return [value for value in values]
+
+x = 3
+# This should generate a syntax error.
+[x for in range(3)]

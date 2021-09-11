@@ -61,3 +61,7 @@ def testGetItemIterator() -> str:
     for f in objWithGetItem:
         return f
     return "none"
+
+# This should generate a syntax error.
+for in range(3):
+    pass

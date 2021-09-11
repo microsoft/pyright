@@ -231,7 +231,7 @@ test('TypeIgnore1', () => {
     // Disable type ignore
     configOptions.diagnosticRuleSet.enableTypeIgnoreComments = false;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('TypeIgnore2', () => {
@@ -243,7 +243,7 @@ test('TypeIgnore2', () => {
     // Disable type ignore
     configOptions.diagnosticRuleSet.enableTypeIgnoreComments = false;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypeIgnore3', () => {
@@ -255,7 +255,7 @@ test('TypeIgnore3', () => {
     // Disable type ignore
     configOptions.diagnosticRuleSet.enableTypeIgnoreComments = false;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('DuplicateImports1', () => {
