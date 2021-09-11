@@ -11245,22 +11245,27 @@ export function createTypeEvaluator(
 
         const keyTypes: Type[] = [];
         const valueTypes: Type[] = [];
+        let isIncomplete = false;
 
         // Handle TypedDict's as a special case.
         if (ClassType.isTypedDictClass(expectedType)) {
             const expectedTypedDictEntries = getTypedDictMembersForClass(expectedType);
 
             // Infer the key and value types if possible.
-            getKeyAndValueTypesFromDictionary(
-                node,
-                keyTypes,
-                valueTypes,
-                !!expectedType,
-                /* expectedKeyType */ undefined,
-                /* expectedValueType */ undefined,
-                expectedTypedDictEntries,
-                expectedDiagAddendum
-            );
+            if (
+                getKeyAndValueTypesFromDictionary(
+                    node,
+                    keyTypes,
+                    valueTypes,
+                    !!expectedType,
+                    /* expectedKeyType */ undefined,
+                    /* expectedValueType */ undefined,
+                    expectedTypedDictEntries,
+                    expectedDiagAddendum
+                )
+            ) {
+                isIncomplete = true;
+            }
 
             if (
                 ClassType.isTypedDictClass(expectedType) &&
@@ -11269,6 +11274,7 @@ export function createTypeEvaluator(
                 return {
                     type: expectedType,
                     node,
+                    isIncomplete,
                 };
             }
 
@@ -11304,16 +11310,20 @@ export function createTypeEvaluator(
         const expectedValueType = specializedDict.typeArguments[1];
 
         // Infer the key and value types if possible.
-        getKeyAndValueTypesFromDictionary(
-            node,
-            keyTypes,
-            valueTypes,
-            !!expectedType,
-            expectedKeyType,
-            expectedValueType,
-            undefined,
-            expectedDiagAddendum
-        );
+        if (
+            getKeyAndValueTypesFromDictionary(
+                node,
+                keyTypes,
+                valueTypes,
+                !!expectedType,
+                expectedKeyType,
+                expectedValueType,
+                undefined,
+                expectedDiagAddendum
+            )
+        ) {
+            isIncomplete = true;
+        }
 
         // Dict and MutableMapping types have invariant value types, so they
         // cannot be narrowed further. Other super-types like Mapping, Collection,
@@ -11333,7 +11343,7 @@ export function createTypeEvaluator(
         }
 
         const type = getBuiltInObject(node, 'dict', [specializedKeyType, specializedValueType]);
-        return { type, node };
+        return { type, node, isIncomplete };
     }
 
     // Attempts to infer the type of a dictionary statement. If an expectedType
@@ -11347,16 +11357,21 @@ export function createTypeEvaluator(
         let valueTypes: Type[] = [];
 
         let isEmptyContainer = false;
+        let isIncomplete = false;
 
         // Infer the key and value types if possible.
-        getKeyAndValueTypesFromDictionary(
-            node,
-            keyTypes,
-            valueTypes,
-            !expectedType,
-            expectedType ? AnyType.create() : undefined,
-            expectedType ? AnyType.create() : undefined
-        );
+        if (
+            getKeyAndValueTypesFromDictionary(
+                node,
+                keyTypes,
+                valueTypes,
+                !expectedType,
+                expectedType ? AnyType.create() : undefined,
+                expectedType ? AnyType.create() : undefined
+            )
+        ) {
+            isIncomplete = true;
+        }
 
         // Strip any literal values.
         keyTypes = keyTypes.map((t) => stripLiteralValue(t));
@@ -11398,7 +11413,7 @@ export function createTypeEvaluator(
               )
             : UnknownType.create();
 
-        return { type, node };
+        return { type, node, isIncomplete };
     }
 
     function getKeyAndValueTypesFromDictionary(
@@ -11410,13 +11425,20 @@ export function createTypeEvaluator(
         expectedValueType?: Type,
         expectedTypedDictEntries?: Map<string, TypedDictEntry>,
         expectedDiagAddendum?: DiagnosticAddendum
-    ) {
+    ): boolean {
+        let isIncomplete = false;
+
         // Infer the key and value types if possible.
         node.entries.forEach((entryNode, index) => {
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                let keyType = getTypeOfExpression(entryNode.keyExpression, expectedKeyType).type;
+                const keyTypeResult = getTypeOfExpression(entryNode.keyExpression, expectedKeyType);
+                if (keyTypeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
+
+                let keyType = keyTypeResult.type;
                 if (expectedKeyType) {
                     const adjExpectedKeyType = makeTopLevelTypeVarsConcrete(expectedKeyType);
                     if (!isAnyOrUnknown(adjExpectedKeyType)) {
@@ -11448,6 +11470,9 @@ export function createTypeEvaluator(
                 }
 
                 const valueType = valueTypeResult.type;
+                if (valueTypeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
 
                 if (!limitEntryCount || index < maxEntriesToUseForInference) {
                     keyTypes.push(keyType);
@@ -11455,7 +11480,12 @@ export function createTypeEvaluator(
                 }
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                const unexpandedType = getTypeOfExpression(entryNode.expandExpression).type;
+                const unexpandedTypeResult = getTypeOfExpression(entryNode.expandExpression);
+                if (unexpandedTypeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
+
+                const unexpandedType = unexpandedTypeResult.type;
                 if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
                 } else {
@@ -11491,23 +11521,25 @@ export function createTypeEvaluator(
                     }
                 }
             } else if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                const dictEntryType = getElementTypeFromListComprehension(
+                const dictEntryTypeResult = getElementTypeFromListComprehension(
                     entryNode,
                     expectedValueType,
                     expectedKeyType
                 );
+                const dictEntryType = dictEntryTypeResult.type;
+                if (dictEntryTypeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
 
-                // The result should be a Tuple
-                if (isClassInstance(dictEntryType)) {
-                    if (isTupleClass(dictEntryType)) {
-                        const typeArgs = dictEntryType.tupleTypeArguments;
-                        if (typeArgs && typeArgs.length === 2) {
-                            if (!limitEntryCount || index < maxEntriesToUseForInference) {
-                                keyTypes.push(typeArgs[0]);
-                                valueTypes.push(typeArgs[1]);
-                            }
-                            addUnknown = false;
+                // The result should be a tuple.
+                if (isClassInstance(dictEntryType) && isTupleClass(dictEntryType)) {
+                    const typeArgs = dictEntryType.tupleTypeArguments;
+                    if (typeArgs && typeArgs.length === 2) {
+                        if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                            keyTypes.push(typeArgs[0]);
+                            valueTypes.push(typeArgs[1]);
                         }
+                        addUnknown = false;
                     }
                 }
             }
@@ -11519,6 +11551,8 @@ export function createTypeEvaluator(
                 }
             }
         });
+
+        return isIncomplete;
     }
 
     function getTypeFromListOrSet(node: ListNode | SetNode, expectedType: Type | undefined): TypeResult {
@@ -11559,6 +11593,7 @@ export function createTypeEvaluator(
     function getTypeFromListOrSetExpected(node: ListNode | SetNode, expectedType: Type): TypeResult | undefined {
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+        let isIncomplete = false;
 
         if (!isClassInstance(expectedType)) {
             return undefined;
@@ -11593,10 +11628,15 @@ export function createTypeEvaluator(
 
         const entryTypes: Type[] = [];
         node.entries.forEach((entry) => {
+            let entryTypeResult: TypeResult;
             if (entry.nodeType === ParseNodeType.ListComprehension) {
-                entryTypes.push(getElementTypeFromListComprehension(entry, expectedEntryType));
+                entryTypeResult = getElementTypeFromListComprehension(entry, expectedEntryType);
             } else {
-                entryTypes.push(getTypeOfExpression(entry, expectedEntryType).type);
+                entryTypeResult = getTypeOfExpression(entry, expectedEntryType);
+            }
+            entryTypes.push(entryTypeResult.type);
+            if (entryTypeResult.isIncomplete) {
+                isIncomplete = true;
             }
         });
 
@@ -11612,13 +11652,14 @@ export function createTypeEvaluator(
         }
 
         const type = getBuiltInObject(node, builtInClassName, [specializedEntryType]);
-        return { type, node };
+        return { type, node, isIncomplete };
     }
 
     // Attempts to infer the type of a list or set statement with no "expected type".
     function getTypeFromListOrSetInferred(node: ListNode | SetNode, expectedType: Type | undefined): TypeResult {
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
         let isEmptyContainer = false;
+        let isIncomplete = false;
 
         // If we received an expected entry type that of "object",
         // allow Any rather than generating an "Unknown".
@@ -11633,16 +11674,20 @@ export function createTypeEvaluator(
 
         let entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
-            let entryType: Type;
+            let entryTypeResult: TypeResult;
 
             if (entry.nodeType === ParseNodeType.ListComprehension) {
-                entryType = getElementTypeFromListComprehension(entry, expectedEntryType);
+                entryTypeResult = getElementTypeFromListComprehension(entry, expectedEntryType);
             } else {
-                entryType = getTypeOfExpression(entry, expectedEntryType).type;
+                entryTypeResult = getTypeOfExpression(entry, expectedEntryType);
+            }
+
+            if (entryTypeResult.isIncomplete) {
+                isIncomplete = true;
             }
 
             if (index < maxEntriesToUseForInference) {
-                entryTypes.push(entryType);
+                entryTypes.push(entryTypeResult.type);
             }
         });
 
@@ -11683,7 +11728,7 @@ export function createTypeEvaluator(
               )
             : UnknownType.create();
 
-        return { type, node };
+        return { type, node, isIncomplete };
     }
 
     function inferTypeArgFromExpectedType(
@@ -11736,7 +11781,7 @@ export function createTypeEvaluator(
         const elseType = getTypeOfExpression(node.elseExpression, expectedType, flags);
 
         const type = combineTypes([ifType.type, elseType.type]);
-        return { type, node };
+        return { type, node, isIncomplete: ifType.isIncomplete || elseType.isIncomplete };
     }
 
     function getTypeFromYield(node: YieldNode): TypeResult {
@@ -11884,7 +11929,13 @@ export function createTypeEvaluator(
     }
 
     function getTypeFromListComprehension(node: ListComprehensionNode, expectedType?: Type): TypeResult {
-        const elementType = getElementTypeFromListComprehension(node);
+        let isIncomplete = false;
+
+        const elementTypeResult = getElementTypeFromListComprehension(node);
+        if (elementTypeResult.isIncomplete) {
+            isIncomplete = true;
+        }
+        const elementType = elementTypeResult.type;
 
         let isAsync = node.comprehensions.some((comp) => {
             return comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync;
@@ -11915,7 +11966,7 @@ export function createTypeEvaluator(
             );
         }
 
-        return { type, node };
+        return { type, node, isIncomplete };
     }
 
     function reportPossibleUnknownAssignment(
@@ -11968,12 +12019,17 @@ export function createTypeEvaluator(
         node: ListComprehensionNode,
         expectedValueOrElementType?: Type,
         expectedKeyType?: Type
-    ): Type {
+    ): TypeResult {
+        let isIncomplete = false;
+
         // "Execute" the list comprehensions from start to finish.
         for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
-                const iterableTypeInfo = getTypeOfExpression(comprehension.iterableExpression);
-                const iterableType = stripLiteralValue(iterableTypeInfo.type);
+                const iterableTypeResult = getTypeOfExpression(comprehension.iterableExpression);
+                if (iterableTypeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
+                const iterableType = stripLiteralValue(iterableTypeResult.type);
                 const itemType =
                     getTypeFromIterator(iterableType, !!comprehension.isAsync, comprehension.iterableExpression) ||
                     UnknownType.create();
@@ -11982,7 +12038,7 @@ export function createTypeEvaluator(
                 assignTypeToExpression(
                     targetExpr,
                     itemType,
-                    !!iterableTypeInfo.isIncomplete,
+                    !!iterableTypeResult.isIncomplete,
                     comprehension.iterableExpression
                 );
             } else {
@@ -12000,11 +12056,20 @@ export function createTypeEvaluator(
         let type: Type = UnknownType.create();
         if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
             // Create a tuple with the key/value types.
-            let keyType = getTypeOfExpression(node.expression.keyExpression, expectedKeyType).type;
+            const keyTypeResult = getTypeOfExpression(node.expression.keyExpression, expectedKeyType);
+            if (keyTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+            let keyType = keyTypeResult.type;
             if (!expectedKeyType || !containsLiteralType(expectedKeyType)) {
                 keyType = stripLiteralValue(keyType);
             }
-            let valueType = getTypeOfExpression(node.expression.valueExpression, expectedValueOrElementType).type;
+
+            const valueTypeResult = getTypeOfExpression(node.expression.valueExpression, expectedValueOrElementType);
+            if (valueTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+            let valueType = valueTypeResult.type;
             if (!expectedValueOrElementType || !containsLiteralType(expectedValueOrElementType)) {
                 valueType = stripLiteralValue(valueType);
             }
@@ -12014,10 +12079,14 @@ export function createTypeEvaluator(
             // The parser should have reported an error in this case because it's not allowed.
             getTypeOfExpression(node.expression.expandExpression, expectedValueOrElementType);
         } else if (isExpressionNode(node)) {
-            type = getTypeOfExpression(node.expression as ExpressionNode, expectedValueOrElementType).type;
+            const exprTypeResult = getTypeOfExpression(node.expression as ExpressionNode, expectedValueOrElementType);
+            if (exprTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+            type = exprTypeResult.type;
         }
 
-        return type;
+        return { type, node, isIncomplete };
     }
 
     function getTypeFromSlice(node: SliceNode): TypeResult {
