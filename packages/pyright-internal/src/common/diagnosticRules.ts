@@ -42,6 +42,7 @@ export enum DiagnosticRule {
     reportUntypedBaseClass = 'reportUntypedBaseClass',
     reportUntypedNamedTuple = 'reportUntypedNamedTuple',
     reportPrivateUsage = 'reportPrivateUsage',
+    reportPrivateImportUsage = 'reportPrivateImportUsage',
     reportConstantRedefinition = 'reportConstantRedefinition',
     reportIncompatibleMethodOverride = 'reportIncompatibleMethodOverride',
     reportIncompatibleVariableOverride = 'reportIncompatibleVariableOverride',

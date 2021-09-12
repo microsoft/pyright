@@ -11,7 +11,7 @@
 ////     return True
 
 // @filename: typings/package1/__init__.pyi
-//// from .subpackage import func1
+//// from .subpackage import func1 as func1
 
 // @filename: typings/package1/subpackage.pyi
 //// def func1() -> bool: ...

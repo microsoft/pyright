@@ -388,6 +388,17 @@
                                 "error"
                             ]
                         },
+                        "reportPrivateImportUsage": {
+                            "type": "string",
+                            "description": "Diagnostics for incorrect usage of symbol imported from a \"py.typed\" module that is not re-exported from that module.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportConstantRedefinition": {
                             "type": "string",
                             "description": "Diagnostics for attempts to redefine variables whose names are all-caps with underscores and numerals.",

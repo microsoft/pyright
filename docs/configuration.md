@@ -102,6 +102,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportPrivateUsage** [boolean or string, optional]: Generate or suppress diagnostics for incorrect usage of private or protected variables or functions. Protected class members begin with a single underscore (“_”) and can be accessed only by subclasses. Private class members begin with a double underscore but do not end in a double underscore and can be accessed only within the declaring class. Variables and functions declared outside of a class are considered private if their names start with either a single or double underscore, and they cannot be accessed outside of the declaring module. The default value for this setting is 'none'.
 
+**reportPrivateImportUsage** [boolean or string, optional]: Generate or suppress diagnostics for use of a symbol from a "py.typed" module that is not meant to be exported from that module. The default value for this setting is 'error'.
+
 **reportConstantRedefinition** [boolean or string, optional]: Generate or suppress diagnostics for attempts to redefine variables whose names are all-caps with underscores and numerals. The default value for this setting is 'none'.
 
 **reportIncompatibleMethodOverride** [boolean or string, optional]: Generate or suppress diagnostics for methods that override a method of the same name in a base class in an incompatible manner (wrong number of parameters, incompatible parameter types, or incompatible return type). The default value for this setting is 'none'.
@@ -294,6 +296,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUntypedBaseClass                    | "none"     | "none"     | "error"    |
 | reportUntypedNamedTuple                   | "none"     | "none"     | "error"    |
 | reportPrivateUsage                        | "none"     | "none"     | "error"    |
+| reportPrivateImportUsage                  | "none"     | "error"    | "error"    |
 | reportConstantRedefinition                | "none"     | "none"     | "error"    |
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |

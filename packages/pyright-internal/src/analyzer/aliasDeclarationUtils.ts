@@ -13,6 +13,8 @@ import { Symbol } from './symbol';
 export interface ResolvedAliasInfo {
     declaration: Declaration;
     isPrivate: boolean;
+    privatePyTypedImported?: string;
+    privatePyTypedImporter?: string;
 }
 
 // If the specified declaration is an alias declaration that points to a symbol,
@@ -28,12 +30,17 @@ export function resolveAliasDeclaration(
     let curDeclaration: Declaration | undefined = declaration;
     const alreadyVisited: Declaration[] = [];
     let isPrivate = false;
+    let isPrivatePyTypedImport = false;
+    let privatePyTypedImported: string | undefined;
+    let privatePyTypedImporter: string | undefined;
 
     while (true) {
         if (curDeclaration.type !== DeclarationType.Alias || !curDeclaration.symbolName) {
             return {
                 declaration: curDeclaration,
                 isPrivate,
+                privatePyTypedImported,
+                privatePyTypedImporter,
             };
         }
 
@@ -43,6 +50,8 @@ export function resolveAliasDeclaration(
             return {
                 declaration: curDeclaration,
                 isPrivate,
+                privatePyTypedImported,
+                privatePyTypedImporter,
             };
         }
 
@@ -84,6 +93,18 @@ export function resolveAliasDeclaration(
         // we use all of the overloads if it's an overloaded function.
         curDeclaration = declarations[declarations.length - 1];
 
+        if (isPrivatePyTypedImport) {
+            privatePyTypedImported = privatePyTypedImported ?? curDeclaration?.moduleName;
+        }
+
+        if (symbol.isPrivatePyTypedImport()) {
+            isPrivatePyTypedImport = true;
+        }
+
+        if (isPrivatePyTypedImport) {
+            privatePyTypedImporter = privatePyTypedImporter ?? curDeclaration?.moduleName;
+        }
+
         // Make sure we don't follow a circular list indefinitely.
         if (alreadyVisited.find((decl) => decl === curDeclaration)) {
             // If the path path of the alias points back to the original path, use the submodule
@@ -101,6 +122,8 @@ export function resolveAliasDeclaration(
             return {
                 declaration,
                 isPrivate,
+                privatePyTypedImported,
+                privatePyTypedImporter,
             };
         }
         alreadyVisited.push(curDeclaration);

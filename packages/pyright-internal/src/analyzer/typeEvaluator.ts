@@ -4829,6 +4829,18 @@ export function createTypeEvaluator(
                             node.memberName
                         );
                     }
+
+                    if (symbol.isPrivatePyTypedImport()) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
+                            DiagnosticRule.reportPrivateImportUsage,
+                            Localizer.Diagnostic.privateImportFromPyTypedModule().format({
+                                name: memberName,
+                                module: baseType.moduleName,
+                            }),
+                            node.memberName
+                        );
+                    }
                 } else {
                     // Does the module export a top-level __getattr__ function?
                     if (usage.method === 'get') {
@@ -16724,15 +16736,37 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        if (node.nodeType === ParseNodeType.ImportFromAs && resolvedAliasInfo.isPrivate) {
-            addDiagnostic(
-                getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
-                DiagnosticRule.reportPrivateUsage,
-                Localizer.Diagnostic.privateUsedOutsideOfModule().format({
-                    name: node.name.value,
-                }),
-                node.name
-            );
+        if (node.nodeType === ParseNodeType.ImportFromAs) {
+            if (resolvedAliasInfo.isPrivate) {
+                addDiagnostic(
+                    getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
+                    DiagnosticRule.reportPrivateUsage,
+                    Localizer.Diagnostic.privateUsedOutsideOfModule().format({
+                        name: node.name.value,
+                    }),
+                    node.name
+                );
+            }
+
+            if (resolvedAliasInfo.privatePyTypedImporter) {
+                const diag = new DiagnosticAddendum();
+                if (resolvedAliasInfo.privatePyTypedImported) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.privateImportFromPyTypedSource().format({
+                            module: resolvedAliasInfo.privatePyTypedImported,
+                        })
+                    );
+                }
+                addDiagnostic(
+                    getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
+                    DiagnosticRule.reportPrivateImportUsage,
+                    Localizer.Diagnostic.privateImportFromPyTypedModule().format({
+                        name: node.name.value,
+                        module: resolvedAliasInfo.privatePyTypedImporter,
+                    }) + diag.getString(),
+                    node.name
+                );
+            }
         }
 
         return getInferredTypeOfDeclaration(aliasDecl);

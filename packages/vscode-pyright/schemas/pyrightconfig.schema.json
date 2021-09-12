@@ -281,6 +281,12 @@
       "title": "Controls reporting of private variables and functions used outside of the owning class or module and usage of protected members outside of subclasses",
       "default": "none"
     },
+    "reportPrivateImportUsage": {
+      "$id": "#/properties/reportPrivateImportUsage",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of improper usage of symbol imported from a \"py.typed\" module that is not re-exported from that module",
+      "default": "error"
+    },
     "reportConstantRedefinition": {
       "$id": "#/properties/reportConstantRedefinition",
       "$ref": "#/definitions/diagnostic",

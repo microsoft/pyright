@@ -1992,6 +1992,12 @@ export class CompletionProvider {
         completionList: CompletionList,
         detail: SymbolDetail
     ) {
+        // If the symbol is a py.typed import that is not supposed to be re-exported,
+        // don't offer it as a completion suggestion.
+        if (symbol.isPrivatePyTypedImport()) {
+            return;
+        }
+
         let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
         if (!primaryDecl) {
             const declarations = symbol.getDeclarations();
