@@ -78,6 +78,8 @@ export function createTypeEvaluatorWithTracker(
         getTypeForDeclaration: (n) => run('getTypeForDeclaration', () => typeEvaluator.getTypeForDeclaration(n), n),
         resolveAliasDeclaration: (d, l) =>
             run('resolveAliasDeclaration', () => typeEvaluator.resolveAliasDeclaration(d, l), d),
+        resolveAliasDeclarationWithInfo: (d, l) =>
+            run('resolveAliasDeclarationWithInfo', () => typeEvaluator.resolveAliasDeclarationWithInfo(d, l), d),
         getTypeFromIterable: (t, a, e) =>
             run('getTypeFromIterable', () => typeEvaluator.getTypeFromIterable(t, a, e), t),
         getTypeFromIterator: (t, a, e) =>

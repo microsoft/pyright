@@ -33,7 +33,7 @@ export const enum SymbolFlags {
     InstanceMember = 1 << 3,
 
     // Indicates that the symbol is considered "private" to the
-    // class and should not be accessed outside or overridden.
+    // class or module and should not be accessed outside or overridden.
     PrivateMember = 1 << 5,
 
     // Indicates that the symbol is not considered for protocol
@@ -46,6 +46,9 @@ export const enum SymbolFlags {
 
     // Indicates that the symbol is in __all__.
     InDunderAll = 1 << 8,
+
+    // Indicates that the symbol is a private import in a py.typed module.
+    PrivatePyTypedImport = 1 << 9,
 }
 
 let nextSymbolId = 1;
@@ -143,6 +146,14 @@ export class Symbol {
 
     isPrivateMember() {
         return !!(this._flags & SymbolFlags.PrivateMember);
+    }
+
+    setPrivatePyTypedImport() {
+        this._flags |= SymbolFlags.PrivatePyTypedImport;
+    }
+
+    isPrivatePyTypedImport() {
+        return !!(this._flags & SymbolFlags.PrivatePyTypedImport);
     }
 
     addDeclaration(declaration: Declaration) {

@@ -199,6 +199,10 @@ export class Binder extends ParseTreeWalker {
         id: getUniqueFlowNodeId(),
     };
 
+    // Map of symbols at the module level that may be externally
+    // hidden depending on whether they are listed in the __all__ list.
+    private _potentialHiddenSymbols = new Map<string, Symbol>();
+
     // Map of symbols at the module level that may be private depending
     // on whether they are listed in the __all__ list.
     private _potentialPrivateSymbols = new Map<string, Symbol>();
@@ -251,12 +255,20 @@ export class Binder extends ParseTreeWalker {
         this._bindDeferred();
 
         // Use the __all__ list to determine whether any potential private
-        // symbols should be made externally invisible.
-        this._potentialPrivateSymbols.forEach((symbol, name) => {
-            // If this symbol was found in the dunder all, don't mark it
-            // as externally hidden.
+        // symbols should be made externally hidden or private.
+        this._potentialHiddenSymbols.forEach((symbol, name) => {
             if (!this._dunderAllNames?.some((sym) => sym === name)) {
-                symbol.setIsExternallyHidden();
+                if (this._fileInfo.isStubFile) {
+                    symbol.setIsExternallyHidden();
+                } else {
+                    symbol.setPrivatePyTypedImport();
+                }
+            }
+        });
+
+        this._potentialPrivateSymbols.forEach((symbol, name) => {
+            if (!this._dunderAllNames?.some((sym) => sym === name)) {
+                symbol.setIsPrivateMember();
             }
         });
 
@@ -1438,18 +1450,17 @@ export class Binder extends ParseTreeWalker {
             const symbol = this._bindNameToScope(this._currentScope, symbolName);
             if (
                 symbol &&
+                (this._currentScope.type === ScopeType.Module || this._currentScope.type === ScopeType.Builtin) &&
                 (!node.alias ||
                     node.module.nameParts.length !== 1 ||
                     node.module.nameParts[0].value !== node.alias.value)
             ) {
-                if (this._fileInfo.isStubFile) {
+                if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
                     // PEP 484 indicates that imported symbols should not be
                     // considered "reexported" from a type stub file unless
                     // they are imported using the "as" form and the aliased
                     // name is entirely redundant.
-                    symbol.setIsExternallyHidden();
-                } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
-                    this._potentialPrivateSymbols.set(symbolName, symbol);
+                    this._potentialHiddenSymbols.set(symbolName, symbol);
                 }
             }
 
@@ -1604,21 +1615,21 @@ export class Binder extends ParseTreeWalker {
                     // All import statements of the form `from . import x` treat x
                     // as an externally-visible (not hidden) symbol.
                     if (node.module.nameParts.length > 0) {
-                        if (!importSymbolNode.alias || importSymbolNode.alias.value !== importSymbolNode.name.value) {
-                            if (this._fileInfo.isStubFile) {
-                                // PEP 484 indicates that imported symbols should not be
-                                // considered "reexported" from a type stub file unless
-                                // they are imported using the "as" form using a redundant form.
-                                symbol.setIsExternallyHidden();
-                            } else if (
-                                this._fileInfo.isInPyTypedPackage &&
-                                this._currentScope.type === ScopeType.Module
+                        if (
+                            this._currentScope.type === ScopeType.Module ||
+                            this._currentScope.type === ScopeType.Builtin
+                        ) {
+                            if (
+                                !importSymbolNode.alias ||
+                                importSymbolNode.alias.value !== importSymbolNode.name.value
                             ) {
-                                // Py.typed packages follow the same rule as PEP 484 except
-                                // that if the symbol appears in the __all__ list, it is overridden
-                                // and becomes a externally-visible symbol. For now, add it to
-                                // the "potentially private" map.
-                                this._potentialPrivateSymbols.set(nameNode.value, symbol);
+                                if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
+                                    // PEP 484 indicates that imported symbols should not be
+                                    // considered "reexported" from a type stub file unless
+                                    // they are imported using the "as" form using a redundant form.
+                                    // Py.typed packages follow the same rule as PEP 484.
+                                    this._potentialHiddenSymbols.set(nameNode.value, symbol);
+                                }
                             }
                         }
                     }
@@ -2952,11 +2963,21 @@ export class Binder extends ParseTreeWalker {
                     }
                 }
 
-                if (isPrivateOrProtectedName(name)) {
-                    if (this._fileInfo.isStubFile || isPrivateName(name)) {
-                        symbol.setIsExternallyHidden();
-                    } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
-                        this._potentialPrivateSymbols.set(name, symbol);
+                if (this._currentScope.type === ScopeType.Module || this._currentScope.type === ScopeType.Builtin) {
+                    if (isPrivateOrProtectedName(name)) {
+                        if (isPrivateName(name)) {
+                            // Private names are obscured, so they are always externally hidden.
+                            symbol.setIsExternallyHidden();
+                        } else if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
+                            if (this._currentScope.type === ScopeType.Builtin) {
+                                // Don't include private-named symbols in the builtin scope.
+                                symbol.setIsExternallyHidden();
+                            } else {
+                                this._potentialPrivateSymbols.set(name, symbol);
+                            }
+                        } else {
+                            symbol.setIsPrivateMember();
+                        }
                     }
                 }
 
@@ -3191,7 +3212,10 @@ export class Binder extends ParseTreeWalker {
                         typeAnnotationNode = undefined;
 
                         // Type aliases are allowed only in the global scope.
-                        if (this._currentScope.type !== ScopeType.Module) {
+                        if (
+                            this._currentScope.type !== ScopeType.Module &&
+                            this._currentScope.type !== ScopeType.Builtin
+                        ) {
                             this._addError(Localizer.Diagnostic.typeAliasNotInModule(), typeAnnotation);
                         }
                     } else if (finalInfo.isFinal) {

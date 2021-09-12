@@ -10,6 +10,11 @@ import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import { Declaration, DeclarationType } from './declaration';
 import { Symbol } from './symbol';
 
+export interface ResolvedAliasInfo {
+    declaration: Declaration;
+    isPrivate: boolean;
+}
+
 // If the specified declaration is an alias declaration that points to a symbol,
 // it resolves the alias and looks up the symbol, then returns the first declaration
 // associated with that symbol. It does this recursively if necessary. If a symbol
@@ -19,23 +24,26 @@ export function resolveAliasDeclaration(
     importLookup: ImportLookup,
     declaration: Declaration,
     resolveLocalNames: boolean
-): Declaration | undefined {
+): ResolvedAliasInfo | undefined {
     let curDeclaration: Declaration | undefined = declaration;
     const alreadyVisited: Declaration[] = [];
+    let isPrivate = false;
 
     while (true) {
-        if (curDeclaration.type !== DeclarationType.Alias) {
-            return curDeclaration;
-        }
-
-        if (!curDeclaration.symbolName) {
-            return curDeclaration;
+        if (curDeclaration.type !== DeclarationType.Alias || !curDeclaration.symbolName) {
+            return {
+                declaration: curDeclaration,
+                isPrivate,
+            };
         }
 
         // If we are not supposed to follow local alias names and this
         // is a local name, don't continue to follow the alias.
         if (!resolveLocalNames && curDeclaration.usesLocalName) {
-            return curDeclaration;
+            return {
+                declaration: curDeclaration,
+                isPrivate,
+            };
         }
 
         let lookupResult: ImportLookupResult | undefined;
@@ -50,6 +58,14 @@ export function resolveAliasDeclaration(
             if (curDeclaration.submoduleFallback) {
                 return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, resolveLocalNames);
             }
+            return undefined;
+        }
+
+        if (symbol.isPrivateMember()) {
+            isPrivate = true;
+        }
+
+        if (symbol.isExternallyHidden()) {
             return undefined;
         }
 
@@ -82,7 +98,10 @@ export function resolveAliasDeclaration(
             ) {
                 return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, resolveLocalNames);
             }
-            return declaration;
+            return {
+                declaration,
+                isPrivate,
+            };
         }
         alreadyVisited.push(curDeclaration);
     }
