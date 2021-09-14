@@ -19376,6 +19376,7 @@ export function createTypeEvaluator(
         isIsOperator: boolean
     ): Type {
         return mapSubtypes(referenceType, (subtype) => {
+            subtype = makeTopLevelTypeVarsConcrete(subtype);
             if (isClassInstance(subtype) && ClassType.isSameGenericClass(literalType, subtype)) {
                 if (subtype.literalValue !== undefined) {
                     const literalValueMatches = ClassType.isLiteralValueSame(subtype, literalType);
