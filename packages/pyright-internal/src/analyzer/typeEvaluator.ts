@@ -18748,12 +18748,12 @@ export function createTypeEvaluator(
     // of classes. This method determines which form and returns a list of classes
     // or undefined.
     function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType | FunctionType)[] | undefined {
+        let foundNonClassType = false;
+        const classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[] = [];
+
         // Create a helper function that returns a list of class types or
         // undefined if any of the types are not valid.
-        const getClassTypeList = (types: Type[]) => {
-            let foundNonClassType = false;
-            const classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[] = [];
-
+        const addClassTypesToList = (types: Type[]) => {
             types.forEach((subtype) => {
                 if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                     classTypeList.push(subtype);
@@ -18770,24 +18770,21 @@ export function createTypeEvaluator(
                     foundNonClassType = true;
                 }
             });
-
-            return foundNonClassType ? undefined : classTypeList;
         };
 
-        if (isClass(argType) && TypeBase.isInstance(argType) && isTupleClass(argType)) {
-            if (!argType.tupleTypeArguments) {
-                return undefined;
+        doForEachSubtype(argType, (subtype) => {
+            if (isClass(subtype) && TypeBase.isInstance(subtype) && isTupleClass(subtype)) {
+                if (subtype.tupleTypeArguments) {
+                    addClassTypesToList(subtype.tupleTypeArguments);
+                }
+            } else {
+                addClassTypesToList([subtype]);
             }
 
-            return getClassTypeList(argType.tupleTypeArguments);
-        }
+            return undefined;
+        });
 
-        // Python 3.10 supports unions within isinstance and issubclass calls.
-        if (isUnion(argType)) {
-            return getClassTypeList(argType.subtypes);
-        }
-
-        return getClassTypeList([argType]);
+        return foundNonClassType ? undefined : classTypeList;
     }
 
     // Attempts to narrow a type (make it more constrained) based on a
