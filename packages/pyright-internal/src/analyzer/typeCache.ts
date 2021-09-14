@@ -23,6 +23,7 @@ export type CachedType = Type | IncompleteType;
 export interface IncompleteSubtypeInfo {
     type: Type | undefined;
     isIncomplete: boolean;
+    isPending: boolean;
 }
 
 export interface IncompleteType {

@@ -6527,6 +6527,7 @@ export function createTypeEvaluator(
         const entryTypeResults = node.expressions.map((expr) =>
             getTypeOfExpression(expr, useAny ? AnyType.create() : undefined)
         );
+        const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
 
         if (!tupleClassType || !isInstantiableClass(tupleClassType)) {
             return { type: UnknownType.create(), node };
@@ -6534,7 +6535,7 @@ export function createTypeEvaluator(
 
         const type = convertToInstance(specializeTupleClass(tupleClassType, buildTupleTypesList(entryTypeResults)));
 
-        return { type, node };
+        return { type, node, isIncomplete };
     }
 
     function buildTupleTypesList(entryTypeResults: TypeResult[]): Type[] {
@@ -17586,6 +17587,7 @@ export function createTypeEvaluator(
                 index: number,
                 type: Type | undefined,
                 isIncomplete: boolean,
+                isPending: boolean,
                 usedOuterScopeAlias: boolean
             ) {
                 const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
@@ -17602,12 +17604,14 @@ export function createTypeEvaluator(
                         type === undefined ||
                         !isTypeSame(oldEntry.type, type)
                     ) {
-                        incompleteEntries[index] = { type, isIncomplete };
+                        incompleteEntries[index] = { type, isIncomplete, isPending };
                         flowIncompleteGeneration++;
+                    } else if (oldEntry.isPending !== isPending) {
+                        incompleteEntries[index] = { type, isIncomplete, isPending };
                     }
                 } else {
                     assert(incompleteEntries.length === index);
-                    incompleteEntries.push({ type, isIncomplete });
+                    incompleteEntries.push({ type, isIncomplete, isPending });
                     flowIncompleteGeneration++;
                 }
 
@@ -17623,15 +17627,6 @@ export function createTypeEvaluator(
                 cachedEntry.recursiveVisitCount = (cachedEntry.recursiveVisitCount ?? 0) + 1;
 
                 return cachedEntry.recursiveVisitCount;
-            }
-
-            function deleteIncompleteSubtypes(flowNode: FlowNode) {
-                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
-                if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
-                    fail('deleteIncompleteSubtypes can be called only on a valid incomplete cache entry');
-                }
-
-                cachedEntry.incompleteSubtypes = [];
             }
 
             function getCacheEntry(flowNode: FlowNode, usedOuterScopeAlias: boolean): FlowNodeTypeResult | undefined {
@@ -17906,50 +17901,77 @@ export function createTypeEvaluator(
                             );
                         }
 
-                        const isFirstTimeInLoop = cacheEntry.incompleteSubtypes?.length === 0;
+                        const isRecursive =
+                            cacheEntry.incompleteSubtypes !== undefined &&
+                            cacheEntry.incompleteSubtypes.some((subtype) => subtype.isPending);
                         const visitCount = incrementFlowNodeVisitCount(curFlowNode);
 
                         loopNode.antecedents.forEach((antecedent, index) => {
-                            // Have we already been here? If so, there will be an entry
-                            // for this index, and we can use the type that was already
-                            // computed.
-                            if (index >= cacheEntry!.incompleteSubtypes!.length) {
-                                // Set the incomplete type for this index to undefined to prevent
-                                // infinite recursion. We'll set it to the computed value below.
+                            cacheEntry = getCacheEntry(curFlowNode, usedOuterScopeAlias)!;
+
+                            // Have we already been here (i.e. does the entry exist and is
+                            // not marked "pending")? If so, we can use the type that was already
+                            // computed if it is complete.
+                            const subtypeEntry =
+                                cacheEntry.incompleteSubtypes !== undefined &&
+                                index < cacheEntry.incompleteSubtypes.length
+                                    ? cacheEntry.incompleteSubtypes[index]
+                                    : undefined;
+                            if (
+                                subtypeEntry === undefined ||
+                                (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete)
+                            ) {
+                                // Set this entry to "pending" to prevent infinite recursion.
+                                // We'll mark it "not pending" below.
                                 cacheEntry = setIncompleteSubtype(
                                     curFlowNode,
                                     index,
-                                    undefined,
+                                    subtypeEntry?.type,
                                     /* isIncomplete */ true,
+                                    /* isPending */ true,
                                     usedOuterScopeAlias
                                 );
-                                const flowTypeResult = getTypeFromFlowNode(
-                                    antecedent,
-                                    reference,
-                                    targetSymbolId,
-                                    initialType,
-                                    isInitialTypeIncomplete
-                                );
 
-                                if (flowTypeResult.isIncomplete) {
-                                    sawIncomplete = true;
+                                try {
+                                    const flowTypeResult = getTypeFromFlowNode(
+                                        antecedent,
+                                        reference,
+                                        targetSymbolId,
+                                        initialType,
+                                        isInitialTypeIncomplete
+                                    );
+
+                                    if (flowTypeResult.isIncomplete) {
+                                        sawIncomplete = true;
+                                    }
+
+                                    if (flowTypeResult.usedOuterScopeAlias) {
+                                        loopUsedOuterScopeAlias = true;
+                                    }
+
+                                    cacheEntry = setIncompleteSubtype(
+                                        curFlowNode,
+                                        index,
+                                        flowTypeResult.type,
+                                        flowTypeResult.isIncomplete,
+                                        /* isPending */ false,
+                                        loopUsedOuterScopeAlias
+                                    );
+                                } catch (e) {
+                                    setIncompleteSubtype(
+                                        curFlowNode,
+                                        index,
+                                        undefined,
+                                        /* isIncomplete */ true,
+                                        /* isPending */ false,
+                                        usedOuterScopeAlias
+                                    );
+                                    throw e;
                                 }
-
-                                if (flowTypeResult.usedOuterScopeAlias) {
-                                    loopUsedOuterScopeAlias = true;
-                                }
-
-                                cacheEntry = setIncompleteSubtype(
-                                    curFlowNode,
-                                    index,
-                                    flowTypeResult.type,
-                                    flowTypeResult.isIncomplete,
-                                    loopUsedOuterScopeAlias
-                                );
                             }
                         });
 
-                        if (!isFirstTimeInLoop) {
+                        if (isRecursive) {
                             // This was not the first time through the loop, so we are recursively trying
                             // to resolve other parts of the incomplete type. It will be marked complete
                             // once the stack pops back up to the first caller.
@@ -17968,8 +17990,6 @@ export function createTypeEvaluator(
                                 isIncomplete,
                             };
                         }
-
-                        deleteIncompleteSubtypes(curFlowNode);
 
                         // The result is incomplete if one or more entries were incomplete.
                         if (sawIncomplete) {
