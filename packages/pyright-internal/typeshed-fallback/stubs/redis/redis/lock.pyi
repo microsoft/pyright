@@ -10,10 +10,10 @@ class Lock:
         self,
         redis: Redis[Any],
         name: str,
-        timeout: None | int | float = ...,
+        timeout: float | None = ...,
         sleep: float = ...,
         blocking: bool = ...,
-        blocking_timeout: bool | None = ...,
+        blocking_timeout: float | None = ...,
         thread_local: bool = ...,
     ) -> None: ...
     def register_scripts(self) -> None: ...

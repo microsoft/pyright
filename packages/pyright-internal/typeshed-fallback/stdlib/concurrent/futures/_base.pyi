@@ -16,6 +16,8 @@ RUNNING: str
 CANCELLED: str
 CANCELLED_AND_NOTIFIED: str
 FINISHED: str
+_FUTURE_STATES: list[str]
+_STATE_TO_DESCRIPTION_MAP: dict[str, str]
 LOGGER: Logger
 
 class Error(Exception): ...

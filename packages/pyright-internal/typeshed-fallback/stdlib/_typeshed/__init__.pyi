@@ -41,6 +41,9 @@ class SupportsLenAndGetItem(Protocol[_T_co]):
     def __len__(self) -> int: ...
     def __getitem__(self, __k: int) -> _T_co: ...
 
+class SupportsTrunc(Protocol):
+    def __trunc__(self) -> int: ...
+
 # Mapping-like protocols
 
 # stable

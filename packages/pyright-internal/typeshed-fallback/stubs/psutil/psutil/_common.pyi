@@ -1,17 +1,17 @@
 import enum
-from typing import Any, NamedTuple
+from typing import Any, Callable, NamedTuple, TypeVar
 
-POSIX: Any
-WINDOWS: Any
-LINUX: Any
-MACOS: Any
-OSX: Any
-FREEBSD: Any
-OPENBSD: Any
-NETBSD: Any
-BSD: Any
-SUNOS: Any
-AIX: Any
+POSIX: bool
+WINDOWS: bool
+LINUX: bool
+MACOS: bool
+OSX: bool
+FREEBSD: bool
+OPENBSD: bool
+NETBSD: bool
+BSD: bool
+SUNOS: bool
+AIX: bool
 STATUS_RUNNING: str
 STATUS_SLEEPING: str
 STATUS_DISK_SLEEP: str
@@ -54,154 +54,154 @@ class BatteryTime(enum.IntEnum):
     POWER_TIME_UNKNOWN: int
     POWER_TIME_UNLIMITED: int
 
-ENCODING: Any
-ENCODING_ERRS: Any
+ENCODING: str
+ENCODING_ERRS: str
 
 class sswap(NamedTuple):
-    total: Any
-    used: Any
-    free: Any
-    percent: Any
-    sin: Any
-    sout: Any
+    total: int
+    used: int
+    free: int
+    percent: float
+    sin: int
+    sout: int
 
 class sdiskusage(NamedTuple):
-    total: Any
-    used: Any
-    free: Any
-    percent: Any
+    total: int
+    used: int
+    free: int
+    percent: float
 
 class sdiskio(NamedTuple):
-    read_count: Any
-    write_count: Any
-    read_bytes: Any
-    write_bytes: Any
-    read_time: Any
-    write_time: Any
+    read_count: int
+    write_count: int
+    read_bytes: int
+    write_bytes: int
+    read_time: int
+    write_time: int
 
 class sdiskpart(NamedTuple):
-    device: Any
-    mountpoint: Any
-    fstype: Any
-    opts: Any
-    maxfile: Any
-    maxpath: Any
+    device: str
+    mountpoint: str
+    fstype: str
+    opts: str
+    maxfile: int
+    maxpath: int
 
 class snetio(NamedTuple):
-    bytes_sent: Any
-    bytes_recv: Any
-    packets_sent: Any
-    packets_recv: Any
-    errin: Any
-    errout: Any
-    dropin: Any
-    dropout: Any
+    bytes_sent: int
+    bytes_recv: int
+    packets_sent: int
+    packets_recv: int
+    errin: int
+    errout: int
+    dropin: int
+    dropout: int
 
 class suser(NamedTuple):
-    name: Any
-    terminal: Any
-    host: Any
-    started: Any
-    pid: Any
+    name: str
+    terminal: str | None
+    host: str | None
+    started: float
+    pid: str
 
 class sconn(NamedTuple):
-    fd: Any
+    fd: int
     family: Any
     type: Any
-    laddr: Any
-    raddr: Any
-    status: Any
-    pid: Any
+    laddr: str
+    raddr: str
+    status: str
+    pid: int
 
 class snicaddr(NamedTuple):
     family: Any
-    address: Any
-    netmask: Any
-    broadcast: Any
-    ptp: Any
+    address: str
+    netmask: str | None
+    broadcast: str | None
+    ptp: str | None
 
 class snicstats(NamedTuple):
-    isup: Any
+    isup: bool
     duplex: Any
-    speed: Any
-    mtu: Any
+    speed: int
+    mtu: int
 
 class scpustats(NamedTuple):
-    ctx_switches: Any
-    interrupts: Any
-    soft_interrupts: Any
-    syscalls: Any
+    ctx_switches: int
+    interrupts: int
+    soft_interrupts: int
+    syscalls: int
 
 class scpufreq(NamedTuple):
-    current: Any
-    min: Any
-    max: Any
+    current: float
+    min: float
+    max: float
 
 class shwtemp(NamedTuple):
-    label: Any
-    current: Any
-    high: Any
-    critical: Any
+    label: str
+    current: float
+    high: float | None
+    critical: float | None
 
 class sbattery(NamedTuple):
-    percent: Any
-    secsleft: Any
-    power_plugged: Any
+    percent: int
+    secsleft: int
+    power_plugged: bool
 
 class sfan(NamedTuple):
-    label: Any
-    current: Any
+    label: str
+    current: int
 
 class pcputimes(NamedTuple):
-    user: Any
-    system: Any
-    children_user: Any
-    children_system: Any
+    user: float
+    system: float
+    children_user: float
+    children_system: float
 
 class popenfile(NamedTuple):
-    path: Any
-    fd: Any
+    path: str
+    fd: int
 
 class pthread(NamedTuple):
-    id: Any
-    user_time: Any
-    system_time: Any
+    id: int
+    user_time: float
+    system_time: float
 
 class puids(NamedTuple):
-    real: Any
-    effective: Any
-    saved: Any
+    real: int
+    effective: int
+    saved: int
 
 class pgids(NamedTuple):
-    real: Any
-    effective: Any
-    saved: Any
+    real: int
+    effective: int
+    saved: int
 
 class pio(NamedTuple):
-    read_count: Any
-    write_count: Any
-    read_bytes: Any
-    write_bytes: Any
+    read_count: int
+    write_count: int
+    read_bytes: int
+    write_bytes: int
 
 class pionice(NamedTuple):
     ioclass: Any
-    value: Any
+    value: int
 
 class pctxsw(NamedTuple):
-    voluntary: Any
-    involuntary: Any
+    voluntary: int
+    involuntary: int
 
 class pconn(NamedTuple):
-    fd: Any
+    fd: int
     family: Any
     type: Any
-    laddr: Any
-    raddr: Any
-    status: Any
+    laddr: addr
+    raddr: addr
+    status: str
 
 class addr(NamedTuple):
-    ip: Any
-    port: Any
+    ip: str
+    port: int
 
 conn_tmap: Any
 
@@ -239,16 +239,19 @@ class TimeoutExpired(Error):
     name: Any
     def __init__(self, seconds, pid: Any | None = ..., name: Any | None = ...) -> None: ...
 
-def usage_percent(used, total, round_: Any | None = ...): ...
-def memoize(fun): ...
-def isfile_strict(path): ...
-def path_exists_strict(path): ...
-def supports_ipv6(): ...
+_Func = TypeVar("_Func", bound=Callable[..., Any])
+
+def usage_percent(used, total, round_: int | None = ...) -> float: ...
+def memoize(fun: _Func) -> _Func: ...
+def memoize_when_activated(fun: _Func) -> _Func: ...
+def isfile_strict(path) -> bool: ...
+def path_exists_strict(path) -> bool: ...
+def supports_ipv6() -> bool: ...
 def parse_environ_block(data): ...
 def sockfam_to_enum(num): ...
 def socktype_to_enum(num): ...
 def conn_to_ntuple(fd, fam, type_, laddr, raddr, status, status_map, pid: Any | None = ...): ...
-def deprecated_method(replacement): ...
+def deprecated_method(replacement: str) -> Callable[[_Func], _Func]: ...
 
 class _WrapNumbers:
     lock: Any
@@ -261,8 +264,9 @@ class _WrapNumbers:
     def cache_info(self): ...
 
 def wrap_numbers(input_dict, name): ...
-def bytes2human(n, format: str = ...): ...
-def term_supports_colors(file=...): ...
-def hilite(s, color: Any | None = ..., bold: bool = ...): ...
-def print_color(s, color: Any | None = ..., bold: bool = ..., file=...) -> None: ...
+def bytes2human(n: int, format: str = ...) -> str: ...
+def get_procfs_path(): ...
+def term_supports_colors(file=...) -> bool: ...
+def hilite(s: str, color: str | None = ..., bold: bool = ...) -> str: ...
+def print_color(s: str, color: str | None = ..., bold: bool = ..., file=...) -> None: ...
 def debug(msg) -> None: ...

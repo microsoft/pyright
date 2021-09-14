@@ -1,12 +1,11 @@
 from _typeshed import SupportsRead
 from typing import IO, Any, Mapping, Sequence, Text, Union
 
-from yaml.constructor import BaseConstructor, Constructor, SafeConstructor
+from yaml.constructor import BaseConstructor, FullConstructor, SafeConstructor, UnsafeConstructor
 from yaml.events import Event
 from yaml.nodes import Node
-from yaml.representer import BaseRepresenter, Representer, SafeRepresenter
+from yaml.representer import BaseRepresenter, SafeRepresenter
 from yaml.resolver import BaseResolver, Resolver
-from yaml.serializer import Serializer
 from yaml.tokens import Token
 
 _Readable = SupportsRead[Union[Text, bytes]]
@@ -33,7 +32,11 @@ class CLoader(CParser, SafeConstructor, Resolver):
 class CSafeLoader(CParser, SafeConstructor, Resolver):
     def __init__(self, stream: str | bytes | _Readable) -> None: ...
 
-class CDangerLoader(CParser, Constructor, Resolver): ...  # undocumented
+class CFullLoader(CParser, FullConstructor, Resolver):
+    def __init__(self, stream: str | bytes | _Readable) -> None: ...
+
+class CUnsafeLoader(CParser, UnsafeConstructor, Resolver):
+    def __init__(self, stream: str | bytes | _Readable) -> None: ...
 
 class CEmitter(object):
     def __init__(
@@ -72,5 +75,3 @@ class CBaseDumper(CEmitter, BaseRepresenter, BaseResolver):
 class CDumper(CEmitter, SafeRepresenter, Resolver): ...
 
 CSafeDumper = CDumper
-
-class CDangerDumper(CEmitter, Serializer, Representer, Resolver): ...  # undocumented
