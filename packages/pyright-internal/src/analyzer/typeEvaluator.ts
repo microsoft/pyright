@@ -5240,7 +5240,7 @@ export function createTypeEvaluator(
                         !subtype.details.effectiveMetaclass ||
                         !isInstantiableClass(subtype.details.effectiveMetaclass)
                     ) {
-                        return undefined;
+                        return UnknownType.create();
                     }
                     lookupClass = convertToInstance(subtype.details.effectiveMetaclass) as ClassType;
                     isAccessedThroughMetaclass = true;
