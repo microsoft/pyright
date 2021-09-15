@@ -18229,7 +18229,7 @@ export function createTypeEvaluator(
     // is specified, it returns true only if at least one control flow
     // path passes through sourceFlowNode.
     function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode): boolean {
-        const visitedFlowNodeMap = new Map<number, true>();
+        const visitedFlowNodeMap = new Set<number>();
 
         function isFlowNodeReachableRecursive(flowNode: FlowNode, sourceFlowNode: FlowNode | undefined): boolean {
             let curFlowNode = flowNode;
@@ -18242,7 +18242,7 @@ export function createTypeEvaluator(
                 }
 
                 // Note that we've been here before.
-                visitedFlowNodeMap.set(curFlowNode.id, true);
+                visitedFlowNodeMap.add(curFlowNode.id);
 
                 if (curFlowNode.flags & FlowFlags.Unreachable) {
                     return false;
