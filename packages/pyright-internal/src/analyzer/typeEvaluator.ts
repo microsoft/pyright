@@ -17850,7 +17850,9 @@ export function createTypeEvaluator(
                             }
 
                             if (
-                                !subexpressionReferenceKeys.some((key) => branchFlowNode.affectedExpressions!.has(key)) &&
+                                !subexpressionReferenceKeys.some((key) =>
+                                    branchFlowNode.affectedExpressions!.has(key)
+                                ) &&
                                 isFlowNodeReachable(curFlowNode, branchFlowNode.preBranchAntecedent)
                             ) {
                                 curFlowNode = branchFlowNode.preBranchAntecedent;
