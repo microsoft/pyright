@@ -86,14 +86,15 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
+    createKeysForReferenceSubexpressions,
     FlowAssignment,
     FlowAssignmentAlias,
+    FlowBranchLabel,
     FlowCall,
     FlowCondition,
     FlowExhaustedMatch,
     FlowFlags,
     FlowLabel,
-    FlowLoopLabel,
     FlowNarrowForPattern,
     FlowNode,
     FlowPostContextManagerLabel,
@@ -17527,6 +17528,7 @@ export function createTypeEvaluator(
             isInitialTypeIncomplete: boolean
         ): FlowNodeTypeResult {
             const referenceKey = reference !== undefined ? createKeyForReference(reference) : undefined;
+            let subexpressionReferenceKeys: string[] | undefined;
             const referenceKeyWithSymbolId =
                 referenceKey !== undefined && targetSymbolId !== undefined
                     ? referenceKey + `.${targetSymbolId.toString()}`
@@ -17821,6 +17823,7 @@ export function createTypeEvaluator(
                     }
 
                     if (curFlowNode.flags & FlowFlags.BranchLabel) {
+                        const branchFlowNode = curFlowNode as FlowBranchLabel;
                         if (curFlowNode.flags & FlowFlags.PostContextManager) {
                             // Determine whether any of the context managers support exception
                             // suppression. If not, none of its antecedents are reachable.
@@ -17836,6 +17839,22 @@ export function createTypeEvaluator(
                                     usedOuterScopeAlias,
                                     /* isIncomplete */ false
                                 );
+                            }
+                        }
+
+                        // Is the current symbol modified in any way within the scope of the branch?
+                        // If not, we can skip all processing within the branch scope.
+                        if (reference && branchFlowNode.preBranchAntecedent && branchFlowNode.affectedExpressions) {
+                            if (!subexpressionReferenceKeys) {
+                                subexpressionReferenceKeys = createKeysForReferenceSubexpressions(reference);
+                            }
+
+                            if (
+                                !subexpressionReferenceKeys.some((key) => branchFlowNode.affectedExpressions!.has(key)) &&
+                                isFlowNodeReachable(curFlowNode, branchFlowNode.preBranchAntecedent)
+                            ) {
+                                curFlowNode = branchFlowNode.preBranchAntecedent;
+                                continue;
                             }
                         }
 
@@ -17873,14 +17892,17 @@ export function createTypeEvaluator(
                     }
 
                     if (curFlowNode.flags & FlowFlags.LoopLabel) {
-                        const loopNode = curFlowNode as FlowLoopLabel;
+                        const loopNode = curFlowNode as FlowLabel;
 
-                        // Is the current symbol modified in any way within the
-                        // loop? If not, we can skip all processing within the loop
-                        // and assume that the type comes from the first antecedent,
+                        // Is the current symbol modified in any way within the loop? If not, we can skip all
+                        // processing within the loop and assume that the type comes from the first antecedent,
                         // which feeds the loop.
-                        if (referenceKey) {
-                            if (!loopNode.expressions || !loopNode.expressions.has(referenceKey)) {
+                        if (reference) {
+                            if (!subexpressionReferenceKeys) {
+                                subexpressionReferenceKeys = createKeysForReferenceSubexpressions(reference);
+                            }
+
+                            if (!subexpressionReferenceKeys.some((key) => loopNode.affectedExpressions!.has(key))) {
                                 curFlowNode = loopNode.antecedents[0];
                                 continue;
                             }
@@ -18280,16 +18302,11 @@ export function createTypeEvaluator(
                 if (curFlowNode.flags & FlowFlags.Call) {
                     const callFlowNode = curFlowNode as FlowCall;
 
-                    // If we're determining whether a specified source flow node is
-                    // reachable, don't take into consideration possible "no return"
-                    // calls.
-                    if (sourceFlowNode === undefined) {
-                        // If this function returns a "NoReturn" type, that means
-                        // it always raises an exception or otherwise doesn't return,
-                        // so we can assume that the code before this is unreachable.
-                        if (isCallNoReturn(callFlowNode.node)) {
-                            return false;
-                        }
+                    // If this function returns a "NoReturn" type, that means
+                    // it always raises an exception or otherwise doesn't return,
+                    // so we can assume that the code before this is unreachable.
+                    if (isCallNoReturn(callFlowNode.node)) {
+                        return false;
                     }
 
                     curFlowNode = callFlowNode.antecedent;

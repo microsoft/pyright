@@ -69,14 +69,21 @@ export interface FlowNode {
 // preceding control flows.
 export interface FlowLabel extends FlowNode {
     antecedents: FlowNode[];
+
+    // Set of all expressions that require code flow analysis
+    // through the loop or in branch paths to determine their types.
+    // If an expression is not within this map, branch or loop analysis
+    // can be skipped and determined from the first antecedent only.
+    affectedExpressions: Set<string> | undefined;
 }
 
-export interface FlowLoopLabel extends FlowLabel {
-    // Set of all expressions that require code flow analysis
-    // through the loop to determine their types. If an expression
-    // is not within this map, loop analysis can be skipped and
-    // determined from the first antecedent only.
-    expressions: Set<string> | undefined;
+export interface FlowBranchLabel extends FlowLabel {
+    // If specified, this label represents a flow node that precedes
+    // (i.e. is higher up in the control flow graph) than all of
+    // the antecedents of this branch label. If an expression is
+    // not affected by the branch label, the entire flow node can be
+    // skipped, and processing can proceed at this label.
+    preBranchAntecedent: FlowNode | undefined;
 }
 
 // FlowAssignment represents a node that assigns a value.
@@ -227,4 +234,26 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
     }
 
     return key;
+}
+
+export function createKeysForReferenceSubexpressions(reference: CodeFlowReferenceExpressionNode): string[] {
+    if (reference.nodeType === ParseNodeType.Name) {
+        return [createKeyForReference(reference)];
+    }
+
+    if (reference.nodeType === ParseNodeType.MemberAccess) {
+        return [
+            ...createKeysForReferenceSubexpressions(reference.leftExpression as CodeFlowReferenceExpressionNode),
+            createKeyForReference(reference),
+        ];
+    }
+
+    if (reference.nodeType === ParseNodeType.Index) {
+        return [
+            ...createKeysForReferenceSubexpressions(reference.baseExpression as CodeFlowReferenceExpressionNode),
+            createKeyForReference(reference),
+        ];
+    }
+
+    fail('createKeyForReference received unexpected expression type');
 }
