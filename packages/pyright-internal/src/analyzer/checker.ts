@@ -3236,27 +3236,32 @@ export class Checker extends ParseTreeWalker {
                             }
                         }
                     } else if (!isAnyOrUnknown(typeOfSymbol)) {
-                        const decls = symbol.getDeclarations();
-                        if (decls.length > 0) {
-                            const lastDecl = decls[decls.length - 1];
-                            const diag = this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                                DiagnosticRule.reportIncompatibleMethodOverride,
-                                Localizer.Diagnostic.methodOverridden().format({
-                                    name,
-                                    className: baseClassAndSymbol.classType.details.name,
-                                    type: this._evaluator.printType(typeOfSymbol, /* expandTypeAlias */ false),
-                                }),
-                                lastDecl.node
-                            );
-
-                            const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-                            if (diag && origDecl) {
-                                diag.addRelatedInfo(
-                                    Localizer.DiagnosticAddendum.overriddenMethod(),
-                                    origDecl.path,
-                                    origDecl.range
+                        // Special-case overrides of methods in '_TypedDict', since
+                        // TypedDict attributes aren't manifest as attributes but rather
+                        // as named keys.
+                        if (!ClassType.isBuiltIn(baseClassAndSymbol.classType, '_TypedDict')) {
+                            const decls = symbol.getDeclarations();
+                            if (decls.length > 0) {
+                                const lastDecl = decls[decls.length - 1];
+                                const diag = this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                                    DiagnosticRule.reportIncompatibleMethodOverride,
+                                    Localizer.Diagnostic.methodOverridden().format({
+                                        name,
+                                        className: baseClassAndSymbol.classType.details.name,
+                                        type: this._evaluator.printType(typeOfSymbol, /* expandTypeAlias */ false),
+                                    }),
+                                    lastDecl.node
                                 );
+
+                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                                if (diag && origDecl) {
+                                    diag.addRelatedInfo(
+                                        Localizer.DiagnosticAddendum.overriddenMethod(),
+                                        origDecl.path,
+                                        origDecl.range
+                                    );
+                                }
                             }
                         }
                     }

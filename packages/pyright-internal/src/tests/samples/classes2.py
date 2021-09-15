@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Sequence,
     Type,
+    TypedDict,
     TypeVar,
     Union,
     overload,
@@ -347,3 +348,7 @@ class C(Base4, Base5):
     # is enabled.
     def a(self) -> float:
         ...
+
+
+class MyObject(TypedDict):
+    values: List[str]
