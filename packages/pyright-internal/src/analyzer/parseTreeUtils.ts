@@ -140,7 +140,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.UnaryOperation: {
-            return printOperator(node.operator) + ' ' + printExpression(node.expression, flags);
+            return printOperator(node.operator) + printExpression(node.expression, flags);
         }
 
         case ParseNodeType.BinaryOperation: {

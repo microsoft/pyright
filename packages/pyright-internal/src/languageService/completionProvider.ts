@@ -91,7 +91,6 @@ import {
     ErrorExpressionCategory,
     ErrorNode,
     ExpressionNode,
-    FunctionNode,
     ImportFromNode,
     IndexNode,
     isExpressionNode,
@@ -104,7 +103,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { Token } from '../parser/tokenizerTypes';
+import { StringTokenFlags, Token } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ModuleSymbolMap } from './autoImporter';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
@@ -905,7 +904,7 @@ export class CompletionProvider {
                         return;
                     }
 
-                    const methodSignature = this._printMethodSignature(decl.node);
+                    const methodSignature = this._printMethodSignature(classResults.classType, decl);
 
                     let text: string;
                     if (isStubFile(this._filePath)) {
@@ -951,7 +950,22 @@ export class CompletionProvider {
         return TextEdit.replace(range, text);
     }
 
-    private _printMethodSignature(node: FunctionNode): string {
+    private _printMethodSignature(classType: ClassType, decl: FunctionDeclaration): string {
+        const node = decl.node;
+
+        let ellipsisForDefault: boolean | undefined;
+        if (isStubFile(this._filePath)) {
+            // In stubs, always use "...".
+            ellipsisForDefault = true;
+        } else if (classType.details.moduleName === decl.moduleName) {
+            // In the same file, always print the full default.
+            ellipsisForDefault = false;
+        }
+
+        const printFlags = isStubFile(this._filePath)
+            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations
+            : undefined;
+
         const paramList = node.parameters
             .map((param, index) => {
                 let paramString = '';
@@ -969,7 +983,14 @@ export class CompletionProvider {
                 // in current file.
                 const paramTypeAnnotation = this._evaluator.getTypeAnnotationForParameter(node, index);
                 if (paramTypeAnnotation) {
-                    paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation);
+                    paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation, printFlags);
+                }
+
+                if (param.defaultValue) {
+                    paramString += paramTypeAnnotation ? ' = ' : '=';
+
+                    const useEllipsis = ellipsisForDefault ?? !isSimpleDefault(param.defaultValue);
+                    paramString += useEllipsis ? '...' : ParseTreeUtils.printExpression(param.defaultValue, printFlags);
                 }
 
                 if (!paramString && !param.name && param.category === ParameterCategory.Simple) {
@@ -983,13 +1004,32 @@ export class CompletionProvider {
         let methodSignature = node.name.value + '(' + paramList + ')';
 
         if (node.returnTypeAnnotation) {
-            methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation);
+            methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation, printFlags);
         } else if (node.functionAnnotationComment) {
             methodSignature +=
-                ' -> ' + ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation);
+                ' -> ' +
+                ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation, printFlags);
         }
 
         return methodSignature;
+
+        function isSimpleDefault(node: ExpressionNode): boolean {
+            switch (node.nodeType) {
+                case ParseNodeType.Number:
+                case ParseNodeType.Constant:
+                    return true;
+                case ParseNodeType.String:
+                    return (node.token.flags & StringTokenFlags.Format) === 0;
+                case ParseNodeType.StringList:
+                    return node.strings.every(isSimpleDefault);
+                case ParseNodeType.UnaryOperation:
+                    return isSimpleDefault(node.expression);
+                case ParseNodeType.BinaryOperation:
+                    return isSimpleDefault(node.leftExpression) && isSimpleDefault(node.rightExpression);
+                default:
+                    return false;
+            }
+        }
     }
 
     private _printOverriddenMethodBody(
@@ -2100,7 +2140,13 @@ export class CompletionProvider {
                                 }
                             }
 
-                            if (isModule(type)) {
+                            if (
+                                primaryDecl.type === DeclarationType.Variable &&
+                                primaryDecl.typeAliasName &&
+                                primaryDecl.docString
+                            ) {
+                                documentation = primaryDecl.docString;
+                            } else if (isModule(type)) {
                                 documentation = getModuleDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isInstantiableClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);

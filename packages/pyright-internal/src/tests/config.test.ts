@@ -174,6 +174,7 @@ test('FindExecEnv1', () => {
     // a default environment with the root equal to that of the config.
     const file4 = '/nothing/bar.py';
     const defaultExecEnv = configOptions.findExecEnvironment(file4);
+    assert(defaultExecEnv.root);
     assert.strictEqual(normalizeSlashes(defaultExecEnv.root), normalizeSlashes(configOptions.projectRoot));
 });
 

@@ -231,7 +231,7 @@ export class PyrightFileSystem implements FileSystem {
     }
 
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {
-        return this.isPathScanned(execEnv.root);
+        return this.isPathScanned(execEnv.root ?? '');
     }
 
     isPathScanned(path: string): boolean {

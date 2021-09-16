@@ -100,7 +100,7 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'setAllowedThirdPartyImports', data: importNames });
     }
 
-    ensurePartialStubPackages(executionRoot: string) {
+    ensurePartialStubPackages(executionRoot: string | undefined) {
         this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { executionRoot } });
     }
 

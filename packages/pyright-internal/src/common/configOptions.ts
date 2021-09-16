@@ -41,7 +41,7 @@ export class ExecutionEnvironment {
         defaultPythonPlatform: string | undefined,
         defaultExtraPaths: string[] | undefined
     ) {
-        this.root = root;
+        this.root = root || undefined;
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
         this.extraPaths = defaultExtraPaths || [];
@@ -49,7 +49,8 @@ export class ExecutionEnvironment {
 
     // Root directory for execution - absolute or relative to the
     // project root.
-    root: string;
+    // Undefined if this is a rootless environment (e.g., open file mode).
+    root?: string;
 
     // Always default to the latest stable version of the language.
     pythonVersion: PythonVersion;
@@ -567,6 +568,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
 export class ConfigOptions {
     constructor(projectRoot: string, typeCheckingMode?: string) {
         this.projectRoot = projectRoot;
+        this.typeCheckingMode = typeCheckingMode;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
 
         // If type checking mode is off, allow inference for py.typed sources
@@ -641,6 +643,12 @@ export class ConfigOptions {
     // Avoid using type inference for files within packages that claim
     // to contain type annotations?
     disableInferenceForPyTypedSources = true;
+
+    // Current type checking mode.
+    typeCheckingMode?: string;
+
+    // Was this config initialized from JSON (pyrightconfig/pyproject)?
+    initializedFromJson = false;
 
     //---------------------------------------------------------------
     // Diagnostics Rule Set
@@ -734,6 +742,8 @@ export class ConfigOptions {
         diagnosticOverrides?: DiagnosticSeverityOverridesMap,
         skipIncludeSection = false
     ) {
+        this.initializedFromJson = true;
+
         // Read the "include" entry.
         if (!skipIncludeSection) {
             this.include = [];
@@ -834,9 +844,9 @@ export class ConfigOptions {
             }
         }
 
-        const effectiveTypeCheckingMode = configTypeCheckingMode || typeCheckingMode;
-        const defaultSettings = ConfigOptions.getDiagnosticRuleSet(effectiveTypeCheckingMode);
-        if (effectiveTypeCheckingMode === 'off') {
+        this.typeCheckingMode = configTypeCheckingMode || typeCheckingMode;
+        const defaultSettings = ConfigOptions.getDiagnosticRuleSet(this.typeCheckingMode);
+        if (this.typeCheckingMode === 'off') {
             this.disableInferenceForPyTypedSources = false;
         }
 

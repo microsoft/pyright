@@ -73,7 +73,9 @@ export function getDocumentationPartsForTypeAndDecl(
     resolvedDecl: Declaration | undefined,
     evaluator: TypeEvaluator
 ): string[] {
-    if (isModule(type)) {
+    if (resolvedDecl?.type === DeclarationType.Variable && resolvedDecl.typeAliasName && resolvedDecl.docString) {
+        return [resolvedDecl.docString];
+    } else if (isModule(type)) {
         const doc = getModuleDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
             return [doc];

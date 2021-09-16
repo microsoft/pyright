@@ -75,8 +75,8 @@ export const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExte
 const allowPartialResolutionForThirdPartyPackages = false;
 
 export class ImportResolver {
-    private _cachedPythonSearchPaths = new Map<string, string[]>();
-    private _cachedImportResults = new Map<string, CachedImportResults>();
+    private _cachedPythonSearchPaths: string[] | undefined;
+    private _cachedImportResults = new Map<string | undefined, CachedImportResults>();
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
     private _cachedTypeshedRoot: string | undefined;
     private _cachedTypeshedStdLibPath: string | undefined;
@@ -93,8 +93,7 @@ export class ImportResolver {
     ) {}
 
     invalidateCache() {
-        this._cachedPythonSearchPaths = new Map<string, string[]>();
-        this._cachedImportResults = new Map<string, CachedImportResults>();
+        this._cachedImportResults = new Map<string | undefined, CachedImportResults>();
         this._cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
         this._invalidateFileSystemCache();
 
@@ -209,7 +208,15 @@ export class ImportResolver {
             }
 
             // Look for it in the root directory of the execution environment.
-            this.getCompletionSuggestionsAbsolute(execEnv.root, moduleDescriptor, suggestions, sourceFilePath, execEnv);
+            if (execEnv.root) {
+                this.getCompletionSuggestionsAbsolute(
+                    execEnv.root,
+                    moduleDescriptor,
+                    suggestions,
+                    sourceFilePath,
+                    execEnv
+                );
+            }
 
             for (const extraPath of execEnv.extraPaths) {
                 this.getCompletionSuggestionsAbsolute(
@@ -230,7 +237,7 @@ export class ImportResolver {
             this._getCompletionSuggestionsTypeshedPath(execEnv, moduleDescriptor, false, suggestions);
 
             // Look for the import in the list of third-party packages.
-            const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
+            const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
             for (const searchPath of pythonSearchPaths) {
                 this.getCompletionSuggestionsAbsolute(
                     searchPath,
@@ -381,7 +388,9 @@ export class ImportResolver {
         }
 
         // Look for it in the root directory of the execution environment.
-        moduleName = this.getModuleNameFromPath(execEnv.root, filePath);
+        if (execEnv.root) {
+            moduleName = this.getModuleNameFromPath(execEnv.root, filePath);
+        }
 
         for (const extraPath of execEnv.extraPaths) {
             const candidateModuleName = this.getModuleNameFromPath(extraPath, filePath);
@@ -439,7 +448,7 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
-        const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
         for (const searchPath of pythonSearchPaths) {
             const candidateModuleName = this.getModuleNameFromPath(searchPath, filePath);
 
@@ -473,7 +482,11 @@ export class ImportResolver {
             roots.push(stdTypeshed);
         }
 
-        roots.push(execEnv.root);
+        // The "default" workspace has a root-less execution environment; ignore it.
+        if (execEnv.root) {
+            roots.push(execEnv.root);
+        }
+
         roots.push(...execEnv.extraPaths);
 
         if (this._configOptions.stubPath) {
@@ -498,7 +511,7 @@ export class ImportResolver {
             roots.push(typeshedPathEx);
         }
 
-        const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
         if (pythonSearchPaths.length > 0) {
             roots.push(...pythonSearchPaths);
         }
@@ -594,7 +607,7 @@ export class ImportResolver {
         addPaths(execEnv.root);
         execEnv.extraPaths.forEach((p) => addPaths(p));
         addPaths(this.getTypeshedPathEx(execEnv, ignored));
-        this.getPythonSearchPaths(execEnv, ignored).forEach((p) => addPaths(p));
+        this.getPythonSearchPaths(ignored).forEach((p) => addPaths(p));
 
         this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv));
         this._invalidateFileSystemCache();
@@ -1067,22 +1080,26 @@ export class ImportResolver {
         }
 
         let bestResultSoFar: ImportResult | undefined;
+        let localImport: ImportResult | undefined;
 
         // Look for it in the root directory of the execution environment.
-        importFailureInfo.push(`Looking in root directory of execution environment ` + `'${execEnv.root}'`);
-        let localImport = this.resolveAbsoluteImport(
-            execEnv.root,
-            execEnv,
-            moduleDescriptor,
-            importName,
-            importFailureInfo,
-            /* allowPartial */ undefined,
-            /* allowNativeLib */ true,
-            /* useStubPackage */ true,
-            allowPyi,
-            /* lookForPyTyped */ false
-        );
-        bestResultSoFar = localImport;
+        if (execEnv.root) {
+            importFailureInfo.push(`Looking in root directory of execution environment ` + `'${execEnv.root}'`);
+
+            localImport = this.resolveAbsoluteImport(
+                execEnv.root,
+                execEnv,
+                moduleDescriptor,
+                importName,
+                importFailureInfo,
+                /* allowPartial */ undefined,
+                /* allowNativeLib */ true,
+                /* useStubPackage */ true,
+                allowPyi,
+                /* lookForPyTyped */ false
+            );
+            bestResultSoFar = localImport;
+        }
 
         for (const extraPath of execEnv.extraPaths) {
             importFailureInfo.push(`Looking in extraPath '${extraPath}'`);
@@ -1102,7 +1119,7 @@ export class ImportResolver {
         }
 
         // Look for the import in the list of third-party packages.
-        const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
+        const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
         if (pythonSearchPaths.length > 0) {
             for (const searchPath of pythonSearchPaths) {
                 importFailureInfo.push(`Looking in python search path '${searchPath}'`);
@@ -1237,12 +1254,10 @@ export class ImportResolver {
         return true;
     }
 
-    protected getPythonSearchPaths(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
-        const cacheKey = '<default>';
-
+    protected getPythonSearchPaths(importFailureInfo: string[]) {
         // Find the site packages for the configured virtual environment.
-        if (!this._cachedPythonSearchPaths.has(cacheKey)) {
-            let paths = (
+        if (!this._cachedPythonSearchPaths) {
+            const paths = (
                 PythonPathUtils.findPythonSearchPaths(
                     this.fileSystem,
                     this._configOptions,
@@ -1252,12 +1267,10 @@ export class ImportResolver {
             ).map((p) => this.fileSystem.realCasePath(p));
 
             // Remove duplicates (yes, it happens).
-            paths = [...new Set(paths)];
-
-            this._cachedPythonSearchPaths.set(cacheKey, paths);
+            this._cachedPythonSearchPaths = [...new Set(paths)];
         }
 
-        return this._cachedPythonSearchPaths.get(cacheKey)!;
+        return this._cachedPythonSearchPaths;
     }
 
     private _findTypeshedPath(
@@ -1532,7 +1545,7 @@ export class ImportResolver {
                 typeshedPath = possibleTypeshedPath;
             }
         } else {
-            const pythonSearchPaths = this.getPythonSearchPaths(execEnv, importFailureInfo);
+            const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
             for (const searchPath of pythonSearchPaths) {
                 const possibleTypeshedPath = combinePaths(searchPath, 'typeshed');
                 if (this.dirExistsCached(possibleTypeshedPath)) {

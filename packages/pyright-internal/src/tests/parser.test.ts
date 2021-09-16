@@ -11,6 +11,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticSink } from '../common/diagnosticSink';
+import { ParseNodeType, StatementListNode } from '../parser/parseNodes';
 import * as TestUtils from './testUtils';
 
 test('Empty', () => {
@@ -52,4 +53,20 @@ test('SuiteExpectedColon3', () => {
     const diagSink = new DiagnosticSink();
     TestUtils.parseSampleFile('suiteExpectedColon3.py', diagSink);
     assert.strictEqual(diagSink.getErrors().length, 1);
+});
+
+test('ExpressionWrappedInParens', () => {
+    const diagSink = new DiagnosticSink();
+    const parseResults = TestUtils.parseText('(str)', diagSink);
+
+    assert.equal(diagSink.fetchAndClear().length, 0);
+    assert.equal(parseResults.parseTree.statements.length, 1);
+    assert.equal(parseResults.parseTree.statements[0].nodeType, ParseNodeType.StatementList);
+
+    const statementList = parseResults.parseTree.statements[0] as StatementListNode;
+    assert.equal(statementList.statements.length, 1);
+
+    // length of node should exclude parens
+    assert.equal(statementList.statements[0].nodeType, ParseNodeType.Name);
+    assert.equal(statementList.statements[0].length, 3);
 });
