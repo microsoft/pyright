@@ -760,6 +760,10 @@ const maxOverloadUnionExpansionCount = 64;
 // with incomplete results before we give up.
 const maxFlowNodeLoopVisitCount = 64;
 
+// Maximum number of times getTypeFromFlowNode can be called
+// recursively within loop or branch processing before we give up.
+const maxCodeFlowInvocationsPerLoop = 16 * 1024;
+
 export interface EvaluatorOptions {
     disableInferenceForPyTypedSources: boolean;
     printTypeFlags: TypePrinter.PrintTypeFlags;
@@ -785,6 +789,7 @@ export function createTypeEvaluator(
     const suppressedNodeStack: ParseNode[] = [];
     const incompleteTypeTracker = new IncompleteTypeTracker();
     let cancellationToken: CancellationToken | undefined;
+    let codeFlowInvocations = 0;
     let flowIncompleteGeneration = 1;
     let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
@@ -17706,6 +17711,10 @@ export function createTypeEvaluator(
                 let curFlowNode = flowNode;
                 let usedOuterScopeAlias = false;
 
+                // Record how many times this function has been called.
+                const codeFlowInvocationsAtStart = codeFlowInvocations;
+                codeFlowInvocations++;
+
                 // This is a frequently-called routine, so it's a good place to call
                 // the cancellation check. If the operation is canceled, an exception
                 // will be thrown at this point.
@@ -17890,6 +17899,14 @@ export function createTypeEvaluator(
 
                         const effectiveType =
                             !!reference || typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
+
+                        // Limit the number of recursive calls before we give up and call the type
+                        // complete. This can theoretically result in incorrect type information in
+                        // very complex code flows, but it's preferable to extremely long analysis times.
+                        if (codeFlowInvocations - codeFlowInvocationsAtStart > maxCodeFlowInvocationsPerLoop) {
+                            sawIncomplete = false;
+                        }
+
                         return setCacheEntry(curFlowNode, effectiveType, branchUsedOuterScopeAlias, sawIncomplete);
                     }
 
@@ -18004,10 +18021,17 @@ export function createTypeEvaluator(
                             // and some of the subtypes are still incomplete, bail and base the
                             // isIncomplete flag on the first subtype, which is the one that feeds
                             // the top of the loop.
-                            const isIncomplete =
+                            let isIncomplete =
                                 visitCount >= maxFlowNodeLoopVisitCount
                                     ? cacheEntry.incompleteSubtypes![0].isIncomplete
                                     : reference !== undefined;
+
+                            // Limit the number of recursive calls before we give up and call the type
+                            // complete. This can theoretically result in incorrect type information in
+                            // very complex code flows, but it's preferable to extremely long analysis times.
+                            if (codeFlowInvocations - codeFlowInvocationsAtStart > maxCodeFlowInvocationsPerLoop) {
+                                isIncomplete = false;
+                            }
 
                             return {
                                 type: cacheEntry.type,
