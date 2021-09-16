@@ -18007,7 +18007,8 @@ export function createTypeEvaluator(
                             const isIncomplete =
                                 visitCount >= maxFlowNodeLoopVisitCount
                                     ? cacheEntry.incompleteSubtypes![0].isIncomplete
-                                    : true;
+                                    : reference !== undefined;
+
                             return {
                                 type: cacheEntry.type,
                                 usedOuterScopeAlias,
