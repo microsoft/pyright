@@ -330,6 +330,13 @@ test('non py.typed library', () => {
     assert.strictEqual(files[1].path, importResult.resolvedPaths[importResult.resolvedPaths.length - 1]);
 });
 
+test('no empty import roots', () => {
+    const fs = createFileSystem([]);
+    const configOptions = new ConfigOptions(''); // Empty, like open-file mode.
+    const importResolver = new ImportResolver(fs, configOptions, new TestAccessHost(fs.getModulePath(), [libraryRoot]));
+    importResolver.getImportRoots(configOptions.getDefaultExecEnvironment()).forEach((path) => assert(path));
+});
+
 function getImportResult(
     files: { path: string; content: string }[],
     nameParts: string[],

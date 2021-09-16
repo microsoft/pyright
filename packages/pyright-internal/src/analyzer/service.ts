@@ -220,7 +220,7 @@ export class AnalyzerService {
 
     test_setIndexing(
         workspaceIndices: Map<string, IndexResults>,
-        libraryIndices: Map<string, Map<string, IndexResults>>
+        libraryIndices: Map<string | undefined, Map<string, IndexResults>>
     ) {
         this._backgroundAnalysisProgram.test_setIndexing(workspaceIndices, libraryIndices);
     }
@@ -1153,6 +1153,10 @@ export class AnalyzerService {
 
                 const isIgnored = ignoredWatchEventFunction(fileList);
                 this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, (event, path) => {
+                    if (!path) {
+                        return;
+                    }
+
                     if (this._verboseOutput) {
                         this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
                     }
@@ -1237,6 +1241,10 @@ export class AnalyzerService {
                 }
                 const isIgnored = ignoredWatchEventFunction(watchList);
                 this._libraryFileWatcher = this._fs.createFileSystemWatcher(watchList, (event, path) => {
+                    if (!path) {
+                        return;
+                    }
+
                     if (this._verboseOutput) {
                         this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'}'`);
                     }
@@ -1305,6 +1313,10 @@ export class AnalyzerService {
             });
         } else if (this._executionRootPath) {
             this._configFileWatcher = this._fs.createFileSystemWatcher([this._executionRootPath], (event, path) => {
+                if (!path) {
+                    return;
+                }
+
                 if (event === 'add' || event === 'change') {
                     const fileName = getFileName(path);
                     if (fileName && configFileNames.some((name) => name === fileName)) {
@@ -1371,7 +1383,7 @@ export class AnalyzerService {
         if (this._commandLineOptions?.fromVsCodeExtension || this._configOptions.verboseOutput) {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
             for (const execEnv of this._configOptions.getExecutionEnvironments()) {
-                log(this._console, logLevel, `Search paths for ${execEnv.root}`);
+                log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
                 const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
                 roots.forEach((path) => {
                     log(this._console, logLevel, `  ${path}`);

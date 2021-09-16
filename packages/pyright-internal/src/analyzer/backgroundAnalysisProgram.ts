@@ -146,7 +146,7 @@ export class BackgroundAnalysisProgram {
 
     test_setIndexing(
         workspaceIndices: Map<string, IndexResults>,
-        libraryIndices: Map<string, Map<string, IndexResults>>
+        libraryIndices: Map<string | undefined, Map<string, IndexResults>>
     ) {
         const indices = this._getIndices();
         for (const [filePath, indexResults] of workspaceIndices) {
@@ -238,17 +238,17 @@ export class BackgroundAnalysisProgram {
             // The map will be refreshed together when library files are re-scanned.
             // It can't be cached by sourceFile since some of library files won't have
             // corresponding sourceFile created.
-            const map = new Map<string, Map<string, IndexResults>>();
+            const map = new Map<string | undefined, Map<string, IndexResults>>();
             this._indices = {
                 setWorkspaceIndex(path: string, indexResults: IndexResults): void {
                     // Index result of workspace file will be cached by each sourceFile
                     // and it will go away when the source file goes away.
                     program.getSourceFile(path)?.cacheIndexResults(indexResults);
                 },
-                getIndex(execEnv: string): Map<string, IndexResults> | undefined {
+                getIndex(execEnv: string | undefined): Map<string, IndexResults> | undefined {
                     return map.get(execEnv);
                 },
-                setIndex(execEnv: string, path: string, indexResults: IndexResults): void {
+                setIndex(execEnv: string | undefined, path: string, indexResults: IndexResults): void {
                     let indicesMap = map.get(execEnv);
                     if (!indicesMap) {
                         indicesMap = new Map<string, IndexResults>();

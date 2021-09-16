@@ -61,6 +61,11 @@ function managedPaths(workspaceRoot) {
  * @param {string | undefined} name name of the webpack instance, if using multiple configs
  */
 function cacheConfig(dirname, filename, name = undefined) {
+    // Temporarily disabled: caching breaks when switching branches,
+    // after typescript compilation errors, and so on.
+    if (true) {
+        return undefined;
+    }
     return {
         type: /** @type {'filesystem'} */ ('filesystem'),
         cacheDirectory: path.resolve(dirname, '.webpack_cache'),

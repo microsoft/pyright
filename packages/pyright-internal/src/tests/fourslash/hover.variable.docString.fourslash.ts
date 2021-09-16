@@ -27,8 +27,15 @@
 // @filename: stubs.pyi
 //// z: int = ...
 
+// @filename: test4.py
+//// from typing import List, Union
+//// [|/*marker4*/SomeType|] = List[Union[int, str]]
+//// """Here's some documentation about SomeType"""
+
 helper.verifyHover('markdown', {
     marker1: '```python\n(variable) x: int\n```\n---\ntest x',
     marker2: '```python\n(variable) y: Literal[2]\n```\n---\ntest y',
     marker3: '```python\n(variable) z: int\n```\n---\ntest z',
+    marker4:
+        "```python\n(type alias) SomeType: Type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
 });
