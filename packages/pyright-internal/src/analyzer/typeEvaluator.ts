@@ -3518,7 +3518,7 @@ export function createTypeEvaluator(
                 if (subtype.details.boundType) {
                     const boundType = TypeBase.isInstantiable(subtype)
                         ? convertToInstantiable(subtype.details.boundType)
-                        : convertToInstance(subtype.details.boundType);
+                        : subtype.details.boundType;
 
                     return subtype.details.isSynthesized
                         ? boundType

@@ -217,3 +217,24 @@ def func10(option: Literal["b"], var: int) -> str:
 # This should generate an error.
 def func10(option: Literal["a", "b"], var: _T5) -> _T5:
     ...
+
+
+class X:
+    ...
+
+
+_T6 = TypeVar("_T6", bound=Type[X])
+
+
+@overload
+def func11(var: _T6) -> _T6:
+    ...
+
+
+@overload
+def func11(var: int) -> int:
+    ...
+
+
+def func11(var: Union[_T6, int]) -> Union[_T6, int]:
+    ...
