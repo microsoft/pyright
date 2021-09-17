@@ -18829,7 +18829,9 @@ export function createTypeEvaluator(
         doForEachSubtype(argType, (subtype) => {
             if (isClass(subtype) && TypeBase.isInstance(subtype) && isTupleClass(subtype)) {
                 if (subtype.tupleTypeArguments) {
-                    addClassTypesToList(subtype.tupleTypeArguments);
+                    addClassTypesToList(
+                        isOpenEndedTupleClass(subtype) ? [subtype.tupleTypeArguments[0]] : subtype.tupleTypeArguments
+                    );
                 }
             } else {
                 addClassTypesToList([subtype]);
