@@ -24,7 +24,9 @@ class X:
 t1: Literal["int"] = reveal_type(X.number_cls)
 t2: Literal["int"] = reveal_type(X().number_cls)
 
+# This should generate an error
 X.number_cls = "hi"
+
 X().number_cls = "hi"
 
 # This should generate an error

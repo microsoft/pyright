@@ -5239,164 +5239,174 @@ export function createTypeEvaluator(
             if (isClass(subtype)) {
                 // If it's an object, use its class to lookup the descriptor. If it's a class,
                 // use its metaclass instead.
-                let lookupClass = subtype;
+                let lookupClass: ClassType | undefined = subtype;
                 let isAccessedThroughMetaclass = false;
                 if (TypeBase.isInstantiable(subtype)) {
-                    if (
-                        !subtype.details.effectiveMetaclass ||
-                        !isInstantiableClass(subtype.details.effectiveMetaclass)
-                    ) {
-                        return UnknownType.create();
-                    }
-                    lookupClass = convertToInstance(subtype.details.effectiveMetaclass) as ClassType;
-                    isAccessedThroughMetaclass = true;
-                }
-
-                let accessMethodName: string;
-
-                if (usage.method === 'get') {
-                    accessMethodName = '__get__';
-                } else if (usage.method === 'set') {
-                    accessMethodName = '__set__';
-                } else {
-                    accessMethodName = '__delete__';
-                }
-
-                const accessMethod = lookUpClassMember(
-                    lookupClass,
-                    accessMethodName,
-                    ClassMemberLookupFlags.SkipInstanceVariables
-                );
-
-                // Handle properties specially.
-                if (ClassType.isPropertyClass(lookupClass)) {
-                    if (usage.method === 'set') {
-                        if (!accessMethod) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.propertyMissingSetter().format({ name: memberName })
-                            );
-                            isTypeValid = false;
-                            return undefined;
+                    if (subtype.details.effectiveMetaclass && isInstantiableClass(subtype.details.effectiveMetaclass)) {
+                        // When accessing a class member that is a class whose metaclass implements
+                        // a descriptor protocol, only 'get' operations are allowed. If it's accessed
+                        // through the object, all access methods are supported.
+                        if (isAccessedThroughObject || usage.method === 'get') {
+                            lookupClass = convertToInstance(subtype.details.effectiveMetaclass) as ClassType;
+                            isAccessedThroughMetaclass = true;
+                        } else {
+                            lookupClass = undefined;
                         }
-                    } else if (usage.method === 'del') {
-                        if (!accessMethod) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.propertyMissingDeleter().format({ name: memberName })
-                            );
-                            isTypeValid = false;
-                            return undefined;
-                        }
+                    } else {
+                        lookupClass = undefined;
                     }
                 }
 
-                if (accessMethod) {
-                    let accessMethodType = getTypeOfMember(accessMethod);
-                    const argList: FunctionArgument[] = [
-                        {
-                            // Provide "obj" argument.
-                            argumentCategory: ArgumentCategory.Simple,
-                            type: ClassType.isClassProperty(lookupClass)
-                                ? baseTypeClass
-                                : isAccessedThroughObject
-                                ? bindToType || ClassType.cloneAsInstance(baseTypeClass)
-                                : NoneType.createInstance(),
-                        },
-                    ];
+                if (lookupClass) {
+                    let accessMethodName: string;
 
                     if (usage.method === 'get') {
-                        // Provide "objtype" argument.
-                        argList.push({
-                            argumentCategory: ArgumentCategory.Simple,
-                            type: baseTypeClass,
-                        });
+                        accessMethodName = '__get__';
                     } else if (usage.method === 'set') {
-                        // Provide "value" argument.
-                        argList.push({
-                            argumentCategory: ArgumentCategory.Simple,
-                            type: usage.setType || UnknownType.create(),
-                        });
+                        accessMethodName = '__set__';
+                    } else {
+                        accessMethodName = '__delete__';
                     }
 
-                    if (
-                        ClassType.isPropertyClass(lookupClass) &&
-                        memberInfo &&
-                        isInstantiableClass(memberInfo!.classType)
-                    ) {
-                        // This specialization is required specifically for properties, which should be
-                        // generic but are not defined that way. Because of this, we use type variables
-                        // in the synthesized methods (e.g. __get__) for the property class that are
-                        // defined in the class that declares the fget method.
+                    const accessMethod = lookUpClassMember(
+                        lookupClass,
+                        accessMethodName,
+                        ClassMemberLookupFlags.SkipInstanceVariables
+                    );
 
-                        // Infer return types before specializing. Otherwise a generic inferred
-                        // return type won't be properly specialized.
-                        if (isFunction(accessMethodType)) {
-                            getFunctionEffectiveReturnType(accessMethodType);
-                        } else if (isOverloadedFunction(accessMethodType)) {
-                            accessMethodType.overloads.forEach((overload) => {
-                                getFunctionEffectiveReturnType(overload);
+                    // Handle properties specially.
+                    if (ClassType.isPropertyClass(lookupClass)) {
+                        if (usage.method === 'set') {
+                            if (!accessMethod) {
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.propertyMissingSetter().format({ name: memberName })
+                                );
+                                isTypeValid = false;
+                                return undefined;
+                            }
+                        } else if (usage.method === 'del') {
+                            if (!accessMethod) {
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.propertyMissingDeleter().format({ name: memberName })
+                                );
+                                isTypeValid = false;
+                                return undefined;
+                            }
+                        }
+                    }
+
+                    if (accessMethod) {
+                        let accessMethodType = getTypeOfMember(accessMethod);
+                        const argList: FunctionArgument[] = [
+                            {
+                                // Provide "obj" argument.
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: ClassType.isClassProperty(lookupClass)
+                                    ? baseTypeClass
+                                    : isAccessedThroughObject
+                                    ? bindToType || ClassType.cloneAsInstance(baseTypeClass)
+                                    : NoneType.createInstance(),
+                            },
+                        ];
+
+                        if (usage.method === 'get') {
+                            // Provide "objtype" argument.
+                            argList.push({
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: baseTypeClass,
+                            });
+                        } else if (usage.method === 'set') {
+                            // Provide "value" argument.
+                            argList.push({
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: usage.setType || UnknownType.create(),
                             });
                         }
 
-                        accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
-                    }
+                        if (
+                            ClassType.isPropertyClass(lookupClass) &&
+                            memberInfo &&
+                            isInstantiableClass(memberInfo!.classType)
+                        ) {
+                            // This specialization is required specifically for properties, which should be
+                            // generic but are not defined that way. Because of this, we use type variables
+                            // in the synthesized methods (e.g. __get__) for the property class that are
+                            // defined in the class that declares the fget method.
 
-                    if (accessMethodType && (isFunction(accessMethodType) || isOverloadedFunction(accessMethodType))) {
-                        const methodType = accessMethodType;
-
-                        // Don't emit separate diagnostics for these method calls because
-                        // they will be redundant.
-                        const returnType = suppressDiagnostics(errorNode, () => {
-                            // Bind the accessor to the base object type.
-                            let bindToClass: ClassType | undefined;
-
-                            // The "bind-to" class depends on whether the descriptor is defined
-                            // on the metaclass or the class.
-                            if (TypeBase.isInstantiable(subtype)) {
-                                if (isInstantiableClass(accessMethod.classType)) {
-                                    bindToClass = accessMethod.classType;
-                                }
-                            } else if (memberInfo && isInstantiableClass(memberInfo.classType)) {
-                                bindToClass = memberInfo.classType;
+                            // Infer return types before specializing. Otherwise a generic inferred
+                            // return type won't be properly specialized.
+                            if (isFunction(accessMethodType)) {
+                                getFunctionEffectiveReturnType(accessMethodType);
+                            } else if (isOverloadedFunction(accessMethodType)) {
+                                accessMethodType.overloads.forEach((overload) => {
+                                    getFunctionEffectiveReturnType(overload);
+                                });
                             }
 
-                            const boundMethodType = bindFunctionToClassOrObject(
-                                lookupClass,
-                                methodType,
-                                bindToClass,
-                                errorNode,
-                                /* recursionCount */ undefined,
-                                /* treatConstructorAsClassMember */ undefined,
-                                isAccessedThroughMetaclass ? subtype : undefined
-                            );
+                            accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
+                        }
 
-                            if (
-                                boundMethodType &&
-                                (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))
-                            ) {
-                                const callResult = validateCallArguments(
+                        if (
+                            accessMethodType &&
+                            (isFunction(accessMethodType) || isOverloadedFunction(accessMethodType))
+                        ) {
+                            const methodType = accessMethodType;
+
+                            // Don't emit separate diagnostics for these method calls because
+                            // they will be redundant.
+                            const returnType = suppressDiagnostics(errorNode, () => {
+                                // Bind the accessor to the base object type.
+                                let bindToClass: ClassType | undefined;
+
+                                // The "bind-to" class depends on whether the descriptor is defined
+                                // on the metaclass or the class.
+                                if (TypeBase.isInstantiable(subtype)) {
+                                    if (isInstantiableClass(accessMethod.classType)) {
+                                        bindToClass = accessMethod.classType;
+                                    }
+                                } else if (memberInfo && isInstantiableClass(memberInfo.classType)) {
+                                    bindToClass = memberInfo.classType;
+                                }
+
+                                const boundMethodType = bindFunctionToClassOrObject(
+                                    lookupClass,
+                                    methodType,
+                                    bindToClass,
                                     errorNode,
-                                    argList,
-                                    boundMethodType,
-                                    /* typeVarMap */ undefined,
-                                    /* skipUnknownArgCheck */ true
+                                    /* recursionCount */ undefined,
+                                    /* treatConstructorAsClassMember */ undefined,
+                                    isAccessedThroughMetaclass ? subtype : undefined
                                 );
 
-                                if (callResult.argumentErrors) {
-                                    isTypeValid = false;
-                                    return AnyType.create();
+                                if (
+                                    boundMethodType &&
+                                    (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))
+                                ) {
+                                    const callResult = validateCallArguments(
+                                        errorNode,
+                                        argList,
+                                        boundMethodType,
+                                        /* typeVarMap */ undefined,
+                                        /* skipUnknownArgCheck */ true
+                                    );
+
+                                    if (callResult.argumentErrors) {
+                                        isTypeValid = false;
+                                        return AnyType.create();
+                                    }
+
+                                    // For set or delete, always return Any.
+                                    return usage.method === 'get'
+                                        ? callResult.returnType || UnknownType.create()
+                                        : AnyType.create();
                                 }
 
-                                // For set or delete, always return Any.
-                                return usage.method === 'get'
-                                    ? callResult.returnType || UnknownType.create()
-                                    : AnyType.create();
+                                return undefined;
+                            });
+
+                            if (returnType) {
+                                return returnType;
                             }
-
-                            return undefined;
-                        });
-
-                        if (returnType) {
-                            return returnType;
                         }
                     }
                 }
