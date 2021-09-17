@@ -176,14 +176,14 @@ test('Mro3', () => {
 test('DefaultInitializer1', () => {
     const configOptions = new ConfigOptions('.');
 
-    // By default, optional diagnostics are ignored.
+    // By default, the reportCallInDefaultInitializer is disabled.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['defaultInitializer1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportCallInDefaultInitializer = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['defaultInitializer1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('UnnecessaryIsInstance1', () => {

@@ -31,6 +31,7 @@ import {
     CaseNode,
     ClassNode,
     DelNode,
+    DictionaryNode,
     ErrorNode,
     ExceptNode,
     FormatStringNode,
@@ -45,6 +46,7 @@ import {
     isExpressionNode,
     LambdaNode,
     ListComprehensionNode,
+    ListNode,
     MatchNode,
     MemberAccessNode,
     ModuleNode,
@@ -55,6 +57,7 @@ import {
     ParseNodeType,
     RaiseNode,
     ReturnNode,
+    SetNode,
     SliceNode,
     StatementListNode,
     StatementNode,
@@ -568,14 +571,7 @@ export class Checker extends ParseTreeWalker {
     override visitCall(node: CallNode): boolean {
         this._validateIsInstanceCall(node);
 
-        if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportCallInDefaultInitializer,
-                DiagnosticRule.reportCallInDefaultInitializer,
-                Localizer.Diagnostic.defaultValueContainsCall(),
-                node
-            );
-        }
+        this._validateIllegalDefaultParamInitializer(node);
 
         if (
             this._fileInfo.diagnosticRuleSet.reportUnusedCallResult !== 'none' ||
@@ -635,6 +631,21 @@ export class Checker extends ParseTreeWalker {
 
     override visitFor(node: ForNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
+        return true;
+    }
+
+    override visitList(node: ListNode): boolean {
+        this._validateIllegalDefaultParamInitializer(node);
+        return true;
+    }
+
+    override visitSet(node: SetNode): boolean {
+        this._validateIllegalDefaultParamInitializer(node);
+        return true;
+    }
+
+    override visitDictionary(node: DictionaryNode): boolean {
+        this._validateIllegalDefaultParamInitializer(node);
         return true;
     }
 
@@ -1118,6 +1129,19 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _validateIllegalDefaultParamInitializer(node: ParseNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportCallInDefaultInitializer !== 'none') {
+            if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportCallInDefaultInitializer,
+                    DiagnosticRule.reportCallInDefaultInitializer,
+                    Localizer.Diagnostic.defaultValueContainsCall(),
+                    node
+                );
+            }
+        }
     }
 
     // Determines whether the types of the two operands for an == or != operation

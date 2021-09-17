@@ -62,7 +62,7 @@
         "dataClassFieldWithDefault": "Fields without default values cannot appear after fields with default values",
         "declaredReturnTypePartiallyUnknown": "Declared return type, \"{returnType}\", is partially unknown",
         "declaredReturnTypeUnknown": "Declared return type is unknown",
-        "defaultValueContainsCall": "Function calls within default value initializer are not permitted",
+        "defaultValueContainsCall": "Function calls and mutable objects not allowed within parameter default value expression",
         "defaultValueNotAllowed": "Parameter with \"*\" or \"**\" cannot have default value",
         "defaultValueNotEllipsis": "Default values in stub files should be specified as \"...\"",
         "delTargetExpr": "Expression cannot be deleted",
