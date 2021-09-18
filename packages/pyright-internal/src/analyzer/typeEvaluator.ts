@@ -10341,7 +10341,7 @@ export function createTypeEvaluator(
                                 addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
                             }
                         } else {
-                            addError(Localizer.Diagnostic.namedTupleNameString(), entryNameNode || entry);
+                            addGenericGetAttribute = true;
                         }
 
                         if (!entryName) {
@@ -10398,6 +10398,7 @@ export function createTypeEvaluator(
         }
 
         if (addGenericGetAttribute) {
+            constructorType.details.parameters = [];
             FunctionType.addDefaultParameters(constructorType);
             entryTypes.push(AnyType.create(/* isEllipsis */ false));
             entryTypes.push(AnyType.create(/* isEllipsis */ true));

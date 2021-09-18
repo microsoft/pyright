@@ -466,7 +466,6 @@ export namespace Localizer {
         export const namedTupleEmptyName = () => getRawString('Diagnostic.namedTupleEmptyName');
         export const namedTupleFirstArg = () => getRawString('Diagnostic.namedTupleFirstArg');
         export const namedTupleMultipleInheritance = () => getRawString('Diagnostic.namedTupleMultipleInheritance');
-        export const namedTupleNameString = () => getRawString('Diagnostic.namedTupleNameString');
         export const namedTupleNameType = () => getRawString('Diagnostic.namedTupleNameType');
         export const namedTupleNameUnique = () => getRawString('Diagnostic.namedTupleNameUnique');
         export const namedTupleNoTypes = () => getRawString('Diagnostic.namedTupleNoTypes');
