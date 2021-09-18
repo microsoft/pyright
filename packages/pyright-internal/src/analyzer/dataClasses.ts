@@ -5,16 +5,20 @@
  * Author: Eric Traut
  *
  * Provides special-case logic for the construction of dataclass
- * classes.
+ * classes and dataclass transform.
  */
 
 import { assert } from '../common/debug';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import {
+    ArgumentCategory,
+    CallNode,
     ClassNode,
     ExpressionNode,
     NameNode,
     ParameterCategory,
+    ParseNode,
     ParseNodeType,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
@@ -23,10 +27,12 @@ import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
-import { TypeEvaluator } from './typeEvaluatorTypes';
+import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
+    ClassTypeFlags,
+    DataClassBehaviors,
     DataClassEntry,
     FunctionParameter,
     FunctionType,
@@ -515,4 +521,261 @@ function isDataclassFieldConstructor(type: Type, fieldDescriptorNames: string[])
     }
 
     return fieldDescriptorNames.some((name) => name === callName);
+}
+
+export function validateDataClassTransformDecorator(
+    evaluator: TypeEvaluator,
+    node: ExpressionNode
+): DataClassBehaviors | undefined {
+    if (node.nodeType !== ParseNodeType.Call) {
+        // TODO - emit diagnostic
+        return undefined;
+    }
+
+    const behaviors: DataClassBehaviors = {
+        keywordOnlyParams: false,
+        generateEq: true,
+        generateOrder: false,
+        fieldDescriptorNames: [],
+    };
+
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
+    // Parse the arguments to the call.
+    node.arguments.forEach((arg) => {
+        if (!arg.name) {
+            // TODO - emit diagnostic
+            return;
+        }
+
+        if (arg.argumentCategory !== ArgumentCategory.Simple) {
+            // TODO - emit diagnostic
+            return;
+        }
+
+        switch (arg.name.value) {
+            case 'kw_only_default': {
+                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                if (value === undefined) {
+                    // TODO - emit diagnostic
+                    return;
+                }
+
+                behaviors.keywordOnlyParams = value;
+                break;
+            }
+
+            case 'eq_default': {
+                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                if (value === undefined) {
+                    // TODO - emit diagnostic
+                    return;
+                }
+
+                behaviors.generateEq = value;
+                break;
+            }
+
+            case 'order_default': {
+                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                if (value === undefined) {
+                    // TODO - emit diagnostic
+                    return;
+                }
+
+                behaviors.generateOrder = value;
+                break;
+            }
+
+            case 'field_descriptors': {
+                const valueType = evaluator.getTypeOfExpression(arg.valueExpression).type;
+                if (
+                    !isClassInstance(valueType) ||
+                    !ClassType.isBuiltIn(valueType, 'tuple') ||
+                    !valueType.tupleTypeArguments ||
+                    valueType.tupleTypeArguments.some(
+                        (entry) => !isInstantiableClass(entry) && !isFunction(entry) && !isOverloadedFunction(entry)
+                    )
+                ) {
+                    // TODO - emit diagnostic
+                    return;
+                }
+
+                if (!behaviors.fieldDescriptorNames) {
+                    behaviors.fieldDescriptorNames = [];
+                }
+                valueType.tupleTypeArguments.forEach((arg) => {
+                    if (isInstantiableClass(arg) || isFunction(arg)) {
+                        behaviors.fieldDescriptorNames.push(arg.details.fullName);
+                    } else if (isOverloadedFunction(arg)) {
+                        behaviors.fieldDescriptorNames.push(arg.overloads[0].details.fullName);
+                    }
+                });
+                break;
+            }
+
+            default:
+                // TODO - emit diagnostic
+                break;
+        }
+    });
+
+    return behaviors;
+}
+
+export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors | undefined {
+    let functionType: FunctionType | undefined;
+    if (isFunction(type)) {
+        functionType = type;
+    } else if (isOverloadedFunction(type)) {
+        functionType = type.overloads[0];
+    }
+
+    if (!functionType) {
+        return undefined;
+    }
+
+    if (functionType.details.decoratorDataClassBehaviors) {
+        return functionType.details.decoratorDataClassBehaviors;
+    }
+
+    // Is this the built-in dataclass? If so, return the default behaviors.
+    if (functionType.details.fullName === 'dataclasses.dataclass') {
+        return {
+            keywordOnlyParams: false,
+            generateEq: true,
+            generateOrder: false,
+            fieldDescriptorNames: ['dataclasses.field', 'dataclasses.Field'],
+        };
+    }
+
+    return undefined;
+}
+
+function applyDataClassBehaviorOverride(
+    evaluator: TypeEvaluator,
+    errorNode: ParseNode,
+    classType: ClassType,
+    argName: string,
+    argValue: ExpressionNode
+) {
+    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+    const value = evaluateStaticBoolExpression(argValue, fileInfo.executionEnvironment);
+
+    switch (argName) {
+        case 'order':
+            if (value === true) {
+                classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
+            } else if (value === false) {
+                classType.details.flags &= ~ClassTypeFlags.SynthesizedDataClassOrder;
+            }
+            break;
+
+        case 'kw_only':
+            if (value === false) {
+                classType.details.flags &= ~ClassTypeFlags.DataClassKeywordOnlyParams;
+            } else if (value === true) {
+                classType.details.flags |= ClassTypeFlags.DataClassKeywordOnlyParams;
+            }
+            break;
+
+        case 'frozen': {
+            let hasUnfrozenBaseClass = false;
+            let hasFrozenBaseClass = false;
+
+            classType.details.baseClasses.forEach((baseClass) => {
+                if (isInstantiableClass(baseClass) && ClassType.isDataClass(baseClass)) {
+                    if (ClassType.isFrozenDataClass(baseClass)) {
+                        hasFrozenBaseClass = true;
+                    } else if (
+                        !baseClass.details.declaredMetaclass ||
+                        !isInstantiableClass(baseClass.details.declaredMetaclass) ||
+                        !baseClass.details.declaredMetaclass.details.metaclassDataClassTransform
+                    ) {
+                        // If this base class is unfrozen and isn't the class that directly
+                        // references the metaclass that provides dataclass-like behaviors,
+                        // we'll assume we're deriving from an unfrozen dataclass.
+                        hasUnfrozenBaseClass = true;
+                    }
+                }
+            });
+
+            if (value === true || hasFrozenBaseClass) {
+                classType.details.flags |= ClassTypeFlags.FrozenDataClass;
+
+                // A frozen dataclass cannot derive from a non-frozen dataclass.
+                if (hasUnfrozenBaseClass) {
+                    evaluator.addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.dataClassBaseClassNotFrozen(),
+                        errorNode
+                    );
+                }
+            }
+            break;
+        }
+
+        case 'init':
+            if (value === false) {
+                classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassInit;
+            } else if (value === true) {
+                classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassInit;
+            }
+            break;
+
+        case 'eq':
+            if (value === false) {
+                classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
+            } else if (value === true) {
+                classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassEq;
+            }
+            break;
+    }
+}
+
+export function applyDataClassMetaclassBehaviorOverrides(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    args: FunctionArgument[]
+) {
+    args.forEach((arg) => {
+        if (arg.valueExpression && arg.name) {
+            applyDataClassBehaviorOverride(evaluator, arg.name, classType, arg.name.value, arg.valueExpression);
+        }
+    });
+}
+
+export function applyDataClassDefaultBehaviors(classType: ClassType, defaultBehaviors: DataClassBehaviors) {
+    classType.details.dataClassBehaviors = defaultBehaviors;
+    classType.details.flags |= ClassTypeFlags.DataClass;
+
+    if (defaultBehaviors.keywordOnlyParams) {
+        classType.details.flags |= ClassTypeFlags.DataClassKeywordOnlyParams;
+    }
+
+    if (!defaultBehaviors.generateEq) {
+        classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
+    }
+
+    if (defaultBehaviors.generateOrder) {
+        classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
+    }
+}
+
+export function applyDataClassDecorator(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    defaultBehaviors: DataClassBehaviors,
+    callNode: CallNode | undefined
+) {
+    applyDataClassDefaultBehaviors(classType, defaultBehaviors);
+
+    if (callNode?.arguments) {
+        callNode.arguments.forEach((arg) => {
+            if (arg.name && arg.valueExpression) {
+                applyDataClassBehaviorOverride(evaluator, arg, classType, arg.name.value, arg.valueExpression);
+            }
+        });
+    }
 }
