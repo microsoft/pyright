@@ -12207,7 +12207,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isOverloadedFunction(decoratorType)) {
             const dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
             if (dataclassBehaviors) {
-                applyDataClassDecorator(evaluatorInterface, originalClassType, dataclassBehaviors, /* callNode */ undefined);
+                applyDataClassDecorator(
+                    evaluatorInterface,
+                    originalClassType,
+                    dataclassBehaviors,
+                    /* callNode */ undefined
+                );
             }
         } else if (isFunction(decoratorType)) {
             if (decoratorType.details.builtInName === 'final') {
