@@ -24,7 +24,7 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
-import { TypeEvaluator } from '../analyzer/typeEvaluator';
+import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isProperty } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';

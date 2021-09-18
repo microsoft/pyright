@@ -90,7 +90,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
-import { TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,

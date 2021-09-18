@@ -16,7 +16,7 @@ import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
-import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
+import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';

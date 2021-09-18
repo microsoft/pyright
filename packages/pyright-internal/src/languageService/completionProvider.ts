@@ -44,7 +44,7 @@ import {
     getPropertyDocStringInherited,
     getVariableDocString,
 } from '../analyzer/typeDocStringUtils';
-import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
+import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,

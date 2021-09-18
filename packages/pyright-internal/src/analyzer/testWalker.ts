@@ -8,7 +8,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { fail } from '../common/debug';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeArray, ParseNodeType } from '../parser/parseNodes';
-import { TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 
 export class TestWalker extends ParseTreeWalker {
     constructor() {

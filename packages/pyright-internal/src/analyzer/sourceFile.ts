@@ -59,7 +59,7 @@ import { Scope } from './scope';
 import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
-import { TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;

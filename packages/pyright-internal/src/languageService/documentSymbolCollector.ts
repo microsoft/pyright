@@ -15,7 +15,7 @@ import { Declaration } from '../analyzer/declaration';
 import { areDeclarationsSame } from '../analyzer/declarationUtils';
 import { getModuleNode } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { TypeEvaluator } from '../analyzer/typeEvaluator';
+import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 

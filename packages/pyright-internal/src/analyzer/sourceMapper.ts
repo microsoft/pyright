@@ -28,7 +28,7 @@ import {
 } from './declaration';
 import { ImportResolver } from './importResolver';
 import { SourceFile } from './sourceFile';
-import { TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction } from './types';
 import { lookUpClassMember } from './typeUtils';
 

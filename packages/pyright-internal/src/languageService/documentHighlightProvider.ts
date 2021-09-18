@@ -11,7 +11,7 @@
 import { CancellationToken, DocumentHighlight, DocumentHighlightKind } from 'vscode-languageserver';
 
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { TypeEvaluator } from '../analyzer/typeEvaluator';
+import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { Position, TextRange } from '../common/textRange';

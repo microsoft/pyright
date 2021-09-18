@@ -33,7 +33,7 @@ import {
     TypeCategory,
 } from '../analyzer/types';
 import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
-import { TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassIteratorFlags,
     ClassMemberLookupFlags,

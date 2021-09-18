@@ -15,7 +15,8 @@ import { LogTracker } from '../common/logTracker';
 import { timingStats } from '../common/timing';
 import { ImportLookup } from './analyzerFileInfo';
 import { PrintableType, TracePrinter } from './tracePrinter';
-import { createTypeEvaluator, EvaluatorOptions, TypeEvaluator } from './typeEvaluator';
+import { createTypeEvaluator, EvaluatorOptions } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 
 // We don't want to track calls from the type evaluator itself, but only entry points.
 export function createTypeEvaluatorWithTracker(

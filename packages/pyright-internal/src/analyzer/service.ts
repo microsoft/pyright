@@ -63,7 +63,7 @@ import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './b
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
-import { TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 
 export const configFileNames = ['pyrightconfig.json'];
 export const pyprojectTomlName = 'pyproject.toml';

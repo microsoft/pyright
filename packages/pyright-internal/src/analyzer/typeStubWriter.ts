@@ -40,7 +40,7 @@ import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 import { isFunction, isNever, isUnknown, removeUnknownFromUnion } from './types';
 
 class TrackedImport {
