@@ -29,15 +29,7 @@ import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { Declaration } from './declaration';
 import { Symbol } from './symbol';
-import {
-    ClassType,
-    FunctionParameter,
-    FunctionType,
-    OverloadedFunctionType,
-    Type,
-    TypedDictEntry,
-    TypeVarType,
-} from './types';
+import { ClassType, FunctionParameter, FunctionType, OverloadedFunctionType, Type, TypeVarType } from './types';
 import { CanAssignFlags, ClassMember } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -240,7 +232,6 @@ export interface TypeEvaluator {
     ) => DeclarationUtils.ResolvedAliasInfo | undefined;
     getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getTypeFromIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
-    getTypedDictMembersForClass: (classType: ClassType, allowNarrowed: boolean) => Map<string, TypedDictEntry>;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
@@ -311,7 +302,7 @@ export interface TypeEvaluator {
         range: TextRange
     ) => Diagnostic | undefined;
 
-    printType: (type: Type, expandTypeAlias: boolean) => string;
+    printType: (type: Type, expandTypeAlias?: boolean) => string;
     printFunctionParts: (type: FunctionType) => [string[], string];
 
     getTypeCacheSize: () => number;
