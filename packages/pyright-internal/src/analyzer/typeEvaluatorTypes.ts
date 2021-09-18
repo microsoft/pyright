@@ -273,11 +273,23 @@ export interface TypeEvaluator {
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
+    getTypeFromObjectMember(
+        errorNode: ExpressionNode,
+        objectType: ClassType,
+        memberName: string
+    ): TypeResult | undefined;
     getBoundMethod: (
         classType: ClassType,
         memberName: string,
         treatConstructorAsClassMember?: boolean
     ) => FunctionType | OverloadedFunctionType | undefined;
+    getTypeFromMagicMethodReturn: (
+        objType: Type,
+        args: Type[],
+        magicMethodName: string,
+        errorNode: ExpressionNode,
+        expectedType: Type | undefined
+    ) => Type | undefined;
     bindFunctionToClassOrObject: (
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType
@@ -300,7 +312,12 @@ export interface TypeEvaluator {
         enforceParamNames?: boolean
     ) => boolean;
     canAssignProtocolClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
-
+    assignTypeToExpression: (
+        target: ExpressionNode,
+        type: Type,
+        isTypeIncomplete: boolean,
+        srcExpr: ExpressionNode
+    ) => void;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
@@ -327,4 +344,5 @@ export interface TypeEvaluator {
     printFunctionParts: (type: FunctionType) => [string[], string];
 
     getTypeCacheSize: () => number;
+    useSpeculativeMode: <T>(speculativeNode: ParseNode, callback: () => T) => T;
 }

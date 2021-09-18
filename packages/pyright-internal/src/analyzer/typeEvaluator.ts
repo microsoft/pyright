@@ -56,14 +56,6 @@ import {
     ParameterNode,
     ParseNode,
     ParseNodeType,
-    PatternAsNode,
-    PatternAtomNode,
-    PatternClassArgumentNode,
-    PatternClassNode,
-    PatternLiteralNode,
-    PatternMappingNode,
-    PatternSequenceNode,
-    PatternValueNode,
     RaiseNode,
     SetNode,
     SliceNode,
@@ -115,6 +107,7 @@ import {
 import { isExplicitTypeAliasDeclaration, isPossibleTypeAliasDeclaration } from './declarationUtils';
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { assignTypeToPatternTargets, narrowTypeBasedOnPattern } from './patternMatching';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
@@ -334,22 +327,6 @@ interface ClassMemberLookup {
     isClassMember: boolean;
 }
 
-interface SequencePatternInfo {
-    subtype: Type;
-    entryTypes: Type[];
-    isIndeterminateLength: boolean;
-    isTuple: boolean;
-}
-
-interface MappingPatternInfo {
-    subtype: Type;
-    typedDict?: ClassType;
-    dictTypeArgs?: {
-        key: Type;
-        value: Type;
-    };
-}
-
 interface AliasMapEntry {
     alias: string;
     module: 'builtins' | 'collections' | 'self';
@@ -433,22 +410,6 @@ const typePromotions: Map<string, string[]> = new Map([
     ['builtins.complex', ['builtins.float', 'builtins.int']],
     ['builtins.bytes', ['builtins.bytearray', 'builtins.memoryview']],
 ]);
-
-// PEP 634 indicates that several built-in classes are handled differently
-// when used with class pattern matching.
-const classPatternSpecialCases = [
-    'builtins.bool',
-    'builtins.bytearray',
-    'builtins.bytes',
-    'builtins.dict',
-    'builtins.float',
-    'builtins.frozenset',
-    'builtins.int',
-    'builtins.list',
-    'builtins.set',
-    'builtins.str',
-    'builtins.tuple',
-];
 
 interface CodeFlowAnalyzer {
     getTypeFromCodeFlow: (
@@ -10447,7 +10408,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addDiagnostic(diagLevel, rule, Localizer.Diagnostic.typeUnknown().format({ name: nameValue }), errorNode);
         } else if (isPartlyUnknown(simplifiedType)) {
             // If ignoreEmptyContainers is true, don't report the problem for
-            // empty containers(lists or dictionaries). We'll report the problem
+            // empty containers (lists or dictionaries). We'll report the problem
             // only if the assigned value is used later.
             if (!ignoreEmptyContainers || !isClassInstance(type) || !type.isEmptyContainer) {
                 const diagAddendum = new DiagnosticAddendum();
@@ -14182,7 +14143,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Apply negative narrowing for each of the cases that doesn't have a guard statement.
         for (const caseStatement of node.cases) {
             if (!caseStatement.guardExpression) {
-                subjectType = narrowTypeBasedOnPattern(subjectType, caseStatement.pattern, /* isPositiveTest */ false);
+                subjectType = narrowTypeBasedOnPattern(
+                    evaluatorInterface,
+                    subjectType,
+                    caseStatement.pattern,
+                    /* isPositiveTest */ false
+                );
             }
         }
 
@@ -14209,874 +14175,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 break;
             }
             if (!caseStatement.guardExpression) {
-                subjectType = narrowTypeBasedOnPattern(subjectType, caseStatement.pattern, /* isPositiveTest */ false);
+                subjectType = narrowTypeBasedOnPattern(
+                    evaluatorInterface,
+                    subjectType,
+                    caseStatement.pattern,
+                    /* isPositiveTest */ false
+                );
             }
         }
 
         // Apply positive narrowing for the current case statement.
-        subjectType = narrowTypeBasedOnPattern(subjectType, node.pattern, /* isPositiveTest */ true);
-        assignTypeToPatternTargets(subjectType, !!subjectTypeResult.isIncomplete, node.pattern);
+        subjectType = narrowTypeBasedOnPattern(
+            evaluatorInterface,
+            subjectType,
+            node.pattern,
+            /* isPositiveTest */ true
+        );
+        assignTypeToPatternTargets(evaluatorInterface, subjectType, !!subjectTypeResult.isIncomplete, node.pattern);
 
         writeTypeCache(node, subjectType, !!subjectTypeResult.isIncomplete);
-    }
-
-    function narrowTypeBasedOnPattern(type: Type, pattern: PatternAtomNode, isPositiveTest: boolean): Type {
-        switch (pattern.nodeType) {
-            case ParseNodeType.PatternSequence: {
-                return narrowTypeBasedOnSequencePattern(type, pattern, isPositiveTest);
-            }
-
-            case ParseNodeType.PatternLiteral: {
-                return narrowTypeBasedOnLiteralPattern(type, pattern, isPositiveTest);
-            }
-
-            case ParseNodeType.PatternClass: {
-                return narrowTypeBasedOnClassPattern(type, pattern, isPositiveTest);
-            }
-
-            case ParseNodeType.PatternAs: {
-                return narrowTypeBasedOnAsPattern(type, pattern, isPositiveTest);
-            }
-
-            case ParseNodeType.PatternMapping: {
-                return narrowTypeBasedOnMappingPattern(type, pattern, isPositiveTest);
-            }
-
-            case ParseNodeType.PatternValue: {
-                return narrowTypeBasedOnValuePattern(type, pattern, isPositiveTest);
-            }
-
-            case ParseNodeType.PatternCapture: {
-                // A capture captures everything, so nothing remains in the negative case.
-                return isPositiveTest ? type : NeverType.create();
-            }
-
-            case ParseNodeType.Error: {
-                return type;
-            }
-        }
-    }
-
-    function narrowTypeBasedOnSequencePattern(type: Type, pattern: PatternSequenceNode, isPositiveTest: boolean): Type {
-        if (!isPositiveTest) {
-            // Never narrow in negative case.
-            return type;
-        }
-
-        let sequenceInfo = getSequencePatternInfo(type, pattern.entries.length, pattern.starEntryIndex);
-        // Further narrow based on pattern entry types.
-        sequenceInfo = sequenceInfo.filter((entry) => {
-            let isPlausibleMatch = true;
-            const narrowedEntryTypes: Type[] = [];
-            let canNarrowTuple = entry.isTuple;
-
-            pattern.entries.forEach((sequenceEntry, index) => {
-                const entryType = getTypeForPatternSequenceEntry(
-                    entry,
-                    index,
-                    pattern.entries.length,
-                    pattern.starEntryIndex
-                );
-
-                const narrowedEntryType = narrowTypeBasedOnPattern(entryType, sequenceEntry, /* isPositiveTest */ true);
-                if (index === pattern.starEntryIndex) {
-                    if (
-                        isClassInstance(narrowedEntryType) &&
-                        narrowedEntryType.tupleTypeArguments &&
-                        !isOpenEndedTupleClass(narrowedEntryType) &&
-                        narrowedEntryType.tupleTypeArguments
-                    ) {
-                        narrowedEntryTypes.push(...narrowedEntryType.tupleTypeArguments);
-                    } else {
-                        canNarrowTuple = false;
-                    }
-                } else {
-                    narrowedEntryTypes.push(narrowedEntryType);
-                }
-
-                if (isNever(narrowedEntryType)) {
-                    isPlausibleMatch = false;
-                }
-            });
-
-            // If this is a tuple, we can narrow it to a specific tuple type.
-            // Other sequences cannot be narrowed because we don't know if they
-            // are immutable (covariant).
-            if (isPlausibleMatch && canNarrowTuple && tupleClassType && isInstantiableClass(tupleClassType)) {
-                entry.subtype = ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, narrowedEntryTypes));
-            }
-
-            return isPlausibleMatch;
-        });
-
-        return combineTypes(sequenceInfo.map((entry) => entry.subtype));
-    }
-
-    function narrowTypeBasedOnAsPattern(type: Type, pattern: PatternAsNode, isPositiveTest: boolean): Type {
-        let remainingType = type;
-
-        if (!isPositiveTest) {
-            pattern.orPatterns.forEach((subpattern) => {
-                remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
-            });
-            return remainingType;
-        }
-
-        const narrowedTypes = pattern.orPatterns.map((subpattern) => {
-            const narrowedSubtype = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ true);
-            remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
-            return narrowedSubtype;
-        });
-        return combineTypes(narrowedTypes);
-    }
-
-    function narrowTypeBasedOnMappingPattern(type: Type, pattern: PatternMappingNode, isPositiveTest: boolean): Type {
-        if (!isPositiveTest) {
-            // Never narrow in negative case.
-            return type;
-        }
-
-        let mappingInfo = getMappingPatternInfo(type);
-
-        // Further narrow based on pattern entry types.
-        mappingInfo = mappingInfo.filter((mappingSubtypeInfo) => {
-            let isPlausibleMatch = true;
-            pattern.entries.forEach((mappingEntry) => {
-                if (mappingSubtypeInfo.typedDict) {
-                    if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
-                        const narrowedKeyType = narrowTypeBasedOnPattern(
-                            getBuiltInObject(pattern, 'str'),
-                            mappingEntry.keyPattern,
-                            isPositiveTest
-                        );
-
-                        if (isNever(narrowedKeyType)) {
-                            isPlausibleMatch = false;
-                        }
-
-                        const valueType = mapSubtypes(narrowedKeyType, (keySubtype) => {
-                            if (isAnyOrUnknown(keySubtype)) {
-                                return keySubtype;
-                            }
-
-                            if (isClassInstance(keySubtype) && ClassType.isBuiltIn(keySubtype, 'str')) {
-                                if (!isLiteralType(keySubtype)) {
-                                    return UnknownType.create();
-                                }
-
-                                const tdEntries = getTypedDictMembersForClass(
-                                    evaluatorInterface,
-                                    mappingSubtypeInfo.typedDict!
-                                );
-                                const valueEntry = tdEntries.get(keySubtype.literalValue as string);
-                                if (valueEntry) {
-                                    const narrowedValueType = narrowTypeBasedOnPattern(
-                                        valueEntry.valueType,
-                                        mappingEntry.valuePattern,
-                                        /* isPositiveTest */ true
-                                    );
-                                    if (!isNever(narrowedValueType)) {
-                                        return narrowedValueType;
-                                    }
-                                }
-                            }
-
-                            return undefined;
-                        });
-
-                        if (isNever(valueType)) {
-                            isPlausibleMatch = false;
-                        }
-                    }
-                } else if (mappingSubtypeInfo.dictTypeArgs) {
-                    if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
-                        const narrowedKeyType = narrowTypeBasedOnPattern(
-                            mappingSubtypeInfo.dictTypeArgs.key,
-                            mappingEntry.keyPattern,
-                            isPositiveTest
-                        );
-                        const narrowedValueType = narrowTypeBasedOnPattern(
-                            mappingSubtypeInfo.dictTypeArgs.value,
-                            mappingEntry.valuePattern,
-                            isPositiveTest
-                        );
-                        if (isNever(narrowedKeyType) || isNever(narrowedValueType)) {
-                            isPlausibleMatch = false;
-                        }
-                    }
-                }
-            });
-
-            return isPlausibleMatch;
-        });
-
-        return combineTypes(mappingInfo.map((entry) => entry.subtype));
-    }
-
-    // Looks up the "__match_args__" class member to determine the names of
-    // the attributes used for class pattern matching.
-    function getPositionalMatchArgNames(type: ClassType): string[] {
-        const matchArgsMemberInfo = lookUpClassMember(type, '__match_args__');
-        if (matchArgsMemberInfo) {
-            const matchArgsType = getTypeOfMember(matchArgsMemberInfo);
-            if (
-                isClassInstance(matchArgsType) &&
-                isTupleClass(matchArgsType) &&
-                !isOpenEndedTupleClass(matchArgsType) &&
-                matchArgsType.tupleTypeArguments
-            ) {
-                const tupleArgs = matchArgsType.tupleTypeArguments;
-
-                // Are all the args string literals?
-                if (
-                    !tupleArgs.some(
-                        (argType) =>
-                            !isClassInstance(argType) || !ClassType.isBuiltIn(argType, 'str') || !isLiteralType(argType)
-                    )
-                ) {
-                    return tupleArgs.map((argType) => (argType as ClassType).literalValue as string);
-                }
-            }
-        }
-
-        return [];
-    }
-
-    function narrowTypeBasedOnLiteralPattern(type: Type, pattern: PatternLiteralNode, isPositiveTest: boolean): Type {
-        const literalType = getTypeOfExpression(pattern.expression).type;
-
-        if (!isPositiveTest) {
-            return mapSubtypes(type, (subtype) => {
-                if (
-                    isClassInstance(literalType) &&
-                    isLiteralType(literalType) &&
-                    isClassInstance(subtype) &&
-                    isLiteralType(subtype) &&
-                    canAssignType(literalType, subtype, new DiagnosticAddendum())
-                ) {
-                    return undefined;
-                }
-
-                // Narrow a non-literal bool based on a literal bool pattern.
-                if (
-                    isClassInstance(subtype) &&
-                    ClassType.isBuiltIn(subtype, 'bool') &&
-                    subtype.literalValue === undefined &&
-                    isClassInstance(literalType) &&
-                    ClassType.isBuiltIn(literalType, 'bool') &&
-                    literalType.literalValue !== undefined
-                ) {
-                    return ClassType.cloneWithLiteral(literalType, !(literalType.literalValue as boolean));
-                }
-
-                return subtype;
-            });
-        }
-
-        return mapSubtypes(type, (subtype) => {
-            if (canAssignType(subtype, literalType, new DiagnosticAddendum())) {
-                return literalType;
-            }
-            return undefined;
-        });
-    }
-
-    function narrowTypeBasedOnClassPattern(type: Type, pattern: PatternClassNode, isPositiveTest: boolean): Type {
-        const classType = getTypeOfExpression(pattern.className).type;
-
-        if (!isPositiveTest) {
-            // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
-            if (!isInstantiableClass(classType)) {
-                return type;
-            }
-
-            // Don't attempt to narrow if there are arguments.
-            let hasArguments = pattern.arguments.length > 0;
-            if (
-                pattern.arguments.length === 1 &&
-                !pattern.arguments[0].name &&
-                classPatternSpecialCases.some((className) => classType.details.fullName === className)
-            ) {
-                hasArguments = false;
-            }
-
-            if (hasArguments) {
-                return type;
-            }
-
-            // Don't attempt to narrow if the class type is generic.
-            if (classType.details.typeParameters.length > 0) {
-                return type;
-            }
-
-            const diag = new DiagnosticAddendum();
-            const classInstance = convertToInstance(classType);
-            return mapSubtypes(type, (subtype) => {
-                if (canAssignType(classInstance, subtype, diag)) {
-                    return undefined;
-                }
-
-                return subtype;
-            });
-        }
-
-        if (!TypeBase.isInstantiable(classType)) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(classType) }),
-                pattern.className
-            );
-            return NeverType.create();
-        }
-
-        return mapSubtypesExpandTypeVars(
-            classType,
-            /* conditionFilter */ undefined,
-            (expandedSubtype, unexpandedSubtype) => {
-                if (isAnyOrUnknown(expandedSubtype)) {
-                    return unexpandedSubtype;
-                }
-
-                if (isInstantiableClass(expandedSubtype)) {
-                    return mapSubtypes(type, (matchSubtype) => {
-                        const concreteSubtype = makeTopLevelTypeVarsConcrete(matchSubtype);
-
-                        if (isAnyOrUnknown(concreteSubtype)) {
-                            return matchSubtype;
-                        }
-
-                        if (isClassInstance(concreteSubtype)) {
-                            let resultType: Type;
-
-                            if (
-                                canAssignType(
-                                    expandedSubtype,
-                                    ClassType.cloneAsInstantiable(concreteSubtype),
-                                    new DiagnosticAddendum()
-                                )
-                            ) {
-                                resultType = matchSubtype;
-                            } else if (
-                                canAssignType(
-                                    ClassType.cloneAsInstantiable(concreteSubtype),
-                                    expandedSubtype,
-                                    new DiagnosticAddendum()
-                                )
-                            ) {
-                                resultType = convertToInstance(unexpandedSubtype);
-                            } else {
-                                return undefined;
-                            }
-
-                            // Are there any positional arguments? If so, try to get the mappings for
-                            // these arguments by fetching the __match_args__ symbol from the class.
-                            let positionalArgNames: string[] = [];
-                            if (pattern.arguments.some((arg) => !arg.name)) {
-                                positionalArgNames = getPositionalMatchArgNames(expandedSubtype);
-                            }
-
-                            let isMatchValid = true;
-                            pattern.arguments.forEach((arg, index) => {
-                                const narrowedArgType = narrowTypeOfClassPatternArgument(
-                                    arg,
-                                    index,
-                                    positionalArgNames,
-                                    expandedSubtype
-                                );
-
-                                if (isNever(narrowedArgType)) {
-                                    isMatchValid = false;
-                                }
-                            });
-
-                            if (isMatchValid) {
-                                return resultType;
-                            }
-                        }
-
-                        return undefined;
-                    });
-                }
-
-                return undefined;
-            }
-        );
-    }
-
-    function narrowTypeOfClassPatternArgument(
-        arg: PatternClassArgumentNode,
-        argIndex: number,
-        positionalArgNames: string[],
-        classType: ClassType
-    ) {
-        let argName: string | undefined;
-        if (arg.name) {
-            argName = arg.name.value;
-        } else if (argIndex < positionalArgNames.length) {
-            argName = positionalArgNames[argIndex];
-        }
-
-        const useSelfForPattern =
-            classPatternSpecialCases.some((className) => classType.details.fullName === className) &&
-            argIndex === 0 &&
-            !arg.name;
-
-        let argType: Type | undefined;
-        if (useSelfForPattern) {
-            argType = ClassType.cloneAsInstance(classType);
-        } else {
-            if (argName) {
-                argType = useSpeculativeMode(arg, () =>
-                    // We need to apply a rather ugly cast here because PatternClassArgumentNode is
-                    // not technically an ExpressionNode, but it is OK to use it in this context.
-                    getTypeFromObjectMember(
-                        arg as any as ExpressionNode,
-                        ClassType.cloneAsInstance(classType),
-                        argName!
-                    )
-                )?.type;
-            }
-
-            if (!argType) {
-                argType = UnknownType.create();
-            }
-        }
-
-        return narrowTypeBasedOnPattern(argType, arg.pattern, /* isPositiveTest */ true);
-    }
-
-    function narrowTypeBasedOnValuePattern(type: Type, pattern: PatternValueNode, isPositiveTest: boolean): Type {
-        if (!isPositiveTest) {
-            // Never narrow in negative case.
-            return type;
-        }
-
-        const valueType = getTypeOfExpression(pattern.expression).type;
-        const narrowedSubtypes: Type[] = [];
-
-        mapSubtypesExpandTypeVars(
-            valueType,
-            /* conditionFilter */ undefined,
-            (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
-                narrowedSubtypes.push(
-                    mapSubtypesExpandTypeVars(
-                        type,
-                        getTypeCondition(leftSubtypeExpanded),
-                        (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
-                            if (isNever(leftSubtypeExpanded) || isNever(rightSubtypeUnexpanded)) {
-                                return NeverType.create();
-                            }
-
-                            if (isAnyOrUnknown(leftSubtypeExpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
-                                // If either type is "Unknown" (versus Any), propagate the Unknown.
-                                return isUnknown(leftSubtypeExpanded) || isUnknown(rightSubtypeUnexpanded)
-                                    ? UnknownType.create()
-                                    : AnyType.create();
-                            }
-
-                            // Determine if we assignment is supported for this combination of
-                            // value subtype and matching subtype.
-                            const magicMethodName = binaryOperatorMap[OperatorType.Equals][0];
-                            const returnType = useSpeculativeMode(pattern.expression, () =>
-                                getTypeFromMagicMethodReturn(
-                                    leftSubtypeExpanded,
-                                    [rightSubtypeUnexpanded],
-                                    magicMethodName,
-                                    pattern.expression,
-                                    /* expectedType */ undefined
-                                )
-                            );
-
-                            return returnType ? leftSubtypeUnexpanded : undefined;
-                        }
-                    )
-                );
-
-                return undefined;
-            }
-        );
-
-        return combineTypes(narrowedSubtypes);
-    }
-
-    // Returns information about all subtypes that match the definition of a "mapping" as
-    // specified in PEP 634.
-    function getMappingPatternInfo(type: Type): MappingPatternInfo[] {
-        const mappingInfo: MappingPatternInfo[] = [];
-
-        doForEachSubtype(type, (subtype) => {
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-
-            if (isAnyOrUnknown(concreteSubtype)) {
-                mappingInfo.push({
-                    subtype,
-                    dictTypeArgs: {
-                        key: concreteSubtype,
-                        value: concreteSubtype,
-                    },
-                });
-            } else if (isClassInstance(concreteSubtype)) {
-                if (ClassType.isTypedDictClass(concreteSubtype)) {
-                    mappingInfo.push({
-                        subtype,
-                        typedDict: concreteSubtype,
-                    });
-                } else {
-                    let mroClassToSpecialize: ClassType | undefined;
-                    for (const mroClass of concreteSubtype.details.mro) {
-                        if (isInstantiableClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Mapping')) {
-                            mroClassToSpecialize = mroClass;
-                            break;
-                        }
-                    }
-
-                    if (mroClassToSpecialize) {
-                        const specializedMapping = partiallySpecializeType(
-                            mroClassToSpecialize,
-                            concreteSubtype
-                        ) as ClassType;
-                        if (specializedMapping.typeArguments && specializedMapping.typeArguments.length >= 2) {
-                            mappingInfo.push({
-                                subtype,
-                                dictTypeArgs: {
-                                    key: specializedMapping.typeArguments[0],
-                                    value: specializedMapping.typeArguments[1],
-                                },
-                            });
-                        }
-                    }
-                }
-            }
-        });
-
-        return mappingInfo;
-    }
-
-    // Returns information about all subtypes that match the definition of a "sequence" as
-    // specified in PEP 634. Eliminates sequences that are not of sufficient length.
-    function getSequencePatternInfo(
-        type: Type,
-        entryCount: number,
-        starEntryIndex: number | undefined
-    ): SequencePatternInfo[] {
-        const sequenceInfo: SequencePatternInfo[] = [];
-        const minEntryCount = starEntryIndex === undefined ? entryCount : entryCount - 1;
-
-        doForEachSubtype(type, (subtype) => {
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-            let mroClassToSpecialize: ClassType | undefined;
-
-            if (isAnyOrUnknown(concreteSubtype)) {
-                sequenceInfo.push({
-                    subtype,
-                    entryTypes: [concreteSubtype],
-                    isIndeterminateLength: true,
-                    isTuple: false,
-                });
-            } else if (isClassInstance(concreteSubtype)) {
-                for (const mroClass of concreteSubtype.details.mro) {
-                    if (!isInstantiableClass(mroClass)) {
-                        break;
-                    }
-
-                    // Strings and bytes are explicitly excluded.
-                    if (ClassType.isBuiltIn(mroClass, 'str')) {
-                        break;
-                    }
-
-                    if (ClassType.isBuiltIn(mroClass, 'bytes')) {
-                        break;
-                    }
-
-                    if (ClassType.isBuiltIn(mroClass, 'Sequence')) {
-                        mroClassToSpecialize = mroClass;
-                        break;
-                    }
-
-                    if (isTupleClass(mroClass)) {
-                        mroClassToSpecialize = mroClass;
-                        break;
-                    }
-                }
-
-                if (mroClassToSpecialize) {
-                    const specializedSequence = partiallySpecializeType(
-                        mroClassToSpecialize,
-                        concreteSubtype
-                    ) as ClassType;
-                    if (isTupleClass(specializedSequence)) {
-                        if (specializedSequence.tupleTypeArguments) {
-                            if (isOpenEndedTupleClass(specializedSequence)) {
-                                sequenceInfo.push({
-                                    subtype,
-                                    entryTypes: [specializedSequence.tupleTypeArguments[0]],
-                                    isIndeterminateLength: true,
-                                    isTuple: true,
-                                });
-                            } else {
-                                if (
-                                    specializedSequence.tupleTypeArguments.length >= minEntryCount &&
-                                    (starEntryIndex !== undefined ||
-                                        specializedSequence.tupleTypeArguments.length === minEntryCount)
-                                ) {
-                                    sequenceInfo.push({
-                                        subtype,
-                                        entryTypes: specializedSequence.tupleTypeArguments,
-                                        isIndeterminateLength: false,
-                                        isTuple: true,
-                                    });
-                                }
-                            }
-                        }
-                    } else {
-                        sequenceInfo.push({
-                            subtype,
-                            entryTypes: [
-                                specializedSequence.typeArguments && specializedSequence.typeArguments.length > 0
-                                    ? specializedSequence.typeArguments[0]
-                                    : UnknownType.create(),
-                            ],
-                            isIndeterminateLength: true,
-                            isTuple: false,
-                        });
-                    }
-                }
-            }
-        });
-
-        return sequenceInfo;
-    }
-
-    function getTypeForPatternSequenceEntry(
-        sequenceInfo: SequencePatternInfo,
-        entryIndex: number,
-        entryCount: number,
-        starEntryIndex: number | undefined
-    ): Type {
-        if (sequenceInfo.isIndeterminateLength) {
-            if (starEntryIndex === entryIndex) {
-                if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    return ClassType.cloneAsInstance(
-                        specializeTupleClass(tupleClassType, [
-                            sequenceInfo.entryTypes[0],
-                            AnyType.create(/* isEllipsis */ true),
-                        ])
-                    );
-                } else {
-                    return UnknownType.create();
-                }
-            } else {
-                return sequenceInfo.entryTypes[0];
-            }
-        } else if (starEntryIndex === undefined || entryIndex < starEntryIndex) {
-            return sequenceInfo.entryTypes[entryIndex];
-        } else if (entryIndex === starEntryIndex) {
-            // Create a tuple out of the entries that map to the star entry.
-            const starEntryTypes = sequenceInfo.entryTypes.slice(
-                starEntryIndex,
-                starEntryIndex + sequenceInfo.entryTypes.length - entryCount + 1
-            );
-            if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                return ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, starEntryTypes));
-            } else {
-                return UnknownType.create();
-            }
-        } else {
-            // The entry index is past the index of the star entry, so we need
-            // to index from the end of the sequence rather than the start.
-            const itemIndex = sequenceInfo.entryTypes.length - (entryCount - entryIndex);
-            assert(itemIndex >= 0 && itemIndex < sequenceInfo.entryTypes.length);
-            return sequenceInfo.entryTypes[itemIndex];
-        }
-    }
-
-    // Recursively assigns the specified type to the pattern and any capture
-    // nodes within it
-    function assignTypeToPatternTargets(type: Type, isTypeIncomplete: boolean, pattern: PatternAtomNode) {
-        // Further narrow the type based on this pattern.
-        type = narrowTypeBasedOnPattern(type, pattern, /* positiveTest */ true);
-
-        switch (pattern.nodeType) {
-            case ParseNodeType.PatternSequence: {
-                const sequenceInfo = getSequencePatternInfo(type, pattern.entries.length, pattern.starEntryIndex);
-
-                pattern.entries.forEach((entry, index) => {
-                    const entryType = combineTypes(
-                        sequenceInfo.map((info) =>
-                            getTypeForPatternSequenceEntry(info, index, pattern.entries.length, pattern.starEntryIndex)
-                        )
-                    );
-
-                    assignTypeToPatternTargets(entryType, isTypeIncomplete, entry);
-                });
-                break;
-            }
-
-            case ParseNodeType.PatternAs: {
-                if (pattern.target) {
-                    assignTypeToExpression(pattern.target, type, isTypeIncomplete, pattern.target);
-                }
-
-                pattern.orPatterns.forEach((orPattern) => {
-                    assignTypeToPatternTargets(type, isTypeIncomplete, orPattern);
-
-                    // OR patterns are evaluated left to right, so we can narrow
-                    // the type as we go.
-                    type = narrowTypeBasedOnPattern(type, orPattern, /* positiveTest */ false);
-                });
-                break;
-            }
-
-            case ParseNodeType.PatternCapture: {
-                assignTypeToExpression(
-                    pattern.target,
-                    pattern.isWildcard ? AnyType.create() : type,
-                    isTypeIncomplete,
-                    pattern.target
-                );
-                break;
-            }
-
-            case ParseNodeType.PatternMapping: {
-                const mappingInfo = getMappingPatternInfo(type);
-
-                pattern.entries.forEach((mappingEntry) => {
-                    const keyTypes: Type[] = [];
-                    const valueTypes: Type[] = [];
-
-                    mappingInfo.forEach((mappingSubtypeInfo) => {
-                        if (mappingSubtypeInfo.typedDict) {
-                            if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
-                                const keyType = narrowTypeBasedOnPattern(
-                                    getBuiltInObject(pattern, 'str'),
-                                    mappingEntry.keyPattern,
-                                    /* isPositiveTest */ true
-                                );
-                                keyTypes.push(keyType);
-
-                                doForEachSubtype(keyType, (keySubtype) => {
-                                    if (
-                                        isClassInstance(keySubtype) &&
-                                        ClassType.isBuiltIn(keySubtype, 'str') &&
-                                        isLiteralType(keySubtype)
-                                    ) {
-                                        const tdEntries = getTypedDictMembersForClass(
-                                            evaluatorInterface,
-                                            mappingSubtypeInfo.typedDict!
-                                        );
-                                        const valueInfo = tdEntries.get(keySubtype.literalValue as string);
-                                        valueTypes.push(valueInfo ? valueInfo.valueType : UnknownType.create());
-                                    } else {
-                                        valueTypes.push(UnknownType.create());
-                                    }
-                                });
-                            } else if (mappingEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
-                                keyTypes.push(getBuiltInObject(pattern, 'str'));
-                                valueTypes.push(UnknownType.create());
-                            }
-                        } else if (mappingSubtypeInfo.dictTypeArgs) {
-                            if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
-                                const keyType = narrowTypeBasedOnPattern(
-                                    mappingSubtypeInfo.dictTypeArgs.key,
-                                    mappingEntry.keyPattern,
-                                    /* isPositiveTest */ true
-                                );
-                                keyTypes.push(keyType);
-                                valueTypes.push(
-                                    narrowTypeBasedOnPattern(
-                                        mappingSubtypeInfo.dictTypeArgs.value,
-                                        mappingEntry.valuePattern,
-                                        /* isPositiveTest */ true
-                                    )
-                                );
-                            } else if (mappingEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
-                                keyTypes.push(mappingSubtypeInfo.dictTypeArgs.key);
-                                valueTypes.push(mappingSubtypeInfo.dictTypeArgs.value);
-                            }
-                        }
-                    });
-
-                    const keyType = combineTypes(keyTypes);
-                    const valueType = combineTypes(valueTypes);
-
-                    if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
-                        assignTypeToPatternTargets(keyType, isTypeIncomplete, mappingEntry.keyPattern);
-                        assignTypeToPatternTargets(valueType, isTypeIncomplete, mappingEntry.valuePattern);
-                    } else if (mappingEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
-                        const dictClass = getBuiltInType(pattern, 'dict');
-                        const strType = getBuiltInObject(pattern, 'str');
-                        const dictType =
-                            dictClass && isInstantiableClass(dictClass) && isClassInstance(strType)
-                                ? ClassType.cloneAsInstance(
-                                      ClassType.cloneForSpecialization(
-                                          dictClass,
-                                          [keyType, valueType],
-                                          /* isTypeArgumentExplicit */ true
-                                      )
-                                  )
-                                : UnknownType.create();
-                        assignTypeToExpression(mappingEntry.target, dictType, isTypeIncomplete, mappingEntry.target);
-                    }
-                });
-                break;
-            }
-
-            case ParseNodeType.PatternClass: {
-                const argTypes: Type[][] = pattern.arguments.map((arg) => []);
-
-                mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (expandedSubtype) => {
-                    if (isClassInstance(expandedSubtype)) {
-                        doForEachSubtype(type, (matchSubtype) => {
-                            const concreteSubtype = makeTopLevelTypeVarsConcrete(matchSubtype);
-
-                            if (isAnyOrUnknown(concreteSubtype)) {
-                                pattern.arguments.forEach((arg, index) => {
-                                    argTypes[index].push(concreteSubtype);
-                                });
-                            } else if (isClassInstance(concreteSubtype)) {
-                                // Are there any positional arguments? If so, try to get the mappings for
-                                // these arguments by fetching the __match_args__ symbol from the class.
-                                let positionalArgNames: string[] = [];
-                                if (pattern.arguments.some((arg) => !arg.name)) {
-                                    positionalArgNames = getPositionalMatchArgNames(
-                                        ClassType.cloneAsInstantiable(expandedSubtype)
-                                    );
-                                }
-
-                                pattern.arguments.forEach((arg, index) => {
-                                    const narrowedArgType = narrowTypeOfClassPatternArgument(
-                                        arg,
-                                        index,
-                                        positionalArgNames,
-                                        ClassType.cloneAsInstantiable(expandedSubtype)
-                                    );
-                                    argTypes[index].push(narrowedArgType);
-                                });
-                            }
-                        });
-                    } else {
-                        pattern.arguments.forEach((arg, index) => {
-                            argTypes[index].push(UnknownType.create());
-                        });
-                    }
-
-                    return undefined;
-                });
-
-                pattern.arguments.forEach((arg, index) => {
-                    assignTypeToPatternTargets(combineTypes(argTypes[index]), isTypeIncomplete, arg.pattern);
-                });
-                break;
-            }
-
-            case ParseNodeType.PatternLiteral:
-            case ParseNodeType.PatternValue:
-            case ParseNodeType.Error: {
-                // Nothing to do here.
-                break;
-            }
-        }
     }
 
     function evaluateTypesForImportFrom(node: ImportFromNode): void {
@@ -22097,7 +21214,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getBestOverloadForArguments,
         getBuiltInType,
         getTypeOfMember,
+        getTypeFromObjectMember,
         getBoundMethod,
+        getTypeFromMagicMethodReturn,
         bindFunctionToClassOrObject,
         getCallSignatureInfo,
         getTypeAnnotationForParameter,
@@ -22105,6 +21224,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         canAssignType,
         canOverrideMethod,
         canAssignProtocolClassToSelf,
+        assignTypeToExpression,
         getBuiltInObject,
         getTypingType,
         addError,
@@ -22116,6 +21236,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         printType,
         printFunctionParts,
         getTypeCacheSize,
+        useSpeculativeMode,
     };
 
     return evaluatorInterface;

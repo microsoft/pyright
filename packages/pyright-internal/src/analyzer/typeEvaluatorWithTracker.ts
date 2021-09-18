@@ -63,10 +63,10 @@ export function createTypeEvaluatorWithTracker(
         getType: (n) => run('getType', () => typeEvaluator.getType(n), n),
         getTypeOfExpression: (n, e, f) =>
             run('getTypeOfExpression', () => typeEvaluator.getTypeOfExpression(n, e, f), n),
-        getTypeOfAnnotation: (n, o) => typeEvaluator.getTypeOfAnnotation(n, o),
+        getTypeOfAnnotation: typeEvaluator.getTypeOfAnnotation,
         getTypeOfClass: (n) => run('getTypeOfClass', () => typeEvaluator.getTypeOfClass(n), n),
         getTypeOfFunction: (n) => run('getTypeOfFunction', () => typeEvaluator.getTypeOfFunction(n), n),
-        getTypeForExpressionExpectingType: (n, a) => typeEvaluator.getTypeForExpressionExpectingType(n, a),
+        getTypeForExpressionExpectingType: typeEvaluator.getTypeForExpressionExpectingType,
         evaluateTypesForStatement: (n) =>
             run('evaluateTypesForStatement', () => typeEvaluator.evaluateTypesForStatement(n), n),
         getDeclaredTypeForExpression: (n) =>
@@ -92,10 +92,10 @@ export function createTypeEvaluatorWithTracker(
         getGetterTypeFromProperty: (p, i) =>
             run('getGetterTypeFromProperty', () => typeEvaluator.getGetterTypeFromProperty(p, i), p),
         markNamesAccessed: (n, a) => run('markNamesAccessed', () => typeEvaluator.markNamesAccessed(n, a), n),
-        getScopeIdForNode: (n) => run('getScopeIdForNode', () => typeEvaluator.getScopeIdForNode(n), n),
+        getScopeIdForNode: typeEvaluator.getScopeIdForNode,
         makeTopLevelTypeVarsConcrete: (t) =>
             run('makeTopLevelTypeVarsConcrete', () => typeEvaluator.makeTopLevelTypeVarsConcrete(t), t),
-        mapSubtypesExpandTypeVars: (t, c, b) => typeEvaluator.mapSubtypesExpandTypeVars(t, c, b),
+        mapSubtypesExpandTypeVars: typeEvaluator.mapSubtypesExpandTypeVars,
         getEffectiveTypeOfSymbol: (s) =>
             run('getEffectiveTypeOfSymbol', () => typeEvaluator.getEffectiveTypeOfSymbol(s), s),
         getEffectiveTypeOfSymbolForUsage: (s, u, d) =>
@@ -107,7 +107,9 @@ export function createTypeEvaluatorWithTracker(
         getBestOverloadForArguments: (e, t, a) => typeEvaluator.getBestOverloadForArguments(e, t, a),
         getBuiltInType: (n, b) => run('getBuiltInType', () => typeEvaluator.getBuiltInType(n, b), n),
         getTypeOfMember: (m) => run('getTypeOfMember', () => typeEvaluator.getTypeOfMember(m), m.symbol),
-        getBoundMethod: (c, m, t) => typeEvaluator.getBoundMethod(c, m, t),
+        getTypeFromObjectMember: typeEvaluator.getTypeFromObjectMember,
+        getBoundMethod: typeEvaluator.getBoundMethod,
+        getTypeFromMagicMethodReturn: typeEvaluator.getTypeFromMagicMethodReturn,
         bindFunctionToClassOrObject: (b, m) =>
             run('bindFunctionToClassOrObject', () => typeEvaluator.bindFunctionToClassOrObject(b, m), m),
         getCallSignatureInfo: (n, i, a) =>
@@ -120,8 +122,9 @@ export function createTypeEvaluatorWithTracker(
             run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d, e), o),
         canAssignProtocolClassToSelf: (d, s) =>
             run('canAssignProtocolClassToSelf', () => typeEvaluator.canAssignProtocolClassToSelf(d, s)),
-        getBuiltInObject: (n, m, t) => typeEvaluator.getBuiltInObject(n, m, t),
-        getTypingType: (n, s) => typeEvaluator.getTypingType(n, s),
+        assignTypeToExpression: typeEvaluator.assignTypeToExpression,
+        getBuiltInObject: typeEvaluator.getBuiltInObject,
+        getTypingType: typeEvaluator.getTypingType,
         addError: (m, n) => run('addError', () => typeEvaluator.addError(m, n), n),
         addWarning: (m, n) => run('addWarning', () => typeEvaluator.addWarning(m, n), n),
         addInformation: (m, n) => run('addInformation', () => typeEvaluator.addInformation(m, n), n),
@@ -132,6 +135,7 @@ export function createTypeEvaluatorWithTracker(
         printType: (t, e) => run('printType', () => typeEvaluator.printType(t, e), t),
         printFunctionParts: (t) => run('printFunctionParts', () => typeEvaluator.printFunctionParts(t), t),
         getTypeCacheSize: typeEvaluator.getTypeCacheSize,
+        useSpeculativeMode: typeEvaluator.useSpeculativeMode,
     };
 
     return withTracker;
