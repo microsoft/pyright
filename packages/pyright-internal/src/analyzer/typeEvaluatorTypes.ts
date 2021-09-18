@@ -14,6 +14,8 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { TextRange } from '../common/textRange';
 import {
+    ArgumentCategory,
+    ArgumentNode,
     CallNode,
     ClassNode,
     ExpressionNode,
@@ -26,7 +28,15 @@ import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { Declaration } from './declaration';
 import { Symbol } from './symbol';
-import { ClassType, FunctionParameter, FunctionType, OverloadedFunctionType, Type, TypedDictEntry } from './types';
+import {
+    ClassType,
+    FunctionParameter,
+    FunctionType,
+    OverloadedFunctionType,
+    Type,
+    TypedDictEntry,
+    TypeVarType,
+} from './types';
 import { CanAssignFlags, ClassMember } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -99,6 +109,33 @@ export const enum EvaluatorFlags {
     ClassVarDisallowed = 1 << 17,
 }
 
+export interface TypeResult {
+    type: Type;
+    node: ParseNode;
+
+    // Type consistency errors detected when evaluating this type.
+    typeErrors?: boolean | undefined;
+
+    // Variadic type arguments allow the shorthand "()" to
+    // represent an empty tuple (i.e. Tuple[()]).
+    isEmptyTupleShorthand?: boolean | undefined;
+
+    // Is the type incomplete (i.e. not fully evaluated) because
+    // some of the paths involve cyclical dependencies?
+    isIncomplete?: boolean | undefined;
+
+    unpackedType?: Type | undefined;
+    typeList?: TypeResult[] | undefined;
+    expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
+
+    // Used for the output of "super" calls used on the LHS of
+    // a member access. Normally the type of the LHS is the same
+    // as the class or object used to bind the member, but the
+    // "super" call can specify a different class or object to
+    // bind.
+    bindToType?: ClassType | TypeVarType | undefined;
+}
+
 export interface ClassTypeResult {
     classType: ClassType;
     decoratedType: Type;
@@ -128,12 +165,33 @@ export interface AbstractMethod {
     isAbstract: boolean;
 }
 
+export interface FunctionArgumentBase {
+    argumentCategory: ArgumentCategory;
+    node?: ArgumentNode | undefined;
+    name?: NameNode | undefined;
+    type?: Type | undefined;
+    valueExpression?: ExpressionNode | undefined;
+    active?: boolean | undefined;
+}
+
+export interface FunctionArgumentWithType extends FunctionArgumentBase {
+    type: Type;
+}
+
+export interface FunctionArgumentWithExpression extends FunctionArgumentBase {
+    valueExpression: ExpressionNode;
+}
+
+export type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithExpression;
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
     getType: (node: ExpressionNode) => Type | undefined;
+    getTypeOfExpression: (node: ExpressionNode, expectedType?: Type, flags?: EvaluatorFlags) => TypeResult;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
+    getTypeForExpressionExpectingType: (node: ExpressionNode, allowFinal: boolean) => Type;
     evaluateTypesForStatement: (node: ParseNode) => void;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
@@ -186,6 +244,9 @@ export interface TypeEvaluator {
         enforceParamNames?: boolean
     ) => boolean;
     canAssignProtocolClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
+
+    getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
+    getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;

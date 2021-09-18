@@ -61,8 +61,11 @@ export function createTypeEvaluatorWithTracker(
     const withTracker: TypeEvaluator = {
         runWithCancellationToken: typeEvaluator.runWithCancellationToken,
         getType: (n) => run('getType', () => typeEvaluator.getType(n), n),
+        getTypeOfExpression: (n, e, f) =>
+            run('getTypeOfExpression', () => typeEvaluator.getTypeOfExpression(n, e, f), n),
         getTypeOfClass: (n) => run('getTypeOfClass', () => typeEvaluator.getTypeOfClass(n), n),
         getTypeOfFunction: (n) => run('getTypeOfFunction', () => typeEvaluator.getTypeOfFunction(n), n),
+        getTypeForExpressionExpectingType: (n, a) => typeEvaluator.getTypeForExpressionExpectingType(n, a),
         evaluateTypesForStatement: (n) =>
             run('evaluateTypesForStatement', () => typeEvaluator.evaluateTypesForStatement(n), n),
         getDeclaredTypeForExpression: (n) =>
@@ -113,6 +116,8 @@ export function createTypeEvaluatorWithTracker(
             run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d, e), o),
         canAssignProtocolClassToSelf: (d, s) =>
             run('canAssignProtocolClassToSelf', () => typeEvaluator.canAssignProtocolClassToSelf(d, s)),
+        getBuiltInObject: (n, m, t) => typeEvaluator.getBuiltInObject(n, m, t),
+        getTypingType: (n, s) => typeEvaluator.getTypingType(n, s),
         addError: (m, n) => run('addError', () => typeEvaluator.addError(m, n), n),
         addWarning: (m, n) => run('addWarning', () => typeEvaluator.addWarning(m, n), n),
         addInformation: (m, n) => run('addInformation', () => typeEvaluator.addInformation(m, n), n),

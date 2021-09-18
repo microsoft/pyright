@@ -29,7 +29,6 @@ import { getEmptyRange, TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
-    ArgumentNode,
     AssignmentNode,
     AugmentedAssignmentNode,
     BinaryOperationNode,
@@ -114,6 +113,7 @@ import {
     VariableDeclaration,
 } from './declaration';
 import { isExplicitTypeAliasDeclaration, isPossibleTypeAliasDeclaration } from './declarationUtils';
+import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -142,8 +142,10 @@ import {
     CallSignatureInfo,
     ClassTypeResult,
     EvaluatorFlags,
+    FunctionArgument,
     FunctionTypeResult,
     TypeEvaluator,
+    TypeResult,
 } from './typeEvaluatorTypes';
 import * as TypePrinter from './typePrinter';
 import {
@@ -298,33 +300,6 @@ const enum MemberAccessFlags {
     SkipOriginalClass = 1 << 7,
 }
 
-interface TypeResult {
-    type: Type;
-    node: ParseNode;
-
-    // Type consistency errors detected when evaluating this type.
-    typeErrors?: boolean | undefined;
-
-    // Variadic type arguments allow the shorthand "()" to
-    // represent an empty tuple (i.e. Tuple[()]).
-    isEmptyTupleShorthand?: boolean | undefined;
-
-    // Is the type incomplete (i.e. not fully evaluated) because
-    // some of the paths involve cyclical dependencies?
-    isIncomplete?: boolean | undefined;
-
-    unpackedType?: Type | undefined;
-    typeList?: TypeResult[] | undefined;
-    expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
-
-    // Used for the output of "super" calls used on the LHS of
-    // a member access. Normally the type of the LHS is the same
-    // as the class or object used to bind the member, but the
-    // "super" call can specify a different class or object to
-    // bind.
-    bindToType?: ClassType | TypeVarType | undefined;
-}
-
 interface EffectiveTypeResult {
     type: Type;
     isIncomplete: boolean;
@@ -337,25 +312,6 @@ interface EffectiveTypeCacheEntry {
     useLastDecl: boolean;
     result: EffectiveTypeResult;
 }
-
-interface FunctionArgumentBase {
-    argumentCategory: ArgumentCategory;
-    node?: ArgumentNode | undefined;
-    name?: NameNode | undefined;
-    type?: Type | undefined;
-    valueExpression?: ExpressionNode | undefined;
-    active?: boolean | undefined;
-}
-
-interface FunctionArgumentWithType extends FunctionArgumentBase {
-    type: Type;
-}
-
-interface FunctionArgumentWithExpression extends FunctionArgumentBase {
-    valueExpression: ExpressionNode;
-}
-
-type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithExpression;
 
 interface ValidateArgTypeParams {
     paramCategory: ParameterCategory;
@@ -829,12 +785,7 @@ export function createTypeEvaluator(
         }
     }
 
-    const getTypeOfExpression = evaluatorOptions.logCalls
-        ? (n: ExpressionNode, t?: Type, f = EvaluatorFlags.None) =>
-              logInternalCall('getTypeOfExpression', () => getTypeOfExpressionInternal(n, t, f), n)
-        : getTypeOfExpressionInternal;
-
-    function getTypeOfExpressionInternal(
+    function getTypeOfExpression(
         node: ExpressionNode,
         expectedType?: Type,
         flags = EvaluatorFlags.None
@@ -894,7 +845,7 @@ export function createTypeEvaluator(
                     getTypeFromCall(node, expectedTypeAlt);
 
                     addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typeAnnotationCall(),
                         node
@@ -942,7 +893,7 @@ export function createTypeEvaluator(
                     }
 
                     if (!typeResult) {
-                        const fileInfo = getFileInfo(node);
+                        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -1231,7 +1182,7 @@ export function createTypeEvaluator(
             disallowRecursiveTypeAlias?: boolean;
         }
     ): Type {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // Special-case the typing.pyi file, which contains some special
         // types that the type analyzer needs to interpret differently.
@@ -1421,7 +1372,7 @@ export function createTypeEvaluator(
 
         if (ClassType.isPartiallyConstructed(classType)) {
             addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.classDefinitionCycle().format({ name: classType.details.name }),
                 errorNode
@@ -1860,7 +1811,7 @@ export function createTypeEvaluator(
             }
 
             if (errorNode) {
-                const fileInfo = getFileInfo(errorNode);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -1885,7 +1836,7 @@ export function createTypeEvaluator(
         if (isOptionalType(type)) {
             if (errorNode) {
                 addDiagnostic(
-                    getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
                     Localizer.Diagnostic.noneNotIterable(),
                     errorNode
@@ -1990,7 +1941,7 @@ export function createTypeEvaluator(
 
             if (errorNode) {
                 addDiagnostic(
-                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.typeNotIterable().format({ type: printType(subtype) }) + diag.getString(),
                     errorNode
@@ -2014,7 +1965,7 @@ export function createTypeEvaluator(
         if (isOptionalType(type)) {
             if (errorNode) {
                 addDiagnostic(
-                    getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
                     Localizer.Diagnostic.noneNotIterable(),
                     errorNode
@@ -2053,7 +2004,7 @@ export function createTypeEvaluator(
 
             if (errorNode) {
                 addDiagnostic(
-                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.typeNotIterable().format({ type: printType(subtype) }),
                     errorNode
@@ -2162,7 +2113,7 @@ export function createTypeEvaluator(
                                 if (initArg && initArg.valueExpression) {
                                     const value = evaluateStaticBoolExpression(
                                         initArg.valueExpression,
-                                        getFileInfo(node).executionEnvironment
+                                        AnalyzerNodeInfo.getFileInfo(node).executionEnvironment
                                     );
                                     if (value === false) {
                                         includeInInit = false;
@@ -2220,7 +2171,7 @@ export function createTypeEvaluator(
                                 if (kwOnlyArg && kwOnlyArg.valueExpression) {
                                     const value = evaluateStaticBoolExpression(
                                         kwOnlyArg.valueExpression,
-                                        getFileInfo(node).executionEnvironment
+                                        AnalyzerNodeInfo.getFileInfo(node).executionEnvironment
                                     );
                                     if (value === false) {
                                         isKeywordOnly = false;
@@ -2692,12 +2643,12 @@ export function createTypeEvaluator(
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         return getTypeFromTypeshedModule(symbolName, fileInfo.typingModulePath);
     }
 
     function getTypeshedType(node: ParseNode, symbolName: string): Type | undefined {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         return getTypeFromTypeshedModule(symbolName, fileInfo.typeshedModulePath);
     }
 
@@ -2809,7 +2760,7 @@ export function createTypeEvaluator(
 
     function addUnusedCode(node: ParseNode, textRange: TextRange) {
         if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             fileInfo.diagnosticSink.addUnusedCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange);
         }
     }
@@ -2821,7 +2772,7 @@ export function createTypeEvaluator(
         range?: TextRange
     ) {
         if (!isDiagnosticSuppressedForNode(node)) {
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
         }
 
@@ -2869,7 +2820,7 @@ export function createTypeEvaluator(
     }
 
     function addExpectedClassDiagnostic(type: Type, node: ParseNode) {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         const diag = new DiagnosticAddendum();
         if (isUnion(type)) {
             doForEachSubtype(type, (subtype) => {
@@ -2905,7 +2856,7 @@ export function createTypeEvaluator(
 
         const declarations = symbolWithScope.symbol.getDeclarations();
         let declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol);
-        const fileInfo = getFileInfo(nameNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(nameNode);
 
         // If this is a class scope and there is no type declared for this class variable,
         // see if a parent class has a type declared.
@@ -2967,7 +2918,8 @@ export function createTypeEvaluator(
                 if (
                     TypeBase.isInstance(destType) &&
                     !isConstant &&
-                    (!isPrivate || getFileInfo(nameNode).diagnosticRuleSet.reportPrivateUsage === 'none')
+                    (!isPrivate ||
+                        AnalyzerNodeInfo.getFileInfo(nameNode).diagnosticRuleSet.reportPrivateUsage === 'none')
                 ) {
                     destType = stripLiteralValue(destType);
                 }
@@ -3077,7 +3029,7 @@ export function createTypeEvaluator(
         srcExprNode?: ExpressionNode
     ) {
         const memberName = node.memberName.value;
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         const classDef = ParseTreeUtils.getEnclosingClass(node);
         if (!classDef) {
@@ -3251,7 +3203,7 @@ export function createTypeEvaluator(
 
                     // Have we accounted for all of the targets and sources? If not, we have a size mismatch.
                     if (targetIndex < target.expressions.length || sourceIndex < sourceEntryCount) {
-                        const fileInfo = getFileInfo(target);
+                        const fileInfo = AnalyzerNodeInfo.getFileInfo(target);
                         const expectedEntryCount =
                             unpackIndex >= 0 ? target.expressions.length - 1 : target.expressions.length;
                         addDiagnostic(
@@ -3471,7 +3423,7 @@ export function createTypeEvaluator(
     }
 
     function markNamesAccessed(node: ParseNode, names: string[]) {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         const scope = ScopeUtils.getScopeForNode(node);
 
         if (scope) {
@@ -3527,7 +3479,7 @@ export function createTypeEvaluator(
             case ParseNodeType.Name: {
                 if (!isTypeIncomplete) {
                     reportPossibleUnknownAssignment(
-                        getFileInfo(target).diagnosticRuleSet.reportUnknownVariableType,
+                        AnalyzerNodeInfo.getFileInfo(target).diagnosticRuleSet.reportUnknownVariableType,
                         DiagnosticRule.reportUnknownVariableType,
                         target,
                         type,
@@ -3642,7 +3594,7 @@ export function createTypeEvaluator(
             }
 
             default: {
-                const fileInfo = getFileInfo(target);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(target);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -3728,7 +3680,7 @@ export function createTypeEvaluator(
                 });
 
                 if (!diagAddendum.isEmpty()) {
-                    const fileInfo = getFileInfo(node);
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -3797,7 +3749,7 @@ export function createTypeEvaluator(
             }
 
             default: {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -3913,7 +3865,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeFromName(node: NameNode, flags: EvaluatorFlags): TypeResult {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         const name = node.value;
         let type: Type | undefined;
         let isIncomplete = false;
@@ -3946,7 +3898,7 @@ export function createTypeEvaluator(
 
             if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
                 addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.recursiveDefinition().format({ name }),
                     node
@@ -4084,7 +4036,7 @@ export function createTypeEvaluator(
             if ((flags & EvaluatorFlags.GenericClassTypeAllowed) === 0) {
                 if (isInstantiableClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
                     addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.genericNotAllowed(),
                         node
@@ -4112,7 +4064,7 @@ export function createTypeEvaluator(
             if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
                 if (!type.details.isSynthesized && !type.details.isParamSpec) {
                     addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
                         node
@@ -4137,7 +4089,7 @@ export function createTypeEvaluator(
                                     enclosingScope = outerFunctionScope;
                                 } else if (!scopedTypeVarInfo.type.scopeId) {
                                     addDiagnostic(
-                                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                                         DiagnosticRule.reportGeneralTypeIssues,
                                         Localizer.Diagnostic.paramSpecNotUsedByOuterScope().format({
                                             name: type.details.name,
@@ -4159,7 +4111,7 @@ export function createTypeEvaluator(
                         }
                     } else {
                         addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
                             node
@@ -4175,7 +4127,7 @@ export function createTypeEvaluator(
                         ? Localizer.Diagnostic.paramSpecNotUsedByOuterScope()
                         : Localizer.Diagnostic.typeVarNotUsedByOuterScope();
                     addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         message.format({ name: type.details.name }),
                         node
@@ -4202,7 +4154,7 @@ export function createTypeEvaluator(
                 if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
                     if (requiresTypeArguments(type) && !type.typeArguments) {
                         addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
                             DiagnosticRule.reportMissingTypeArgument,
                             Localizer.Diagnostic.typeArgsMissingForClass().format({
                                 name: type.aliasName || type.details.name,
@@ -4224,7 +4176,7 @@ export function createTypeEvaluator(
                 !type.typeAliasInfo.typeArguments
             ) {
                 addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
                     DiagnosticRule.reportMissingTypeArgument,
                     Localizer.Diagnostic.typeArgsMissingForAlias().format({
                         name: type.typeAliasInfo.name,
@@ -4250,7 +4202,7 @@ export function createTypeEvaluator(
     // not change each time the file is parsed (unless, of course, the
     // file contents change).
     function getScopeIdForNode(node: ParseNode): string {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         return `${fileInfo.filePath}.${node.start.toString()}`;
     }
 
@@ -4463,7 +4415,7 @@ export function createTypeEvaluator(
         let baseType = baseTypeResult.type;
         const memberName = node.memberName.value;
         let diag = new DiagnosticAddendum();
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let type: Type | undefined;
         let isIncomplete = !!baseTypeResult.isIncomplete;
 
@@ -4539,7 +4491,7 @@ export function createTypeEvaluator(
                 if (flags & EvaluatorFlags.ExpectingType) {
                     if (!isIncomplete) {
                         addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.typeVarNoMember().format({
                                 type: printType(baseType),
@@ -4629,7 +4581,7 @@ export function createTypeEvaluator(
                 const symbol = ModuleType.getField(baseType, memberName);
                 if (symbol && !symbol.isExternallyHidden()) {
                     if (usage.method === 'get') {
-                        setSymbolAccessed(getFileInfo(node), symbol, node.memberName);
+                        setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(node), symbol, node.memberName);
                     }
 
                     type = getEffectiveTypeOfSymbolForUsage(
@@ -4652,7 +4604,7 @@ export function createTypeEvaluator(
 
                     if (symbol.isPrivateMember()) {
                         addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
                             DiagnosticRule.reportPrivateUsage,
                             Localizer.Diagnostic.privateUsedOutsideOfModule().format({
                                 name: memberName,
@@ -4663,7 +4615,7 @@ export function createTypeEvaluator(
 
                     if (symbol.isPrivatePyTypedImport()) {
                         addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
                             DiagnosticRule.reportPrivateImportUsage,
                             Localizer.Diagnostic.privateImportFromPyTypedModule().format({
                                 name: memberName,
@@ -4723,7 +4675,7 @@ export function createTypeEvaluator(
                         } else {
                             if (!isIncomplete) {
                                 addDiagnostic(
-                                    getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
+                                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
                                     DiagnosticRule.reportOptionalMemberAccess,
                                     Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
                                     node.memberName
@@ -4947,7 +4899,7 @@ export function createTypeEvaluator(
                     isInstantiableClass(memberInfo.classType) &&
                     ClassType.isSameGenericClass(memberInfo.classType, classType)
                 ) {
-                    setSymbolAccessed(getFileInfo(errorNode), memberInfo.symbol, errorNode);
+                    setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(errorNode), memberInfo.symbol, errorNode);
                 }
             }
 
@@ -5378,7 +5330,7 @@ export function createTypeEvaluator(
         // less than 3.10.
         if (flags & EvaluatorFlags.ExpectingType) {
             if (node.baseExpression.nodeType === ParseNodeType.StringList) {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_10) {
                     addError(Localizer.Diagnostic.stringNotSubscriptable(), node.baseExpression);
                 }
@@ -5399,7 +5351,7 @@ export function createTypeEvaluator(
             }
 
             if (!skipSubscriptCheck) {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 if (
                     isInstantiableClass(baseTypeResult.type) &&
                     ClassType.isBuiltIn(baseTypeResult.type) &&
@@ -5627,7 +5579,7 @@ export function createTypeEvaluator(
                 if (flags & EvaluatorFlags.ExpectingType) {
                     if (isTypeVar(unexpandedSubtype)) {
                         addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.typeVarNotSubscriptable().format({
                                 type: printType(unexpandedSubtype),
@@ -5734,7 +5686,7 @@ export function createTypeEvaluator(
 
                 if (isNone(concreteSubtype)) {
                     addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
                         DiagnosticRule.reportOptionalSubscript,
                         Localizer.Diagnostic.noneNotSubscriptable(),
                         node.baseExpression
@@ -5744,7 +5696,7 @@ export function createTypeEvaluator(
                 }
 
                 if (!isUnbound(concreteSubtype)) {
-                    const fileInfo = getFileInfo(node);
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -5819,7 +5771,7 @@ export function createTypeEvaluator(
               )?.type;
 
         if (!itemMethodType) {
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -6124,7 +6076,7 @@ export function createTypeEvaluator(
                 typedDictDiag = Localizer.Diagnostic.typedDictAccess();
             }
 
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             addDiagnostic(
                 allDiagsInvolveNotRequiredKeys
                     ? fileInfo.diagnosticRuleSet.reportTypedDictNotRequiredAccess
@@ -6230,7 +6182,7 @@ export function createTypeEvaluator(
             EvaluatorFlags.FinalDisallowed |
             EvaluatorFlags.ClassVarDisallowed;
 
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         if (fileInfo.isStubFile) {
             adjustedFlags |= EvaluatorFlags.AllowForwardReferences;
         }
@@ -6560,7 +6512,7 @@ export function createTypeEvaluator(
         const isCyclicalTypeVarCall =
             isInstantiableClass(baseTypeResult.type) &&
             ClassType.isBuiltIn(baseTypeResult.type, 'TypeVar') &&
-            getFileInfo(node).isTypingStubFile;
+            AnalyzerNodeInfo.getFileInfo(node).isTypingStubFile;
 
         if (!isCyclicalTypeVarCall) {
             argList.forEach((arg, index) => {
@@ -6647,7 +6599,7 @@ export function createTypeEvaluator(
 
             if (!isAnyOrUnknown(concreteTargetClassType) && !isInstantiableClass(concreteTargetClassType)) {
                 addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.superCallFirstArg().format({ type: printType(targetClassType) }),
                     node.arguments[0].valueExpression
@@ -6700,7 +6652,7 @@ export function createTypeEvaluator(
             }
 
             if (reportError) {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -7063,7 +7015,7 @@ export function createTypeEvaluator(
                 diagAddendum.addMessage(Localizer.DiagnosticAddendum.overloadTooManyUnions());
             }
             addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.noOverload().format({ name: functionName }) + diagAddendum.getString(),
                 errorNode
@@ -7375,7 +7327,7 @@ export function createTypeEvaluator(
                 !ClassType.isBuiltIn(type.details.effectiveMetaclass);
 
             if (!isCustomMetaclass) {
-                const fileInfo = getFileInfo(errorNode);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -7600,7 +7552,7 @@ export function createTypeEvaluator(
         if (TypeBase.isNonCallable(callType)) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
             addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeNotCallable().format({
                     expression: ParseTreeUtils.printExpression(exprNode),
@@ -7633,12 +7585,12 @@ export function createTypeEvaluator(
                         // as a function rather than a class, so we need to check for it here.
                         if (expandedSubtype.details.builtInName === 'namedtuple') {
                             addDiagnostic(
-                                getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
+                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
                                 DiagnosticRule.reportUntypedNamedTuple,
                                 Localizer.Diagnostic.namedTupleNoTypes(),
                                 errorNode
                             );
-                            return createNamedTupleType(errorNode, argList, false);
+                            return createNamedTupleType(evaluatorInterface, errorNode, argList, false);
                         }
 
                         const functionResult = validateFunctionArguments(
@@ -7715,7 +7667,7 @@ export function createTypeEvaluator(
                                     )
                                 ) {
                                     addDiagnostic(
-                                        getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
+                                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
                                         DiagnosticRule.reportUnnecessaryCast,
                                         Localizer.Diagnostic.unnecessaryCast().format({
                                             type: printType(castFromType),
@@ -7735,7 +7687,7 @@ export function createTypeEvaluator(
                         if (TypeBase.isInstantiable(expandedSubtype)) {
                             if (expandedSubtype.literalValue !== undefined) {
                                 addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.literalNotCallable(),
                                     errorNode
@@ -7793,7 +7745,7 @@ export function createTypeEvaluator(
                                 }
 
                                 if (className === 'NamedTuple') {
-                                    return createNamedTupleType(errorNode, argList, true);
+                                    return createNamedTupleType(evaluatorInterface, errorNode, argList, true);
                                 }
 
                                 if (
@@ -7803,7 +7755,7 @@ export function createTypeEvaluator(
                                     className === 'Concatenate' ||
                                     className === 'Type'
                                 ) {
-                                    const fileInfo = getFileInfo(errorNode);
+                                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                                     addDiagnostic(
                                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                         DiagnosticRule.reportGeneralTypeIssues,
@@ -7863,7 +7815,8 @@ export function createTypeEvaluator(
                                     });
 
                                     addDiagnostic(
-                                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet
+                                            .reportGeneralTypeIssues,
                                         DiagnosticRule.reportGeneralTypeIssues,
                                         Localizer.Diagnostic.instantiateAbstract().format({
                                             type: expandedSubtype.details.name,
@@ -7876,7 +7829,7 @@ export function createTypeEvaluator(
                             if (ClassType.isProtocolClass(expandedSubtype) && !expandedSubtype.includeSubclasses) {
                                 // If the class is a protocol, it can't be instantiated.
                                 addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.instantiateProtocol().format({
                                         type: expandedSubtype.details.name,
@@ -7922,9 +7875,9 @@ export function createTypeEvaluator(
                                     newClassName,
                                     '',
                                     '',
-                                    getFileInfo(errorNode).filePath,
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).filePath,
                                     ClassTypeFlags.None,
-                                    getTypeSourceId(errorNode),
+                                    ParseTreeUtils.getTypeSourceId(errorNode),
                                     ClassType.cloneAsInstantiable(returnType),
                                     ClassType.cloneAsInstantiable(returnType)
                                 );
@@ -7955,7 +7908,7 @@ export function createTypeEvaluator(
 
                             if (!memberType || !isAnyOrUnknown(memberType)) {
                                 addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.objectNotCallable().format({
                                         type: printType(expandedSubtype),
@@ -7969,7 +7922,7 @@ export function createTypeEvaluator(
 
                     case TypeCategory.None: {
                         addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
                             Localizer.Diagnostic.noneNotCallable(),
                             errorNode
@@ -8162,7 +8115,7 @@ export function createTypeEvaluator(
             }
 
             if (argIndex < positionalOnlyIndex && argList[argIndex].name) {
-                const fileInfo = getFileInfo(argList[argIndex].name!);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(argList[argIndex].name!);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -8175,7 +8128,7 @@ export function createTypeEvaluator(
             if (paramIndex >= positionalParamCount) {
                 if (!foundUnpackedListArg || argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
                     addDiagnostic(
-                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         positionalParamCount === 1
                             ? Localizer.Diagnostic.argPositionalExpectedOne()
@@ -8208,7 +8161,7 @@ export function createTypeEvaluator(
                 // filled explicitly.
                 if (type.details.paramSpec && paramIndex < positionalParamCount) {
                     addDiagnostic(
-                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         positionalParamCount === 1
                             ? Localizer.Diagnostic.argPositionalExpectedOne()
@@ -8272,7 +8225,7 @@ export function createTypeEvaluator(
                 // parameter unless the argument is a variadic arg as well.
                 if (isParamVariadic && !isArgCompatibleWithVariadic) {
                     addDiagnostic(
-                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.unpackedArgWithVariadicParam(),
                         argList[argIndex].valueExpression || errorNode
@@ -8346,7 +8299,7 @@ export function createTypeEvaluator(
                         } else if (argsRemainingCount > 0 && paramsToFillCount <= 0) {
                             // Have we run out of arguments and still have parameters left to fill?
                             addDiagnostic(
-                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 argsRemainingCount === 1
                                     ? Localizer.Diagnostic.argMorePositionalExpectedOne()
@@ -8407,7 +8360,7 @@ export function createTypeEvaluator(
             const argsRemainingCount = positionOnlyWithoutDefaultsCount - positionalArgCount;
             if (argsRemainingCount > 0) {
                 addDiagnostic(
-                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     argsRemainingCount === 1
                         ? Localizer.Diagnostic.argMorePositionalExpectedOne()
@@ -8490,7 +8443,7 @@ export function createTypeEvaluator(
 
                         if (!diag.isEmpty()) {
                             addDiagnostic(
-                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 Localizer.Diagnostic.unpackedTypedDictArgument() + diag.getString(),
                                 argList[argIndex].valueExpression || errorNode
@@ -8542,7 +8495,7 @@ export function createTypeEvaluator(
 
                             if (!isValidMappingType) {
                                 addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.unpackedDictArgumentNotMapping(),
                                     argList[argIndex].valueExpression || errorNode
@@ -8566,7 +8519,7 @@ export function createTypeEvaluator(
                         if (paramEntry && !paramEntry.isPositionalOnly) {
                             if (paramEntry.argsReceived > 0) {
                                 addDiagnostic(
-                                    getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    AnalyzerNodeInfo.getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.paramAlreadyAssigned().format({ name: paramNameValue }),
                                     paramName
@@ -8614,7 +8567,7 @@ export function createTypeEvaluator(
                             trySetActive(argList[argIndex], varArgDictParam);
                         } else {
                             addDiagnostic(
-                                getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
+                                AnalyzerNodeInfo.getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 Localizer.Diagnostic.paramNameMissing().format({ name: paramName.value }),
                                 paramName
@@ -8623,7 +8576,7 @@ export function createTypeEvaluator(
                         }
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.Simple) {
                         const adjustedCount = positionalParamCount;
-                        const fileInfo = getFileInfo(errorNode);
+                        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -8690,7 +8643,7 @@ export function createTypeEvaluator(
                 if (unassignedParams.length > 0) {
                     const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                     addDiagnostic(
-                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         unassignedParams.length === 1
                             ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
@@ -9062,7 +9015,7 @@ export function createTypeEvaluator(
 
         if (!paramSpecValue || !paramSpecValue.concrete) {
             addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.paramSpecNotBound().format({ type: printType(paramSpec) }),
                 argList[0]?.valueExpression || errorNode
@@ -9093,7 +9046,7 @@ export function createTypeEvaluator(
                         paramMap.delete(arg.name.value);
                     } else {
                         addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
                             arg.valueExpression || errorNode
@@ -9109,7 +9062,7 @@ export function createTypeEvaluator(
                         }
                     } else {
                         addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             paramSpecParams.length === 1
                                 ? Localizer.Diagnostic.argPositionalExpectedOne()
@@ -9162,7 +9115,7 @@ export function createTypeEvaluator(
             if (unassignedParams.length > 0) {
                 const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                 addDiagnostic(
-                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     unassignedParams.length === 1
                         ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
@@ -9269,12 +9222,12 @@ export function createTypeEvaluator(
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             // Mismatching parameter types are common in untyped code; don't bother spending time
             // printing types if the diagnostic is disabled.
-            const fileInfo = getFileInfo(argParam.errorNode);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
             if (
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues !== 'none' &&
                 !isDiagnosticSuppressedForNode(argParam.errorNode)
             ) {
-                const fileInfo = getFileInfo(argParam.errorNode);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
                 const argTypeText = printType(argType);
                 const paramTypeText = printType(argParam.paramType);
 
@@ -9328,7 +9281,7 @@ export function createTypeEvaluator(
 
         if (!skipUnknownCheck) {
             const simplifiedType = removeUnbound(argType);
-            const fileInfo = getFileInfo(argParam.errorNode);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
 
             const getDiagAddendum = () => {
                 const diagAddendum = new DiagnosticAddendum();
@@ -9476,7 +9429,7 @@ export function createTypeEvaluator(
 
         if (typeVar.details.constraints.length === 1 && firstConstraintArg) {
             addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeVarSingleConstraint(),
                 firstConstraintArg.valueExpression || errorNode
@@ -9560,24 +9513,6 @@ export function createTypeEvaluator(
         return false;
     }
 
-    function getClassFullName(classNode: ParseNode, moduleName: string, className: string): string {
-        const nameParts: string[] = [className];
-
-        let curNode: ParseNode | undefined = classNode;
-
-        // Walk the parse tree looking for classes.
-        while (curNode) {
-            curNode = ParseTreeUtils.getEnclosingClass(curNode);
-            if (curNode) {
-                nameParts.push(curNode.name.value);
-            }
-        }
-
-        nameParts.push(moduleName);
-
-        return nameParts.reverse().join('.');
-    }
-
     function getFunctionFullName(functionNode: ParseNode, moduleName: string, functionName: string): string {
         const nameParts: string[] = [functionName];
 
@@ -9602,7 +9537,7 @@ export function createTypeEvaluator(
         enumClass: ClassType,
         argList: FunctionArgument[]
     ): ClassType | undefined {
-        const fileInfo = getFileInfo(errorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         let className = 'enum';
         if (argList.length === 0) {
             return undefined;
@@ -9621,11 +9556,11 @@ export function createTypeEvaluator(
 
         const classType = ClassType.createInstantiable(
             className,
-            getClassFullName(errorNode, fileInfo.moduleName, className),
+            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             fileInfo.filePath,
             ClassTypeFlags.EnumClass,
-            getTypeSourceId(errorNode),
+            ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             enumClass.details.effectiveMetaclass
         );
@@ -9671,7 +9606,7 @@ export function createTypeEvaluator(
                         // user to the exact spot in the string, but it's close enough.
                         const stringNode = entriesArg.valueExpression!;
                         assert(stringNode.nodeType === ParseNodeType.StringList);
-                        const fileInfo = getFileInfo(errorNode);
+                        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
                             node: stringNode as StringListNode,
@@ -9697,7 +9632,7 @@ export function createTypeEvaluator(
     // in the Python specification: The static type checker will treat
     // the new type as if it were a subclass of the original type.
     function createNewType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
-        const fileInfo = getFileInfo(errorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         let className = '_';
         if (argList.length >= 1) {
             const nameArg = argList[0];
@@ -9722,11 +9657,11 @@ export function createTypeEvaluator(
                     baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
                 const classType = ClassType.createInstantiable(
                     className,
-                    getClassFullName(errorNode, fileInfo.moduleName, className),
+                    ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
                     fileInfo.moduleName,
                     fileInfo.filePath,
                     classFlags,
-                    getTypeSourceId(errorNode),
+                    ParseTreeUtils.getTypeSourceId(errorNode),
                     /* declaredMetaclass */ undefined,
                     baseClass.details.effectiveMetaclass
                 );
@@ -9777,7 +9712,7 @@ export function createTypeEvaluator(
 
     // Implements the semantics of the multi-parameter variant of the "type" call.
     function createType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
-        const fileInfo = getFileInfo(errorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         const arg0Type = getTypeForArgument(argList[0]);
         if (!isClassInstance(arg0Type) || !ClassType.isBuiltIn(arg0Type, 'str')) {
             return undefined;
@@ -9791,11 +9726,11 @@ export function createTypeEvaluator(
 
         const classType = ClassType.createInstantiable(
             className,
-            getClassFullName(errorNode, fileInfo.moduleName, className),
+            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             fileInfo.filePath,
             ClassTypeFlags.None,
-            getTypeSourceId(errorNode),
+            ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             arg1Type.details.effectiveMetaclass
         );
@@ -9820,7 +9755,7 @@ export function createTypeEvaluator(
         typedDictClass: ClassType,
         argList: FunctionArgument[]
     ): ClassType {
-        const fileInfo = getFileInfo(errorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
 
         // TypedDict supports two different syntaxes:
         // Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
@@ -9843,11 +9778,11 @@ export function createTypeEvaluator(
 
         const classType = ClassType.createInstantiable(
             className,
-            getClassFullName(errorNode, fileInfo.moduleName, className),
+            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             fileInfo.filePath,
             ClassTypeFlags.TypedDictClass,
-            getTypeSourceId(errorNode),
+            ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             typedDictClass.details.effectiveMetaclass
         );
@@ -9940,7 +9875,7 @@ export function createTypeEvaluator(
                     getTypeForExpressionExpectingType(entry.valueExpression, /* allowFinal */ true);
 
                     const newSymbol = new Symbol(SymbolFlags.InstanceMember);
-                    const fileInfo = getFileInfo(errorNode);
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: entry.name,
@@ -9986,316 +9921,6 @@ export function createTypeEvaluator(
         }
 
         synthesizeTypedDictClassMethods(errorNode, classType);
-
-        return classType;
-    }
-
-    // Creates a new custom tuple factory class with named values.
-    // Supports both typed and untyped variants.
-    function createNamedTupleType(
-        errorNode: ExpressionNode,
-        argList: FunctionArgument[],
-        includesTypes: boolean
-    ): ClassType {
-        const fileInfo = getFileInfo(errorNode);
-        let className = 'namedtuple';
-
-        if (argList.length === 0) {
-            addError(Localizer.Diagnostic.namedTupleFirstArg(), errorNode);
-        } else {
-            const nameArg = argList[0];
-            if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-                addError(Localizer.Diagnostic.namedTupleFirstArg(), argList[0].valueExpression || errorNode);
-            } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
-                className = nameArg.valueExpression.strings.map((s) => s.value).join('');
-            }
-        }
-
-        // Is there is a default arg? If so, is it defined in a way that we
-        // can determine its length statically?
-        const defaultsArg = argList.find((arg) => arg.name?.value === 'defaults');
-        let defaultArgCount: number | undefined = 0;
-        if (defaultsArg && defaultsArg.valueExpression) {
-            const defaultsArgType = getTypeOfExpression(defaultsArg.valueExpression).type;
-            if (
-                isClassInstance(defaultsArgType) &&
-                isTupleClass(defaultsArgType) &&
-                !isOpenEndedTupleClass(defaultsArgType) &&
-                defaultsArgType.tupleTypeArguments
-            ) {
-                defaultArgCount = defaultsArgType.tupleTypeArguments.length;
-            } else {
-                defaultArgCount = undefined;
-            }
-        }
-
-        const namedTupleType = getTypingType(errorNode, 'NamedTuple') || UnknownType.create();
-
-        const classType = ClassType.createInstantiable(
-            className,
-            getClassFullName(errorNode, fileInfo.moduleName, className),
-            fileInfo.moduleName,
-            fileInfo.filePath,
-            ClassTypeFlags.None,
-            getTypeSourceId(errorNode),
-            /* declaredMetaclass */ undefined,
-            isInstantiableClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
-        );
-        classType.details.baseClasses.push(namedTupleType);
-
-        const classFields = classType.details.fields;
-        classFields.set(
-            '__class__',
-            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
-        );
-
-        const constructorType = FunctionType.createInstance(
-            '__new__',
-            '',
-            '',
-            FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
-        );
-        constructorType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-        if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
-            constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
-        }
-        FunctionType.addParameter(constructorType, {
-            category: ParameterCategory.Simple,
-            name: 'cls',
-            type: classType,
-            hasDeclaredType: true,
-        });
-
-        const matchArgsNames: string[] = [];
-
-        const selfParameter: FunctionParameter = {
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: ClassType.cloneAsInstance(classType),
-            hasDeclaredType: true,
-        };
-
-        let addGenericGetAttribute = false;
-        const entryTypes: Type[] = [];
-
-        if (argList.length < 2) {
-            addError(Localizer.Diagnostic.namedTupleSecondArg(), errorNode);
-            addGenericGetAttribute = true;
-        } else {
-            const entriesArg = argList[1];
-            if (entriesArg.argumentCategory !== ArgumentCategory.Simple) {
-                addGenericGetAttribute = true;
-            } else {
-                if (
-                    !includesTypes &&
-                    entriesArg.valueExpression &&
-                    entriesArg.valueExpression.nodeType === ParseNodeType.StringList
-                ) {
-                    const entries = entriesArg.valueExpression.strings
-                        .map((s) => s.value)
-                        .join('')
-                        .split(/[,\s]+/);
-                    const firstParamWithDefaultIndex =
-                        defaultArgCount === undefined ? 0 : Math.max(0, entries.length - defaultArgCount);
-                    entries.forEach((entryName, index) => {
-                        entryName = entryName.trim();
-                        if (entryName) {
-                            const entryType = UnknownType.create();
-                            const paramInfo: FunctionParameter = {
-                                category: ParameterCategory.Simple,
-                                name: entryName,
-                                type: entryType,
-                                hasDeclaredType: includesTypes,
-                                hasDefault: index >= firstParamWithDefaultIndex,
-                            };
-
-                            FunctionType.addParameter(constructorType, paramInfo);
-                            const newSymbol = Symbol.createWithType(SymbolFlags.InstanceMember, entryType);
-                            matchArgsNames.push(entryName);
-
-                            // We need to associate the declaration with a parse node.
-                            // In this case it's just part of a string literal value.
-                            // The definition provider won't necessarily take the
-                            // user to the exact spot in the string, but it's close enough.
-                            const stringNode = entriesArg.valueExpression!;
-                            const declaration: VariableDeclaration = {
-                                type: DeclarationType.Variable,
-                                node: stringNode as StringListNode,
-                                path: fileInfo.filePath,
-                                range: convertOffsetsToRange(
-                                    stringNode.start,
-                                    TextRange.getEnd(stringNode),
-                                    fileInfo.lines
-                                ),
-                                moduleName: fileInfo.moduleName,
-                            };
-                            newSymbol.addDeclaration(declaration);
-                            classFields.set(entryName, newSymbol);
-                            entryTypes.push(entryType);
-                        }
-                    });
-                } else if (entriesArg.valueExpression && entriesArg.valueExpression.nodeType === ParseNodeType.List) {
-                    const entryList = entriesArg.valueExpression;
-                    const entryMap = new Map<string, string>();
-                    const firstParamWithDefaultIndex =
-                        defaultArgCount === undefined ? 0 : Math.max(0, entryList.entries.length - defaultArgCount);
-
-                    entryList.entries.forEach((entry, index) => {
-                        let entryTypeNode: ExpressionNode | undefined;
-                        let entryType: Type | undefined;
-                        let entryNameNode: ExpressionNode | undefined;
-                        let entryName = '';
-
-                        if (includesTypes) {
-                            // Handle the variant that includes name/type tuples.
-                            if (entry.nodeType === ParseNodeType.Tuple && entry.expressions.length === 2) {
-                                entryNameNode = entry.expressions[0];
-                                entryTypeNode = entry.expressions[1];
-                                entryType = convertToInstance(getTypeForExpressionExpectingType(entryTypeNode));
-                            } else {
-                                addError(Localizer.Diagnostic.namedTupleNameType(), entry);
-                            }
-                        } else {
-                            entryNameNode = entry;
-                            entryType = UnknownType.create();
-                        }
-
-                        if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
-                            entryName = entryNameNode.strings.map((s) => s.value).join('');
-                            if (!entryName) {
-                                addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
-                            }
-                        } else {
-                            addGenericGetAttribute = true;
-                        }
-
-                        if (!entryName) {
-                            entryName = `_${index.toString()}`;
-                        }
-
-                        if (entryMap.has(entryName)) {
-                            addError(Localizer.Diagnostic.namedTupleNameUnique(), entryNameNode || entry);
-                        }
-
-                        // Record names in a map to detect duplicates.
-                        entryMap.set(entryName, entryName);
-
-                        if (!entryType) {
-                            entryType = UnknownType.create();
-                        }
-
-                        const paramInfo: FunctionParameter = {
-                            category: ParameterCategory.Simple,
-                            name: entryName,
-                            type: entryType,
-                            hasDeclaredType: includesTypes,
-                            hasDefault: index >= firstParamWithDefaultIndex,
-                        };
-
-                        FunctionType.addParameter(constructorType, paramInfo);
-                        entryTypes.push(entryType);
-                        matchArgsNames.push(entryName);
-
-                        const newSymbol = Symbol.createWithType(SymbolFlags.InstanceMember, entryType);
-                        if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
-                            const declaration: VariableDeclaration = {
-                                type: DeclarationType.Variable,
-                                node: entryNameNode,
-                                path: fileInfo.filePath,
-                                typeAnnotationNode: entryTypeNode,
-                                range: convertOffsetsToRange(
-                                    entryNameNode.start,
-                                    TextRange.getEnd(entryNameNode),
-                                    fileInfo.lines
-                                ),
-                                moduleName: fileInfo.moduleName,
-                            };
-                            newSymbol.addDeclaration(declaration);
-                        }
-                        classFields.set(entryName, newSymbol);
-                    });
-                } else {
-                    // A dynamic expression was used, so we can't evaluate
-                    // the named tuple statically.
-                    addGenericGetAttribute = true;
-                }
-            }
-        }
-
-        if (addGenericGetAttribute) {
-            constructorType.details.parameters = [];
-            FunctionType.addDefaultParameters(constructorType);
-            entryTypes.push(AnyType.create(/* isEllipsis */ false));
-            entryTypes.push(AnyType.create(/* isEllipsis */ true));
-        }
-
-        // Always use generic parameters for __init__. The __new__ method
-        // will handle property type checking. We may need to disable default
-        // parameter processing for __new__ (see isAssignmentToDefaultsFollowingNamedTuple),
-        // and we don't want to do it for __init__ as well.
-        const initType = FunctionType.createInstance(
-            '__init__',
-            '',
-            '',
-            FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipConstructorCheck
-        );
-        FunctionType.addParameter(initType, selfParameter);
-        FunctionType.addDefaultParameters(initType);
-        initType.details.declaredReturnType = NoneType.createInstance();
-
-        classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
-        classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
-
-        const keysItemType = FunctionType.createInstance('keys', '', '', FunctionTypeFlags.SynthesizedMethod);
-        const itemsItemType = FunctionType.createInstance('items', '', '', FunctionTypeFlags.SynthesizedMethod);
-        keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'list', [
-            getBuiltInObject(errorNode, 'str'),
-        ]);
-        itemsItemType.details.declaredReturnType = keysItemType.details.declaredReturnType;
-        classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
-        classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, itemsItemType));
-
-        const lenType = FunctionType.createInstance('__len__', '', '', FunctionTypeFlags.SynthesizedMethod);
-        lenType.details.declaredReturnType = getBuiltInObject(errorNode, 'int');
-        FunctionType.addParameter(lenType, selfParameter);
-        classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
-
-        if (addGenericGetAttribute) {
-            const getAttribType = FunctionType.createInstance(
-                '__getattribute__',
-                '',
-                '',
-                FunctionTypeFlags.SynthesizedMethod
-            );
-            getAttribType.details.declaredReturnType = AnyType.create();
-            FunctionType.addParameter(getAttribType, selfParameter);
-            FunctionType.addParameter(getAttribType, {
-                category: ParameterCategory.Simple,
-                name: 'name',
-                type: getBuiltInObject(errorNode, 'str'),
-            });
-            classFields.set('__getattribute__', Symbol.createWithType(SymbolFlags.ClassMember, getAttribType));
-        }
-
-        // Synthesize the __match_args__ class variable.
-        const strType = getBuiltInType(errorNode, 'str');
-        if (
-            !addGenericGetAttribute &&
-            strType &&
-            isInstantiableClass(strType) &&
-            tupleClassType &&
-            isInstantiableClass(tupleClassType)
-        ) {
-            const literalTypes = matchArgsNames.map((name) => {
-                return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, name));
-            });
-            const matchArgsType = ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, literalTypes));
-            classFields.set('__match_args__', Symbol.createWithType(SymbolFlags.ClassMember, matchArgsType));
-        }
-
-        computeMroLinearization(classType);
-
-        updateNamedTupleBaseClass(classType, entryTypes, !addGenericGetAttribute);
 
         return classType;
     }
@@ -10346,7 +9971,7 @@ export function createTypeEvaluator(
         if (node.operator !== OperatorType.Not) {
             if (isOptionalType(exprType)) {
                 addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
                     DiagnosticRule.reportOptionalOperand,
                     Localizer.Diagnostic.noneOperator().format({
                         operator: ParseTreeUtils.printOperator(node.operator),
@@ -10372,7 +9997,7 @@ export function createTypeEvaluator(
             }
 
             if (!type) {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -10508,7 +10133,7 @@ export function createTypeEvaluator(
             }
 
             if (isUnionableType([leftType, adjustedRightType])) {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 const unionNotationSupported =
                     fileInfo.isStubFile ||
                     (flags & EvaluatorFlags.AllowForwardReferences) !== 0 ||
@@ -10545,7 +10170,7 @@ export function createTypeEvaluator(
 
         if (!diag.isEmpty() || !type || isNever(type)) {
             if (!isIncomplete) {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
                 if (isLeftOptionalType && diag.getMessages().length === 1) {
                     // If the left was an optional type and there is just one diagnostic,
@@ -10553,7 +10178,7 @@ export function createTypeEvaluator(
                     // this as a reportOptionalOperand diagnostic rather than a
                     // reportGeneralTypeIssues diagnostic.
                     addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
                         DiagnosticRule.reportOptionalOperand,
                         Localizer.Diagnostic.noneOperator().format({
                             operator: ParseTreeUtils.printOperator(node.operator),
@@ -10704,7 +10329,7 @@ export function createTypeEvaluator(
         // assignment, fall back on the normal binary expression evaluator.
         if (!diag.isEmpty() || !type || isNever(type)) {
             if (!isIncomplete) {
-                const fileInfo = getFileInfo(node);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -11262,7 +10887,7 @@ export function createTypeEvaluator(
         // are the same type, we'll assume that all values in this dictionary should
         // be the same.
         if (valueTypes.length > 0) {
-            if (getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || !!expectedType) {
+            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || !!expectedType) {
                 valueType = combineTypes(valueTypes);
             } else {
                 valueType = areTypesSame(valueTypes, /* ignorePseudoGeneric */ true)
@@ -11387,7 +11012,7 @@ export function createTypeEvaluator(
                                 addUnknown = false;
                             }
                         } else {
-                            const fileInfo = getFileInfo(node);
+                            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
@@ -11572,7 +11197,7 @@ export function createTypeEvaluator(
 
         let inferredEntryType: Type = expectedType ? AnyType.create() : UnknownType.create();
         if (entryTypes.length > 0) {
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
             if (
@@ -12120,7 +11745,7 @@ export function createTypeEvaluator(
                 }
                 functionType.details.declaredReturnType = convertToInstance(typeArg1Type);
             } else {
-                const fileInfo = getFileInfo(errorNode);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -12644,7 +12269,7 @@ export function createTypeEvaluator(
                     (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
                         node.parent.valueExpression === node &&
                         node.parent.parent?.nodeType === ParseNodeType.Assignment) ||
-                    (getFileInfo(node).isStubFile &&
+                    (AnalyzerNodeInfo.getFileInfo(node).isStubFile &&
                         node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
                         node.parent.valueExpression === node);
 
@@ -12724,7 +12349,7 @@ export function createTypeEvaluator(
             );
         }
 
-        const fileInfo = getFileInfo(name);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
 
         return TypeBase.cloneForTypeAlias(
             type,
@@ -12736,10 +12361,10 @@ export function createTypeEvaluator(
     }
 
     function createSpecialBuiltInClass(node: ParseNode, assignedName: string, aliasMapEntry: AliasMapEntry): ClassType {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let specialClassType = ClassType.createInstantiable(
             assignedName,
-            getClassFullName(node, fileInfo.moduleName, assignedName),
+            ParseTreeUtils.getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
             fileInfo.filePath,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
@@ -12890,7 +12515,7 @@ export function createTypeEvaluator(
     }
 
     function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // If the entire statement has already been evaluated, don't
         // re-evaluate it.
@@ -13106,7 +12731,7 @@ export function createTypeEvaluator(
         // The type wasn't cached, so we need to create a new one.
         const scope = ScopeUtils.getScopeForNode(node);
 
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let classFlags = ClassTypeFlags.None;
         if (
             scope?.type === ScopeType.Builtin ||
@@ -13135,7 +12760,7 @@ export function createTypeEvaluator(
 
         const classType = ClassType.createInstantiable(
             node.name.value,
-            getClassFullName(node, fileInfo.moduleName, node.name.value),
+            ParseTreeUtils.getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
             fileInfo.filePath,
             classFlags,
@@ -13632,7 +13257,7 @@ export function createTypeEvaluator(
                 })
             );
             addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeVarsNotInGeneric() + diag.getString(),
                 errorNode
@@ -13653,7 +13278,7 @@ export function createTypeEvaluator(
             fieldDescriptorNames: [],
         };
 
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // Parse the arguments to the call.
         node.arguments.forEach((arg) => {
@@ -13842,7 +13467,7 @@ export function createTypeEvaluator(
         argName: string,
         argValue: ExpressionNode
     ) {
-        const fileInfo = getFileInfo(errorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         const value = evaluateStaticBoolExpression(argValue, fileInfo.executionEnvironment);
 
         switch (argName) {
@@ -13996,7 +13621,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // Is this type already cached?
         const cachedFunctionType = readTypeCache(node.name) as FunctionType;
@@ -14478,7 +14103,7 @@ export function createTypeEvaluator(
     // Scans through the decorators to find a few built-in decorators
     // that affect the function flags.
     function getFunctionFlagsFromDecorators(node: FunctionNode, isInClass: boolean) {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let flags = FunctionTypeFlags.None;
 
         // The "__new__" magic method is not an instance method.
@@ -14538,7 +14163,7 @@ export function createTypeEvaluator(
         decoratorNode: DecoratorNode,
         functionNode: FunctionNode
     ): Type {
-        const fileInfo = getFileInfo(decoratorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(decoratorNode);
 
         let evaluatorFlags = EvaluatorFlags.DoNotSpecialize;
         if (fileInfo.isStubFile) {
@@ -14630,7 +14255,7 @@ export function createTypeEvaluator(
                         decoratorNode,
                         decoratorType.details.name,
                         inputFunctionType,
-                        getTypeSourceId(decoratorNode)
+                        ParseTreeUtils.getTypeSourceId(decoratorNode)
                     );
                 } else if (isClassInstance(inputFunctionType)) {
                     const callMember = lookUpObjectMember(inputFunctionType, '__call__');
@@ -14643,7 +14268,7 @@ export function createTypeEvaluator(
                                     decoratorNode,
                                     decoratorType.details.name,
                                     boundMethod,
-                                    getTypeSourceId(decoratorNode)
+                                    ParseTreeUtils.getTypeSourceId(decoratorNode)
                                 );
                             }
                         }
@@ -14675,7 +14300,7 @@ export function createTypeEvaluator(
     function validatePropertyMethod(method: FunctionType, errorNode: ParseNode) {
         if (FunctionType.isStaticMethod(method)) {
             addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.propertyStaticMethod(),
                 errorNode
@@ -14689,11 +14314,11 @@ export function createTypeEvaluator(
         fget: FunctionType,
         typeSourceId: TypeSourceId
     ): ClassType {
-        const fileInfo = getFileInfo(decoratorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(decoratorNode);
         const typeMetaclass = getBuiltInType(decoratorNode, 'type');
         const propertyClass = ClassType.createInstantiable(
             className,
-            getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
+            ParseTreeUtils.getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
             fileInfo.moduleName,
             fileInfo.filePath,
             ClassTypeFlags.PropertyClass,
@@ -14830,7 +14455,7 @@ export function createTypeEvaluator(
             classType.details.name,
             classType.details.fullName,
             classType.details.moduleName,
-            getFileInfo(errorNode).filePath,
+            AnalyzerNodeInfo.getFileInfo(errorNode).filePath,
             classType.details.flags,
             classType.details.typeSourceId,
             classType.details.declaredMetaclass,
@@ -14851,7 +14476,7 @@ export function createTypeEvaluator(
         // Verify parameters for fset.
         // We'll skip this test if the diagnostic rule is disabled because it
         // can be somewhat expensive, especially in code that is not annotated.
-        const fileInfo = getFileInfo(errorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         if (fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch !== 'none') {
             if (errorNode.parameters.length >= 2) {
                 const typeAnnotation = getTypeAnnotationForParameter(errorNode, 1);
@@ -14929,7 +14554,7 @@ export function createTypeEvaluator(
             classType.details.name,
             classType.details.fullName,
             classType.details.moduleName,
-            getFileInfo(errorNode).filePath,
+            AnalyzerNodeInfo.getFileInfo(errorNode).filePath,
             classType.details.flags,
             classType.details.typeSourceId,
             classType.details.declaredMetaclass,
@@ -15038,7 +14663,7 @@ export function createTypeEvaluator(
 
                 if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
                     addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
                         node.name
@@ -15159,7 +14784,7 @@ export function createTypeEvaluator(
                 const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
 
                 // Infer the return type based on all of the return statements in the function's body.
-                if (getFileInfo(node).isStubFile) {
+                if (AnalyzerNodeInfo.getFileInfo(node).isStubFile) {
                     // If a return type annotation is missing in a stub file, assume
                     // it's an "unknown" type. In normal source files, we can infer the
                     // type from the implementation.
@@ -15391,7 +15016,7 @@ export function createTypeEvaluator(
         const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With && !!node.parent.isAsync;
 
         if (isOptionalType(exprType)) {
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportOptionalContextManager,
                 DiagnosticRule.reportOptionalContextManager,
@@ -15452,7 +15077,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -15488,7 +15113,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -15547,7 +15172,7 @@ export function createTypeEvaluator(
         }
 
         const aliasNode = node.alias || node.name;
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // If this is a redundant form of an import, assume it is an intentional
         // export and mark the symbol as accessed.
@@ -15960,7 +15585,7 @@ export function createTypeEvaluator(
 
         if (!TypeBase.isInstantiable(classType)) {
             addDiagnostic(
-                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+                AnalyzerNodeInfo.getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(classType) }),
                 pattern.className
@@ -16582,7 +16207,7 @@ export function createTypeEvaluator(
         if (node.nodeType === ParseNodeType.ImportFromAs) {
             if (resolvedAliasInfo.isPrivate) {
                 addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
                     DiagnosticRule.reportPrivateUsage,
                     Localizer.Diagnostic.privateUsedOutsideOfModule().format({
                         name: node.name.value,
@@ -16601,7 +16226,7 @@ export function createTypeEvaluator(
                     );
                 }
                 addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
                     DiagnosticRule.reportPrivateImportUsage,
                     Localizer.Diagnostic.privateImportFromPyTypedModule().format({
                         name: node.name.value,
@@ -16812,7 +16437,7 @@ export function createTypeEvaluator(
         if (nodeToEvaluate.nodeType === ParseNodeType.TypeAnnotation) {
             evaluateTypeAnnotationExpression(nodeToEvaluate);
         } else {
-            const fileInfo = getFileInfo(nodeToEvaluate);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(nodeToEvaluate);
             const flags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
             getTypeOfExpression(nodeToEvaluate, /* expectedType */ undefined, flags);
         }
@@ -18753,14 +18378,14 @@ export function createTypeEvaluator(
                             // synthesize a new class type that represents an intersection of
                             // the two types.
                             const className = `<subclass of ${varType.details.name} and ${concreteFilterType.details.name}>`;
-                            const fileInfo = getFileInfo(errorNode);
+                            const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                             const newClassType = ClassType.createInstantiable(
                                 className,
-                                getClassFullName(errorNode, fileInfo.moduleName, className),
+                                ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
                                 fileInfo.moduleName,
                                 fileInfo.filePath,
                                 ClassTypeFlags.None,
-                                getTypeSourceId(errorNode),
+                                ParseTreeUtils.getTypeSourceId(errorNode),
                                 /* declaredMetaclass */ undefined,
                                 varType.details.effectiveMetaclass,
                                 varType.details.docString
@@ -19359,14 +18984,14 @@ export function createTypeEvaluator(
                             // two type is a subclass that is callable. We'll synthesize a
                             // new intersection type.
                             const className = `<callable subtype of ${subtype.details.name}>`;
-                            const fileInfo = getFileInfo(errorNode);
+                            const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                             const newClassType = ClassType.createInstantiable(
                                 className,
-                                getClassFullName(errorNode, fileInfo.moduleName, className),
+                                ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
                                 fileInfo.moduleName,
                                 fileInfo.filePath,
                                 ClassTypeFlags.None,
-                                getTypeSourceId(errorNode),
+                                ParseTreeUtils.getTypeSourceId(errorNode),
                                 /* declaredMetaclass */ undefined,
                                 subtype.details.effectiveMetaclass,
                                 subtype.details.docString
@@ -19496,11 +19121,11 @@ export function createTypeEvaluator(
             }
         }
 
-        const fileInfo = getFileInfo(errorNode);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         if (
             fileInfo.isStubFile ||
             fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_9 ||
-            isAnnotationEvaluationPostponed(getFileInfo(errorNode)) ||
+            isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(errorNode)) ||
             (flags & EvaluatorFlags.AllowForwardReferences) !== 0
         ) {
             // Handle "type" specially, since it needs to act like "Type"
@@ -19553,7 +19178,7 @@ export function createTypeEvaluator(
         if (typeArgs) {
             if (typeArgCount > typeParameters.length) {
                 if (!ClassType.isPartiallyConstructed(classType) && !ClassType.isTupleClass(classType)) {
-                    const fileInfo = getFileInfo(errorNode);
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (typeParameters.length === 0) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -19576,7 +19201,7 @@ export function createTypeEvaluator(
                 }
                 typeArgCount = typeParameters.length;
             } else if (typeArgCount < typeParameters.length) {
-                const fileInfo = getFileInfo(errorNode);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -19626,7 +19251,7 @@ export function createTypeEvaluator(
                 if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
                     // Avoid emitting this error for a partially-constructed class.
                     if (!isClassInstance(typeArgType) || !ClassType.isPartiallyConstructed(typeArgType)) {
-                        const fileInfo = getFileInfo(typeArgs![index].node);
+                        const fileInfo = AnalyzerNodeInfo.getFileInfo(typeArgs![index].node);
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -19683,7 +19308,7 @@ export function createTypeEvaluator(
             EvaluatorFlags.TypeVarTupleDisallowed |
             EvaluatorFlags.ClassVarDisallowed;
 
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         if (fileInfo.isStubFile) {
             flags |= EvaluatorFlags.AllowForwardReferences;
         }
@@ -19804,13 +19429,6 @@ export function createTypeEvaluator(
         } finally {
             speculativeTypeTracker.enableSpeculativeMode(stack);
         }
-    }
-
-    function getFileInfo(node: ParseNode): AnalyzerFileInfo {
-        while (node.nodeType !== ParseNodeType.Module) {
-            node = node.parent!;
-        }
-        return AnalyzerNodeInfo.getFileInfo(node)!;
     }
 
     function getDeclarationFromFunctionNamedParameter(type: FunctionType, paramName: string): Declaration | undefined {
@@ -20006,11 +19624,16 @@ export function createTypeEvaluator(
                 }
             }
         } else {
-            const fileInfo = getFileInfo(node);
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             let allowForwardReferences = fileInfo.isStubFile;
 
             // Determine if this node is within a quoted type annotation.
-            if (ParseTreeUtils.isWithinTypeAnnotation(node, !isAnnotationEvaluationPostponed(getFileInfo(node)))) {
+            if (
+                ParseTreeUtils.isWithinTypeAnnotation(
+                    node,
+                    !isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))
+                )
+            ) {
                 allowForwardReferences = true;
             }
 
@@ -20222,7 +19845,7 @@ export function createTypeEvaluator(
                 // If the module name is relative to the current file, use that
                 // file's module name as a reference.
                 if (moduleName.startsWith('.')) {
-                    const fileInfo = getFileInfo(decl.node);
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(decl.node);
                     const nameParts = fileInfo.moduleName.split('.');
                     moduleName = moduleName.substr(1);
 
@@ -20249,7 +19872,7 @@ export function createTypeEvaluator(
 
         // If this is part of a "py.typed" package, don't fall back on type inference
         // unless it's marked Final, is a constant, or is a declared type alias.
-        const fileInfo = getFileInfo(resolvedDecl.node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(resolvedDecl.node);
         let isSpeculativeTypeAliasFromPyTypedFile = false;
 
         if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile && evaluatorOptions.disableInferenceForPyTypedSources) {
@@ -24599,7 +24222,7 @@ export function createTypeEvaluator(
                                 })
                             );
                             addDiagnostic(
-                                getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 Localizer.Diagnostic.typedDictFieldRedefinition().format({
                                     name,
@@ -24805,7 +24428,7 @@ export function createTypeEvaluator(
                     if (errorNode) {
                         const methodName = memberType.details.name || '(unnamed)';
                         addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.bindTypeMismatch().format({
                                 type: printType(baseType),
@@ -24863,7 +24486,7 @@ export function createTypeEvaluator(
     // expression tree because we don't want to mutate the latter; the
     // expression tree created by this function is therefore used only temporarily.
     function parseStringAsTypeAnnotation(node: StringListNode): ExpressionNode | undefined {
-        const fileInfo = getFileInfo(node);
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         const parser = new Parser();
         const textValue = node.strings[0].value;
 
@@ -24895,19 +24518,13 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    // Create an ID that is based on the location within the file.
-    // This allows us to disambiguate between different types that
-    // don't have unique names (those that are not created with class
-    // declarations).
-    function getTypeSourceId(node: ParseNode): TypeSourceId {
-        return node.start;
-    }
-
-    return {
+    const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
         getType,
+        getTypeOfExpression,
         getTypeOfClass,
         getTypeOfFunction,
+        getTypeForExpressionExpectingType,
         evaluateTypesForStatement,
         getDeclaredTypeForExpression,
         verifyRaiseExceptionType,
@@ -24938,6 +24555,8 @@ export function createTypeEvaluator(
         canAssignType,
         canOverrideMethod,
         canAssignProtocolClassToSelf,
+        getBuiltInObject,
+        getTypingType,
         addError,
         addWarning,
         addInformation,
@@ -24948,4 +24567,6 @@ export function createTypeEvaluator(
         printFunctionParts,
         getTypeCacheSize,
     };
+
+    return evaluatorInterface;
 }

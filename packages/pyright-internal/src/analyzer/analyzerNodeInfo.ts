@@ -18,6 +18,7 @@ import {
     ListComprehensionNode,
     ModuleNode,
     ParseNode,
+    ParseNodeType,
     StringNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -129,9 +130,12 @@ export function setAfterFlowNode(node: ParseNode, flowNode: FlowNode) {
     analyzerNode.afterFlowNode = flowNode;
 }
 
-export function getFileInfo(node: ModuleNode): AnalyzerFileInfo | undefined {
+export function getFileInfo(node: ParseNode): AnalyzerFileInfo {
+    while (node.nodeType !== ParseNodeType.Module) {
+        node = node.parent!;
+    }
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.fileInfo;
+    return analyzerNode.fileInfo!;
 }
 
 export function setFileInfo(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
