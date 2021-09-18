@@ -21,6 +21,7 @@ import {
     ExpressionNode,
     FunctionNode,
     NameNode,
+    ParameterCategory,
     ParseNode,
     RaiseNode,
 } from '../parser/parseNodes';
@@ -184,6 +185,24 @@ export interface FunctionArgumentWithExpression extends FunctionArgumentBase {
 
 export type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithExpression;
 
+export interface EffectiveTypeResult {
+    type: Type;
+    isIncomplete: boolean;
+    includesVariableDecl: boolean;
+    isRecursiveDefinition: boolean;
+}
+
+export interface ValidateArgTypeParams {
+    paramCategory: ParameterCategory;
+    paramType: Type;
+    requiresTypeVarMatching: boolean;
+    argument: FunctionArgument;
+    argType?: Type | undefined;
+    errorNode: ExpressionNode;
+    paramName?: string | undefined;
+    mapsToVarArgList?: boolean | undefined;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -218,8 +237,13 @@ export interface TypeEvaluator {
     makeTopLevelTypeVarsConcrete: (type: Type) => Type;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
+    getEffectiveTypeOfSymbolForUsage: (
+        symbol: Symbol,
+        usageNode?: NameNode,
+        useLastDecl?: boolean
+    ) => EffectiveTypeResult;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
-    getFunctionInferredReturnType: (type: FunctionType) => Type;
+    getFunctionInferredReturnType: (type: FunctionType, args?: ValidateArgTypeParams[]) => Type;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
     bindFunctionToClassOrObject: (

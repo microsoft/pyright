@@ -26,7 +26,7 @@ export function createTypeEvaluatorWithTracker(
     printer?: TracePrinter
 ) {
     if (!evaluatorOptions.logCalls && isDebugMode()) {
-        return createTypeEvaluator(importLookup, evaluatorOptions, logger, undefined);
+        return createTypeEvaluator(importLookup, evaluatorOptions);
     }
 
     function run<T>(title: string, callback: () => T, value?: PrintableType): T {
@@ -56,7 +56,7 @@ export function createTypeEvaluatorWithTracker(
               )
         : importLookup;
 
-    const typeEvaluator = createTypeEvaluator(lookup, evaluatorOptions, logger, printer);
+    const typeEvaluator = createTypeEvaluator(lookup, evaluatorOptions);
 
     const withTracker: TypeEvaluator = {
         runWithCancellationToken: typeEvaluator.runWithCancellationToken,
@@ -98,10 +98,12 @@ export function createTypeEvaluatorWithTracker(
             run('makeTopLevelTypeVarsConcrete', () => typeEvaluator.makeTopLevelTypeVarsConcrete(t), t),
         getEffectiveTypeOfSymbol: (s) =>
             run('getEffectiveTypeOfSymbol', () => typeEvaluator.getEffectiveTypeOfSymbol(s), s),
+        getEffectiveTypeOfSymbolForUsage: (s, u, d) =>
+            run('getEffectiveTypeOfSymbolForUsage', () => typeEvaluator.getEffectiveTypeOfSymbolForUsage(s, u, d), s),
         getFunctionDeclaredReturnType: (n) =>
             run('getFunctionDeclaredReturnType', () => typeEvaluator.getFunctionDeclaredReturnType(n), n),
-        getFunctionInferredReturnType: (t) =>
-            run('getFunctionInferredReturnType', () => typeEvaluator.getFunctionInferredReturnType(t), t),
+        getFunctionInferredReturnType: (t, a) =>
+            run('getFunctionInferredReturnType', () => typeEvaluator.getFunctionInferredReturnType(t, a), t),
         getBuiltInType: (n, b) => run('getBuiltInType', () => typeEvaluator.getBuiltInType(n, b), n),
         getTypeOfMember: (m) => run('getTypeOfMember', () => typeEvaluator.getTypeOfMember(m), m.symbol),
         bindFunctionToClassOrObject: (b, m) =>

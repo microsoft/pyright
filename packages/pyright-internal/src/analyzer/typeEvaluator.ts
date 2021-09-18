@@ -22,7 +22,6 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { LogTracker } from '../common/logTracker';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { getEmptyRange, TextRange } from '../common/textRange';
@@ -126,7 +125,6 @@ import {
     isNotRequiredTypedDictVariable,
     isRequiredTypedDictVariable,
 } from './symbolUtils';
-import { PrintableType, TracePrinter } from './tracePrinter';
 import {
     CachedType,
     IncompleteSubtypeInfo,
@@ -141,11 +139,13 @@ import {
     CallSignature,
     CallSignatureInfo,
     ClassTypeResult,
+    EffectiveTypeResult,
     EvaluatorFlags,
     FunctionArgument,
     FunctionTypeResult,
     TypeEvaluator,
     TypeResult,
+    ValidateArgTypeParams,
 } from './typeEvaluatorTypes';
 import * as TypePrinter from './typePrinter';
 import {
@@ -300,28 +300,10 @@ const enum MemberAccessFlags {
     SkipOriginalClass = 1 << 7,
 }
 
-interface EffectiveTypeResult {
-    type: Type;
-    isIncomplete: boolean;
-    includesVariableDecl: boolean;
-    isRecursiveDefinition: boolean;
-}
-
 interface EffectiveTypeCacheEntry {
     usageNodeId: number | undefined;
     useLastDecl: boolean;
     result: EffectiveTypeResult;
-}
-
-interface ValidateArgTypeParams {
-    paramCategory: ParameterCategory;
-    paramType: Type;
-    requiresTypeVarMatching: boolean;
-    argument: FunctionArgument;
-    argType?: Type | undefined;
-    errorNode: ExpressionNode;
-    paramName?: string | undefined;
-    mapsToVarArgList?: boolean | undefined;
 }
 
 interface MatchArgsToParamsResult {
@@ -552,12 +534,7 @@ export interface EvaluatorOptions {
     minimumLoggingThreshold: number;
 }
 
-export function createTypeEvaluator(
-    importLookup: ImportLookup,
-    evaluatorOptions: EvaluatorOptions,
-    logger: LogTracker,
-    printer?: TracePrinter
-): TypeEvaluator {
+export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
     const functionRecursionMap = new Map<number, true>();
@@ -584,17 +561,6 @@ export function createTypeEvaluator(
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
-
-    function logInternalCall<T>(title: string, callback: () => T, value: PrintableType): T {
-        return logger.log(
-            title,
-            (logState) => {
-                logState.add(printer?.print(value));
-                return callback();
-            },
-            evaluatorOptions.minimumLoggingThreshold
-        );
-    }
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
@@ -785,11 +751,7 @@ export function createTypeEvaluator(
         }
     }
 
-    function getTypeOfExpression(
-        node: ExpressionNode,
-        expectedType?: Type,
-        flags = EvaluatorFlags.None
-    ): TypeResult {
+    function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None): TypeResult {
         // Is this type already cached?
         const cachedType = readTypeCache(node);
         if (cachedType) {
@@ -19979,16 +19941,7 @@ export function createTypeEvaluator(
         return getEffectiveTypeOfSymbolForUsage(symbol).type;
     }
 
-    const getEffectiveTypeOfSymbolForUsage = evaluatorOptions.logCalls
-        ? (s: Symbol, u?: NameNode, l = false) =>
-              logInternalCall(
-                  'getEffectiveTypeOfSymbolForUsage',
-                  () => getEffectiveTypeOfSymbolForUsageInternal(s, u, l),
-                  s
-              )
-        : getEffectiveTypeOfSymbolForUsageInternal;
-
-    function getEffectiveTypeOfSymbolForUsageInternal(
+    function getEffectiveTypeOfSymbolForUsage(
         symbol: Symbol,
         usageNode?: NameNode,
         useLastDecl = false
@@ -20237,12 +20190,7 @@ export function createTypeEvaluator(
         return UnknownType.create();
     }
 
-    const getFunctionInferredReturnType = evaluatorOptions.logCalls
-        ? (t: FunctionType, a?: ValidateArgTypeParams[]) =>
-              logInternalCall('getFunctionInferredReturnType', () => getFunctionInferredReturnTypeInternal(t, a), t)
-        : getFunctionInferredReturnTypeInternal;
-
-    function getFunctionInferredReturnTypeInternal(type: FunctionType, args?: ValidateArgTypeParams[]) {
+    function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
 
         // Don't attempt to infer the return type for a stub file or a py.typed module.
@@ -24544,6 +24492,7 @@ export function createTypeEvaluator(
         getScopeIdForNode,
         makeTopLevelTypeVarsConcrete,
         getEffectiveTypeOfSymbol,
+        getEffectiveTypeOfSymbolForUsage,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,
         getBuiltInType,
