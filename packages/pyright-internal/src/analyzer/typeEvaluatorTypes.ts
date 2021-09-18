@@ -203,11 +203,21 @@ export interface ValidateArgTypeParams {
     mapsToVarArgList?: boolean | undefined;
 }
 
+export interface AnnotationTypeOptions {
+    isVariableAnnotation?: boolean;
+    allowFinal?: boolean;
+    allowClassVar?: boolean;
+    associateTypeVarsWithScope?: boolean;
+    allowTypeVarTuple?: boolean;
+    disallowRecursiveTypeAlias?: boolean;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeOfExpression: (node: ExpressionNode, expectedType?: Type, flags?: EvaluatorFlags) => TypeResult;
+    getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     getTypeForExpressionExpectingType: (node: ExpressionNode, allowFinal: boolean) => Type;
@@ -244,8 +254,18 @@ export interface TypeEvaluator {
     ) => EffectiveTypeResult;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
     getFunctionInferredReturnType: (type: FunctionType, args?: ValidateArgTypeParams[]) => Type;
+    getBestOverloadForArguments: (
+        errorNode: ExpressionNode,
+        type: OverloadedFunctionType,
+        argList: FunctionArgument[]
+    ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
+    getBoundMethod: (
+        classType: ClassType,
+        memberName: string,
+        treatConstructorAsClassMember?: boolean
+    ) => FunctionType | OverloadedFunctionType | undefined;
     bindFunctionToClassOrObject: (
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType

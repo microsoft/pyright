@@ -360,7 +360,7 @@ export function createNamedTupleType(
     return classType;
 }
 
-function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
+export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
     // Search for the NamedTuple base class.
     const namedTupleIndex = classType.details.mro.findIndex(
         (c) => isInstantiableClass(c) && ClassType.isBuiltIn(c, 'NamedTuple')

@@ -63,6 +63,7 @@ export function createTypeEvaluatorWithTracker(
         getType: (n) => run('getType', () => typeEvaluator.getType(n), n),
         getTypeOfExpression: (n, e, f) =>
             run('getTypeOfExpression', () => typeEvaluator.getTypeOfExpression(n, e, f), n),
+        getTypeOfAnnotation: (n, o) => typeEvaluator.getTypeOfAnnotation(n, o),
         getTypeOfClass: (n) => run('getTypeOfClass', () => typeEvaluator.getTypeOfClass(n), n),
         getTypeOfFunction: (n) => run('getTypeOfFunction', () => typeEvaluator.getTypeOfFunction(n), n),
         getTypeForExpressionExpectingType: (n, a) => typeEvaluator.getTypeForExpressionExpectingType(n, a),
@@ -104,8 +105,10 @@ export function createTypeEvaluatorWithTracker(
             run('getFunctionDeclaredReturnType', () => typeEvaluator.getFunctionDeclaredReturnType(n), n),
         getFunctionInferredReturnType: (t, a) =>
             run('getFunctionInferredReturnType', () => typeEvaluator.getFunctionInferredReturnType(t, a), t),
+        getBestOverloadForArguments: (e, t, a) => typeEvaluator.getBestOverloadForArguments(e, t, a),
         getBuiltInType: (n, b) => run('getBuiltInType', () => typeEvaluator.getBuiltInType(n, b), n),
         getTypeOfMember: (m) => run('getTypeOfMember', () => typeEvaluator.getTypeOfMember(m), m.symbol),
+        getBoundMethod: (c, m, t) => typeEvaluator.getBoundMethod(c, m, t),
         bindFunctionToClassOrObject: (b, m) =>
             run('bindFunctionToClassOrObject', () => typeEvaluator.bindFunctionToClassOrObject(b, m), m),
         getCallSignatureInfo: (n, i, a) =>
