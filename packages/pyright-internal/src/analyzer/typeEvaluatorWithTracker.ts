@@ -95,6 +95,7 @@ export function createTypeEvaluatorWithTracker(
         getScopeIdForNode: (n) => run('getScopeIdForNode', () => typeEvaluator.getScopeIdForNode(n), n),
         makeTopLevelTypeVarsConcrete: (t) =>
             run('makeTopLevelTypeVarsConcrete', () => typeEvaluator.makeTopLevelTypeVarsConcrete(t), t),
+        mapSubtypesExpandTypeVars: (t, c, b) => typeEvaluator.mapSubtypesExpandTypeVars(t, c, b),
         getEffectiveTypeOfSymbol: (s) =>
             run('getEffectiveTypeOfSymbol', () => typeEvaluator.getEffectiveTypeOfSymbol(s), s),
         getEffectiveTypeOfSymbolForUsage: (s, u, d) =>

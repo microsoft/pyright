@@ -29,7 +29,15 @@ import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { Declaration } from './declaration';
 import { Symbol } from './symbol';
-import { ClassType, FunctionParameter, FunctionType, OverloadedFunctionType, Type, TypeVarType } from './types';
+import {
+    ClassType,
+    FunctionParameter,
+    FunctionType,
+    OverloadedFunctionType,
+    Type,
+    TypeCondition,
+    TypeVarType,
+} from './types';
 import { CanAssignFlags, ClassMember } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -127,6 +135,15 @@ export interface TypeResult {
     // "super" call can specify a different class or object to
     // bind.
     bindToType?: ClassType | TypeVarType | undefined;
+}
+
+export interface EvaluatorUsage {
+    method: 'get' | 'set' | 'del';
+
+    // Used only for set methods
+    setType?: Type | undefined;
+    setErrorNode?: ExpressionNode | undefined;
+    setExpectedTypeDiag?: DiagnosticAddendum | undefined;
 }
 
 export interface ClassTypeResult {
@@ -236,7 +253,11 @@ export interface TypeEvaluator {
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
     makeTopLevelTypeVarsConcrete: (type: Type) => Type;
-
+    mapSubtypesExpandTypeVars: (
+        type: Type,
+        conditionFilter: TypeCondition[] | undefined,
+        callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
+    ) => Type;
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getEffectiveTypeOfSymbolForUsage: (
         symbol: Symbol,

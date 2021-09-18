@@ -1,5 +1,5 @@
 /*
- * dataClasses.ts
+ * typedDicts.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  * Author: Eric Traut
@@ -14,7 +14,14 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
-import { ArgumentCategory, ClassNode, ExpressionNode, ParameterCategory, ParseNodeType } from '../parser/parseNodes';
+import {
+    ArgumentCategory,
+    ClassNode,
+    ExpressionNode,
+    IndexNode,
+    ParameterCategory,
+    ParseNodeType,
+} from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
@@ -25,7 +32,7 @@ import {
     isNotRequiredTypedDictVariable,
     isRequiredTypedDictVariable,
 } from './symbolUtils';
-import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { EvaluatorUsage, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -34,6 +41,7 @@ import {
     FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
+    isAnyOrUnknown,
     isClassInstance,
     isInstantiableClass,
     isTypeSame,
@@ -43,8 +51,9 @@ import {
     Type,
     TypedDictEntry,
     TypeVarType,
+    UnknownType,
 } from './types';
-import { computeMroLinearization, isLiteralType } from './typeUtils';
+import { computeMroLinearization, isLiteralType, mapSubtypes } from './typeUtils';
 
 // Creates a new custom TypedDict factory class.
 export function createTypedDictType(
@@ -542,7 +551,7 @@ export function canAssignTypedDict(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum,
-    recursionCount: number
+    recursionCount = 0
 ) {
     let typesAreConsistent = true;
     const destEntries = getTypedDictMembersForClass(evaluator, destType);
@@ -657,4 +666,116 @@ export function canAssignToTypedDict(
     });
 
     return isMatch;
+}
+
+export function getTypeFromIndexedTypedDict(
+    evaluator: TypeEvaluator,
+    node: IndexNode,
+    baseType: ClassType,
+    usage: EvaluatorUsage
+): TypeResult | undefined {
+    if (node.items.length !== 1) {
+        evaluator.addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
+        return { node, type: UnknownType.create() };
+    }
+
+    // Look for subscript types that are not supported by TypedDict.
+    if (node.trailingComma || node.items[0].name || node.items[0].argumentCategory !== ArgumentCategory.Simple) {
+        return undefined;
+    }
+
+    const entries = getTypedDictMembersForClass(evaluator, baseType, /* allowNarrowed */ true);
+
+    const indexTypeResult = evaluator.getTypeOfExpression(node.items[0].valueExpression);
+    const indexType = indexTypeResult.type;
+    let diag = new DiagnosticAddendum();
+    let allDiagsInvolveNotRequiredKeys = true;
+
+    const resultingType = mapSubtypes(indexType, (subtype) => {
+        if (isAnyOrUnknown(subtype)) {
+            return subtype;
+        }
+
+        if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'str')) {
+            if (subtype.literalValue === undefined) {
+                // If it's a plain str with no literal value, we can't
+                // make any determination about the resulting type.
+                return UnknownType.create();
+            }
+
+            // Look up the entry in the typed dict to get its type.
+            const entryName = subtype.literalValue as string;
+            const entry = entries.get(entryName);
+            if (!entry) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.keyUndefined().format({
+                        name: entryName,
+                        type: evaluator.printType(baseType),
+                    })
+                );
+                allDiagsInvolveNotRequiredKeys = false;
+                return UnknownType.create();
+            } else if (!(entry.isRequired || entry.isProvided) && usage.method === 'get') {
+                if (!ParseTreeUtils.isWithinTryBlock(node)) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.keyNotRequired().format({
+                            name: entryName,
+                            type: evaluator.printType(baseType),
+                        })
+                    );
+                }
+            }
+
+            if (usage.method === 'set') {
+                evaluator.canAssignType(entry.valueType, usage.setType || AnyType.create(), diag);
+            } else if (usage.method === 'del' && entry.isRequired) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.keyRequiredDeleted().format({
+                        name: entryName,
+                    })
+                );
+                allDiagsInvolveNotRequiredKeys = false;
+            }
+
+            return entry.valueType;
+        }
+
+        diag.addMessage(
+            Localizer.DiagnosticAddendum.typeNotStringLiteral().format({ type: evaluator.printType(subtype) })
+        );
+        allDiagsInvolveNotRequiredKeys = false;
+        return UnknownType.create();
+    });
+
+    // If we have an "expected type" diagnostic addendum (used for assignments),
+    // use that rather than the local diagnostic information because it will
+    // be more informative.
+    if (usage.setExpectedTypeDiag) {
+        diag = usage.setExpectedTypeDiag;
+    }
+
+    if (!diag.isEmpty()) {
+        let typedDictDiag: string;
+        if (usage.method === 'set') {
+            typedDictDiag = Localizer.Diagnostic.typedDictSet();
+        } else if (usage.method === 'del') {
+            typedDictDiag = Localizer.Diagnostic.typedDictDelete();
+        } else {
+            typedDictDiag = Localizer.Diagnostic.typedDictAccess();
+        }
+
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        evaluator.addDiagnostic(
+            allDiagsInvolveNotRequiredKeys
+                ? fileInfo.diagnosticRuleSet.reportTypedDictNotRequiredAccess
+                : fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            allDiagsInvolveNotRequiredKeys
+                ? DiagnosticRule.reportTypedDictNotRequiredAccess
+                : DiagnosticRule.reportGeneralTypeIssues,
+            typedDictDiag + diag.getString(),
+            node
+        );
+    }
+
+    return { node, type: resultingType, isIncomplete: !!indexTypeResult.isIncomplete };
 }
