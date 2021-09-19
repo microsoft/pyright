@@ -107,7 +107,7 @@
         "expectedDelExpr": "Expected expression after \"del\"",
         "expectedElse": "Expected \"else\"",
         "expectedExceptionClass": "Invalid exception class or object",
-        "expectedExceptionObj": "Expected exception object or None",
+        "expectedExceptionObj": "Expected exception object, exception class or None",
         "expectedExpr": "Expected expression",
         "expectedIdentifier": "Expected identifier",
         "expectedImport": "Expected \"import\"",

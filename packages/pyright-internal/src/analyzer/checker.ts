@@ -785,7 +785,7 @@ export class Checker extends ParseTreeWalker {
                     subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
                     if (!isAnyOrUnknown(subtype) && !isNone(subtype)) {
-                        if (isClassInstance(subtype)) {
+                        if (isClass(subtype)) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
                                 diagAddendum.addMessage(
                                     Localizer.Diagnostic.exceptionTypeIncorrect().format({
