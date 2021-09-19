@@ -254,6 +254,7 @@ import {
     partiallySpecializeType,
     removeFalsinessFromType,
     removeNoReturnFromUnion,
+    removeParamSpecVariadicsFromSignature,
     removeTruthinessFromType,
     requiresSpecialization,
     requiresTypeArguments,
@@ -19565,7 +19566,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const boundMethod = bindFunctionToClassOrObject(objType, memberType);
 
             if (boundMethod) {
-                return boundMethod;
+                return removeParamSpecVariadicsFromSignature(boundMethod);
             }
         }
 

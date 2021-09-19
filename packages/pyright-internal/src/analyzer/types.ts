@@ -1240,6 +1240,28 @@ export namespace FunctionType {
         return newFunction;
     }
 
+    export function cloneRemoveParamSpecVariadics(type: FunctionType) {
+        const newFunction = create(
+            type.details.name,
+            type.details.fullName,
+            type.details.moduleName,
+            type.details.flags,
+            type.flags,
+            type.details.docString
+        );
+
+        // Make a shallow clone of the details.
+        newFunction.details = { ...type.details };
+
+        // Remove the last two parameters, which are the *args and **kwargs.
+        newFunction.details.parameters = newFunction.details.parameters.slice(
+            0,
+            newFunction.details.parameters.length - 2
+        );
+
+        return newFunction;
+    }
+
     export function addDefaultParameters(functionType: FunctionType, useUnknown = false) {
         FunctionType.addParameter(functionType, {
             category: ParameterCategory.VarArgList,
