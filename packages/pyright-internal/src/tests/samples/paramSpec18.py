@@ -22,7 +22,7 @@ t1: Literal["(b: str, c: str) -> bool"] = reveal_type(x1)
 
 
 class FooWithConcatenate(Protocol[P]):
-    def __call__(self, a: int, *args: P.args, **kwargs: P.kwargs) -> int:
+    def __call__(self, x: int, /, *args: P.args, **kwargs: P.kwargs) -> int:
         ...
 
 

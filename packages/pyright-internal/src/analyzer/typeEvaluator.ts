@@ -20195,7 +20195,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     return paramSpecEntry;
                                 })
                                 .slice(
-                                    effectiveDestType.details.parameters.length,
+                                    // Skip position-only and keyword-only separators.
+                                    effectiveDestType.details.parameters.filter((p) => p.name).length,
                                     effectiveSrcType.details.parameters.length
                                 ),
                             flags: effectiveSrcType.details.flags,
