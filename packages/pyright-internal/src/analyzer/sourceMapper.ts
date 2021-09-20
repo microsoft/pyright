@@ -460,7 +460,7 @@ export class SourceMapper {
             }
         } else if (isAliasDeclaration(decl)) {
             const resolvedDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-            if (resolvedDecl) {
+            if (resolvedDecl && !isAliasDeclaration(resolvedDecl)) {
                 this._addClassOrFunctionDeclarations(resolvedDecl, result, recursiveDeclCache);
             }
         } else if (isVariableDeclaration(decl)) {
