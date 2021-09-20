@@ -2714,7 +2714,7 @@ export class Parser {
             return ifExpr;
         }
 
-        const testExpr = this._parseAssignmentExpression();
+        const testExpr = this._parseOrTest();
         if (testExpr.nodeType === ParseNodeType.Error) {
             return testExpr;
         }

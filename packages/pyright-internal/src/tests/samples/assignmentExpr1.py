@@ -14,3 +14,8 @@ def func1():
     # This should generate an error because parens
     # are required in this case.
     c = d := 3
+
+# This should generate an error because parens are required in this case.
+val if val := 1 + 2 else None
+
+val2 if (val2 := 1 + 2) else None
