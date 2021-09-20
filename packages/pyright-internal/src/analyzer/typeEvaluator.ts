@@ -7890,7 +7890,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
+        if (
+            expectedType &&
+            !isAnyOrUnknown(expectedType) &&
+            !requiresSpecialization(expectedType) &&
+            type.details.declaredReturnType
+        ) {
             // If the expected type is a union, we don't know which type is expected,
             // so avoid using the expected type. The exception is if there are literals
             // in the union, where it's important to prepopulate the literals.
