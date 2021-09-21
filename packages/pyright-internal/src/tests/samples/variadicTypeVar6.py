@@ -40,9 +40,6 @@ x6 = Alias1[int, int, str](3, 4, "")
 
 x7: Alias1[int, float, str] = Array(3, 4, "")
 
-# This should generate an error. This case is arguably OK, but the logic
-# currently assumes that an unpacked TypeVarTuple argument always matches
-# a TypeVarTuple parameter one for one.
 Alias4 = Array[_T, int, Unpack[_Xs]]
 
 Alias5 = Array[Unpack[_Xs]]

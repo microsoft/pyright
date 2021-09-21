@@ -26,6 +26,9 @@ class ClassA(Generic[_T, Unpack[_Xs]]):
     def func4(self) -> Tuple[_Xs]:
         ...
 
+    def func5(self) -> "ClassA[int, str, Unpack[_Xs]]":
+        ...
+
     # This should be an error because List doesn't accept a variadic TypeVar.
     x: List[_Xs] = []
 

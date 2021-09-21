@@ -4691,7 +4691,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     validateVariadicTypeVarIsUnpacked(variadicTypeResults[0].type, variadicTypeResults[0].node);
                 } else {
                     variadicTypeResults.forEach((arg, index) => {
-                        validateTypeArg(arg, /* allowEmptyTuple */ index === 0);
+                        validateTypeArg(arg, /* allowEmptyTuple */ index === 0, /* allowVariadicTypeVar */ true);
                     });
 
                     const variadicTypes: Type[] =
