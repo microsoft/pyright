@@ -14026,8 +14026,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         assert(aliasDecl.type === DeclarationType.Alias);
 
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
         // Try to resolve the alias while honoring external visibility.
-        const resolvedAliasInfo = resolveAliasDeclarationWithInfo(aliasDecl, /* resolveLocalNames */ true);
+        const resolvedAliasInfo = resolveAliasDeclarationWithInfo(
+            aliasDecl,
+            /* resolveLocalNames */ true,
+            /* allowExternallyHiddenAccess */ fileInfo.isStubFile
+        );
 
         if (!resolvedAliasInfo) {
             return undefined;
@@ -14036,7 +14042,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (node.nodeType === ParseNodeType.ImportFromAs) {
             if (resolvedAliasInfo.isPrivate) {
                 addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateUsage,
+                    fileInfo.diagnosticRuleSet.reportPrivateUsage,
                     DiagnosticRule.reportPrivateUsage,
                     Localizer.Diagnostic.privateUsedOutsideOfModule().format({
                         name: node.name.value,
@@ -14055,7 +14061,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
                 addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportPrivateImportUsage,
+                    fileInfo.diagnosticRuleSet.reportPrivateImportUsage,
                     DiagnosticRule.reportPrivateImportUsage,
                     Localizer.Diagnostic.privateImportFromPyTypedModule().format({
                         name: node.name.value,
@@ -16454,7 +16460,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getInferredTypeOfDeclaration(decl: Declaration): Type | undefined {
-        const resolvedDecl = resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+        const resolvedDecl = resolveAliasDeclaration(
+            decl,
+            /* resolveLocalNames */ true,
+            /* allowExternallyHiddenAccess */ AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile
+        );
 
         // We couldn't resolve the alias. Substitute an unknown
         // type in this case.
@@ -16620,15 +16630,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // associated with that symbol. It does this recursively if necessary. If a symbol
     // lookup fails, undefined is returned. If resolveLocalNames is true, the method
     // resolves aliases through local renames ("as" clauses found in import statements).
-    function resolveAliasDeclaration(declaration: Declaration, resolveLocalNames: boolean): Declaration | undefined {
-        return DeclarationUtils.resolveAliasDeclaration(importLookup, declaration, resolveLocalNames)?.declaration;
+    function resolveAliasDeclaration(
+        declaration: Declaration,
+        resolveLocalNames: boolean,
+        allowExternallyHiddenAccess = false
+    ): Declaration | undefined {
+        return DeclarationUtils.resolveAliasDeclaration(
+            importLookup,
+            declaration,
+            resolveLocalNames,
+            allowExternallyHiddenAccess
+        )?.declaration;
     }
 
     function resolveAliasDeclarationWithInfo(
         declaration: Declaration,
-        resolveLocalNames: boolean
+        resolveLocalNames: boolean,
+        allowExternallyHiddenAccess = false
     ): DeclarationUtils.ResolvedAliasInfo | undefined {
-        return DeclarationUtils.resolveAliasDeclaration(importLookup, declaration, resolveLocalNames);
+        return DeclarationUtils.resolveAliasDeclaration(
+            importLookup,
+            declaration,
+            resolveLocalNames,
+            allowExternallyHiddenAccess
+        );
     }
 
     // Returns the type of the symbol. If the type is explicitly declared, that type

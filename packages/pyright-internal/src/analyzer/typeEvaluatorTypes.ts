@@ -242,10 +242,15 @@ export interface TypeEvaluator {
 
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
-    resolveAliasDeclaration: (declaration: Declaration, resolveLocalNames: boolean) => Declaration | undefined;
+    resolveAliasDeclaration: (
+        declaration: Declaration,
+        resolveLocalNames: boolean,
+        allowExternallyHiddenAccess?: boolean
+    ) => Declaration | undefined;
     resolveAliasDeclarationWithInfo: (
         declaration: Declaration,
-        resolveLocalNames: boolean
+        resolveLocalNames: boolean,
+        allowExternallyHiddenAccess?: boolean
     ) => DeclarationUtils.ResolvedAliasInfo | undefined;
     getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getTypeFromIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;

@@ -70,7 +70,12 @@ export function getIndexAliasData(
         return undefined;
     }
 
-    const resolvedInfo = resolveAliasDeclaration(importLookup, declaration, /* resolveLocalNames */ true);
+    const resolvedInfo = resolveAliasDeclaration(
+        importLookup,
+        declaration,
+        /* resolveLocalNames */ true,
+        /* allowExternallyHiddenAccess */ false
+    );
     if (!resolvedInfo) {
         return undefined;
     }

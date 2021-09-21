@@ -25,7 +25,8 @@ export interface ResolvedAliasInfo {
 export function resolveAliasDeclaration(
     importLookup: ImportLookup,
     declaration: Declaration,
-    resolveLocalNames: boolean
+    resolveLocalNames: boolean,
+    allowExternallyHiddenAccess: boolean
 ): ResolvedAliasInfo | undefined {
     let curDeclaration: Declaration | undefined = declaration;
     const alreadyVisited: Declaration[] = [];
@@ -65,7 +66,12 @@ export function resolveAliasDeclaration(
             : undefined;
         if (!symbol) {
             if (curDeclaration.submoduleFallback) {
-                return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, resolveLocalNames);
+                return resolveAliasDeclaration(
+                    importLookup,
+                    curDeclaration.submoduleFallback,
+                    resolveLocalNames,
+                    allowExternallyHiddenAccess
+                );
             }
             return undefined;
         }
@@ -74,7 +80,7 @@ export function resolveAliasDeclaration(
             isPrivate = true;
         }
 
-        if (symbol.isExternallyHidden()) {
+        if (symbol.isExternallyHidden() && !allowExternallyHiddenAccess) {
             return undefined;
         }
 
@@ -117,7 +123,12 @@ export function resolveAliasDeclaration(
                 curDeclaration.type === DeclarationType.Alias &&
                 curDeclaration.submoduleFallback
             ) {
-                return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, resolveLocalNames);
+                return resolveAliasDeclaration(
+                    importLookup,
+                    curDeclaration.submoduleFallback,
+                    resolveLocalNames,
+                    allowExternallyHiddenAccess
+                );
             }
             return {
                 declaration,
