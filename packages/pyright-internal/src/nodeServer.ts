@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Implements utilities for starting the langauge server in a node environment.
+ * Implements utilities for starting the language server in a node environment.
  */
 
 import { Connection, ConnectionOptions } from 'vscode-languageserver';
