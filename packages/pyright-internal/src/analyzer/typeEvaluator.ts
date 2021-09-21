@@ -7273,7 +7273,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If this is a tuple with specified element types, use those
                 // specified types rather than using the more generic iterator
                 // type which will be a union of all element types.
-                const combinedTupleType = combineSameSizedTuples(argType, tupleClassType);
+                const combinedTupleType = combineSameSizedTuples(makeTopLevelTypeVarsConcrete(argType), tupleClassType);
                 if (
                     !isParamVariadic &&
                     combinedTupleType &&

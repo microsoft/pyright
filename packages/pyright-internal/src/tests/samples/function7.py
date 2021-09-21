@@ -76,3 +76,20 @@ def func1(a: list[str], c: list[int]):
 
 
 func1(*q6)
+
+
+class ABC(NamedTuple):
+    a: float
+    b: float
+    c: float
+
+    def to_rgba(self) -> "ABC":
+        return ABC(*self)
+
+
+class AB(NamedTuple):
+    a: float
+    b: float
+
+    def to_abc(self) -> ABC:
+        return ABC(*self, 1)
