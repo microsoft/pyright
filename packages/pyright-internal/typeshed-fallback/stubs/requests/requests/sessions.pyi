@@ -57,13 +57,14 @@ _Params = Union[
     Iterable[Tuple[_ParamsMappingKeyType, _ParamsMappingValueType]],
     Union[Text, bytes],
 ]
+_TextMapping = MutableMapping[Text, Text]
 _SessionT = TypeVar("_SessionT", bound=Session)
 
 class Session(SessionRedirectMixin):
     __attrs__: Any
     headers: CaseInsensitiveDict[Text]
     auth: None | Tuple[Text, Text] | _auth.AuthBase | Callable[[PreparedRequest], PreparedRequest]
-    proxies: MutableMapping[Text, Text]
+    proxies: _TextMapping
     hooks: _Hooks
     params: _Params
     stream: bool
@@ -84,13 +85,17 @@ class Session(SessionRedirectMixin):
         url: str | bytes | Text,
         params: _Params | None = ...,
         data: _Data = ...,
-        headers: MutableMapping[Text, Text] | None = ...,
-        cookies: None | RequestsCookieJar | MutableMapping[Text, Text] = ...,
-        files: MutableMapping[Text, IO[Any]] | None = ...,
+        headers: _TextMapping | None = ...,
+        cookies: None | RequestsCookieJar | _TextMapping = ...,
+        files: MutableMapping[Text, IO[Any]]
+        | MutableMapping[Text, Tuple[Text, IO[Any]]]
+        | MutableMapping[Text, Tuple[Text, IO[Any], Text]]
+        | MutableMapping[Text, Tuple[Text, IO[Any], Text, _TextMapping]]
+        | None = ...,
         auth: None | Tuple[Text, Text] | _auth.AuthBase | Callable[[PreparedRequest], PreparedRequest] = ...,
         timeout: None | float | Tuple[float, float] | Tuple[float, None] = ...,
         allow_redirects: bool | None = ...,
-        proxies: MutableMapping[Text, Text] | None = ...,
+        proxies: _TextMapping | None = ...,
         hooks: _HooksInput | None = ...,
         stream: bool | None = ...,
         verify: None | bool | Text = ...,

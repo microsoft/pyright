@@ -10,4 +10,4 @@ foo: Dict[str, str] = {}
 # This should not result in an "Unknown", so no
 # error should be generated.
 result = dict.keys(foo)
-t1: Literal["KeysView[Unknown]"] = reveal_type(result)
+t1: Literal["_dict_keys[Unknown, Unknown]"] = reveal_type(result)
