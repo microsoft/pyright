@@ -38,3 +38,7 @@ foo2 = Foo("hello", 27)
 str_value_2 = foo2.value_a
 int_value_2 = foo2.value_b
 test_function(int_value_2, str_value_2)
+
+# This should generate an error because a pseudo-generic
+# class is not actually generic.
+foo3: Foo[int, str, int]

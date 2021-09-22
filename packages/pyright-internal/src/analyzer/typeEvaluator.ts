@@ -15812,7 +15812,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeArgCount = typeArgs ? typeArgs.length : 0;
 
         // Make sure the argument list count is correct.
-        const typeParameters = ClassType.getTypeParameters(classType);
+        const typeParameters = ClassType.isPseudoGenericClass(classType) ? [] : ClassType.getTypeParameters(classType);
 
         // If there are no type parameters or args, the class is already specialized.
         // No need to do any more work.
