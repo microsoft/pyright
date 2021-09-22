@@ -2598,7 +2598,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (isClass(type)) {
+        if (isInstantiableClass(type)) {
             let deprecatedForm: DeprecatedForm | undefined;
 
             if (type.aliasName) {
