@@ -49,8 +49,10 @@ import {
 import {
     applySolvedTypeVars,
     buildTypeVarMapFromSpecializedClass,
+    convertToInstance,
     isLiteralType,
     specializeTupleClass,
+    synthesizeTypeVarForSelfCls,
 } from './typeUtils';
 
 // Validates fields for compatibility with a dataclass and synthesizes
@@ -64,6 +66,7 @@ export function synthesizeDataClassMethods(
 ) {
     assert(ClassType.isDataClass(classType));
 
+    const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const newType = FunctionType.createInstance(
         '__new__',
         '',
@@ -75,16 +78,16 @@ export function synthesizeDataClassMethods(
     FunctionType.addParameter(newType, {
         category: ParameterCategory.Simple,
         name: 'cls',
-        type: classType,
+        type: classTypeVar,
         hasDeclaredType: true,
     });
     FunctionType.addDefaultParameters(newType);
-    newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
+    newType.details.declaredReturnType = convertToInstance(classTypeVar);
 
     const selfParam: FunctionParameter = {
         category: ParameterCategory.Simple,
         name: 'self',
-        type: ClassType.cloneAsInstance(classType),
+        type: synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
         hasDeclaredType: true,
     };
     FunctionType.addParameter(initType, selfParam);

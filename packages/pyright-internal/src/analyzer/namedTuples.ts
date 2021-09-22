@@ -42,6 +42,7 @@ import {
     isOpenEndedTupleClass,
     isTupleClass,
     specializeTupleClass,
+    synthesizeTypeVarForSelfCls,
 } from './typeUtils';
 
 // Creates a new custom tuple factory class with named values.
@@ -98,6 +99,7 @@ export function createNamedTupleType(
         isInstantiableClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
     );
     classType.details.baseClasses.push(namedTupleType);
+    classType.details.typeVarScopeId = evaluator.getScopeIdForNode(errorNode);
 
     const classFields = classType.details.fields;
     classFields.set(
@@ -105,20 +107,21 @@ export function createNamedTupleType(
         Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
     );
 
+    const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const constructorType = FunctionType.createInstance(
         '__new__',
         '',
         '',
         FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
     );
-    constructorType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
+    constructorType.details.declaredReturnType = convertToInstance(classTypeVar);
     if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
         constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
     FunctionType.addParameter(constructorType, {
         category: ParameterCategory.Simple,
         name: 'cls',
-        type: classType,
+        type: classTypeVar,
         hasDeclaredType: true,
     });
 
@@ -127,7 +130,7 @@ export function createNamedTupleType(
     const selfParameter: FunctionParameter = {
         category: ParameterCategory.Simple,
         name: 'self',
-        type: ClassType.cloneAsInstance(classType),
+        type: synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
         hasDeclaredType: true,
     };
 

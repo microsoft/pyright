@@ -1303,6 +1303,23 @@ export function removeTruthinessFromType(type: Type): Type {
     });
 }
 
+export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: boolean) {
+    const selfType = TypeVarType.createInstance(`__type_of_${isClsParam ? 'cls' : 'self'}_${classType.details.name}`);
+    const scopeId = getTypeVarScopeId(classType) ?? '';
+    selfType.details.isSynthesized = true;
+    selfType.details.isSynthesizedSelfCls = true;
+    selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
+    selfType.scopeId = scopeId;
+
+    // The self/cls parameter is allowed to skip the abstract class test
+    // because the caller is possibly passing in a non-abstract subclass.
+    selfType.details.boundType = ClassType.cloneAsInstance(
+        selfSpecializeClassType(classType, /* includeSubclasses */ true)
+    );
+
+    return isClsParam ? convertToInstantiable(selfType) : selfType;
+}
+
 // Returns the declared yield type if provided, or undefined otherwise.
 export function getDeclaredGeneratorYieldType(functionType: FunctionType): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);

@@ -258,12 +258,12 @@ import {
     removeTruthinessFromType,
     requiresSpecialization,
     requiresTypeArguments,
-    selfSpecializeClassType,
     setTypeArgumentsRecursive,
     specializeClassType,
     specializeForBaseClass,
     specializeTupleClass,
     stripLiteralValue,
+    synthesizeTypeVarForSelfCls,
     transformExpectedTypeForConstructor,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -12569,7 +12569,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const inferredParamType = inferFirstParamType(
                         functionType.details.flags,
                         containingClassType,
-                        node
                     );
                     if (inferredParamType) {
                         functionType.details.parameters[0].type = inferredParamType;
@@ -12680,26 +12679,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function inferFirstParamType(
         flags: FunctionTypeFlags,
         containingClassType: ClassType,
-        functionNode: FunctionNode
     ): Type | undefined {
         if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
             if (containingClassType) {
-                const hasClsParam = flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod);
-
-                const selfType = TypeVarType.createInstance(`__type_of_self_${containingClassType.details.name}`);
-                const scopeId = getScopeIdForNode(functionNode);
-                selfType.details.isSynthesized = true;
-                selfType.details.isSynthesizedSelfCls = true;
-                selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
-                selfType.scopeId = scopeId;
-
-                // The self/cls parameter is allowed to skip the abstract class test
-                // because the caller is possibly passing in a non-abstract subclass.
-                selfType.details.boundType = ClassType.cloneAsInstance(
-                    selfSpecializeClassType(containingClassType, /* includeSubclasses */ true)
-                );
-
-                return hasClsParam ? convertToInstantiable(selfType) : selfType;
+                const hasClsParam =
+                    (flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) !== 0;
+                return synthesizeTypeVarForSelfCls(containingClassType, hasClsParam);
             }
         }
 
@@ -14324,7 +14309,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const functionFlags = getFunctionFlagsFromDecorators(functionNode, /* isInClass */ true);
                     // If the first parameter doesn't have an explicit type annotation,
                     // provide a type if it's an instance, class or constructor method.
-                    const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType, functionNode);
+                    const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType);
                     writeTypeCache(node.name!, inferredParamType || UnknownType.create(), /* isIncomplete */ false);
                     return;
                 }
