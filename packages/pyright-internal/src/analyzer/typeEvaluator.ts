@@ -12566,10 +12566,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (functionType.details.parameters.length > 0) {
                 const typeAnnotation = getTypeAnnotationForParameter(node, 0);
                 if (!typeAnnotation) {
-                    const inferredParamType = inferFirstParamType(
-                        functionType.details.flags,
-                        containingClassType,
-                    );
+                    const inferredParamType = inferFirstParamType(functionType.details.flags, containingClassType);
                     if (inferredParamType) {
                         functionType.details.parameters[0].type = inferredParamType;
                         if (!isAnyOrUnknown(inferredParamType)) {
@@ -12676,10 +12673,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Synthesizes the "self" or "cls" parameter type if they are not explicitly annotated.
-    function inferFirstParamType(
-        flags: FunctionTypeFlags,
-        containingClassType: ClassType,
-    ): Type | undefined {
+    function inferFirstParamType(flags: FunctionTypeFlags, containingClassType: ClassType): Type | undefined {
         if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
             if (containingClassType) {
                 const hasClsParam =
