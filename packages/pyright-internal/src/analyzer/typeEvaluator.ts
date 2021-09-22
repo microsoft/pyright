@@ -16731,12 +16731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 // If the symbol is constant, we can retain the literal
                                 // value. Otherwise, strip literal values to widen the type.
-                                if (
-                                    TypeBase.isInstance(type) &&
-                                    !isTypeAlias &&
-                                    !isConstant &&
-                                    !isFinalVar
-                                ) {
+                                if (TypeBase.isInstance(type) && !isTypeAlias && !isConstant && !isFinalVar) {
                                     type = stripLiteralValue(type);
                                 }
                             }
