@@ -864,8 +864,6 @@ export class Binder extends ParseTreeWalker {
         this.walk(node.leftExpression);
         this.walk(node.rightExpression);
 
-        this._addInferredTypeAssignmentForVariable(node.destExpression, node.rightExpression);
-
         this._bindPossibleTupleNamedTarget(node.destExpression);
         this._createAssignmentTargetFlowNodes(node.destExpression, /* walkTargets */ false, /* unbound */ false);
 
