@@ -227,7 +227,8 @@ export function validateResults(
     errorCount: number,
     warningCount = 0,
     infoCount?: number,
-    unusedCode?: number
+    unusedCode?: number,
+    deprecated?: number
 ) {
     assert.strictEqual(results.length, 1);
     assert.strictEqual(results[0].errors.length, errorCount);
@@ -239,5 +240,9 @@ export function validateResults(
 
     if (unusedCode !== undefined) {
         assert.strictEqual(results[0].unusedCodes.length, unusedCode);
+    }
+
+    if (deprecated !== undefined) {
+        assert.strictEqual(results[0].deprecateds.length, deprecated);
     }
 }

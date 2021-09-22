@@ -153,26 +153,47 @@ interface LocalTypeVarInfo {
 
 interface DeprecatedForm {
     version: PythonVersion;
-    replacementType: string;
+    fullName: string;
+    replacementText: string;
 }
 
 const deprecatedAliases = new Map<string, DeprecatedForm>([
-    ['Tuple', { version: PythonVersion.V3_9, replacementType: 'tuple' }],
-    ['List', { version: PythonVersion.V3_9, replacementType: 'list' }],
-    ['Dict', { version: PythonVersion.V3_9, replacementType: 'dict' }],
-    ['Set', { version: PythonVersion.V3_9, replacementType: 'set' }],
-    ['FrozenSet', { version: PythonVersion.V3_9, replacementType: 'frozenset' }],
-    ['Type', { version: PythonVersion.V3_9, replacementType: 'type' }],
-    ['Deque', { version: PythonVersion.V3_9, replacementType: 'collections.deque' }],
-    ['DefaultDict', { version: PythonVersion.V3_9, replacementType: 'collections.defaultdict' }],
-    ['OrderedDict', { version: PythonVersion.V3_9, replacementType: 'collections.OrderedDict' }],
-    ['Counter', { version: PythonVersion.V3_9, replacementType: 'collections.Counter' }],
-    ['ChainMap', { version: PythonVersion.V3_9, replacementType: 'collections.ChainMap' }],
+    ['Tuple', { version: PythonVersion.V3_9, fullName: 'builtins.tuple', replacementText: 'tuple' }],
+    ['List', { version: PythonVersion.V3_9, fullName: 'builtins.list', replacementText: 'list' }],
+    ['Dict', { version: PythonVersion.V3_9, fullName: 'builtins.dict', replacementText: 'dict' }],
+    ['Set', { version: PythonVersion.V3_9, fullName: 'builtins.set', replacementText: 'set' }],
+    ['FrozenSet', { version: PythonVersion.V3_9, fullName: 'builtins.frozenset', replacementText: 'frozenset' }],
+    ['Type', { version: PythonVersion.V3_9, fullName: 'builtins.type', replacementText: 'type' }],
+    ['Deque', { version: PythonVersion.V3_9, fullName: 'collections.deque', replacementText: 'collections.deque' }],
+    [
+        'DefaultDict',
+        {
+            version: PythonVersion.V3_9,
+            fullName: 'collections.defaultdict',
+            replacementText: 'collections.defaultdict',
+        },
+    ],
+    [
+        'OrderedDict',
+        {
+            version: PythonVersion.V3_9,
+            fullName: 'collections.OrderedDict',
+            replacementText: 'collections.OrderedDict',
+        },
+    ],
+    [
+        'Counter',
+        { version: PythonVersion.V3_9, fullName: 'collections.Counter', replacementText: 'collections.Counter' },
+    ],
+    [
+        'ChainMap',
+        { version: PythonVersion.V3_9, fullName: 'collections.ChainMap', replacementText: 'collections.ChainMap' },
+    ],
 ]);
 
 const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
-    ['typing.Optional', { version: PythonVersion.V3_10, replacementType: '| None' }],
-    ['typing.Union', { version: PythonVersion.V3_10, replacementType: '|' }],
+    ['Optional', { version: PythonVersion.V3_10, fullName: 'typing.Optional', replacementText: '| None' }],
+    ['Union', { version: PythonVersion.V3_10, fullName: 'typing.Union', replacementText: '|' }],
 ]);
 
 export class Checker extends ParseTreeWalker {
@@ -2592,33 +2613,30 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _reportDeprecatedUse(node: NameNode) {
+        const deprecatedForm = deprecatedAliases.get(node.value) ?? deprecatedSpecialForms.get(node.value);
+
+        if (!deprecatedForm) {
+            return;
+        }
+
         const type = this._evaluator.getType(node);
 
         if (!type) {
             return;
         }
 
-        if (isInstantiableClass(type)) {
-            let deprecatedForm: DeprecatedForm | undefined;
+        if (!isInstantiableClass(type) || type.details.fullName !== deprecatedForm.fullName) {
+            return;
+        }
 
-            if (type.aliasName) {
-                deprecatedForm = deprecatedAliases.get(type.aliasName);
-            } else {
-                deprecatedForm = deprecatedSpecialForms.get(type.details.fullName);
-            }
-
-            if (
-                deprecatedForm !== undefined &&
-                this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version
-            ) {
-                this._evaluator.addDeprecated(
-                    Localizer.Diagnostic.deprecatedType().format({
-                        version: versionToString(deprecatedForm.version),
-                        replacement: deprecatedForm.replacementType,
-                    }),
-                    node
-                );
-            }
+        if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
+            this._evaluator.addDeprecated(
+                Localizer.Diagnostic.deprecatedType().format({
+                    version: versionToString(deprecatedForm.version),
+                    replacement: deprecatedForm.replacementText,
+                }),
+                node
+            );
         }
     }
 
