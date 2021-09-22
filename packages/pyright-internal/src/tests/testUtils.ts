@@ -38,6 +38,7 @@ export interface FileAnalysisResult {
     warnings: Diagnostic[];
     infos: Diagnostic[];
     unusedCodes: Diagnostic[];
+    deprecateds: Diagnostic[];
 }
 
 export interface FileParseResult {
@@ -143,6 +144,7 @@ export function bindSampleFile(fileName: string, configOptions = new ConfigOptio
         warnings: fileInfo.diagnosticSink.getWarnings(),
         infos: fileInfo.diagnosticSink.getInformation(),
         unusedCodes: fileInfo.diagnosticSink.getUnusedCode(),
+        deprecateds: fileInfo.diagnosticSink.getDeprecated(),
     };
 }
 
@@ -184,6 +186,7 @@ export function typeAnalyzeSampleFiles(
                 warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
                 infos: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information),
                 unusedCodes: diagnostics.filter((diag) => diag.category === DiagnosticCategory.UnusedCode),
+                deprecateds: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Deprecated),
             };
             return analysisResult;
         } else {
@@ -196,6 +199,7 @@ export function typeAnalyzeSampleFiles(
                 warnings: [],
                 infos: [],
                 unusedCodes: [],
+                deprecateds: [],
             };
             return analysisResult;
         }

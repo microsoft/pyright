@@ -20,6 +20,7 @@ export const enum DiagnosticCategory {
     Warning,
     Information,
     UnusedCode,
+    Deprecated,
 }
 
 export function convertLevelToCategory(level: DiagnosticLevel) {

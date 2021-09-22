@@ -2058,6 +2058,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
+    function addDeprecated(message: string, node: ParseNode) {
+        if (!isDiagnosticSuppressedForNode(node)) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            fileInfo.diagnosticSink.addDeprecatedWithTextRange(message, node);
+        }
+    }
+
     function addDiagnosticWithSuppressionCheck(
         diagLevel: DiagnosticLevel,
         message: string,
@@ -21029,6 +21036,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         addWarning,
         addInformation,
         addUnusedCode,
+        addDeprecated,
         addDiagnostic,
         addDiagnosticForTextRange,
         printType,

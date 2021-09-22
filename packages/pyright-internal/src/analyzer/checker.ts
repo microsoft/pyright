@@ -17,6 +17,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
 import {
@@ -149,6 +150,30 @@ interface LocalTypeVarInfo {
     isExempt: boolean;
     nodes: NameNode[];
 }
+
+interface DeprecatedForm {
+    version: PythonVersion;
+    replacementType: string;
+}
+
+const deprecatedAliases = new Map<string, DeprecatedForm>([
+    ['Tuple', { version: PythonVersion.V3_9, replacementType: 'tuple' }],
+    ['List', { version: PythonVersion.V3_9, replacementType: 'list' }],
+    ['Dict', { version: PythonVersion.V3_9, replacementType: 'dict' }],
+    ['Set', { version: PythonVersion.V3_9, replacementType: 'set' }],
+    ['FrozenSet', { version: PythonVersion.V3_9, replacementType: 'frozenset' }],
+    ['Type', { version: PythonVersion.V3_9, replacementType: 'type' }],
+    ['Deque', { version: PythonVersion.V3_9, replacementType: 'collections.deque' }],
+    ['DefaultDict', { version: PythonVersion.V3_9, replacementType: 'collections.defaultdict' }],
+    ['OrderedDict', { version: PythonVersion.V3_9, replacementType: 'collections.OrderedDict' }],
+    ['Counter', { version: PythonVersion.V3_9, replacementType: 'collections.Counter' }],
+    ['ChainMap', { version: PythonVersion.V3_9, replacementType: 'collections.ChainMap' }],
+]);
+
+const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
+    ['typing.Optional', { version: PythonVersion.V3_10, replacementType: '| None' }],
+    ['typing.Union', { version: PythonVersion.V3_10, replacementType: '|' }],
+]);
 
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -1049,6 +1074,10 @@ export class Checker extends ParseTreeWalker {
     override visitName(node: NameNode) {
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
+
+        // Report the use of a deprecated symbol.
+        this._reportDeprecatedUse(node);
+
         return true;
     }
 
@@ -2560,6 +2589,37 @@ export class Checker extends ParseTreeWalker {
         }
 
         return false;
+    }
+
+    private _reportDeprecatedUse(node: NameNode) {
+        const type = this._evaluator.getType(node);
+
+        if (!type) {
+            return;
+        }
+
+        if (isClass(type)) {
+            let deprecatedForm: DeprecatedForm | undefined;
+
+            if (type.aliasName) {
+                deprecatedForm = deprecatedAliases.get(type.aliasName);
+            } else {
+                deprecatedForm = deprecatedSpecialForms.get(type.details.fullName);
+            }
+
+            if (
+                deprecatedForm !== undefined &&
+                this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version
+            ) {
+                this._evaluator.addDeprecated(
+                    Localizer.Diagnostic.deprecatedType().format({
+                        version: versionToString(deprecatedForm.version),
+                        replacement: deprecatedForm.replacementType,
+                    }),
+                    node
+                );
+            }
+        }
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {

@@ -129,6 +129,7 @@ export function createTypeEvaluatorWithTracker(
         addWarning: (m, n) => run('addWarning', () => typeEvaluator.addWarning(m, n), n),
         addInformation: (m, n) => run('addInformation', () => typeEvaluator.addInformation(m, n), n),
         addUnusedCode: (n, t) => run('addUnusedCode', () => typeEvaluator.addUnusedCode(n, t), n),
+        addDeprecated: (m, n) => run('addDeprecated', () => typeEvaluator.addDeprecated(m, n), n),
         addDiagnostic: (d, r, m, n) => run('addDiagnostic', () => typeEvaluator.addDiagnostic(d, r, m, n), n),
         addDiagnosticForTextRange: (f, d, r, m, g) =>
             run('addDiagnosticForTextRange', () => typeEvaluator.addDiagnosticForTextRange(f, d, r, m, g)),
