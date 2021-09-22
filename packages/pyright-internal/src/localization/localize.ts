@@ -87,7 +87,17 @@ function initialize(): StringLookupMap {
 
 declare let navigator: { language: string } | undefined;
 
+let localeOverride: string | undefined;
+
+export function setLocaleOverride(locale: string) {
+    localeOverride = locale.toLowerCase();
+}
+
 function getLocaleFromEnv() {
+    if (localeOverride) {
+        return localeOverride;
+    }
+
     try {
         if (navigator?.language) {
             return navigator.language.toLowerCase();

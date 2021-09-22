@@ -154,7 +154,9 @@ declare namespace _ {
         getRanges(): Range[];
         getRangesInFile(fileName: string): Range[];
         getRangesByText(): Map<string, Range[]>;
-
+        getFilteredRanges<T extends {}>(
+            predicate: (m: Marker | undefined, d: T | undefined, text: string) => boolean
+        ): Range[];
         getPositionRange(markerString: string): PositionRange;
         convertPositionRange(range: Range): PositionRange;
 

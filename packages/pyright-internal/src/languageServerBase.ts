@@ -79,7 +79,7 @@ import { DefinitionFilter } from './languageService/definitionProvider';
 import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService/documentSymbolProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
-import { Localizer } from './localization/localize';
+import { Localizer, setLocaleOverride } from './localization/localize';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { WorkspaceMap } from './workspaceMap';
 
@@ -962,6 +962,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         supportedCommands: string[],
         supportedCodeActions: string[]
     ): InitializeResult {
+        if (params.locale) {
+            setLocaleOverride(params.locale);
+        }
+
         this.rootPath = params.rootPath || '';
 
         const capabilities = params.capabilities;

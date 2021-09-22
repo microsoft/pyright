@@ -87,10 +87,14 @@ export interface Position {
     character: number;
 }
 
-namespace Position {
+export namespace Position {
     export function is(value: any): value is Position {
         const candidate = value as Position;
         return candidate && candidate.line !== void 0 && candidate.character !== void 0;
+    }
+
+    export function print(value: Position): string {
+        return `(${value.line}:${value.character})`;
     }
 }
 
@@ -99,10 +103,14 @@ export interface Range {
     end: Position;
 }
 
-namespace Range {
+export namespace Range {
     export function is(value: any): value is Range {
         const candidate = value as Range;
         return candidate && candidate.start !== void 0 && candidate.end !== void 0;
+    }
+
+    export function print(value: Range): string {
+        return `${Position.print(value.start)}-${Position.print(value.end)}`;
     }
 }
 
@@ -158,8 +166,12 @@ export function doesRangeContain(range: Range, positionOrRange: Position | Range
     return doesRangeContain(range, positionOrRange.start) && doesRangeContain(range, positionOrRange.end);
 }
 
+export function positionsAreEqual(a: Position, b: Position) {
+    return comparePositions(a, b) === 0;
+}
+
 export function rangesAreEqual(a: Range, b: Range) {
-    return comparePositions(a.start, b.start) === 0 && comparePositions(a.end, b.end) === 0;
+    return positionsAreEqual(a.start, b.start) && positionsAreEqual(a.end, b.end);
 }
 
 export function getEmptyRange(): Range {
@@ -175,4 +187,35 @@ export function isEmptyPosition(pos: Position) {
 
 export function isEmptyRange(range: Range) {
     return isEmptyPosition(range.start) && isEmptyPosition(range.end);
+}
+
+export function extendRange(range: Range, extension: Range | Range[] | undefined) {
+    if (extension) {
+        if (Array.isArray(extension)) {
+            extension.forEach((r) => {
+                extendRange(range, r);
+            });
+        } else {
+            if (comparePositions(extension.start, range.start) < 0) {
+                range.start = extension.start;
+            }
+
+            if (comparePositions(extension.end, range.end) > 0) {
+                range.end = extension.end;
+            }
+        }
+    }
+}
+
+export function combineRange(ranges: Range[]): Range | undefined {
+    if (ranges.length === 0) {
+        return undefined;
+    }
+
+    const combinedRange = ranges[0];
+    for (let i = 1; i < ranges.length; i++) {
+        extendRange(combinedRange, ranges[i]);
+    }
+
+    return combinedRange;
 }

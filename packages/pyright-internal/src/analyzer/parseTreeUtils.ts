@@ -9,8 +9,8 @@
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { assertNever, fail } from '../common/debug';
-import { convertPositionToOffset } from '../common/positionUtils';
-import { Position } from '../common/textRange';
+import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
+import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import {
@@ -26,6 +26,7 @@ import {
     IndexNode,
     isExpressionNode,
     LambdaNode,
+    MemberAccessNode,
     ModuleNode,
     NameNode,
     ParameterCategory,
@@ -33,9 +34,11 @@ import {
     ParseNode,
     ParseNodeType,
     StatementNode,
+    StringNode,
     SuiteNode,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
+import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -1306,25 +1309,20 @@ export function getCallNodeAndActiveParameterIndex(
     // Find the call node that contains the specified node.
     let curNode: ParseNode | undefined = node;
     let callNode: CallNode | undefined;
+
     while (curNode !== undefined) {
+        // make sure we only look at callNodes when we are inside their arguments
         if (curNode.nodeType === ParseNodeType.Call) {
-            callNode = curNode;
-            break;
+            if (isOffsetInsideCallArgs(curNode, insertionOffset)) {
+                callNode = curNode;
+                break;
+            }
         }
         curNode = curNode.parent;
     }
 
     if (!callNode || !callNode.arguments) {
         return undefined;
-    }
-
-    const index = tokens.getItemAtPosition(callNode.leftExpression.start);
-    if (index >= 0 && index + 1 < tokens.count) {
-        const token = tokens.getItemAt(index + 1);
-        if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
-            // position must be after '('
-            return undefined;
-        }
     }
 
     const endPosition = TextRange.getEnd(callNode);
@@ -1389,6 +1387,21 @@ export function getCallNodeAndActiveParameterIndex(
         activeIndex,
         activeOrFake,
     };
+
+    function isOffsetInsideCallArgs(node: CallNode, offset: number) {
+        let found = true;
+        const argmentStart =
+            node.leftExpression.length > 0 ? TextRange.getEnd(node.leftExpression) - 1 : node.leftExpression.start;
+        const index = tokens.getItemAtPosition(argmentStart);
+        if (index >= 0 && index + 1 < tokens.count) {
+            const token = tokens.getItemAt(index + 1);
+            if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
+                // position must be after '('
+                found = false;
+            }
+        }
+        return found;
+    }
 
     function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
         const index = tokens.getItemAtPosition(position);
@@ -1745,4 +1758,133 @@ export function isFunctionSuiteEmpty(node: FunctionNode) {
     });
 
     return isEmpty;
+}
+
+export function isImportModuleName(node: ParseNode): boolean {
+    return getFirstAncestorOrSelfOfKind(node, ParseNodeType.ModuleName)?.parent?.nodeType === ParseNodeType.ImportAs;
+}
+
+export function isImportAlias(node: ParseNode): boolean {
+    return node.parent?.nodeType === ParseNodeType.ImportAs && node.parent.alias === node;
+}
+
+export function isFromImportModuleName(node: ParseNode): boolean {
+    return getFirstAncestorOrSelfOfKind(node, ParseNodeType.ModuleName)?.parent?.nodeType === ParseNodeType.ImportFrom;
+}
+
+export function isFromImportName(node: ParseNode): boolean {
+    return node.parent?.nodeType === ParseNodeType.ImportFromAs && node.parent.name === node;
+}
+
+export function isFromImportAlias(node: ParseNode): boolean {
+    return node.parent?.nodeType === ParseNodeType.ImportFromAs && node.parent.alias === node;
+}
+
+export function isLastNameOfModuleName(node: NameNode): boolean {
+    if (node.parent?.nodeType !== ParseNodeType.ModuleName) {
+        return false;
+    }
+
+    const module = node.parent;
+    if (module.nameParts.length === 0) {
+        return false;
+    }
+
+    return module.nameParts[module.nameParts.length - 1] === node;
+}
+
+function* _getAncestorsIncludingSelf(node: ParseNode | undefined) {
+    while (node !== undefined) {
+        yield node;
+        node = node.parent;
+    }
+}
+
+export function getFirstAncestorOrSelfOfKind(node: ParseNode | undefined, type: ParseNodeType): ParseNode | undefined {
+    for (const current of _getAncestorsIncludingSelf(node)) {
+        if (current.nodeType === type) {
+            return current;
+        }
+    }
+
+    return undefined;
+}
+
+export function getDottedNameWithGivenNodeAsLastName(node: NameNode): MemberAccessNode | NameNode {
+    // Shape of dotted name is
+    //    MemberAccess (ex, a.b)
+    //  Name        Name
+    // or
+    //           MemberAccess (ex, a.b.c)
+    //    MemberAccess     Name
+    //  Name       Name
+    if (node.parent?.nodeType !== ParseNodeType.MemberAccess) {
+        return node;
+    }
+
+    if (node.parent.leftExpression === node) {
+        return node;
+    }
+
+    return node.parent;
+}
+
+export function getStringNodeValueRange(node: StringNode) {
+    const length = node.token.quoteMarkLength;
+    const hasEnding = !(node.token.flags & StringTokenFlags.Unterminated);
+    return TextRange.create(node.start + length, node.length - length - (hasEnding ? length : 0));
+}
+
+export function getFullStatementRange(statementNode: ParseNode, tokenizerOutput: TokenizerOutput): Range {
+    const range = convertTextRangeToRange(statementNode, tokenizerOutput.lines);
+
+    // First, see whether there are other tokens except semicolon or new line on the same line.
+    const endPosition = _getEndPositionIfMultipleStatementsAreOnSameLine(
+        range,
+        TextRange.getEnd(statementNode),
+        tokenizerOutput
+    );
+
+    if (endPosition) {
+        return { start: range.start, end: endPosition };
+    }
+
+    // If not, delete the whole line.
+    if (range.end.line === tokenizerOutput.lines.count - 1) {
+        return range;
+    }
+
+    return { start: range.start, end: { line: range.end.line + 1, character: 0 } };
+}
+
+function _getEndPositionIfMultipleStatementsAreOnSameLine(
+    range: Range,
+    tokenPosition: number,
+    tokenizerOutput: TokenizerOutput
+): Position | undefined {
+    const tokenIndex = tokenizerOutput.tokens.getItemAtPosition(tokenPosition);
+    if (tokenIndex < 0) {
+        return undefined;
+    }
+
+    let currentIndex = tokenIndex;
+    for (; currentIndex < tokenizerOutput.tokens.count; currentIndex++) {
+        const token = tokenizerOutput.tokens.getItemAt(currentIndex);
+        const tokenRange = convertTextRangeToRange(token, tokenizerOutput.lines);
+        if (range.end.line !== tokenRange.start.line) {
+            break;
+        }
+    }
+
+    for (let index = tokenIndex; index < currentIndex; index++) {
+        const token = tokenizerOutput.tokens.getItemAt(index);
+        if (token.type === TokenType.Semicolon || token.type === TokenType.NewLine) {
+            continue;
+        }
+
+        const tokenRange = convertTextRangeToRange(token, tokenizerOutput.lines);
+        return tokenRange.start;
+    }
+
+    return undefined;
 }

@@ -7,7 +7,7 @@
  * the test states.
  */
 
-import * as assert from 'assert';
+import assert from 'assert';
 import * as JSONC from 'jsonc-parser';
 import Char from 'typescript-char';
 import {
@@ -26,6 +26,7 @@ import {
 } from 'vscode-languageserver';
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
+import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService, configFileNames } from '../../../analyzer/service';
 import { ConfigOptions } from '../../../common/configOptions';
@@ -52,6 +53,7 @@ import { LanguageServerInterface, WorkspaceServiceInstance } from '../../../lang
 import { AbbreviationInfo } from '../../../languageService/autoImporter';
 import { DefinitionFilter } from '../../../languageService/definitionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
+import { ParseNode } from '../../../parser/parseNodes';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
@@ -60,6 +62,7 @@ import * as host from '../testHost';
 import { stringify } from '../utils';
 import { createFromFileSystem, distlibFolder, libFolder } from '../vfs/factory';
 import * as vfs from '../vfs/filesystem';
+import { parseTestData } from './fourSlashParser';
 import {
     CompilerSettings,
     FourSlashData,
@@ -98,8 +101,8 @@ export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
     private readonly _files: string[] = [];
     private readonly _hostSpecificFeatures: HostSpecificFeatures;
-    private readonly _testFS: vfs.TestFileSystem;
 
+    readonly testFS: vfs.TestFileSystem;
     readonly fs: PyrightFileSystem;
     readonly workspace: WorkspaceServiceInstance;
     readonly console: ConsoleInterface;
@@ -152,14 +155,14 @@ export class TestState {
         }
 
         this.console = nullConsole;
-        this._testFS = createFromFileSystem(
+        this.testFS = createFromFileSystem(
             host.HOST,
             ignoreCase,
             { cwd: basePath, files, meta: testData.globalOptions },
             mountPaths
         );
 
-        this.fs = new PyrightFileSystem(this._testFS);
+        this.fs = new PyrightFileSystem(this.testFS);
         this._files = sourceFiles;
 
         const service = this._createAnalysisService(
@@ -204,7 +207,7 @@ export class TestState {
     }
 
     cwd() {
-        return this._testFS.cwd();
+        return this.testFS.cwd();
     }
 
     // Entry points from fourslash.ts
@@ -353,6 +356,17 @@ export class TestState {
         this.testData.rangesByText = result;
 
         return result;
+    }
+
+    getFilteredRanges<T extends {}>(
+        predicate: (m: Marker | undefined, d: T | undefined, text: string) => boolean
+    ): Range[] {
+        return this.getRanges().filter((r) => predicate(r.marker, r.marker?.data as T | undefined, this._rangeText(r)));
+    }
+
+    getRangeByMarkerName(markerName: string): Range | undefined {
+        const marker = this.getMarkerByName(markerName);
+        return this.getRanges().find((r) => r.marker === marker);
     }
 
     goToBOF() {
@@ -1090,7 +1104,7 @@ export class TestState {
                 CancellationToken.None
             );
 
-            assert.equal(actual?.length ?? 0, expected.length);
+            assert.strictEqual(actual?.length ?? 0, expected.length, `${name} has failed`);
 
             for (const r of expected) {
                 assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
@@ -1247,7 +1261,7 @@ export class TestState {
 
     private _getFileContent(fileName: string): string {
         const files = this.testData.files.filter(
-            (f) => comparePaths(f.fileName, fileName, this._testFS.ignoreCase) === Comparison.EqualTo
+            (f) => comparePaths(f.fileName, fileName, this.testFS.ignoreCase) === Comparison.EqualTo
         );
         return files[0].content;
     }
@@ -1674,4 +1688,27 @@ export class TestState {
         this._verifyEdit(actual.textEdit as TextEdit, expected.textEdit);
         this._verifyEdits(actual.additionalTextEdits, expected.additionalTextEdits);
     }
+}
+
+export function parseAndGetTestState(code: string, projectRoot = '/', anonymousFileName = 'unnamedFile.py') {
+    const data = parseTestData(normalizeSlashes(projectRoot), code, anonymousFileName);
+    const state = new TestState(normalizeSlashes('/'), data);
+
+    return { data, state };
+}
+
+export function getNodeAtMarker(codeOrState: string | TestState, markerName = 'marker'): ParseNode {
+    const state = isString(codeOrState) ? parseAndGetTestState(codeOrState).state : codeOrState;
+    const marker = state.getMarkerByName(markerName);
+
+    const sourceFile = state.program.getBoundSourceFile(marker.fileName);
+    assert(sourceFile);
+
+    const parserResults = sourceFile.getParseResults();
+    assert(parserResults);
+
+    const node = findNodeByOffset(parserResults.parseTree, marker.position);
+    assert(node);
+
+    return node;
 }

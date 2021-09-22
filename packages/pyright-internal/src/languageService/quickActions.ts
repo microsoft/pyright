@@ -87,14 +87,14 @@ function _addMissingOptionalToParam(
     // If there's an existing import statement, insert into it.
     if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
         const additionalEditActions = getTextEditsForAutoImportSymbolAddition(
-            'Optional',
+            { name: 'Optional' },
             importStatement,
             parseResults
         );
         editActions.push(...additionalEditActions);
     } else {
         const additionalEditActions = getTextEditsForAutoImportInsertion(
-            'Optional',
+            { name: 'Optional' },
             importStatements,
             'typing',
             ImportGroup.BuiltIn,

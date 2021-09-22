@@ -2286,10 +2286,15 @@ export class Parser {
         const moduleNameNode = ModuleNameNode.create(this._peekToken());
 
         while (true) {
-            if (this._consumeTokenIfType(TokenType.Ellipsis)) {
-                moduleNameNode.leadingDots += 3;
-            } else if (this._consumeTokenIfType(TokenType.Dot)) {
-                moduleNameNode.leadingDots++;
+            const token = this._getTokenIfType(TokenType.Ellipsis) ?? this._getTokenIfType(TokenType.Dot);
+            if (token) {
+                if (token.type === TokenType.Ellipsis) {
+                    moduleNameNode.leadingDots += 3;
+                } else {
+                    moduleNameNode.leadingDots++;
+                }
+
+                extendRange(moduleNameNode, token);
             } else {
                 break;
             }
@@ -4549,13 +4554,16 @@ export class Parser {
         }
     }
 
-    private _consumeTokenIfType(tokenType: TokenType): boolean {
+    private _getTokenIfType(tokenType: TokenType): Token | undefined {
         if (this._peekTokenType() === tokenType) {
-            this._getNextToken();
-            return true;
+            return this._getNextToken();
         }
 
-        return false;
+        return undefined;
+    }
+
+    private _consumeTokenIfType(tokenType: TokenType): boolean {
+        return !!this._getTokenIfType(tokenType);
     }
 
     private _consumeTokenIfKeyword(keywordType: KeywordType): boolean {
