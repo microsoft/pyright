@@ -10,10 +10,9 @@ import assert from 'assert';
 
 import { combinePaths, comparePathsCaseSensitive, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
-import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { runFourSlashTestContent } from './harness/fourslash/runner';
-import { TestState } from './harness/fourslash/testState';
+import { parseAndGetTestState } from './harness/fourslash/testState';
 import * as factory from './harness/vfs/factory';
 
 test('Create', () => {
@@ -42,7 +41,7 @@ test('Multiple files', () => {
 ////    pass
     `;
 
-    const state = parseAndGetTestState(code).state;
+    const state = parseAndGetTestState(code, factory.srcFolder).state;
 
     assert.equal(state.cwd(), normalizeSlashes('/'));
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
@@ -112,7 +111,7 @@ test('Configuration', () => {
 ////    pass
     `;
 
-    const state = parseAndGetTestState(code).state;
+    const state = parseAndGetTestState(code, factory.srcFolder).state;
 
     assert.equal(state.cwd(), normalizeSlashes('/'));
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
@@ -191,7 +190,7 @@ test('IgnoreCase', () => {
 ////    pass
     `;
 
-    const state = parseAndGetTestState(code).state;
+    const state = parseAndGetTestState(code, factory.srcFolder).state;
 
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'FILE1.py'))));
 });
@@ -578,10 +577,3 @@ helper.verifyDiagnostics({
 
     runFourSlashTestContent(factory.srcFolder, 'unused.py', code);
 });
-
-function parseAndGetTestState(code: string) {
-    const data = parseTestData(factory.srcFolder, code, 'test.py');
-    const state = new TestState(normalizeSlashes('/'), data);
-
-    return { data, state };
-}
