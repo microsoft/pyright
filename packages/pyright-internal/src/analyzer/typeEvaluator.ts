@@ -2205,15 +2205,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // version by stripping off the literal.
             const scope = ScopeUtils.getScopeForNode(nameNode);
             if (scope?.type === ScopeType.Class) {
-                const isConstant = isConstantName(nameValue);
-                const isPrivate = isPrivateOrProtectedName(nameValue);
-
-                if (
-                    TypeBase.isInstance(destType) &&
-                    !isConstant &&
-                    (!isPrivate ||
-                        AnalyzerNodeInfo.getFileInfo(nameNode).diagnosticRuleSet.reportPrivateUsage === 'none')
-                ) {
+                if (TypeBase.isInstance(destType) && !isConstantName(nameValue)) {
                     destType = stripLiteralValue(destType);
                 }
             }
@@ -16676,7 +16668,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Infer the type.
         const typesToCombine: Type[] = [];
-        const isPrivate = symbol.isPrivateMember();
         const decls = symbol.getDeclarations();
         const isFinalVar = isFinalVariable(symbol);
         let isIncomplete = false;
@@ -16738,12 +16729,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     isConstant = true;
                                 }
 
-                                // If the symbol is private or constant, we can retain the literal
+                                // If the symbol is constant, we can retain the literal
                                 // value. Otherwise, strip literal values to widen the type.
                                 if (
                                     TypeBase.isInstance(type) &&
                                     !isTypeAlias &&
-                                    !isPrivate &&
                                     !isConstant &&
                                     !isFinalVar
                                 ) {
