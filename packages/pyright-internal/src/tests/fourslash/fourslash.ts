@@ -157,6 +157,7 @@ declare namespace _ {
         getFilteredRanges<T extends {}>(
             predicate: (m: Marker | undefined, d: T | undefined, text: string) => boolean
         ): Range[];
+        getStringPositionRange(markerString: string, start?: number, end?: number): PositionRange;
         getPositionRange(markerString: string): PositionRange;
         convertPositionRange(range: Range): PositionRange;
 

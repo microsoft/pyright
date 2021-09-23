@@ -274,6 +274,13 @@ export class TestState {
         return [...this.testData.markerPositions.keys()];
     }
 
+    getStringPositionRange(markerString: string, start = 1, end = 1) {
+        const range = this.getPositionRange(markerString);
+        range.start.character -= start;
+        range.end.character += end;
+        return range;
+    }
+
     getPositionRange(markerString: string) {
         const marker = this.getMarkerByName(markerString);
         const ranges = this.getRanges().filter((r) => r.marker === marker);
