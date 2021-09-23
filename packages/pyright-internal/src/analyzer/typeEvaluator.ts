@@ -10358,9 +10358,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const elementType = elementTypeResult.type;
 
         let isAsync = node.comprehensions.some((comp) => {
-            return comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync;
+            return (
+                (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) ||
+                (comp.nodeType === ParseNodeType.ListComprehensionIf &&
+                    comp.testExpression.nodeType === ParseNodeType.Await)
+            );
         });
         let type: Type = UnknownType.create();
+
+        if (node.expression.nodeType === ParseNodeType.Await) {
+            isAsync = true;
+        }
 
         // Handle the special case where a generator function (e.g. `(await x for x in y)`)
         // is expected to be an AsyncGenerator.
