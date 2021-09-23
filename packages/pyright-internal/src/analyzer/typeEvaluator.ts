@@ -12219,6 +12219,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     dataclassBehaviors,
                     /* callNode */ undefined
                 );
+                return inputClassType;
             }
         } else if (isFunction(decoratorType)) {
             if (decoratorType.details.builtInName === 'final') {
