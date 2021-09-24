@@ -147,6 +147,7 @@ import {
     EffectiveTypeResult,
     EvaluatorFlags,
     EvaluatorUsage,
+    ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
     TypeEvaluator,
@@ -506,6 +507,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const isExceptionContextManagerCache = new Map<number, boolean>();
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache: TypeCache = new Map<number, CachedType>();
+    const expectedTypeCache = new Map<number, Type>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const effectiveTypeCache = new Map<number, EffectiveTypeCacheEntry[]>();
     const suppressedNodeStack: ParseNode[] = [];
@@ -692,6 +694,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return evaluateTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node);
         })?.type;
+    }
+
+    // Determines the expected type of a specified node based on surrounding
+    // context. For example, if it's a subexpression of an argument expression,
+    // the associated parameter type might inform the expected type.
+    function getExpectedType(node: ExpressionNode): ExpectedTypeResult | undefined {
+        evaluateTypesForExpressionInContext(node);
+
+        let curNode: ParseNode | undefined = node;
+        while (curNode !== undefined) {
+            const expectedType = expectedTypeCache.get(curNode.id);
+            if (expectedType) {
+                return {
+                    type: expectedType,
+                    node: curNode,
+                };
+            }
+
+            curNode = curNode.parent;
+        }
+
+        return undefined;
     }
 
     function initializedBasicTypes(node: ParseNode) {
@@ -1084,6 +1108,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 expectedType,
                 /* allowSpeculativeCaching */ true
             );
+
+            if (expectedType) {
+                expectedTypeCache.set(node.id, expectedType);
+            }
         }
 
         return typeResult;
@@ -20960,6 +20988,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeOfClass,
         getTypeOfFunction,
         getTypeForExpressionExpectingType,
+        getExpectedType,
         evaluateTypesForStatement,
         getDeclaredTypeForExpression,
         verifyRaiseExceptionType,
