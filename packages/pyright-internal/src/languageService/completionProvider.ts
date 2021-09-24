@@ -1020,14 +1020,19 @@ export class CompletionProvider {
                 case ParseNodeType.Number:
                 case ParseNodeType.Constant:
                     return true;
+
                 case ParseNodeType.String:
                     return (node.token.flags & StringTokenFlags.Format) === 0;
+
                 case ParseNodeType.StringList:
                     return node.strings.every(isSimpleDefault);
+
                 case ParseNodeType.UnaryOperation:
                     return isSimpleDefault(node.expression);
+
                 case ParseNodeType.BinaryOperation:
                     return isSimpleDefault(node.leftExpression) && isSimpleDefault(node.rightExpression);
+
                 default:
                     return false;
             }

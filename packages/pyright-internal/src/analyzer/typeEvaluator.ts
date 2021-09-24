@@ -10234,6 +10234,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeFromYield(node: YieldNode): TypeResult {
         let sentType: Type | undefined;
+        let isIncomplete = false;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
@@ -10244,10 +10245,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (node.expression) {
-            getTypeOfExpression(node.expression).type;
+            const exprResult = getTypeOfExpression(node.expression);
+            if (exprResult.isIncomplete) {
+                isIncomplete = true;
+            }
         }
 
-        return { type: sentType || UnknownType.create(), node };
+        return { type: sentType || UnknownType.create(), node, isIncomplete };
     }
 
     function getTypeFromYieldFrom(node: YieldFromNode): TypeResult {
