@@ -274,22 +274,17 @@ export class TestState {
         return [...this.testData.markerPositions.keys()];
     }
 
-    getStringPositionRange(markerString: string, start = 1, end = 1) {
-        const range = this.getPositionRange(markerString);
-        range.start.character -= start;
-        range.end.character += end;
-        return range;
-    }
-
-    getPositionRange(markerString: string) {
+    getPositionRange(markerString: string, start = 0, end = 0) {
         const marker = this.getMarkerByName(markerString);
         const ranges = this.getRanges().filter((r) => r.marker === marker);
         if (ranges.length !== 1) {
             this.raiseError(`no matching range for ${markerString}`);
         }
 
-        const range = ranges[0];
-        return this.convertPositionRange(range);
+        const range = this.convertPositionRange(ranges[0]);
+        range.start.character -= start;
+        range.end.character += end;
+        return range;
     }
 
     convertPositionRange(range: Range) {

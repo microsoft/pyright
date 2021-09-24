@@ -39,13 +39,13 @@
 //// thing3({'wrapped': {'items': [{'a': 'b'}, {'[|/*marker11*/|]'}]}})
 
 {
-    const marker3Range = helper.getStringPositionRange('marker3');
-    const marker4Range = helper.getStringPositionRange('marker4');
-    const marker5Range = helper.getStringPositionRange('marker5');
-    const marker6Range = helper.getStringPositionRange('marker6');
-    const marker7Range = helper.getStringPositionRange('marker7');
-    const marker9Range = helper.getStringPositionRange('marker9');
-    const marker11Range = helper.getStringPositionRange('marker11');
+    const marker3Range = helper.getPositionRange('marker3', 1, 1);
+    const marker4Range = helper.getPositionRange('marker4', 1, 1);
+    const marker5Range = helper.getPositionRange('marker5', 1, 1);
+    const marker6Range = helper.getPositionRange('marker6', 1, 1);
+    const marker7Range = helper.getPositionRange('marker7', 1, 1);
+    const marker9Range = helper.getPositionRange('marker9', 1, 1);
+    const marker11Range = helper.getPositionRange('marker11', 1, 1);
 
     // @ts-ignore
     await helper.verifyCompletion('exact', 'markdown', {

@@ -33,11 +33,11 @@
 
 {
     // completions that rely on token parsing instead of node parsing
-    const marker1Range = helper.getStringPositionRange('marker1');
-    const marker2Range = helper.getStringPositionRange('marker2', /* start */ 2);
-    const marker3Range = helper.getStringPositionRange('marker3', /* start */ 1, /* end */ 0);
-    const marker4Range = helper.getStringPositionRange('marker4');
-    const marker5Range = helper.getStringPositionRange('marker5');
+    const marker1Range = helper.getPositionRange('marker1', 1, 1);
+    const marker2Range = helper.getPositionRange('marker2', 2, 1);
+    const marker3Range = helper.getPositionRange('marker3', 1, 0);
+    const marker4Range = helper.getPositionRange('marker4', 1, 1);
+    const marker5Range = helper.getPositionRange('marker5', 1, 1);
 
     // @ts-ignore
     await helper.verifyCompletion('exact', 'markdown', {

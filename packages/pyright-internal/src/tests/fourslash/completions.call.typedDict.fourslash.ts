@@ -45,16 +45,16 @@
 //// thing3({'age': {'[|/*marker16*/|]'}})
 
 {
-    const marker1Range = helper.getStringPositionRange('marker1');
-    const marker3Range = helper.getStringPositionRange('marker3');
-    const marker4Range = helper.getStringPositionRange('marker4');
-    const marker6Range = helper.getStringPositionRange('marker6', /* start */ 3);
+    const marker1Range = helper.getPositionRange('marker1', 1, 1);
+    const marker3Range = helper.getPositionRange('marker3', 1, 1);
+    const marker4Range = helper.getPositionRange('marker4', 1, 1);
+    const marker6Range = helper.getPositionRange('marker6', 3, 1);
     const marker7Range = helper.getPositionRange('marker7');
-    const marker9Range = helper.getStringPositionRange('marker9');
-    const marker10Range = helper.getStringPositionRange('marker10');
-    const marker11Range = helper.getStringPositionRange('marker11');
-    const marker13Range = helper.getStringPositionRange('marker13');
-    const marker14Range = helper.getStringPositionRange('marker14');
+    const marker9Range = helper.getPositionRange('marker9', 1, 1);
+    const marker10Range = helper.getPositionRange('marker10', 1, 1);
+    const marker11Range = helper.getPositionRange('marker11', 1, 1);
+    const marker13Range = helper.getPositionRange('marker13', 1, 1);
+    const marker14Range = helper.getPositionRange('marker14', 1, 1);
 
     // @ts-ignore
     await helper.verifyCompletion('exact', 'markdown', {
