@@ -69,6 +69,7 @@ export function createTypeEvaluatorWithTracker(
         getTypeForExpressionExpectingType: typeEvaluator.getTypeForExpressionExpectingType,
         evaluateTypesForStatement: (n) =>
             run('evaluateTypesForStatement', () => typeEvaluator.evaluateTypesForStatement(n), n),
+        getExpectedType: (n) => run('getExpectedType', () => typeEvaluator.getExpectedType(n), n),
         getDeclaredTypeForExpression: (n) =>
             run('getDeclaredTypeForExpression', () => typeEvaluator.getDeclaredTypeForExpression(n), n),
         verifyRaiseExceptionType: (n) =>

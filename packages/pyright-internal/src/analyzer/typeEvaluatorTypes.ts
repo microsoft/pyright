@@ -221,6 +221,11 @@ export interface AnnotationTypeOptions {
     disallowRecursiveTypeAlias?: boolean;
 }
 
+export interface ExpectedTypeResult {
+    type: Type;
+    node: ParseNode;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -232,6 +237,7 @@ export interface TypeEvaluator {
     getTypeForExpressionExpectingType: (node: ExpressionNode, allowFinal: boolean) => Type;
     evaluateTypesForStatement: (node: ParseNode) => void;
 
+    getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;
     verifyDeleteExpression: (node: ExpressionNode) => void;

@@ -73,6 +73,7 @@ import {
     getMembersForClass,
     getMembersForModule,
     isLiteralType,
+    isLiteralTypeOrUnion,
     isProperty,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -1026,14 +1027,19 @@ export class CompletionProvider {
                 case ParseNodeType.Number:
                 case ParseNodeType.Constant:
                     return true;
+
                 case ParseNodeType.String:
                     return (node.token.flags & StringTokenFlags.Format) === 0;
+
                 case ParseNodeType.StringList:
                     return node.strings.every(isSimpleDefault);
+
                 case ParseNodeType.UnaryOperation:
                     return isSimpleDefault(node.expression);
+
                 case ParseNodeType.BinaryOperation:
                     return isSimpleDefault(node.leftExpression) && isSimpleDefault(node.rightExpression);
+
                 default:
                     return false;
             }
@@ -1906,6 +1912,25 @@ export class CompletionProvider {
             return undefined;
         }
 
+        const completionList = CompletionList.create();
+
+        // See if the type evaluator can determine the expected type for this node.
+        if (isExpressionNode(parentNode)) {
+            const expectedTypeResult = this._evaluator.getExpectedType(parentNode);
+            if (expectedTypeResult && isLiteralTypeOrUnion(expectedTypeResult.type)) {
+                this._addLiteralValuesForTargetType(
+                    expectedTypeResult.type,
+                    priorText,
+                    priorWord,
+                    postText,
+                    undefined /* TODO: base expression node */,
+                    parseNode,
+                    completionList
+                );
+                return { completionList };
+            }
+        }
+
         if (parentNode.nodeType !== ParseNodeType.Argument) {
             if (parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) {
                 return undefined;
@@ -1917,7 +1942,6 @@ export class CompletionProvider {
             }
         }
 
-        const completionList = CompletionList.create();
         if (parentNode.nodeType === ParseNodeType.Argument && parentNode.parent?.nodeType === ParseNodeType.Index) {
             if (
                 !this._tryAddTypedDictStringLiteral(
@@ -1958,20 +1982,6 @@ export class CompletionProvider {
                 if (completionList.items.length === 0) {
                     return undefined;
                 }
-            }
-        } else if (parentNode.nodeType === ParseNodeType.Assignment) {
-            const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(parentNode.leftExpression);
-
-            if (declaredTypeOfTarget) {
-                this._addLiteralValuesForTargetType(
-                    declaredTypeOfTarget,
-                    priorText,
-                    priorWord,
-                    postText,
-                    undefined /* TODO: base expression node */,
-                    parseNode,
-                    completionList
-                );
             }
         } else {
             debug.assert(parseNode.nodeType === ParseNodeType.String);
