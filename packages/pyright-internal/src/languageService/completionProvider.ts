@@ -1437,42 +1437,6 @@ export class CompletionProvider {
         });
     }
 
-    private _getDictExpressionStringKeys(parseNode: ParseNode, excludeIds?: Set<number | undefined>) {
-        const node = getDictionaryLikeNode(parseNode);
-        if (!node) {
-            return [];
-        }
-
-        return node.entries.flatMap((entry) => {
-            if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry || excludeIds?.has(entry.keyExpression.id)) {
-                return [];
-            }
-
-            if (entry.keyExpression.nodeType === ParseNodeType.StringList) {
-                return [entry.keyExpression.strings.map((s) => s.value).join('')];
-            }
-
-            return [];
-        });
-
-        function getDictionaryLikeNode(parseNode: ParseNode) {
-            // this method assumes the given parseNode is either a child of a dictionary or a dictionary itself
-            if (parseNode.nodeType === ParseNodeType.Dictionary) {
-                return parseNode;
-            }
-
-            let curNode: ParseNode | undefined = parseNode;
-            while (curNode && curNode.nodeType !== ParseNodeType.Dictionary && curNode.nodeType !== ParseNodeType.Set) {
-                curNode = curNode.parent;
-                if (!curNode) {
-                    return;
-                }
-            }
-
-            return curNode;
-        }
-    }
-
     private _getSubTypesWithLiteralValues(type: Type) {
         const values: ClassType[] = [];
 
@@ -1830,6 +1794,23 @@ export class CompletionProvider {
         });
 
         return true;
+    }
+
+    private _getDictExpressionStringKeys(
+        dictionaryNode: DictionaryNode | SetNode,
+        excludeIds?: Set<number | undefined>
+    ) {
+        return dictionaryNode.entries.flatMap((entry) => {
+            if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry || excludeIds?.has(entry.keyExpression.id)) {
+                return [];
+            }
+
+            if (entry.keyExpression.nodeType === ParseNodeType.StringList) {
+                return [entry.keyExpression.strings.map((s) => s.value).join('')];
+            }
+
+            return [];
+        });
     }
 
     private _tryNarrowTypedDicts(types: ClassType[], keys: string[]): ClassType[] {
