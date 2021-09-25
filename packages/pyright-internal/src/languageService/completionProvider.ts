@@ -59,12 +59,10 @@ import {
     isNone,
     isOverloadedFunction,
     isUnbound,
-    isUnion,
     isUnknown,
     OverloadedFunctionType,
     Type,
     TypeBase,
-    UnionType,
     UnknownType,
 } from '../analyzer/types';
 import {
@@ -92,6 +90,7 @@ import {
     ArgumentCategory,
     DecoratorNode,
     DictionaryKeyEntryNode,
+    DictionaryNode,
     ErrorExpressionCategory,
     ErrorNode,
     ExpressionNode,
@@ -104,6 +103,7 @@ import {
     ParameterNode,
     ParseNode,
     ParseNodeType,
+    SetNode,
     StringNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -298,11 +298,6 @@ interface CompletionDetail {
     edits?: Edits | undefined;
     sortText?: string | undefined;
     itemDetail?: string | undefined;
-}
-
-interface DictPathEntry {
-    key: string;
-    entry: DictionaryKeyEntryNode;
 }
 
 export const autoImportDetail = 'Auto-import';
@@ -1301,8 +1296,6 @@ export class CompletionProvider {
                             priorText,
                             priorWord,
                             postText,
-                            undefined /* TODO: base expression node */,
-                            parseNode,
                             completionList
                         );
                     }
@@ -1386,15 +1379,7 @@ export class CompletionProvider {
                 }
 
                 // Add literals that apply to this parameter.
-                this._addLiteralValuesForArgument(
-                    signatureInfo,
-                    priorText,
-                    priorWord,
-                    postText,
-                    signatureInfo.callNode.arguments[callInfo.activeIndex]?.valueExpression,
-                    parseNode,
-                    completionList
-                );
+                this._addLiteralValuesForArgument(signatureInfo, priorText, priorWord, postText, completionList);
             }
         }
     }
@@ -1404,8 +1389,6 @@ export class CompletionProvider {
         priorText: string,
         priorWord: string,
         postText: string,
-        baseExpressionNode: ExpressionNode,
-        parseNode: ParseNode,
         completionList: CompletionList
     ) {
         signatureInfo.signatures.forEach((signature) => {
@@ -1421,15 +1404,7 @@ export class CompletionProvider {
             }
 
             const paramType = type.details.parameters[paramIndex].type;
-            this._addLiteralValuesForTargetType(
-                paramType,
-                priorText,
-                priorWord,
-                postText,
-                baseExpressionNode,
-                parseNode,
-                completionList
-            );
+            this._addLiteralValuesForTargetType(paramType, priorText, priorWord, postText, completionList);
             return undefined;
         });
     }
@@ -1439,8 +1414,6 @@ export class CompletionProvider {
         priorText: string,
         priorWord: string,
         postText: string,
-        baseExpressionNode: ExpressionNode | undefined,
-        parseNode: ParseNode,
         completionList: CompletionList
     ) {
         const quoteValue = this._getQuoteValueFromPriorText(priorText);
@@ -1462,232 +1435,6 @@ export class CompletionProvider {
                 }
             }
         });
-
-        if (baseExpressionNode === undefined) {
-            return;
-        }
-
-        if (isClassInstance(type) || isUnion(type)) {
-            const typedDicts = this._getTypedDicts(baseExpressionNode, parseNode, type);
-            if (typedDicts.length >= 1) {
-                // ignore already defined keys
-                const excludes = new Set(completionList.items.map((i) => i.label));
-                this._getDictExpressionStringKeys(parseNode).forEach((key) => {
-                    excludes.add(key);
-                });
-                typedDicts.forEach((typedDict) => {
-                    getTypedDictMembersForClass(this._evaluator, typedDict, /* allowNarrowed */ true).forEach(
-                        (_, key) => {
-                            // unions of TypedDicts may define the same key
-                            if (excludes.has(key)) {
-                                return;
-                            }
-                            excludes.add(key);
-
-                            this._addStringLiteralToCompletionList(
-                                key,
-                                quoteValue ? quoteValue.stringValue : undefined,
-                                postText,
-                                quoteValue
-                                    ? quoteValue.quoteCharacter
-                                    : this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter,
-                                completionList
-                            );
-                        }
-                    );
-                });
-            }
-        }
-    }
-
-    private _getTypedDicts(baseExpressionNode: ExpressionNode, parseNode: ParseNode, type: ClassType | UnionType) {
-        if (!(tokenIsAtKey(this) || this._isInDictionaryStringKey(parseNode))) {
-            return [];
-        }
-
-        // path to resolve nested dictionaries
-        let path: DictPathEntry[] = [];
-        let curNode: ParseNode | undefined = parseNode;
-
-        while (curNode && curNode.id !== baseExpressionNode.id) {
-            // List is here as it is a supported container type
-            if (
-                curNode.nodeType === ParseNodeType.Dictionary ||
-                curNode.nodeType === ParseNodeType.Set ||
-                curNode.nodeType === ParseNodeType.List
-            ) {
-                if (
-                    curNode.parent?.nodeType === ParseNodeType.DictionaryKeyEntry &&
-                    curNode.parent?.keyExpression.nodeType === ParseNodeType.StringList
-                ) {
-                    path.push({
-                        entry: curNode.parent,
-                        key: curNode.parent.keyExpression.strings.map((s) => s.value).join(''),
-                    });
-                }
-            }
-
-            curNode = curNode.parent;
-        }
-
-        path = path.reverse();
-        const types = this._getTypedDictsRecursive(baseExpressionNode, parseNode, type, path);
-        const keys = this._getDictExpressionStringKeys(parseNode, new Set([parseNode.parent?.id]));
-        return this._tryNarrowTypedDicts(types, keys);
-
-        function tokenIsAtKey(provider: CompletionProvider): boolean {
-            // this function is only designed return true for states that
-            // are discarded by the parse tree, for example:
-            // {'foo': 'bar', '|}
-            const offset = convertPositionToOffset(provider._position, provider._parseResults.tokenizerOutput.lines)!;
-            const tokens = provider._parseResults.tokenizerOutput.tokens;
-            const index = tokens.getItemAtPosition(offset);
-            const token = tokens.getItemAt(index);
-            const prevToken = tokens.getItemAt(index - 1);
-            return token.type === TokenType.String && prevToken.type === TokenType.Comma;
-        }
-    }
-
-    private _getTypedDictsRecursive(
-        rootExpressionNode: ExpressionNode,
-        parseNode: ParseNode,
-        type: ClassType | UnionType,
-        path: DictPathEntry[]
-    ): ClassType[] {
-        const [expressionNode, typedDicts] = _resolveTypedDicts(type, rootExpressionNode, parseNode);
-        if (typedDicts.length === 0) {
-            return [];
-        }
-
-        if (
-            expressionNode.nodeType === ParseNodeType.Set &&
-            expressionNode.entries.length === 1 &&
-            expressionNode.entries[0].nodeType === ParseNodeType.StringList
-        ) {
-            // if the current expression looks like {''} then it is parsed as a set, however we
-            // should still add completions as it _could_ be a dictionary.
-            return typedDicts;
-        }
-
-        if (expressionNode.nodeType !== ParseNodeType.Dictionary) {
-            return [];
-        }
-
-        if (expressionNode.entries.length === 0 || path.length === 0) {
-            // no keys or nested dictionaries
-            return typedDicts;
-        }
-
-        const item = path.shift()!;
-
-        return typedDicts.flatMap((typedDict) => {
-            const members = getTypedDictMembersForClass(this._evaluator, typedDict, true);
-            const entry = members.get(item.key);
-            if (entry && (isClassInstance(entry.valueType) || isUnion(entry.valueType))) {
-                return this._getTypedDictsRecursive(item.entry.valueExpression, parseNode, entry.valueType, path);
-            }
-
-            return [];
-        });
-
-        function _resolveTypedDicts(
-            type: ClassType | UnionType,
-            expressionNode: ExpressionNode,
-            parseNode: ParseNode
-        ): [ExpressionNode, ClassType[]] {
-            let types: Type[] = [];
-            if (isUnion(type)) {
-                types = type.subtypes;
-            } else {
-                types = [type];
-            }
-
-            const typeNames = new Set<String>();
-            const typedDicts: ClassType[] = [];
-            let newExpression = expressionNode;
-
-            for (let index = 0; index < types.length; index++) {
-                const subtype = types[index];
-
-                if (
-                    isClassInstance(subtype) &&
-                    ClassType.isBuiltIn(subtype, 'list') &&
-                    subtype.typeArguments !== undefined
-                ) {
-                    if (expressionNode.nodeType !== ParseNodeType.List) {
-                        continue;
-                    }
-
-                    const entryNode = _resolveChild(parseNode, expressionNode.id);
-                    if (entryNode.id === expressionNode.id || !isExpressionNode(entryNode)) {
-                        continue;
-                    }
-
-                    newExpression = entryNode;
-                    subtype.typeArguments.forEach((typeArg) => {
-                        doForEachSubtype(typeArg, (subtype) => {
-                            maybeAdd(subtype);
-                        });
-                    });
-                } else {
-                    maybeAdd(subtype);
-                }
-            }
-
-            return [newExpression, typedDicts];
-
-            function maybeAdd(newType: Type) {
-                if (
-                    isClassInstance(newType) &&
-                    ClassType.isTypedDictClass(newType) &&
-                    !typeNames.has(newType.details.fullName)
-                ) {
-                    typedDicts.push(newType);
-                    typeNames.add(newType.details.fullName);
-                }
-            }
-
-            function _resolveChild(parseNode: ParseNode, targetId: number) {
-                // traverse parent nodes until the targetId is reached, returning the last parent node.
-                // this is useful for resolving the corresponding entry node
-                // in a list of nested dictionaries, e.g.
-                // [{'a': 'b'}, {'c': {'d': '|'}}] -> {'c': {'d': '|'}}
-                let curNode: ParseNode | undefined = parseNode;
-                let prevNode: ParseNode = parseNode;
-
-                while (curNode && curNode.id !== targetId) {
-                    prevNode = curNode;
-                    curNode = curNode.parent;
-
-                    if (!curNode) {
-                        break;
-                    }
-                }
-
-                return prevNode;
-            }
-        }
-    }
-
-    private _tryNarrowTypedDicts(types: ClassType[], keys: string[]): ClassType[] {
-        const newTypes = types.flatMap((type) => {
-            const entries = getTypedDictMembersForClass(this._evaluator, type, /* allowNarrowed */ true);
-
-            for (let index = 0; index < keys.length; index++) {
-                if (!entries.has(keys[index])) {
-                    return [];
-                }
-            }
-
-            return [type];
-        });
-
-        if (newTypes.length === 0) {
-            // couldn't narrow to any typed dicts, just include all
-            return types;
-        }
-
-        return newTypes;
     }
 
     private _getDictExpressionStringKeys(parseNode: ParseNode, excludeIds?: Set<number | undefined>) {
@@ -1724,37 +1471,6 @@ export class CompletionProvider {
 
             return curNode;
         }
-    }
-
-    private _isInDictionaryStringKey(parseNode: ParseNode): boolean {
-        if (parseNode.nodeType === ParseNodeType.Dictionary) {
-            return true;
-        }
-
-        if (parseNode.nodeType === ParseNodeType.Set && parseNode.entries.length < 2) {
-            if (parseNode.entries.length === 1) {
-                return parseNode.entries[0].nodeType === ParseNodeType.StringList;
-            }
-            return true;
-        }
-
-        const stringNode =
-            parseNode.nodeType === ParseNodeType.String && parseNode.parent?.nodeType === ParseNodeType.StringList
-                ? parseNode.parent
-                : null;
-        if (!stringNode) {
-            return false;
-        }
-
-        if (stringNode.parent?.nodeType === ParseNodeType.DictionaryKeyEntry) {
-            return stringNode.parent.keyExpression.id === stringNode.id;
-        }
-
-        if (stringNode.parent?.nodeType === ParseNodeType.Set) {
-            return stringNode.parent.entries.length === 1 && stringNode.parent.entries[0].id === stringNode.id;
-        }
-
-        return false;
     }
 
     private _getSubTypesWithLiteralValues(type: Type) {
@@ -1923,10 +1639,12 @@ export class CompletionProvider {
                     priorText,
                     priorWord,
                     postText,
-                    undefined /* TODO: base expression node */,
-                    parseNode,
                     completionList
                 );
+                return { completionList };
+            }
+
+            if (this._tryAddTypedDictKeys(parseNode, priorText, postText, completionList)) {
                 return { completionList };
             }
         }
@@ -1992,6 +1710,147 @@ export class CompletionProvider {
         }
 
         return { completionList };
+    }
+
+    private _tryAddTypedDictKeys(
+        parseNode: ParseNode,
+        priorText: string,
+        postText: string,
+        completionList: CompletionList
+    ) {
+        // TODO: cleanup
+        const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
+        const tokens = this._parseResults.tokenizerOutput.tokens;
+        const index = tokens.getItemAtPosition(offset);
+        if (index === 0) {
+            return false;
+        }
+
+        const token = tokens.getItemAt(index);
+        const prevToken = tokens.getItemAt(index - 1);
+
+        if (parseNode.nodeType === ParseNodeType.Dictionary) {
+            return this._addTypedDictKeys(parseNode, /* stringNode */ null, priorText, postText, completionList);
+        }
+
+        if (parseNode.nodeType === ParseNodeType.String && parseNode.parent?.nodeType === ParseNodeType.StringList) {
+            // this handles states like {'foo': 'bar', '|'}
+            if (
+                parseNode.token.start !== token.start &&
+                token.type === TokenType.String &&
+                prevToken.type === TokenType.Comma &&
+                parseNode.parent?.parent?.nodeType === ParseNodeType.DictionaryKeyEntry &&
+                parseNode.parent?.parent?.parent?.nodeType === ParseNodeType.Dictionary
+            ) {
+                return this._addTypedDictKeys(
+                    parseNode.parent.parent.parent,
+                    parseNode,
+                    priorText,
+                    postText,
+                    completionList
+                );
+            }
+
+            if (
+                parseNode.parent?.parent?.nodeType === ParseNodeType.DictionaryKeyEntry &&
+                parseNode.parent?.parent?.keyExpression.id === parseNode.parent?.id &&
+                parseNode.parent?.parent?.parent?.nodeType === ParseNodeType.Dictionary
+            ) {
+                return this._addTypedDictKeys(
+                    parseNode.parent.parent.parent,
+                    parseNode,
+                    priorText,
+                    postText,
+                    completionList
+                );
+            } else if (
+                parseNode.parent?.parent?.nodeType === ParseNodeType.Set &&
+                parseNode.parent?.parent?.entries.length === 1
+            ) {
+                return this._addTypedDictKeys(parseNode.parent.parent, parseNode, priorText, postText, completionList);
+            }
+        }
+
+        return false;
+    }
+
+    private _addTypedDictKeys(
+        dictionaryNode: DictionaryNode | SetNode,
+        stringNode: StringNode | null,
+        priorText: string,
+        postText: string,
+        completionList: CompletionList
+    ) {
+        const expectedTypeResult = this._evaluator.getExpectedType(dictionaryNode);
+        if (!expectedTypeResult) {
+            return false;
+        }
+
+        let typedDicts: ClassType[] = [];
+
+        doForEachSubtype(expectedTypeResult.type, (subtype) => {
+            if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
+                typedDicts.push(subtype);
+            }
+        });
+
+        if (typedDicts.length === 0) {
+            return false;
+        }
+
+        const keys = this._getDictExpressionStringKeys(
+            dictionaryNode,
+            stringNode ? new Set([stringNode.parent?.id]) : undefined
+        );
+        typedDicts = this._tryNarrowTypedDicts(typedDicts, keys);
+
+        const quoteValue = this._getQuoteValueFromPriorText(priorText);
+        const excludes = new Set(completionList.items.map((i) => i.label));
+        keys.forEach((key) => {
+            excludes.add(key);
+        });
+        typedDicts.forEach((typedDict) => {
+            getTypedDictMembersForClass(this._evaluator, typedDict, /* allowNarrowed */ true).forEach((_, key) => {
+                // unions of TypedDicts may define the same key
+                if (excludes.has(key)) {
+                    return;
+                }
+                excludes.add(key);
+
+                this._addStringLiteralToCompletionList(
+                    key,
+                    quoteValue ? quoteValue.stringValue : undefined,
+                    postText,
+                    quoteValue
+                        ? quoteValue.quoteCharacter
+                        : this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter,
+                    completionList
+                );
+            });
+        });
+
+        return true;
+    }
+
+    private _tryNarrowTypedDicts(types: ClassType[], keys: string[]): ClassType[] {
+        const newTypes = types.flatMap((type) => {
+            const entries = getTypedDictMembersForClass(this._evaluator, type, /* allowNarrowed */ true);
+
+            for (let index = 0; index < keys.length; index++) {
+                if (!entries.has(keys[index])) {
+                    return [];
+                }
+            }
+
+            return [type];
+        });
+
+        if (newTypes.length === 0) {
+            // couldn't narrow to any typed dicts, just include all
+            return types;
+        }
+
+        return newTypes;
     }
 
     // Given a string of text that precedes the current insertion point,

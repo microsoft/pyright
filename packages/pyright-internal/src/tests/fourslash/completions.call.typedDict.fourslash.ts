@@ -77,11 +77,6 @@
         },
         marker3: {
             completions: [
-                // TODO: this first completion is a bug
-                {
-                    label: 'movie=',
-                    kind: Consts.CompletionItemKind.Variable,
-                },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
@@ -91,11 +86,6 @@
         },
         marker4: {
             completions: [
-                // TODO: this first completion is a bug
-                {
-                    label: 'movie=',
-                    kind: Consts.CompletionItemKind.Variable,
-                },
                 {
                     label: "'age'",
                     kind: Consts.CompletionItemKind.Constant,
