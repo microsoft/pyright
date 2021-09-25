@@ -1113,7 +1113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* allowSpeculativeCaching */ true
             );
 
-            if (expectedType) {
+            if (expectedType && !isAnyOrUnknown(expectedType)) {
                 expectedTypeCache.set(node.id, expectedType);
             }
         }
