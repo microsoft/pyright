@@ -3730,6 +3730,12 @@ export class Parser {
                 assert(keyExpression !== undefined);
                 if (keyExpression) {
                     if (isDictionary) {
+                        const missingValueErrorNode = ErrorNode.create(
+                            this._peekToken(),
+                            ErrorExpressionCategory.MissingDictValue
+                        );
+                        const keyEntryNode = DictionaryKeyEntryNode.create(keyExpression, missingValueErrorNode);
+                        dictionaryEntries.push(keyEntryNode);
                         this._addError(Localizer.Diagnostic.dictKeyValuePairs(), keyExpression);
                     } else {
                         const listComp = this._tryParseListComprehension(keyExpression);
