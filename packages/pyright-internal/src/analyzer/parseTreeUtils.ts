@@ -1390,9 +1390,9 @@ export function getCallNodeAndActiveParameterIndex(
 
     function isOffsetInsideCallArgs(node: CallNode, offset: number) {
         let found = true;
-        const argmentStart =
+        const argumentStart =
             node.leftExpression.length > 0 ? TextRange.getEnd(node.leftExpression) - 1 : node.leftExpression.start;
-        const index = tokens.getItemAtPosition(argmentStart);
+        const index = tokens.getItemAtPosition(argumentStart);
         if (index >= 0 && index + 1 < tokens.count) {
             const token = tokens.getItemAt(index + 1);
             if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
