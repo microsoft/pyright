@@ -1,4 +1,4 @@
-# This sample tests the use of a generic property class.
+# This sample tests the use of a generic descriptor class.
 
 from typing import Any, Callable, Generic, Literal, Optional, Type, TypeVar, overload
 
@@ -72,4 +72,4 @@ class B:
 
 b = B()
 t_b1: Literal["str"] = reveal_type(b.foo)
-t_b2: Literal["Minimal[B, str]"] = reveal_type(B.foo)
+t_b2: Literal["Minimal[~B, str]"] = reveal_type(B.foo)

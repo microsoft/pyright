@@ -297,3 +297,29 @@ def add_one(value: _StrOrFloat) -> _StrOrFloat:
 ```
 
 Notice that the type of variable `sum` is reported with asterisks (`*`). This indicates that internally the type checker is tracking the type as conditional. In this particular example, it indicates that `sum` is a `str` type if the parameter `value` is a `str` but is a `float` if `value` is a `float`. By tracking these conditional types, the type checker can verify that the return type is consistent with the return type `_StrOrFloat`.
+
+
+### Inferred type of self and cls parameters
+
+When a type annotation for a method’s `self` or `cls` parameter is omitted, pyright will infer its type based on the class that contains the method. The inferred type is internally represented as a type variable that is bound to the class.
+
+Within the function, the type of `self` is printed with a tilde preceding the class name. This indicates that the type is a TypeVar bound to the class rather than the class itself. Outside of the function, this TypeVar is resolved based on the usage.
+
+```python
+class Parent:
+    def method1(self):
+        reveal_type(self)  # ~Parent
+        return self
+    
+    @classmethod
+    def method2(cls):
+        reveal_type(cls)  # Type[~Parent]
+        return cls
+
+class Child(Parent):
+     ...
+    
+reveal_type(Child().method1())  # Child
+reveal_type(Child.method2())  # Type[Child]
+```
+
