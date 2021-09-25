@@ -944,11 +944,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Await: {
-                typeResult = getTypeOfExpression(node.expression, undefined, flags);
+                const exprTypeResult = getTypeOfExpression(node.expression, undefined, flags);
                 typeResult = {
-                    type: getTypeFromAwaitable(typeResult.type, node.expression),
+                    type: getTypeFromAwaitable(exprTypeResult.type, node.expression),
                     node,
                 };
+
+                if (exprTypeResult.isIncomplete) {
+                    typeResult.isIncomplete = true;
+                }
                 break;
             }
 
