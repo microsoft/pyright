@@ -285,6 +285,13 @@ export class TestState {
         return this.convertPositionRange(range);
     }
 
+    expandPositionRange(range: PositionRange, start: number, end: number) {
+        return {
+            start: { line: range.start.line, character: range.start.character - start },
+            end: { line: range.end.line, character: range.end.character + end },
+        };
+    }
+
     convertPositionRange(range: Range) {
         return this.convertOffsetsToRange(range.fileName, range.pos, range.end);
     }
