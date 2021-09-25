@@ -38,6 +38,7 @@ import {
     SuiteNode,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
+import { ParseResults } from '../parser/parser';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
@@ -1887,4 +1888,22 @@ function _getEndPositionIfMultipleStatementsAreOnSameLine(
     }
 
     return undefined;
+}
+
+export function getTokenAt(parseResults: ParseResults, position: Position) {
+    const tokens = parseResults.tokenizerOutput.tokens;
+    const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines)!;
+    const index = tokens.getItemAtPosition(offset);
+    return tokens.getItemAt(index);
+}
+
+export function getPreviousToken(parseResults: ParseResults, token: Token) {
+    const tokens = parseResults.tokenizerOutput.tokens;
+    const tokenIndex = tokens.getItemAtPosition(token.start + 1);
+
+    if (tokenIndex === 0) {
+        return undefined;
+    }
+
+    return tokens.getItemAt(tokenIndex - 1);
 }

@@ -1683,26 +1683,19 @@ export class CompletionProvider {
         completionList: CompletionList
     ) {
         // TODO: cleanup
-        const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
-        const tokens = this._parseResults.tokenizerOutput.tokens;
-        const index = tokens.getItemAtPosition(offset);
-        if (index === 0) {
-            return false;
-        }
-
-        const token = tokens.getItemAt(index);
-        const prevToken = tokens.getItemAt(index - 1);
-
         if (parseNode.nodeType === ParseNodeType.Dictionary) {
             return this._addTypedDictKeys(parseNode, /* stringNode */ null, priorText, postText, completionList);
         }
+
+        const token = ParseTreeUtils.getTokenAt(this._parseResults, this._position);
+        const prevToken = ParseTreeUtils.getPreviousToken(this._parseResults, token);
 
         if (parseNode.nodeType === ParseNodeType.String && parseNode.parent?.nodeType === ParseNodeType.StringList) {
             // this handles states like {'foo': 'bar', '|'}
             if (
                 parseNode.token.start !== token.start &&
                 token.type === TokenType.String &&
-                prevToken.type === TokenType.Comma &&
+                prevToken?.type === TokenType.Comma &&
                 parseNode.parent?.parent?.nodeType === ParseNodeType.DictionaryKeyEntry &&
                 parseNode.parent?.parent?.parent?.nodeType === ParseNodeType.Dictionary
             ) {
