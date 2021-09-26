@@ -64,8 +64,15 @@ def f7(v1: _T_Bound):
     ...
 
 
-# Bound TypeVars as type arguments are exempt.
+# Bound TypeVars as type arguments are exempt when used in an
+# input parameter annotation.
 def f8(v1: List[_T_Bound]):
+    ...
+
+
+# Bound TypeVars as type arguments are not exempt when used in a
+# return annotation.
+def f9() -> List[_T_Bound]:
     ...
 
 
@@ -73,5 +80,5 @@ def f8(v1: List[_T_Bound]):
 MyCallable = Callable[[_T], _T]
 
 
-def f9() -> MyCallable[_T]:
+def f10() -> MyCallable[_T]:
     ...

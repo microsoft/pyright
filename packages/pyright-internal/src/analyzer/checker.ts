@@ -1325,6 +1325,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const localTypeVarUsage = new Map<string, LocalTypeVarInfo>();
+        let exemptBoundTypeVar = true;
 
         const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode, subscriptIndex, baseExpression) => {
             const nameType = this._evaluator.getType(nameNode);
@@ -1336,7 +1337,9 @@ export class Checker extends ParseTreeWalker {
                     // instances in these particular cases.
                     let isExempt =
                         nameType.details.constraints.length > 0 ||
-                        (nameType.details.boundType !== undefined && subscriptIndex !== undefined) ||
+                        (exemptBoundTypeVar &&
+                            nameType.details.boundType !== undefined &&
+                            subscriptIndex !== undefined) ||
                         isParamSpec(nameType);
 
                     if (!isExempt && baseExpression && subscriptIndex !== undefined) {
@@ -1374,6 +1377,10 @@ export class Checker extends ParseTreeWalker {
         });
 
         if (node.returnTypeAnnotation) {
+            // Don't exempt the use of a bound TypeVar when used as a type argument
+            // within a return type. This exemption applies only to input parameter
+            // annotations.
+            exemptBoundTypeVar = false;
             nameWalker.walk(node.returnTypeAnnotation);
         }
 
