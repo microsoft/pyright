@@ -325,11 +325,11 @@ LATEST_VERSION: Final[Tuple[int, int]] = (4, 5)
 ```
 
 ### Typed Dictionaries, Data Classes, and Named Tuples
-If your library runs only on newer versions of Python, you are encouraged to use some of the new type-friendly classes.
+If a library runs only on newer versions of Python, it can use some of the new type-friendly classes.
 
 NamedTuple (described in [PEP 484](https://www.python.org/dev/peps/pep-0484/)) is preferred over namedtuple.
 
-Data classes (described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) is preferred over untyped dictionaries.
+Data classes (described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) are preferred over untyped dictionaries.
 
 TypedDict (described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is preferred over untyped dictionaries.
 
@@ -351,7 +351,7 @@ def get_config(self) -> "OrderedDict[str, str]":
 ### Type Comment Annotations
 Python 3.0 introduced syntax for parameter and return type annotations, as specified in [PEP 484](https://www.python.org/dev/peps/pep-0484/). Python 3.6 introduced support for variable type annotations, as specified in [PEP 526](https://www.python.org/dev/peps/pep-0526/).
 
-If you need to support older versions of Python, type annotations can still be provided as “type comments”. These comments take the form # type: <annotation>.
+If you need to support older versions of Python, type annotations can still be provided as “type comments”. These comments take the form `# type: <annotation>`.
 
 ```python
 class Foo:
@@ -390,7 +390,7 @@ Type annotations provide a way to annotate typical type behaviors, but some clas
 
 
 ## Docstrings
-Docstrings should be provided for all classes, functions, and methods in the interface. They should be formatted according to [PEP 257](https://www.python.org/dev/peps/pep-0257/).
+It is recommended that docstrings be provided for all classes, functions, and methods in the interface. They should be formatted according to [PEP 257](https://www.python.org/dev/peps/pep-0257/).
 
 There is currently no single agreed-upon standard for function and method docstrings, but several common variants have emerged. We recommend using one of these variants.
 
