@@ -3214,6 +3214,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         setSymbolAccessed(fileInfo, outerScopeSymbol.symbol, node);
                     }
                 }
+
+                if (!codeFlowTypeResult.type && symbolWithScope.isBeyondExecutionScope) {
+                    const outerScopeTypeResult = getCodeFlowTypeForCapturedVariable(
+                        node,
+                        symbolWithScope,
+                        effectiveType
+                    );
+
+                    if (outerScopeTypeResult?.type) {
+                        type = outerScopeTypeResult.type;
+                    }
+
+                    if (outerScopeTypeResult?.isIncomplete) {
+                        isIncomplete = true;
+                    }
+                }
             }
 
             // Detect, report, and fill in missing type arguments if appropriate.
@@ -3323,6 +3339,84 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return { type, node, isIncomplete };
+    }
+
+    // Handles the case where a variable or parameter is defined in an outer
+    // scope and captured by an inner scope (either a function or a lambda).
+    function getCodeFlowTypeForCapturedVariable(
+        node: NameNode,
+        symbolWithScope: SymbolWithScope,
+        effectiveType: Type
+    ): FlowNodeTypeResult | undefined {
+        // This function applies only to variables and parameters, not to other
+        // types of symbols.
+        if (
+            !symbolWithScope.symbol
+                .getDeclarations()
+                .every((decl) => decl.type === DeclarationType.Variable || decl.type === DeclarationType.Parameter)
+        ) {
+            return undefined;
+        }
+
+        // If the symbol is a variable captured by an inner function
+        // or lambda, see if we can infer the type from the outer scope.
+        const scopeHierarchy = ScopeUtils.getScopeHierarchy(node, symbolWithScope.scope);
+
+        // Handle the case where all of the nested scopes are functions,
+        // lambdas and modules. Don't allow other types of scopes.
+        if (
+            scopeHierarchy &&
+            scopeHierarchy.length >= 2 &&
+            scopeHierarchy.every((s) => s.type === ScopeType.Function || s.type === ScopeType.Module)
+        ) {
+            // Find the parse node associated with the scope that is just inside of the
+            // scope that declares the captured variable.
+            const innerScopeNode = ScopeUtils.findTopNodeInScope(node, scopeHierarchy[scopeHierarchy.length - 2]);
+            if (
+                innerScopeNode &&
+                (innerScopeNode.nodeType === ParseNodeType.Function || innerScopeNode.nodeType === ParseNodeType.Lambda)
+            ) {
+                const innerScopeCodeFlowNode = AnalyzerNodeInfo.getFlowNode(innerScopeNode);
+                if (innerScopeCodeFlowNode) {
+                    // See if any of the assignments of the symbol are reachable
+                    // from this node. If so, we cannot apply any narrowing because
+                    // the type could change after the capture.
+                    if (
+                        symbolWithScope.symbol.getDeclarations().every((decl) => {
+                            // Parameter declarations always start life at the beginning
+                            // of the execution scope, so they are always safe to narrow.
+                            if (decl.type === DeclarationType.Parameter) {
+                                return true;
+                            }
+
+                            const declCodeFlowNode = AnalyzerNodeInfo.getFlowNode(decl.node);
+                            if (!declCodeFlowNode) {
+                                return false;
+                            }
+
+                            // Functions and lambdas do not create a new flow node, so it's
+                            // possible that they share the flow node of the declaration. In this
+                            // case, the declaration must come before, so it's safe.
+                            if (declCodeFlowNode === innerScopeCodeFlowNode) {
+                                return true;
+                            }
+
+                            return !isFlowNodeReachable(declCodeFlowNode, innerScopeCodeFlowNode);
+                        })
+                    ) {
+                        return getFlowTypeOfReference(
+                            node,
+                            symbolWithScope.symbol.id,
+                            effectiveType,
+                            /* isInitialTypeIncomplete */ false,
+                            innerScopeNode
+                        );
+                    }
+                }
+            }
+        }
+
+        return undefined;
     }
 
     // Validates that a TypeVar is valid in this context. If so, it clones it
@@ -14756,16 +14850,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Attempts to determine the type of the reference expression at the
     // point in the code. If the code flow analysis has nothing to say
-    // about that expression, it return undefined.
+    // about that expression, it return undefined. Normally flow analysis
+    // starts from the reference node, but startNode can be specified to
+    // override this in a few special cases (functions and lambdas) to
+    // support analysis of captured variables.
     function getFlowTypeOfReference(
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
         initialType: Type | undefined,
-        isInitialTypeIncomplete: boolean
+        isInitialTypeIncomplete: boolean,
+        startNode?: FunctionNode | LambdaNode
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
         const referenceKey = createKeyForReference(reference);
-        const executionNode = ParseTreeUtils.getExecutionScopeNode(reference);
+        const executionNode = ParseTreeUtils.getExecutionScopeNode(startNode?.parent ?? reference);
         const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionNode);
 
         if (!codeFlowExpressions || !codeFlowExpressions.has(referenceKey)) {
@@ -14785,7 +14883,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             analyzer = getCodeFlowAnalyzerForNode(executionNode.id);
         }
 
-        const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
+        const flowNode = AnalyzerNodeInfo.getFlowNode(startNode ?? reference);
         if (flowNode === undefined) {
             return { type: undefined, usedOuterScopeAlias: false, isIncomplete: false };
         }

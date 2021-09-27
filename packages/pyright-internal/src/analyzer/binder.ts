@@ -411,6 +411,8 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitFunction(node: FunctionNode): boolean {
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const functionDeclaration: FunctionDeclaration = {
@@ -539,6 +541,8 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitLambda(node: LambdaNode): boolean {
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+
         // Analyze the parameter defaults in the context of the parent's scope
         // before we add any names from the function's scope.
         node.parameters.forEach((param) => {

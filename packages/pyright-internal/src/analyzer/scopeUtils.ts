@@ -30,3 +30,52 @@ export function getScopeForNode(node: ParseNode): Scope | undefined {
     const scopeNode = getEvaluationScopeNode(node);
     return getScope(scopeNode);
 }
+
+// Returns a list of scopes associated with the node and its ancestor nodes.
+// If stopScope is provided, the search will stop at that scope.
+// Returns undefined if stopScope is not found.
+export function getScopeHierarchy(node: ParseNode, stopScope?: Scope): Scope[] | undefined {
+    const scopeHierarchy: Scope[] = [];
+    let curNode: ParseNode | undefined = node;
+
+    while (curNode) {
+        const curScope = getScopeForNode(curNode);
+
+        if (!curScope) {
+            return undefined;
+        }
+
+        if (scopeHierarchy.length === 0 || scopeHierarchy[scopeHierarchy.length - 1] !== curScope) {
+            scopeHierarchy.push(curScope);
+        }
+
+        if (curScope === stopScope) {
+            return scopeHierarchy;
+        }
+
+        curNode = curNode.parent;
+    }
+
+    return stopScope ? undefined : scopeHierarchy;
+}
+
+// Walks up the parse tree from the specified node to find the top-most node
+// that is within specified scope.
+export function findTopNodeInScope(node: ParseNode, scope: Scope): ParseNode | undefined {
+    let curNode: ParseNode | undefined = node;
+    let prevNode: ParseNode | undefined;
+    let foundScope = false;
+
+    while (curNode) {
+        if (getScope(curNode) === scope) {
+            foundScope = true;
+        } else if (foundScope) {
+            return prevNode;
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
