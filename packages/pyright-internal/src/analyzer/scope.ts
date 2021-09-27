@@ -54,8 +54,8 @@ export interface SymbolWithScope {
 
     // Indicates that the recursion needed to proceed
     // to a scope that is beyond the current execution
-    // scope. An execution scope is defined as a function
-    // or a module. Classes are not considered execution
+    // scope. An execution scope is defined as a function,
+    // module, or lambda. Classes are not considered execution
     // scopes because they are "executed" immediately as
     // part of the scope in which they are contained.
     isBeyondExecutionScope: boolean;
