@@ -115,7 +115,7 @@ import { isExplicitTypeAliasDeclaration, isPossibleTypeAliasDeclaration } from '
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, narrowTypeBasedOnPattern } from './patternMatching';
-import { Scope, ScopeType } from './scope';
+import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
@@ -14765,15 +14765,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
         const referenceKey = createKeyForReference(reference);
-        const executionScope = ParseTreeUtils.getExecutionScopeNode(reference);
-        const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionScope);
+        const executionNode = ParseTreeUtils.getExecutionScopeNode(reference);
+        const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionNode);
 
         if (!codeFlowExpressions || !codeFlowExpressions.has(referenceKey)) {
             return { type: undefined, usedOuterScopeAlias: false, isIncomplete: false };
         }
 
         // Is there an code flow analyzer cached for this execution scope?
-        const executionNode = ParseTreeUtils.getExecutionScopeNode(reference);
         let analyzer: CodeFlowAnalyzer | undefined;
 
         if (isNodeInReturnTypeInferenceContext(executionNode)) {
@@ -16035,7 +16034,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return nameType;
     }
 
-    function lookUpSymbolRecursive(node: ParseNode, name: string, honorCodeFlow: boolean) {
+    function lookUpSymbolRecursive(node: ParseNode, name: string, honorCodeFlow: boolean): SymbolWithScope | undefined {
         const scope = ScopeUtils.getScopeForNode(node);
         let symbolWithScope = scope?.lookUpSymbolRecursive(name);
 
