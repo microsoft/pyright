@@ -10,19 +10,17 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
-import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
+import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
-import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { DocumentSymbolCollector } from './documentSymbolCollector';
 
 export type ReferenceCallback = (locations: DocumentRange[]) => void;
 
@@ -54,9 +52,7 @@ export class ReferencesResult {
     }
 }
 
-export class FindReferencesTreeWalker extends ParseTreeWalker {
-    private readonly _locationsFound: DocumentRange[] = [];
-
+export class FindReferencesTreeWalker {
     constructor(
         private _parseResults: ParseResults,
         private _filePath: string,
@@ -64,91 +60,93 @@ export class FindReferencesTreeWalker extends ParseTreeWalker {
         private _includeDeclaration: boolean,
         private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken
-    ) {
-        super();
-    }
+    ) {}
 
     findReferences(rootNode = this._parseResults.parseTree) {
-        this.walk(rootNode);
+        const collector = new DocumentSymbolCollector(
+            this._referencesResult.symbolName,
+            this._referencesResult.declarations,
+            this._evaluator,
+            this._cancellationToken,
+            rootNode,
+            /* treat module in import and from import same */ true
+        );
 
-        return this._locationsFound;
-    }
-
-    override walk(node: ParseNode) {
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
-            super.walk(node);
-        }
-    }
-
-    override visitModuleName(node: ModuleNameNode): boolean {
-        // Don't ever look for references within a module name.
-        return false;
-    }
-
-    override visitName(node: NameNode): boolean {
-        throwIfCancellationRequested(this._cancellationToken);
-
-        // No need to do any more work if the symbol name doesn't match.
-        if (node.value !== this._referencesResult.symbolName) {
-            return false;
-        }
-
-        const declarations = this._evaluator.getDeclarationsForNameNode(node);
-
-        if (declarations && declarations.length > 0) {
-            // Does this name share a declaration with the symbol of interest?
-            if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
-                // Is it the same symbol?
-                if (this._includeDeclaration || node !== this._referencesResult.nodeAtOffset) {
-                    this._locationsFound.push({
-                        path: this._filePath,
-                        range: {
-                            start: convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines),
-                            end: convertOffsetToPosition(
-                                TextRange.getEnd(node),
-                                this._parseResults.tokenizerOutput.lines
-                            ),
-                        },
-                    });
-                }
+        const results: DocumentRange[] = [];
+        for (const result of collector.collect()) {
+            // Is it the same symbol?
+            if (this._includeDeclaration || result.node !== this._referencesResult.nodeAtOffset) {
+                results.push({
+                    path: this._filePath,
+                    range: {
+                        start: convertOffsetToPosition(result.range.start, this._parseResults.tokenizerOutput.lines),
+                        end: convertOffsetToPosition(
+                            TextRange.getEnd(result.range),
+                            this._parseResults.tokenizerOutput.lines
+                        ),
+                    },
+                });
             }
         }
 
-        return true;
-    }
-
-    private _resultsContainsDeclaration(declaration: Declaration) {
-        // Resolve the declaration.
-        const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ false);
-        if (!resolvedDecl) {
-            return false;
-        }
-
-        // The reference results declarations are already resolved, so we don't
-        // need to call resolveAliasDeclaration on them.
-        if (
-            this._referencesResult.declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl, resolvedDecl))
-        ) {
-            return true;
-        }
-
-        // We didn't find the declaration using local-only alias resolution. Attempt
-        // it again by fully resolving the alias.
-        const resolvedDeclNonlocal = this._evaluator.resolveAliasDeclaration(
-            resolvedDecl,
-            /* resolveLocalNames */ true
-        );
-        if (!resolvedDeclNonlocal || resolvedDeclNonlocal === resolvedDecl) {
-            return false;
-        }
-
-        return this._referencesResult.declarations.some((decl) =>
-            DeclarationUtils.areDeclarationsSame(decl, resolvedDeclNonlocal)
-        );
+        return results;
     }
 }
 
 export class ReferencesProvider {
+    static getDeclarationForNode(
+        sourceMapper: SourceMapper,
+        filePath: string,
+        node: NameNode,
+        evaluator: TypeEvaluator,
+        reporter: ReferenceCallback | undefined,
+        token: CancellationToken
+    ) {
+        throwIfCancellationRequested(token);
+
+        const declarations = DocumentSymbolCollector.getDeclarationsForNode(
+            node,
+            evaluator,
+            /* resolveLocalNames */ false,
+            token,
+            sourceMapper
+        );
+
+        if (declarations.length === 0) {
+            return undefined;
+        }
+
+        // Does this symbol require search beyond the current file? Determine whether
+        // the symbol is declared within an evaluation scope that is within the current
+        // file and cannot be imported directly from other modules.
+        const requiresGlobalSearch = declarations.some((decl) => {
+            // If the declaration is outside of this file, a global search is needed.
+            if (decl.path !== filePath) {
+                return true;
+            }
+
+            const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
+
+            // If the declaration is at the module level or a class level, it can be seen
+            // outside of the current module, so a global search is needed.
+            if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) {
+                return true;
+            }
+
+            // If the name node is a member variable, we need to do a global search.
+            if (
+                decl.node?.parent?.nodeType === ParseNodeType.MemberAccess &&
+                decl.node === decl.node.parent.memberName
+            ) {
+                return true;
+            }
+
+            return false;
+        });
+
+        return new ReferencesResult(requiresGlobalSearch, node, node.value, declarations, reporter);
+    }
+
     static getDeclarationForPosition(
         sourceMapper: SourceMapper,
         parseResults: ParseResults,
@@ -175,76 +173,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        // Special case module names, which don't have references.
-        if (node.parent?.nodeType === ParseNodeType.ModuleName) {
-            return undefined;
-        }
-
-        const declarations = evaluator.getDeclarationsForNameNode(node);
-        if (!declarations) {
-            return undefined;
-        }
-
-        const resolvedDeclarations: Declaration[] = [];
-        declarations.forEach((decl) => {
-            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ false);
-            if (resolvedDecl) {
-                resolvedDeclarations.push(resolvedDecl);
-
-                if (isStubFile(resolvedDecl.path)) {
-                    const implDecls = sourceMapper.findDeclarations(resolvedDecl);
-                    for (const implDecl of implDecls) {
-                        if (implDecl && implDecl.path) {
-                            this._addIfUnique(resolvedDeclarations, implDecl);
-                        }
-                    }
-                }
-            }
-        });
-
-        if (resolvedDeclarations.length === 0) {
-            return undefined;
-        }
-
-        // Does this symbol require search beyond the current file? Determine whether
-        // the symbol is declared within an evaluation scope that is within the current
-        // file and cannot be imported directly from other modules.
-        const requiresGlobalSearch = resolvedDeclarations.some((decl) => {
-            // If the declaration is outside of this file, a global search is needed.
-            if (decl.path !== filePath) {
-                return true;
-            }
-
-            const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
-
-            // If the declaration is at the module level or a class level, it can be seen
-            // outside of the current module, so a global search is needed.
-            if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) {
-                return true;
-            }
-
-            // If the name node is a member variable, we need to do a global search.
-            if (
-                decl.node?.parent?.nodeType === ParseNodeType.MemberAccess &&
-                decl.node === decl.node.parent.memberName
-            ) {
-                return true;
-            }
-
-            return false;
-        });
-
-        return new ReferencesResult(requiresGlobalSearch, node, node.value, resolvedDeclarations, reporter);
-    }
-
-    private static _addIfUnique(declarations: Declaration[], itemToAdd: Declaration) {
-        for (const def of declarations) {
-            if (DeclarationUtils.areDeclarationsSame(def, itemToAdd)) {
-                return;
-            }
-        }
-
-        declarations.push(itemToAdd);
+        return this.getDeclarationForNode(sourceMapper, filePath, node, evaluator, reporter, token);
     }
 
     static addReferences(

@@ -711,7 +711,11 @@ export class AutoImporter {
             }
 
             // Does an 'import from' statement already exist?
-            if (importName && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
+            if (
+                importName &&
+                importStatement.node.nodeType === ParseNodeType.ImportFrom &&
+                !importStatement.node.isWildcardImport
+            ) {
                 // If so, see whether what we want already exist.
                 const importNode = importStatement.node.imports.find((i) => i.name.value === importName);
                 if (importNode) {
@@ -744,7 +748,7 @@ export class AutoImporter {
             // If it is the module itself that got imported, make sure we don't import it again.
             // ex) from module import submodule
             const imported = this._importStatements.orderedImports.find((i) => i.moduleName === moduleName);
-            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom) {
+            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.isWildcardImport) {
                 const importFrom = imported.node.imports.find((i) => i.name.value === importName);
                 if (importFrom) {
                     // For now, we don't check whether alias or moduleName got overwritten at

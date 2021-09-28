@@ -57,7 +57,7 @@ export function resolveAliasDeclaration(
         }
 
         let lookupResult: ImportLookupResult | undefined;
-        if (curDeclaration.path) {
+        if (curDeclaration.path && curDeclaration.loadSymbolsFromPath) {
             lookupResult = importLookup(curDeclaration.path);
         }
 

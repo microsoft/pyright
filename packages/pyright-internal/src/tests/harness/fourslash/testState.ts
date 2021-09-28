@@ -11,16 +11,23 @@ import assert from 'assert';
 import * as JSONC from 'jsonc-parser';
 import Char from 'typescript-char';
 import {
+    AnnotatedTextEdit,
     CancellationToken,
+    ChangeAnnotation,
     CodeAction,
     Command,
     CompletionItem,
+    CreateFile,
+    DeleteFile,
     Diagnostic,
     DocumentHighlight,
     DocumentHighlightKind,
     ExecuteCommandParams,
     MarkupContent,
     MarkupKind,
+    OptionalVersionedTextDocumentIdentifier,
+    RenameFile,
+    TextDocumentEdit,
     TextEdit,
     WorkspaceEdit,
 } from 'vscode-languageserver';
@@ -42,6 +49,7 @@ import {
     convertPathToUri,
     getBaseFileName,
     getFileExtension,
+    getFileSpec,
     normalizePath,
     normalizeSlashes,
 } from '../../../common/pathUtils';
@@ -60,7 +68,7 @@ import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import { TestAccessHost } from '../testAccessHost';
 import * as host from '../testHost';
 import { stringify } from '../utils';
-import { createFromFileSystem, distlibFolder, libFolder } from '../vfs/factory';
+import { createFromFileSystem, distlibFolder, libFolder, typeshedFolder } from '../vfs/factory';
 import * as vfs from '../vfs/filesystem';
 import { parseTestData } from './fourSlashParser';
 import {
@@ -130,7 +138,7 @@ export class TestState {
         const ignoreCase = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
 
         this._cancellationToken = new TestCancellationToken();
-        const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions);
+        const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions, mountPaths);
 
         const sourceFiles = [];
         const files: vfs.FileSet = {};
@@ -294,6 +302,10 @@ export class TestState {
 
     convertPositionRange(range: Range) {
         return this.convertOffsetsToRange(range.fileName, range.pos, range.end);
+    }
+
+    convertPathToUri(path: string) {
+        return convertPathToUri(this.fs, path);
     }
 
     goToPosition(positionOrLineAndColumn: number | Position) {
@@ -710,6 +722,158 @@ export class TestState {
             }
         }
         return commandResult;
+    }
+
+    protected verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit) {
+        if (actual.changes) {
+            this._verifyTextEditMap(expected.changes!, actual.changes);
+        } else {
+            assert(!expected.changes);
+        }
+
+        if (actual.documentChanges) {
+            this._verifyDocumentEdits(expected.documentChanges!, actual.documentChanges);
+        } else {
+            assert(!expected.documentChanges);
+        }
+
+        if (actual.changeAnnotations) {
+            this._verifyChangeAnnotations(expected.changeAnnotations!, actual.changeAnnotations);
+        } else {
+            assert(!expected.changeAnnotations);
+        }
+    }
+
+    private _verifyChangeAnnotations(
+        expected: { [id: string]: ChangeAnnotation },
+        actual: { [id: string]: ChangeAnnotation }
+    ) {
+        assert.strictEqual(Object.entries(expected).length, Object.entries(actual).length);
+
+        for (const key of Object.keys(expected)) {
+            const expectedAnnotation = expected[key];
+            const actualAnnotation = actual[key];
+
+            // We need to improve it to test localized strings.
+            assert.strictEqual(expectedAnnotation.label, actualAnnotation.label);
+            assert.strictEqual(expectedAnnotation.description, actualAnnotation.description);
+
+            assert.strictEqual(expectedAnnotation.needsConfirmation, actualAnnotation.needsConfirmation);
+        }
+    }
+
+    private _textDocumentAreSame(
+        expected: OptionalVersionedTextDocumentIdentifier,
+        actual: OptionalVersionedTextDocumentIdentifier
+    ) {
+        return expected.version === actual.version && expected.uri === actual.uri;
+    }
+
+    private _verifyDocumentEdits(
+        expected: (TextDocumentEdit | CreateFile | RenameFile | DeleteFile)[],
+        actual: (TextDocumentEdit | CreateFile | RenameFile | DeleteFile)[]
+    ) {
+        assert.strictEqual(expected.length, actual.length);
+
+        for (const op of expected) {
+            assert(
+                actual.some((a) => {
+                    const expectedKind = TextDocumentEdit.is(op) ? 'edit' : op.kind;
+                    const actualKind = TextDocumentEdit.is(a) ? 'edit' : a.kind;
+                    if (expectedKind !== actualKind) {
+                        return false;
+                    }
+
+                    switch (expectedKind) {
+                        case 'edit': {
+                            const expectedEdit = op as TextDocumentEdit;
+                            const actualEdit = a as TextDocumentEdit;
+
+                            if (!this._textDocumentAreSame(expectedEdit.textDocument, actualEdit.textDocument)) {
+                                return false;
+                            }
+
+                            return this._textEditsAreSame(expectedEdit.edits, actualEdit.edits);
+                        }
+                        case 'create': {
+                            const expectedOp = op as CreateFile;
+                            const actualOp = a as CreateFile;
+                            return (
+                                expectedOp.kind === actualOp.kind &&
+                                expectedOp.annotationId === actualOp.annotationId &&
+                                expectedOp.uri === actualOp.uri &&
+                                expectedOp.options?.ignoreIfExists === actualOp.options?.ignoreIfExists &&
+                                expectedOp.options?.overwrite === actualOp.options?.overwrite
+                            );
+                        }
+                        case 'rename': {
+                            const expectedOp = op as RenameFile;
+                            const actualOp = a as RenameFile;
+                            return (
+                                expectedOp.kind === actualOp.kind &&
+                                expectedOp.annotationId === actualOp.annotationId &&
+                                expectedOp.oldUri === actualOp.oldUri &&
+                                expectedOp.newUri === actualOp.newUri &&
+                                expectedOp.options?.ignoreIfExists === actualOp.options?.ignoreIfExists &&
+                                expectedOp.options?.overwrite === actualOp.options?.overwrite
+                            );
+                        }
+                        case 'delete': {
+                            const expectedOp = op as DeleteFile;
+                            const actualOp = a as DeleteFile;
+                            return (
+                                expectedOp.annotationId === actualOp.annotationId &&
+                                expectedOp.kind === actualOp.kind &&
+                                expectedOp.uri === actualOp.uri &&
+                                expectedOp.options?.ignoreIfNotExists === actualOp.options?.ignoreIfNotExists &&
+                                expectedOp.options?.recursive === actualOp.options?.recursive
+                            );
+                        }
+                        default:
+                            debug.assertNever(expectedKind);
+                    }
+                })
+            );
+        }
+    }
+
+    private _verifyTextEditMap(expected: { [uri: string]: TextEdit[] }, actual: { [uri: string]: TextEdit[] }) {
+        assert.strictEqual(Object.entries(expected).length, Object.entries(actual).length);
+
+        for (const key of Object.keys(expected)) {
+            assert(this._textEditsAreSame(expected[key], actual[key]));
+        }
+    }
+
+    private _textEditsAreSame(
+        expectedEdits: (TextEdit | AnnotatedTextEdit)[],
+        actualEdits: (TextEdit | AnnotatedTextEdit)[]
+    ) {
+        if (expectedEdits.length !== actualEdits.length) {
+            return false;
+        }
+
+        for (const edit of expectedEdits) {
+            if (actualEdits.some((a) => this._textEditAreSame(edit, a))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private _textEditAreSame(expected: TextEdit, actual: TextEdit) {
+        if (!rangesAreEqual(expected.range, actual.range)) {
+            return false;
+        }
+
+        if (expected.newText !== actual.newText) {
+            return false;
+        }
+
+        const expectedAnnotation = AnnotatedTextEdit.is(expected) ? expected.annotationId : '';
+        const actualAnnotation = AnnotatedTextEdit.is(actual) ? actual.annotationId : '';
+        return expectedAnnotation === actualAnnotation;
     }
 
     async verifyInvokeCodeAction(
@@ -1241,17 +1405,19 @@ export class TestState {
         return configFileNames.some((f) => comparer(getBaseFileName(file.fileName), f) === Comparison.EqualTo);
     }
 
-    private _convertGlobalOptionsToConfigOptions(globalOptions: CompilerSettings): ConfigOptions {
+    private _convertGlobalOptionsToConfigOptions(
+        globalOptions: CompilerSettings,
+        mountPaths?: Map<string, string>
+    ): ConfigOptions {
         const srtRoot: string = GlobalMetadataOptionNames.projectRoot;
         const projectRoot = normalizeSlashes(globalOptions[srtRoot] ?? vfs.MODULE_PATH);
         const configOptions = new ConfigOptions(projectRoot);
 
         // add more global options as we need them
-
-        return this._applyTestConfigOptions(configOptions);
+        return this._applyTestConfigOptions(configOptions, mountPaths);
     }
 
-    private _applyTestConfigOptions(configOptions: ConfigOptions) {
+    private _applyTestConfigOptions(configOptions: ConfigOptions, mountPaths?: Map<string, string>) {
         // Always enable "test mode".
         configOptions.internalTestMode = true;
 
@@ -1261,6 +1427,17 @@ export class TestState {
         // make sure we set typing path
         if (configOptions.stubPath === undefined) {
             configOptions.stubPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
+        }
+
+        configOptions.include.push(getFileSpec(configOptions.projectRoot, '.'));
+        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, typeshedFolder));
+        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, distlibFolder));
+        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, libFolder));
+
+        if (mountPaths) {
+            for (const mountPath of mountPaths.values()) {
+                configOptions.exclude.push(getFileSpec(configOptions.projectRoot, mountPath));
+            }
         }
 
         return configOptions;

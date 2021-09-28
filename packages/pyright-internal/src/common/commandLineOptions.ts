@@ -123,4 +123,7 @@ export class CommandLineOptions {
 
     // Minimum threshold for type eval logging
     typeEvaluationTimeThreshold = 50;
+
+    // Run ambient analysis
+    enableAmbientAnalysis = true;
 }

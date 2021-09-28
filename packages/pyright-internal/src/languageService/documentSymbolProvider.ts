@@ -352,7 +352,7 @@ function collectSymbolIndexData(
                 return;
             }
 
-            if (declaration.path.length <= 0) {
+            if (!declaration.loadSymbolsFromPath || declaration.path.length <= 0) {
                 // If alias doesn't have a path to the original file, we can't do dedup
                 // so ignore those aliases.
                 // ex) asyncio.futures, asyncio.base_futures.futures and many will dedup

@@ -154,3 +154,8 @@ export function getCharacterCount(value: string, ch: string) {
     }
     return result;
 }
+
+export function getLastDottedString(text: string) {
+    const index = text.lastIndexOf('.');
+    return index > 0 ? text.substring(index + 1) : text;
+}

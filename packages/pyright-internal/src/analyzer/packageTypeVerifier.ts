@@ -16,7 +16,7 @@ import { FullAccessHost } from '../common/fullAccessHost';
 import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension, tryStat } from '../common/pathUtils';
 import { getEmptyRange, Range } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
-import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
 import {
     AlternateSymbolNameMap,
     getEmptyReport,
@@ -180,12 +180,7 @@ export class PackageTypeVerifier {
     }
 
     private _resolveImport(moduleName: string) {
-        const moduleDescriptor: ImportedModuleDescriptor = {
-            leadingDots: 0,
-            nameParts: moduleName.split('.'),
-            importedSymbols: [],
-        };
-        return this._importResolver.resolveImport('', this._execEnv, moduleDescriptor);
+        return this._importResolver.resolveImport('', this._execEnv, createImportedModuleDescriptor(moduleName));
     }
 
     private _getPublicSymbolsForModule(
@@ -1147,13 +1142,11 @@ export class PackageTypeVerifier {
     }
 
     private _getDirectoryForPackage(packageName: string): string | undefined {
-        const moduleDescriptor: ImportedModuleDescriptor = {
-            leadingDots: 0,
-            nameParts: [packageName],
-            importedSymbols: [],
-        };
-
-        const importResult = this._importResolver.resolveImport('', this._execEnv, moduleDescriptor);
+        const importResult = this._importResolver.resolveImport(
+            '',
+            this._execEnv,
+            createImportedModuleDescriptor(packageName)
+        );
 
         if (importResult.isImportFound) {
             const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];

@@ -7,8 +7,9 @@
  * Collection of static methods that operate on declarations.
  */
 
+import { getEmptyRange } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
-import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration, ModuleLoaderActions } from './declaration';
 import { getFileInfoFromNode } from './parseTreeUtils';
 
 export function hasTypeForDeclaration(declaration: Declaration): boolean {
@@ -52,7 +53,11 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
     }
 }
 
-export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boolean {
+export function areDeclarationsSame(
+    decl1: Declaration,
+    decl2: Declaration,
+    treatModuleInImportAndFromImportSame = false
+): boolean {
     if (decl1.type !== decl2.type) {
         return false;
     }
@@ -71,11 +76,22 @@ export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boo
     // Alias declarations refer to the entire import statement.
     // We need to further differentiate.
     if (decl1.type === DeclarationType.Alias && decl2.type === DeclarationType.Alias) {
-        if (
-            decl1.symbolName !== decl2.symbolName ||
-            decl1.firstNamePart !== decl2.firstNamePart ||
-            decl1.usesLocalName !== decl2.usesLocalName
-        ) {
+        if (decl1.symbolName !== decl2.symbolName || decl1.usesLocalName !== decl2.usesLocalName) {
+            return false;
+        }
+
+        if (treatModuleInImportAndFromImportSame) {
+            // Treat "module" in "import [|module|]", "from [|module|] import ..."
+            // or "from ... import [|module|]" same in IDE services.
+            //
+            // Some case such as "from [|module|] import ...", symbol for [|module|] doesn't even
+            // exist and it can't be referenced inside of a module, but nonetheless, IDE still
+            // needs these sometimes for things like hover tooltip, highlight references,
+            // find all references and etc.
+            return true;
+        }
+
+        if (decl1.firstNamePart !== decl2.firstNamePart) {
             return false;
         }
     }
@@ -161,4 +177,32 @@ export function isDefinedInFile(decl: Declaration, filePath: string) {
 
     // Other decls, the path points to the file the symbol is defined in.
     return decl.path === filePath;
+}
+
+export function getDeclarationsWithUsesLocalNameRemoved(decls: Declaration[]) {
+    // Make a shallow copy and clear the "usesLocalName" field.
+    return decls.map((localDecl) => {
+        if (localDecl.type !== DeclarationType.Alias) {
+            return localDecl;
+        }
+
+        const nonLocalDecl: AliasDeclaration = { ...localDecl };
+        nonLocalDecl.usesLocalName = false;
+        return nonLocalDecl;
+    });
+}
+
+export function createSynthesizedAliasDeclaration(path: string): AliasDeclaration {
+    // The only time this decl is used is for IDE services such as
+    // the find all references, hover provider and etc.
+    return {
+        type: DeclarationType.Alias,
+        node: undefined!,
+        path,
+        loadSymbolsFromPath: false,
+        range: getEmptyRange(),
+        implicitImports: new Map<string, ModuleLoaderActions>(),
+        usesLocalName: false,
+        moduleName: '',
+    };
 }

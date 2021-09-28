@@ -43,7 +43,7 @@ import { performQuickAction } from '../languageService/quickActions';
 import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { Localizer } from '../localization/localize';
-import { ModuleNode } from '../parser/parseNodes';
+import { ModuleNode, NameNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
@@ -414,8 +414,33 @@ export class SourceFile {
         return this._clientDocument?.version;
     }
 
-    getFileContents() {
+    getOpenFileContents() {
         return this._clientDocument?.getText();
+    }
+
+    getFileContent(): string | undefined {
+        // Get current buffer content if the file is opened.
+        const openFileContent = this.getOpenFileContents();
+        if (openFileContent) {
+            return openFileContent;
+        }
+
+        // Otherwise, get content from file system.
+        try {
+            // Check the file's length before attempting to read its full contents.
+            const fileStat = this.fileSystem.statSync(this._filePath);
+            if (fileStat.size > _maxSourceFileSize) {
+                this._console.error(
+                    `File length of "${this._filePath}" is ${fileStat.size} ` +
+                        `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
+                );
+                throw new Error('File larger than max');
+            }
+
+            return this.fileSystem.readFileSync(this._filePath, 'utf8');
+        } catch (error) {
+            return undefined;
+        }
     }
 
     setClientVersion(version: number | null, contents: TextDocumentContentChangeEvent[]): void {
@@ -522,23 +547,16 @@ export class SourceFile {
             }
 
             const diagSink = new DiagnosticSink();
-            let fileContents = this.getFileContents();
+            let fileContents = this.getOpenFileContents();
             if (fileContents === undefined) {
                 try {
                     const startTime = timingStats.readFileTime.totalTime;
                     timingStats.readFileTime.timeOperation(() => {
-                        // Check the file's length before attempting to read its full contents.
-                        const fileStat = this.fileSystem.statSync(this._filePath);
-                        if (fileStat.size > _maxSourceFileSize) {
-                            this._console.error(
-                                `File length of "${this._filePath}" is ${fileStat.size} ` +
-                                    `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
-                            );
-                            throw new Error('File larger than max');
-                        }
-
                         // Read the file's contents.
-                        fileContents = content ?? this.fileSystem.readFileSync(this._filePath, 'utf8');
+                        fileContents = content ?? this.getFileContent();
+                        if (!fileContents) {
+                            throw new Error("Can't get file content");
+                        }
 
                         // Remember the length and hash for comparison purposes.
                         this._lastFileContentLength = fileContents.length;
@@ -700,6 +718,21 @@ export class SourceFile {
         );
     }
 
+    getDeclarationForNode(
+        sourceMapper: SourceMapper,
+        node: NameNode,
+        evaluator: TypeEvaluator,
+        reporter: ReferenceCallback | undefined,
+        token: CancellationToken
+    ): ReferencesResult | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._parseResults) {
+            return undefined;
+        }
+
+        return ReferencesProvider.getDeclarationForNode(sourceMapper, this._filePath, node, evaluator, reporter, token);
+    }
+
     getDeclarationForPosition(
         sourceMapper: SourceMapper,
         position: Position,
@@ -847,7 +880,7 @@ export class SourceFile {
 
         // This command should be called only for open files, in which
         // case we should have the file contents already loaded.
-        const fileContents = this.getFileContents();
+        const fileContents = this.getOpenFileContents();
         if (fileContents === undefined) {
             return undefined;
         }
@@ -888,7 +921,7 @@ export class SourceFile {
         completionItem: CompletionItem,
         token: CancellationToken
     ) {
-        const fileContents = this.getFileContents();
+        const fileContents = this.getOpenFileContents();
         if (!this._parseResults || fileContents === undefined) {
             return;
         }
