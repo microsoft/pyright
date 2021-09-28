@@ -24,7 +24,7 @@ import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/d
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
-import { getEmptyRange, TextRange } from '../common/textRange';
+import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -103,7 +103,6 @@ import {
     validateDataClassTransformDecorator,
 } from './dataClasses';
 import {
-    AliasDeclaration,
     ClassDeclaration,
     Declaration,
     DeclarationType,
@@ -111,7 +110,12 @@ import {
     ModuleLoaderActions,
     VariableDeclaration,
 } from './declaration';
-import { isExplicitTypeAliasDeclaration, isPossibleTypeAliasDeclaration } from './declarationUtils';
+import {
+    createSynthesizedAliasDeclaration,
+    getDeclarationsWithUsesLocalNameRemoved,
+    isExplicitTypeAliasDeclaration,
+    isPossibleTypeAliasDeclaration,
+} from './declarationUtils';
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, narrowTypeBasedOnPattern } from './patternMatching';
@@ -16266,17 +16270,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return decl.type === DeclarationType.Alias && decl.node === node.parent;
                     });
 
-                    // Make a shallow copy and clear the "usesLocalName" field.
-                    const nonLocalDecls = declsForThisImport.map((localDecl) => {
-                        if (localDecl.type === DeclarationType.Alias) {
-                            const nonLocalDecl: AliasDeclaration = { ...localDecl };
-                            nonLocalDecl.usesLocalName = false;
-                            return nonLocalDecl;
-                        }
-                        return localDecl;
-                    });
-
-                    declarations.push(...nonLocalDecls);
+                    declarations.push(...getDeclarationsWithUsesLocalNameRemoved(declsForThisImport));
                 }
             }
         } else if (
@@ -16351,17 +16345,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     evaluateTypesForStatement(node);
 
                     // Synthesize an alias declaration for this name part. The only
-                    // time this case is used is for the hover provider.
-                    const aliasDeclaration: AliasDeclaration = {
-                        type: DeclarationType.Alias,
-                        node: undefined!,
-                        path: importInfo.resolvedPaths[namePartIndex],
-                        range: getEmptyRange(),
-                        implicitImports: new Map<string, ModuleLoaderActions>(),
-                        usesLocalName: false,
-                        moduleName: '',
-                    };
-                    declarations.push(aliasDeclaration);
+                    // time this case is used is for IDE services such as
+                    // the find all references, hover provider and etc.
+                    declarations.push(createSynthesizedAliasDeclaration(importInfo.resolvedPaths[namePartIndex]));
                 }
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.name) {
@@ -16595,7 +16581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             loaderActions: ModuleLoaderActions,
             importLookup: ImportLookup
         ): Type {
-            if (loaderActions.path) {
+            if (loaderActions.path && loaderActions.loadSymbolsFromPath) {
                 const lookupResults = importLookup(loaderActions.path);
                 if (lookupResults) {
                     moduleType.fields = lookupResults.symbolTable;

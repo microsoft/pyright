@@ -11,6 +11,7 @@ import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-l
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../common/diagnostic';
+import { convertPathToUri } from '../common/pathUtils';
 import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 import { Localizer } from '../localization/localize';
@@ -63,11 +64,13 @@ export class CodeActionProvider {
                     .getActions()!
                     .find((a) => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
                 if (action) {
+                    const fs = workspace.serviceInstance.getImportResolver().fileSystem;
                     const addMissingOptionalAction = CodeAction.create(
                         Localizer.CodeAction.addOptionalToAnnotation(),
                         Command.create(
                             Localizer.CodeAction.addOptionalToAnnotation(),
                             Commands.addMissingOptionalToParam,
+                            convertPathToUri(fs, filePath),
                             action.offsetOfTypeNode
                         ),
                         CodeActionKind.QuickFix

@@ -154,7 +154,11 @@ export function getTextEditsForAutoImportSymbolAddition(
     parseResults: ParseResults
 ): TextEditAction[] {
     const additionEdits: AdditionEdit[] = [];
-    if (!importStatement.node || importStatement.node.nodeType !== ParseNodeType.ImportFrom) {
+    if (
+        !importStatement.node ||
+        importStatement.node.nodeType !== ParseNodeType.ImportFrom ||
+        importStatement.node.isWildcardImport
+    ) {
         return additionEdits;
     }
 

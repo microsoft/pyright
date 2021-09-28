@@ -171,7 +171,7 @@ test('getTextEditsForAutoImportSymbolAddition', () => {
 //// from sys import [|/*marker1*/{|"r":"meta_path, "|}|]path
     `;
 
-    testAddition(code, 'marker1', { name: 'meta_path' }, 'sys', ImportType.BuiltIn);
+    testAddition(code, 'marker1', { name: 'meta_path' }, 'sys');
 });
 
 test('getTextEditsForAutoImportSymbolAddition - already exist', () => {
@@ -179,7 +179,7 @@ test('getTextEditsForAutoImportSymbolAddition - already exist', () => {
 //// from sys import path[|/*marker1*/|]
     `;
 
-    testAddition(code, 'marker1', { name: 'path' }, 'sys', ImportType.BuiltIn);
+    testAddition(code, 'marker1', { name: 'path' }, 'sys');
 });
 
 test('getTextEditsForAutoImportSymbolAddition - with alias', () => {
@@ -187,7 +187,7 @@ test('getTextEditsForAutoImportSymbolAddition - with alias', () => {
 //// from sys import path[|/*marker1*/{|"r":", path as p"|}|]
     `;
 
-    testAddition(code, 'marker1', { name: 'path', alias: 'p' }, 'sys', ImportType.BuiltIn);
+    testAddition(code, 'marker1', { name: 'path', alias: 'p' }, 'sys');
 });
 
 test('getTextEditsForAutoImportSymbolAddition - multiple names', () => {
@@ -202,8 +202,7 @@ test('getTextEditsForAutoImportSymbolAddition - multiple names', () => {
             { name: 'meta_path', alias: 'm' },
             { name: 'zoom', alias: 'z' },
         ],
-        'sys',
-        ImportType.BuiltIn
+        'sys'
     );
 });
 
@@ -219,17 +218,23 @@ test('getTextEditsForAutoImportSymbolAddition - multiple names at some spot', ()
             { name: 'meta_path', alias: 'm' },
             { name: 'noon', alias: 'n' },
         ],
-        'sys',
-        ImportType.BuiltIn
+        'sys'
     );
+});
+
+test('getTextEditsForAutoImportSymbolAddition - wildcard', () => {
+    const code = `
+//// from sys import *[|/*marker1*/|]
+    `;
+
+    testAddition(code, 'marker1', [{ name: 'path' }], 'sys');
 });
 
 function testAddition(
     code: string,
     markerName: string,
     importNameInfo: ImportNameInfo | ImportNameInfo[],
-    moduleName: string,
-    importType: ImportType
+    moduleName: string
 ) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName(markerName)!;

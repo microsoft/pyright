@@ -1559,19 +1559,17 @@ export class CompletionProvider {
             }
         }
 
-        const results: NameNode[] = [];
-        const collector = new DocumentSymbolCollector(
+        const results = DocumentSymbolCollector.collectFromNode(
             indexNode.baseExpression,
             this._evaluator,
-            results,
             this._cancellationToken,
             startingNode
         );
-        collector.collect();
 
         const keys: Set<string> = new Set<string>();
-        for (const nameNode of results) {
-            const node = nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation ? nameNode.parent : nameNode;
+        for (const result of results) {
+            const node =
+                result.node.parent?.nodeType === ParseNodeType.TypeAnnotation ? result.node.parent : result.node;
 
             if (
                 node.parent?.nodeType === ParseNodeType.Assignment ||

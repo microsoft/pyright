@@ -60,7 +60,7 @@ import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
-import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
+import { createImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
@@ -148,10 +148,10 @@ export class AnalyzerService {
                   );
     }
 
-    clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase): AnalyzerService {
-        return new AnalyzerService(
+    clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase, fs?: FileSystem): AnalyzerService {
+        const service = new AnalyzerService(
             instanceName,
-            this._fs,
+            fs ?? this._fs,
             this._console,
             this._hostFactory,
             this._importResolverFactory,
@@ -162,6 +162,20 @@ export class AnalyzerService {
             this._backgroundAnalysisProgramFactory,
             this._cancellationProvider
         );
+
+        // Make sure we keep editor content (open file) which could be different than one in the file system.
+        for (const fileInfo of this.backgroundAnalysisProgram.program.getOpened()) {
+            const version = fileInfo.sourceFile.getClientVersion();
+            if (version !== undefined) {
+                service.setFileOpened(
+                    fileInfo.sourceFile.getFilePath(),
+                    version,
+                    fileInfo.sourceFile.getOpenFileContents()!
+                );
+            }
+        }
+
+        return service;
     }
 
     dispose() {
@@ -187,7 +201,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.setCompletionCallback(callback);
     }
 
-    setOptions(commandLineOptions: CommandLineOptions, reanalyze = true): void {
+    setOptions(commandLineOptions: CommandLineOptions): void {
         this._commandLineOptions = commandLineOptions;
 
         const host = this._hostFactory();
@@ -205,7 +219,7 @@ export class AnalyzerService {
         this._executionRootPath = normalizePath(
             combinePaths(commandLineOptions.executionRoot, configOptions.projectRoot)
         );
-        this._applyConfigOptions(host, reanalyze);
+        this._applyConfigOptions(host);
     }
 
     setFileOpened(path: string, version: number | null, contents: string) {
@@ -736,7 +750,11 @@ export class AnalyzerService {
     // This is called after a new type stub has been created. It allows
     // us to invalidate caches and force reanalysis of files that potentially
     // are affected by the appearance of a new type stub.
-    invalidateAndForceReanalysis(rebuildLibraryIndexing = true) {
+    invalidateAndForceReanalysis(rebuildLibraryIndexing = true, updateTrackedFileList = false) {
+        if (updateTrackedFileList) {
+            this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
+        }
+
         // Mark all files with one or more errors dirty.
         this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildLibraryIndexing);
     }
@@ -948,12 +966,7 @@ export class AnalyzerService {
         // for a different set of files.
         if (this._typeStubTargetImportName) {
             const execEnv = this._configOptions.findExecEnvironment(this._executionRootPath);
-            const moduleDescriptor: ImportedModuleDescriptor = {
-                leadingDots: 0,
-                nameParts: this._typeStubTargetImportName.split('.'),
-                importedSymbols: [],
-            };
-
+            const moduleDescriptor = createImportedModuleDescriptor(this._typeStubTargetImportName);
             const importResult = this._backgroundAnalysisProgram.importResolver.resolveImport(
                 '',
                 execEnv,
@@ -1369,7 +1382,7 @@ export class AnalyzerService {
         }
     }
 
-    private _applyConfigOptions(host: Host, reanalyze = true) {
+    private _applyConfigOptions(host: Host) {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
         const importResolver = this._importResolverFactory(
@@ -1396,9 +1409,7 @@ export class AnalyzerService {
         this._updateSourceFileWatchers();
         this._updateTrackedFileList(true);
 
-        if (reanalyze) {
-            this._scheduleReanalysis(false);
-        }
+        this._scheduleReanalysis(false);
     }
 
     private _clearReanalysisTimer() {
@@ -1409,7 +1420,7 @@ export class AnalyzerService {
     }
 
     private _scheduleReanalysis(requireTrackedFileUpdate: boolean) {
-        if (this._disposed) {
+        if (this._disposed || !this._commandLineOptions?.enableAmbientAnalysis) {
             // already disposed
             return;
         }

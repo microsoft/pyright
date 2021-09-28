@@ -679,6 +679,10 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
         pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
     }
 
+    if (pathComponents.length === 1 && !pathComponents[0]) {
+        return path.sep;
+    }
+
     let wildcardRoot = '';
     let firstComponent = true;
 

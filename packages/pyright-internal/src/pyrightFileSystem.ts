@@ -13,36 +13,18 @@ import type * as fs from 'fs';
 
 import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
-import {
-    FileSystem,
-    FileWatcher,
-    FileWatcherEventHandler,
-    MkDirOptions,
-    Stats,
-    TmpfileOptions,
-    VirtualDirent,
-} from './common/fileSystem';
+import { FileSystem, MkDirOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
 import {
     changeAnyExtension,
     combinePaths,
     ensureTrailingDirectorySeparator,
-    getDirectoryPath,
-    getFileName,
     isDirectory,
     tryStat,
 } from './common/pathUtils';
+import { ReadOnlyAugmentedFileSystem } from './readonlyAugmentedFileSystem';
 
-export class PyrightFileSystem implements FileSystem {
-    // Mapped file to original file map
-    private readonly _fileMap = new Map<string, string>();
-
-    // Original file to mapped file map
-    private readonly _reverseFileMap = new Map<string, string>();
-
-    // Mapped files per a containing folder map
-    private readonly _folderMap = new Map<string, string[]>();
-
+export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
     // Root paths processed
     private readonly _rootSearched = new Set<string>();
 
@@ -55,118 +37,35 @@ export class PyrightFileSystem implements FileSystem {
 
     private readonly _customUriMap = new Map<string, { uri: string; closed: boolean; hasPendingRequest: boolean }>();
 
-    constructor(private _realFS: FileSystem) {}
-
-    existsSync(path: string): boolean {
-        if (this._isVirtualEntry(path)) {
-            // Pretend partial stub folder and its files not exist
-            return false;
-        }
-
-        return this._realFS.existsSync(this._getPartialStubOriginalPath(path));
+    constructor(realFS: FileSystem) {
+        super(realFS);
     }
 
-    mkdirSync(path: string, options?: MkDirOptions): void {
+    override mkdirSync(path: string, options?: MkDirOptions): void {
         this._realFS.mkdirSync(path, options);
     }
 
-    chdir(path: string): void {
+    override chdir(path: string): void {
         this._realFS.chdir(path);
     }
 
-    readdirEntriesSync(path: string): fs.Dirent[] {
-        const entries = this._realFS.readdirEntriesSync(path).filter((item) => {
-            // Filter out the stub package directory.
-            return !this._isVirtualEntry(combinePaths(path, item.name));
-        });
-
-        const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
-        if (!partialStubs) {
-            return entries;
-        }
-
-        return entries.concat(partialStubs.map((f) => new VirtualDirent(f, /* file */ true)));
+    override writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
+        this._realFS.writeFileSync(this._getOriginalPath(path), data, encoding);
     }
 
-    readdirSync(path: string): string[] {
-        const entries = this._realFS.readdirSync(path).filter((item) => {
-            // Filter out the stub package directory.
-            return !this._isVirtualEntry(combinePaths(path, item));
-        });
-
-        const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
-        if (!partialStubs) {
-            return entries;
-        }
-
-        return entries.concat(partialStubs);
+    override unlinkSync(path: string): void {
+        this._realFS.unlinkSync(this._getOriginalPath(path));
     }
 
-    readFileSync(path: string, encoding?: null): Buffer;
-    readFileSync(path: string, encoding: BufferEncoding): string;
-    readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer {
-        return this._realFS.readFileSync(this._getPartialStubOriginalPath(path), encoding);
+    override createWriteStream(path: string): fs.WriteStream {
+        return this._realFS.createWriteStream(this._getOriginalPath(path));
     }
 
-    writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
-        this._realFS.writeFileSync(this._getPartialStubOriginalPath(path), data, encoding);
+    override copyFileSync(src: string, dst: string): void {
+        this._realFS.copyFileSync(this._getOriginalPath(src), this._getOriginalPath(dst));
     }
 
-    statSync(path: string): Stats {
-        return this._realFS.statSync(this._getPartialStubOriginalPath(path));
-    }
-
-    unlinkSync(path: string): void {
-        this._realFS.unlinkSync(this._getPartialStubOriginalPath(path));
-    }
-
-    realpathSync(path: string): string {
-        return this._realFS.realpathSync(path);
-    }
-
-    getModulePath(): string {
-        return this._realFS.getModulePath();
-    }
-
-    createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        return this._realFS.createFileSystemWatcher(paths, listener);
-    }
-
-    createReadStream(path: string): fs.ReadStream {
-        return this._realFS.createReadStream(this._getPartialStubOriginalPath(path));
-    }
-
-    createWriteStream(path: string): fs.WriteStream {
-        return this._realFS.createWriteStream(this._getPartialStubOriginalPath(path));
-    }
-
-    copyFileSync(src: string, dst: string): void {
-        this._realFS.copyFileSync(this._getPartialStubOriginalPath(src), this._getPartialStubOriginalPath(dst));
-    }
-
-    // Async I/O
-    readFile(path: string): Promise<Buffer> {
-        return this._realFS.readFile(this._getPartialStubOriginalPath(path));
-    }
-
-    readFileText(path: string, encoding?: BufferEncoding): Promise<string> {
-        return this._realFS.readFileText(this._getPartialStubOriginalPath(path), encoding);
-    }
-
-    // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
-    tmpdir(): string {
-        return this._realFS.tmpdir();
-    }
-
-    tmpfile(options?: TmpfileOptions): string {
-        return this._realFS.tmpfile(options);
-    }
-
-    realCasePath(path: string): string {
-        return this._realFS.realCasePath(path);
-    }
-
-    getUri(originalPath: string): string {
+    override getUri(originalPath: string): string {
         const entry = this._customUriMap.get(this.getMappedFilePath(originalPath));
         if (entry) {
             return entry.uri;
@@ -310,7 +209,7 @@ export class PyrightFileSystem implements FileSystem {
                                     // not the other way around. what that means is that even if a user opens
                                     // the file explicitly from real file system (ex, vscode open file), it won't
                                     // go to the fake tmp py file. but open as it is.
-                                    this._recordVirtualFile(tmpPyFile, originalPyiFile, /* reversible */ false);
+                                    this._recordMovedEntry(tmpPyFile, originalPyiFile, /* reversible */ false);
 
                                     // This should be the only way to get to the tmp py file. and used internally
                                     // to get some info like doc string of compiled module.
@@ -319,7 +218,7 @@ export class PyrightFileSystem implements FileSystem {
                                 continue;
                             }
 
-                            this._recordVirtualFile(mappedPyiFile, originalPyiFile);
+                            this._recordMovedEntry(mappedPyiFile, originalPyiFile);
                         }
                     } catch {
                         // ignore
@@ -330,8 +229,7 @@ export class PyrightFileSystem implements FileSystem {
     }
 
     clearPartialStubs(): void {
-        this._fileMap.clear();
-        this._folderMap.clear();
+        super._clear();
 
         this._rootSearched.clear();
         this._partialStubPackagePaths.clear();
@@ -339,54 +237,10 @@ export class PyrightFileSystem implements FileSystem {
         this._conflictMap.clear();
     }
 
-    // See whether the file is mapped to another location.
-    isMappedFilePath(filepath: string): boolean {
-        return this._fileMap.has(filepath) || this._realFS.isMappedFilePath(filepath);
-    }
-
-    // Get original filepath if the given filepath is mapped.
-    getOriginalFilePath(mappedFilePath: string) {
-        return this._realFS.getOriginalFilePath(this._getPartialStubOriginalPath(mappedFilePath));
-    }
-
-    // Get mapped filepath if the given filepath is mapped.
-    getMappedFilePath(originalFilepath: string) {
-        const mappedFilePath = this._realFS.getMappedFilePath(originalFilepath);
-        return this._reverseFileMap.get(mappedFilePath) ?? mappedFilePath;
-    }
-
     // If we have a conflict file from the partial stub packages for the given file path,
     // return it.
     getConflictedFile(filepath: string) {
         return this._conflictMap.get(filepath);
-    }
-
-    isInZipOrEgg(path: string): boolean {
-        return this._realFS.isInZipOrEgg(path);
-    }
-
-    private _recordVirtualFile(mappedFile: string, originalFile: string, reversible = true) {
-        this._fileMap.set(mappedFile, originalFile);
-
-        if (reversible) {
-            this._reverseFileMap.set(originalFile, mappedFile);
-        }
-
-        const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedFile));
-        let folderInfo = this._folderMap.get(directory);
-        if (!folderInfo) {
-            folderInfo = [];
-            this._folderMap.set(directory, folderInfo);
-        }
-
-        const fileName = getFileName(mappedFile);
-        if (!folderInfo.some((entry) => entry === fileName)) {
-            folderInfo.push(fileName);
-        }
-    }
-
-    private _getPartialStubOriginalPath(mappedFilePath: string) {
-        return this._fileMap.get(mappedFilePath) ?? mappedFilePath;
     }
 
     private _getRelativePathPartialStubs(path: string) {
@@ -424,7 +278,7 @@ export class PyrightFileSystem implements FileSystem {
         return paths;
     }
 
-    private _isVirtualEntry(path: string) {
-        return this._partialStubPackagePaths.has(path) || this._reverseFileMap.has(path);
+    protected override _isMovedEntry(path: string) {
+        return this._partialStubPackagePaths.has(path) || super._isMovedEntry(path);
     }
 }

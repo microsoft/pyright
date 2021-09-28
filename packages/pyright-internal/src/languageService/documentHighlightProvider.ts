@@ -15,7 +15,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { Position, TextRange } from '../common/textRange';
-import { NameNode, ParseNodeType } from '../parser/parseNodes';
+import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 
@@ -42,14 +42,20 @@ export class DocumentHighlightProvider {
             return undefined;
         }
 
-        const results: NameNode[] = [];
-        const collector = new DocumentSymbolCollector(node, evaluator, results, token);
+        const results = DocumentSymbolCollector.collectFromNode(
+            node,
+            evaluator,
+            token,
+            parseResults.parseTree,
+            /* treatModuleInImportAndFromImportSame */ true
+        );
 
-        collector.collect();
-
-        return results.map((n) => ({
-            kind: ParseTreeUtils.isWriteAccess(n) ? DocumentHighlightKind.Write : DocumentHighlightKind.Read,
-            range: convertOffsetsToRange(n.start, TextRange.getEnd(n), parseResults.tokenizerOutput.lines),
+        return results.map((r) => ({
+            kind:
+                r.node.nodeType === ParseNodeType.Name && ParseTreeUtils.isWriteAccess(r.node)
+                    ? DocumentHighlightKind.Write
+                    : DocumentHighlightKind.Read,
+            range: convertOffsetsToRange(r.range.start, TextRange.getEnd(r.range), parseResults.tokenizerOutput.lines),
         }));
     }
 }

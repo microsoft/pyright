@@ -147,6 +147,9 @@ export interface AliasDeclaration extends DeclarationBase {
     // rename references.
     usesLocalName: boolean;
 
+    // Indicate whether symbols can be loaded from the path.
+    loadSymbolsFromPath: boolean;
+
     // The name of the symbol being imported (used for "from X import Y"
     // statements, not applicable to "import X" statements).
     symbolName?: string | undefined;
@@ -179,6 +182,9 @@ export interface ModuleLoaderActions {
     // if the resolved path doesn't reference a module (e.g. it's
     // a directory).
     path: string;
+
+    // Indicate whether symbols can be loaded from the path.
+    loadSymbolsFromPath: boolean;
 
     // See comment for "implicitImports" field in AliasDeclaration.
     implicitImports?: Map<string, ModuleLoaderActions>;

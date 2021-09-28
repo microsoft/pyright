@@ -28,7 +28,10 @@ import {
     getPathComponents,
     getRelativePathComponentsFromDirectory,
     isDirectory,
+    isDiskPathRoot,
     isFile,
+    normalizePath,
+    normalizePathCase,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
@@ -41,6 +44,7 @@ import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
+import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
 import * as PythonPathUtils from './pythonPathUtils';
 import { getPyTypedInfo, PyTypedInfo } from './pyTypedUtils';
 import { isDunderName } from './symbolNameUtils';
@@ -56,6 +60,14 @@ export interface ModuleNameAndType {
     moduleName: string;
     importType: ImportType;
     isLocalTypingsFile: boolean;
+}
+
+export function createImportedModuleDescriptor(moduleName: string): ImportedModuleDescriptor {
+    return {
+        leadingDots: 0,
+        nameParts: moduleName.split('.'),
+        importedSymbols: [],
+    };
 }
 
 type CachedImportResults = Map<string, ImportResult>;
@@ -86,15 +98,21 @@ export class ImportResolver {
     private _cachedTypeshedThirdPartyPackageRoots: string[] | undefined;
     private _cachedEntriesForPath = new Map<string, Dirent[]>();
 
+    protected cachedParentImportResults: ParentDirectoryCache;
+
     constructor(
         public readonly fileSystem: FileSystem,
         protected _configOptions: ConfigOptions,
         public readonly host: Host
-    ) {}
+    ) {
+        this.cachedParentImportResults = new ParentDirectoryCache(() => this.getPythonSearchPaths([]));
+    }
 
     invalidateCache() {
         this._cachedImportResults = new Map<string | undefined, CachedImportResults>();
         this._cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
+        this.cachedParentImportResults.reset();
+
         this._invalidateFileSystemCache();
 
         if (this.fileSystem instanceof PyrightFileSystem) {
@@ -123,7 +141,86 @@ export class ImportResolver {
     ): ImportResult {
         const importName = this.formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
+        const importResult = this._resolveImportStrict(
+            importName,
+            sourceFilePath,
+            execEnv,
+            moduleDescriptor,
+            importFailureInfo
+        );
 
+        if (importResult.isImportFound || moduleDescriptor.leadingDots > 0) {
+            return importResult;
+        }
+
+        // If the import is absolute and no other method works, try resolving the
+        // absolute in the importing file's directory, then the parent directory,
+        // and so on, until the import root is reached.
+        sourceFilePath = normalizePathCase(this.fileSystem, normalizePath(sourceFilePath));
+        const origin = ensureTrailingDirectorySeparator(getDirectoryPath(sourceFilePath));
+
+        const result = this.cachedParentImportResults.getImportResult(origin, importName, importResult);
+        if (result) {
+            // Already ran the parent directory resolution for this import name on this location.
+            return this.filterImplicitImports(result, moduleDescriptor.importedSymbols);
+        }
+
+        // Check whether the given file is in the parent directory import resolution cache.
+        const root = this.getParentImportResolutionRoot(sourceFilePath, execEnv.root);
+        if (!this.cachedParentImportResults.checkValidPath(this.fileSystem, sourceFilePath, root)) {
+            return importResult;
+        }
+
+        const importPath: ImportPath = { importPath: undefined };
+
+        // Going up the given folder one by one until we can resolve the import.
+        let current = origin;
+        while (this._shouldWalkUp(current, root, execEnv)) {
+            const result = this.resolveAbsoluteImport(
+                current,
+                execEnv,
+                moduleDescriptor,
+                importName,
+                [],
+                /* allowPartial */ undefined,
+                /* allowNativeLib */ undefined,
+                /* useStubPackage */ false,
+                /* allowPyi */ true
+            );
+
+            this.cachedParentImportResults.checked(current, importName, importPath);
+
+            if (result.isImportFound) {
+                // This will make cache to point to actual path that contains the module we found
+                importPath.importPath = current;
+
+                this.cachedParentImportResults.add({
+                    importResult: result,
+                    path: current,
+                    importName,
+                });
+
+                return this.filterImplicitImports(result, moduleDescriptor.importedSymbols);
+            }
+
+            let success;
+            [success, current] = this._tryWalkUp(current);
+            if (!success) {
+                break;
+            }
+        }
+
+        this.cachedParentImportResults.checked(current, importName, importPath);
+        return importResult;
+    }
+
+    private _resolveImportStrict(
+        importName: string,
+        sourceFilePath: string,
+        execEnv: ExecutionEnvironment,
+        moduleDescriptor: ImportedModuleDescriptor,
+        importFailureInfo: string[]
+    ) {
         const notFoundResult: ImportResult = {
             importName,
             isRelative: false,
@@ -191,6 +288,32 @@ export class ImportResolver {
     }
 
     getCompletionSuggestions(
+        sourceFilePath: string,
+        execEnv: ExecutionEnvironment,
+        moduleDescriptor: ImportedModuleDescriptor
+    ) {
+        const suggestions = this._getCompletionSuggestionsStrict(sourceFilePath, execEnv, moduleDescriptor);
+
+        const root = this.getParentImportResolutionRoot(sourceFilePath, execEnv.root);
+        const origin = ensureTrailingDirectorySeparator(
+            getDirectoryPath(normalizePathCase(this.fileSystem, normalizePath(sourceFilePath)))
+        );
+
+        let current = origin;
+        while (this._shouldWalkUp(current, root, execEnv)) {
+            this.getCompletionSuggestionsAbsolute(current, moduleDescriptor, suggestions, sourceFilePath, execEnv);
+
+            let success;
+            [success, current] = this._tryWalkUp(current);
+            if (!success) {
+                break;
+            }
+        }
+
+        return suggestions;
+    }
+
+    private _getCompletionSuggestionsStrict(
         sourceFilePath: string,
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
@@ -390,6 +513,7 @@ export class ImportResolver {
         // Look for it in the root directory of the execution environment.
         if (execEnv.root) {
             moduleName = this.getModuleNameFromPath(execEnv.root, filePath);
+            importType = ImportType.Local;
         }
 
         for (const extraPath of execEnv.extraPaths) {
@@ -1954,6 +2078,31 @@ export class ImportResolver {
 
     private _isNativeModuleFileExtension(fileExtension: string): boolean {
         return supportedNativeLibExtensions.some((ext) => ext === fileExtension);
+    }
+
+    private _tryWalkUp(current: string): [success: boolean, path: string] {
+        if (isDiskPathRoot(current)) {
+            return [false, ''];
+        }
+
+        return [
+            true,
+            ensureTrailingDirectorySeparator(
+                normalizePathCase(this.fileSystem, normalizePath(combinePaths(current, '..')))
+            ),
+        ];
+    }
+
+    private _shouldWalkUp(current: string, root: string, execEnv: ExecutionEnvironment) {
+        return current.length > root.length || (current === root && !execEnv.root);
+    }
+
+    protected getParentImportResolutionRoot(sourceFilePath: string, executionRoot: string | undefined) {
+        if (executionRoot) {
+            return ensureTrailingDirectorySeparator(normalizePathCase(this.fileSystem, normalizePath(executionRoot)));
+        }
+
+        return ensureTrailingDirectorySeparator(getDirectoryPath(sourceFilePath));
     }
 }
 
