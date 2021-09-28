@@ -8233,7 +8233,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): boolean {
         const paramSpecValue = typeVarMap.getParamSpec(paramSpec);
 
-        if (!paramSpecValue || !paramSpecValue.concrete) {
+        if (!paramSpecValue) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -8241,6 +8241,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 argList[0]?.valueExpression || errorNode
             );
             return false;
+        }
+
+        if (!paramSpecValue.concrete) {
+            // If the paramSpec is bound to another paramSpec, it's valid.
+            return true;
         }
 
         let reportedArgError = false;
@@ -20318,26 +20323,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const effectiveSrcType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
 
                 if (effectiveDestType.details.paramSpec) {
-                    typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
-                        concrete: {
-                            parameters: effectiveSrcType.details.parameters
-                                .map((p, index) => {
-                                    const paramSpecEntry: ParamSpecEntry = {
-                                        category: p.category,
-                                        name: p.name,
-                                        hasDefault: !!p.hasDefault,
-                                        type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
-                                    };
-                                    return paramSpecEntry;
-                                })
-                                .slice(
-                                    // Skip position-only and keyword-only separators.
-                                    effectiveDestType.details.parameters.filter((p) => p.name).length,
-                                    effectiveSrcType.details.parameters.length
-                                ),
-                            flags: effectiveSrcType.details.flags,
-                        },
-                    });
+                    if (effectiveSrcType.details.paramSpec) {
+                        typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
+                            paramSpec: effectiveSrcType.details.paramSpec,
+                        });
+                    } else {
+                        typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
+                            concrete: {
+                                parameters: effectiveSrcType.details.parameters
+                                    .map((p, index) => {
+                                        const paramSpecEntry: ParamSpecEntry = {
+                                            category: p.category,
+                                            name: p.name,
+                                            hasDefault: !!p.hasDefault,
+                                            type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
+                                        };
+                                        return paramSpecEntry;
+                                    })
+                                    .slice(
+                                        // Skip position-only and keyword-only separators.
+                                        effectiveDestType.details.parameters.filter((p) => p.name).length,
+                                        effectiveSrcType.details.parameters.length
+                                    ),
+                                flags: effectiveSrcType.details.flags,
+                            },
+                        });
+                    }
                 }
             }
         }
