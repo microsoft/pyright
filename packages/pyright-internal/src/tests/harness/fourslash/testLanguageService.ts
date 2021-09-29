@@ -13,17 +13,21 @@ import { ImportResolverFactory } from '../../../analyzer/importResolver';
 import { AnalyzerService } from '../../../analyzer/service';
 import { BackgroundAnalysisBase } from '../../../backgroundAnalysisBase';
 import { CommandController } from '../../../commands/commandController';
+import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
+import { createDeferred } from '../../../common/deferred';
 import { FileSystem } from '../../../common/fileSystem';
 import { Range } from '../../../common/textRange';
 import {
     LanguageServerInterface,
+    MessageAction,
     ServerSettings,
     WindowInterface,
     WorkspaceServiceInstance,
 } from '../../../languageServerBase';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
+import { TestAccessHost } from '../testAccessHost';
 import { HostSpecificFeatures } from './testState';
 
 export class TestFeatures implements HostSpecificFeatures {
@@ -47,17 +51,37 @@ export class TestFeatures implements HostSpecificFeatures {
 
 export class TestLanguageService implements LanguageServerInterface {
     private readonly _workspace: WorkspaceServiceInstance;
+    private readonly _defaultWorkspace: WorkspaceServiceInstance;
 
     constructor(workspace: WorkspaceServiceInstance, readonly console: ConsoleInterface, readonly fs: FileSystem) {
         this._workspace = workspace;
+        this._defaultWorkspace = {
+            workspaceName: '',
+            rootPath: '',
+            rootUri: '',
+            serviceInstance: new AnalyzerService(
+                'test service',
+                this.fs,
+                this.console,
+                () => new TestAccessHost(),
+                AnalyzerService.createImportResolver,
+                new ConfigOptions('.')
+            ),
+            disableLanguageServices: false,
+            disableOrganizeImports: false,
+            isInitialized: createDeferred<boolean>(),
+        };
     }
 
-    async getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance> {
-        debug.assertDefined(this._workspace.serviceInstance.test_program.getSourceFile(filePath));
-        return this._workspace;
+    getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance> {
+        if (filePath.startsWith(this._workspace.rootPath)) {
+            return Promise.resolve(this._workspace);
+        }
+
+        return Promise.resolve(this._defaultWorkspace);
     }
 
-    async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
+    getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const settings: ServerSettings = {
             venvPath: this._workspace.serviceInstance.getConfigOptions().venvPath,
             pythonPath: this._workspace.serviceInstance.getConfigOptions().pythonPath,
@@ -68,7 +92,7 @@ export class TestLanguageService implements LanguageServerInterface {
             autoImportCompletions: this._workspace.serviceInstance.getConfigOptions().autoImportCompletions,
         };
 
-        return settings;
+        return Promise.resolve(settings);
     }
 
     createBackgroundAnalysis(): BackgroundAnalysisBase | undefined {
@@ -87,18 +111,25 @@ export class TestLanguageService implements LanguageServerInterface {
 
     readonly rootPath = path.sep;
     readonly window = new TestWindow();
+    readonly supportAdvancedEdits = true;
 }
 
 class TestWindow implements WindowInterface {
-    showErrorMessage(message: string): void {
+    showErrorMessage(message: string): void;
+    showErrorMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
+    showErrorMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined> | void {
         debug.fail("shouldn't be called");
     }
 
-    showWarningMessage(message: string): void {
+    showWarningMessage(message: string): void;
+    showWarningMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
+    showWarningMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined> | void {
         debug.fail("shouldn't be called");
     }
 
-    showInformationMessage(message: string): void {
+    showInformationMessage(message: string): void;
+    showInformationMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
+    showInformationMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined> | void {
         // Don't do anything
     }
 }

@@ -222,13 +222,23 @@ export class AnalyzerService {
         this._applyConfigOptions(host);
     }
 
+    isTracked(filePath: string): boolean {
+        for (const includeSpec of this._configOptions.include) {
+            if (this._matchIncludeFileSpec(includeSpec.regExp, this._configOptions.exclude, filePath)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     setFileOpened(path: string, version: number | null, contents: string) {
-        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, this._isTracked(path));
+        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, this.isTracked(path));
         this._scheduleReanalysis(false);
     }
 
     updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
-        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, this._isTracked(path));
+        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, this.isTracked(path));
         this._scheduleReanalysis(false);
     }
 
@@ -377,6 +387,10 @@ export class AnalyzerService {
         token: CancellationToken
     ): TextEditAction[] | undefined {
         return this._program.performQuickAction(filePath, command, args, token);
+    }
+
+    renameModule(filePath: string, newFilePath: string, token: CancellationToken): FileEditAction[] | undefined {
+        return this._program.renameModule(filePath, newFilePath, token);
     }
 
     renameSymbolAtPosition(
@@ -1494,16 +1508,6 @@ export class AnalyzerService {
     private _matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], filePath: string) {
         if (includeRegExp.test(filePath)) {
             if (!this._isInExcludePath(filePath, exclude) && this._shouldIncludeFile(filePath)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private _isTracked(filePath: string): boolean {
-        for (const includeSpec of this._configOptions.include) {
-            if (this._matchIncludeFileSpec(includeSpec.regExp, this._configOptions.exclude, filePath)) {
                 return true;
             }
         }
