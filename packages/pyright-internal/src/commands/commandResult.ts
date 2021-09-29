@@ -10,6 +10,7 @@ import { WorkspaceEdit } from 'vscode-languageserver-types';
 
 export interface CommandResult {
     data?: any;
+    label: string;
     edits: WorkspaceEdit;
 }
 

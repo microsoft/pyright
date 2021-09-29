@@ -116,10 +116,20 @@ export interface WorkspaceServiceInstance {
     isInitialized: Deferred<boolean>;
 }
 
+export interface MessageAction {
+    title: string;
+    id: string;
+}
+
 export interface WindowInterface {
     showErrorMessage(message: string): void;
+    showErrorMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
+
     showWarningMessage(message: string): void;
+    showWarningMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
+
     showInformationMessage(message: string): void;
+    showInformationMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
 }
 
 export interface LanguageServerInterface {
@@ -133,6 +143,7 @@ export interface LanguageServerInterface {
     readonly console: ConsoleInterface;
     readonly window: WindowInterface;
     readonly fs: FileSystem;
+    readonly supportAdvancedEdits: boolean;
 }
 
 export interface ServerOptions {
@@ -160,6 +171,8 @@ interface ClientCapabilities {
     hasHierarchicalDocumentSymbolCapability: boolean;
     hasWindowProgressCapability: boolean;
     hasGoToDeclarationCapability: boolean;
+    hasDocumentChangeCapability: boolean;
+    hasDocumentAnnotationCapability: boolean;
     hoverContentFormat: MarkupKind;
     completionDocFormat: MarkupKind;
     completionSupportsSnippet: boolean;
@@ -174,25 +187,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _workspaceMap: WorkspaceMap;
     protected _fileWatcherProvider: FileWatcherProvider;
 
-    protected client: ClientCapabilities = {
-        hasConfigurationCapability: false,
-        hasVisualStudioExtensionsCapability: false,
-        hasWorkspaceFoldersCapability: false,
-        hasWatchFileCapability: false,
-        hasActiveParameterCapability: false,
-        hasSignatureLabelOffsetCapability: false,
-        hasHierarchicalDocumentSymbolCapability: false,
-        hasWindowProgressCapability: false,
-        hasGoToDeclarationCapability: false,
-        hoverContentFormat: MarkupKind.PlainText,
-        completionDocFormat: MarkupKind.PlainText,
-        completionSupportsSnippet: false,
-        signatureDocFormat: MarkupKind.PlainText,
-        supportsDeprecatedDiagnosticTag: false,
-        supportsUnnecessaryDiagnosticTag: false,
-        completionItemResolveSupportsAdditionalTextEdits: false,
-    };
-
     // We support running only one "find all reference" at a time.
     private _pendingFindAllRefsCancellationSource: CancellationTokenSource | undefined;
 
@@ -205,6 +199,27 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     // Global root path - the basis for all global settings.
     rootPath = '';
+
+    protected client: ClientCapabilities = {
+        hasConfigurationCapability: false,
+        hasVisualStudioExtensionsCapability: false,
+        hasWorkspaceFoldersCapability: false,
+        hasWatchFileCapability: false,
+        hasActiveParameterCapability: false,
+        hasSignatureLabelOffsetCapability: false,
+        hasHierarchicalDocumentSymbolCapability: false,
+        hasWindowProgressCapability: false,
+        hasGoToDeclarationCapability: false,
+        hasDocumentChangeCapability: false,
+        hasDocumentAnnotationCapability: false,
+        hoverContentFormat: MarkupKind.PlainText,
+        completionDocFormat: MarkupKind.PlainText,
+        completionSupportsSnippet: false,
+        signatureDocFormat: MarkupKind.PlainText,
+        supportsDeprecatedDiagnosticTag: false,
+        supportsUnnecessaryDiagnosticTag: false,
+        completionItemResolveSupportsAdditionalTextEdits: false,
+    };
 
     // File system abstraction.
     fs: FileSystem;
@@ -331,6 +346,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return this._connection.window;
     }
 
+    get supportAdvancedEdits(): boolean {
+        return this.client.hasDocumentChangeCapability && this.client.hasDocumentAnnotationCapability;
+    }
+
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
     createAnalyzerService(name: string): AnalyzerService {
@@ -443,10 +462,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const progress = await this._getProgressReporter(
                 params.workDoneToken,
                 workDoneReporter,
-                Localizer.CodeAction.findingReferences()
+                Localizer.CodeAction.findingReferences(),
+                token
             );
 
-            const source = CancelAfter(token, progress.token);
+            const source = progress.source;
             this._pendingFindAllRefsCancellationSource = source;
 
             try {
@@ -883,13 +903,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 if (WorkspaceEdit.is(result)) {
                     // Tell client to apply edits.
                     // Do not await; the client isn't expecting a result.
-                    this._connection.workspace.applyEdit(result);
+                    this._connection.workspace.applyEdit({ label: `Command '${params.command}'`, edit: result });
                 }
 
                 if (CommandResult.is(result)) {
                     // Tell client to apply edits.
                     // Await so that we return after the edit is complete.
-                    await this._connection.workspace.applyEdit(result.edits);
+                    await this._connection.workspace.applyEdit({ label: result.label, edit: result.edits });
                 }
 
                 return result;
@@ -900,9 +920,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 const progress = await this._getProgressReporter(
                     params.workDoneToken,
                     reporter,
-                    Localizer.CodeAction.executingCommand()
+                    Localizer.CodeAction.executingCommand(),
+                    token
                 );
-                const source = CancelAfter(token, progress.token);
+
+                const source = progress.source;
                 this._pendingCommandCancellationSource = source;
 
                 try {
@@ -981,6 +1003,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             !!capabilities.textDocument?.signatureHelp?.signatureInformation?.parameterInformation?.labelOffsetSupport;
         this.client.hasHierarchicalDocumentSymbolCapability =
             !!capabilities.textDocument?.documentSymbol?.hierarchicalDocumentSymbolSupport;
+        this.client.hasDocumentChangeCapability =
+            !!capabilities.workspace?.workspaceEdit?.documentChanges &&
+            !!capabilities.workspace.workspaceEdit?.resourceOperations;
+        this.client.hasDocumentAnnotationCapability = !!capabilities.workspace?.workspaceEdit?.changeAnnotationSupport;
+
         this.client.hoverContentFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.hover?.contentFormat);
         this.client.completionDocFormat = this._getCompatibleMarkupKind(
             capabilities.textDocument?.completion?.completionItem?.documentationFormat
@@ -1209,12 +1236,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     private async _getProgressReporter(
-        workDoneToken: string | number | undefined,
-        clientReporter: WorkDoneProgressReporter,
-        title: string
+        progressId: string | number | undefined,
+        reporter: WorkDoneProgressReporter,
+        title: string,
+        token: CancellationToken
     ) {
-        if (workDoneToken) {
-            return { reporter: clientReporter, token: CancellationToken.None };
+        if (progressId) {
+            return { reporter: reporter, source: CancelAfter(token) };
         }
 
         const serverInitiatedReporter = await this._connection.window.createWorkDoneProgress();
@@ -1222,7 +1250,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         return {
             reporter: serverInitiatedReporter,
-            token: serverInitiatedReporter.token,
+            source: CancelAfter(token, serverInitiatedReporter.token),
         };
     }
 
