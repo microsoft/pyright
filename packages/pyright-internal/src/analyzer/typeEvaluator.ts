@@ -20136,7 +20136,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If the dest has an "*args" but the source doesn't, report the incompatibility.
             // The converse situation is OK.
-            if (srcArgsIndex < 0 && destArgsIndex >= 0 && !destVariadicArgsList) {
+            if (srcArgsIndex < 0 && destArgsIndex >= 0 && !destVariadicArgsList && !isParamSpecInvolved) {
                 diag.createAddendum().addMessage(
                     Localizer.DiagnosticAddendum.argsParamMissing().format({
                         paramName: destParams[destArgsIndex].name!,

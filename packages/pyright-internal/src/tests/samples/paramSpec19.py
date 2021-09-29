@@ -55,3 +55,10 @@ class Application2:
             return self.func1(handler)
 
         return decorator
+
+
+def handler(arg1: int, arg2: str) -> dict[str, Any]:
+    ...
+
+
+v1: CommandHandler2 = handler
