@@ -9204,7 +9204,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     (flags & EvaluatorFlags.AllowForwardReferences) !== 0 ||
                     fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
                 if (!unionNotationSupported) {
-                    addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
+                    // If the left type is Any, we can't say for sure whether this
+                    // is an illegal syntax or a valid application of the "|" operator.
+                    if (!isAnyOrUnknown(leftType)) {
+                        addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
+                    }
                 }
 
                 return {
