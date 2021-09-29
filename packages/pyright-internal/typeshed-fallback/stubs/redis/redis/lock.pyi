@@ -1,11 +1,16 @@
 from types import TracebackType
 from typing import Any, Text, Type, Union
+from typing_extensions import Protocol
 
 from redis.client import Redis
 
 _TokenValue = Union[bytes, Text]
 
+class _Local(Protocol):
+    token: _TokenValue | None
+
 class Lock:
+    local: _Local
     def __init__(
         self,
         redis: Redis[Any],
