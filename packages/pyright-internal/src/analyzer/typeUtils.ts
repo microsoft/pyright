@@ -1925,6 +1925,8 @@ function _transformTypeVarsInClassType(
     const transformParamSpec = (paramSpec: TypeVarType) => {
         const paramSpecEntries = callbacks.transformParamSpec(paramSpec);
         if (paramSpecEntries) {
+            specializationNeeded = true;
+
             if (paramSpecEntries.concrete) {
                 // Create a function type from the param spec entries.
                 const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);

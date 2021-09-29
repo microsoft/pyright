@@ -17,8 +17,17 @@ class Command1(Generic[P]):
 
 
 class Application1:
-    def func(self, handler: CommandHandler1[P]) -> Command1[P]:
+    def func1(self, handler: CommandHandler1[P]) -> Command1[P]:
         return Command1(handler)
+
+    def func2(
+        self,
+        handler: CommandHandler1[P],
+    ) -> Callable[[CommandHandler1[P]], Command1[P]]:
+        def decorator(handler: CommandHandler1[P]) -> Command1[P]:
+            return self.func1(handler)
+
+        return decorator
 
 
 # Example 2: Callback Protocol
@@ -35,5 +44,14 @@ class Command2(Generic[P]):
 
 
 class Application2:
-    def func(self, handler: CommandHandler2[P]) -> Command2[P]:
+    def func1(self, handler: CommandHandler2[P]) -> Command2[P]:
         return Command2(handler)
+
+    def func2(
+        self,
+        handler: CommandHandler2[P],
+    ) -> Callable[[CommandHandler2[P]], Command2[P]]:
+        def decorator(handler: CommandHandler2[P]) -> Command2[P]:
+            return self.func1(handler)
+
+        return decorator
