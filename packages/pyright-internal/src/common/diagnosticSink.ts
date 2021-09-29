@@ -58,6 +58,14 @@ export class DiagnosticSink {
         return this.addDiagnostic(diag);
     }
 
+    addDeprecated(message: string, range: Range, action?: DiagnosticAction) {
+        const diag = new Diagnostic(DiagnosticCategory.Deprecated, message, range);
+        if (action) {
+            diag.addAction(action);
+        }
+        return this.addDiagnostic(diag);
+    }
+
     addDiagnostic(diag: Diagnostic) {
         // Create a unique key for the diagnostic to prevent
         // adding duplicates.
@@ -90,6 +98,10 @@ export class DiagnosticSink {
     getUnusedCode() {
         return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
     }
+
+    getDeprecated() {
+        return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Deprecated);
+    }
 }
 
 // Specialized version of DiagnosticSink that works with TextRange objects
@@ -121,6 +133,14 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
 
     addUnusedCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
         return this.addUnusedCode(
+            message,
+            convertOffsetsToRange(range.start, range.start + range.length, this._lines),
+            action
+        );
+    }
+
+    addDeprecatedWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
+        return this.addDeprecated(
             message,
             convertOffsetsToRange(range.start, range.start + range.length, this._lines),
             action

@@ -260,7 +260,7 @@ export class SourceFile {
         if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
             if (Object.keys(this._typeIgnoreLines).length > 0) {
                 diagList = diagList.filter((d) => {
-                    if (d.category !== DiagnosticCategory.UnusedCode) {
+                    if (d.category !== DiagnosticCategory.UnusedCode && d.category !== DiagnosticCategory.Deprecated) {
                         for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                             if (this._typeIgnoreLines[line]) {
                                 return false;
@@ -317,9 +317,12 @@ export class SourceFile {
 
         // If we're not returning any diagnostics, filter out all of
         // the errors and warnings, leaving only the unreachable code
-        // diagnostics.
+        // and deprecated diagnostics.
         if (!includeWarningsAndErrors) {
-            diagList = diagList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
+            diagList = diagList.filter(
+                (diag) =>
+                    diag.category === DiagnosticCategory.UnusedCode || diag.category === DiagnosticCategory.Deprecated
+            );
         }
 
         return diagList;

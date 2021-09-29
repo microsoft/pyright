@@ -65,6 +65,7 @@
         "defaultValueContainsCall": "Function calls and mutable objects not allowed within parameter default value expression",
         "defaultValueNotAllowed": "Parameter with \"*\" or \"**\" cannot have default value",
         "defaultValueNotEllipsis": "Default values in stub files should be specified as \"...\"",
+        "deprecatedType": "This type is deprecated as of Python {version}; use \"{replacement}\" instead",
         "delTargetExpr": "Expression cannot be deleted",
         "dictExpandIllegalInComprehension": "Dictionary expansion not allowed in comprehension",
         "dictInAnnotation": "Dictionary expression not allowed in type annotation",

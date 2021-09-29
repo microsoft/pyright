@@ -17,6 +17,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
 import {
@@ -149,6 +150,51 @@ interface LocalTypeVarInfo {
     isExempt: boolean;
     nodes: NameNode[];
 }
+
+interface DeprecatedForm {
+    version: PythonVersion;
+    fullName: string;
+    replacementText: string;
+}
+
+const deprecatedAliases = new Map<string, DeprecatedForm>([
+    ['Tuple', { version: PythonVersion.V3_9, fullName: 'builtins.tuple', replacementText: 'tuple' }],
+    ['List', { version: PythonVersion.V3_9, fullName: 'builtins.list', replacementText: 'list' }],
+    ['Dict', { version: PythonVersion.V3_9, fullName: 'builtins.dict', replacementText: 'dict' }],
+    ['Set', { version: PythonVersion.V3_9, fullName: 'builtins.set', replacementText: 'set' }],
+    ['FrozenSet', { version: PythonVersion.V3_9, fullName: 'builtins.frozenset', replacementText: 'frozenset' }],
+    ['Type', { version: PythonVersion.V3_9, fullName: 'builtins.type', replacementText: 'type' }],
+    ['Deque', { version: PythonVersion.V3_9, fullName: 'collections.deque', replacementText: 'collections.deque' }],
+    [
+        'DefaultDict',
+        {
+            version: PythonVersion.V3_9,
+            fullName: 'collections.defaultdict',
+            replacementText: 'collections.defaultdict',
+        },
+    ],
+    [
+        'OrderedDict',
+        {
+            version: PythonVersion.V3_9,
+            fullName: 'collections.OrderedDict',
+            replacementText: 'collections.OrderedDict',
+        },
+    ],
+    [
+        'Counter',
+        { version: PythonVersion.V3_9, fullName: 'collections.Counter', replacementText: 'collections.Counter' },
+    ],
+    [
+        'ChainMap',
+        { version: PythonVersion.V3_9, fullName: 'collections.ChainMap', replacementText: 'collections.ChainMap' },
+    ],
+]);
+
+const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
+    ['Optional', { version: PythonVersion.V3_10, fullName: 'typing.Optional', replacementText: '| None' }],
+    ['Union', { version: PythonVersion.V3_10, fullName: 'typing.Union', replacementText: '|' }],
+]);
 
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -1049,6 +1095,11 @@ export class Checker extends ParseTreeWalker {
     override visitName(node: NameNode) {
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
+
+        // Report the use of a deprecated symbol. For now, this functionality
+        // is disabled. We'll leave it in place for the future.
+        // this._reportDeprecatedUse(node);
+
         return true;
     }
 
@@ -2567,6 +2618,34 @@ export class Checker extends ParseTreeWalker {
         }
 
         return false;
+    }
+
+    private _reportDeprecatedUse(node: NameNode) {
+        const deprecatedForm = deprecatedAliases.get(node.value) ?? deprecatedSpecialForms.get(node.value);
+
+        if (!deprecatedForm) {
+            return;
+        }
+
+        const type = this._evaluator.getType(node);
+
+        if (!type) {
+            return;
+        }
+
+        if (!isInstantiableClass(type) || type.details.fullName !== deprecatedForm.fullName) {
+            return;
+        }
+
+        if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
+            this._evaluator.addDeprecated(
+                Localizer.Diagnostic.deprecatedType().format({
+                    version: versionToString(deprecatedForm.version),
+                    replacement: deprecatedForm.replacementText,
+                }),
+                node
+            );
+        }
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {

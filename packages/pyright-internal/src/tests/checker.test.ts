@@ -314,3 +314,21 @@ test('DuplicateDeclaration2', () => {
 
     TestUtils.validateResults(analysisResults, 4);
 });
+
+// For now, this functionality is disabled.
+
+// test('Deprecated1', () => {
+//     const configOptions = new ConfigOptions('.');
+
+//     configOptions.defaultPythonVersion = PythonVersion.V3_8;
+//     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+//     TestUtils.validateResults(analysisResults1, 0, 0, 0, 0, 0);
+
+//     configOptions.defaultPythonVersion = PythonVersion.V3_9;
+//     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+//     TestUtils.validateResults(analysisResults2, 0, 0, 0, 0, 11);
+
+//     configOptions.defaultPythonVersion = PythonVersion.V3_10;
+//     const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['deprecated1.py'], configOptions);
+//     TestUtils.validateResults(analysisResults3, 0, 0, 0, 0, 13);
+// });
