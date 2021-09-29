@@ -4530,11 +4530,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     boundMethodType &&
                                     (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))
                                 ) {
+                                    const typeVarMap = new TypeVarMap(getTypeVarScopeId(boundMethodType));
+                                    if (bindToClass) {
+                                        typeVarMap.addSolveForScope(getTypeVarScopeId(bindToClass));
+                                    }
+
                                     const callResult = validateCallArguments(
                                         errorNode,
                                         argList,
                                         boundMethodType,
-                                        /* typeVarMap */ undefined,
+                                        typeVarMap,
                                         /* skipUnknownArgCheck */ true
                                     );
 
