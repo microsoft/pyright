@@ -554,7 +554,7 @@ export class SourceFile {
                     timingStats.readFileTime.timeOperation(() => {
                         // Read the file's contents.
                         fileContents = content ?? this.getFileContent();
-                        if (!fileContents) {
+                        if (fileContents === undefined) {
                             throw new Error("Can't get file content");
                         }
 
