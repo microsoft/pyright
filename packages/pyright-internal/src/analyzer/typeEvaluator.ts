@@ -183,7 +183,6 @@ import {
     isNone,
     isOverloadedFunction,
     isParamSpec,
-    isPossiblyUnbound,
     isTypeSame,
     isTypeVar,
     isUnbound,
@@ -3025,7 +3024,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case ParseNodeType.Name: {
                 // Get the type to evaluate whether it's bound
                 // and to mark it accessed.
-                getTypeOfExpression(node, /* expectedType */ undefined, EvaluatorFlags.SkipUnboundCheck);
+                getTypeOfExpression(node);
                 break;
             }
 
@@ -3035,7 +3034,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node,
                     baseTypeResult,
                     { method: 'del' },
-                    EvaluatorFlags.SkipUnboundCheck
+                    EvaluatorFlags.None
                 );
                 writeTypeCache(node.memberName, memberType.type, /* isIncomplete */ false);
                 writeTypeCache(node, memberType.type, /* isIncomplete */ false);
@@ -3048,12 +3047,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     undefined,
                     EvaluatorFlags.DoNotSpecialize
                 );
-                getTypeFromIndexWithBaseType(
-                    node,
-                    baseTypeResult.type,
-                    { method: 'del' },
-                    EvaluatorFlags.SkipUnboundCheck
-                );
+                getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'del' }, EvaluatorFlags.None);
                 writeTypeCache(node, UnboundType.create(), /* isIncomplete */ false);
                 break;
             }
@@ -3070,7 +3064,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // type information is cached for the completion handler.
                 if (node.child) {
                     suppressDiagnostics(node.child, () => {
-                        getTypeOfExpression(node.child!, /* expectedType */ undefined, EvaluatorFlags.SkipUnboundCheck);
+                        getTypeOfExpression(node.child!, /* expectedType */ undefined);
                     });
                 }
                 break;
@@ -3245,31 +3239,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Detect, report, and fill in missing type arguments if appropriate.
             type = reportMissingTypeArguments(node, type, flags);
-
-            // If there is a resolution cycle, don't report it as an unbound symbol
-            // at this time. It will be re-evaluated as the call stack unwinds, and
-            // its actual type will be known then. Also, if the node is unreachable
-            // but within a reachable statement (e.g. if False and <name>) then avoid
-            // reporting an unbound error.
-            if (!isIncomplete && !AnalyzerNodeInfo.isCodeUnreachable(node)) {
-                if ((flags & EvaluatorFlags.SkipUnboundCheck) === 0) {
-                    if (isUnbound(type)) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                            DiagnosticRule.reportUnboundVariable,
-                            Localizer.Diagnostic.symbolIsUnbound().format({ name }),
-                            node
-                        );
-                    } else if (isPossiblyUnbound(type)) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                            DiagnosticRule.reportUnboundVariable,
-                            Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name }),
-                            node
-                        );
-                    }
-                }
-            }
 
             setSymbolAccessed(fileInfo, symbol, node);
 
@@ -14291,11 +14260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 // For global and nonlocal statements, allow forward references so
                 // we don't use code flow during symbol lookups.
-                getTypeOfExpression(
-                    node,
-                    /* expectedType */ undefined,
-                    EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.SkipUnboundCheck
-                );
+                getTypeOfExpression(node, /* expectedType */ undefined, EvaluatorFlags.AllowForwardReferences);
                 return;
             }
         }

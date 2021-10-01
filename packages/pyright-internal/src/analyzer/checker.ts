@@ -107,8 +107,10 @@ import {
     isNone,
     isOverloadedFunction,
     isParamSpec,
+    isPossiblyUnbound,
     isTypeSame,
     isTypeVar,
+    isUnbound,
     isUnion,
     isUnknown,
     isVariadicTypeVar,
@@ -200,6 +202,7 @@ export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
     private readonly _evaluator: TypeEvaluator;
+    private _isUnboundCheckSuppressed = false;
 
     // A list of all nodes that are defined within the module that
     // have their own scopes.
@@ -1079,22 +1082,37 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitGlobal(node: GlobalNode): boolean {
-        node.nameList.forEach((name) => {
-            this._evaluator.getType(name);
+        this._suppressUnboundCheck(() => {
+            node.nameList.forEach((name) => {
+                this._evaluator.getType(name);
+
+                this.walk(name);
+            });
         });
-        return true;
+
+        return false;
     }
 
     override visitNonlocal(node: NonlocalNode): boolean {
-        node.nameList.forEach((name) => {
-            this._evaluator.getType(name);
+        this._suppressUnboundCheck(() => {
+            node.nameList.forEach((name) => {
+                this._evaluator.getType(name);
+
+                this.walk(name);
+            });
         });
-        return true;
+
+        return false;
     }
 
     override visitName(node: NameNode) {
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
+
+        // Determine if the name is possibly unbound.
+        if (!this._isUnboundCheckSuppressed) {
+            this._reportUnboundName(node);
+        }
 
         // Report the use of a deprecated symbol. For now, this functionality
         // is disabled. We'll leave it in place for the future.
@@ -1104,11 +1122,15 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitDel(node: DelNode) {
-        node.expressions.forEach((expr) => {
-            this._evaluator.verifyDeleteExpression(expr);
+        this._suppressUnboundCheck(() => {
+            node.expressions.forEach((expr) => {
+                this._evaluator.verifyDeleteExpression(expr);
+
+                this.walk(expr);
+            });
         });
 
-        return true;
+        return false;
     }
 
     override visitMemberAccess(node: MemberAccessNode) {
@@ -1180,6 +1202,17 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _suppressUnboundCheck(callback: () => void) {
+        const wasSuppressed = this._isUnboundCheckSuppressed;
+        this._isUnboundCheckSuppressed = true;
+
+        try {
+            callback();
+        } finally {
+            this._isUnboundCheckSuppressed = wasSuppressed;
+        }
     }
 
     private _validateIllegalDefaultParamInitializer(node: ParseNode) {
@@ -2645,6 +2678,34 @@ export class Checker extends ParseTreeWalker {
                 }),
                 node
             );
+        }
+    }
+
+    private _reportUnboundName(node: NameNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportUnboundVariable === 'none') {
+            return;
+        }
+
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            const type = this._evaluator.getType(node);
+
+            if (type) {
+                if (isUnbound(type)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                        DiagnosticRule.reportUnboundVariable,
+                        Localizer.Diagnostic.symbolIsUnbound().format({ name: node.value }),
+                        node
+                    );
+                } else if (isPossiblyUnbound(type)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                        DiagnosticRule.reportUnboundVariable,
+                        Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name: node.value }),
+                        node
+                    );
+                }
+            }
         }
     }
 

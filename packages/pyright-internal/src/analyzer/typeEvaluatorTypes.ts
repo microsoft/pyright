@@ -96,9 +96,6 @@ export const enum EvaluatorFlags {
     // the containing function's scope.
     AssociateTypeVarsWithCurrentScope = 1 << 13,
 
-    // Do not emit an error if the symbol is potentially unbound
-    SkipUnboundCheck = 1 << 14,
-
     // Used for PEP 526-style variable type annotations
     VariableTypeAnnotation = 1 << 15,
 
