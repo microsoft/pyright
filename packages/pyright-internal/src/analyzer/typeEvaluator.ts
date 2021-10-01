@@ -4483,13 +4483,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 let bindToClass: ClassType | undefined;
 
                                 // The "bind-to" class depends on whether the descriptor is defined
-                                // on the metaclass or the class.
-                                if (TypeBase.isInstantiable(subtype)) {
+                                // on the metaclass or the class. We handle properties specially here
+                                // because of the way we model the __get__ logic in the property class.
+                                if (ClassType.isPropertyClass(subtype) && !isAccessedThroughMetaclass) {
+                                    if (memberInfo && isInstantiableClass(memberInfo.classType)) {
+                                        bindToClass = memberInfo.classType;
+                                    }
+                                } else {
                                     if (isInstantiableClass(accessMethod.classType)) {
                                         bindToClass = accessMethod.classType;
                                     }
-                                } else if (memberInfo && isInstantiableClass(memberInfo.classType)) {
-                                    bindToClass = memberInfo.classType;
                                 }
 
                                 const boundMethodType = bindFunctionToClassOrObject(

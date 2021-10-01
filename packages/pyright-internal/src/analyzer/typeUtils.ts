@@ -1959,6 +1959,26 @@ function _transformTypeVarsInClassType(
                 return transformParamSpec(oldTypeArgType);
             }
 
+            if (
+                isTypeVar(oldTypeArgType) &&
+                oldTypeArgType.details.isSynthesizedSelfCls &&
+                oldTypeArgType.details.boundType
+            ) {
+                const transformedSelfCls = _transformTypeVars(
+                    oldTypeArgType.details.boundType,
+                    callbacks,
+                    recursionMap,
+                    recursionLevel + 1
+                );
+
+                if (transformedSelfCls !== oldTypeArgType.details.boundType) {
+                    specializationNeeded = true;
+                    return transformedSelfCls;
+                }
+
+                return oldTypeArgType;
+            }
+
             let newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
                 specializationNeeded = true;
