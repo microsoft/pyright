@@ -18270,6 +18270,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                     return true;
                 }
+            } else if (isAnyOrUnknown(srcType)) {
+                return true;
             }
 
             diag.addMessage(
