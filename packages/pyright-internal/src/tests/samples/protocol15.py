@@ -1,7 +1,7 @@
-# This sample tests the handling of protocols with properties that
-# make use of generics.
+# This sample tests the handling of protocols with properties and
+# methods that make use of generics.
 
-from typing import Protocol, TypeVar
+from typing import Callable, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -11,11 +11,17 @@ class Proto(Protocol):
     def f(self: T) -> T:
         ...
 
+    def m(self, item: T, callback: Callable[[T], str]) -> str:
+        ...
+
 
 class Concrete:
     @property
     def f(self) -> "Concrete":
         return self
+
+    def m(self, item: T, callback: Callable[[T], str]) -> str:
+        ...
 
 
 x: Proto = Concrete()

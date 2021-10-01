@@ -19483,6 +19483,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (srcFunction) {
+                if (typeVarMap) {
+                    typeVarMap.addSolveForScope(getTypeVarScopeId(destType));
+                }
+
                 if (
                     canAssignFunction(
                         destType,
