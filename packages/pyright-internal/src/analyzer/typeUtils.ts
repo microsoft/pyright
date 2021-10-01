@@ -1480,8 +1480,10 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
             mroClass.details.fields.forEach((symbol, name) => {
                 if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
                     if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
-                        if (!symbolTable.get(name)) {
-                            symbolTable.set(name, symbol);
+                        if (!symbol.isInitVar()) {
+                            if (!symbolTable.get(name)) {
+                                symbolTable.set(name, symbol);
+                            }
                         }
                     }
                 }

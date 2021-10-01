@@ -4189,6 +4189,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let type: Type | undefined;
             let isTypeIncomplete = false;
 
+            if (memberInfo.symbol.isInitVar()) {
+                diag.addMessage(Localizer.DiagnosticAddendum.memberIsInitVar().format({ name: memberName }));
+                return undefined;
+            }
+
             if (usage.method === 'get') {
                 const typeResult = getTypeOfMemberInternal(errorNode, memberInfo);
                 if (typeResult) {

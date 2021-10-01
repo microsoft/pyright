@@ -909,6 +909,8 @@ export namespace Localizer {
             new ParameterizedString<{ count: number }>(getRawString('DiagnosticAddendum.memberIsAbstractMore'));
         export const memberIsFinalInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsFinalInProtocol'));
+        export const memberIsInitVar = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsInitVar'));
         export const memberIsNotFinalInProtocol = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberIsNotFinalInProtocol'));
         export const memberSetClassVar = () =>

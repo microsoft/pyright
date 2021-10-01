@@ -49,6 +49,9 @@ export const enum SymbolFlags {
 
     // Indicates that the symbol is a private import in a py.typed module.
     PrivatePyTypedImport = 1 << 9,
+
+    // Indicates that the symbol is an InitVar as specified in PEP 557.
+    InitVar = 1 << 10,
 }
 
 let nextSymbolId = 1;
@@ -130,6 +133,14 @@ export class Symbol {
 
     isClassVar() {
         return !!(this._flags & SymbolFlags.ClassVar);
+    }
+
+    setIsInitVar() {
+        this._flags |= SymbolFlags.InitVar;
+    }
+
+    isInitVar() {
+        return !!(this._flags & SymbolFlags.InitVar);
     }
 
     setIsInDunderAll() {

@@ -183,9 +183,16 @@ export class Binder extends ParseTreeWalker {
     // Aliases of "sys".
     private _sysImportAliases: string[] = [];
 
+    // Aliases of "dataclasses".
+    private _dataclassesImportAliases: string[] = [];
+
     // Map of imports of specific symbols imported from "typing" and "typing_extensions"
     // and the names they alias to.
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
+
+    // Map of imports of specific symbols imported from "dataclasses"
+    // and the names they alias to.
+    private _dataclassesSymbolAliases: Map<string, string> = new Map<string, string>();
 
     // List of names statically assigned to __all__ symbol.
     private _dunderAllNames: string[] | undefined;
@@ -1485,9 +1492,11 @@ export class Binder extends ParseTreeWalker {
 
             if (node.module.nameParts.length === 1) {
                 if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
-                    this._typingImportAliases.push(node.alias?.value || firstNamePartValue);
+                    this._typingImportAliases.push(node.alias?.value ?? firstNamePartValue);
                 } else if (firstNamePartValue === 'sys') {
-                    this._sysImportAliases.push(node.alias?.value || firstNamePartValue);
+                    this._sysImportAliases.push(node.alias?.value ?? firstNamePartValue);
+                } else if (firstNamePartValue === 'dataclasses') {
+                    this._dataclassesImportAliases.push(node.alias?.value ?? firstNamePartValue);
                 }
             }
         }
@@ -1497,6 +1506,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitImportFrom(node: ImportFromNode): boolean {
         const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar', 'Required', 'NotRequired'];
+        const dataclassesSymbolsOfInterest = ['InitVar'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         let resolvedPath = '';
@@ -1515,10 +1525,16 @@ export class Binder extends ParseTreeWalker {
             fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length === 1;
 
         let isTypingImport = false;
+        let isDataclassesImport = false;
+
         if (node.module.nameParts.length === 1) {
             const firstNamePartValue = node.module.nameParts[0].value;
             if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
                 isTypingImport = true;
+            }
+
+            if (firstNamePartValue === 'dataclasses') {
+                isDataclassesImport = true;
             }
         }
 
@@ -1613,6 +1629,12 @@ export class Binder extends ParseTreeWalker {
                         this._typingSymbolAliases.set(s, s);
                     });
                 }
+
+                if (isDataclassesImport) {
+                    dataclassesSymbolsOfInterest.forEach((s) => {
+                        this._dataclassesSymbolAliases.set(s, s);
+                    });
+                }
             }
         } else {
             if (isModuleInitFile) {
@@ -1696,6 +1718,12 @@ export class Binder extends ParseTreeWalker {
                     if (isTypingImport) {
                         if (typingSymbolsOfInterest.some((s) => s === importSymbolNode.name.value)) {
                             this._typingSymbolAliases.set(nameNode.value, importSymbolNode.name.value);
+                        }
+                    }
+
+                    if (isDataclassesImport) {
+                        if (dataclassesSymbolsOfInterest.some((s) => s === importSymbolNode.name.value)) {
+                            this._dataclassesSymbolAliases.set(nameNode.value, importSymbolNode.name.value);
                         }
                     }
                 }
@@ -3306,6 +3334,13 @@ export class Binder extends ParseTreeWalker {
                     } else {
                         symbolWithScope.symbol.setIsInstanceMember();
                     }
+
+                    if (
+                        typeAnnotation.nodeType === ParseNodeType.Index &&
+                        this._isDataclassesAnnotation(typeAnnotation.baseExpression, 'InitVar')
+                    ) {
+                        symbolWithScope.symbol.setIsInitVar();
+                    }
                 }
 
                 declarationHandled = true;
@@ -3375,8 +3410,26 @@ export class Binder extends ParseTreeWalker {
     // time. We assume here that the code isn't making use of some custom type alias
     // to refer to the typing types.
     private _isTypingAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
+        return this._isKnownAnnotation(typeAnnotation, name, this._typingImportAliases, this._typingSymbolAliases);
+    }
+
+    private _isDataclassesAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
+        return this._isKnownAnnotation(
+            typeAnnotation,
+            name,
+            this._dataclassesImportAliases,
+            this._dataclassesSymbolAliases
+        );
+    }
+
+    private _isKnownAnnotation(
+        typeAnnotation: ExpressionNode,
+        name: string,
+        importAliases: string[],
+        symbolAliases: Map<string, string>
+    ) {
         if (typeAnnotation.nodeType === ParseNodeType.Name) {
-            const alias = this._typingSymbolAliases.get(typeAnnotation.value);
+            const alias = symbolAliases.get(typeAnnotation.value);
             if (alias === name) {
                 return true;
             }
@@ -3386,7 +3439,7 @@ export class Binder extends ParseTreeWalker {
                 typeAnnotation.memberName.value === name
             ) {
                 const baseName = typeAnnotation.leftExpression.value;
-                return this._typingImportAliases.some((alias) => alias === baseName);
+                return importAliases.some((alias) => alias === baseName);
             }
         }
 
