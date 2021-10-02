@@ -793,7 +793,11 @@ export class ImportResolver {
 
             // We found fully typed stub packages.
             if (importResult.packageDirectory) {
-                return importResult;
+                // If this is a namespace package that wasn't resolved, assume that
+                // it's a partial stub package and continue looking for a real package.
+                if (!importResult.isNamespacePackage || importResult.isImportFound) {
+                    return importResult;
+                }
             }
         }
 

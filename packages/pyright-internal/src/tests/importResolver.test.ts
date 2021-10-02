@@ -138,6 +138,10 @@ test('stub package', () => {
             content: '# empty',
         },
         {
+            path: combinePaths(libraryRoot, 'myLib-stubs', '__init__.pyi'),
+            content: '# empty',
+        },
+        {
             path: combinePaths(libraryRoot, 'myLib', 'partialStub.py'),
             content: 'def test(): pass',
         },
@@ -146,6 +150,28 @@ test('stub package', () => {
     // If fully typed stub package exists, that wins over the real package.
     const importResult = getImportResult(files, ['myLib', 'partialStub']);
     assert(!importResult.isImportFound);
+});
+
+test('stub namespace package', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'myLib-stubs', 'stub.pyi'),
+            content: '# empty',
+        },
+        {
+            path: combinePaths(libraryRoot, 'myLib', 'partialStub.py'),
+            content: 'def test(): pass',
+        },
+    ];
+
+    // If fully typed stub package exists, that wins over the real package.
+    const importResult = getImportResult(files, ['myLib', 'partialStub']);
+    assert(importResult.isImportFound);
+    assert(!importResult.isStubFile);
+    assert.strictEqual(
+        1,
+        importResult.resolvedPaths.filter((f) => f === combinePaths(libraryRoot, 'myLib', 'partialStub.py')).length
+    );
 });
 
 test('stub in typing folder over partial stub package', () => {
