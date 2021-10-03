@@ -319,6 +319,8 @@ export class Checker extends ParseTreeWalker {
 
             this._validateFinalClassNotAbstract(classTypeResult.classType, node);
 
+            this._reportDuplicateEnumMembers(classTypeResult.classType);
+
             if (ClassType.isTypedDictClass(classTypeResult.classType)) {
                 this._validateTypedDictClassSuite(node.suite);
             }
@@ -3039,6 +3041,24 @@ export class Checker extends ParseTreeWalker {
                     }),
                     decl.node
                 );
+            }
+        });
+    }
+
+    private _reportDuplicateEnumMembers(classType: ClassType) {
+        if (!ClassType.isEnumClass(classType) || ClassType.isBuiltIn(classType)) {
+            return;
+        }
+
+        classType.details.fields.forEach((symbol, name) => {
+            // Enum members don't have type annotations.
+            if (symbol.getTypedDeclarations().length > 0) {
+                return;
+            }
+
+            const decls = symbol.getDeclarations();
+            if (decls.length >= 2 && decls[0].type === DeclarationType.Variable) {
+                this._evaluator.addError(Localizer.Diagnostic.duplicateEnumMember().format({ name }), decls[1].node);
             }
         });
     }

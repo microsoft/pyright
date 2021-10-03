@@ -11959,6 +11959,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isInstantiableClass(argType)) {
                     if (ClassType.isEnumClass(argType)) {
                         classType.details.flags |= ClassTypeFlags.EnumClass;
+
+                        // Subclasses of one of the built-in enum classes are implicitly final.
+                        if (!ClassType.isBuiltIn(classType)) {
+                            classType.details.flags |= ClassTypeFlags.Final;
+                        }
                     }
 
                     // Determine if the class is abstract. Protocol classes support abstract methods

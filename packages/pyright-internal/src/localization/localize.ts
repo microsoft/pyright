@@ -292,6 +292,8 @@ export namespace Localizer {
         export const duplicateArgsParam = () => getRawString('Diagnostic.duplicateArgsParam');
         export const duplicateBaseClass = () => getRawString('Diagnostic.duplicateBaseClass');
         export const duplicateCatchAll = () => getRawString('Diagnostic.duplicateCatchAll');
+        export const duplicateEnumMember = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.duplicateEnumMember'));
         export const duplicateImport = () =>
             new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.duplicateImport'));
         export const duplicateKwargsParam = () => getRawString('Diagnostic.duplicateKwargsParam');

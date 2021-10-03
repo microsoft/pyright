@@ -75,6 +75,7 @@
         "duplicateArgsParam": "Only one \"*\" parameter allowed",
         "duplicateBaseClass": "Duplicate base class not allowed",
         "duplicateCatchAll": "Only one catch-all except clause allowed",
+        "duplicateEnumMember": "Enum member \"{name}\" is already declared",
         "duplicateImport": "\"{importName}\" is imported more than once",
         "duplicateKwargsParam": "Only one \"**\" parameter allowed",
         "duplicateKeywordOnly": "Only one \"*\" separator allowed",
