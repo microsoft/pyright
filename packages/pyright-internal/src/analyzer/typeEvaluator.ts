@@ -474,6 +474,11 @@ const maxReturnTypeInferenceStackSize = 3;
 // analyze.
 const maxReturnTypeInferenceArgumentCount = 6;
 
+// What is the max complexity of the code flow graph that
+// we will analyze to determine the return type of a function
+// when its parameters are unannotated?
+const maxReturnTypeInferenceCodeFlowComplexity = 15;
+
 // How many entries in a list, set, or dict should we examine
 // when inferring the type? We need to cut it off at some point
 // to avoid excessive computation.
@@ -17033,22 +17038,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (type.inferredReturnType) {
             returnType = type.inferredReturnType;
         } else {
-            if (type.details.declaration) {
+            // Don't bother inferring the return type of __init__ because it's
+            // always None.
+            if (FunctionType.isInstanceMethod(type) && type.details.name === '__init__') {
+                returnType = NoneType.createInstance();
+            } else if (type.details.declaration) {
                 const functionNode = type.details.declaration.node;
 
-                // Temporarily disable speculative mode while we
-                // lazily evaluate the return type.
-                disableSpeculativeMode(() => {
-                    returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
-                });
+                const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
-                // Do we need to wrap this in an awaitable?
-                if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
-                    returnType = createAwaitableReturnType(
-                        functionNode,
-                        returnType,
-                        !!type.details.declaration?.isGenerator
-                    );
+                // For very complex functions that have no annotated parameter types,
+                // don't attempt to infer the return type because it can be extremely
+                // expensive.
+                const parametersAreAnnotated =
+                    type.details.parameters.length <= 1 ||
+                    type.details.parameters.some((param) => param.hasDeclaredType);
+
+                if (parametersAreAnnotated || codeFlowComplexity < maxReturnTypeInferenceCodeFlowComplexity) {
+                    // Temporarily disable speculative mode while we
+                    // lazily evaluate the return type.
+                    disableSpeculativeMode(() => {
+                        returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+                    });
+
+                    // Do we need to wrap this in an awaitable?
+                    if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
+                        returnType = createAwaitableReturnType(
+                            functionNode,
+                            returnType,
+                            !!type.details.declaration?.isGenerator
+                        );
+                    }
                 }
             }
 

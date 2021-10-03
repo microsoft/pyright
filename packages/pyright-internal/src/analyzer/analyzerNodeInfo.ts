@@ -63,6 +63,10 @@ interface AnalyzerNodeInfo {
     // function or lambda) that requires code flow analysis.
     codeFlowExpressions?: Set<string>;
 
+    // Number that represents the complexity of a function's code
+    // flow graph.
+    codeFlowComplexity?: number;
+
     // List of __all__ symbols in the module.
     dunderAllInfo?: DunderAllInfo | undefined;
 }
@@ -78,6 +82,9 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     delete analyzerNode.flowNode;
     delete analyzerNode.afterFlowNode;
     delete analyzerNode.fileInfo;
+    delete analyzerNode.codeFlowExpressions;
+    delete analyzerNode.codeFlowComplexity;
+    delete analyzerNode.dunderAllInfo;
 }
 
 export function getImportInfo(node: ParseNode): ImportResult | undefined {
@@ -151,6 +158,16 @@ export function getCodeFlowExpressions(node: ExecutionScopeNode): Set<string> | 
 export function setCodeFlowExpressions(node: ExecutionScopeNode, expressions: Set<string>) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.codeFlowExpressions = expressions;
+}
+
+export function getCodeFlowComplexity(node: FunctionNode) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.codeFlowComplexity ?? 0;
+}
+
+export function setCodeFlowComplexity(node: FunctionNode, complexity: number) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.codeFlowComplexity = complexity;
 }
 
 export function getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
