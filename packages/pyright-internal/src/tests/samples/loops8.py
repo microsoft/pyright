@@ -7,9 +7,11 @@ from typing import Iterable
 
 
 def test(parts: Iterable[str]):
+    x: list[str] = []
     ns = ""
     for part in parts:
         if ns:
             ns += "a"
         else:
             ns += part
+        x.append(ns)

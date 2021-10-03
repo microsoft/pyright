@@ -15131,10 +15131,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Have we already been here? If so, use the cached value.
                     const cachedEntry = getCacheEntry(curFlowNode, usedOuterScopeAlias);
                     if (cachedEntry) {
+                        if (!cachedEntry.isIncomplete) {
+                            return cachedEntry;
+                        }
+                        
                         // If the cached entry is incomplete, we can use it only if nothing
                         // has changed that may cause the previously-reported incomplete type to change.
-                        if (!cachedEntry.isIncomplete || cachedEntry.generationCount === flowIncompleteGeneration) {
-                            return cachedEntry;
+                        if (cachedEntry.generationCount === flowIncompleteGeneration) {
+                            return {
+                                type: cachedEntry?.type ? removeUnknownFromUnion(cachedEntry.type) : undefined,
+                                usedOuterScopeAlias,
+                                isIncomplete: true,
+                            };
                         }
                     }
 
@@ -15449,7 +15457,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         // The result is incomplete if one or more entries were incomplete.
                         if (sawIncomplete) {
-                            // If there is an "Unknown" type within an unknown type, remove
+                            // If there is an "Unknown" type within a union type, remove
                             // it. Otherwise we might end up resolving the cycle with a type
                             // that includes an undesirable unknown.
                             return {
