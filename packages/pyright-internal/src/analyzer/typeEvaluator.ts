@@ -328,6 +328,7 @@ interface MatchArgsToParamsResult {
 interface ArgResult {
     isCompatible: boolean;
     isTypeIncomplete?: boolean | undefined;
+    skippedOverloadArg?: boolean;
 }
 
 interface ClassMemberLookup {
@@ -8055,20 +8056,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // In practice, we will limit the number of passes to 2 because it can get
             // very expensive to go beyond this, and we don't see generally see cases
             // where more than two passes are needed.
-            const passCount = Math.min(typeVarMatchingCount, 2);
+            let passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
                 useSpeculativeMode(errorNode, () => {
                     matchResults.argParams.forEach((argParam) => {
                         if (argParam.requiresTypeVarMatching) {
+                            // Populate the typeVarMap for the argument. If the argument
+                            // is an overload function, skip it during the first pass
+                            // because the selection of the proper overload may depend
+                            // on type arguments supplied by other function arguments.
                             const argResult = validateArgType(
                                 argParam,
                                 typeVarMap,
                                 type.details.name,
                                 skipUnknownArgCheck,
+                                /* skipOverloadArg */ i === 0,
                                 typeCondition
                             );
+
                             if (argResult.isTypeIncomplete) {
                                 isTypeIncomplete = true;
+                            }
+
+                            // If we skipped a overload arg during the first pass,
+                            // add another pass to ensure that we handle all of the
+                            // type variables.
+                            if (i === 0 && argResult.skippedOverloadArg) {
+                                passCount++;
                             }
                         }
                     });
@@ -8086,6 +8100,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeVarMap,
                 type.details.name,
                 skipUnknownArgCheck,
+                /* skipOverloadArg */ false,
                 typeCondition
             );
 
@@ -8317,6 +8332,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeVarMap,
                             /* functionName */ '',
                             /* skipUnknownArgCheck */ false,
+                            /* skipOverloadArg */ false,
                             conditionFilter
                         )
                     ) {
@@ -8361,7 +8377,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarMap: TypeVarMap,
         functionName: string,
         skipUnknownCheck: boolean,
-        conditionFilter: TypeCondition[] | undefined
+        skipOverloadArg: boolean,
+        conditionFilter: TypeCondition[] | undefined,
     ): ArgResult {
         let argType: Type | undefined;
         let expectedTypeDiag: DiagnosticAddendum | undefined;
@@ -8446,6 +8463,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { isCompatible, isTypeIncomplete };
         }
 
+        if (skipOverloadArg && isOverloadedFunction(argType)) {
+            return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+        }
+
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             // Mismatching parameter types are common in untyped code; don't bother spending time
             // printing types if the diagnostic is disabled.
@@ -8503,6 +8524,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     argParam.errorNode
                 );
             }
+
             return { isCompatible: false, isTypeIncomplete };
         }
 
