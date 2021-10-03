@@ -18782,47 +18782,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
-            // If the dest is a constrained type variable and all of the types in
-            // the source are constrained using that same type variable and have
-            // compatible types, we'll consider it assignable.
-            const destTypeVar = destType;
-            if (
-                findSubtype(srcType, (srcSubtype) => {
-                    if (isTypeSame(destTypeVar, srcSubtype, /* ignorePseudoGeneric */ true)) {
-                        return false;
-                    }
-
-                    if (
-                        getTypeCondition(srcSubtype)?.find(
-                            (constraint) => constraint.typeVarName === TypeVarType.getNameWithScope(destTypeVar)
-                        )
-                    ) {
-                        if (
-                            destTypeVar.details.constraints.length === 0 ||
-                            destTypeVar.details.constraints.some((constraintType) => {
-                                return canAssignType(constraintType, srcSubtype, new DiagnosticAddendum());
-                            })
-                        ) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                }) === undefined
-            ) {
+            // If the dest is a constrained or bound type variable and all of the
+            // types in the source are conditioned on that same type variable
+            // and have compatible types, we'll consider it assignable.
+            if (canAssignConditionalTypeToTypeVar(destType, srcType, recursionCount + 1)) {
                 return true;
             }
 
             // If the dest is a variadic type variable, and the source is a tuple
             // with a single entry that is the same variadic type variable, it's a match.
             if (
-                isVariadicTypeVar(destTypeVar) &&
+                isVariadicTypeVar(destType) &&
                 isClassInstance(srcType) &&
                 isTupleClass(srcType) &&
                 srcType.tupleTypeArguments &&
                 srcType.tupleTypeArguments.length === 1
             ) {
-                if (isTypeSame(destTypeVar, srcType.tupleTypeArguments[0])) {
+                if (isTypeSame(destType, srcType.tupleTypeArguments[0])) {
                     return true;
                 }
             }
@@ -19572,6 +19548,60 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         return false;
+    }
+
+    function canAssignConditionalTypeToTypeVar(destType: TypeVarType, srcType: Type, recursionCount: number): boolean {
+        // The subType is assignable only if all of its subtypes are assignable.
+        return !findSubtype(srcType, (srcSubtype) => {
+            if (isTypeSame(destType, srcSubtype, /* ignorePseudoGeneric */ true, recursionCount + 1)) {
+                return false;
+            }
+
+            const destTypeVarName = TypeVarType.getNameWithScope(destType);
+
+            // Determine which conditions on this type apply to this type variable.
+            // There might be more than one of them.
+            const applicableConditions = (getTypeCondition(srcSubtype) ?? []).filter(
+                (constraint) => constraint.typeVarName === destTypeVarName
+            );
+
+            // If there are no applicable conditions, it's not assignable.
+            if (applicableConditions.length === 0) {
+                return true;
+            }
+
+            return !applicableConditions.some((condition) => {
+                if (destType.details.boundType) {
+                    assert(condition.constraintIndex === 0);
+
+                    return isTypeSame(
+                        destType.details.boundType,
+                        TypeBase.cloneForCondition(srcSubtype, /* condition */ undefined),
+                        /* ignorePseudoGeneric */ true,
+                        recursionCount + 1
+                    );
+                }
+
+                if (destType.details.constraints.length > 0) {
+                    assert(condition.constraintIndex < destType.details.constraints.length);
+                    const typeVarConstraint = destType.details.constraints[condition.constraintIndex];
+                    assert(typeVarConstraint !== undefined);
+
+                    return canAssignType(
+                        typeVarConstraint,
+                        srcSubtype,
+                        new DiagnosticAddendum(),
+                        /* typeVarMap */ undefined,
+                        /* flags */ undefined,
+                        recursionCount + 1
+                    );
+                }
+
+                // This is a non-bound and non-constrained type variable with a matching condition.
+                assert(condition.constraintIndex === 0);
+                return true;
+            });
+        });
     }
 
     // Synthesize a function that represents the constructor for this class

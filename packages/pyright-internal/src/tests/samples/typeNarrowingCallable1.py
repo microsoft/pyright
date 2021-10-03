@@ -68,7 +68,7 @@ def test2(o: Foo) -> None:
 T = TypeVar("T", int, str, Callable[[], int], Callable[[], str])
 
 
-def test3(v: T) -> T:
+def test3(v: T) -> Union[T, int, str]:
     if callable(v):
         t1: Literal["() -> int | () -> str"] = reveal_type(v)
         t2: Literal["int* | str*"] = reveal_type(v())
