@@ -1770,7 +1770,7 @@ function _removeParamSpecVariadicsFromFunction(type: FunctionType): FunctionType
 function _transformTypeVars(
     type: Type,
     callbacks: TypeVarTransformer,
-    recursionMap = new Map<string, TypeVarType>(),
+    recursionSet = new Set<string>(),
     recursionLevel = 0
 ): Type {
     if (recursionLevel > maxTypeRecursionCount) {
@@ -1801,7 +1801,7 @@ function _transformTypeVars(
 
             let requiresUpdate = false;
             const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
-                const replacementType = _transformTypeVars(typeArg, callbacks, recursionMap, recursionLevel + 1);
+                const replacementType = _transformTypeVars(typeArg, callbacks, recursionSet, recursionLevel + 1);
                 if (replacementType !== typeArg) {
                     requiresUpdate = true;
                 }
@@ -1825,12 +1825,12 @@ function _transformTypeVars(
         let replacementType: Type = type;
 
         // Recursively transform the results, but ensure that we don't replace the
-        // same type variable recursively by setting it in the recursionMap.
+        // same type variable recursively by setting it in the recursionSet.
         const typeVarName = TypeVarType.getNameWithScope(type);
-        if (!recursionMap.has(typeVarName)) {
+        if (!recursionSet.has(typeVarName)) {
             replacementType = callbacks.transformTypeVar(type);
-            recursionMap.set(typeVarName, type);
-            replacementType = _transformTypeVars(replacementType, callbacks, recursionMap, recursionLevel + 1);
+            recursionSet.add(typeVarName);
+            replacementType = _transformTypeVars(replacementType, callbacks, recursionSet, recursionLevel + 1);
 
             // If we're transforming a variadic type variable that was in a union,
             // expand the union types.
@@ -1838,7 +1838,7 @@ function _transformTypeVars(
                 replacementType = _expandVariadicUnpackedUnion(replacementType);
             }
 
-            recursionMap.delete(typeVarName);
+            recursionSet.delete(typeVarName);
         }
 
         return replacementType;
@@ -1846,7 +1846,7 @@ function _transformTypeVars(
 
     if (isUnion(type)) {
         const newUnionType = mapSubtypes(type, (subtype) => {
-            let transformedType = _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1);
+            let transformedType = _transformTypeVars(subtype, callbacks, recursionSet, recursionLevel + 1);
 
             // If we're transforming a variadic type variable within a union,
             // combine the individual types within the variadic type variable.
@@ -1873,7 +1873,7 @@ function _transformTypeVars(
         const classType = _transformTypeVarsInClassType(
             ClassType.cloneAsInstantiable(type),
             callbacks,
-            recursionMap,
+            recursionSet,
             recursionLevel + 1
         );
 
@@ -1881,11 +1881,11 @@ function _transformTypeVars(
     }
 
     if (isInstantiableClass(type)) {
-        return _transformTypeVarsInClassType(type, callbacks, recursionMap, recursionLevel + 1);
+        return _transformTypeVarsInClassType(type, callbacks, recursionSet, recursionLevel + 1);
     }
 
     if (isFunction(type)) {
-        return _transformTypeVarsInFunctionType(type, callbacks, recursionMap, recursionLevel + 1);
+        return _transformTypeVarsInFunctionType(type, callbacks, recursionSet, recursionLevel + 1);
     }
 
     if (isOverloadedFunction(type)) {
@@ -1894,7 +1894,7 @@ function _transformTypeVars(
         // Specialize each of the functions in the overload.
         const newOverloads: FunctionType[] = [];
         type.overloads.forEach((entry) => {
-            const replacementType = _transformTypeVarsInFunctionType(entry, callbacks, recursionMap, recursionLevel);
+            const replacementType = _transformTypeVarsInFunctionType(entry, callbacks, recursionSet, recursionLevel);
             newOverloads.push(replacementType);
             if (replacementType !== entry) {
                 requiresUpdate = true;
@@ -1911,7 +1911,7 @@ function _transformTypeVars(
 function _transformTypeVarsInClassType(
     classType: ClassType,
     callbacks: TypeVarTransformer,
-    recursionMap: Map<string, TypeVarType>,
+    recursionSet: Set<string>,
     recursionLevel: number
 ): ClassType {
     // Handle the common case where the class has no type parameters.
@@ -1971,7 +1971,7 @@ function _transformTypeVarsInClassType(
                 const transformedSelfCls = _transformTypeVars(
                     oldTypeArgType.details.boundType,
                     callbacks,
-                    recursionMap,
+                    recursionSet,
                     recursionLevel + 1
                 );
 
@@ -1983,7 +1983,7 @@ function _transformTypeVarsInClassType(
                 return oldTypeArgType;
             }
 
-            let newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
+            let newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionSet, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
                 specializationNeeded = true;
 
@@ -2010,17 +2010,17 @@ function _transformTypeVarsInClassType(
                 }
             } else {
                 const typeParamName = TypeVarType.getNameWithScope(typeParam);
-                if (!recursionMap.has(typeParamName)) {
+                if (!recursionSet.has(typeParamName)) {
                     replacementType = callbacks.transformTypeVar(typeParam);
                     if (replacementType !== typeParam) {
-                        recursionMap.set(typeParamName, typeParam);
+                        recursionSet.add(typeParamName);
                         replacementType = _transformTypeVars(
                             replacementType,
                             callbacks,
-                            recursionMap,
+                            recursionSet,
                             recursionLevel + 1
                         );
-                        recursionMap.delete(typeParamName);
+                        recursionSet.delete(typeParamName);
                         specializationNeeded = true;
                     }
                 }
@@ -2034,7 +2034,7 @@ function _transformTypeVarsInClassType(
         if (classType.tupleTypeArguments) {
             newVariadicTypeArgs = [];
             classType.tupleTypeArguments.forEach((oldTypeArgType) => {
-                const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
+                const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionSet, recursionLevel + 1);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
                 }
@@ -2075,7 +2075,7 @@ function _transformTypeVarsInClassType(
 function _transformTypeVarsInFunctionType(
     sourceType: FunctionType,
     callbacks: TypeVarTransformer,
-    recursionMap: Map<string, TypeVarType>,
+    recursionSet: Set<string>,
     recursionLevel: number
 ): FunctionType {
     let functionType = sourceType;
@@ -2093,7 +2093,7 @@ function _transformTypeVarsInFunctionType(
             ? functionType.specializedTypes.returnType
             : functionType.details.declaredReturnType;
     const specializedReturnType = declaredReturnType
-        ? _transformTypeVars(declaredReturnType, callbacks, recursionMap, recursionLevel + 1)
+        ? _transformTypeVars(declaredReturnType, callbacks, recursionSet, recursionLevel + 1)
         : undefined;
     let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
 
@@ -2136,7 +2136,7 @@ function _transformTypeVarsInFunctionType(
 
     for (let i = 0; i < functionType.details.parameters.length; i++) {
         const paramType = FunctionType.getEffectiveParameterType(functionType, i);
-        const specializedType = _transformTypeVars(paramType, callbacks, recursionMap, recursionLevel + 1);
+        const specializedType = _transformTypeVars(paramType, callbacks, recursionSet, recursionLevel + 1);
         specializedParameters.parameterTypes.push(specializedType);
         if (
             variadicParamIndex === undefined &&
@@ -2168,7 +2168,7 @@ function _transformTypeVarsInFunctionType(
         specializedInferredReturnType = _transformTypeVars(
             functionType.inferredReturnType,
             callbacks,
-            recursionMap,
+            recursionSet,
             recursionLevel + 1
         );
     }
