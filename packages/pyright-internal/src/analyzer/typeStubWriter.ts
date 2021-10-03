@@ -337,11 +337,11 @@ export class TypeStubWriter extends ParseTreeWalker {
                 if (node.typeAnnotationComment) {
                     line += ': ' + this._printExpression(node.typeAnnotationComment, /* treatStringsAsSymbols */ true);
                 }
-            }
 
-            const valueType = this._evaluator.getType(node.leftExpression);
-            if (valueType?.typeAliasInfo) {
-                isTypeAlias = true;
+                const valueType = this._evaluator.getType(node.leftExpression);
+                if (valueType?.typeAliasInfo) {
+                    isTypeAlias = true;
+                }
             }
         } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
             const valueExpr = node.leftExpression.valueExpression;
