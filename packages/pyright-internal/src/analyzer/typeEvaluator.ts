@@ -8378,7 +8378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         functionName: string,
         skipUnknownCheck: boolean,
         skipOverloadArg: boolean,
-        conditionFilter: TypeCondition[] | undefined,
+        conditionFilter: TypeCondition[] | undefined
     ): ArgResult {
         let argType: Type | undefined;
         let expectedTypeDiag: DiagnosticAddendum | undefined;
