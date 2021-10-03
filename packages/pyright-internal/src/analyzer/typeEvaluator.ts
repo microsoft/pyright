@@ -15134,7 +15134,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (!cachedEntry.isIncomplete) {
                             return cachedEntry;
                         }
-                        
+
                         // If the cached entry is incomplete, we can use it only if nothing
                         // has changed that may cause the previously-reported incomplete type to change.
                         if (cachedEntry.generationCount === flowIncompleteGeneration) {
