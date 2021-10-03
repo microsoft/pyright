@@ -1949,6 +1949,8 @@ function _transformTypeVarsInClassType(
             if (paramSpecEntries.paramSpec) {
                 return paramSpecEntries.paramSpec;
             }
+        } else {
+            return UnknownType.create();
         }
 
         return paramSpec;
