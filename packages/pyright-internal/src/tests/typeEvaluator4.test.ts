@@ -519,7 +519,7 @@ test('Callable4', () => {
 test('Callable5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable5.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('ThreePartVersion1', () => {

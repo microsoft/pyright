@@ -8463,8 +8463,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { isCompatible, isTypeIncomplete };
         }
 
-        if (skipOverloadArg && isOverloadedFunction(argType)) {
-            return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+        // If we are asked to skip overload arguments, determine whether the argument
+        // is an explicit overload type, an overloaded class constructor, or a
+        // an overloaded callback protocol.
+        if (skipOverloadArg) {
+            if (isOverloadedFunction(argType)) {
+                return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+            }
+
+            const concreteParamType = makeTopLevelTypeVarsConcrete(argParam.paramType);
+            if (isFunction(concreteParamType) || isOverloadedFunction(concreteParamType)) {
+                if (isInstantiableClass(argType)) {
+                    const constructor = createFunctionFromConstructor(argType);
+                    if (constructor && isOverloadedFunction(constructor)) {
+                        return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+                    }
+                }
+
+                if (isClassInstance(argType)) {
+                    const callMember = lookUpObjectMember(argType, '__call__');
+                    if (callMember) {
+                        const memberType = getTypeOfMember(callMember);
+                        if (isOverloadedFunction(memberType)) {
+                            return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+                        }
+                    }
+                }
+            }
         }
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
