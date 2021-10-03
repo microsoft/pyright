@@ -2209,7 +2209,7 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
 
 export function findSubtype(type: Type, filter: (type: UnionableType | NeverType) => boolean) {
     if (isUnion(type)) {
-        return type.subtypes.find((subtype, index) => {
+        return type.subtypes.find((subtype) => {
             return filter(subtype);
         });
     }

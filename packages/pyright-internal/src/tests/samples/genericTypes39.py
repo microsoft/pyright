@@ -1,7 +1,7 @@
 # This sample tests the handling of TypeVars defined by
 # a generic function.
 
-from typing import Callable, Iterable, TypeVar
+from typing import Callable, Dict, Generic, Iterable, List, Tuple, TypeVar
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -15,9 +15,6 @@ def do_something(
     for x in collection:
         s = f(s, x)
         yield s
-
-
-from typing import Dict, Generic, List, Tuple, TypeVar
 
 
 class Foo:
