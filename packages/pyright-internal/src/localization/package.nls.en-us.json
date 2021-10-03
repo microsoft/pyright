@@ -338,7 +338,7 @@
         "typeArgListNotAllowed": "List expression not allowed for this type argument",
         "typeAnnotationCall": "Illegal type annotation: call expression not allowed",
         "typeAnnotationVariable": "Illegal type annotation: variable not allowed unless it is a type alias",
-        "typeArgsExpectingNone": "Expected no type arguments",
+        "typeArgsExpectingNone": "Expected no type arguments for class \"{name}\"",
         "typeArgsMismatchOne": "Expected one type argument but received {received}",
         "typeArgsMissingForAlias": "Expected type arguments for generic type alias \"{name}\"",
         "typeArgsMissingForClass": "Expected type arguments for generic class \"{name}\"",

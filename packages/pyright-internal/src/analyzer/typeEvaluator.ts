@@ -5014,8 +5014,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'Annotated');
                     const hasCustomClassGetItem =
                         isInstantiableClass(concreteSubtype) && ClassType.hasCustomClassGetItem(concreteSubtype);
+                    const isGenericClass =
+                        concreteSubtype.details.typeParameters?.length > 0 ||
+                        ClassType.isSpecialBuiltIn(concreteSubtype) ||
+                        ClassType.isBuiltIn(concreteSubtype, 'type');
 
-                    let typeArgs = getTypeArgs(node, flags, isAnnotatedClass, hasCustomClassGetItem);
+                    let typeArgs = getTypeArgs(node, flags, isAnnotatedClass, hasCustomClassGetItem || !isGenericClass);
                     if (!isAnnotatedClass) {
                         typeArgs = adjustTypeArgumentsForVariadicTypeVar(
                             typeArgs,
@@ -15975,7 +15979,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeArgsExpectingNone(),
+                            Localizer.Diagnostic.typeArgsExpectingNone().format({
+                                name: classType.aliasName || classType.details.name,
+                            }),
                             typeArgs[typeParameters.length].node
                         );
                     } else {
