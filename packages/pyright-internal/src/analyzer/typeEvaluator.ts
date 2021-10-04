@@ -18758,7 +18758,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         newNarrowTypeBound!,
                         new DiagnosticAddendum(),
                         typeVarMap,
-                        /* flags */ undefined,
+                        CanAssignFlags.SkipSolveTypeVars,
                         recursionCount + 1
                     )
                 ) {
