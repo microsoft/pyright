@@ -247,7 +247,7 @@ test('getRelativeModuleName - same file __init__', () => {
 //// [|/*src*/|] [|/*dest*/|]
     `;
 
-    testRelativeModuleName(code, '..common');
+    testRelativeModuleName(code, '.');
 });
 
 test('getRelativeModuleName - same folder', () => {
@@ -286,7 +286,7 @@ test('getRelativeModuleName - different folder move up', () => {
     testRelativeModuleName(code, '.common.dest');
 });
 
-test('getRelativeModuleName - different folder move down __init__', () => {
+test('getRelativeModuleName - folder move down __init__ parent folder', () => {
     const code = `
 // @filename: nest1/nest2/source.py
 //// [|/*src*/|]
@@ -295,7 +295,31 @@ test('getRelativeModuleName - different folder move down __init__', () => {
 //// [|/*dest*/|]
     `;
 
-    testRelativeModuleName(code, '...nest1');
+    testRelativeModuleName(code, '..');
+});
+
+test('getRelativeModuleName - folder move down __init__ parent folder ignore folder structure', () => {
+    const code = `
+// @filename: nest1/nest2/source.py
+//// [|/*src*/|]
+
+// @filename: nest1/__init__.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '...nest1', /*ignoreFolderStructure*/ true);
+});
+
+test('getRelativeModuleName - different folder move down __init__ sibling folder', () => {
+    const code = `
+// @filename: nest1/nest2/source.py
+//// [|/*src*/|]
+
+// @filename: different/__init__.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '...different');
 });
 
 test('getRelativeModuleName - different folder move up __init__', () => {
@@ -332,17 +356,23 @@ test('getRelativeModuleName over fake file', () => {
     const dest = state.getMarkerByName('dest')!.fileName;
 
     assert.strictEqual(
-        getRelativeModuleName(state.fs, combinePaths(getDirectoryPath(dest), 'source.py'), dest, /*sourceIsFile*/ true),
+        getRelativeModuleName(
+            state.fs,
+            combinePaths(getDirectoryPath(dest), 'source.py'),
+            dest,
+            /*ignoreFolderStructure*/ false,
+            /*sourceIsFile*/ true
+        ),
         '.target'
     );
 });
 
-function testRelativeModuleName(code: string, expected: string) {
+function testRelativeModuleName(code: string, expected: string, ignoreFolderStructure = false) {
     const state = parseAndGetTestState(code).state;
     const src = state.getMarkerByName('src')!.fileName;
     const dest = state.getMarkerByName('dest')!.fileName;
 
-    assert.strictEqual(getRelativeModuleName(state.fs, src, dest), expected);
+    assert.strictEqual(getRelativeModuleName(state.fs, src, dest, ignoreFolderStructure), expected);
 }
 
 function testAddition(

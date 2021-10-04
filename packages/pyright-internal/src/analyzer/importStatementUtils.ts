@@ -684,7 +684,13 @@ export function getTextRangeForImportNameDeletion(
     return editSpan;
 }
 
-export function getRelativeModuleName(fs: FileSystem, sourcePath: string, targetPath: string, sourceIsFile?: boolean) {
+export function getRelativeModuleName(
+    fs: FileSystem,
+    sourcePath: string,
+    targetPath: string,
+    ignoreFolderStructure = false,
+    sourceIsFile?: boolean
+) {
     let srcPath = sourcePath;
     sourceIsFile = sourceIsFile !== undefined ? sourceIsFile : isFile(fs, sourcePath);
     if (sourceIsFile) {
@@ -697,11 +703,14 @@ export function getRelativeModuleName(fs: FileSystem, sourcePath: string, target
         destPath = getDirectoryPath(targetPath);
 
         const fileName = stripFileExtension(getFileName(targetPath));
-        if (fileName === '__init__') {
+        if (fileName !== '__init__') {
+            // ex) src: a.py, dest: b.py -> ".b" will be returned.
+            symbolName = fileName;
+        } else if (ignoreFolderStructure) {
+            // ex) src: nested1/nested2/__init__.py, dest: nested1/__init__.py -> "...nested1" will be returned.
+            // if folder structure is not ignored, ".." will be returned like how it would do for sibling folder.
             symbolName = getFileName(destPath);
             destPath = getDirectoryPath(destPath);
-        } else {
-            symbolName = fileName;
         }
     }
 
