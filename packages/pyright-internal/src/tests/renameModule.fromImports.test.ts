@@ -856,3 +856,97 @@ test('new import with existing import with wildcard', () => {
 
     testRenameModule(state, fileName, `${combinePaths(getDirectoryPath(fileName), 'sub', 'moduleRenamed.py')}`);
 });
+
+test('simple rename of relative module', () => {
+    const code = `
+// @filename: common/__init__.py
+//// # empty
+
+// @filename: common/module.py
+//// def foo():
+////     [|/*marker*/pass|]
+
+// @filename: common/test1.py
+//// from [|.module|] import foo
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const fileName = state.getMarkerByName('marker').fileName;
+
+    testRenameModule(
+        state,
+        fileName,
+        `${combinePaths(getDirectoryPath(fileName), 'moduleRenamed.py')}`,
+        '.module',
+        '.moduleRenamed'
+    );
+});
+
+test('relative module move', () => {
+    const code = `
+// @filename: common/__init__.py
+//// # empty
+
+// @filename: common/module.py
+//// def foo():
+////     [|/*marker*/pass|]
+
+// @filename: common/test1.py
+//// from [|.module|] import foo
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const fileName = state.getMarkerByName('marker').fileName;
+
+    testRenameModule(
+        state,
+        fileName,
+        `${combinePaths(getDirectoryPath(fileName), 'sub', 'moduleRenamed.py')}`,
+        '.module',
+        '.sub.moduleRenamed'
+    );
+});
+
+test('__init__ relative module move', () => {
+    const code = `
+// @filename: common/__init__.py
+//// def foo():
+////     [|/*marker*/pass|]
+
+// @filename: test1.py
+//// from [|.common|] import foo
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const fileName = state.getMarkerByName('marker').fileName;
+
+    testRenameModule(
+        state,
+        fileName,
+        `${combinePaths(getDirectoryPath(fileName), 'moved', '__init__.py')}`,
+        '.common',
+        '.common.moved'
+    );
+});
+
+test('__init__ relative module rename', () => {
+    const code = `
+// @filename: common/__init__.py
+//// def foo():
+////     [|/*marker*/pass|]
+
+// @filename: test1.py
+//// from [|.common|] import foo
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const fileName = state.getMarkerByName('marker').fileName;
+
+    testRenameModule(
+        state,
+        fileName,
+        `${combinePaths(getDirectoryPath(fileName), '..', 'moved', '__init__.py')}`,
+        '.common',
+        '.moved'
+    );
+});

@@ -70,8 +70,6 @@ export function createTypeEvaluatorWithTracker(
         evaluateTypesForStatement: (n) =>
             run('evaluateTypesForStatement', () => typeEvaluator.evaluateTypesForStatement(n), n),
         getExpectedType: (n) => run('getExpectedType', () => typeEvaluator.getExpectedType(n), n),
-        getDeclaredTypeForExpression: (n) =>
-            run('getDeclaredTypeForExpression', () => typeEvaluator.getDeclaredTypeForExpression(n), n),
         verifyRaiseExceptionType: (n) =>
             run('verifyRaiseExceptionType', () => typeEvaluator.verifyRaiseExceptionType(n), n),
         verifyDeleteExpression: (n) => run('verifyDeleteExpression', () => typeEvaluator.verifyDeleteExpression(n), n),

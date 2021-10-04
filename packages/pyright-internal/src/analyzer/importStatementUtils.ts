@@ -13,6 +13,14 @@ import { CancellationToken } from 'vscode-languageserver';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { addIfUnique, createMapFromItems } from '../common/collectionUtils';
 import { TextEditAction } from '../common/editAction';
+import { FileSystem } from '../common/fileSystem';
+import {
+    getDirectoryPath,
+    getFileName,
+    getRelativePathComponentsFromDirectory,
+    isFile,
+    stripFileExtension,
+} from '../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Position, Range, TextRange } from '../common/textRange';
@@ -674,4 +682,52 @@ export function getTextRangeForImportNameDeletion(
     }
 
     return editSpan;
+}
+
+export function getRelativeModuleName(fs: FileSystem, sourcePath: string, targetPath: string) {
+    let srcPath = sourcePath;
+    const inputIsFile = isFile(fs, sourcePath);
+    if (inputIsFile) {
+        srcPath = getDirectoryPath(sourcePath);
+    }
+
+    let symbolName: string | undefined;
+    let destPath = targetPath;
+    if (inputIsFile) {
+        destPath = getDirectoryPath(targetPath);
+
+        const fileName = stripFileExtension(getFileName(targetPath));
+        if (fileName === '__init__') {
+            symbolName = getFileName(destPath);
+            destPath = getDirectoryPath(destPath);
+        } else {
+            symbolName = fileName;
+        }
+    }
+
+    const relativePaths = getRelativePathComponentsFromDirectory(srcPath, destPath, (f) => fs.realCasePath(f));
+
+    // This assumes both file paths are under the same importing root.
+    // So this doesn't handle paths pointing to 2 different import roots.
+    // ex) user file A to library file B
+    let currentPaths = '.';
+    for (let i = 1; i < relativePaths.length; i++) {
+        const relativePath = relativePaths[i];
+        if (relativePath === '..') {
+            currentPaths += '.';
+        } else {
+            currentPaths += relativePath;
+        }
+
+        if (relativePath !== '..' && i !== relativePaths.length - 1) {
+            currentPaths += '.';
+        }
+    }
+
+    if (symbolName) {
+        currentPaths =
+            currentPaths[currentPaths.length - 1] === '.' ? currentPaths + symbolName : currentPaths + '.' + symbolName;
+    }
+
+    return currentPaths;
 }

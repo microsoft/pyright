@@ -235,7 +235,6 @@ export interface TypeEvaluator {
     evaluateTypesForStatement: (node: ParseNode) => void;
 
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
-    getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;
     verifyDeleteExpression: (node: ExpressionNode) => void;
 

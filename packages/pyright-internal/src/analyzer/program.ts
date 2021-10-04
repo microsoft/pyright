@@ -33,6 +33,7 @@ import {
     getDirectoryPath,
     getFileName,
     getRelativePath,
+    isFile,
     makeDirectories,
     normalizePath,
     normalizePathCase,
@@ -1570,19 +1571,21 @@ export class Program {
         });
     }
 
-    renameModule(filePath: string, newFilePath: string, token: CancellationToken): FileEditAction[] | undefined {
+    renameModule(path: string, newPath: string, token: CancellationToken): FileEditAction[] | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const fileInfo = this._getSourceFileInfoFromPath(filePath);
-            if (!fileInfo) {
-                return undefined;
+            if (isFile(this._fs, path)) {
+                const fileInfo = this._getSourceFileInfoFromPath(path);
+                if (!fileInfo) {
+                    return undefined;
+                }
             }
 
             const renameModuleProvider = RenameModuleProvider.create(
                 this._importResolver,
                 this._configOptions,
                 this._evaluator!,
-                filePath,
-                newFilePath,
+                path,
+                newPath,
                 token
             );
             if (!renameModuleProvider) {
@@ -1610,7 +1613,7 @@ export class Program {
                     continue;
                 }
 
-                renameModuleProvider.renameModuleReferences(currentFileInfo.sourceFile.getFilePath(), parseResult);
+                renameModuleProvider.renameReferences(currentFileInfo.sourceFile.getFilePath(), parseResult);
 
                 // This operation can consume significant memory, so check
                 // for situations where we need to discard the type cache.

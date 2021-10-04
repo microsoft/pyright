@@ -11,6 +11,7 @@ import assert from 'assert';
 import { ImportType } from '../analyzer/importResult';
 import {
     getImportGroupFromModuleNameAndType,
+    getRelativeModuleName,
     getTextEditsForAutoImportInsertion,
     getTextEditsForAutoImportSymbolAddition,
     getTopLevelImports,
@@ -229,6 +230,104 @@ test('getTextEditsForAutoImportSymbolAddition - wildcard', () => {
 
     testAddition(code, 'marker1', [{ name: 'path' }], 'sys');
 });
+
+test('getRelativeModuleName - same file', () => {
+    const code = `
+// @filename: source.py
+//// [|/*src*/|] [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '.source');
+});
+
+test('getRelativeModuleName - same file __init__', () => {
+    const code = `
+// @filename: common/__init__.py
+//// [|/*src*/|] [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '..common');
+});
+
+test('getRelativeModuleName - same folder', () => {
+    const code = `
+// @filename: source.py
+//// [|/*src*/|]
+
+// @filename: dest.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '.dest');
+});
+
+test('getRelativeModuleName - different folder move down', () => {
+    const code = `
+// @filename: common/source.py
+//// [|/*src*/|]
+
+// @filename: dest.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '..dest');
+});
+
+test('getRelativeModuleName - different folder move up', () => {
+    const code = `
+// @filename: source.py
+//// [|/*src*/|]
+
+// @filename: common/dest.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '.common.dest');
+});
+
+test('getRelativeModuleName - different folder move down __init__', () => {
+    const code = `
+// @filename: nest1/nest2/source.py
+//// [|/*src*/|]
+
+// @filename: nest1/__init__.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '...nest1');
+});
+
+test('getRelativeModuleName - different folder move up __init__', () => {
+    const code = `
+// @filename: source.py
+//// [|/*src*/|]
+
+// @filename: common/__init__.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '.common');
+});
+
+test('getRelativeModuleName - root __init__', () => {
+    const code = `
+// @filename: source.py
+//// [|/*src*/|]
+
+// @filename: __init__.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, '.');
+});
+
+function testRelativeModuleName(code: string, expected: string) {
+    const state = parseAndGetTestState(code).state;
+    const src = state.getMarkerByName('src')!.fileName;
+    const dest = state.getMarkerByName('dest')!.fileName;
+
+    assert.strictEqual(getRelativeModuleName(state.fs, src, dest), expected);
+}
 
 function testAddition(
     code: string,

@@ -330,7 +330,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 // so that it matches with decls type evaluator returns for "references for X".
                 // ex) import X or from .X import ... in init file and etc.
                 const symbolWithScope = ScopeUtils.getScopeForNode(node)?.lookUpSymbolRecursive(importName);
-                if (symbolWithScope) {
+                if (symbolWithScope && moduleName.nameParts.length === 1) {
                     decls.push(...symbolWithScope.symbol.getDeclarations().filter((d) => isAliasDeclaration(d)));
 
                     // If symbols are re-used, then find one that belong to this import statement.
