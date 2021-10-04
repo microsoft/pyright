@@ -4,7 +4,13 @@
 from enum import Enum
 
 
-class Color(Enum):
+class ColorBase(Enum):
+    def something(self) -> None:
+        ...
+
+# Subclassing from ColorBase is allowed because it doesn't define
+# any enum members.
+class Color(ColorBase):
     red = "red"
     blue = "blue"
     yellow = "yellow"
