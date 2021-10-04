@@ -1402,15 +1402,25 @@ export function getCallNodeAndActiveParameterIndex(
         }
         return found;
     }
+}
 
-    function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
-        const index = tokens.getItemAtPosition(position);
-        if (index < 0) {
-            return undefined;
-        }
-
-        return tokens.getItemAt(index);
+export function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
+    const index = tokens.getItemAtPosition(position);
+    if (index < 0) {
+        return undefined;
     }
+
+    return tokens.getItemAt(index);
+}
+
+export function getTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {
+    const index = tokens.getItemAtPosition(position);
+    if (index < 0) {
+        return undefined;
+    }
+
+    const token = tokens.getItemAt(index);
+    return TextRange.overlaps(token, position) ? token : undefined;
 }
 
 export function printParseNodeType(type: ParseNodeType) {

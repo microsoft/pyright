@@ -107,7 +107,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { StringTokenFlags, Token } from '../parser/tokenizerTypes';
+import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ModuleSymbolMap } from './autoImporter';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
@@ -319,6 +319,9 @@ export class CompletionProvider {
 
     private _execEnv: ExecutionEnvironment;
 
+    // Indicate whether invocation is inside of string literal.
+    private _insideStringLiteral = false;
+
     constructor(
         private _workspacePath: string,
         private _parseResults: ParseResults,
@@ -341,6 +344,15 @@ export class CompletionProvider {
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
+        }
+
+        const token = ParseTreeUtils.getTokenOverlapping(this._parseResults.tokenizerOutput.tokens, offset);
+        if (token?.type === TokenType.String) {
+            this._insideStringLiteral = TextRange.contains(token, offset)
+                ? true
+                : (token as StringToken).flags & StringTokenFlags.Unterminated
+                ? true
+                : false;
         }
 
         let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
@@ -1293,10 +1305,7 @@ export class CompletionProvider {
                 );
             } else if (parseNode.category === ErrorExpressionCategory.MissingExpression) {
                 if (parseNode.parent && parseNode.parent.nodeType === ParseNodeType.Assignment) {
-                    const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(
-                        parseNode.parent.leftExpression
-                    );
-
+                    const declaredTypeOfTarget = this._evaluator.getExpectedType(parseNode)?.type;
                     if (declaredTypeOfTarget) {
                         this._addLiteralValuesForTargetType(
                             declaredTypeOfTarget,
@@ -1745,7 +1754,6 @@ export class CompletionProvider {
         completionList: CompletionList
     ) {
         const expectedTypeResult = this._evaluator.getExpectedType(dictionaryNode);
-
         if (!expectedTypeResult) {
             return false;
         }
@@ -1832,20 +1840,22 @@ export class CompletionProvider {
     // (either starting with a single or double quote). Returns the quote
     // type and the string literal value after the starting quote.
     private _getQuoteValueFromPriorText(priorText: string) {
-        const lastSingleQuote = priorText.lastIndexOf("'");
-        const lastDoubleQuote = priorText.lastIndexOf('"');
+        if (this._insideStringLiteral) {
+            const lastSingleQuote = priorText.lastIndexOf("'");
+            const lastDoubleQuote = priorText.lastIndexOf('"');
 
-        let quoteCharacter = this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
-        let stringValue = undefined;
-
-        if (lastSingleQuote > lastDoubleQuote) {
-            quoteCharacter = "'";
-            stringValue = priorText.substr(lastSingleQuote + 1);
-        } else if (lastDoubleQuote > lastSingleQuote) {
-            quoteCharacter = '"';
-            stringValue = priorText.substr(lastDoubleQuote + 1);
+            if (lastSingleQuote > lastDoubleQuote) {
+                return {
+                    quoteCharacter: "'",
+                    stringValue: priorText.substr(lastSingleQuote + 1),
+                };
+            } else if (lastDoubleQuote > lastSingleQuote) {
+                return { quoteCharacter: '"', stringValue: priorText.substr(lastDoubleQuote + 1) };
+            }
         }
 
+        const quoteCharacter = this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
+        const stringValue = undefined;
         return { stringValue, quoteCharacter };
     }
 

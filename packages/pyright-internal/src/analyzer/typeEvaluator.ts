@@ -11655,7 +11655,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!rightHandType) {
                 // Determine whether there is a declared type.
                 const declaredType = getDeclaredTypeForExpression(node.leftExpression, { method: 'set' });
-
                 let flags: EvaluatorFlags = EvaluatorFlags.DoNotSpecialize;
                 if (fileInfo.isStubFile) {
                     // An assignment of ellipsis means "Any" within a type stub file.
@@ -21203,7 +21202,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeForExpressionExpectingType,
         getExpectedType,
         evaluateTypesForStatement,
-        getDeclaredTypeForExpression,
         verifyRaiseExceptionType,
         verifyDeleteExpression,
         isAfterNodeReachable,

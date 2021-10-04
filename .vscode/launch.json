@@ -81,11 +81,11 @@
             "type": "node",
             "request": "launch",
             "args": ["${fileBasenameNoExtension}", "--runInBand", "-t", "${selectedText}"],
-            "cwd": "${workspaceRoot}/packages/pyright/packages/pyright-internal",
+            "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
             "disableOptimisticBPs": true,
-            "program": "${workspaceFolder}/packages/pyright/packages/pyright-internal/node_modules/jest/bin/jest"
+            "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         },
         {
             "name": "Pyright fourslash current file",
