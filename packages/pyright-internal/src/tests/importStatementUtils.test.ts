@@ -18,6 +18,7 @@ import {
     ImportNameInfo,
 } from '../analyzer/importStatementUtils';
 import { TextEditAction } from '../common/editAction';
+import { combinePaths, getDirectoryPath } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { rangesAreEqual } from '../common/textRange';
 import { Range } from './harness/fourslash/fourSlashTypes';
@@ -319,6 +320,21 @@ test('getRelativeModuleName - root __init__', () => {
     `;
 
     testRelativeModuleName(code, '.');
+});
+
+test('getRelativeModuleName over fake file', () => {
+    const code = `
+// @filename: target.py
+//// [|/*dest*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const dest = state.getMarkerByName('dest')!.fileName;
+
+    assert.strictEqual(
+        getRelativeModuleName(state.fs, combinePaths(getDirectoryPath(dest), 'source.py'), dest, /*sourceIsFile*/ true),
+        '.target'
+    );
 });
 
 function testRelativeModuleName(code: string, expected: string) {

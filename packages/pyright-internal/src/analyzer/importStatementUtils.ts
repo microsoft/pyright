@@ -684,16 +684,16 @@ export function getTextRangeForImportNameDeletion(
     return editSpan;
 }
 
-export function getRelativeModuleName(fs: FileSystem, sourcePath: string, targetPath: string) {
+export function getRelativeModuleName(fs: FileSystem, sourcePath: string, targetPath: string, sourceIsFile?: boolean) {
     let srcPath = sourcePath;
-    const inputIsFile = isFile(fs, sourcePath);
-    if (inputIsFile) {
+    sourceIsFile = sourceIsFile !== undefined ? sourceIsFile : isFile(fs, sourcePath);
+    if (sourceIsFile) {
         srcPath = getDirectoryPath(sourcePath);
     }
 
     let symbolName: string | undefined;
     let destPath = targetPath;
-    if (inputIsFile) {
+    if (sourceIsFile) {
         destPath = getDirectoryPath(targetPath);
 
         const fileName = stripFileExtension(getFileName(targetPath));
@@ -730,4 +730,17 @@ export function getRelativeModuleName(fs: FileSystem, sourcePath: string, target
     }
 
     return currentPaths;
+}
+
+export function getDirectoryLeadingDotsPointsTo(fromDirectory: string, leadingDots: number) {
+    let currentDirectory = fromDirectory;
+    for (let i = 1; i < leadingDots; i++) {
+        if (currentDirectory === '') {
+            return undefined;
+        }
+
+        currentDirectory = getDirectoryPath(currentDirectory);
+    }
+
+    return currentDirectory;
 }
