@@ -6,6 +6,7 @@
  * Logic that updates affected references of a module rename/move.
  */
 
+import { dir } from 'console';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { getImportInfo } from '../analyzer/analyzerNodeInfo';
@@ -267,55 +268,6 @@ export class RenameModuleProvider {
         )) {
             this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
         }
-    }
-
-    private _getNewRelativeModuleNamesForFileMoved(filePath: string, moduleNames: ModuleNameNode[]) {
-        if (filePath !== this._moduleFilePath) {
-            // We only update relative import paths for the file that has moved.
-            return [];
-        }
-
-        const originalFileName = stripFileExtension(getFileName(filePath));
-        const originalDirectory = getDirectoryPath(filePath);
-        const originalInit = originalFileName === '__init__';
-
-        const movedFileName = stripFileExtension(getFileName(this._newModuleFilePath));
-        const movedDirectory = getDirectoryPath(this._newModuleFilePath);
-        const movedInit = movedFileName === '__init__';
-
-        const newNames: { moduleName: ModuleNameNode; newModuleName: string }[] = [];
-        for (const moduleName of moduleNames) {
-            // Filter out all absolute path.
-            if (moduleName.leadingDots === 0) {
-                continue;
-            }
-
-            const result = this._getSourceAndTargetDirectory(
-                moduleName,
-                originalInit,
-                originalFileName,
-                originalDirectory,
-                movedInit,
-                movedFileName,
-                movedDirectory
-            );
-
-            if (!result) {
-                continue;
-            }
-
-            const newModuleName = getRelativeModuleName(
-                this._fs,
-                result.src,
-                result.dest,
-                /*ignoreFolderStructure*/ false,
-                result.file
-            );
-
-            newNames.push({ moduleName, newModuleName });
-        }
-
-        return newNames;
     }
 
     private _updateModuleReferences(filePath: string, parseResults: ParseResults, results: CollectionResult[]) {
@@ -612,74 +564,101 @@ export class RenameModuleProvider {
         }
     }
 
-    private _getSourceAndTargetDirectory(
+    private _getNewRelativeModuleNamesForFileMoved(filePath: string, moduleNames: ModuleNameNode[]) {
+        if (filePath !== this._moduleFilePath) {
+            // We only update relative import paths for the file that has moved.
+            return [];
+        }
+
+        const originalFileName = stripFileExtension(getFileName(filePath));
+        const originalInit = originalFileName === '__init__';
+        const originalDirectory = getDirectoryPath(filePath);
+
+        const newNames: { moduleName: ModuleNameNode; newModuleName: string }[] = [];
+        for (const moduleName of moduleNames) {
+            // Filter out all absolute path.
+            if (moduleName.leadingDots === 0) {
+                continue;
+            }
+
+            const result = this._getNewModuleNameInfoForFileMoved(moduleName, originalInit, originalDirectory);
+            if (!result) {
+                continue;
+            }
+
+            const newModuleName = getRelativeModuleName(
+                this._fs,
+                result.src,
+                result.dest,
+                /*ignoreFolderStructure*/ false,
+                result.file
+            );
+
+            newNames.push({ moduleName, newModuleName });
+        }
+
+        return newNames;
+    }
+
+    private _getNewModuleNameInfoForFileMoved(
         moduleName: ModuleNameNode,
         originalInit: boolean,
-        originalFileName: string,
-        originalDirectory: string,
-        movedInit: boolean,
-        movedFileName: string,
-        movedDirectory: string
+        originalDirectory: string
     ) {
-        // ModuleName has name part we can bind to get decl.
-        // ex) from [..name] import ...
-        if (moduleName.nameParts.length > 0) {
-            const aliasDecl = this._evaluator
-                .getDeclarationsForNameNode(moduleName.nameParts[moduleName.nameParts.length - 1])
-                ?.filter((d) => isAliasDeclaration(d));
-
-            if (!aliasDecl || !aliasDecl[0].path) {
-                return undefined;
-            }
-
-            return { src: this._newModuleFilePath, dest: aliasDecl[0].path, file: true };
+        const importInfo = getImportInfo(moduleName);
+        if (!importInfo) {
+            return undefined;
         }
 
-        // ModuleName can't point to itself
-        // ex) from [..*] import ...
-        if (moduleName.leadingDots > 1) {
-            const directory = getDirectoryLeadingDotsPointsTo(originalDirectory, moduleName.leadingDots);
-            if (!directory) {
-                return undefined;
-            }
-
-            return { src: movedDirectory, dest: directory, file: false };
-        }
-
-        // Now, check "from [.] import ..."" case.
-
-        // Check 4 different cases.
-        if (originalInit) {
-            // "." is pointing to itself.
-
-            // We need to check whether imports of this import statement has
-            // any implicit submodule imports or not. If there is one, we need to
-            // either split or leave it as it is.
-            const exportedSymbols = [];
-            const subModules = [];
-            for (const importFromAs of (moduleName.parent as ImportFromNode).imports) {
-                if (this._isExportedSymbol(importFromAs.name)) {
-                    exportedSymbols.push(importFromAs);
-                } else {
-                    subModules.push(importFromAs);
+        let importPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+        if (!importPath) {
+            // It is possible for the module name to point to namespace folder (no __init__).
+            // See whether we can use some heuristic to get importPath
+            if (moduleName.nameParts.length === 0) {
+                const directory = getDirectoryLeadingDotsPointsTo(originalDirectory, moduleName.leadingDots);
+                if (!directory) {
+                    return undefined;
                 }
-            }
 
-            // Point to itself.
-            if (subModules.length === 0) {
-                return { src: this._newModuleFilePath, dest: this._newModuleFilePath, file: true };
+                // Add fake __init__.py since we know this is namespace folder.
+                importPath = combinePaths(directory, '__init__.py');
+            } else {
+                return undefined;
             }
-
-            // "." is used to point folder location.
-            if (exportedSymbols.length === 0) {
-                return { src: this._newModuleFilePath, dest: this._moduleFilePath, file: true };
-            }
-
-            // now we need to split.
         }
 
-        // "." is not pointing to itself
-        return { src: this._newModuleFilePath, dest: combinePaths(originalDirectory, '__init__.py'), file: true };
+        // Check whether module is pointing to moved file itself and whether it is __init__
+        if (this._moduleFilePath !== importPath || !originalInit) {
+            return { src: this._newModuleFilePath, dest: importPath, file: true };
+        }
+
+        // Now, moduleName is pointing to __init__ which point to moved file itself.
+
+        // We need to check whether imports of this import statement has
+        // any implicit submodule imports or not. If there is one, we need to
+        // either split or leave it as it is.
+        const exportedSymbols = [];
+        const subModules = [];
+        for (const importFromAs of (moduleName.parent as ImportFromNode).imports) {
+            if (this._isExportedSymbol(importFromAs.name)) {
+                exportedSymbols.push(importFromAs);
+            } else {
+                subModules.push(importFromAs);
+            }
+        }
+
+        // Point to itself.
+        if (subModules.length === 0) {
+            return { src: this._newModuleFilePath, dest: this._newModuleFilePath, file: true };
+        }
+
+        // "." is used to point folder location.
+        if (exportedSymbols.length === 0) {
+            return { src: this._newModuleFilePath, dest: this._moduleFilePath, file: true };
+        }
+
+        // now we need to split.
+        return undefined;
     }
 
     private _isExportedSymbol(nameNode: NameNode): boolean {
