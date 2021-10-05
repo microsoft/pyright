@@ -707,8 +707,10 @@ export function getRelativeModuleName(
             // ex) src: a.py, dest: b.py -> ".b" will be returned.
             symbolName = fileName;
         } else if (ignoreFolderStructure) {
-            // ex) src: nested1/nested2/__init__.py, dest: nested1/__init__.py -> "...nested1" will be returned.
-            // if folder structure is not ignored, ".." will be returned like how it would do for sibling folder.
+            // ex) src: nested1/nested2/__init__.py, dest: nested1/__init__.py -> "...nested1" will be returned
+            //     like how it would return for sibling folder.
+            //
+            // if folder structure is not ignored, ".." will be returned
             symbolName = getFileName(destPath);
             destPath = getDirectoryPath(destPath);
         }
