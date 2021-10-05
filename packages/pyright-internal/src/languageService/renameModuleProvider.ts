@@ -8,6 +8,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
+import { getImportInfo } from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, isAliasDeclaration } from '../analyzer/declaration';
 import { createSynthesizedAliasDeclaration } from '../analyzer/declarationUtils';
 import { createImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
@@ -50,6 +51,7 @@ import {
     isDirectory,
     isFile,
     resolvePaths,
+    stripFileExtension,
 } from '../common/pathUtils';
 import { convertOffsetToPosition, convertTextRangeToRange } from '../common/positionUtils';
 import { doRangesIntersect, extendRange, Range, rangesAreEqual, TextRange } from '../common/textRange';
@@ -256,48 +258,64 @@ export class RenameModuleProvider {
             return;
         }
 
-        const currentDirectory = getDirectoryPath(this._newModuleFilePath);
-        for (const moduleName of ModuleNameCollector.collect(parseResults.parseTree)) {
+        // Filter out module name that is already re-written.
+        for (const edit of this._getNewRelativeModuleNamesForFileMoved(
+            filePath,
+            ModuleNameCollector.collect(parseResults.parseTree).filter(
+                (m) => !results.some((r) => TextRange.containsRange(m.parent!, r.node))
+            )
+        )) {
+            this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+        }
+    }
+
+    private _getNewRelativeModuleNamesForFileMoved(filePath: string, moduleNames: ModuleNameNode[]) {
+        if (filePath !== this._moduleFilePath) {
+            // We only update relative import paths for the file that has moved.
+            return [];
+        }
+
+        const originalFileName = stripFileExtension(getFileName(filePath));
+        const originalDirectory = getDirectoryPath(filePath);
+        const originalInit = originalFileName === '__init__';
+
+        const movedFileName = stripFileExtension(getFileName(this._newModuleFilePath));
+        const movedDirectory = getDirectoryPath(this._newModuleFilePath);
+        const movedInit = movedFileName === '__init__';
+
+        const newNames: { moduleName: ModuleNameNode; newModuleName: string }[] = [];
+        for (const moduleName of moduleNames) {
             // Filter out all absolute path.
             if (moduleName.leadingDots === 0) {
                 continue;
             }
 
-            // Relative path is already re-written.
-            if (results.some((r) => TextRange.containsRange(moduleName, r.node))) {
+            const result = this._getSourceAndTargetDirectory(
+                moduleName,
+                originalInit,
+                originalFileName,
+                originalDirectory,
+                movedInit,
+                movedFileName,
+                movedDirectory
+            );
+
+            if (!result) {
                 continue;
             }
 
-            let targetModulePath: string;
-            if (moduleName.nameParts.length === 0) {
-                const directory = getDirectoryLeadingDotsPointsTo(currentDirectory, moduleName.leadingDots);
-                if (!directory) {
-                    continue;
-                }
-
-                targetModulePath = combinePaths(directory, '__init__.py');
-            } else {
-                const aliasDecl = this._evaluator
-                    .getDeclarationsForNameNode(moduleName.nameParts[moduleName.nameParts.length - 1])
-                    ?.filter((d) => isAliasDeclaration(d));
-
-                if (!aliasDecl || !aliasDecl[0].path) {
-                    continue;
-                }
-
-                targetModulePath = aliasDecl[0].path;
-            }
-
-            const relativeModuleName = getRelativeModuleName(
+            const newModuleName = getRelativeModuleName(
                 this._fs,
-                this._newModuleFilePath,
-                targetModulePath,
+                result.src,
+                result.dest,
                 /*ignoreFolderStructure*/ false,
-                /*sourceIsFile*/ true
+                result.file
             );
 
-            this._addResultWithTextRange(filePath, moduleName, parseResults, relativeModuleName);
+            newNames.push({ moduleName, newModuleName });
         }
+
+        return newNames;
     }
 
     private _updateModuleReferences(filePath: string, parseResults: ParseResults, results: CollectionResult[]) {
@@ -412,8 +430,8 @@ export class RenameModuleProvider {
 
                 if (exportedSymbols.length === 0) {
                     // We only have sub modules. That means module name actually refers to
-                    // folder name, not module (ex, __init__.py). Since we don't support
-                    // renaming folder, leave things as they are.
+                    // folder name, not module (ex, __init__.py). Folder rename is done by
+                    // different code path.
                     continue;
                 }
 
@@ -480,6 +498,14 @@ export class RenameModuleProvider {
                 } else {
                     // Delete the existing import name including alias.
                     const importFromAs = nodeFound.parent as ImportFromAsNode;
+
+                    // Update module name if needed.
+                    if (fromNode.module.leadingDots > 0) {
+                        for (const edit of this._getNewRelativeModuleNamesForFileMoved(filePath, [fromNode.module])) {
+                            this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+                        }
+                    }
+
                     this._addImportNameDeletion(filePath, parseResults, nameRemoved, fromNode.imports, importFromAs);
 
                     importStatements =
@@ -584,6 +610,76 @@ export class RenameModuleProvider {
                 continue;
             }
         }
+    }
+
+    private _getSourceAndTargetDirectory(
+        moduleName: ModuleNameNode,
+        originalInit: boolean,
+        originalFileName: string,
+        originalDirectory: string,
+        movedInit: boolean,
+        movedFileName: string,
+        movedDirectory: string
+    ) {
+        // ModuleName has name part we can bind to get decl.
+        // ex) from [..name] import ...
+        if (moduleName.nameParts.length > 0) {
+            const aliasDecl = this._evaluator
+                .getDeclarationsForNameNode(moduleName.nameParts[moduleName.nameParts.length - 1])
+                ?.filter((d) => isAliasDeclaration(d));
+
+            if (!aliasDecl || !aliasDecl[0].path) {
+                return undefined;
+            }
+
+            return { src: this._newModuleFilePath, dest: aliasDecl[0].path, file: true };
+        }
+
+        // ModuleName can't point to itself
+        // ex) from [..*] import ...
+        if (moduleName.leadingDots > 1) {
+            const directory = getDirectoryLeadingDotsPointsTo(originalDirectory, moduleName.leadingDots);
+            if (!directory) {
+                return undefined;
+            }
+
+            return { src: movedDirectory, dest: directory, file: false };
+        }
+
+        // Now, check "from [.] import ..."" case.
+
+        // Check 4 different cases.
+        if (originalInit) {
+            // "." is pointing to itself.
+
+            // We need to check whether imports of this import statement has
+            // any implicit submodule imports or not. If there is one, we need to
+            // either split or leave it as it is.
+            const exportedSymbols = [];
+            const subModules = [];
+            for (const importFromAs of (moduleName.parent as ImportFromNode).imports) {
+                if (this._isExportedSymbol(importFromAs.name)) {
+                    exportedSymbols.push(importFromAs);
+                } else {
+                    subModules.push(importFromAs);
+                }
+            }
+
+            // Point to itself.
+            if (subModules.length === 0) {
+                return { src: this._newModuleFilePath, dest: this._newModuleFilePath, file: true };
+            }
+
+            // "." is used to point folder location.
+            if (exportedSymbols.length === 0) {
+                return { src: this._newModuleFilePath, dest: this._moduleFilePath, file: true };
+            }
+
+            // now we need to split.
+        }
+
+        // "." is not pointing to itself
+        return { src: this._newModuleFilePath, dest: combinePaths(originalDirectory, '__init__.py'), file: true };
     }
 
     private _isExportedSymbol(nameNode: NameNode): boolean {

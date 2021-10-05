@@ -55,7 +55,7 @@ test('relative path for self - __init__', () => {
 test('relative path for self - __init__ different name', () => {
     const code = `
 // @filename: common/__init__.py
-//// from . import foo
+//// from [|{|"r":".renamedModule"|}.|] import foo
 //// def foo():
 ////     [|/*marker*/pass|]
     `;
@@ -99,6 +99,43 @@ test('relative path for self - import name', () => {
 // @filename: self.py
 //// from . import self
 //// [|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const fileName = state.getMarkerByName('marker').fileName;
+
+    testRenameModule(state, fileName, `${combinePaths(getDirectoryPath(fileName), 'moved', 'self.py')}`);
+});
+
+test('relative path for modules', () => {
+    const code = `
+// @filename: self.py
+//// from [|{|"r":".."|}.|] import module
+//// [|/*marker*/|]
+
+// @filename: module.py
+//// # empty
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const fileName = state.getMarkerByName('marker').fileName;
+
+    testRenameModule(state, fileName, `${combinePaths(getDirectoryPath(fileName), 'moved', 'self.py')}`);
+});
+
+test('relative path to self with multiple import names', () => {
+    const code = `
+// @filename: common/self.py
+//// [|{|"r":"from common.moved import self"|}|]from [|{|"r":".."|}.|] import [|{|"r":""|}self, |]module, foo
+//// [|/*marker*/|]
+
+// @filename: common/module.py
+//// # empty
+
+// @filename: common/__init__.py
+//// def foo():
+////     pass
+
     `;
 
     const state = parseAndGetTestState(code).state;
