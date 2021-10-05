@@ -126,7 +126,7 @@ test('relative path for modules', () => {
 test('relative path to self with multiple import names', () => {
     const code = `
 // @filename: common/self.py
-//// [|{|"r":"from common.moved import self"|}|]from [|{|"r":".."|}.|] import [|{|"r":""|}self, |]module, foo
+//// [|{|"r":"from . import self!n!"|}|]from [|{|"r":".."|}.|] import [|{|"r":""|}self, |]module, foo
 //// [|/*marker*/|]
 
 // @filename: common/module.py

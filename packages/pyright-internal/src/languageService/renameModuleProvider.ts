@@ -6,7 +6,6 @@
  * Logic that updates affected references of a module rename/move.
  */
 
-import { dir } from 'console';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { getImportInfo } from '../analyzer/analyzerNodeInfo';
