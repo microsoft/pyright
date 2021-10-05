@@ -12,6 +12,7 @@ import { AliasDeclaration, isAliasDeclaration } from '../analyzer/declaration';
 import { createSynthesizedAliasDeclaration } from '../analyzer/declarationUtils';
 import { createImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import {
+    getDirectoryLeadingDotsPointsTo,
     getImportGroupFromModuleNameAndType,
     getRelativeModuleName,
     getTextEditsForAutoImportInsertion,
@@ -32,6 +33,7 @@ import {
     isImportModuleName,
     isLastNameOfModuleName,
 } from '../analyzer/parseTreeUtils';
+import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { getOrAdd, removeArrayElements } from '../common/collectionUtils';
@@ -42,6 +44,7 @@ import { FileEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import {
     combinePaths,
+    getDirectoryPath,
     getFileName,
     getRelativePathComponentsFromDirectory,
     isDirectory,
@@ -54,12 +57,15 @@ import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
+    isExpressionNode,
     ModuleNameNode,
+    ModuleNode,
     NameNode,
+    ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { DocumentSymbolCollector } from './documentSymbolCollector';
+import { CollectionResult, DocumentSymbolCollector } from './documentSymbolCollector';
 
 export class RenameModuleProvider {
     static create(
@@ -82,7 +88,7 @@ export class RenameModuleProvider {
                 importResolver.fileSystem.realCasePath(f)
             );
 
-            // 2 means only last folder name has changed.
+            // 3 means only last folder name has changed.
             if (relativePaths.length !== 3 || relativePaths[1] !== '..' || relativePaths[2] === '..') {
                 return undefined;
             }
@@ -150,6 +156,7 @@ export class RenameModuleProvider {
         return new RenameModuleProvider(
             importResolver.fileSystem,
             evaluator,
+            moduleFilePath,
             newModuleFilePath,
             moduleName,
             newModuleName,
@@ -169,6 +176,7 @@ export class RenameModuleProvider {
     private constructor(
         private _fs: FileSystem,
         private _evaluator: TypeEvaluator,
+        private _moduleFilePath: string,
         newModuleFilePath: string,
         private _moduleNameAndType: ModuleNameAndType,
         private _newModuleNameAndType: ModuleNameAndType,
@@ -235,6 +243,64 @@ export class RenameModuleProvider {
 
         const results = collector.collect();
 
+        // Update module references first.
+        this._updateModuleReferences(filePath, parseResults, results);
+
+        // If the module file has moved, we need to update all relative paths used in the file to reflect the move.
+        this._updateRelativeModuleNamePath(filePath, parseResults, results);
+    }
+
+    private _updateRelativeModuleNamePath(filePath: string, parseResults: ParseResults, results: CollectionResult[]) {
+        if (filePath !== this._moduleFilePath) {
+            // We only update relative import paths for the file that has moved.
+            return;
+        }
+
+        const currentDirectory = getDirectoryPath(this._newModuleFilePath);
+        for (const moduleName of ModuleNameCollector.collect(parseResults.parseTree)) {
+            // Filter out all absolute path.
+            if (moduleName.leadingDots === 0) {
+                continue;
+            }
+
+            // Relative path is already re-written.
+            if (results.some((r) => TextRange.containsRange(moduleName, r.node))) {
+                continue;
+            }
+
+            let targetModulePath: string;
+            if (moduleName.nameParts.length === 0) {
+                const directory = getDirectoryLeadingDotsPointsTo(currentDirectory, moduleName.leadingDots);
+                if (!directory) {
+                    continue;
+                }
+
+                targetModulePath = combinePaths(directory, '__init__.py');
+            } else {
+                const aliasDecl = this._evaluator
+                    .getDeclarationsForNameNode(moduleName.nameParts[moduleName.nameParts.length - 1])
+                    ?.filter((d) => isAliasDeclaration(d));
+
+                if (!aliasDecl || !aliasDecl[0].path) {
+                    continue;
+                }
+
+                targetModulePath = aliasDecl[0].path;
+            }
+
+            const relativeModuleName = getRelativeModuleName(
+                this._fs,
+                this._newModuleFilePath,
+                targetModulePath,
+                /*ignoreFolderStructure*/ false,
+                /*sourceIsFile*/ true
+            );
+
+            this._addResultWithTextRange(filePath, moduleName, parseResults, relativeModuleName);
+        }
+    }
+
+    private _updateModuleReferences(filePath: string, parseResults: ParseResults, results: CollectionResult[]) {
         const nameRemoved = new Set<NameNode>();
         let importStatements: ImportStatements | undefined;
         for (const result of results) {
@@ -531,9 +597,17 @@ export class RenameModuleProvider {
     }
 
     private _getNewModuleName(currentFilePath: string, isRelativePath: boolean, isLastPartImportName: boolean) {
+        const filePath = currentFilePath === this._moduleFilePath ? this._newModuleFilePath : currentFilePath;
+
         // If the existing code was using relative path, try to keep the relative path.
         const moduleName = isRelativePath
-            ? getRelativeModuleName(this._fs, currentFilePath, this._newModuleFilePath)
+            ? getRelativeModuleName(
+                  this._fs,
+                  filePath,
+                  this._newModuleFilePath,
+                  isLastPartImportName,
+                  /* sourceIsFile*/ true
+              )
             : this._newModuleName;
 
         if (isLastPartImportName && moduleName.endsWith(this._newSymbolName)) {
@@ -749,5 +823,29 @@ export class RenameModuleProvider {
             parseResults,
             convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)
         ).map((e) => ({ filePath, range: e.range, replacementText: e.replacementText }));
+    }
+}
+
+class ModuleNameCollector extends ParseTreeWalker {
+    private readonly _result: ModuleNameNode[] = [];
+
+    override walk(node: ParseNode): void {
+        if (isExpressionNode(node)) {
+            return;
+        }
+
+        super.walk(node);
+    }
+
+    override visitModuleName(node: ModuleNameNode) {
+        this._result.push(node);
+        return false;
+    }
+
+    public static collect(root: ModuleNode) {
+        const collector = new ModuleNameCollector();
+        collector.walk(root);
+
+        return collector._result;
     }
 }
