@@ -243,20 +243,28 @@ export class RenameModuleProvider {
             /*treatModuleImportAndFromImportSame*/ true
         );
 
+        const nameRemoved = new Set<NameNode>();
         const results = collector.collect();
 
         // Update module references first.
-        this._updateModuleReferences(filePath, parseResults, results);
+        this._updateModuleReferences(filePath, parseResults, nameRemoved, results);
 
         // If the module file has moved, we need to update all relative paths used in the file to reflect the move.
-        this._updateRelativeModuleNamePath(filePath, parseResults, results);
+        this._updateRelativeModuleNamePath(filePath, parseResults, nameRemoved, results);
     }
 
-    private _updateRelativeModuleNamePath(filePath: string, parseResults: ParseResults, results: CollectionResult[]) {
+    private _updateRelativeModuleNamePath(
+        filePath: string,
+        parseResults: ParseResults,
+        nameRemoved: Set<NameNode>,
+        results: CollectionResult[]
+    ) {
         if (filePath !== this._moduleFilePath) {
             // We only update relative import paths for the file that has moved.
             return;
         }
+
+        let importStatements: ImportStatements | undefined;
 
         // Filter out module name that is already re-written.
         for (const edit of this._getNewRelativeModuleNamesForFileMoved(
@@ -266,11 +274,56 @@ export class RenameModuleProvider {
             )
         )) {
             this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+
+            if (!edit.itemsToMove) {
+                continue;
+            }
+
+            // This could introduce multiple import statements for same modules with
+            // different symbols per module name. Unfortunately, there is no easy way to
+            // prevent it since we can't see changes made by other code until all changes
+            // are committed. In future, if we support snapshot and diff between snapshots,
+            // then we can support those complex code generations.
+            const fromNode = edit.moduleName.parent as ImportFromNode;
+
+            // First, delete existing exported symbols from "from import" statement.
+            for (const importFromAs of edit.itemsToMove) {
+                this._addImportNameDeletion(filePath, parseResults, nameRemoved, fromNode.imports, importFromAs);
+            }
+
+            importStatements =
+                importStatements ?? getTopLevelImports(parseResults.parseTree, /*includeImplicitImports*/ false);
+
+            // For now, this won't merge absolute and relative path "from import"
+            // statement.
+            this._addResultEdits(
+                this._getTextEditsForNewOrExistingFromImport(
+                    filePath,
+                    fromNode,
+                    parseResults,
+                    nameRemoved,
+                    importStatements,
+                    getRelativeModuleName(
+                        this._fs,
+                        this._newModuleFilePath,
+                        this._newModuleFilePath,
+                        /*ignoreFolderStructure*/ false,
+                        /*sourceIsFile*/ true
+                    ),
+                    edit.itemsToMove.map((i) => {
+                        return { name: i.name.value, alias: i.alias?.value };
+                    })
+                )
+            );
         }
     }
 
-    private _updateModuleReferences(filePath: string, parseResults: ParseResults, results: CollectionResult[]) {
-        const nameRemoved = new Set<NameNode>();
+    private _updateModuleReferences(
+        filePath: string,
+        parseResults: ParseResults,
+        nameRemoved: Set<NameNode>,
+        results: CollectionResult[]
+    ) {
         let importStatements: ImportStatements | undefined;
         for (const result of results) {
             const nodeFound = result.node;
@@ -387,6 +440,13 @@ export class RenameModuleProvider {
                 }
 
                 // Now, we need to split "from import" statement to 2.
+
+                // Update module name if needed.
+                if (fromNode.module.leadingDots > 0) {
+                    for (const edit of this._getNewRelativeModuleNamesForFileMoved(filePath, [fromNode.module])) {
+                        this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+                    }
+                }
 
                 // First, delete existing exported symbols from "from import" statement.
                 for (const importFromAs of exportedSymbols) {
@@ -573,7 +633,7 @@ export class RenameModuleProvider {
         const originalInit = originalFileName === '__init__';
         const originalDirectory = getDirectoryPath(filePath);
 
-        const newNames: { moduleName: ModuleNameNode; newModuleName: string }[] = [];
+        const newNames: { moduleName: ModuleNameNode; newModuleName: string; itemsToMove?: ImportFromAsNode[] }[] = [];
         for (const moduleName of moduleNames) {
             // Filter out all absolute path.
             if (moduleName.leadingDots === 0) {
@@ -590,10 +650,10 @@ export class RenameModuleProvider {
                 result.src,
                 result.dest,
                 /*ignoreFolderStructure*/ false,
-                result.file
+                /*sourceIsFile*/ true
             );
 
-            newNames.push({ moduleName, newModuleName });
+            newNames.push({ moduleName, newModuleName, itemsToMove: result.itemsToMove });
         }
 
         return newNames;
@@ -628,7 +688,7 @@ export class RenameModuleProvider {
 
         // Check whether module is pointing to moved file itself and whether it is __init__
         if (this._moduleFilePath !== importPath || !originalInit) {
-            return { src: this._newModuleFilePath, dest: importPath, file: true };
+            return { src: this._newModuleFilePath, dest: importPath };
         }
 
         // Now, moduleName is pointing to __init__ which point to moved file itself.
@@ -648,16 +708,20 @@ export class RenameModuleProvider {
 
         // Point to itself.
         if (subModules.length === 0) {
-            return { src: this._newModuleFilePath, dest: this._newModuleFilePath, file: true };
+            return { src: this._newModuleFilePath, dest: this._newModuleFilePath };
         }
 
         // "." is used to point folder location.
         if (exportedSymbols.length === 0) {
-            return { src: this._newModuleFilePath, dest: this._moduleFilePath, file: true };
+            return { src: this._newModuleFilePath, dest: this._moduleFilePath };
         }
 
-        // now we need to split.
-        return undefined;
+        // now we need to split, provide split info as well.
+        return {
+            src: this._newModuleFilePath,
+            dest: this._moduleFilePath,
+            itemsToMove: [...exportedSymbols],
+        };
     }
 
     private _isExportedSymbol(nameNode: NameNode): boolean {
