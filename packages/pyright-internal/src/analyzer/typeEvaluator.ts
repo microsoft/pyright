@@ -2862,10 +2862,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const annotationType: Type | undefined = getTypeOfAnnotation(target.typeAnnotation, {
                     isVariableAnnotation: true,
                     allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.valueExpression),
+                    allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(target.valueExpression),
                 });
 
-                // Handle a bare "Final" in a special manner.
-                if (!isClassInstance(annotationType) || !ClassType.isBuiltIn(annotationType, 'Final')) {
+                // Handle a bare "Final" or "ClassVar" in a special manner.
+                const isBareFinalOrClassVar =
+                    isClassInstance(annotationType) &&
+                    (ClassType.isBuiltIn(annotationType, 'Final') || ClassType.isBuiltIn(annotationType, 'ClassVar'));
+
+                if (!isBareFinalOrClassVar) {
                     const isTypeAliasAnnotation =
                         isClassInstance(annotationType) && ClassType.isBuiltIn(annotationType, 'TypeAlias');
 
@@ -11018,13 +11023,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Creates a ClassVar type.
-    function createClassVarType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
+    function createClassVarType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
+    ): Type {
         if (flags & EvaluatorFlags.ClassVarDisallowed) {
             addError(Localizer.Diagnostic.classVarNotAllowed(), errorNode);
             return AnyType.create();
         }
 
-        if (!typeArgs || typeArgs.length === 0) {
+        if (!typeArgs) {
+            return classType;
+        } else if (typeArgs.length === 0) {
             addError(Localizer.Diagnostic.classVarFirstArgMissing(), errorNode);
             return UnknownType.create();
         } else if (typeArgs.length > 1) {
@@ -15912,7 +15924,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'ClassVar': {
-                    return createClassVarType(errorNode, typeArgs, flags);
+                    return createClassVarType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Protocol': {
