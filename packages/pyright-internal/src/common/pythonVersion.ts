@@ -26,8 +26,7 @@ export enum PythonVersion {
     V3_11 = 0x030b,
 }
 
-export const latestStablePythonVersion = PythonVersion.V3_9;
-export const latestPythonVersion = PythonVersion.V3_9;
+export const latestStablePythonVersion = PythonVersion.V3_10;
 
 export function versionToString(version: PythonVersion): string {
     const majorVersion = (version >> 8) & 0xff;
