@@ -320,8 +320,8 @@ class _patcher:
         spec_set: Any | None = ...,
         autospec: Any | None = ...,
         new_callable: Any | None = ...,
-        **kwargs: _T,
-    ) -> _patch[_T]: ...
+        **kwargs: Any,
+    ) -> _patch[Any]: ...
     def stopall(self) -> None: ...
 
 patch: _patcher
