@@ -8,10 +8,12 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
+import { getImportInfo } from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, isAliasDeclaration } from '../analyzer/declaration';
 import { createSynthesizedAliasDeclaration } from '../analyzer/declarationUtils';
 import { createImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import {
+    getDirectoryLeadingDotsPointsTo,
     getImportGroupFromModuleNameAndType,
     getRelativeModuleName,
     getTextEditsForAutoImportInsertion,
@@ -32,6 +34,7 @@ import {
     isImportModuleName,
     isLastNameOfModuleName,
 } from '../analyzer/parseTreeUtils';
+import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { getOrAdd, removeArrayElements } from '../common/collectionUtils';
@@ -42,11 +45,13 @@ import { FileEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import {
     combinePaths,
+    getDirectoryPath,
     getFileName,
     getRelativePathComponentsFromDirectory,
     isDirectory,
     isFile,
     resolvePaths,
+    stripFileExtension,
 } from '../common/pathUtils';
 import { convertOffsetToPosition, convertTextRangeToRange } from '../common/positionUtils';
 import { doRangesIntersect, extendRange, Range, rangesAreEqual, TextRange } from '../common/textRange';
@@ -54,12 +59,15 @@ import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
+    isExpressionNode,
     ModuleNameNode,
+    ModuleNode,
     NameNode,
+    ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { DocumentSymbolCollector } from './documentSymbolCollector';
+import { CollectionResult, DocumentSymbolCollector } from './documentSymbolCollector';
 
 export class RenameModuleProvider {
     static create(
@@ -82,7 +90,7 @@ export class RenameModuleProvider {
                 importResolver.fileSystem.realCasePath(f)
             );
 
-            // 2 means only last folder name has changed.
+            // 3 means only last folder name has changed.
             if (relativePaths.length !== 3 || relativePaths[1] !== '..' || relativePaths[2] === '..') {
                 return undefined;
             }
@@ -150,6 +158,7 @@ export class RenameModuleProvider {
         return new RenameModuleProvider(
             importResolver.fileSystem,
             evaluator,
+            moduleFilePath,
             newModuleFilePath,
             moduleName,
             newModuleName,
@@ -169,6 +178,7 @@ export class RenameModuleProvider {
     private constructor(
         private _fs: FileSystem,
         private _evaluator: TypeEvaluator,
+        private _moduleFilePath: string,
         newModuleFilePath: string,
         private _moduleNameAndType: ModuleNameAndType,
         private _newModuleNameAndType: ModuleNameAndType,
@@ -233,9 +243,87 @@ export class RenameModuleProvider {
             /*treatModuleImportAndFromImportSame*/ true
         );
 
+        const nameRemoved = new Set<NameNode>();
         const results = collector.collect();
 
-        const nameRemoved = new Set<NameNode>();
+        // Update module references first.
+        this._updateModuleReferences(filePath, parseResults, nameRemoved, results);
+
+        // If the module file has moved, we need to update all relative paths used in the file to reflect the move.
+        this._updateRelativeModuleNamePath(filePath, parseResults, nameRemoved, results);
+    }
+
+    private _updateRelativeModuleNamePath(
+        filePath: string,
+        parseResults: ParseResults,
+        nameRemoved: Set<NameNode>,
+        results: CollectionResult[]
+    ) {
+        if (filePath !== this._moduleFilePath) {
+            // We only update relative import paths for the file that has moved.
+            return;
+        }
+
+        let importStatements: ImportStatements | undefined;
+
+        // Filter out module name that is already re-written.
+        for (const edit of this._getNewRelativeModuleNamesForFileMoved(
+            filePath,
+            ModuleNameCollector.collect(parseResults.parseTree).filter(
+                (m) => !results.some((r) => TextRange.containsRange(m.parent!, r.node))
+            )
+        )) {
+            this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+
+            if (!edit.itemsToMove) {
+                continue;
+            }
+
+            // This could introduce multiple import statements for same modules with
+            // different symbols per module name. Unfortunately, there is no easy way to
+            // prevent it since we can't see changes made by other code until all changes
+            // are committed. In future, if we support snapshot and diff between snapshots,
+            // then we can support those complex code generations.
+            const fromNode = edit.moduleName.parent as ImportFromNode;
+
+            // First, delete existing exported symbols from "from import" statement.
+            for (const importFromAs of edit.itemsToMove) {
+                this._addImportNameDeletion(filePath, parseResults, nameRemoved, fromNode.imports, importFromAs);
+            }
+
+            importStatements =
+                importStatements ?? getTopLevelImports(parseResults.parseTree, /*includeImplicitImports*/ false);
+
+            // For now, this won't merge absolute and relative path "from import"
+            // statement.
+            this._addResultEdits(
+                this._getTextEditsForNewOrExistingFromImport(
+                    filePath,
+                    fromNode,
+                    parseResults,
+                    nameRemoved,
+                    importStatements,
+                    getRelativeModuleName(
+                        this._fs,
+                        this._newModuleFilePath,
+                        this._newModuleFilePath,
+                        /*ignoreFolderStructure*/ false,
+                        /*sourceIsFile*/ true
+                    ),
+                    edit.itemsToMove.map((i) => {
+                        return { name: i.name.value, alias: i.alias?.value };
+                    })
+                )
+            );
+        }
+    }
+
+    private _updateModuleReferences(
+        filePath: string,
+        parseResults: ParseResults,
+        nameRemoved: Set<NameNode>,
+        results: CollectionResult[]
+    ) {
         let importStatements: ImportStatements | undefined;
         for (const result of results) {
             const nodeFound = result.node;
@@ -346,12 +434,19 @@ export class RenameModuleProvider {
 
                 if (exportedSymbols.length === 0) {
                     // We only have sub modules. That means module name actually refers to
-                    // folder name, not module (ex, __init__.py). Since we don't support
-                    // renaming folder, leave things as they are.
+                    // folder name, not module (ex, __init__.py). Folder rename is done by
+                    // different code path.
                     continue;
                 }
 
                 // Now, we need to split "from import" statement to 2.
+
+                // Update module name if needed.
+                if (fromNode.module.leadingDots > 0) {
+                    for (const edit of this._getNewRelativeModuleNamesForFileMoved(filePath, [fromNode.module])) {
+                        this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+                    }
+                }
 
                 // First, delete existing exported symbols from "from import" statement.
                 for (const importFromAs of exportedSymbols) {
@@ -414,6 +509,14 @@ export class RenameModuleProvider {
                 } else {
                     // Delete the existing import name including alias.
                     const importFromAs = nodeFound.parent as ImportFromAsNode;
+
+                    // Update module name if needed.
+                    if (fromNode.module.leadingDots > 0) {
+                        for (const edit of this._getNewRelativeModuleNamesForFileMoved(filePath, [fromNode.module])) {
+                            this._addResultWithTextRange(filePath, edit.moduleName, parseResults, edit.newModuleName);
+                        }
+                    }
+
                     this._addImportNameDeletion(filePath, parseResults, nameRemoved, fromNode.imports, importFromAs);
 
                     importStatements =
@@ -520,6 +623,107 @@ export class RenameModuleProvider {
         }
     }
 
+    private _getNewRelativeModuleNamesForFileMoved(filePath: string, moduleNames: ModuleNameNode[]) {
+        if (filePath !== this._moduleFilePath) {
+            // We only update relative import paths for the file that has moved.
+            return [];
+        }
+
+        const originalFileName = stripFileExtension(getFileName(filePath));
+        const originalInit = originalFileName === '__init__';
+        const originalDirectory = getDirectoryPath(filePath);
+
+        const newNames: { moduleName: ModuleNameNode; newModuleName: string; itemsToMove?: ImportFromAsNode[] }[] = [];
+        for (const moduleName of moduleNames) {
+            // Filter out all absolute path.
+            if (moduleName.leadingDots === 0) {
+                continue;
+            }
+
+            const result = this._getNewModuleNameInfoForFileMoved(moduleName, originalInit, originalDirectory);
+            if (!result) {
+                continue;
+            }
+
+            const newModuleName = getRelativeModuleName(
+                this._fs,
+                result.src,
+                result.dest,
+                /*ignoreFolderStructure*/ false,
+                /*sourceIsFile*/ true
+            );
+
+            newNames.push({ moduleName, newModuleName, itemsToMove: result.itemsToMove });
+        }
+
+        return newNames;
+    }
+
+    private _getNewModuleNameInfoForFileMoved(
+        moduleName: ModuleNameNode,
+        originalInit: boolean,
+        originalDirectory: string
+    ) {
+        const importInfo = getImportInfo(moduleName);
+        if (!importInfo) {
+            return undefined;
+        }
+
+        let importPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+        if (!importPath) {
+            // It is possible for the module name to point to namespace folder (no __init__).
+            // See whether we can use some heuristic to get importPath
+            if (moduleName.nameParts.length === 0) {
+                const directory = getDirectoryLeadingDotsPointsTo(originalDirectory, moduleName.leadingDots);
+                if (!directory) {
+                    return undefined;
+                }
+
+                // Add fake __init__.py since we know this is namespace folder.
+                importPath = combinePaths(directory, '__init__.py');
+            } else {
+                return undefined;
+            }
+        }
+
+        // Check whether module is pointing to moved file itself and whether it is __init__
+        if (this._moduleFilePath !== importPath || !originalInit) {
+            return { src: this._newModuleFilePath, dest: importPath };
+        }
+
+        // Now, moduleName is pointing to __init__ which point to moved file itself.
+
+        // We need to check whether imports of this import statement has
+        // any implicit submodule imports or not. If there is one, we need to
+        // either split or leave it as it is.
+        const exportedSymbols = [];
+        const subModules = [];
+        for (const importFromAs of (moduleName.parent as ImportFromNode).imports) {
+            if (this._isExportedSymbol(importFromAs.name)) {
+                exportedSymbols.push(importFromAs);
+            } else {
+                subModules.push(importFromAs);
+            }
+        }
+
+        // Point to itself.
+        if (subModules.length === 0) {
+            return { src: this._newModuleFilePath, dest: this._newModuleFilePath };
+        }
+
+        // "." is used to point folder location.
+        if (exportedSymbols.length === 0) {
+            return { src: this._newModuleFilePath, dest: this._moduleFilePath };
+        }
+
+        // now we need to split, provide split info as well.
+        return {
+            src: this._newModuleFilePath,
+            dest: this._moduleFilePath,
+            itemsToMove: [...exportedSymbols],
+        };
+    }
+
     private _isExportedSymbol(nameNode: NameNode): boolean {
         const decls = this._evaluator.getDeclarationsForNameNode(nameNode);
         if (!decls) {
@@ -531,9 +735,17 @@ export class RenameModuleProvider {
     }
 
     private _getNewModuleName(currentFilePath: string, isRelativePath: boolean, isLastPartImportName: boolean) {
+        const filePath = currentFilePath === this._moduleFilePath ? this._newModuleFilePath : currentFilePath;
+
         // If the existing code was using relative path, try to keep the relative path.
         const moduleName = isRelativePath
-            ? getRelativeModuleName(this._fs, currentFilePath, this._newModuleFilePath)
+            ? getRelativeModuleName(
+                  this._fs,
+                  filePath,
+                  this._newModuleFilePath,
+                  isLastPartImportName,
+                  /* sourceIsFile*/ true
+              )
             : this._newModuleName;
 
         if (isLastPartImportName && moduleName.endsWith(this._newSymbolName)) {
@@ -749,5 +961,29 @@ export class RenameModuleProvider {
             parseResults,
             convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)
         ).map((e) => ({ filePath, range: e.range, replacementText: e.replacementText }));
+    }
+}
+
+class ModuleNameCollector extends ParseTreeWalker {
+    private readonly _result: ModuleNameNode[] = [];
+
+    override walk(node: ParseNode): void {
+        if (isExpressionNode(node)) {
+            return;
+        }
+
+        super.walk(node);
+    }
+
+    override visitModuleName(node: ModuleNameNode) {
+        this._result.push(node);
+        return false;
+    }
+
+    public static collect(root: ModuleNode) {
+        const collector = new ModuleNameCollector();
+        collector.walk(root);
+
+        return collector._result;
     }
 }

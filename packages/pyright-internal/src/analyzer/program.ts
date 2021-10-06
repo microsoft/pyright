@@ -1601,9 +1601,12 @@ export class Program {
                     continue;
                 }
 
-                // If module name isn't mentioned in the current file, skip the file.
+                // If module name isn't mentioned in the current file, skip the file
+                // except the file that got actually renamed/moved.
+                // The file that got moved might have relative import paths we need to update.
+                const filePath = currentFileInfo.sourceFile.getFilePath();
                 const content = currentFileInfo.sourceFile.getFileContent() ?? '';
-                if (content.indexOf(renameModuleProvider.symbolName) < 0) {
+                if (filePath !== path && content.indexOf(renameModuleProvider.symbolName) < 0) {
                     continue;
                 }
 
@@ -1613,7 +1616,7 @@ export class Program {
                     continue;
                 }
 
-                renameModuleProvider.renameReferences(currentFileInfo.sourceFile.getFilePath(), parseResult);
+                renameModuleProvider.renameReferences(filePath, parseResult);
 
                 // This operation can consume significant memory, so check
                 // for situations where we need to discard the type cache.

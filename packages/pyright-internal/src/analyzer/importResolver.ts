@@ -44,6 +44,7 @@ import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
+import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
 import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
 import * as PythonPathUtils from './pythonPathUtils';
 import { getPyTypedInfo, PyTypedInfo } from './pyTypedUtils';
@@ -1755,18 +1756,18 @@ export class ImportResolver {
         importFailureInfo.push('Attempting to resolve relative import');
 
         // Determine which search path this file is part of.
-        let curDir = getDirectoryPath(sourceFilePath);
-        for (let i = 1; i < moduleDescriptor.leadingDots; i++) {
-            if (curDir === '') {
-                importFailureInfo.push(`Invalid relative path '${importName}'`);
-                return undefined;
-            }
-            curDir = getDirectoryPath(curDir);
+        const directory = getDirectoryLeadingDotsPointsTo(
+            getDirectoryPath(sourceFilePath),
+            moduleDescriptor.leadingDots
+        );
+        if (!directory) {
+            importFailureInfo.push(`Invalid relative path '${importName}'`);
+            return undefined;
         }
 
         // Now try to match the module parts from the current directory location.
         const absImport = this.resolveAbsoluteImport(
-            curDir,
+            directory,
             execEnv,
             moduleDescriptor,
             importName,
@@ -1784,16 +1785,16 @@ export class ImportResolver {
         suggestions: Set<string>
     ) {
         // Determine which search path this file is part of.
-        let curDir = getDirectoryPath(sourceFilePath);
-        for (let i = 1; i < moduleDescriptor.leadingDots; i++) {
-            if (curDir === '') {
-                return;
-            }
-            curDir = getDirectoryPath(curDir);
+        const directory = getDirectoryLeadingDotsPointsTo(
+            getDirectoryPath(sourceFilePath),
+            moduleDescriptor.leadingDots
+        );
+        if (!directory) {
+            return;
         }
 
         // Now try to match the module parts from the current directory location.
-        this._getCompletionSuggestionsAbsolute(sourceFilePath, execEnv, curDir, moduleDescriptor, suggestions);
+        this._getCompletionSuggestionsAbsolute(sourceFilePath, execEnv, directory, moduleDescriptor, suggestions);
     }
 
     private _getFilesInDirectory(dirPath: string): string[] {

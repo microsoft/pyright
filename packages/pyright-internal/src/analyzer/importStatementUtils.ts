@@ -684,24 +684,35 @@ export function getTextRangeForImportNameDeletion(
     return editSpan;
 }
 
-export function getRelativeModuleName(fs: FileSystem, sourcePath: string, targetPath: string) {
+export function getRelativeModuleName(
+    fs: FileSystem,
+    sourcePath: string,
+    targetPath: string,
+    ignoreFolderStructure = false,
+    sourceIsFile?: boolean
+) {
     let srcPath = sourcePath;
-    const inputIsFile = isFile(fs, sourcePath);
-    if (inputIsFile) {
+    sourceIsFile = sourceIsFile !== undefined ? sourceIsFile : isFile(fs, sourcePath);
+    if (sourceIsFile) {
         srcPath = getDirectoryPath(sourcePath);
     }
 
     let symbolName: string | undefined;
     let destPath = targetPath;
-    if (inputIsFile) {
+    if (sourceIsFile) {
         destPath = getDirectoryPath(targetPath);
 
         const fileName = stripFileExtension(getFileName(targetPath));
-        if (fileName === '__init__') {
+        if (fileName !== '__init__') {
+            // ex) src: a.py, dest: b.py -> ".b" will be returned.
+            symbolName = fileName;
+        } else if (ignoreFolderStructure) {
+            // ex) src: nested1/nested2/__init__.py, dest: nested1/__init__.py -> "...nested1" will be returned
+            //     like how it would return for sibling folder.
+            //
+            // if folder structure is not ignored, ".." will be returned
             symbolName = getFileName(destPath);
             destPath = getDirectoryPath(destPath);
-        } else {
-            symbolName = fileName;
         }
     }
 
@@ -730,4 +741,17 @@ export function getRelativeModuleName(fs: FileSystem, sourcePath: string, target
     }
 
     return currentPaths;
+}
+
+export function getDirectoryLeadingDotsPointsTo(fromDirectory: string, leadingDots: number) {
+    let currentDirectory = fromDirectory;
+    for (let i = 1; i < leadingDots; i++) {
+        if (currentDirectory === '') {
+            return undefined;
+        }
+
+        currentDirectory = getDirectoryPath(currentDirectory);
+    }
+
+    return currentDirectory;
 }
