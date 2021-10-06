@@ -137,6 +137,11 @@ interface FinalInfo {
     finalTypeNode: ExpressionNode | undefined;
 }
 
+interface ClassVarInfo {
+    isClassVar: boolean;
+    classVarTypeNode: ExpressionNode | undefined;
+}
+
 export class Binder extends ParseTreeWalker {
     private readonly _fileInfo: AnalyzerFileInfo;
 
@@ -3314,6 +3319,31 @@ export class Binder extends ParseTreeWalker {
                         typeAnnotationNode = finalInfo.finalTypeNode;
                     }
 
+                    // Is this annotation indicating that the variable is a "ClassVar"?
+                    let classVarInfo = this._isAnnotationClassVar(typeAnnotation);
+
+                    if (classVarInfo.isClassVar) {
+                        typeAnnotationNode = classVarInfo.classVarTypeNode;
+                    }
+
+                    // PEP 591 indicates that a Final variable initialized within a class
+                    // body should also be considered a ClassVar.
+                    if (finalInfo.isFinal) {
+                        const containingClass = ParseTreeUtils.getEnclosingClassOrFunction(target);
+                        if (containingClass && containingClass.nodeType === ParseNodeType.Class) {
+                            // Make sure it's part of an assignment.
+                            if (
+                                target.parent?.nodeType === ParseNodeType.Assignment ||
+                                target.parent?.parent?.nodeType === ParseNodeType.Assignment
+                            ) {
+                                classVarInfo = {
+                                    isClassVar: true,
+                                    classVarTypeNode: undefined,
+                                };
+                            }
+                        }
+                    }
+
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: target,
@@ -3331,27 +3361,7 @@ export class Binder extends ParseTreeWalker {
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
 
-                    // Is this annotation indicating that the variable is a "ClassVar"?
-                    let isClassVar =
-                        typeAnnotation.nodeType === ParseNodeType.Index &&
-                        this._isTypingAnnotation(typeAnnotation.baseExpression, 'ClassVar');
-
-                    // PEP 591 indicates that a Final variable initialized within a class
-                    // body should also be considered a ClassVar.
-                    if (finalInfo.isFinal) {
-                        const containingClass = ParseTreeUtils.getEnclosingClassOrFunction(target);
-                        if (containingClass && containingClass.nodeType === ParseNodeType.Class) {
-                            // Make sure it's part of an assignment.
-                            if (
-                                target.parent?.nodeType === ParseNodeType.Assignment ||
-                                target.parent?.parent?.nodeType === ParseNodeType.Assignment
-                            ) {
-                                isClassVar = true;
-                            }
-                        }
-                    }
-
-                    if (isClassVar) {
+                    if (classVarInfo.isClassVar) {
                         symbolWithScope.symbol.setIsClassVar();
                     } else {
                         symbolWithScope.symbol.setIsInstanceMember();
@@ -3593,6 +3603,34 @@ export class Binder extends ParseTreeWalker {
         }
 
         return { isFinal, finalTypeNode };
+    }
+
+    // Determines if the specified type annotation expression is a "ClassVar".
+    // It returns a value indicating whether the expression is a "ClassVar"
+    // expression and whether it's a "raw" ClassVar with no type arguments.
+    private _isAnnotationClassVar(typeAnnotation: ExpressionNode | undefined): ClassVarInfo {
+        let isClassVar = false;
+        let classVarTypeNode: ExpressionNode | undefined;
+
+        if (typeAnnotation) {
+            if (this._isTypingAnnotation(typeAnnotation, 'ClassVar')) {
+                isClassVar = true;
+            } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
+                // Recursively call to see if the base expression is "ClassVar".
+                const finalInfo = this._isAnnotationClassVar(typeAnnotation.baseExpression);
+                if (
+                    finalInfo.isClassVar &&
+                    typeAnnotation.items[0].argumentCategory === ArgumentCategory.Simple &&
+                    !typeAnnotation.items[0].name &&
+                    !typeAnnotation.trailingComma
+                ) {
+                    isClassVar = true;
+                    classVarTypeNode = typeAnnotation.items[0].valueExpression;
+                }
+            }
+        }
+
+        return { isClassVar, classVarTypeNode };
     }
 
     // Determines if the specified type annotation is wrapped in a "Required".

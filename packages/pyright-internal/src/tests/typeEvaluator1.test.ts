@@ -46,6 +46,7 @@ test('Builtins1', () => {
         'DeprecationWarning',
         'EOFError',
         'Ellipsis',
+        'EncodingWarning',
         'EnvironmentError',
         'Exception',
         'FileExistsError',
@@ -105,7 +106,9 @@ test('Builtins1', () => {
         '__package__',
         '__spec__',
         'abs',
+        'aiter',
         'all',
+        'anext',
         'any',
         'ascii',
         'bin',
@@ -617,7 +620,7 @@ test('Function16', () => {
 test('Annotations1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Annotations2', () => {

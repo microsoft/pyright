@@ -51,6 +51,7 @@ from ._common import (
     pcputimes,
     pctxsw,
     pgids,
+    pionice,
     popenfile,
     pthread,
     puids,
@@ -129,7 +130,7 @@ class Process:
         def num_fds(self) -> int: ...
     if sys.platform != "darwin":
         def io_counters(self): ...
-        def ionice(self, ioclass: int | None = ..., value: int | None = ...) -> int: ...
+        def ionice(self, ioclass: int | None = ..., value: int | None = ...) -> pionice: ...
     if sys.platform == "linux":
         def rlimit(self, resource: int, limits: tuple[int, int] | None = ...): ...
     if sys.platform != "darwin":

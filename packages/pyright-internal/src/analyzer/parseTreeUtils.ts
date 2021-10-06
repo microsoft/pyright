@@ -1094,7 +1094,7 @@ export function isWithinLoop(node: ParseNode): boolean {
     return false;
 }
 
-export function isWithinTryBlock(node: ParseNode): boolean {
+export function isWithinTryBlock(node: ParseNode, treatWithAsTryBlock = false): boolean {
     let curNode: ParseNode | undefined = node;
     let prevNode: ParseNode | undefined;
 
@@ -1104,10 +1104,17 @@ export function isWithinTryBlock(node: ParseNode): boolean {
                 return curNode.trySuite === prevNode;
             }
 
+            case ParseNodeType.With: {
+                if (treatWithAsTryBlock && curNode.suite === prevNode) {
+                    return true;
+                }
+                break;
+            }
+
             case ParseNodeType.Function:
             case ParseNodeType.Module:
             case ParseNodeType.Class: {
-                break;
+                return false;
             }
         }
 

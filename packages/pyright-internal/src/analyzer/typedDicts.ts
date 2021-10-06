@@ -716,7 +716,7 @@ export function getTypeFromIndexedTypedDict(
                 allDiagsInvolveNotRequiredKeys = false;
                 return UnknownType.create();
             } else if (!(entry.isRequired || entry.isProvided) && usage.method === 'get') {
-                if (!ParseTreeUtils.isWithinTryBlock(node)) {
+                if (!ParseTreeUtils.isWithinTryBlock(node, /* treatWithAsTryBlock */ true)) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.keyNotRequired().format({
                             name: entryName,

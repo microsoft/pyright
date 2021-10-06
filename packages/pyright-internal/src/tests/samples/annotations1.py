@@ -27,7 +27,8 @@ class ClassB(ClassA):
     def func4(self) -> Optional["ClassC"]:
         return None
 
-    # This should generate an error.
+    # This should generate an error for Python versions 3.9
+    # and earlier.
     def func5(self) -> "Optional"[int]:
         return None
 

@@ -1,3 +1,4 @@
+import typing
 from typing import Any, Match, Tuple
 from xml.etree.ElementTree import Element
 
@@ -93,7 +94,7 @@ class LinkInlineProcessor(InlineProcessor):
 class ImageInlineProcessor(LinkInlineProcessor): ...
 
 class ReferenceInlineProcessor(LinkInlineProcessor):
-    NEWLINE_CLEANUP_RE: Pattern
+    NEWLINE_CLEANUP_RE: typing.Pattern
     def evalId(self, data, index, text): ...
     def makeTag(self, href, title, text): ...
 
