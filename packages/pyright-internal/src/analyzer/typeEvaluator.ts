@@ -19643,7 +19643,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function canAssignConditionalTypeToTypeVar(destType: TypeVarType, srcType: Type, recursionCount: number): boolean {
-        // The subType is assignable only if all of its subtypes are assignable.
+        // The srcType is assignable only if all of its subtypes are assignable.
         return !findSubtype(srcType, (srcSubtype) => {
             if (isTypeSame(destType, srcSubtype, /* ignorePseudoGeneric */ true, recursionCount + 1)) {
                 return false;
