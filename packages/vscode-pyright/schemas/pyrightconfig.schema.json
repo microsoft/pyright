@@ -353,6 +353,12 @@
       "title": "Controls reporting class and instance variables whose types are unknown",
       "default": "none"
     },
+    "reportMissingParameterType": {
+      "$id": "#/properties/reportMissingParameterType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting input parameters that are missing a type annotation",
+      "default": "none"
+    },
     "reportMissingTypeArgument": {
       "$id": "#/properties/reportMissingTypeArgument",
       "$ref": "#/definitions/diagnostic",

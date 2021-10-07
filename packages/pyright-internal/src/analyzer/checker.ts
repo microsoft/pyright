@@ -340,7 +340,7 @@ export class Checker extends ParseTreeWalker {
             // parameters after this need to be flagged as an error.
             let sawParamSpecArgs = false;
 
-            // Report any unknown parameter types.
+            // Report any unknown or missing parameter types.
             node.parameters.forEach((param, index) => {
                 if (param.name) {
                     // Determine whether this is a P.args parameter.
@@ -370,7 +370,7 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
 
-                // Allow unknown param types if the param is named '_'.
+                // Allow unknown and missing param types if the param is named '_'.
                 if (param.name && param.name.value !== '_') {
                     if (index < functionTypeResult.functionType.details.parameters.length) {
                         const paramType = functionTypeResult.functionType.details.parameters[index].type;
@@ -400,6 +400,26 @@ export class Checker extends ParseTreeWalker {
                                 Localizer.Diagnostic.paramTypePartiallyUnknown().format({
                                     paramName: param.name.value,
                                 }) + diagAddendum.getString(),
+                                param.name
+                            );
+                        }
+
+                        let hasAnnotation = false;
+
+                        if (functionTypeResult.functionType.details.parameters[index].typeAnnotation) {
+                            hasAnnotation = true;
+                        } else {
+                            // See if this is a "self" and "cls" parameter. They are exempt from this rule.
+                            if (isTypeVar(paramType) && paramType.details.isSynthesizedSelfCls) {
+                                hasAnnotation = true;
+                            }
+                        }
+
+                        if (!hasAnnotation) {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportMissingParameterType,
+                                DiagnosticRule.reportMissingParameterType,
+                                Localizer.Diagnostic.paramAnnotationMissing().format({ name: param.name.value }),
                                 param.name
                             );
                         }

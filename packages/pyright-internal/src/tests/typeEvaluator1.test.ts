@@ -1006,3 +1006,15 @@ test('Slots2', () => {
 
     TestUtils.validateResults(analysisResults, 3);
 });
+
+test('Parameters1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.diagnosticRuleSet.reportMissingParameterType = 'none';
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['parameters1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportMissingParameterType = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['parameters1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1);
+});

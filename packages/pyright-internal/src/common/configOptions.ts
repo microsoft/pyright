@@ -214,6 +214,9 @@ export interface DiagnosticRuleSet {
     // Report usage of unknown input or return parameters?
     reportUnknownMemberType: DiagnosticLevel;
 
+    // Report input parameters that are missing type annotations?
+    reportMissingParameterType: DiagnosticLevel;
+
     // Report usage of generic class without explicit type arguments?
     reportMissingTypeArgument: DiagnosticLevel;
 
@@ -328,6 +331,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnknownLambdaType,
         DiagnosticRule.reportUnknownVariableType,
         DiagnosticRule.reportUnknownMemberType,
+        DiagnosticRule.reportMissingParameterType,
         DiagnosticRule.reportMissingTypeArgument,
         DiagnosticRule.reportInvalidTypeVarUse,
         DiagnosticRule.reportCallInDefaultInitializer,
@@ -402,6 +406,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownLambdaType: 'none',
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
+        reportMissingParameterType: 'none',
         reportMissingTypeArgument: 'none',
         reportInvalidTypeVarUse: 'none',
         reportCallInDefaultInitializer: 'none',
@@ -472,6 +477,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownLambdaType: 'none',
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
+        reportMissingParameterType: 'none',
         reportMissingTypeArgument: 'none',
         reportInvalidTypeVarUse: 'warning',
         reportCallInDefaultInitializer: 'none',
@@ -542,6 +548,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownLambdaType: 'error',
         reportUnknownVariableType: 'error',
         reportUnknownMemberType: 'error',
+        reportMissingParameterType: 'error',
         reportMissingTypeArgument: 'error',
         reportInvalidTypeVarUse: 'error',
         reportCallInDefaultInitializer: 'none',
@@ -1153,6 +1160,13 @@ export class ConfigOptions {
                 configObj.reportUnknownMemberType,
                 DiagnosticRule.reportUnknownMemberType,
                 defaultSettings.reportUnknownMemberType
+            ),
+
+            // Read the "reportMissingParameterType" entry.
+            reportMissingParameterType: this._convertDiagnosticLevel(
+                configObj.reportMissingParameterType,
+                DiagnosticRule.reportMissingParameterType,
+                defaultSettings.reportMissingParameterType
             ),
 
             // Read the "reportMissingTypeArgument" entry.

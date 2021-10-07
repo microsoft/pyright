@@ -4,7 +4,7 @@
 
 # We use "strict" here because we want to ensure that there are
 # no "unknown" types remaining in this file.
-# pyright: strict, reportUnknownParameterType=false
+# pyright: strict, reportUnknownParameterType=false, reportMissingParameterType=false
 
 from logging import Handler, NOTSET
 

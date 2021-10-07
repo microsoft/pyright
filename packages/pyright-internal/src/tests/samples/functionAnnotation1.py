@@ -1,6 +1,6 @@
 # This sample tests support for comment-style function annotations.
 
-# pyright: strict
+# pyright: strict, reportMissingParameterType=false
 
 from typing import Optional
 
@@ -46,6 +46,7 @@ def func1f(a):
 
 class Foo:
     pass
+
 
 def func1g(*args, **kwargs):
     # type: (*int, **float) -> int

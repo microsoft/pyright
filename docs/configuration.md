@@ -126,6 +126,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportUnknownMemberType** [boolean or string, optional]: Generate or suppress diagnostics for class or instance variables that have an unknown type. The default value for this setting is 'none'.
 
+**reportMissingParameterType** [boolean or string, optional]: Generate or suppress diagnostics for input parameters for functions or methods that are missing a type annotation. The 'self' and 'cls' parameters used within methods are exempt from this check. The default value for this setting is 'none'.
+
 **reportMissingTypeArgument** [boolean or string, optional]: Generate or suppress diagnostics when a generic class is used without providing explicit or implicit type arguments. The default value for this setting is 'none'.
 
 **reportInvalidTypeVarUse** [boolean or string, optional]: Generate or suppress diagnostics when a TypeVar is used inappropriately (e.g. if a TypeVar appears only once) within a generic function signature. The default value for this setting is 'none'.
@@ -308,6 +310,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnknownLambdaType                   | "none"     | "none"     | "error"    |
 | reportUnknownVariableType                 | "none"     | "none"     | "error"    |
 | reportUnknownMemberType                   | "none"     | "none"     | "error"    |
+| reportMissingParameterType                | "none"     | "none"     | "error"    |
 | reportMissingTypeArgument                 | "none"     | "none"     | "error"    |
 | reportInvalidTypeVarUse                   | "none"     | "warning"  | "error"    |
 | reportCallInDefaultInitializer            | "none"     | "none"     | "none"     |
