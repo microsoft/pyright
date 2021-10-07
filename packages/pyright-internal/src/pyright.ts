@@ -136,6 +136,7 @@ async function processArgs(): Promise<ExitStatus> {
         { name: 'verifytypes', type: String },
         { name: 'verbose', type: Boolean },
         { name: 'version', type: Boolean },
+        { name: 'warnings', type: Boolean },
         { name: 'watch', alias: 'w', type: Boolean },
     ];
 
@@ -249,6 +250,7 @@ async function processArgs(): Promise<ExitStatus> {
     }
     options.checkOnlyOpenFiles = false;
 
+    const treatWarningsAsErrors = !!args.warnings;
     const output = args.outputjson ? new StderrConsole() : undefined;
     const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output));
 
@@ -293,9 +295,15 @@ async function processArgs(): Promise<ExitStatus> {
                     results.elapsedTime
                 );
                 errorCount += report.errorCount;
+                if (treatWarningsAsErrors) {
+                    errorCount += report.warningCount;
+                }
             } else {
                 const report = reportDiagnosticsAsText(results.diagnostics);
                 errorCount += report.errorCount;
+                if (treatWarningsAsErrors) {
+                    errorCount += report.warningCount;
+                }
             }
         }
 
@@ -600,6 +608,7 @@ function printUsage() {
             '  --verbose                          Emit verbose diagnostics\n' +
             '  --verifytypes <PACKAGE>            Verify type completeness of a py.typed package\n' +
             '  --version                          Print Pyright version\n' +
+            '  --warnings                         Use exit code of 1 if warnings are reported\n' +
             '  -w,--watch                         Continue to run and watch for changes\n'
     );
 }

@@ -21,6 +21,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --verbose                               | Emit verbose diagnostics                             |
 | --verifytypes `<IMPORT>`                | Verify completeness of types in py.typed package     |
 | --version                               | Print pyright version                                |
+| --warnings                              | Use exit code of 1 if warnings are reported          |
 | -w, --watch                             | Continue to run and watch for changes (4)            |
 
 (1) If specific files are specified on the command line, the pyrightconfig.json file is ignored.
