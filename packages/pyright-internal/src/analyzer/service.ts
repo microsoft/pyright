@@ -44,6 +44,8 @@ import {
     getFileSpec,
     getFileSystemEntries,
     isDirectory,
+    isFile,
+    makeDirectories,
     normalizePath,
     normalizeSlashes,
     stripFileExtension,
@@ -824,6 +826,7 @@ export class AnalyzerService {
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
+
         if (!stubPath) {
             // We should never get here because we always generate a
             // default typings path if none was specified.
@@ -831,6 +834,7 @@ export class AnalyzerService {
             this._console.info(errMsg);
             throw new Error(errMsg);
         }
+
         const typeStubInputTargetParts = this._typeStubTargetImportName.split('.');
         if (typeStubInputTargetParts[0].length === 0) {
             // We should never get here because the import resolution
@@ -839,6 +843,7 @@ export class AnalyzerService {
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
+
         try {
             // Generate a new typings directory if necessary.
             if (!this._fs.existsSync(stubPath)) {
@@ -849,18 +854,22 @@ export class AnalyzerService {
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
-        // Generate a typings subdirectory.
+
+        // Generate a typings subdirectory hierarchy.
         const typingsSubdirPath = combinePaths(stubPath, typeStubInputTargetParts[0]);
+        const typingsSubdirHierarchy = combinePaths(stubPath, ...typeStubInputTargetParts);
+
         try {
             // Generate a new typings subdirectory if necessary.
-            if (!this._fs.existsSync(typingsSubdirPath)) {
-                this._fs.mkdirSync(typingsSubdirPath);
+            if (!this._fs.existsSync(typingsSubdirHierarchy)) {
+                makeDirectories(this._fs, typingsSubdirHierarchy, stubPath);
             }
         } catch (e: any) {
-            const errMsg = `Could not create typings subdirectory '${typingsSubdirPath}'`;
+            const errMsg = `Could not create typings subdirectory '${typingsSubdirHierarchy}'`;
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
+
         return typingsSubdirPath;
     }
 
@@ -990,38 +999,39 @@ export class AnalyzerService {
             if (importResult.isImportFound) {
                 const filesToImport: string[] = [];
 
-                // Namespace packages resolve to a directory name, so
-                // don't include those.
-                const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                // Determine the directory that contains the root package.
+                const finalResolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                const isFinalPathFile = isFile(this._fs, finalResolvedPath);
+                const isFinalPathInitFile =
+                    isFinalPathFile && stripFileExtension(getFileName(finalResolvedPath)) === '__init__';
 
-                // Get the directory that contains the root package.
-                let targetPath = getDirectoryPath(resolvedPath);
-                let prevResolvedPath = resolvedPath;
+                let rootPackagePath = finalResolvedPath;
+
+                if (isFinalPathFile) {
+                    // If the module is a __init__.pyi? file, use its parent directory instead.
+                    rootPackagePath = getDirectoryPath(rootPackagePath);
+                }
+
                 for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
-                    const resolvedPath = importResult.resolvedPaths[i];
-                    if (resolvedPath) {
-                        targetPath = getDirectoryPath(resolvedPath);
-                        prevResolvedPath = resolvedPath;
+                    if (importResult.resolvedPaths[i]) {
+                        rootPackagePath = importResult.resolvedPaths[i];
                     } else {
                         // If there was no file corresponding to this portion
                         // of the name path, assume that it's contained
                         // within its parent directory.
-                        targetPath = getDirectoryPath(prevResolvedPath);
-                        prevResolvedPath = targetPath;
+                        rootPackagePath = getDirectoryPath(rootPackagePath);
                     }
                 }
 
-                if (isDirectory(this._fs, targetPath)) {
-                    this._typeStubTargetPath = targetPath;
+                if (isDirectory(this._fs, rootPackagePath)) {
+                    this._typeStubTargetPath = rootPackagePath;
                 }
 
-                if (!resolvedPath) {
+                if (!finalResolvedPath) {
                     this._typeStubTargetIsSingleFile = false;
                 } else {
-                    filesToImport.push(resolvedPath);
-                    this._typeStubTargetIsSingleFile =
-                        importResult.resolvedPaths.length === 1 &&
-                        stripFileExtension(getFileName(importResult.resolvedPaths[0])) !== '__init__';
+                    filesToImport.push(finalResolvedPath);
+                    this._typeStubTargetIsSingleFile = importResult.resolvedPaths.length === 1 && !isFinalPathInitFile;
                 }
 
                 // Add the implicit import paths.
