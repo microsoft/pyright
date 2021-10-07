@@ -244,8 +244,18 @@ export namespace ModuleType {
         // will be overwritten by the module.
         let symbol = moduleType.fields.get(name);
 
-        if (!symbol && moduleType.loaderFields) {
-            symbol = moduleType.loaderFields.get(name);
+        if (moduleType.loaderFields) {
+            if (!symbol) {
+                symbol = moduleType.loaderFields.get(name);
+            } else if (symbol.isExternallyHidden()) {
+                // If the symbol is hidden when accessed via the module but is
+                // also accessible through a loader field, use the latter so it
+                // isn't flagged as an error.
+                const loaderSymbol = moduleType.loaderFields.get(name);
+                if (loaderSymbol && !loaderSymbol.isExternallyHidden()) {
+                    symbol = loaderSymbol;
+                }
+            }
         }
         return symbol;
     }
