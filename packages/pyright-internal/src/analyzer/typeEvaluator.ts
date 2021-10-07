@@ -12677,13 +12677,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (annotatedType && !isOptionalType(annotatedType)) {
+            if (annotatedType) {
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
                 // of the specified type and 'None'). Skip this step if the type is already
                 // optional to avoid losing alias names when combining the types.
                 if (param.defaultValue && param.defaultValue.nodeType === ParseNodeType.Constant) {
-                    if (param.defaultValue.constType === KeywordType.None) {
+                    if (param.defaultValue.constType === KeywordType.None && !isOptionalType(annotatedType)) {
                         isNoneWithoutOptional = true;
 
                         if (!fileInfo.diagnosticRuleSet.strictParameterNoneValue) {
