@@ -117,42 +117,25 @@ export function getTypeNarrowingCallback(
                 }
 
                 if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
-                    // Narrow the type by filtering on "None".
                     return (type: Type) => {
-                        const expandedType = mapSubtypes(type, (subtype) => {
-                            return transformPossibleRecursiveTypeAlias(subtype);
-                        });
-                        return evaluator.mapSubtypesExpandTypeVars(
-                            expandedType,
-                            /* conditionFilter */ undefined,
-                            (subtype, unexpandedSubtype) => {
-                                if (isAnyOrUnknown(subtype)) {
-                                    // We need to assume that "Any" is always both None and not None,
-                                    // so it matches regardless of whether the test is positive or negative.
-                                    return subtype;
-                                }
+                        return narrowTypeForIsNone(evaluator, type, adjIsPositiveTest);
+                    };
+                }
 
-                                // If this is a TypeVar that isn't constrained, use the unexpanded
-                                // TypeVar. For all other cases (including constrained TypeVars),
-                                // use the expanded subtype.
-                                const adjustedSubtype =
-                                    isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
-                                        ? unexpandedSubtype
-                                        : subtype;
-
-                                // See if it's a match for object.
-                                if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-                                    return adjIsPositiveTest ? NoneType.createInstance() : adjustedSubtype;
-                                }
-
-                                // See if it's a match for None.
-                                if (isNone(subtype) === adjIsPositiveTest) {
-                                    return adjustedSubtype;
-                                }
-
-                                return undefined;
-                            }
-                        );
+                if (
+                    leftExpression.nodeType === ParseNodeType.Index &&
+                    ParseTreeUtils.isMatchingExpression(reference, leftExpression.baseExpression) &&
+                    leftExpression.items.length === 1 &&
+                    !leftExpression.trailingComma &&
+                    leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
+                    !leftExpression.items[0].name &&
+                    leftExpression.items[0].valueExpression.nodeType === ParseNodeType.Number &&
+                    leftExpression.items[0].valueExpression.isInteger &&
+                    !leftExpression.items[0].valueExpression.isImaginary
+                ) {
+                    const indexValue = leftExpression.items[0].valueExpression.value;
+                    return (type: Type) => {
+                        return narrowTupleTypeForIsNone(evaluator, type, adjIsPositiveTest, indexValue);
                     };
                 }
             }
@@ -458,6 +441,79 @@ export function getTypeNarrowingCallback(
     }
 
     return undefined;
+}
+
+// Handle type narrowing for expressions of the form "a[I] is None" and "a[I] is not None" where
+// I is an integer and a is a union of Tuples with known lengths and entry types.
+function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean, indexValue: number) {
+    return evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (subtype) => {
+        if (
+            !isClassInstance(subtype) ||
+            !isTupleClass(subtype) ||
+            isOpenEndedTupleClass(subtype) ||
+            !subtype.tupleTypeArguments
+        ) {
+            return subtype;
+        }
+
+        const tupleLength = subtype.tupleTypeArguments.length;
+        if (indexValue < 0 || indexValue >= tupleLength) {
+            return subtype;
+        }
+
+        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(subtype.tupleTypeArguments[indexValue]);
+
+        if (isPositiveTest) {
+            if (!evaluator.canAssignType(typeOfEntry, NoneType.createInstance(), new DiagnosticAddendum())) {
+                return undefined;
+            }
+        } else {
+            if (isNone(typeOfEntry)) {
+                return undefined;
+            }
+        }
+
+        return subtype;
+    });
+}
+
+// Handle type narrowing for expressions of the form "x is None" and "x is not None".
+function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean) {
+    const expandedType = mapSubtypes(type, (subtype) => {
+        return transformPossibleRecursiveTypeAlias(subtype);
+    });
+
+    return evaluator.mapSubtypesExpandTypeVars(
+        expandedType,
+        /* conditionFilter */ undefined,
+        (subtype, unexpandedSubtype) => {
+            if (isAnyOrUnknown(subtype)) {
+                // We need to assume that "Any" is always both None and not None,
+                // so it matches regardless of whether the test is positive or negative.
+                return subtype;
+            }
+
+            // If this is a TypeVar that isn't constrained, use the unexpanded
+            // TypeVar. For all other cases (including constrained TypeVars),
+            // use the expanded subtype.
+            const adjustedSubtype =
+                isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
+                    ? unexpandedSubtype
+                    : subtype;
+
+            // See if it's a match for object.
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+                return isPositiveTest ? NoneType.createInstance() : adjustedSubtype;
+            }
+
+            // See if it's a match for None.
+            if (isNone(subtype) === isPositiveTest) {
+                return adjustedSubtype;
+            }
+
+            return undefined;
+        }
+    );
 }
 
 // The "isinstance" and "issubclass" calls support two forms - a simple form

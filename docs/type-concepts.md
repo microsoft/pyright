@@ -155,6 +155,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x.y == L` and `x.y != L` (where L is a literal expression and x is a type that is distinguished by a field with a literal type)
 * `x[K] == V` and `x[K] != V` (where K and V are literal expressions and x is a type that is distinguished by a TypedDict field with a literal type)
 * `x[I] == V` and `x[I] != V` (where I and V are literal expressions and x is a known-length tuple that is distinguished by the index indicated by I)
+* `x[I] is None` and `x[I] is not None` (where I is a literal expression and x is a known-length tuple that is distinguished by the index indicated by I)
 * `x in y` (where y is instance of list, set, frozenset, or deque)
 * `S in D` and `S not in D` (where S is a string literal and D is a TypedDict)
 * `isinstance(x, T)` (where T is a type or a tuple of types)
