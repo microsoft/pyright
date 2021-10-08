@@ -19667,10 +19667,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (destType.details.boundType) {
                     assert(condition.constraintIndex === 0);
 
-                    return isTypeSame(
+                    return canAssignType(
                         destType.details.boundType,
-                        TypeBase.cloneForCondition(srcSubtype, /* condition */ undefined),
-                        /* ignorePseudoGeneric */ true,
+                        srcSubtype,
+                        new DiagnosticAddendum(),
+                        /* typeVarMap */ undefined,
+                        /* flags */ undefined,
                         recursionCount + 1
                     );
                 }
