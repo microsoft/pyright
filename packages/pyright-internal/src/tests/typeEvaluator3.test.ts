@@ -482,9 +482,7 @@ test('Enums6', () => {
 test('Enums7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums7.py']);
 
-    // This should generate 3 errors, but one of the checks is currently
-    // disabled. Once this is fixed, we can expect to see 3 errors.
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypeGuard1', () => {

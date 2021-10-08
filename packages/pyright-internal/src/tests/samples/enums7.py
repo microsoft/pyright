@@ -4,13 +4,7 @@
 from enum import Enum
 
 
-class ColorBase(Enum):
-    def something(self) -> None:
-        ...
-
-# Subclassing from ColorBase is allowed because it doesn't define
-# any enum members.
-class Color(ColorBase):
+class Color(Enum):
     red = "red"
     blue = "blue"
     yellow = "yellow"
@@ -20,12 +14,35 @@ class Color(ColorBase):
     blue = "blue"
 
 
+class NonEnum:
+    ...
+
+
 # This should generate an error because enums cannot
 # be subclassed.
-class ExtraColor(Color):
+class ExtraColor(NonEnum, Color):
     pass
 
 
 # This should generate an error because reassignment of enum
 # values is not allowed.
 Color.red = "new"
+
+
+class EnumWithoutValue(Enum):
+    def do_something(self):
+        pass
+
+    @property
+    def y(self) -> None:
+        pass
+
+
+class EnumWithValue(EnumWithoutValue):
+    x = 0
+
+
+# This should generate an error because enums with values
+# cannot be subclassed.
+class EnumSubclass(EnumWithValue):
+    y: int

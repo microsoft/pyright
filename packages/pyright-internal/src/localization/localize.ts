@@ -308,6 +308,8 @@ export namespace Localizer {
         export const duplicateUnpack = () => getRawString('Diagnostic.duplicateUnpack');
         export const ellipsisContext = () => getRawString('Diagnostic.ellipsisContext');
         export const ellipsisSecondArg = () => getRawString('Diagnostic.ellipsisSecondArg');
+        export const enumClassOverride = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.enumClassOverride'));
         export const exceptionTypeIncorrect = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeIncorrect'));
         export const exceptionTypeNotClass = () =>

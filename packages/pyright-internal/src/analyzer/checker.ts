@@ -324,6 +324,10 @@ export class Checker extends ParseTreeWalker {
             if (ClassType.isTypedDictClass(classTypeResult.classType)) {
                 this._validateTypedDictClassSuite(node.suite);
             }
+
+            if (ClassType.isEnumClass(classTypeResult.classType)) {
+                this._validateEnumClassOverride(node, classTypeResult.classType);
+            }
         }
 
         this._scopedNodes.push(node);
@@ -2859,6 +2863,33 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
+    }
+
+    // Validates that an enum class does not attempt to override another
+    // enum class that has already defined values.
+    private _validateEnumClassOverride(node: ClassNode, classType: ClassType) {
+        classType.details.baseClasses.forEach((baseClass, index) => {
+            if (isClass(baseClass) && ClassType.isEnumClass(baseClass)) {
+                // Determine whether the base enum class defines an enumerated value.
+                let baseEnumDefinesValue = false;
+
+                baseClass.details.fields.forEach((symbol) => {
+                    const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+                    if (isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, baseClass)) {
+                        baseEnumDefinesValue = true;
+                    }
+                });
+
+                if (baseEnumDefinesValue) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.enumClassOverride().format({ name: baseClass.details.name }),
+                        node.arguments[index]
+                    );
+                }
+            }
+        });
     }
 
     // Verifies the rules specified in PEP 589 about TypedDict classes.
