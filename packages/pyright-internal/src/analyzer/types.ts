@@ -774,6 +774,7 @@ export namespace ClassType {
                     class1Details.baseClasses[i],
                     class2Details.baseClasses[i],
                     /* ignorePseudoGeneric */ true,
+                    /* ignoreTypeFlags */ undefined,
                     recursionCount + 1
                 )
             ) {
@@ -789,6 +790,7 @@ export namespace ClassType {
                     class1Details.declaredMetaclass,
                     class2Details.declaredMetaclass,
                     /* ignorePseudoGeneric */ true,
+                    /* ignoreTypeFlags */ undefined,
                     recursionCount + 1
                 )
             ) {
@@ -802,6 +804,7 @@ export namespace ClassType {
                     class1Details.typeParameters[i],
                     class2Details.typeParameters[i],
                     /* ignorePseudoGeneric */ true,
+                    /* ignoreTypeFlags */ undefined,
                     recursionCount + 1
                 )
             ) {
@@ -1569,6 +1572,7 @@ export interface UnionType extends TypeBase {
     subtypes: UnionableType[];
     literalStrMap?: Map<string, UnionableType> | undefined;
     literalIntMap?: Map<number, UnionableType> | undefined;
+    typeAliasSources?: UnionType[];
 }
 
 export namespace UnionType {
@@ -1633,9 +1637,29 @@ export namespace UnionType {
 
         return (
             unionType.subtypes.find((t) =>
-                isTypeSame(t, subtype, /* ignorePseudoGeneric */ false, recursionCount + 1)
+                isTypeSame(
+                    t,
+                    subtype,
+                    /* ignorePseudoGeneric */ undefined,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
             ) !== undefined
         );
+    }
+
+    export function addTypeAliasSource(unionType: UnionType, typeAliasSource: Type) {
+        if (typeAliasSource.category === TypeCategory.Union) {
+            const sourcesToAdd = typeAliasSource.typeAliasInfo ? [typeAliasSource] : typeAliasSource.typeAliasSources;
+
+            if (sourcesToAdd) {
+                if (unionType.typeAliasSources) {
+                    unionType.typeAliasSources.push(...sourcesToAdd);
+                } else {
+                    unionType.typeAliasSources = sourcesToAdd;
+                }
+            }
+        }
     }
 }
 
@@ -1920,7 +1944,13 @@ export function getTypeAliasInfo(type: Type) {
 // Determines whether two types are the same. If ignorePseudoGeneric is true,
 // type arguments for "pseudo-generic" classes (non-generic classes whose init
 // methods are not annotated and are therefore treated as generic) are ignored.
-export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false, recursionCount = 0): boolean {
+export function isTypeSame(
+    type1: Type,
+    type2: Type,
+    ignorePseudoGeneric = false,
+    ignoreTypeFlags = false,
+    recursionCount = 0
+): boolean {
     if (type1 === type2) {
         return true;
     }
@@ -1933,7 +1963,7 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
         return true;
     }
 
-    if (type1.flags !== type2.flags) {
+    if (!ignoreTypeFlags && type1.flags !== type2.flags) {
         return false;
     }
 
@@ -1965,6 +1995,7 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
                                 type1TupleTypeArgs[i],
                                 type2TupleTypeArgs[i],
                                 ignorePseudoGeneric,
+                                /* ignoreTypeFlags */ false,
                                 recursionCount + 1
                             )
                         ) {
@@ -1981,7 +2012,15 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
                         const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
                         const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
-                        if (!isTypeSame(typeArg1, typeArg2, ignorePseudoGeneric, recursionCount + 1)) {
+                        if (
+                            !isTypeSame(
+                                typeArg1,
+                                typeArg2,
+                                ignorePseudoGeneric,
+                                /* ignoreTypeFlags */ false,
+                                recursionCount + 1
+                            )
+                        ) {
                             return false;
                         }
                     }
@@ -2020,7 +2059,15 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
 
                 const param1Type = FunctionType.getEffectiveParameterType(type1, i);
                 const param2Type = FunctionType.getEffectiveParameterType(functionType2, i);
-                if (!isTypeSame(param1Type, param2Type, ignorePseudoGeneric, recursionCount + 1)) {
+                if (
+                    !isTypeSame(
+                        param1Type,
+                        param2Type,
+                        ignorePseudoGeneric,
+                        /* ignoreTypeFlags */ false,
+                        recursionCount + 1
+                    )
+                ) {
                     return false;
                 }
             }
@@ -2038,7 +2085,13 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
                 if (
                     !return1Type ||
                     !return2Type ||
-                    !isTypeSame(return1Type, return2Type, ignorePseudoGeneric, recursionCount + 1)
+                    !isTypeSame(
+                        return1Type,
+                        return2Type,
+                        ignorePseudoGeneric,
+                        /* ignoreTypeFlags */ false,
+                        recursionCount + 1
+                    )
                 ) {
                     return false;
                 }
@@ -2062,7 +2115,13 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
             // in the same order from one analysis pass to another.
             for (let i = 0; i < type1.overloads.length; i++) {
                 if (
-                    !isTypeSame(type1.overloads[i], functionType2.overloads[i], ignorePseudoGeneric, recursionCount + 1)
+                    !isTypeSame(
+                        type1.overloads[i],
+                        functionType2.overloads[i],
+                        ignorePseudoGeneric,
+                        ignoreTypeFlags,
+                        recursionCount + 1
+                    )
                 ) {
                     return false;
                 }
@@ -2106,7 +2165,15 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
                 const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
                 const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
-                if (!isTypeSame(typeArg1, typeArg2, ignorePseudoGeneric, recursionCount + 1)) {
+                if (
+                    !isTypeSame(
+                        typeArg1,
+                        typeArg2,
+                        ignorePseudoGeneric,
+                        /* ignoreTypeFlags */ false,
+                        recursionCount + 1
+                    )
+                ) {
                     return false;
                 }
             }
@@ -2128,7 +2195,16 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
             const boundType1 = type1.details.boundType;
             const boundType2 = type2TypeVar.details.boundType;
             if (boundType1) {
-                if (!boundType2 || !isTypeSame(boundType1, boundType2, ignorePseudoGeneric, recursionCount + 1)) {
+                if (
+                    !boundType2 ||
+                    !isTypeSame(
+                        boundType1,
+                        boundType2,
+                        ignorePseudoGeneric,
+                        /* ignoreTypeFlags */ false,
+                        recursionCount + 1
+                    )
+                ) {
                     return false;
                 }
             } else {
@@ -2144,7 +2220,15 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
             }
 
             for (let i = 0; i < constraints1.length; i++) {
-                if (!isTypeSame(constraints1[i], constraints2[i], ignorePseudoGeneric, recursionCount + 1)) {
+                if (
+                    !isTypeSame(
+                        constraints1[i],
+                        constraints2[i],
+                        ignorePseudoGeneric,
+                        /* ignoreTypeFlags */ false,
+                        recursionCount + 1
+                    )
+                ) {
                     return false;
                 }
             }
@@ -2254,9 +2338,15 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
 
     // Expand all union types.
     let expandedTypes: Type[] = [];
+    const typeAliasSources: UnionType[] = [];
     for (const subtype of subtypes) {
         if (isUnion(subtype)) {
             expandedTypes.push(...subtype.subtypes);
+            if (subtype.typeAliasInfo) {
+                typeAliasSources.push(subtype);
+            } else if (subtype.typeAliasSources) {
+                typeAliasSources.push(...subtype.typeAliasSources);
+            }
         } else {
             expandedTypes.push(subtype);
         }
@@ -2292,6 +2382,9 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     }
 
     const newUnionType = UnionType.create();
+    if (typeAliasSources.length > 0) {
+        newUnionType.typeAliasSources = typeAliasSources;
+    }
     let hitMaxSubtypeCount = false;
 
     expandedTypes.forEach((subtype, index) => {

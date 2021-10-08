@@ -2752,7 +2752,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expandSubtype(type);
         }
 
-        return typeChanged ? combineTypes(newSubtypes) : type;
+        if (!typeChanged) {
+            return type;
+        }
+
+        const newType = combineTypes(newSubtypes);
+
+        // Do our best to retain type aliases.
+        if (newType.category === TypeCategory.Union) {
+            UnionType.addTypeAliasSource(newType, type);
+        }
+        return newType;
     }
 
     function markNamesAccessed(node: ParseNode, names: string[]) {
@@ -12680,10 +12690,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (annotatedType) {
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
-                // of the specified type and 'None'). Skip this step if the type is already
-                // optional to avoid losing alias names when combining the types.
+                // of the specified type and 'None').
                 if (param.defaultValue && param.defaultValue.nodeType === ParseNodeType.Constant) {
-                    if (param.defaultValue.constType === KeywordType.None && !isOptionalType(annotatedType)) {
+                    if (param.defaultValue.constType === KeywordType.None) {
                         isNoneWithoutOptional = true;
 
                         if (!fileInfo.diagnosticRuleSet.strictParameterNoneValue) {
@@ -19646,7 +19655,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignConditionalTypeToTypeVar(destType: TypeVarType, srcType: Type, recursionCount: number): boolean {
         // The srcType is assignable only if all of its subtypes are assignable.
         return !findSubtype(srcType, (srcSubtype) => {
-            if (isTypeSame(destType, srcSubtype, /* ignorePseudoGeneric */ true, recursionCount + 1)) {
+            if (
+                isTypeSame(
+                    destType,
+                    srcSubtype,
+                    /* ignorePseudoGeneric */ true,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 return false;
             }
 
