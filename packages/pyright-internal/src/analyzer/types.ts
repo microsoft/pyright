@@ -2294,7 +2294,13 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
     if (isUnion(type)) {
         const remainingTypes = type.subtypes.filter((t) => !removeFilter(t));
         if (remainingTypes.length < type.subtypes.length) {
-            return combineTypes(remainingTypes);
+            const newType = combineTypes(remainingTypes);
+
+            if (isUnion(newType)) {
+                UnionType.addTypeAliasSource(newType, type);
+            }
+
+            return newType;
         }
     }
 
