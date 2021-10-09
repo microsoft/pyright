@@ -19031,6 +19031,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
+        if (!isUnion(srcType) && isUnion(destType)) {
+            const clonedTypeVarMap = typeVarMap ? typeVarMap.clone() : undefined;
+            if (
+                canAssignToUnionType(
+                    destType,
+                    srcType,
+                    new DiagnosticAddendum(),
+                    clonedTypeVarMap,
+                    originalFlags,
+                    recursionCount + 1
+                )
+            ) {
+                if (typeVarMap && clonedTypeVarMap) {
+                    typeVarMap.copyFromClone(clonedTypeVarMap);
+                }
+                return true;
+            }
+        }
+
         const expandedSrcType = makeTopLevelTypeVarsConcrete(srcType);
         if (isUnion(expandedSrcType)) {
             return canAssignFromUnionType(
