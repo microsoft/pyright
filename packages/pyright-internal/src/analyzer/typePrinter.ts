@@ -17,7 +17,9 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
+    isNone,
     isParamSpec,
+    isTypeSame,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     removeNoneFromUnion,
@@ -26,7 +28,7 @@ import {
     TypeCategory,
     TypeVarType,
 } from './types';
-import { doForEachSubtype, isOptionalType, isTupleClass } from './typeUtils';
+import { doForEachSubtype, isTupleClass } from './typeUtils';
 
 const singleTickRegEx = /'/g;
 const escapedDoubleQuoteRegEx = /\\"/g;
@@ -243,7 +245,63 @@ export function printType(
             }
 
             case TypeCategory.Union: {
-                if (isOptionalType(type)) {
+                // Allocate a set that refers to subtypes in the union by
+                // their indices. If the index is within the set, it is already
+                // accounted for in the output.
+                const subtypeHandledSet = new Set<number>();
+
+                // Allocate another set that represents the textual representations
+                // of the subtypes in the union.
+                const subtypeStrings = new Set<string>();
+
+                // Start by matching possible type aliases to the subtypes.
+                if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0 && type.typeAliasSources) {
+                    for (const typeAliasSource of type.typeAliasSources) {
+                        let matchedAllSubtypes = true;
+                        let allSubtypesPreviouslyHandled = true;
+                        const indicesCoveredByTypeAlias = new Set<number>();
+
+                        for (const sourceSubtype of typeAliasSource.subtypes) {
+                            let unionSubtypeIndex = 0;
+                            let foundMatch = false;
+
+                            for (const unionSubtype of type.subtypes) {
+                                if (
+                                    isTypeSame(
+                                        sourceSubtype,
+                                        unionSubtype,
+                                        /* ignorePseudoGeneric */ undefined,
+                                        /* ignoreTypeFlags */ true
+                                    )
+                                ) {
+                                    if (!subtypeHandledSet.has(unionSubtypeIndex)) {
+                                        allSubtypesPreviouslyHandled = false;
+                                    }
+                                    indicesCoveredByTypeAlias.add(unionSubtypeIndex);
+                                    foundMatch = true;
+                                    break;
+                                }
+
+                                unionSubtypeIndex++;
+                            }
+
+                            if (!foundMatch) {
+                                matchedAllSubtypes = false;
+                                break;
+                            }
+                        }
+
+                        if (matchedAllSubtypes && !allSubtypesPreviouslyHandled) {
+                            subtypeStrings.add(
+                                printType(typeAliasSource, printTypeFlags, returnTypeCallback, recursionTypes)
+                            );
+                            indicesCoveredByTypeAlias.forEach((index) => subtypeHandledSet.add(index));
+                        }
+                    }
+                }
+
+                const noneIndex = type.subtypes.findIndex((subtype) => isNone(subtype));
+                if (noneIndex >= 0 && !subtypeHandledSet.has(noneIndex)) {
                     const typeWithoutNone = removeNoneFromUnion(type);
                     if (isNever(typeWithoutNone)) {
                         return 'None';
@@ -258,16 +316,17 @@ export function printType(
                     return 'Optional[' + optionalType + ']';
                 }
 
-                const subtypeStrings = new Set<string>();
                 const literalObjectStrings = new Set<string>();
                 const literalClassStrings = new Set<string>();
-                doForEachSubtype(type, (subtype) => {
-                    if (isClassInstance(subtype) && subtype.literalValue !== undefined) {
-                        literalObjectStrings.add(printLiteralValue(subtype));
-                    } else if (isInstantiableClass(subtype) && subtype.literalValue !== undefined) {
-                        literalClassStrings.add(printLiteralValue(subtype));
-                    } else {
-                        subtypeStrings.add(printType(subtype, printTypeFlags, returnTypeCallback, recursionTypes));
+                doForEachSubtype(type, (subtype, index) => {
+                    if (!subtypeHandledSet.has(index)) {
+                        if (isClassInstance(subtype) && subtype.literalValue !== undefined) {
+                            literalObjectStrings.add(printLiteralValue(subtype));
+                        } else if (isInstantiableClass(subtype) && subtype.literalValue !== undefined) {
+                            literalClassStrings.add(printLiteralValue(subtype));
+                        } else {
+                            subtypeStrings.add(printType(subtype, printTypeFlags, returnTypeCallback, recursionTypes));
+                        }
                     }
                 });
 
