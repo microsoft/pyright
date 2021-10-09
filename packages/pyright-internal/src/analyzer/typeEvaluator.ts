@@ -5038,7 +5038,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const isGenericClass =
                         concreteSubtype.details.typeParameters?.length > 0 ||
                         ClassType.isSpecialBuiltIn(concreteSubtype) ||
-                        ClassType.isBuiltIn(concreteSubtype, 'type');
+                        ClassType.isBuiltIn(concreteSubtype, 'type') ||
+                        ClassType.isPartiallyConstructed(concreteSubtype);
 
                     let typeArgs = getTypeArgs(node, flags, isAnnotatedClass, hasCustomClassGetItem || !isGenericClass);
                     if (!isAnnotatedClass) {

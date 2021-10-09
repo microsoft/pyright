@@ -443,6 +443,12 @@ test('Classes7', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Classes8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 
