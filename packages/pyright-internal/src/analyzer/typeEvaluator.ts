@@ -19033,266 +19033,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const expandedSrcType = makeTopLevelTypeVarsConcrete(srcType);
         if (isUnion(expandedSrcType)) {
-            // Start by checking for an exact match. This is needed to handle unions
-            // that contain recursive type aliases.
-            if (isTypeSame(expandedSrcType, destType)) {
-                return true;
-            }
-
-            // Handle the case where the source and dest are both unions and
-            // invariance is being enforced and the dest contains type variables.
-            if (flags & CanAssignFlags.EnforceInvariance) {
-                if (isUnion(destType)) {
-                    const remainingDestSubtypes: Type[] = [];
-                    let remainingSrcSubtypes: Type[] = [...expandedSrcType.subtypes];
-                    let isIncompatible = false;
-
-                    // First attempt to match all of the non-generic types in the dest
-                    // to non-generic types in the source.
-                    destType.subtypes.forEach((destSubtype) => {
-                        if (requiresSpecialization(destSubtype)) {
-                            remainingDestSubtypes.push(destSubtype);
-                        } else {
-                            const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
-                                isTypeSame(srcSubtype, destSubtype)
-                            );
-                            if (srcTypeIndex >= 0) {
-                                remainingSrcSubtypes.splice(srcTypeIndex, 1);
-                            } else {
-                                isIncompatible = true;
-                            }
-                        }
-                    });
-
-                    // For all remaining source subtypes, attempt to find a dest subtype
-                    // whose primary type matches.
-                    if (!isIncompatible) {
-                        [...remainingSrcSubtypes].forEach((srcSubtype) => {
-                            const destTypeIndex = remainingDestSubtypes.findIndex(
-                                (destSubtype) =>
-                                    isClass(srcSubtype) &&
-                                    isClass(destSubtype) &&
-                                    TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
-                                    ClassType.isSameGenericClass(srcSubtype, destSubtype)
-                            );
-                            if (destTypeIndex >= 0) {
-                                if (
-                                    !canAssignType(
-                                        remainingDestSubtypes[destTypeIndex],
-                                        srcSubtype,
-                                        diag.createAddendum(),
-                                        typeVarMap,
-                                        flags,
-                                        recursionCount + 1
-                                    )
-                                ) {
-                                    isIncompatible = true;
-                                }
-
-                                remainingDestSubtypes.splice(destTypeIndex, 1);
-                                remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
-                            }
-                        });
-                    }
-
-                    // If there is a remaining dest subtype and it's a type variable, attempt
-                    // to assign the remaining source subtypes to it.
-                    if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
-                        if (
-                            remainingDestSubtypes.length !== 1 ||
-                            !isTypeVar(remainingDestSubtypes[0]) ||
-                            !canAssignType(
-                                remainingDestSubtypes[0],
-                                combineTypes(remainingSrcSubtypes),
-                                diag.createAddendum(),
-                                typeVarMap,
-                                flags,
-                                recursionCount + 1
-                            )
-                        ) {
-                            isIncompatible = true;
-                        }
-                    }
-
-                    if (!isIncompatible) {
-                        return true;
-                    }
-                }
-            }
-
-            // For union sources, all of the types need to be assignable to the dest.
-            let isIncompatible = false;
-            doForEachSubtype(expandedSrcType, (subtype) => {
-                if (
-                    !canAssignType(destType, subtype, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)
-                ) {
-                    // That didn't work, so try again with concrete versions.
-                    if (
-                        !canAssignType(
-                            destType,
-                            makeTopLevelTypeVarsConcrete(subtype),
-                            diag.createAddendum(),
-                            typeVarMap,
-                            flags,
-                            recursionCount + 1
-                        )
-                    ) {
-                        isIncompatible = true;
-                    }
-                }
-            });
-
-            if (isIncompatible) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
-                );
-                return false;
-            }
-
-            return true;
+            return canAssignFromUnionType(
+                destType,
+                expandedSrcType,
+                diag,
+                typeVarMap,
+                originalFlags,
+                recursionCount + 1
+            );
         }
 
         if (isUnion(destType)) {
-            // If we need to enforce invariance, the source needs to be compatible
-            // with all subtypes in the dest, unless those subtypes are subclasses
-            // of other subtypes.
-            if (flags & CanAssignFlags.EnforceInvariance) {
-                let isIncompatible = false;
-
-                doForEachSubtype(destType, (subtype, index) => {
-                    if (
-                        !isIncompatible &&
-                        !canAssignType(subtype, srcType, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)
-                    ) {
-                        // Determine whether this subtype is assignable to
-                        // another subtype elsewhere in the union. If so, we can ignore
-                        // the incompatibility.
-                        let skipSubtype = false;
-                        if (!isAnyOrUnknown(subtype)) {
-                            doForEachSubtype(destType, (otherSubtype, otherIndex) => {
-                                if (index !== otherIndex && !skipSubtype) {
-                                    if (
-                                        canAssignType(
-                                            otherSubtype,
-                                            subtype,
-                                            new DiagnosticAddendum(),
-                                            /* typeVarMap */ undefined,
-                                            CanAssignFlags.Default,
-                                            recursionCount + 1
-                                        )
-                                    ) {
-                                        skipSubtype = true;
-                                    }
-                                }
-                            });
-                        }
-                        if (!skipSubtype) {
-                            isIncompatible = true;
-                        }
-                    }
-                });
-
-                if (isIncompatible) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
-                    return false;
-                }
-
-                return true;
-            }
-
-            // For union destinations, we just need to match one of the types.
-            const diagAddendum = new DiagnosticAddendum();
-
-            let foundMatch = false;
-            // Run through all subtypes in the union. Don't stop at the first
-            // match we find because we may need to match TypeVars in other
-            // subtypes. We special-case "None" so we can handle Optional[T]
-            // without matching the None to the type var.
-            if (isNone(srcType) && isOptionalType(destType)) {
-                foundMatch = true;
-            } else {
-                let bestTypeVarMap: TypeVarMap | undefined;
-                let bestTypeVarMapScore: number | undefined;
-
-                // If the srcType is a literal, try to use the fast-path lookup
-                // in case the destType is a union with hundreds of literals.
-                if (
-                    isClassInstance(srcType) &&
-                    isLiteralType(srcType) &&
-                    UnionType.containsType(destType, srcType, /* constraints */ undefined)
-                ) {
-                    return true;
-                }
-
-                doForEachSubtype(destType, (subtype) => {
-                    // Make a temporary clone of the typeVarMap. We don't want to modify
-                    // the original typeVarMap until we find the "optimal" typeVar mapping.
-                    const typeVarMapClone = typeVarMap?.clone();
-                    if (
-                        canAssignType(
-                            subtype,
-                            srcType,
-                            diagAddendum.createAddendum(),
-                            typeVarMapClone,
-                            flags,
-                            recursionCount + 1
-                        )
-                    ) {
-                        foundMatch = true;
-
-                        if (typeVarMapClone) {
-                            // Ask the typeVarMap to compute a "score" for the current
-                            // contents of the table.
-                            const typeVarMapScore = typeVarMapClone.getScore();
-                            if (bestTypeVarMapScore === undefined || bestTypeVarMapScore <= typeVarMapScore) {
-                                // We found a typeVar mapping with a higher score than before.
-                                bestTypeVarMapScore = typeVarMapScore;
-                                bestTypeVarMap = typeVarMapClone;
-                            }
-                        }
-                    }
-                });
-
-                // If we found a winning type var mapping, copy it back to typeVarMap.
-                if (typeVarMap && bestTypeVarMap) {
-                    typeVarMap.copyFromClone(bestTypeVarMap);
-                }
-            }
-
-            // If the source is a constrained TypeVar, see if we can assign all of the
-            // constraints to the union.
-            if (!foundMatch) {
-                if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
-                    foundMatch = canAssignType(
-                        destType,
-                        makeTopLevelTypeVarsConcrete(srcType),
-                        diagAddendum.createAddendum(),
-                        typeVarMap,
-                        flags,
-                        recursionCount + 1
-                    );
-                }
-            }
-
-            if (!foundMatch) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
-                );
-                diag.addAddendum(diagAddendum);
-                return false;
-            }
-            return true;
+            return canAssignToUnionType(destType, srcType, diag, typeVarMap, originalFlags, recursionCount + 1);
         }
 
         if (isNone(destType) && isNone(srcType)) {
@@ -19651,6 +19403,281 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         return false;
+    }
+
+    function canAssignFromUnionType(
+        destType: Type,
+        srcType: UnionType,
+        diag: DiagnosticAddendum,
+        typeVarMap: TypeVarMap | undefined,
+        flags: CanAssignFlags,
+        recursionCount: number
+    ): boolean {
+        // Start by checking for an exact match. This is needed to handle unions
+        // that contain recursive type aliases.
+        if (isTypeSame(srcType, destType)) {
+            return true;
+        }
+
+        // Handle the case where the source and dest are both unions and
+        // invariance is being enforced and the dest contains type variables.
+        if (flags & CanAssignFlags.EnforceInvariance) {
+            if (isUnion(destType)) {
+                const remainingDestSubtypes: Type[] = [];
+                let remainingSrcSubtypes: Type[] = [...srcType.subtypes];
+                let isIncompatible = false;
+
+                // First attempt to match all of the non-generic types in the dest
+                // to non-generic types in the source.
+                destType.subtypes.forEach((destSubtype) => {
+                    if (requiresSpecialization(destSubtype)) {
+                        remainingDestSubtypes.push(destSubtype);
+                    } else {
+                        const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
+                            isTypeSame(srcSubtype, destSubtype)
+                        );
+                        if (srcTypeIndex >= 0) {
+                            remainingSrcSubtypes.splice(srcTypeIndex, 1);
+                        } else {
+                            isIncompatible = true;
+                        }
+                    }
+                });
+
+                // For all remaining source subtypes, attempt to find a dest subtype
+                // whose primary type matches.
+                if (!isIncompatible) {
+                    [...remainingSrcSubtypes].forEach((srcSubtype) => {
+                        const destTypeIndex = remainingDestSubtypes.findIndex(
+                            (destSubtype) =>
+                                isClass(srcSubtype) &&
+                                isClass(destSubtype) &&
+                                TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
+                                ClassType.isSameGenericClass(srcSubtype, destSubtype)
+                        );
+                        if (destTypeIndex >= 0) {
+                            if (
+                                !canAssignType(
+                                    remainingDestSubtypes[destTypeIndex],
+                                    srcSubtype,
+                                    diag.createAddendum(),
+                                    typeVarMap,
+                                    flags,
+                                    recursionCount + 1
+                                )
+                            ) {
+                                isIncompatible = true;
+                            }
+
+                            remainingDestSubtypes.splice(destTypeIndex, 1);
+                            remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
+                        }
+                    });
+                }
+
+                // If there is a remaining dest subtype and it's a type variable, attempt
+                // to assign the remaining source subtypes to it.
+                if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
+                    if (
+                        remainingDestSubtypes.length !== 1 ||
+                        !isTypeVar(remainingDestSubtypes[0]) ||
+                        !canAssignType(
+                            remainingDestSubtypes[0],
+                            combineTypes(remainingSrcSubtypes),
+                            diag.createAddendum(),
+                            typeVarMap,
+                            flags,
+                            recursionCount + 1
+                        )
+                    ) {
+                        isIncompatible = true;
+                    }
+                }
+
+                if (!isIncompatible) {
+                    return true;
+                }
+            }
+        }
+
+        // For union sources, all of the types need to be assignable to the dest.
+        let isIncompatible = false;
+        doForEachSubtype(srcType, (subtype) => {
+            if (!canAssignType(destType, subtype, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)) {
+                // That didn't work, so try again with concrete versions.
+                if (
+                    !canAssignType(
+                        destType,
+                        makeTopLevelTypeVarsConcrete(subtype),
+                        diag.createAddendum(),
+                        typeVarMap,
+                        flags,
+                        recursionCount + 1
+                    )
+                ) {
+                    isIncompatible = true;
+                }
+            }
+        });
+
+        if (isIncompatible) {
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                    sourceType: printType(srcType),
+                    destType: printType(destType),
+                })
+            );
+            return false;
+        }
+
+        return true;
+    }
+
+    function canAssignToUnionType(
+        destType: UnionType,
+        srcType: Type,
+        diag: DiagnosticAddendum,
+        typeVarMap: TypeVarMap | undefined,
+        flags: CanAssignFlags,
+        recursionCount: number
+    ): boolean {
+        // If we need to enforce invariance, the source needs to be compatible
+        // with all subtypes in the dest, unless those subtypes are subclasses
+        // of other subtypes.
+        if (flags & CanAssignFlags.EnforceInvariance) {
+            let isIncompatible = false;
+
+            doForEachSubtype(destType, (subtype, index) => {
+                if (
+                    !isIncompatible &&
+                    !canAssignType(subtype, srcType, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)
+                ) {
+                    // Determine whether this subtype is assignable to
+                    // another subtype elsewhere in the union. If so, we can ignore
+                    // the incompatibility.
+                    let skipSubtype = false;
+                    if (!isAnyOrUnknown(subtype)) {
+                        doForEachSubtype(destType, (otherSubtype, otherIndex) => {
+                            if (index !== otherIndex && !skipSubtype) {
+                                if (
+                                    canAssignType(
+                                        otherSubtype,
+                                        subtype,
+                                        new DiagnosticAddendum(),
+                                        /* typeVarMap */ undefined,
+                                        CanAssignFlags.Default,
+                                        recursionCount + 1
+                                    )
+                                ) {
+                                    skipSubtype = true;
+                                }
+                            }
+                        });
+                    }
+                    if (!skipSubtype) {
+                        isIncompatible = true;
+                    }
+                }
+            });
+
+            if (isIncompatible) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
+                return false;
+            }
+
+            return true;
+        }
+
+        // For union destinations, we just need to match one of the types.
+        const diagAddendum = new DiagnosticAddendum();
+
+        let foundMatch = false;
+        // Run through all subtypes in the union. Don't stop at the first
+        // match we find because we may need to match TypeVars in other
+        // subtypes. We special-case "None" so we can handle Optional[T]
+        // without matching the None to the type var.
+        if (isNone(srcType) && isOptionalType(destType)) {
+            foundMatch = true;
+        } else {
+            let bestTypeVarMap: TypeVarMap | undefined;
+            let bestTypeVarMapScore: number | undefined;
+
+            // If the srcType is a literal, try to use the fast-path lookup
+            // in case the destType is a union with hundreds of literals.
+            if (
+                isClassInstance(srcType) &&
+                isLiteralType(srcType) &&
+                UnionType.containsType(destType, srcType, /* constraints */ undefined)
+            ) {
+                return true;
+            }
+
+            doForEachSubtype(destType, (subtype) => {
+                // Make a temporary clone of the typeVarMap. We don't want to modify
+                // the original typeVarMap until we find the "optimal" typeVar mapping.
+                const typeVarMapClone = typeVarMap?.clone();
+                if (
+                    canAssignType(
+                        subtype,
+                        srcType,
+                        diagAddendum.createAddendum(),
+                        typeVarMapClone,
+                        flags,
+                        recursionCount + 1
+                    )
+                ) {
+                    foundMatch = true;
+
+                    if (typeVarMapClone) {
+                        // Ask the typeVarMap to compute a "score" for the current
+                        // contents of the table.
+                        const typeVarMapScore = typeVarMapClone.getScore();
+                        if (bestTypeVarMapScore === undefined || bestTypeVarMapScore <= typeVarMapScore) {
+                            // We found a typeVar mapping with a higher score than before.
+                            bestTypeVarMapScore = typeVarMapScore;
+                            bestTypeVarMap = typeVarMapClone;
+                        }
+                    }
+                }
+            });
+
+            // If we found a winning type var mapping, copy it back to typeVarMap.
+            if (typeVarMap && bestTypeVarMap) {
+                typeVarMap.copyFromClone(bestTypeVarMap);
+            }
+        }
+
+        // If the source is a constrained TypeVar, see if we can assign all of the
+        // constraints to the union.
+        if (!foundMatch) {
+            if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
+                foundMatch = canAssignType(
+                    destType,
+                    makeTopLevelTypeVarsConcrete(srcType),
+                    diagAddendum.createAddendum(),
+                    typeVarMap,
+                    flags,
+                    recursionCount + 1
+                );
+            }
+        }
+
+        if (!foundMatch) {
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                    sourceType: printType(srcType),
+                    destType: printType(destType),
+                })
+            );
+            diag.addAddendum(diagAddendum);
+            return false;
+        }
+        return true;
     }
 
     function canAssignConditionalTypeToTypeVar(destType: TypeVarType, srcType: Type, recursionCount: number): boolean {
