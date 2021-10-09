@@ -1411,6 +1411,19 @@ export function getCallNodeAndActiveParameterIndex(
     }
 }
 
+export function getAncestorNodeOfType(node: ParseNode, nodeType: ParseNodeType): ParseNode | undefined {
+    let curNode: ParseNode | undefined = node;
+
+    while (curNode) {
+        if (curNode.nodeType === nodeType) {
+            return curNode;
+        }
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
+
 export function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
     const index = tokens.getItemAtPosition(position);
     if (index < 0) {

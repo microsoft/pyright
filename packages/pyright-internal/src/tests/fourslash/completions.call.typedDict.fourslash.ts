@@ -43,6 +43,7 @@
 //// thing3({'age': 1, 'wrapped': {'[|/*marker14*/|]'}})
 //// thing3({'unknown': {'[|/*marker15*/|]'}})
 //// thing3({'age': {'[|/*marker16*/|]'}})
+//// thing3({'wrapped': {'name': 'ET', '[|/*marker17*/|]'}})
 
 {
     const marker1Range = helper.expandPositionRange(helper.getPositionRange('marker1'), 1, 1);
@@ -56,6 +57,7 @@
     const marker11Range = helper.expandPositionRange(helper.getPositionRange('marker11'), 1, 1);
     const marker13Range = helper.expandPositionRange(helper.getPositionRange('marker13'), 1, 1);
     const marker14Range = helper.expandPositionRange(helper.getPositionRange('marker14'), 1, 1);
+    const marker17Range = helper.expandPositionRange(helper.getPositionRange('marker17'), 1, 1);
 
     // @ts-ignore
     await helper.verifyCompletion('exact', 'markdown', {
@@ -213,6 +215,15 @@
         },
         marker16: {
             completions: [],
+        },
+        marker17: {
+            completions: [
+                {
+                    label: "'age'",
+                    kind: Consts.CompletionItemKind.Constant,
+                    textEdit: { range: marker17Range, newText: "'age'" },
+                },
+            ],
         },
     });
 

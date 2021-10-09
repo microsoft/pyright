@@ -3664,11 +3664,14 @@ export class Parser {
         let isSet = false;
         let sawListComprehension = false;
         let isFirstEntry = true;
+        let trailingCommaToken: Token | undefined;
 
         while (true) {
             if (this._peekTokenType() === TokenType.CloseCurlyBrace) {
                 break;
             }
+
+            trailingCommaToken = undefined;
 
             let doubleStarExpression: ExpressionNode | undefined;
             let keyExpression: ExpressionNode | undefined;
@@ -3758,9 +3761,11 @@ export class Parser {
                 break;
             }
 
-            if (!this._consumeTokenIfType(TokenType.Comma)) {
+            if (this._peekTokenType() !== TokenType.Comma) {
                 break;
             }
+
+            trailingCommaToken = this._getNextToken();
 
             isFirstEntry = false;
         }
@@ -3776,20 +3781,30 @@ export class Parser {
             if (closeCurlyBrace) {
                 extendRange(setAtom, closeCurlyBrace);
             }
+
             if (setEntries.length > 0) {
                 extendRange(setAtom, setEntries[setEntries.length - 1]);
             }
+
             setEntries.forEach((entry) => {
                 entry.parent = setAtom;
             });
+
             setAtom.entries = setEntries;
             return setAtom;
         }
 
         const dictionaryAtom = DictionaryNode.create(startBrace);
+
+        if (trailingCommaToken) {
+            dictionaryAtom.trailingCommaToken = trailingCommaToken;
+            extendRange(dictionaryAtom, trailingCommaToken);
+        }
+
         if (closeCurlyBrace) {
             extendRange(dictionaryAtom, closeCurlyBrace);
         }
+
         if (dictionaryEntries.length > 0) {
             dictionaryEntries.forEach((entry) => {
                 entry.parent = dictionaryAtom;

@@ -456,6 +456,27 @@ export class CompletionProvider {
                 }
             }
 
+            const dictionaryEntry = ParseTreeUtils.getAncestorNodeOfType(curNode, ParseNodeType.DictionaryKeyEntry);
+            if (dictionaryEntry) {
+                if (dictionaryEntry.parent?.nodeType === ParseNodeType.Dictionary) {
+                    const dictionaryNode = dictionaryEntry.parent;
+                    if (dictionaryNode.trailingCommaToken && dictionaryNode.trailingCommaToken.start < offset) {
+                        const completionList = CompletionList.create();
+                        if (
+                            this._addTypedDictKeys(
+                                dictionaryNode,
+                                /* stringNode */ undefined,
+                                priorText,
+                                postText,
+                                completionList
+                            )
+                        ) {
+                            return { completionList };
+                        }
+                    }
+                }
+            }
+
             if (curNode.nodeType === ParseNodeType.Name) {
                 // This condition is little different than others since it does its own
                 // tree walk up to find context and let outer tree walk up to proceed if it can't find

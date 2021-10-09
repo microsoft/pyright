@@ -1446,6 +1446,7 @@ export namespace StringListNode {
 export interface DictionaryNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Dictionary;
     entries: DictionaryEntryNode[];
+    trailingCommaToken?: Token;
 }
 
 export namespace DictionaryNode {
