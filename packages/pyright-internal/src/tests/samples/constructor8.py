@@ -35,7 +35,7 @@ class B(Generic[_T1]):
     def __new__(cls, x: _T1, y: bool = ...) -> "B[_T1]":
         ...
 
-    def __new__(cls, x: Union[_T1, int], y: bool) -> "B[Any]":
+    def __new__(cls, x: Union[_T1, int], y: bool = False) -> "B[Any]":
         ...
 
 
@@ -79,7 +79,7 @@ class D(Generic[_T1]):
     def __init__(self: "D[_T1]", x: _T1, y: bool = ...) -> None:
         ...
 
-    def __init__(self, x: Any, y: bool) -> None:
+    def __init__(self, x: Any, y: bool = False) -> None:
         ...
 
 

@@ -58,7 +58,7 @@ class ForeignKey(Generic[_T1]):
     ) -> None:
         ...
 
-    def __init__(self, to: Type[_T2], *, null: bool) -> None:
+    def __init__(self, to: Type[_T2], *, null: bool = False) -> None:
         ...
 
 

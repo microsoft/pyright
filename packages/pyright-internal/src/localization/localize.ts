@@ -873,6 +873,8 @@ export namespace Localizer {
         export const dataclassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataclassFrozen'));
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');
+        export const functionParamDefaultMissing = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.functionParamDefaultMissing'));
         export const functionParamName = () =>
             new ParameterizedString<{ destName: string; srcName: string }>(
                 getRawString('DiagnosticAddendum.functionParamName')

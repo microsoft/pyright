@@ -20102,6 +20102,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                if (!!destPositionals[paramIndex].hasDefault && !srcPositionals[paramIndex].hasDefault) {
+                    diag.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                            name: srcParamName,
+                        })
+                    );
+                    canAssign = false;
+                }
+
                 // Handle the special case of an overloaded __init__ method whose self
                 // parameter is annotated.
                 if (
@@ -20395,6 +20404,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         );
                                         canAssign = false;
                                     }
+
+                                    if (!!destParam.hasDefault && !srcParam.hasDefault) {
+                                        diag.createAddendum().addMessage(
+                                            Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                                                name: srcParam.name,
+                                            })
+                                        );
+                                        canAssign = false;
+                                    }
+
                                     destParamMap.delete(srcParam.name);
                                 }
                             }

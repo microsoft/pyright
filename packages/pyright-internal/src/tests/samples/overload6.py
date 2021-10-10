@@ -51,7 +51,7 @@ class Proto2:
     def __round__(self, ndigits: None = ...) -> int:
         ...
 
-    def __round__(self, ndigits: Optional[int]) -> Union["Fraction", int]:
+    def __round__(self, ndigits: Optional[int] = None) -> Union["Fraction", int]:
         ...
 
 

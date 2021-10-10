@@ -451,6 +451,7 @@
         "keyNotRequired": "\"{name}\" is not a required key in \"{type}\", so access may result in runtime exception",
         "keyRequiredDeleted": "\"{name}\" is a required key and cannot be deleted",
         "keyUndefined": "\"{name}\" is not a defined key in \"{type}\"",
+        "functionParamDefaultMissing": "Parameter \"{name}\" is missing default argument",
         "functionParamName": "Parameter name mismatch: \"{destName}\" versus \"{srcName}\"",
         "functionReturnTypeMismatch": "Function return type \"{sourceType}\" is incompatible with type \"{destType}\"",
         "functionTooFewParams": "Function accepts too few positional parameters; expected {expected} but received {received}",
