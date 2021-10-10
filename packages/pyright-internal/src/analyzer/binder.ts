@@ -1725,6 +1725,7 @@ export class Binder extends ParseTreeWalker {
                         submoduleFallback,
                         range: getEmptyRange(),
                         moduleName: this._fileInfo.moduleName,
+                        isNativeLib: importInfo?.isNativeLib,
                     };
 
                     symbol.addDeclaration(aliasDecl);

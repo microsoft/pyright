@@ -173,6 +173,10 @@ export interface AliasDeclaration extends DeclarationBase {
 
     // Is this a dummy entry for an unresolved import?
     isUnresolved?: boolean;
+
+    // Is this a dummy entry for an import that cannot be resolved
+    // directly because it targets a native library?
+    isNativeLib?: boolean;
 }
 
 // This interface represents a set of actions that the python loader

@@ -73,6 +73,16 @@ export function resolveAliasDeclaration(
                     allowExternallyHiddenAccess
                 );
             }
+
+            // If the symbol comes from a native library, we won't
+            // be able to resolve its type directly.
+            if (curDeclaration.isNativeLib) {
+                return {
+                    declaration: curDeclaration,
+                    isPrivate,
+                };
+            }
+
             return undefined;
         }
 
