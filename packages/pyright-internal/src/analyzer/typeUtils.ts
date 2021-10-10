@@ -1989,8 +1989,6 @@ function _transformTypeVarsInClassType(
                     specializationNeeded = true;
                     return transformedSelfCls;
                 }
-
-                return oldTypeArgType;
             }
 
             let newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionSet, recursionLevel + 1);
