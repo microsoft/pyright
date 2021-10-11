@@ -587,11 +587,11 @@ export function canAssignTypedDict(
             }
 
             if (
-                !isTypeSame(
+                !evaluator.canAssignType(
                     destEntry.valueType,
                     srcEntry.valueType,
-                    /* ignorePseudoGeneric */ true,
-                    /* ignoreTypeFlags */ undefined,
+                    new DiagnosticAddendum(),
+                    /* typeVarMap */ undefined,
                     recursionCount + 1
                 )
             ) {
@@ -606,18 +606,23 @@ export function canAssignTypedDict(
 
 // Determines whether the specified keys and values can be assigned to
 // a typed dictionary class. The caller should have already validated
-// that the class is indeed a typed dict.
-export function canAssignToTypedDict(
+// that the class is indeed a typed dict. If the types are compatible,
+// the typed dict class or a narrowed form of the class is returned.
+// Narrowing is possible when not-required keys are provided. If the
+// types are not compatible, the function returns undefined.
+export function assignToTypedDict(
     evaluator: TypeEvaluator,
     classType: ClassType,
     keyTypes: Type[],
     valueTypes: Type[],
     diagAddendum: DiagnosticAddendum
-): boolean {
+): ClassType | undefined {
+    assert(isClassInstance(classType));
     assert(ClassType.isTypedDictClass(classType));
     assert(keyTypes.length === valueTypes.length);
 
     let isMatch = true;
+    const narrowedEntries = new Map<string, TypedDictEntry>();
 
     const symbolMap = getTypedDictMembersForClass(evaluator, classType);
 
@@ -649,13 +654,22 @@ export function canAssignToTypedDict(
                     );
                     isMatch = false;
                 }
+
+                if (!symbolEntry.isRequired) {
+                    narrowedEntries.set(keyValue, {
+                        valueType: valueTypes[index],
+                        isRequired: false,
+                        isProvided: true,
+                    });
+                }
+
                 symbolEntry.isProvided = true;
             }
         }
     });
 
     if (!isMatch) {
-        return false;
+        return undefined;
     }
 
     // See if any required keys are missing.
@@ -664,14 +678,20 @@ export function canAssignToTypedDict(
             diagAddendum.addMessage(
                 Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
                     name,
-                    type: evaluator.printType(ClassType.cloneAsInstance(classType)),
+                    type: evaluator.printType(classType),
                 })
             );
             isMatch = false;
         }
     });
 
-    return isMatch;
+    if (!isMatch) {
+        return undefined;
+    }
+
+    return narrowedEntries.size === 0
+        ? classType
+        : ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
 }
 
 export function getTypeFromIndexedTypedDict(

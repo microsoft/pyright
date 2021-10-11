@@ -135,7 +135,7 @@ import {
     TypeCache,
 } from './typeCache';
 import {
-    canAssignToTypedDict,
+    assignToTypedDict,
     canAssignTypedDict,
     createTypedDictType,
     getTypedDictMembersForClass,
@@ -9887,15 +9887,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isIncomplete = true;
             }
 
-            if (
-                ClassType.isTypedDictClass(expectedType) &&
-                canAssignToTypedDict(evaluatorInterface, expectedType, keyTypes, valueTypes, expectedDiagAddendum)
-            ) {
-                return {
-                    type: expectedType,
-                    node,
-                    isIncomplete,
-                };
+            if (ClassType.isTypedDictClass(expectedType)) {
+                const resultTypedDict = assignToTypedDict(
+                    evaluatorInterface,
+                    expectedType,
+                    keyTypes,
+                    valueTypes,
+                    expectedDiagAddendum
+                );
+                if (resultTypedDict) {
+                    return {
+                        type: resultTypedDict,
+                        node,
+                        isIncomplete,
+                    };
+                }
             }
 
             return undefined;
