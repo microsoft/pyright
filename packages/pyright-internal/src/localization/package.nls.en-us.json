@@ -493,6 +493,7 @@
         "paramSpecOverload": "ParamSpec cannot be used with overloaded function",
         "paramType": "Parameter type is \"{paramType}\"",
         "privateImportFromPyTypedSource": "Import from \"{module}\" instead",
+        "propertyAccessFromProtocolClass": "A property defined within a protocol class cannot be accessed as a class variable",
         "propertyMethodIncompatible": "Property method \"{name}\" is incompatible",
         "propertyMethodMissing": "Property method \"{name}\" is missing in override",
         "propertyMissingDeleter": "Property \"{name}\" has no defined deleter",

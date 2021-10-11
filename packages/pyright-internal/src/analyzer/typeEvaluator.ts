@@ -4494,6 +4494,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
 
                             accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
+
+                            // If the property is being accessed from a protocol class (not an instance),
+                            // flag this as an error because a property within a protocol is meant to be
+                            // interpreted as a read-only attribute rather than a protocol, so accessing
+                            // it directly from the class has an ambiguous meaning.
+                            if (
+                                (flags & MemberAccessFlags.AccessClassMembersOnly) !== 0 &&
+                                ClassType.isProtocolClass(baseTypeClass)
+                            ) {
+                                diag.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
+                                isTypeValid = false;
+                            }
                         }
 
                         if (
@@ -17457,24 +17469,45 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const subDiag = diag.createAddendum();
 
                         // Properties require special processing.
-                        if (
-                            isClassInstance(destMemberType) &&
-                            ClassType.isPropertyClass(destMemberType) &&
-                            isClassInstance(srcMemberType) &&
-                            ClassType.isPropertyClass(srcMemberType)
-                        ) {
-                            if (
-                                !canAssignProperty(
-                                    ClassType.cloneAsInstantiable(destMemberType),
-                                    ClassType.cloneAsInstantiable(srcMemberType),
-                                    srcType,
-                                    subDiag.createAddendum(),
-                                    genericDestTypeVarMap,
-                                    recursionCount + 1
-                                )
-                            ) {
-                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
-                                typesAreConsistent = false;
+                        if (isClassInstance(destMemberType) && ClassType.isPropertyClass(destMemberType)) {
+                            if (isClassInstance(srcMemberType) && ClassType.isPropertyClass(srcMemberType)) {
+                                if (
+                                    !canAssignProperty(
+                                        ClassType.cloneAsInstantiable(destMemberType),
+                                        ClassType.cloneAsInstantiable(srcMemberType),
+                                        srcType,
+                                        subDiag.createAddendum(),
+                                        genericDestTypeVarMap,
+                                        recursionCount + 1
+                                    )
+                                ) {
+                                    subDiag.addMessage(
+                                        Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
+                                    );
+                                    typesAreConsistent = false;
+                                }
+                            } else {
+                                // Extract the property type from the property class.
+                                const getterType = getGetterTypeFromProperty(
+                                    destMemberType,
+                                    /* inferTypeIfNeeded */ true
+                                );
+                                if (
+                                    !getterType ||
+                                    !canAssignType(
+                                        getterType,
+                                        srcMemberType,
+                                        subDiag.createAddendum(),
+                                        genericDestTypeVarMap,
+                                        CanAssignFlags.Default,
+                                        recursionCount + 1
+                                    )
+                                ) {
+                                    subDiag.addMessage(
+                                        Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
+                                    );
+                                    typesAreConsistent = false;
+                                }
                             }
                         } else if (
                             !canAssignType(

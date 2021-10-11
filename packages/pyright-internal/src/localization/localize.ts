@@ -979,6 +979,8 @@ export namespace Localizer {
             new ParameterizedString<{ module: string }>(
                 getRawString('DiagnosticAddendum.privateImportFromPyTypedSource')
             );
+        export const propertyAccessFromProtocolClass = () =>
+            getRawString('DiagnosticAddendum.propertyAccessFromProtocolClass');
         export const propertyMethodIncompatible = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.propertyMethodIncompatible'));
         export const propertyMethodMissing = () =>
