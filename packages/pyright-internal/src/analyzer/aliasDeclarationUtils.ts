@@ -105,9 +105,14 @@ export function resolveAliasDeclaration(
             }
         }
 
-        // Prefer the last declaration in the list. This ensures that
+        // Prefer the last unvisited declaration in the list. This ensures that
         // we use all of the overloads if it's an overloaded function.
-        curDeclaration = declarations[declarations.length - 1];
+        const unvisitedDecls = declarations.filter((decl) => !alreadyVisited.includes(decl));
+        if (unvisitedDecls.length > 0) {
+            curDeclaration = unvisitedDecls[unvisitedDecls.length - 1];
+        } else {
+            curDeclaration = declarations[declarations.length - 1];
+        }
 
         if (isPrivatePyTypedImport) {
             privatePyTypedImported = privatePyTypedImported ?? curDeclaration?.moduleName;
