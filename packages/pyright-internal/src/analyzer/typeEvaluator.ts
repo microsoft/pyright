@@ -10774,7 +10774,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isModule(argResult.type)) {
-            addError(Localizer.Diagnostic.moduleContext(), argResult.node);
+            addError(Localizer.Diagnostic.moduleAsType(), argResult.node);
             return false;
         }
 

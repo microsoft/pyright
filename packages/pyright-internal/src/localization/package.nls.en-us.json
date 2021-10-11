@@ -206,7 +206,7 @@
         "methodOrdering": "Cannot create consistent method ordering",
         "methodOverridden": "\"{name}\" overrides method of same name in class \"{className}\" with incompatible type \"{type}\"",
         "methodReturnsNonObject": "\"{name}\" method does not return an object",
-        "moduleContext": "Module not allowed in this context",
+        "moduleAsType": "Module cannot be used as a type",
         "moduleUnknownMember": "\"{name}\" is not a known member of module",
         "namedExceptAfterCatchAll": "A named except clause cannot appear after catch-all except clause",
         "namedParamAfterParamSpecArgs": "Keyword parameter \"{name}\" cannot appear in signature after ParamSpec args parameter",
