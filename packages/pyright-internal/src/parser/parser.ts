@@ -418,8 +418,6 @@ export class Parser {
     //     | star_named_expression ',' star_named_expressions?
     //     | named_expression
     private _parseMatchStatement(): MatchNode | undefined {
-        const matchToken = this._getKeywordToken(KeywordType.Match);
-
         // Parse the subject expression with errors suppressed. If it's not
         // followed by a colon, we'll assume this is not a match statement.
         // We need to do this because "match" is considered a soft keyword,
@@ -428,12 +426,15 @@ export class Parser {
         let smellsLikeMatchStatement = false;
         this._suppressErrors(() => {
             const curTokenIndex = this._tokenIndex;
-            this._parseTestOrStarListAsExpression(
+
+            this._getKeywordToken(KeywordType.Match);
+            const expression = this._parseTestOrStarListAsExpression(
                 /* allowAssignmentExpression */ true,
                 ErrorExpressionCategory.MissingPatternSubject,
                 Localizer.Diagnostic.expectedReturnExpr()
             );
-            smellsLikeMatchStatement = this._peekToken().type === TokenType.Colon;
+            smellsLikeMatchStatement =
+                expression.nodeType !== ParseNodeType.Error && this._peekToken().type === TokenType.Colon;
 
             // Set the token index back to the start.
             this._tokenIndex = curTokenIndex;
@@ -442,6 +443,8 @@ export class Parser {
         if (!smellsLikeMatchStatement) {
             return undefined;
         }
+
+        const matchToken = this._getKeywordToken(KeywordType.Match);
 
         const subjectExpression = this._parseTestOrStarListAsExpression(
             /* allowAssignmentExpression */ true,

@@ -173,7 +173,7 @@ def func2():
 def func3():
     def match(a: int): ...
 
-    # This should be treated as a call statement
+    # This should be treated as a call statement.
     match(0)
 
     match (0):
@@ -184,3 +184,7 @@ def func4():
     match 1, 2, "3":
         case _:
             pass
+
+def func5(match: Any):
+    # This should be treated as a list, not a match statement.
+    match[2:8, 2:8] = 0
