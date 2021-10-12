@@ -532,6 +532,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let boolClassType: Type | undefined;
     let strClassType: Type | undefined;
     let dictClassType: Type | undefined;
+    let typedDictClassType: Type | undefined;
     let incompleteTypeCache: TypeCache | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
@@ -745,6 +746,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             boolClassType = getBuiltInType(node, 'bool');
             strClassType = getBuiltInType(node, 'str');
             dictClassType = getBuiltInType(node, 'dict');
+            typedDictClassType = getTypingType(node, '_TypedDict');
         }
     }
 
@@ -17378,6 +17380,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* isTypeArgumentExplicit */ false
         );
         const genericDestTypeVarMap = new TypeVarMap(getTypeVarScopeId(destType));
+
+        // If the source is a TypedDict, use the _TypedDict placeholder class
+        // instead. We don't want to use the TypedDict members for protocol
+        // comparison.
+        if (ClassType.isTypedDictClass(srcType)) {
+            if (typedDictClassType && isInstantiableClass(typedDictClassType)) {
+                srcType = typedDictClassType;
+            }
+        }
 
         let typesAreConsistent = true;
         const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
