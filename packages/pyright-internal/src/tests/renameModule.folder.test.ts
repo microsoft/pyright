@@ -234,3 +234,28 @@ test('folder rename - reexport', () => {
 
     testRenameModule(state, path, `${combinePaths(path, '..', 'sub')}`, 'nested', 'sub');
 });
+
+test('folder rename - middle folder', () => {
+    const code = `
+// @filename: nested/__init__.py
+//// # empty
+
+// @filename: nested/nested/__init__.py
+//// [|/*marker*/|]
+
+// @filename: nested/nested/nested/__init__.py
+//// # empty
+
+// @filename: test1.py
+//// import nested.[|nested|].nested as nested
+//// nested.foo()
+
+// @filename: test2.py
+//// from nested.[|nested|] import nested
+        `;
+
+    const state = parseAndGetTestState(code).state;
+    const path = getDirectoryPath(state.getMarkerByName('marker').fileName);
+
+    testRenameModule(state, path, `${combinePaths(path, '..', 'sub')}`, 'nested', 'sub');
+});

@@ -9,6 +9,7 @@
 
 import type * as fs from 'fs';
 
+import { getOrAdd } from './common/collectionUtils';
 import {
     FileSystem,
     FileWatcher,
@@ -22,13 +23,13 @@ import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFi
 
 export class ReadOnlyAugmentedFileSystem implements FileSystem {
     // Mapped file to original file map
-    private readonly _fileMap = new Map<string, string>();
+    private readonly _entryMap = new Map<string, string>();
 
     // Original file to mapped file map
-    private readonly _reverseFileMap = new Map<string, string>();
+    private readonly _reverseEntryMap = new Map<string, string>();
 
     // Mapped files per a containing folder map
-    private readonly _folderMap = new Map<string, string[]>();
+    private readonly _folderMap = new Map<string, { name: string; isFile: boolean }[]>();
 
     constructor(protected _realFS: FileSystem) {}
 
@@ -50,31 +51,28 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     readdirEntriesSync(path: string): fs.Dirent[] {
-        const entries = this._realFS.readdirEntriesSync(path).filter((item) => {
-            // Filter out the stub package directory.
-            return !this._isMovedEntry(combinePaths(path, item.name));
-        });
+        const maybeDirectory = ensureTrailingDirectorySeparator(path);
 
-        const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
-        if (!partialStubs) {
+        const entries: fs.Dirent[] = [];
+        const movedEntries = this._folderMap.get(maybeDirectory);
+        if (!movedEntries || this._realFS.existsSync(path)) {
+            entries.push(
+                ...this._realFS.readdirEntriesSync(path).filter((item) => {
+                    // Filter out the stub package directory.
+                    return !this._isMovedEntry(combinePaths(path, item.name));
+                })
+            );
+        }
+
+        if (!movedEntries) {
             return entries;
         }
 
-        return entries.concat(partialStubs.map((f) => new VirtualDirent(f, /* file */ true)));
+        return entries.concat(movedEntries.map((e) => new VirtualDirent(e.name, e.isFile)));
     }
 
     readdirSync(path: string): string[] {
-        const entries = this._realFS.readdirSync(path).filter((item) => {
-            // Filter out the stub package directory.
-            return !this._isMovedEntry(combinePaths(path, item));
-        });
-
-        const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
-        if (!partialStubs) {
-            return entries;
-        }
-
-        return entries.concat(partialStubs);
+        return this.readdirEntriesSync(path).map((p) => p.name);
     }
 
     readFileSync(path: string, encoding?: null): Buffer;
@@ -96,6 +94,10 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     }
 
     realpathSync(path: string): string {
+        if (this._entryMap.has(path)) {
+            return path;
+        }
+
         return this._realFS.realpathSync(path);
     }
 
@@ -147,7 +149,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
     // See whether the file is mapped to another location.
     isMappedFilePath(filepath: string): boolean {
-        return this._fileMap.has(filepath) || this._realFS.isMappedFilePath(filepath);
+        return this._entryMap.has(filepath) || this._realFS.isMappedFilePath(filepath);
     }
 
     // Get original filepath if the given filepath is mapped.
@@ -158,44 +160,40 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
     // Get mapped filepath if the given filepath is mapped.
     getMappedFilePath(originalFilepath: string) {
         const mappedFilePath = this._realFS.getMappedFilePath(originalFilepath);
-        return this._reverseFileMap.get(mappedFilePath) ?? mappedFilePath;
+        return this._reverseEntryMap.get(mappedFilePath) ?? mappedFilePath;
     }
 
     isInZipOrEgg(path: string): boolean {
         return this._realFS.isInZipOrEgg(path);
     }
 
-    protected _recordMovedEntry(mappedFile: string, originalFile: string, reversible = true) {
-        this._fileMap.set(mappedFile, originalFile);
+    protected _recordMovedEntry(mappedPath: string, originalPath: string, reversible = true, isFile = true) {
+        this._entryMap.set(mappedPath, originalPath);
 
         if (reversible) {
-            this._reverseFileMap.set(originalFile, mappedFile);
+            this._reverseEntryMap.set(originalPath, mappedPath);
         }
 
-        const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedFile));
-        let folderInfo = this._folderMap.get(directory);
-        if (!folderInfo) {
-            folderInfo = [];
-            this._folderMap.set(directory, folderInfo);
-        }
+        const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedPath));
+        const folderInfo = getOrAdd(this._folderMap, directory, () => []);
 
-        const fileName = getFileName(mappedFile);
-        if (!folderInfo.some((entry) => entry === fileName)) {
-            folderInfo.push(fileName);
+        const name = getFileName(mappedPath);
+        if (!folderInfo.some((entry) => entry.name === name)) {
+            folderInfo.push({ name, isFile });
         }
     }
 
     protected _getOriginalPath(mappedFilePath: string) {
-        return this._fileMap.get(mappedFilePath) ?? mappedFilePath;
+        return this._entryMap.get(mappedFilePath) ?? mappedFilePath;
     }
 
     protected _isMovedEntry(path: string) {
-        return this._reverseFileMap.has(path);
+        return this._reverseEntryMap.has(path);
     }
 
     protected _clear() {
-        this._fileMap.clear();
-        this._reverseFileMap.clear();
+        this._entryMap.clear();
+        this._reverseEntryMap.clear();
         this._folderMap.clear();
     }
 }

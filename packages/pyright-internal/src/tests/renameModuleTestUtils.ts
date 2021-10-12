@@ -13,7 +13,7 @@ import { createMapFromItems } from '../common/collectionUtils';
 import { Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { FileEditAction } from '../common/editAction';
-import { getDirectoryPath } from '../common/pathUtils';
+import { getDirectoryPath, isFile } from '../common/pathUtils';
 import { convertRangeToTextRange } from '../common/positionUtils';
 import { rangesAreEqual, TextRange } from '../common/textRange';
 import { Range } from './harness/fourslash/fourSlashTypes';
@@ -66,7 +66,7 @@ export function testRenameModule(
     }
 
     // Apply changes
-    // First apply text changes
+    // First, apply text changes
     for (const [editFileName, editsPerFile] of editsPerFileMap) {
         const result = _applyEdits(state, editFileName, editsPerFile);
         state.testFS.writeFileSync(editFileName, result.text, 'utf8');
@@ -83,12 +83,16 @@ export function testRenameModule(
         }
     }
 
-    // Second apply filename change to disk.
-    state.testFS.mkdirpSync(getDirectoryPath(newFilePath));
-    state.testFS.renameSync(filePath, newFilePath);
+    // Second, apply filename change to disk or rename directory.
+    if (isFile(state.testFS, filePath)) {
+        state.testFS.mkdirpSync(getDirectoryPath(newFilePath));
+        state.testFS.renameSync(filePath, newFilePath);
 
-    // Add new file as tracked file
-    state.program.addTrackedFile(newFilePath);
+        // Add new file as tracked file
+        state.program.addTrackedFile(newFilePath);
+    } else {
+        state.testFS.renameSync(filePath, newFilePath);
+    }
 
     // And refresh program.
     state.importResolver.invalidateCache();
