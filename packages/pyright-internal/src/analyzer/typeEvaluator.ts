@@ -9651,7 +9651,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             const magicMethodName = binaryOperatorMap[operator][0];
                             let resultType = getTypeFromMagicMethodReturn(
-                                leftSubtypeUnexpanded,
+                                convertFunctionToObject(leftSubtypeUnexpanded),
                                 [rightSubtypeUnexpanded],
                                 magicMethodName,
                                 errorNode,
@@ -9661,7 +9661,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (!resultType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
                                 // Try the expanded left type.
                                 resultType = getTypeFromMagicMethodReturn(
-                                    leftSubtypeExpanded,
+                                    convertFunctionToObject(leftSubtypeExpanded),
                                     [rightSubtypeUnexpanded],
                                     magicMethodName,
                                     errorNode,
@@ -9672,7 +9672,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (!resultType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
                                 // Try the expanded left and right type.
                                 resultType = getTypeFromMagicMethodReturn(
-                                    leftSubtypeExpanded,
+                                    convertFunctionToObject(leftSubtypeExpanded),
                                     [rightSubtypeExpanded],
                                     magicMethodName,
                                     errorNode,
@@ -9684,7 +9684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // Try the alternate form (swapping right and left).
                                 const altMagicMethodName = binaryOperatorMap[operator][1];
                                 resultType = getTypeFromMagicMethodReturn(
-                                    rightSubtypeUnexpanded,
+                                    convertFunctionToObject(rightSubtypeUnexpanded),
                                     [leftSubtypeUnexpanded],
                                     altMagicMethodName,
                                     errorNode,
@@ -9694,7 +9694,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (!resultType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
                                     // Try the expanded right type.
                                     resultType = getTypeFromMagicMethodReturn(
-                                        rightSubtypeExpanded,
+                                        convertFunctionToObject(rightSubtypeExpanded),
                                         [leftSubtypeUnexpanded],
                                         altMagicMethodName,
                                         errorNode,
@@ -9705,7 +9705,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (!resultType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
                                     // Try the expanded right and left type.
                                     resultType = getTypeFromMagicMethodReturn(
-                                        rightSubtypeExpanded,
+                                        convertFunctionToObject(rightSubtypeExpanded),
                                         [leftSubtypeExpanded],
                                         altMagicMethodName,
                                         errorNode,
@@ -9825,6 +9825,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return returnType;
+    }
+
+    // All functions in Python derive from object, so they inherit all
+    // of the capabilities of an object. This function converts a function
+    // to an object instance.
+    function convertFunctionToObject(type: Type) {
+        if (isFunction(type) || isOverloadedFunction(type)) {
+            if (objectType) {
+                return objectType;
+            }
+        }
+
+        return type;
     }
 
     function getTypeFromDictionary(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
