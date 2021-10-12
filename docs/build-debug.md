@@ -26,7 +26,8 @@ To install in VS Code, go to the extensions panel and choose “Install from VSI
 
 ## Running Pyright tests
 
-1. Execute `npm run test`
+1. cd to the `packages/pyright-internal` directory
+2. Execute `npm run test`
 
 
 ## Debugging Pyright
