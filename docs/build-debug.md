@@ -24,6 +24,11 @@ The resulting package (pyright-X.Y.Z.vsix) can be found in the client directory.
 To install in VS Code, go to the extensions panel and choose “Install from VSIX...” from the menu, then select the package.
 
 
+## Running Pyright tests
+
+1. Execute `npm run test`
+
+
 ## Debugging Pyright
 
 To debug pyright, open the root source directory within VS Code. Open the debug sub-panel and choose “Pyright CLI” from the debug target menu. Click on the green “run” icon or press F5 to build and launch the command-line version in the VS Code debugger.
