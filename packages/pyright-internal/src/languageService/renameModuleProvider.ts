@@ -45,9 +45,9 @@ import { FileEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import {
     combinePaths,
+    getDirectoryChangeKind,
     getDirectoryPath,
     getFileName,
-    getRelativePathComponentsFromDirectory,
     isDirectory,
     isFile,
     resolvePaths,
@@ -86,12 +86,7 @@ export class RenameModuleProvider {
             return this._create(importResolver, configOptions, evaluator, path, newPath, /* folder */ false, token);
         } else if (isDirectory(importResolver.fileSystem, path)) {
             // Make sure folder path is simple rename.
-            const relativePaths = getRelativePathComponentsFromDirectory(path, newPath, (f) =>
-                importResolver.fileSystem.realCasePath(f)
-            );
-
-            // 3 means only last folder name has changed.
-            if (relativePaths.length !== 3 || relativePaths[1] !== '..' || relativePaths[2] === '..') {
+            if (getDirectoryChangeKind(importResolver.fileSystem, path, newPath) !== 'Renamed') {
                 return undefined;
             }
 

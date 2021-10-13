@@ -48,6 +48,7 @@ import {
     comparePaths,
     convertPathToUri,
     getBaseFileName,
+    getDirectoryPath,
     getFileExtension,
     getFileSpec,
     normalizePath,
@@ -306,6 +307,10 @@ export class TestState {
 
     convertPathToUri(path: string) {
         return convertPathToUri(this.fs, path);
+    }
+
+    getDirectoryPath(path: string) {
+        return getDirectoryPath(path);
     }
 
     goToPosition(positionOrLineAndColumn: number | Position) {
@@ -1435,7 +1440,7 @@ export class TestState {
         configOptions.exclude.push(getFileSpec(configOptions.projectRoot, libFolder));
 
         if (mountPaths) {
-            for (const mountPath of mountPaths.values()) {
+            for (const mountPath of mountPaths.keys()) {
                 configOptions.exclude.push(getFileSpec(configOptions.projectRoot, mountPath));
             }
         }

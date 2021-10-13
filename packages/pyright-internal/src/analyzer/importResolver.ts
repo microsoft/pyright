@@ -307,7 +307,14 @@ export class ImportResolver {
 
         let current = origin;
         while (this._shouldWalkUp(current, root, execEnv)) {
-            this._getCompletionSuggestionsAbsolute(sourceFilePath, execEnv, current, moduleDescriptor, suggestions);
+            this._getCompletionSuggestionsAbsolute(
+                sourceFilePath,
+                execEnv,
+                current,
+                moduleDescriptor,
+                suggestions,
+                /*strictOnly*/ false
+            );
 
             let success;
             [success, current] = this._tryWalkUp(current);
@@ -1817,7 +1824,8 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         rootPath: string,
         moduleDescriptor: ImportedModuleDescriptor,
-        suggestions: Set<string>
+        suggestions: Set<string>,
+        strictOnly = true
     ) {
         // Starting at the specified path, walk the file system to find the
         // specified module.
@@ -1845,7 +1853,8 @@ export class ImportResolver {
                 '',
                 suggestions,
                 leadingDots,
-                parentNameParts
+                parentNameParts,
+                strictOnly
             );
         } else {
             for (let i = 0; i < nameParts.length; i++) {
@@ -1859,7 +1868,8 @@ export class ImportResolver {
                         nameParts[i],
                         suggestions,
                         leadingDots,
-                        parentNameParts
+                        parentNameParts,
+                        strictOnly
                     );
                 }
 
@@ -1878,7 +1888,8 @@ export class ImportResolver {
         filter: string,
         suggestions: Set<string>,
         leadingDots: number,
-        parentNameParts: string[]
+        parentNameParts: string[],
+        strictOnly: boolean
     ) {
         // Enumerate all of the files and directories in the path, expanding links.
         const entries = getFileSystemEntriesFromDirEntries(
@@ -1909,7 +1920,8 @@ export class ImportResolver {
                         leadingDots,
                         parentNameParts,
                         sourceFilePath,
-                        execEnv
+                        execEnv,
+                        strictOnly
                     )
                 ) {
                     return;
@@ -1926,7 +1938,7 @@ export class ImportResolver {
 
             if (
                 !this._isUniqueValidSuggestion(dir, suggestions) ||
-                !this._isResolvableSuggestion(dir, leadingDots, parentNameParts, sourceFilePath, execEnv)
+                !this._isResolvableSuggestion(dir, leadingDots, parentNameParts, sourceFilePath, execEnv, strictOnly)
             ) {
                 return;
             }
@@ -1942,7 +1954,8 @@ export class ImportResolver {
         leadingDots: number,
         parentNameParts: string[],
         sourceFilePath: string,
-        execEnv: ExecutionEnvironment
+        execEnv: ExecutionEnvironment,
+        strictOnly: boolean
     ) {
         // We always resolve names based on sourceFilePath.
         const moduleDescriptor = {
@@ -1951,12 +1964,16 @@ export class ImportResolver {
             importedSymbols: [],
         };
 
-        const importName = this.formatImportName(moduleDescriptor);
-        const importFailureInfo: string[] = [];
-
         // Make sure we don't use parent folder resolution when checking whether the given name is resolvable.
-        return this._resolveImportStrict(importName, sourceFilePath, execEnv, moduleDescriptor, importFailureInfo)
-            .isImportFound;
+        if (strictOnly) {
+            const importName = this.formatImportName(moduleDescriptor);
+            const importFailureInfo: string[] = [];
+
+            return this._resolveImportStrict(importName, sourceFilePath, execEnv, moduleDescriptor, importFailureInfo)
+                .isImportFound;
+        }
+
+        return this._resolveImport(sourceFilePath, execEnv, moduleDescriptor).isImportFound;
     }
 
     private _isUniqueValidSuggestion(suggestionToAdd: string, suggestions: Set<string>) {

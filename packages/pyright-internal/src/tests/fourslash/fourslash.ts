@@ -228,6 +228,7 @@ declare namespace _ {
         expandPositionRange(range: PositionRange, start: number, end: number): PositionRange;
         convertPositionRange(range: Range): PositionRange;
         convertPathToUri(path: string): string;
+        getDirectoryPath(path: string): string;
 
         goToBOF(): void;
         goToEOF(): void;
