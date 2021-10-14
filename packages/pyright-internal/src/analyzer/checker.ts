@@ -3220,7 +3220,9 @@ export class Checker extends ParseTreeWalker {
     // the proper variance (invariant, covariant, contravariant). See PEP 544
     // for an explanation for why this is important to enforce.
     private _validateProtocolTypeParamVariance(errorNode: ClassNode, classType: ClassType) {
-        const origTypeParams = classType.details.typeParameters;
+        const origTypeParams = classType.details.typeParameters.filter(
+            (typeParam) => !isParamSpec(typeParam) && !isVariadicTypeVar(typeParam)
+        );
 
         // If this isn't a generic protocol, there's nothing to do here.
         if (origTypeParams.length === 0) {
@@ -3233,9 +3235,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Replace all of the type parameters with invariant TypeVars.
-        const updatedTypeParams = origTypeParams
-            .filter((typeParam) => !isParamSpec(typeParam) && !isVariadicTypeVar(typeParam))
-            .map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
+        const updatedTypeParams = origTypeParams.map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
         const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
         const objectObject = ClassType.cloneAsInstance(objectType);

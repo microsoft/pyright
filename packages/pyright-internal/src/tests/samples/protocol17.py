@@ -1,6 +1,7 @@
 # This sample tests for generic protocol variance consistency.
 
 from typing import Protocol, TypeVar, Union
+from typing_extensions import ParamSpec
 
 # pyright: strict
 
@@ -76,3 +77,12 @@ class Protocol8(Protocol[_T1]):
 
     def m2(self, p1: _T1) -> None:
         pass
+
+
+P = ParamSpec("P")
+R = TypeVar("R", covariant=True)
+
+
+class Callback(Protocol[P, R]):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
