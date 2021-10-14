@@ -10,7 +10,7 @@
 
 import type { Dirent } from 'fs';
 
-import { getOrAdd } from '../common/collectionUtils';
+import { flatten, getMapValues, getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
@@ -1533,7 +1533,18 @@ export class ImportResolver {
                 typeshedPaths = [path];
             }
         } else {
-            typeshedPaths = this._getThirdPartyTypeshedPackagePaths(moduleDescriptor, execEnv, importFailureInfo);
+            typeshedPaths = this._getThirdPartyTypeshedPackagePaths(
+                moduleDescriptor,
+                execEnv,
+                importFailureInfo,
+                /*includeMatchOnly*/ false
+            );
+
+            const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
+            if (typeshedPathEx) {
+                typeshedPaths = typeshedPaths ?? [];
+                typeshedPaths.push(typeshedPathEx);
+            }
         }
 
         if (!typeshedPaths) {
@@ -1668,7 +1679,8 @@ export class ImportResolver {
     private _getThirdPartyTypeshedPackagePaths(
         moduleDescriptor: ImportedModuleDescriptor,
         execEnv: ExecutionEnvironment,
-        importFailureInfo: string[]
+        importFailureInfo: string[],
+        includeMatchOnly = true
     ): string[] | undefined {
         const typeshedPath = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
 
@@ -1677,7 +1689,17 @@ export class ImportResolver {
         }
 
         const firstNamePart = moduleDescriptor.nameParts.length > 0 ? moduleDescriptor.nameParts[0] : '';
-        return this._cachedTypeshedThirdPartyPackagePaths!.get(firstNamePart);
+        if (includeMatchOnly) {
+            return this._cachedTypeshedThirdPartyPackagePaths!.get(firstNamePart);
+        }
+
+        if (firstNamePart) {
+            return flatten(
+                getMapValues(this._cachedTypeshedThirdPartyPackagePaths!, (k) => k.startsWith(firstNamePart))
+            );
+        }
+
+        return [];
     }
 
     private _getThirdPartyTypeshedPackageRoots(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
