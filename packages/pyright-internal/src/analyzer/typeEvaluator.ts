@@ -7138,9 +7138,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             return returnType;
                         } else {
-                            const memberType = getTypeFromObjectMember(errorNode, expandedSubtype, '__call__')?.type;
+                            let memberType = getTypeFromObjectMember(errorNode, expandedSubtype, '__call__')?.type;
 
                             if (memberType && (isFunction(memberType) || isOverloadedFunction(memberType))) {
+                                memberType = removeParamSpecVariadicsFromSignature(memberType);
+
                                 const functionResult = validateCallArguments(
                                     errorNode,
                                     argList,
@@ -19346,7 +19348,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount + 1
                         );
                         if (boundMethod) {
-                            concreteSrcType = boundMethod;
+                            concreteSrcType = removeParamSpecVariadicsFromSignature(boundMethod);
                         }
                     }
                 }

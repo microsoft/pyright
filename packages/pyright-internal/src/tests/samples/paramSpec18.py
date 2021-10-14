@@ -32,3 +32,12 @@ def func_with_protocol(cb: FooWithConcatenate[P]) -> Callable[P, bool]:
 
 x2 = func_with_protocol(callback)
 t2: Literal["(b: str, c: str) -> bool"] = reveal_type(x2)
+
+
+class CallbackPos(Protocol[P]):
+    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None:
+        ...
+
+
+def invoke_pos(cb: CallbackPos[P], /, *args: P.args, **kwargs: P.kwargs) -> None:
+    cb(*args, **kwargs)
