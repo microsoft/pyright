@@ -7252,7 +7252,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Is there a bare (nameless) "*" parameter? If so, it signifies the end
         // of the positional parameter list.
-        let positionalParamCount = typeParams.findIndex(
+        let positionParamLimitIndex = typeParams.findIndex(
             (param) => param.category === ParameterCategory.VarArgList && !param.name
         );
 
@@ -7263,17 +7263,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Is there a var-arg (named "*") parameter? If so, it is the last of
         // the positional parameters.
-        if (positionalParamCount < 0) {
-            positionalParamCount = varArgListParamIndex;
-            if (positionalParamCount >= 0) {
-                positionalParamCount++;
+        if (positionParamLimitIndex < 0) {
+            positionParamLimitIndex = varArgListParamIndex;
+            if (positionParamLimitIndex >= 0) {
+                positionParamLimitIndex++;
             }
         }
 
         // Is there a keyword var-arg ("**") parameter? If so, it's not included
         // in the list of positional parameters.
-        if (positionalParamCount < 0) {
-            positionalParamCount = varArgDictParamIndex;
+        if (positionParamLimitIndex < 0) {
+            positionParamLimitIndex = varArgDictParamIndex;
         }
 
         // Is this an function that uses the *args and **kwargs
@@ -7320,16 +7320,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If so, we'll treat it as a keyword parameter in this case because it's being
                 // targeted by a keyword argument.
                 if (namedParamIndex >= 0 && namedParamIndex > positionalOnlyIndex) {
-                    if (positionalParamCount < 0 || namedParamIndex < positionalParamCount) {
-                        positionalParamCount = namedParamIndex;
+                    if (positionParamLimitIndex < 0 || namedParamIndex < positionParamLimitIndex) {
+                        positionParamLimitIndex = namedParamIndex;
                     }
                 }
             }
         });
 
         // If we didn't see any special cases, then all parameters are positional.
-        if (positionalParamCount < 0) {
-            positionalParamCount = typeParams.length;
+        if (positionParamLimitIndex < 0) {
+            positionParamLimitIndex = typeParams.length;
         }
 
         // Determine how many positional args are being passed before
@@ -7375,15 +7375,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 reportedArgError = true;
             }
 
-            if (paramIndex >= positionalParamCount) {
+            if (paramIndex >= positionParamLimitIndex) {
                 if (!foundUnpackedListArg || argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        positionalParamCount === 1
+                        positionParamLimitIndex === 1
                             ? Localizer.Diagnostic.argPositionalExpectedOne()
                             : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                  expected: positionalParamCount,
+                                  expected: positionParamLimitIndex,
                               }),
                         argList[argIndex].valueExpression || errorNode
                     );
@@ -7409,14 +7409,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // with a ParamSpec and a Concatenate operator. PEP 612 indicates that
                 // all positional parameters specified in the Concatenate must be
                 // filled explicitly.
-                if (type.details.paramSpec && paramIndex < positionalParamCount) {
+                if (type.details.paramSpec && paramIndex < positionParamLimitIndex) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        positionalParamCount === 1
+                        positionParamLimitIndex === 1
                             ? Localizer.Diagnostic.argPositionalExpectedOne()
                             : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                  expected: positionalParamCount,
+                                  expected: positionParamLimitIndex,
                               }),
                         argList[argIndex].valueExpression || errorNode
                     );
@@ -7825,14 +7825,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             reportedArgError = true;
                         }
                     } else if (argList[argIndex].argumentCategory === ArgumentCategory.Simple) {
-                        const adjustedCount = positionalParamCount;
                         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            adjustedCount === 1
+                            positionParamLimitIndex === 1
                                 ? Localizer.Diagnostic.argPositionalExpectedOne()
-                                : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: adjustedCount }),
+                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                      expected: positionParamLimitIndex,
+                                  }),
                             argList[argIndex].valueExpression || errorNode
                         );
                         reportedArgError = true;
