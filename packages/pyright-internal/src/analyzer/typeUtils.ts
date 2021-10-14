@@ -1761,7 +1761,7 @@ function _removeParamSpecVariadicsFromFunction(type: FunctionType): FunctionType
     }
 
     const paramCount = type.details.parameters.length;
-    if (paramCount <= 2) {
+    if (paramCount < 2) {
         return type;
     }
 
