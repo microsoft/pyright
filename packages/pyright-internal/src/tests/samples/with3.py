@@ -30,9 +30,21 @@ def test1() -> None:
 
 def test2() -> None:
     some_dict = dict()
-    some_string = "HELLO"
 
     with suppress(KeyError):
         print(some_dict["missing_key"])
 
-    print(some_string.lower())
+    # This should generate an error because the
+    # code is reachable.
+    return 1
+
+
+def test3(cm: suppress) -> None:
+    some_dict = dict()
+
+    with cm:
+        print(some_dict["missing_key"])
+
+    # This should generate an error because the
+    # code is reachable.
+    return 1

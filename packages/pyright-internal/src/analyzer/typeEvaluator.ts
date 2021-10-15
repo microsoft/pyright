@@ -14812,22 +14812,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isExceptionContextManagerCache.set(node.id, false);
 
         let cmSwallowsExceptions = false;
+        let cmType: Type | undefined;
 
-        // We assume that the context manager is instantiated through a call.
         if (node.nodeType === ParseNodeType.Call) {
             const callType = getDeclaredCallBaseType(node.leftExpression);
             if (callType && isInstantiableClass(callType)) {
-                const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-                const exitType = getTypeFromObjectMember(
-                    node.leftExpression,
-                    ClassType.cloneAsInstance(callType),
-                    exitMethodName
-                )?.type;
+                cmType = convertToInstance(callType);
+            }
+        } else if (node.nodeType === ParseNodeType.Name) {
+            cmType = getDeclaredTypeForExpression(node);
+        }
 
-                if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
-                    const returnType = exitType.details.declaredReturnType;
-                    cmSwallowsExceptions = isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool');
-                }
+        if (cmType && isClassInstance(cmType)) {
+            const exitMethodName = isAsync ? '__aexit__' : '__exit__';
+            const exitType = getTypeFromObjectMember(node, cmType, exitMethodName)?.type;
+
+            if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
+                const returnType = exitType.details.declaredReturnType;
+                cmSwallowsExceptions = isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool');
             }
         }
 
