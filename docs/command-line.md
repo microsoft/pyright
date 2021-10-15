@@ -62,7 +62,7 @@ If the “--outputjson” option is specified on the command line, diagnostics a
 }
 ```
 
-Each Diagnostic is formatted output in the following format:
+Each Diagnostic is output in the following format:
 
 ```javascript
 {
