@@ -33,6 +33,7 @@ import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../anal
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { getScopeForNode } from '../analyzer/scopeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
@@ -2147,7 +2148,7 @@ export class CompletionProvider {
 
         while (curNode) {
             // Does this node have a scope associated with it?
-            let scope = AnalyzerNodeInfo.getScope(curNode);
+            let scope = getScopeForNode(curNode);
             if (scope) {
                 while (scope) {
                     this._addSymbolsForSymbolTable(
