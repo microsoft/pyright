@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of generic protocol types.
 
-from typing import List, TypeVar, Protocol
+from typing import List, Optional, TypeVar, Protocol
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -74,3 +74,20 @@ var = another_var2
 # This should generate an error because "Protocol" cannot be used
 # as a type argument.
 var2: List[Protocol] = []
+
+
+class Abstract1(Protocol[T_contra]):
+    def do(self, x: Optional[T_contra]):
+        ...
+
+
+class Concrete1:
+    def do(self, x: Optional[int]):
+        pass
+
+
+def use_protocol1(a: Abstract1[int]):
+    a.do(1)
+
+
+use_protocol1(Concrete1())
