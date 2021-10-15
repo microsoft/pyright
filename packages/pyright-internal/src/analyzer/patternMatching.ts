@@ -54,6 +54,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     specializeTupleClass,
+    stripLiteralValue,
 } from './typeUtils';
 
 // PEP 634 indicates that several built-in classes are handled differently
@@ -776,13 +777,12 @@ function getTypeForPatternSequenceEntry(
 ): Type {
     if (sequenceInfo.isIndeterminateLength) {
         if (starEntryIndex === entryIndex) {
-            const tupleClassType = evaluator.getBuiltInType(node, 'tuple');
-            if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                return ClassType.cloneAsInstance(
-                    specializeTupleClass(tupleClassType, [
-                        sequenceInfo.entryTypes[0],
-                        AnyType.create(/* isEllipsis */ true),
-                    ])
+            const listInstanceType = convertToInstance(evaluator.getBuiltInType(node, 'list'));
+            if (isClassInstance(listInstanceType)) {
+                return ClassType.cloneForSpecialization(
+                    listInstanceType,
+                    [sequenceInfo.entryTypes[0]],
+                    /* isTypeArgumentExplicit */ true
                 );
             } else {
                 return UnknownType.create();
@@ -793,14 +793,19 @@ function getTypeForPatternSequenceEntry(
     } else if (starEntryIndex === undefined || entryIndex < starEntryIndex) {
         return sequenceInfo.entryTypes[entryIndex];
     } else if (entryIndex === starEntryIndex) {
-        // Create a tuple out of the entries that map to the star entry.
-        const starEntryTypes = sequenceInfo.entryTypes.slice(
-            starEntryIndex,
-            starEntryIndex + sequenceInfo.entryTypes.length - entryCount + 1
-        );
-        const tupleClassType = evaluator.getBuiltInType(node, 'tuple');
-        if (tupleClassType && isInstantiableClass(tupleClassType)) {
-            return ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, starEntryTypes));
+        // Create a list out of the entries that map to the star entry.
+        // Note that we strip literal types here.
+        const starEntryTypes = sequenceInfo.entryTypes
+            .slice(starEntryIndex, starEntryIndex + sequenceInfo.entryTypes.length - entryCount + 1)
+            .map((type) => stripLiteralValue(type));
+
+        const listInstanceType = convertToInstance(evaluator.getBuiltInType(node, 'list'));
+        if (isClassInstance(listInstanceType)) {
+            return ClassType.cloneForSpecialization(
+                listInstanceType,
+                [combineTypes(starEntryTypes)],
+                /* isTypeArgumentExplicit */ true
+            );
         } else {
             return UnknownType.create();
         }
