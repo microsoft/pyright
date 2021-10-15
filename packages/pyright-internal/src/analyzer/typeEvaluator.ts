@@ -17384,7 +17384,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Some protocol definitions include recursive references to themselves.
         // We need to protect against infinite recursion, so we'll check for that here.
         if (ClassType.isSameGenericClass(srcType, destType)) {
-            if (isTypeSame(srcType, destType, /* ignorePseudoGeneric */ true)) {
+            if (
+                isTypeSame(
+                    srcType,
+                    destType,
+                    /* ignorePseudoGeneric */ true,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 return true;
             }
 
@@ -18404,7 +18412,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (existingEntry) {
                     if (!existingEntry.concrete && existingEntry.paramSpec) {
                         // If there's an existing entry that matches, that's fine.
-                        if (isTypeSame(existingEntry.paramSpec, srcType)) {
+                        if (
+                            isTypeSame(
+                                existingEntry.paramSpec,
+                                srcType,
+                                /* ignorePseudoGeneric */ undefined,
+                                /* ignoreTypeFlags */ undefined,
+                                recursionCount + 1
+                            )
+                        ) {
                             return true;
                         }
                     }
@@ -18438,7 +18454,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 existingParam.category !== newParam.category ||
                                 existingParam.name !== newParam.name ||
                                 existingParam.hasDefault !== newParam.hasDefault ||
-                                !isTypeSame(existingParam.type, newParam.type)
+                                !isTypeSame(
+                                    existingParam.type,
+                                    newParam.type,
+                                    /* ignorePseudoGeneric */ undefined,
+                                    /* ignoreTypeFlags */ undefined,
+                                    recursionCount + 1
+                                )
                             );
                         })
                     ) {
@@ -18698,7 +18720,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Update the wide type bound.
             if (!curWideTypeBound) {
                 newWideTypeBound = adjSrcType;
-            } else if (!isTypeSame(curWideTypeBound, adjSrcType)) {
+            } else if (
+                !isTypeSame(
+                    curWideTypeBound,
+                    adjSrcType,
+                    /* ignorePseudoGeneric */ undefined,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 if (
                     canAssignType(
                         curWideTypeBound,
@@ -18758,7 +18788,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!curNarrowTypeBound) {
                 // There was previously no narrow bound. We've now established one.
                 newNarrowTypeBound = adjSrcType;
-            } else if (!isTypeSame(curNarrowTypeBound, adjSrcType)) {
+            } else if (
+                !isTypeSame(
+                    curNarrowTypeBound,
+                    adjSrcType,
+                    /* ignorePseudoGeneric */ undefined,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 if (
                     canAssignType(curNarrowTypeBound, adjSrcType, diagAddendum, typeVarMap, flags, recursionCount + 1)
                 ) {
@@ -18838,7 +18876,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Make sure we don't exceed the wide type bound.
             if (curWideTypeBound) {
                 if (
-                    !isTypeSame(curWideTypeBound, newNarrowTypeBound!) &&
+                    !isTypeSame(
+                        curWideTypeBound,
+                        newNarrowTypeBound!,
+                        /* ignorePseudoGeneric */ undefined,
+                        /* ignoreTypeFlags */ undefined,
+                        recursionCount + 1
+                    ) &&
                     !canAssignType(
                         makeTopLevelTypeVarsConcrete(curWideTypeBound),
                         newNarrowTypeBound!,
@@ -18950,7 +18994,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
             // If it's an exact match, no need to do any more work.
-            if (isTypeSame(destType, srcType)) {
+            if (
+                isTypeSame(
+                    destType,
+                    srcType,
+                    /* ignorePseudoGeneric */ undefined,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 return true;
             }
 
@@ -18970,7 +19022,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 srcType.tupleTypeArguments &&
                 srcType.tupleTypeArguments.length === 1
             ) {
-                if (isTypeSame(destType, srcType.tupleTypeArguments[0])) {
+                if (
+                    isTypeSame(
+                        destType,
+                        srcType.tupleTypeArguments[0],
+                        /* ignorePseudoGeneric */ undefined,
+                        /* ignoreTypeFlags */ undefined,
+                        recursionCount + 1
+                    )
+                ) {
                     return true;
                 }
             }
@@ -19518,7 +19578,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): boolean {
         // Start by checking for an exact match. This is needed to handle unions
         // that contain recursive type aliases.
-        if (isTypeSame(srcType, destType)) {
+        if (
+            isTypeSame(
+                srcType,
+                destType,
+                /* ignorePseudoGeneric */ undefined,
+                /* ignoreTypeFlags */ undefined,
+                recursionCount + 1
+            )
+        ) {
             return true;
         }
 
@@ -19537,7 +19605,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         remainingDestSubtypes.push(destSubtype);
                     } else {
                         const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
-                            isTypeSame(srcSubtype, destSubtype)
+                            isTypeSame(
+                                srcSubtype,
+                                destSubtype,
+                                /* ignorePseudoGeneric */ undefined,
+                                /* ignoreTypeFlags */ undefined,
+                                recursionCount + 1
+                            )
                         );
                         if (srcTypeIndex >= 0) {
                             remainingSrcSubtypes.splice(srcTypeIndex, 1);
@@ -19715,7 +19789,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (
                 isClassInstance(srcType) &&
                 isLiteralType(srcType) &&
-                UnionType.containsType(destType, srcType, /* constraints */ undefined)
+                UnionType.containsType(destType, srcType, recursionCount + 1)
             ) {
                 return true;
             }
@@ -20969,7 +21043,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let effectiveSrcType: Type = srcType;
 
         if (isTypeVar(srcType)) {
-            if (isTypeSame(srcType, destType)) {
+            if (
+                isTypeSame(
+                    srcType,
+                    destType,
+                    /* ignorePseudoGeneric */ undefined,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 return true;
             }
 

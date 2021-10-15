@@ -592,6 +592,7 @@ export function canAssignTypedDict(
                     srcEntry.valueType,
                     new DiagnosticAddendum(),
                     /* typeVarMap */ undefined,
+                    /* flags */ undefined,
                     recursionCount + 1
                 )
             ) {

@@ -310,7 +310,8 @@ export interface TypeEvaluator {
         srcType: Type,
         diag: DiagnosticAddendum,
         typeVarMap?: TypeVarMap,
-        flags?: CanAssignFlags
+        flags?: CanAssignFlags,
+        recursionCount?: number
     ) => boolean;
     canOverrideMethod: (
         baseMethod: Type,
