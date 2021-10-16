@@ -4220,7 +4220,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (usage.method === 'get') {
-                const typeResult = getTypeOfMemberInternal(errorNode, memberInfo);
+                const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, /* exemptTypeVarReplacement */ true);
                 if (typeResult) {
                     type = typeResult.type;
                     if (typeResult.isIncomplete) {
@@ -17354,13 +17354,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return UnknownType.create();
     }
 
-    function getTypeOfMemberInternal(node: ParseNode, member: ClassMember): TypeResult | undefined {
+    function getTypeOfMemberInternal(
+        node: ParseNode,
+        member: ClassMember,
+        exemptTypeVarReplacement = false
+    ): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
             if (typeResult) {
                 return {
                     node,
-                    type: partiallySpecializeType(typeResult.type, member.classType),
+                    type: partiallySpecializeType(typeResult.type, member.classType, exemptTypeVarReplacement),
                     isIncomplete: !!typeResult.isIncomplete,
                 };
             }
@@ -17447,7 +17451,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     let destMemberType = getDeclaredTypeOfSymbol(symbol);
                     if (destMemberType) {
-                        let srcMemberType = getTypeOfMember(srcMemberInfo);
+                        let srcMemberType = isInstantiableClass(srcMemberInfo.classType)
+                            ? partiallySpecializeType(
+                                  getEffectiveTypeOfSymbol(srcMemberInfo.symbol),
+                                  srcMemberInfo.classType,
+                                  /* exemptTypeVarReplacement */ true
+                              )
+                            : UnknownType.create();
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                             if (isMemberFromMetaclass) {
