@@ -721,6 +721,13 @@ test('GenericTypes68', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+// This test is currently broken. Uncomment this once bug #2103 is fixed.
+// test('GenericTypes69', () => {
+//     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes69.py']);
+
+//     TestUtils.validateResults(analysisResults, 0);
+// });
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 
