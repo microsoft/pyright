@@ -151,8 +151,8 @@ export const enum CanAssignFlags {
 
 interface TypeVarTransformer {
     transformTypeVar: (typeVar: TypeVarType) => Type;
-    transformVariadicTypeVar: (paramSpec: TypeVarType) => Type[] | undefined;
-    transformParamSpec: (paramSpec: TypeVarType) => ParamSpecValue | undefined;
+    transformVariadicTypeVar?: (paramSpec: TypeVarType) => Type[] | undefined;
+    transformParamSpec?: (paramSpec: TypeVarType) => ParamSpecValue | undefined;
     transformUnion?: (type: UnionType) => Type;
 }
 
@@ -1935,32 +1935,34 @@ function _transformTypeVarsInClassType(
     const typeParams = ClassType.getTypeParameters(classType);
 
     const transformParamSpec = (paramSpec: TypeVarType) => {
-        const paramSpecEntries = callbacks.transformParamSpec(paramSpec);
-        if (paramSpecEntries) {
-            specializationNeeded = true;
+        if (callbacks.transformParamSpec) {
+            const paramSpecEntries = callbacks.transformParamSpec(paramSpec);
+            if (paramSpecEntries) {
+                specializationNeeded = true;
 
-            if (paramSpecEntries.concrete) {
-                // Create a function type from the param spec entries.
-                const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+                if (paramSpecEntries.concrete) {
+                    // Create a function type from the param spec entries.
+                    const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
 
-                paramSpecEntries.concrete.parameters.forEach((entry) => {
-                    FunctionType.addParameter(functionType, {
-                        category: entry.category,
-                        name: entry.name,
-                        hasDefault: entry.hasDefault,
-                        hasDeclaredType: true,
-                        type: entry.type,
+                    paramSpecEntries.concrete.parameters.forEach((entry) => {
+                        FunctionType.addParameter(functionType, {
+                            category: entry.category,
+                            name: entry.name,
+                            hasDefault: entry.hasDefault,
+                            hasDeclaredType: true,
+                            type: entry.type,
+                        });
                     });
-                });
 
-                return functionType;
-            }
+                    return functionType;
+                }
 
-            if (paramSpecEntries.paramSpec) {
-                return paramSpecEntries.paramSpec;
+                if (paramSpecEntries.paramSpec) {
+                    return paramSpecEntries.paramSpec;
+                }
+            } else {
+                return UnknownType.create();
             }
-        } else {
-            return UnknownType.create();
         }
 
         return paramSpec;
@@ -2059,9 +2061,11 @@ function _transformTypeVarsInClassType(
                 }
             });
         } else if (typeParams.length > 0) {
-            newVariadicTypeArgs = callbacks.transformVariadicTypeVar(typeParams[0]);
-            if (newVariadicTypeArgs) {
-                specializationNeeded = true;
+            if (callbacks.transformVariadicTypeVar) {
+                newVariadicTypeArgs = callbacks.transformVariadicTypeVar(typeParams[0]);
+                if (newVariadicTypeArgs) {
+                    specializationNeeded = true;
+                }
             }
         }
     }
@@ -2089,7 +2093,7 @@ function _transformTypeVarsInFunctionType(
     let functionType = sourceType;
 
     // Handle functions with a parameter specification in a special manner.
-    if (functionType.details.paramSpec) {
+    if (functionType.details.paramSpec && callbacks.transformParamSpec) {
         const paramSpec = callbacks.transformParamSpec(functionType.details.paramSpec);
         if (paramSpec) {
             functionType = FunctionType.cloneForParamSpec(functionType, paramSpec);
@@ -2126,6 +2130,7 @@ function _transformTypeVarsInFunctionType(
         );
 
         if (
+            callbacks.transformParamSpec &&
             argsParam.category === ParameterCategory.VarArgList &&
             kwargsParam.category === ParameterCategory.VarArgDictionary &&
             isParamSpec(argsParamType) &&
