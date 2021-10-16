@@ -636,7 +636,7 @@ export function isOpenEndedTupleClass(type: ClassType) {
 export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
-    if (ClassType.isGeneric(contextClassType)) {
+    if (ClassType.isUnspecialized(contextClassType)) {
         return type;
     }
 
@@ -1055,7 +1055,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
 // type parameters are used as type arguments. This is useful
 // for typing "self" or "cls" within a class's implementation.
 export function selfSpecializeClassType(type: ClassType, includeSubclasses = false): ClassType {
-    if (!ClassType.isGeneric(type) && !includeSubclasses) {
+    if (!ClassType.isUnspecialized(type) && !includeSubclasses) {
         return type;
     }
 

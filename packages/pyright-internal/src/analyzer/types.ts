@@ -600,9 +600,8 @@ export namespace ClassType {
         return type1.literalValue === type2.literalValue;
     }
 
-    // Specifies whether the class type is generic (unspecialized)
-    // or specialized.
-    export function isGeneric(classType: ClassType) {
+    // Is the class generic but not specialized?
+    export function isUnspecialized(classType: ClassType) {
         return classType.details.typeParameters.length > 0 && classType.typeArguments === undefined;
     }
 
