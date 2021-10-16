@@ -633,11 +633,7 @@ export function isOpenEndedTupleClass(type: ClassType) {
 
 // Partially specializes a type within the context of a specified
 // (presumably specialized) class.
-export function partiallySpecializeType(
-    type: Type,
-    contextClassType: ClassType,
-    exemptTypeVarReplacement = false
-): Type {
+export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
     if (ClassType.isUnspecialized(contextClassType)) {
@@ -645,26 +641,8 @@ export function partiallySpecializeType(
     }
 
     // Partially specialize the type using the specialized class type vars.
-    const typeVarMap = buildTypeVarMapFromSpecializedClass(
-        contextClassType,
-        /* makeConcrete */ undefined,
-        exemptTypeVarReplacement
-    );
+    const typeVarMap = buildTypeVarMapFromSpecializedClass(contextClassType);
     return applySolvedTypeVars(type, typeVarMap);
-}
-
-// If one of the exempt type variables appears within the type, it is replaced
-// with a clone that indicates the TypeVar should not be replaced when
-// applySolvedTypeVars is called.
-export function markTypeVarsReplacementExempt(type: Type, exemptTypeVars: TypeVarType[]): Type {
-    return _transformTypeVars(type, {
-        transformTypeVar: (typeVar: TypeVarType) => {
-            if (exemptTypeVars.some((exemptTypeVar) => isTypeSame(typeVar, exemptTypeVar))) {
-                return TypeVarType.cloneAsExemptFromReplacement(typeVar);
-            }
-            return typeVar;
-        },
-    });
 }
 
 // Specializes a (potentially generic) type by substituting
@@ -685,7 +663,7 @@ export function applySolvedTypeVars(
         transformTypeVar: (typeVar: TypeVarType) => {
             // If the type variable is unrelated to the scopes we're solving,
             // don't transform that type variable.
-            if (typeVar.scopeId && typeVarMap.hasSolveForScope(typeVar.scopeId) && !typeVar.isExemptFromReplacement) {
+            if (typeVar.scopeId && typeVarMap.hasSolveForScope(typeVar.scopeId)) {
                 let replacement = typeVarMap.getTypeVarType(typeVar, useNarrowBoundOnly);
                 if (replacement) {
                     if (TypeBase.isInstantiable(typeVar)) {
@@ -1174,11 +1152,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
-export function buildTypeVarMapFromSpecializedClass(
-    classType: ClassType,
-    makeConcrete = true,
-    exemptTypeVarReplacement = false
-): TypeVarMap {
+export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeConcrete = true): TypeVarMap {
     const typeParameters = ClassType.getTypeParameters(classType);
     let typeArguments = classType.typeArguments;
 
@@ -1187,8 +1161,6 @@ export function buildTypeVarMapFromSpecializedClass(
     // fill in concrete types.
     if (!typeArguments && !makeConcrete) {
         typeArguments = typeParameters;
-    } else if (exemptTypeVarReplacement) {
-        typeArguments = typeArguments?.map((typeArg) => markTypeVarsReplacementExempt(typeArg, typeParameters));
     }
 
     const typeVarMap = buildTypeVarMap(typeParameters, typeArguments, getTypeVarScopeId(classType));

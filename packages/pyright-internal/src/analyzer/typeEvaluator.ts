@@ -17447,13 +17447,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     let destMemberType = getDeclaredTypeOfSymbol(symbol);
                     if (destMemberType) {
-                        let srcMemberType = isInstantiableClass(srcMemberInfo.classType)
-                            ? partiallySpecializeType(
-                                  getEffectiveTypeOfSymbol(srcMemberInfo.symbol),
-                                  srcMemberInfo.classType,
-                                  /* exemptTypeVarReplacement */ true
-                              )
-                            : UnknownType.create();
+                        let srcMemberType = getTypeOfMember(srcMemberInfo);
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                             if (isMemberFromMetaclass) {
