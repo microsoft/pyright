@@ -14268,6 +14268,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
+        if (!resolvedAliasInfo.declaration) {
+            return UnknownType.create();
+        }
+
         if (node.nodeType === ParseNodeType.ImportFromAs) {
             if (resolvedAliasInfo.isPrivate) {
                 addDiagnostic(

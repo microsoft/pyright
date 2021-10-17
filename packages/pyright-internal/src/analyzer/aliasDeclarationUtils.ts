@@ -11,7 +11,7 @@ import { Declaration, DeclarationType } from './declaration';
 import { Symbol } from './symbol';
 
 export interface ResolvedAliasInfo {
-    declaration: Declaration;
+    declaration: Declaration | undefined;
     isPrivate: boolean;
     privatePyTypedImported?: string;
     privatePyTypedImporter?: string;
@@ -78,7 +78,7 @@ export function resolveAliasDeclaration(
             // be able to resolve its type directly.
             if (curDeclaration.isNativeLib) {
                 return {
-                    declaration: curDeclaration,
+                    declaration: undefined,
                     isPrivate,
                 };
             }

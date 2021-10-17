@@ -2794,7 +2794,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        if (primaryDeclaration.node === node) {
+        if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
         }
 
