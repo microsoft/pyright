@@ -19494,7 +19494,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (srcFunction) {
                 if (typeVarMap) {
-                    typeVarMap.addSolveForScope(getTypeVarScopeId(destType));
+                    const scopeId = getTypeVarScopeId(destType);
+                    if (scopeId !== WildcardTypeVarScopeId) {
+                        typeVarMap.addSolveForScope(scopeId);
+                    }
                 }
 
                 if (
