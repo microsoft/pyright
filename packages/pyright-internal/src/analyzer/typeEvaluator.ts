@@ -14765,6 +14765,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        if (node.nodeType === ParseNodeType.Call) {
+            let baseType = getDeclaredCallBaseType(node.leftExpression);
+            if (!baseType) {
+                return undefined;
+            }
+
+            if (baseType && isInstantiableClass(baseType)) {
+                const inst = convertToInstance(baseType);
+                return inst;
+            }
+
+            if (isFunction(baseType)) {
+                return baseType.details.declaredReturnType;
+            }
+        }
+
         return undefined;
     }
 
@@ -14822,6 +14838,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const callType = getDeclaredCallBaseType(node.leftExpression);
             if (callType && isInstantiableClass(callType)) {
                 cmType = convertToInstance(callType);
+            } else if (callType && isFunction(callType)) {
+                cmType = callType.details.declaredReturnType;
             }
         } else if (node.nodeType === ParseNodeType.Name) {
             cmType = getDeclaredTypeForExpression(node);

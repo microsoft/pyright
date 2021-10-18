@@ -48,3 +48,17 @@ def test3(cm: suppress) -> None:
     # This should generate an error because the
     # code is reachable.
     return 1
+
+class CMFactory:
+    def suppress(self) -> suppress:
+        return suppress()
+
+def test4() -> None:
+    some_dict = dict()
+
+    with CMFactory().suppress():
+        print(some_dict["missing_key"])
+
+    # This should generate an error because the
+    # code is reachable.
+    return 1
