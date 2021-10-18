@@ -14766,7 +14766,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (node.nodeType === ParseNodeType.Call) {
-            let baseType = getDeclaredCallBaseType(node.leftExpression);
+            const baseType = getDeclaredCallBaseType(node.leftExpression);
             if (!baseType) {
                 return undefined;
             }
