@@ -76,7 +76,7 @@ export function getIndexAliasData(
         /* resolveLocalNames */ true,
         /* allowExternallyHiddenAccess */ false
     );
-    if (!resolvedInfo) {
+    if (!resolvedInfo || !resolvedInfo.declaration) {
         return undefined;
     }
 
