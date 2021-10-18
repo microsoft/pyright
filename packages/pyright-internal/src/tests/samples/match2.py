@@ -222,3 +222,10 @@ def sort(seq: List[SupportsLessThanT]) -> List[SupportsLessThanT]:
             return a + [p] + b
     return seq
 
+
+def test_exceptions(seq: Union[str, bytes, bytearray]):
+    match seq:
+        case [x, y]:
+            t_v1: Literal["Never"] = reveal_type(x)
+            t_v2: Literal["Never"] = reveal_type(y)
+            return seq

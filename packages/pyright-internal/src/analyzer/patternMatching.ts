@@ -702,12 +702,12 @@ function getSequencePatternInfo(
                     break;
                 }
 
-                // Strings and bytes are explicitly excluded.
-                if (ClassType.isBuiltIn(mroClass, 'str')) {
-                    break;
-                }
-
-                if (ClassType.isBuiltIn(mroClass, 'bytes')) {
+                // Strings, bytes, and bytearray are explicitly excluded.
+                if (
+                    ClassType.isBuiltIn(mroClass, 'str') ||
+                    ClassType.isBuiltIn(mroClass, 'bytes') ||
+                    ClassType.isBuiltIn(mroClass, 'bytearray')
+                ) {
                     break;
                 }
 
