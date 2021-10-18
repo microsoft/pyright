@@ -2758,7 +2758,7 @@ export class Parser {
             return leftExpr;
         }
 
-        if (!this._assignmentExpressionsAllowed) {
+        if (!this._assignmentExpressionsAllowed || this._isParsingTypeAnnotation) {
             this._addError(Localizer.Diagnostic.walrusNotAllowed(), walrusToken);
         }
 
