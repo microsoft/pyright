@@ -1190,7 +1190,7 @@ function narrowTypeForLiteralComparison(
     });
 }
 
-function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassType): ClassType[] | undefined {
+export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassType): ClassType[] | undefined {
     if (ClassType.isBuiltIn(type, 'bool')) {
         // Booleans have only two types: True and False.
         return [

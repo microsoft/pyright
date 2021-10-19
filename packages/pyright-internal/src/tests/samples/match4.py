@@ -55,3 +55,32 @@ def test_union(value_to_match: Union[TInt, MyEnum]) -> Union[TInt, MyEnum]:
 
     return value_to_match
 
+
+class Medal(Enum):
+    gold = 1
+    silver = 2
+    bronze = 3
+
+class Color(Enum):
+    red = 1
+    blue = 2
+    green = 3
+
+
+def test_enum_narrowing(m: Union[Medal, Color, int]):
+    match m:
+        case Medal.gold as a1:
+            t_a1: Literal['Literal[Medal.gold]'] = reveal_type(a1)
+            t_ma: Literal['Literal[Medal.gold]'] = reveal_type(m)
+
+        case Medal.silver as b1:
+            t_b1: Literal['Literal[Medal.silver]'] = reveal_type(b1)
+            t_mb: Literal['Literal[Medal.silver]'] = reveal_type(m)
+
+        case Color() as c1:
+            t_c1: Literal['Color'] = reveal_type(c1)
+            t_mc: Literal['Color'] = reveal_type(m)
+
+        case d1:
+            t_d1: Literal['int | Literal[Medal.bronze]'] = reveal_type(d1)
+            t_md: Literal['int | Literal[Medal.bronze]'] = reveal_type(m)
