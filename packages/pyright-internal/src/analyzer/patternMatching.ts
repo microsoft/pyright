@@ -39,6 +39,7 @@ import {
     isInstantiableClass,
     isNever,
     isSameWithoutLiteralValue,
+    isUnion,
     isUnknown,
     NeverType,
     Type,
@@ -467,6 +468,25 @@ function narrowTypeBasedOnClassPattern(
             pattern.className
         );
         return NeverType.create();
+    }
+
+    // Check for certain uses of type aliases that generate runtime exceptions.
+    if (classType.typeAliasInfo) {
+        if (isUnion(classType)) {
+            evaluator.addDiagnostic(
+                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(classType) }),
+                pattern.className
+            );
+        } else if (isInstantiableClass(classType) && classType.typeArguments && classType.isTypeArgumentExplicit) {
+            evaluator.addDiagnostic(
+                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.DiagnosticAddendum.classPatternTypeAlias().format({ type: evaluator.printType(classType) }),
+                pattern.className
+            );
+        }
     }
 
     return evaluator.mapSubtypesExpandTypeVars(

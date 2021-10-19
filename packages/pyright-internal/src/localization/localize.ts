@@ -870,6 +870,8 @@ export namespace Localizer {
             new ParameterizedString<{ types: string }>(getRawString('DiagnosticAddendum.argumentTypes'));
         export const assignToNone = () => getRawString('DiagnosticAddendum.assignToNone');
         export const asyncHelp = () => getRawString('DiagnosticAddendum.asyncHelp');
+        export const classPatternTypeAlias = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.classPatternTypeAlias'));
         export const dataclassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataclassFrozen'));
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');

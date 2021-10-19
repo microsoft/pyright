@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain sequence patterns.
 
-from typing import Any, List, Literal, Protocol, Tuple, TypeVar, Union
+from typing import Any, Generic, List, Literal, Protocol, Tuple, TypeVar, Union
 
 def test_unknown(value_to_match):
     match value_to_match:
@@ -280,3 +280,32 @@ def test_object(seq: object):
             t_i1: Literal["object"] = reveal_type(i1)
             t_i2: Literal["Sequence[object | int]"] = reveal_type(i2) 
             t_vi: Literal["Sequence[object | int]"] = reveal_type(seq)
+
+_T = TypeVar('_T')
+
+class A(Generic[_T]):
+    a: _T
+
+class B: ...
+class C: ...
+
+AAlias = A
+
+AInt = A[int]
+
+BOrC = B | C
+
+def test_illegal_type_alias(m: object):
+    match m:
+        case AAlias(a=i):
+            pass
+
+        # This should generate an error because it raises an
+        # exception at runtime.
+        case AInt(a=i):
+            pass
+
+        # This should generate an error because it raises an
+        # exception at runtime.
+        case BOrC(a=i):
+            pass

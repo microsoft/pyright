@@ -446,6 +446,7 @@
         "argumentTypes": "Argument types: ({types})",
         "assignToNone": "Type cannot be assigned to type \"None\"",
         "asyncHelp": "Did you mean \"async with\"?",
+        "classPatternTypeAlias": "\"{type}\" cannot be used in a class pattern because it is a specialized type alias",
         "dataclassFrozen": "\"{name}\" is frozen",
         "finalMethod": "Final method",
         "keyNotRequired": "\"{name}\" is not a required key in \"{type}\", so access may result in runtime exception",
