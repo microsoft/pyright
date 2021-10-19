@@ -14185,6 +14185,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Determine if the pre-narrowed subject type contains an object.
+        let subjectIsObject = false;
+        doForEachSubtype(makeTopLevelTypeVarsConcrete(subjectType), (subtype) => {
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+                subjectIsObject = true;
+            }
+        });
+
         // Apply positive narrowing for the current case statement.
         subjectType = narrowTypeBasedOnPattern(
             evaluatorInterface,
@@ -14192,7 +14200,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.pattern,
             /* isPositiveTest */ true
         );
-        assignTypeToPatternTargets(evaluatorInterface, subjectType, !!subjectTypeResult.isIncomplete, node.pattern);
+
+        assignTypeToPatternTargets(
+            evaluatorInterface,
+            subjectType,
+            !!subjectTypeResult.isIncomplete,
+            subjectIsObject,
+            node.pattern
+        );
 
         writeTypeCache(node, subjectType, !!subjectTypeResult.isIncomplete);
     }

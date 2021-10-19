@@ -165,7 +165,7 @@ def test_union(value_to_match: Union[Tuple[complex, complex], Tuple[int, str, fl
 
         case d1, *d2, d3:
             t_d1: Literal["complex | int | str | float | Any"] = reveal_type(d1)
-            t_d2: Literal["list[Unknown] | list[str | float] | list[str] | list[float] | list[Any]"] = reveal_type(d2)
+            t_d2: Literal["list[str | float] | list[str] | list[float] | list[Any]"] = reveal_type(d2)
             t_d3: Literal["complex | str | float | Any"] = reveal_type(d3)
             t_v4: Literal["Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Any"] = reveal_type(value_to_match)
         
@@ -229,3 +229,54 @@ def test_exceptions(seq: Union[str, bytes, bytearray]):
             t_v1: Literal["Never"] = reveal_type(x)
             t_v2: Literal["Never"] = reveal_type(y)
             return seq
+
+def test_object(seq: object):
+    match seq:
+        case (a1, a2) as a3:
+            t_a1: Literal["object"] = reveal_type(a1)
+            t_a2: Literal["object"] = reveal_type(a2)
+            t_a3: Literal["Sequence[object]"] = reveal_type(a3)
+            t_va: Literal["Sequence[object]"] = reveal_type(seq)
+
+        case (*b1, b2) as b3:
+            t_b1: Literal["list[object]"] = reveal_type(b1)
+            t_b2: Literal["object"] = reveal_type(b2)
+            t_b3: Literal["Sequence[object]"] = reveal_type(b3)
+            t_vb: Literal["Sequence[object]"] = reveal_type(seq)
+
+        case (c1, *c2) as c3:
+            t_c1: Literal["object"] = reveal_type(c1)
+            t_c2: Literal["list[object]"] = reveal_type(c2)
+            t_c3: Literal["Sequence[object]"] = reveal_type(c3)
+            t_vc: Literal["Sequence[object]"] = reveal_type(seq)
+
+        case (d1, *d2, d3) as d4:
+            t_d1: Literal["object"] = reveal_type(d1)
+            t_d2: Literal["list[object]"] = reveal_type(d2)
+            t_d3: Literal["object"] = reveal_type(d3)
+            t_d4: Literal["Sequence[object]"] = reveal_type(d4)
+            t_vd: Literal["Sequence[object]"] = reveal_type(seq)
+        
+        case (3, *e1) as e2:
+            t_e1: Literal["list[object]"] = reveal_type(e1)
+            t_e2: Literal["Sequence[object | int]"] = reveal_type(e2)
+            t_ve: Literal["Sequence[object | int]"] = reveal_type(seq)
+        
+        case ("hi", *f1) as f2: 
+            t_f1: Literal["list[object]"] = reveal_type(f1)
+            t_f2: Literal["Sequence[object | str]"] = reveal_type(f2)
+            t_vf: Literal["Sequence[object | str]"] = reveal_type(seq) 
+       
+        case (*g1, "hi") as g2:
+            t_g1: Literal["list[object]"] = reveal_type(g1)
+            t_g2: Literal["Sequence[object | str]"] = reveal_type(g2) 
+            t_vg: Literal["Sequence[object | str]"] = reveal_type(seq) 
+
+        case [1, "hi", True] as h1: 
+            t_h1: Literal["Sequence[int | str | bool]"] = reveal_type(h1)
+            t_vh: Literal["Sequence[int | str | bool]"] = reveal_type(seq)
+
+        case [1, i1] as i2:
+            t_i1: Literal["object"] = reveal_type(i1)
+            t_i2: Literal["Sequence[object | int]"] = reveal_type(i2) 
+            t_vi: Literal["Sequence[object | int]"] = reveal_type(seq)
