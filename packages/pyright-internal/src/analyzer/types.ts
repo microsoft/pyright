@@ -994,6 +994,7 @@ export interface FunctionType extends TypeBase {
 export interface ParamSpecEntry {
     category: ParameterCategory;
     name?: string | undefined;
+    isNameSynthesized?: boolean;
     hasDefault: boolean;
     type: Type;
 }
@@ -1187,7 +1188,7 @@ export namespace FunctionType {
                             category: specEntry.category,
                             name: specEntry.name,
                             hasDefault: specEntry.hasDefault,
-                            isNameSynthesized: false,
+                            isNameSynthesized: specEntry.isNameSynthesized,
                             hasDeclaredType: true,
                             type: specEntry.type,
                         };
@@ -1240,7 +1241,7 @@ export namespace FunctionType {
                     category: specEntry.category,
                     name: specEntry.name,
                     hasDefault: specEntry.hasDefault,
-                    isNameSynthesized: false,
+                    isNameSynthesized: specEntry.isNameSynthesized,
                     hasDeclaredType: true,
                     type: specEntry.type,
                 });

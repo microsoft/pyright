@@ -27,19 +27,19 @@ def identity_int(x: int) -> int:
 
 
 v1 = identity_callable_1(identity_int)
-t_v1_1: Literal["(_p0: int) -> int"] = reveal_type(v1)
+t_v1_1: Literal["(int) -> int"] = reveal_type(v1)
 t_v1_2: Literal["int"] = reveal_type(v1(0))
 
 v2 = identity_callable_1(identity_generic)
-t_v2_1: Literal["(_p0: _T@identity_generic) -> _T@identity_generic"] = reveal_type(v2)
+t_v2_1: Literal["(_T@identity_generic) -> _T@identity_generic"] = reveal_type(v2)
 t_v2_2: Literal["int"] = reveal_type(v2(0))
 t_v2_3: Literal["str"] = reveal_type(v2(""))
 
 v3 = identity_callable_2(identity_int)
-t_v3_1: Literal["(_p0: int) -> int"] = reveal_type(v3)
+t_v3_1: Literal["(int) -> int"] = reveal_type(v3)
 t_v3_2: Literal["int"] = reveal_type(v3(0))
 
 v4 = identity_callable_2(identity_generic)
-t_v4_1: Literal["(_p0: _T@identity_generic) -> _T@identity_generic"] = reveal_type(v4)
+t_v4_1: Literal["(_T@identity_generic) -> _T@identity_generic"] = reveal_type(v4)
 t_v4_2: Literal["int"] = reveal_type(v4(0))
 t_v4_3: Literal["str"] = reveal_type(v4(""))

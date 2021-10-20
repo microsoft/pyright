@@ -1219,6 +1219,7 @@ export function buildTypeVarMap(
                                 category: param.category,
                                 name: param.name,
                                 hasDefault: !!param.hasDefault,
+                                isNameSynthesized: param.isNameSynthesized,
                                 type: param.type,
                             });
                         });
@@ -1977,6 +1978,7 @@ function _transformTypeVarsInClassType(
                             category: entry.category,
                             name: entry.name,
                             hasDefault: entry.hasDefault,
+                            isNameSynthesized: entry.isNameSynthesized,
                             hasDeclaredType: true,
                             type: entry.type,
                         });

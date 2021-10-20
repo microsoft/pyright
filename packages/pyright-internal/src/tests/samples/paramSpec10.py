@@ -54,4 +54,4 @@ res3 = test_3(testClass, 42)
 t_res3: Literal["str"] = reveal_type(res3)
 
 res4: Callable[[MyClass, int], str] = with_lock(test_3)
-t_res4: Literal["(__p0: MyClass, param1: int) -> str"] = reveal_type(res4)
+t_res4: Literal["(MyClass, param1: int) -> str"] = reveal_type(res4)

@@ -21,7 +21,7 @@ def func2(a: str, b: List[int]) -> str:
 
 
 v1 = func1(func2)
-t_v1: Literal["(__p0: int, a: str, b: List[int]) -> str"] = reveal_type(v1)
+t_v1: Literal["(int, a: str, b: List[int]) -> str"] = reveal_type(v1)
 
 # This should generate an error because 'int' isn't assignable to
 # ParamSpec _P.

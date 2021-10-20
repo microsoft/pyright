@@ -10851,7 +10851,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeList.forEach((entry, index) => {
                     let entryType = entry.type;
                     let paramCategory: ParameterCategory = ParameterCategory.Simple;
-                    const paramName = `_p${index.toString()}`;
+                    const paramName = `__p${index.toString()}`;
 
                     if (isVariadicTypeVar(entryType)) {
                         // Make sure we have at most one unpacked variadic type variable.
@@ -18485,6 +18485,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const paramSpecEntry: ParamSpecEntry = {
                         category: p.category,
                         name: p.name,
+                        isNameSynthesized: p.isNameSynthesized,
                         hasDefault: !!p.hasDefault,
                         type: FunctionType.getEffectiveParameterType(functionSrcType, index),
                     };
@@ -20734,6 +20735,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         const paramSpecEntry: ParamSpecEntry = {
                                             category: p.category,
                                             name: p.name,
+                                            isNameSynthesized: p.isNameSynthesized,
                                             hasDefault: !!p.hasDefault,
                                             type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
                                         };

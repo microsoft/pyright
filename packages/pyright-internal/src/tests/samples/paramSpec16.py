@@ -25,4 +25,4 @@ def bar(func: Callable[[int], float], a: str) -> bool:
     ...
 
 
-t1: Literal["Foo[(_p0: int), float, (a: str), bool]"] = reveal_type(bar)
+t1: Literal["Foo[(int), float, (a: str), bool]"] = reveal_type(bar)

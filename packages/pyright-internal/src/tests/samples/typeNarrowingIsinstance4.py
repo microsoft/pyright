@@ -23,20 +23,18 @@ def check_callable1(val: Union[Callable[[int, str], None], Callable[[int], None]
     if isinstance(val, Foo):
         t1: Literal["Foo"] = reveal_type(val)
     else:
-        t2: Literal["(_p0: int) -> None"] = reveal_type(val)
+        t2: Literal["(int) -> None"] = reveal_type(val)
 
 
 def check_callable2(val: Union[Callable[[int, str], None], Callable[[int], None]]):
     if isinstance(val, Bar):
         t1: Literal["Bar"] = reveal_type(val)
     else:
-        t2: Literal["(_p0: int, _p1: str) -> None"] = reveal_type(val)
+        t2: Literal["(int, str) -> None"] = reveal_type(val)
 
 
 def check_callable3(val: Union[Callable[[int, str], None], Callable[[int], None]]):
     if isinstance(val, Baz):
         t1: Literal["Never"] = reveal_type(val)
     else:
-        t2: Literal["(_p0: int, _p1: str) -> None | (_p0: int) -> None"] = reveal_type(
-            val
-        )
+        t2: Literal["(int, str) -> None | (int) -> None"] = reveal_type(val)

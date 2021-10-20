@@ -592,12 +592,7 @@ export function printFunctionParts(
                 specializedParamType.tupleTypeArguments
             ) {
                 specializedParamType.tupleTypeArguments.forEach((paramType, paramIndex) => {
-                    const paramString = `_p${(index + paramIndex).toString()}: ${printType(
-                        paramType,
-                        printTypeFlags,
-                        returnTypeCallback,
-                        recursionTypes
-                    )}`;
+                    const paramString = printType(paramType, printTypeFlags, returnTypeCallback, recursionTypes);
                     paramTypeStrings.push(paramString);
                 });
                 return;
@@ -611,7 +606,7 @@ export function printFunctionParts(
             paramString += '**';
         }
 
-        if (param.name) {
+        if (param.name && !param.isNameSynthesized) {
             paramString += param.name;
         }
 
@@ -629,7 +624,10 @@ export function printFunctionParts(
                               recursionTypes
                           )
                         : '';
-                paramString += ': ' + paramTypeString;
+                if (!param.isNameSynthesized) {
+                    paramString += ': ';
+                }
+                paramString += paramTypeString;
 
                 if (isParamSpec(paramType)) {
                     if (param.category === ParameterCategory.VarArgList) {
@@ -643,7 +641,10 @@ export function printFunctionParts(
                 // spaces when used with a type annotation.
                 defaultValueAssignment = ' = ';
             } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
-                paramString += ': Unknown';
+                if (!param.isNameSynthesized) {
+                    paramString += ': ';
+                }
+                paramString += 'Unknown';
                 defaultValueAssignment = ' = ';
             }
         } else if (param.category === ParameterCategory.Simple) {
