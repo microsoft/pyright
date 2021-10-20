@@ -10781,16 +10781,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argResult: TypeResult,
         allowEmptyTuple = false,
         allowVariadicTypeVar = false,
-        allowParamSpec = false
+        allowParamSpec = false,
+        allowTypeArgList = false
     ): boolean {
         if (argResult.typeList) {
-            addError(Localizer.Diagnostic.typeArgListNotAllowed(), argResult.node);
-            return false;
+            if (!allowTypeArgList) {
+                addError(Localizer.Diagnostic.typeArgListNotAllowed(), argResult.node);
+                return false;
+            } else {
+                argResult.typeList!.forEach((typeArg) => {
+                    validateTypeArg(typeArg);
+                });
+            }
         }
 
         if (isEllipsisType(argResult.type)) {
-            addError(Localizer.Diagnostic.ellipsisContext(), argResult.node);
-            return false;
+            if (!allowTypeArgList) {
+                addError(Localizer.Diagnostic.ellipsisContext(), argResult.node);
+                return false;
+            }
         }
 
         if (isModule(argResult.type)) {
@@ -16131,7 +16140,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }),
                             typeArgs[typeParameters.length].node
                         );
-                    } else {
+                    } else if (typeParameters.length !== 1 || !isParamSpec(typeParameters[0])) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -16174,25 +16183,80 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                const typeParam = index < typeParameters.length ? typeParameters[index] : undefined;
+                const isParamSpecTarget = typeParam?.details.isParamSpec;
+
                 validateTypeArg(
                     typeArg,
                     /* allowEmptyTuple */ false,
                     /* allowVariadicTypeVar */ false,
-                    /* allowParamSpec */ true
+                    /* allowParamSpec */ true,
+                    /* allowTypeArgList */ isParamSpecTarget
                 );
             });
         }
 
-        // Fill in any missing type arguments with Unknown.
-        const typeArgTypes = typeArgs ? typeArgs.map((t) => convertToInstance(t.type)) : [];
-        const typeParams = ClassType.getTypeParameters(classType);
-        for (let i = typeArgTypes.length; i < typeParams.length; i++) {
-            typeArgTypes.push(UnknownType.create());
+        // Handle ParamSpec arguments and fill in any missing type arguments with Unknown.
+        const typeArgTypes: Type[] = [];
+        const fullTypeParams = ClassType.getTypeParameters(classType);
+
+        // PEP 612 says that if the class has only one type parameter consisting
+        // of a ParamSpec, the list of arguments does not need to be enclosed in
+        // a list. We'll handle that case specially here.
+        if (fullTypeParams.length === 1 && fullTypeParams[0].details.isParamSpec && typeArgs) {
+            if (
+                typeArgs.every(
+                    (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
+                )
+            ) {
+                typeArgs = [
+                    {
+                        type: UnknownType.create(),
+                        node: typeArgs[0].node,
+                        typeList: typeArgs,
+                    },
+                ];
+            }
         }
+
+        fullTypeParams.forEach((typeParam, index) => {
+            if (typeArgs && index < typeArgs.length) {
+                if (typeParam.details.isParamSpec) {
+                    const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
+                    TypeBase.setNonCallable(functionType);
+
+                    if (isEllipsisType(typeArgs[index].type)) {
+                        FunctionType.addDefaultParameters(functionType);
+                        typeArgTypes.push(functionType);
+                        return;
+                    }
+
+                    if (typeArgs[index].typeList) {
+                        typeArgs[index].typeList!.forEach((paramType, paramIndex) => {
+                            FunctionType.addParameter(functionType, {
+                                category: ParameterCategory.Simple,
+                                name: `__p${paramIndex}`,
+                                isNameSynthesized: true,
+                                type: convertToInstance(paramType.type),
+                                hasDeclaredType: true,
+                            });
+                        });
+                        typeArgTypes.push(functionType);
+                        return;
+                    }
+                }
+
+                typeArgTypes.push(convertToInstance(typeArgs[index].type));
+                return;
+            }
+
+            typeArgTypes.push(UnknownType.create());
+        });
 
         typeArgTypes.forEach((typeArgType, index) => {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
+
                 if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
                     // Avoid emitting this error for a partially-constructed class.
                     if (!isClassInstance(typeArgType) || !ClassType.isPartiallyConstructed(typeArgType)) {
@@ -21113,10 +21177,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // If there's a bound type, make sure the source is derived from it.
-        const boundType = destType.details.boundType;
-        if (boundType) {
+        if (destType.details.boundType) {
             if (
-                !canAssignType(boundType, effectiveSrcType, diag.createAddendum(), undefined, flags, recursionCount + 1)
+                !canAssignType(
+                    destType.details.boundType,
+                    effectiveSrcType,
+                    diag.createAddendum(),
+                    undefined,
+                    flags,
+                    recursionCount + 1
+                )
             ) {
                 // Avoid adding a message that will confuse users if the TypeVar was
                 // synthesized for internal purposes.
@@ -21124,7 +21194,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(effectiveSrcType),
-                            destType: printType(boundType),
+                            destType: printType(destType.details.boundType),
                             name: TypeVarType.getReadableName(destType),
                         })
                     );
@@ -21137,33 +21207,52 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isParamSpec(srcType)) {
                 return true;
             }
-        } else if (isTypeVar(srcType) && srcType.details.isParamSpec) {
-            diag.addMessage(Localizer.Diagnostic.paramSpecContext());
-            return false;
-        } else {
-            // If there are no constraints, we're done.
-            const constraints = destType.details.constraints;
-            if (constraints.length === 0) {
+
+            if (isFunction(srcType) && FunctionType.isParamSpecValue(srcType)) {
                 return true;
             }
 
-            if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
-                // Make sure all the source constraint types map to constraint types in the dest.
-                if (
-                    srcType.details.constraints.every((sourceConstraint) => {
-                        return constraints.some((destConstraint) =>
-                            canAssignType(destConstraint, sourceConstraint, new DiagnosticAddendum())
-                        );
-                    })
-                ) {
+            if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'Concatenate')) {
+                return true;
+            }
+
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.typeParamSpec().format({
+                    type: printType(srcType),
+                    name: TypeVarType.getReadableName(destType),
+                })
+            );
+
+            return false;
+        }
+
+        if (isTypeVar(srcType) && srcType.details.isParamSpec) {
+            diag.addMessage(Localizer.Diagnostic.paramSpecContext());
+            return false;
+        }
+
+        // If there are no constraints, we're done.
+        const constraints = destType.details.constraints;
+        if (constraints.length === 0) {
+            return true;
+        }
+
+        if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
+            // Make sure all the source constraint types map to constraint types in the dest.
+            if (
+                srcType.details.constraints.every((sourceConstraint) => {
+                    return constraints.some((destConstraint) =>
+                        canAssignType(destConstraint, sourceConstraint, new DiagnosticAddendum())
+                    );
+                })
+            ) {
+                return true;
+            }
+        } else {
+            // Try to find a match among the constraints.
+            for (const constraint of constraints) {
+                if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
                     return true;
-                }
-            } else {
-                // Try to find a match among the constraints.
-                for (const constraint of constraints) {
-                    if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
-                        return true;
-                    }
                 }
             }
         }
