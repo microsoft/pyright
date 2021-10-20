@@ -91,3 +91,15 @@ def generator8() -> Iterator[Dict[str, int]]:
     # This tests the bidirectional type inference
     # of dict types. It should not generate an error.
     yield {"hello": 3}
+
+
+# This should generate an error.
+def generator9() -> int:
+    yield None
+    return 3
+
+
+# This should generate an error.
+async def generator10() -> int:
+    yield None
+    return 3

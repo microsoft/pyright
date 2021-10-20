@@ -3905,7 +3905,7 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
 
-                if (declaredYieldType && !declaredYieldType && enclosingFunctionNode.returnTypeAnnotation) {
+                if (declaredReturnType && !declaredYieldType && enclosingFunctionNode.returnTypeAnnotation) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
