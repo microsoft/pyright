@@ -3573,7 +3573,8 @@ export class Parser {
             if (this._peekTokenType() !== TokenType.CloseParenthesis) {
                 return this._handleExpressionParseError(
                     ErrorExpressionCategory.MissingTupleCloseParen,
-                    Localizer.Diagnostic.expectedCloseParen()
+                    Localizer.Diagnostic.expectedCloseParen(),
+                    yieldExpr
                 );
             } else {
                 extendRange(yieldExpr, this._getNextToken());
@@ -3593,7 +3594,8 @@ export class Parser {
         if (this._peekTokenType() !== TokenType.CloseParenthesis) {
             return this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingTupleCloseParen,
-                Localizer.Diagnostic.expectedCloseParen()
+                Localizer.Diagnostic.expectedCloseParen(),
+                exprListResult.parseError ?? tupleOrExpression
             );
         } else {
             const nextToken = this._getNextToken();
@@ -3616,20 +3618,30 @@ export class Parser {
         if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
             return this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingListCloseBracket,
-                Localizer.Diagnostic.expectedCloseBracket()
+                Localizer.Diagnostic.expectedCloseBracket(),
+                exprListResult.parseError ?? _createList()
             );
         }
 
-        const listAtom = ListNode.create(startBracket);
-        extendRange(listAtom, closeBracket);
-        if (exprListResult.list.length > 0) {
-            exprListResult.list.forEach((expr) => {
-                expr.parent = listAtom;
-            });
-            extendRange(listAtom, exprListResult.list[exprListResult.list.length - 1]);
+        return _createList();
+
+        function _createList() {
+            const listAtom = ListNode.create(startBracket);
+
+            if (closeBracket) {
+                extendRange(listAtom, closeBracket);
+            }
+
+            if (exprListResult.list.length > 0) {
+                exprListResult.list.forEach((expr) => {
+                    expr.parent = listAtom;
+                });
+                extendRange(listAtom, exprListResult.list[exprListResult.list.length - 1]);
+            }
+
+            listAtom.entries = exprListResult.list;
+            return listAtom;
         }
-        listAtom.entries = exprListResult.list;
-        return listAtom;
     }
 
     private _parseTestListWithComprehension(): ListResult<ExpressionNode> {
