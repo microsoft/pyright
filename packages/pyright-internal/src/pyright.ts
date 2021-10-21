@@ -31,6 +31,7 @@ import { PyrightFileSystem } from './pyrightFileSystem';
 import { PackageTypeReport, TypeKnownStatus } from './analyzer/packageTypeReport';
 import { createDeferred } from './common/deferred';
 import { FullAccessHost } from './common/fullAccessHost';
+import { ChokidarFileWatcherProvider } from './common/chokidarFileWatcherProvider';
 
 const toolName = 'pyright';
 
@@ -252,7 +253,7 @@ async function processArgs(): Promise<ExitStatus> {
 
     const treatWarningsAsErrors = !!args.warnings;
     const output = args.outputjson ? new StderrConsole() : undefined;
-    const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output));
+    const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output, new ChokidarFileWatcherProvider(output)));
 
     // The package type verification uses a different path.
     if (args['verifytypes'] !== undefined) {
