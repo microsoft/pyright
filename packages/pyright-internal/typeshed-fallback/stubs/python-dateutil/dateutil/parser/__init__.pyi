@@ -1,5 +1,5 @@
 from datetime import datetime, tzinfo
-from typing import IO, Any, Mapping, Text, Tuple, Union
+from typing import IO, Any, Mapping, Text, Union
 
 from .isoparser import isoparse as isoparse, isoparser as isoparser
 
@@ -7,10 +7,10 @@ _FileOrStr = Union[bytes, Text, IO[str], IO[Any]]
 
 class parserinfo(object):
     JUMP: list[str]
-    WEEKDAYS: list[Tuple[str, str]]
-    MONTHS: list[Tuple[str, str]]
-    HMS: list[Tuple[str, str, str]]
-    AMPM: list[Tuple[str, str]]
+    WEEKDAYS: list[tuple[str, str]]
+    MONTHS: list[tuple[str, str]]
+    HMS: list[tuple[str, str, str]]
+    AMPM: list[tuple[str, str]]
     UTCZONE: list[str]
     PERTAIN: list[str]
     TZOFFSET: dict[str, int]

@@ -235,7 +235,7 @@ class Tag(PageElement):
     sourcepos: int | None
     known_xml: bool | None
     attrs: Mapping[str, str]
-    contents: List[PageElement]
+    contents: list[PageElement]
     hidden: bool
     can_be_empty_element: bool | None
     cdata_list_attributes: list[str] | None
@@ -348,6 +348,6 @@ class SoupStrainer:
     searchTag = search_tag
     def search(self, markup: PageElement | Iterable[PageElement]): ...
 
-class ResultSet(Generic[_PageElementT], List[_PageElementT]):
+class ResultSet(List[_PageElementT], Generic[_PageElementT]):
     source: SoupStrainer
     def __init__(self, source: SoupStrainer, result: Iterable[_PageElementT] = ...) -> None: ...

@@ -1,4 +1,4 @@
-version = "2.11"
+version = "2.11.*"
 python2 = true
 requires = ["types-MarkupSafe"]
 obsolete_since = "3.0"

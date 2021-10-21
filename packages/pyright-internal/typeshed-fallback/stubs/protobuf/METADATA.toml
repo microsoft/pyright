@@ -1,4 +1,4 @@
-version = "3.17"
+version = "3.18.*"
 python2 = true
 requires = ["types-futures"]
-extra_description = "Generated with aid from mypy-protobuf v2.8"
+extra_description = "Generated with aid from mypy-protobuf v3.0.0"

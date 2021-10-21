@@ -32,12 +32,12 @@ def divmod(__x: Any, __y: Any) -> Any:
     ...
 
 
-t1: Literal["Tuple[int, timedelta]"] = reveal_type(
+t1: Literal["tuple[int, timedelta]"] = reveal_type(
     divmod(timedelta(minutes=90), timedelta(hours=1))
 )
-t2: Literal["Tuple[int, int]"] = reveal_type(divmod(3, 4))
-t3: Literal["Tuple[float, float]"] = reveal_type(divmod(3.6, 4))
-t4: Literal["Tuple[float, float]"] = reveal_type(divmod(3, 4.5))
+t2: Literal["tuple[int, int]"] = reveal_type(divmod(3, 4))
+t3: Literal["tuple[float, float]"] = reveal_type(divmod(3.6, 4))
+t4: Literal["tuple[float, float]"] = reveal_type(divmod(3, 4.5))
 
 
 class SupportsLessThan(Protocol):

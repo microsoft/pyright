@@ -63,13 +63,13 @@ _SessionT = TypeVar("_SessionT", bound=Session)
 class Session(SessionRedirectMixin):
     __attrs__: Any
     headers: CaseInsensitiveDict[Text]
-    auth: None | Tuple[Text, Text] | _auth.AuthBase | Callable[[PreparedRequest], PreparedRequest]
+    auth: None | tuple[Text, Text] | _auth.AuthBase | Callable[[PreparedRequest], PreparedRequest]
     proxies: _TextMapping
     hooks: _Hooks
     params: _Params
     stream: bool
     verify: None | bool | Text
-    cert: None | Text | Tuple[Text, Text]
+    cert: None | Text | tuple[Text, Text]
     max_redirects: int
     trust_env: bool
     cookies: RequestsCookieJar
@@ -88,18 +88,18 @@ class Session(SessionRedirectMixin):
         headers: _TextMapping | None = ...,
         cookies: None | RequestsCookieJar | _TextMapping = ...,
         files: MutableMapping[Text, IO[Any]]
-        | MutableMapping[Text, Tuple[Text, IO[Any]]]
-        | MutableMapping[Text, Tuple[Text, IO[Any], Text]]
-        | MutableMapping[Text, Tuple[Text, IO[Any], Text, _TextMapping]]
+        | MutableMapping[Text, tuple[Text, IO[Any]]]
+        | MutableMapping[Text, tuple[Text, IO[Any], Text]]
+        | MutableMapping[Text, tuple[Text, IO[Any], Text, _TextMapping]]
         | None = ...,
-        auth: None | Tuple[Text, Text] | _auth.AuthBase | Callable[[PreparedRequest], PreparedRequest] = ...,
-        timeout: None | float | Tuple[float, float] | Tuple[float, None] = ...,
+        auth: None | tuple[Text, Text] | _auth.AuthBase | Callable[[PreparedRequest], PreparedRequest] = ...,
+        timeout: None | float | tuple[float, float] | tuple[float, None] = ...,
         allow_redirects: bool | None = ...,
         proxies: _TextMapping | None = ...,
         hooks: _HooksInput | None = ...,
         stream: bool | None = ...,
         verify: None | bool | Text = ...,
-        cert: Text | Tuple[Text, Text] | None = ...,
+        cert: Text | tuple[Text, Text] | None = ...,
         json: Any | None = ...,
     ) -> Response: ...
     def get(

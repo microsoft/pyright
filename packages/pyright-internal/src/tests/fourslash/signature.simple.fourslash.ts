@@ -76,7 +76,7 @@
         s8: {
             signatures: [
                 {
-                    label: '(self: int) -> Tuple[int, Literal[1]]',
+                    label: '(self: int) -> tuple[int, Literal[1]]',
                     parameters: ['self: int'],
                 },
             ],

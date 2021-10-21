@@ -10,17 +10,20 @@ import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
 
-# `SourceContext` represents information about the source of a
-# protobuf element, like the file in which it is defined.
 class SourceContext(google.protobuf.message.Message):
+    """`SourceContext` represents information about the source of a
+    protobuf element, like the file in which it is defined.
+    """
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     FILE_NAME_FIELD_NUMBER: builtins.int
-    # The path-qualified name of the .proto file that contained the associated
-    # protobuf element.  For example: `"google/protobuf/source_context.proto"`.
     file_name: typing.Text = ...
+    """The path-qualified name of the .proto file that contained the associated
+    protobuf element.  For example: `"google/protobuf/source_context.proto"`.
+    """
+
     def __init__(self,
         *,
         file_name : typing.Text = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"file_name",b"file_name"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["file_name",b"file_name"]) -> None: ...
 global___SourceContext = SourceContext

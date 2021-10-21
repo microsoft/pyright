@@ -12,9 +12,10 @@ import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
 
-# The protocol compiler can output a FileDescriptorSet containing the .proto
-# files it parses.
 class FileDescriptorSet(google.protobuf.message.Message):
+    """The protocol compiler can output a FileDescriptorSet containing the .proto
+    files it parses.
+    """
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     FILE_FIELD_NUMBER: builtins.int
     @property
@@ -23,11 +24,11 @@ class FileDescriptorSet(google.protobuf.message.Message):
         *,
         file : typing.Optional[typing.Iterable[global___FileDescriptorProto]] = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"file",b"file"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["file",b"file"]) -> None: ...
 global___FileDescriptorSet = FileDescriptorSet
 
-# Describes a complete .proto file.
 class FileDescriptorProto(google.protobuf.message.Message):
+    """Describes a complete .proto file."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     NAME_FIELD_NUMBER: builtins.int
     PACKAGE_FIELD_NUMBER: builtins.int
@@ -41,23 +42,30 @@ class FileDescriptorProto(google.protobuf.message.Message):
     OPTIONS_FIELD_NUMBER: builtins.int
     SOURCE_CODE_INFO_FIELD_NUMBER: builtins.int
     SYNTAX_FIELD_NUMBER: builtins.int
-    # file name, relative to root of source tree
     name: typing.Text = ...
-    # e.g. "foo", "foo.bar", etc.
+    """file name, relative to root of source tree"""
+
     package: typing.Text = ...
-    # Names of files imported by this file.
+    """e.g. "foo", "foo.bar", etc."""
+
     @property
-    def dependency(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]: ...
-    # Indexes of the public imported files in the dependency list above.
+    def dependency(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]:
+        """Names of files imported by this file."""
+        pass
     @property
-    def public_dependency(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
-    # Indexes of the weak imported files in the dependency list.
-    # For Google-internal migration only. Do not use.
+    def public_dependency(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+        """Indexes of the public imported files in the dependency list above."""
+        pass
     @property
-    def weak_dependency(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
-    # All top-level definitions in this file.
+    def weak_dependency(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+        """Indexes of the weak imported files in the dependency list.
+        For Google-internal migration only. Do not use.
+        """
+        pass
     @property
-    def message_type(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DescriptorProto]: ...
+    def message_type(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DescriptorProto]:
+        """All top-level definitions in this file."""
+        pass
     @property
     def enum_type(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___EnumDescriptorProto]: ...
     @property
@@ -66,15 +74,19 @@ class FileDescriptorProto(google.protobuf.message.Message):
     def extension(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FieldDescriptorProto]: ...
     @property
     def options(self) -> global___FileOptions: ...
-    # This field contains optional information about the original source code.
-    # You may safely remove this entire field without harming runtime
-    # functionality of the descriptors -- the information is needed only by
-    # development tools.
     @property
-    def source_code_info(self) -> global___SourceCodeInfo: ...
-    # The syntax of the proto file.
-    # The supported values are "proto2" and "proto3".
+    def source_code_info(self) -> global___SourceCodeInfo:
+        """This field contains optional information about the original source code.
+        You may safely remove this entire field without harming runtime
+        functionality of the descriptors -- the information is needed only by
+        development tools.
+        """
+        pass
     syntax: typing.Text = ...
+    """The syntax of the proto file.
+    The supported values are "proto2" and "proto3".
+    """
+
     def __init__(self,
         *,
         name : typing.Optional[typing.Text] = ...,
@@ -90,22 +102,24 @@ class FileDescriptorProto(google.protobuf.message.Message):
         source_code_info : typing.Optional[global___SourceCodeInfo] = ...,
         syntax : typing.Optional[typing.Text] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"name",b"name",u"options",b"options",u"package",b"package",u"source_code_info",b"source_code_info",u"syntax",b"syntax"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"dependency",b"dependency",u"enum_type",b"enum_type",u"extension",b"extension",u"message_type",b"message_type",u"name",b"name",u"options",b"options",u"package",b"package",u"public_dependency",b"public_dependency",u"service",b"service",u"source_code_info",b"source_code_info",u"syntax",b"syntax",u"weak_dependency",b"weak_dependency"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["name",b"name","options",b"options","package",b"package","source_code_info",b"source_code_info","syntax",b"syntax"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["dependency",b"dependency","enum_type",b"enum_type","extension",b"extension","message_type",b"message_type","name",b"name","options",b"options","package",b"package","public_dependency",b"public_dependency","service",b"service","source_code_info",b"source_code_info","syntax",b"syntax","weak_dependency",b"weak_dependency"]) -> None: ...
 global___FileDescriptorProto = FileDescriptorProto
 
-# Describes a message type.
 class DescriptorProto(google.protobuf.message.Message):
+    """Describes a message type."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     class ExtensionRange(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
         START_FIELD_NUMBER: builtins.int
         END_FIELD_NUMBER: builtins.int
         OPTIONS_FIELD_NUMBER: builtins.int
-        # Inclusive.
         start: builtins.int = ...
-        # Exclusive.
+        """Inclusive."""
+
         end: builtins.int = ...
+        """Exclusive."""
+
         @property
         def options(self) -> global___ExtensionRangeOptions: ...
         def __init__(self,
@@ -114,27 +128,30 @@ class DescriptorProto(google.protobuf.message.Message):
             end : typing.Optional[builtins.int] = ...,
             options : typing.Optional[global___ExtensionRangeOptions] = ...,
             ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal[u"end",b"end",u"options",b"options",u"start",b"start"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal[u"end",b"end",u"options",b"options",u"start",b"start"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["end",b"end","options",b"options","start",b"start"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["end",b"end","options",b"options","start",b"start"]) -> None: ...
 
-    # Range of reserved tag numbers. Reserved tag numbers may not be used by
-    # fields or extension ranges in the same message. Reserved ranges may
-    # not overlap.
     class ReservedRange(google.protobuf.message.Message):
+        """Range of reserved tag numbers. Reserved tag numbers may not be used by
+        fields or extension ranges in the same message. Reserved ranges may
+        not overlap.
+        """
         DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
         START_FIELD_NUMBER: builtins.int
         END_FIELD_NUMBER: builtins.int
-        # Inclusive.
         start: builtins.int = ...
-        # Exclusive.
+        """Inclusive."""
+
         end: builtins.int = ...
+        """Exclusive."""
+
         def __init__(self,
             *,
             start : typing.Optional[builtins.int] = ...,
             end : typing.Optional[builtins.int] = ...,
             ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal[u"end",b"end",u"start",b"start"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal[u"end",b"end",u"start",b"start"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["end",b"end","start",b"start"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["end",b"end","start",b"start"]) -> None: ...
 
     NAME_FIELD_NUMBER: builtins.int
     FIELD_FIELD_NUMBER: builtins.int
@@ -163,10 +180,12 @@ class DescriptorProto(google.protobuf.message.Message):
     def options(self) -> global___MessageOptions: ...
     @property
     def reserved_range(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DescriptorProto.ReservedRange]: ...
-    # Reserved field names, which may not be used by fields in the same message.
-    # A given name may only be reserved once.
     @property
-    def reserved_name(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]: ...
+    def reserved_name(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]:
+        """Reserved field names, which may not be used by fields in the same message.
+        A given name may only be reserved once.
+        """
+        pass
     def __init__(self,
         *,
         name : typing.Optional[typing.Text] = ...,
@@ -180,25 +199,26 @@ class DescriptorProto(google.protobuf.message.Message):
         reserved_range : typing.Optional[typing.Iterable[global___DescriptorProto.ReservedRange]] = ...,
         reserved_name : typing.Optional[typing.Iterable[typing.Text]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"name",b"name",u"options",b"options"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"enum_type",b"enum_type",u"extension",b"extension",u"extension_range",b"extension_range",u"field",b"field",u"name",b"name",u"nested_type",b"nested_type",u"oneof_decl",b"oneof_decl",u"options",b"options",u"reserved_name",b"reserved_name",u"reserved_range",b"reserved_range"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["name",b"name","options",b"options"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["enum_type",b"enum_type","extension",b"extension","extension_range",b"extension_range","field",b"field","name",b"name","nested_type",b"nested_type","oneof_decl",b"oneof_decl","options",b"options","reserved_name",b"reserved_name","reserved_range",b"reserved_range"]) -> None: ...
 global___DescriptorProto = DescriptorProto
 
 class ExtensionRangeOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # The parser stores options it doesn't recognize here. See above.
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___ExtensionRangeOptions = ExtensionRangeOptions
 
-# Describes a field within a message.
 class FieldDescriptorProto(google.protobuf.message.Message):
+    """Describes a field within a message."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     class Type(_Type, metaclass=_TypeEnumTypeWrapper):
         pass
@@ -206,71 +226,95 @@ class FieldDescriptorProto(google.protobuf.message.Message):
         V = typing.NewType('V', builtins.int)
     class _TypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_Type.V], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
-        # 0 is reserved for errors.
-        # Order is weird for historical reasons.
         TYPE_DOUBLE = FieldDescriptorProto.Type.V(1)
+        """0 is reserved for errors.
+        Order is weird for historical reasons.
+        """
+
         TYPE_FLOAT = FieldDescriptorProto.Type.V(2)
-        # Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT64 if
-        # negative values are likely.
         TYPE_INT64 = FieldDescriptorProto.Type.V(3)
+        """Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT64 if
+        negative values are likely.
+        """
+
         TYPE_UINT64 = FieldDescriptorProto.Type.V(4)
-        # Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT32 if
-        # negative values are likely.
         TYPE_INT32 = FieldDescriptorProto.Type.V(5)
+        """Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT32 if
+        negative values are likely.
+        """
+
         TYPE_FIXED64 = FieldDescriptorProto.Type.V(6)
         TYPE_FIXED32 = FieldDescriptorProto.Type.V(7)
         TYPE_BOOL = FieldDescriptorProto.Type.V(8)
         TYPE_STRING = FieldDescriptorProto.Type.V(9)
-        # Tag-delimited aggregate.
-        # Group type is deprecated and not supported in proto3. However, Proto3
-        # implementations should still be able to parse the group wire format and
-        # treat group fields as unknown fields.
         TYPE_GROUP = FieldDescriptorProto.Type.V(10)
-        # Length-delimited aggregate.
+        """Tag-delimited aggregate.
+        Group type is deprecated and not supported in proto3. However, Proto3
+        implementations should still be able to parse the group wire format and
+        treat group fields as unknown fields.
+        """
+
         TYPE_MESSAGE = FieldDescriptorProto.Type.V(11)
-        # New in version 2.
+        """Length-delimited aggregate."""
+
         TYPE_BYTES = FieldDescriptorProto.Type.V(12)
+        """New in version 2."""
+
         TYPE_UINT32 = FieldDescriptorProto.Type.V(13)
         TYPE_ENUM = FieldDescriptorProto.Type.V(14)
         TYPE_SFIXED32 = FieldDescriptorProto.Type.V(15)
         TYPE_SFIXED64 = FieldDescriptorProto.Type.V(16)
-        # Uses ZigZag encoding.
         TYPE_SINT32 = FieldDescriptorProto.Type.V(17)
-        # Uses ZigZag encoding.
-        TYPE_SINT64 = FieldDescriptorProto.Type.V(18)
+        """Uses ZigZag encoding."""
 
-    # 0 is reserved for errors.
-    # Order is weird for historical reasons.
+        TYPE_SINT64 = FieldDescriptorProto.Type.V(18)
+        """Uses ZigZag encoding."""
+
+
     TYPE_DOUBLE = FieldDescriptorProto.Type.V(1)
+    """0 is reserved for errors.
+    Order is weird for historical reasons.
+    """
+
     TYPE_FLOAT = FieldDescriptorProto.Type.V(2)
-    # Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT64 if
-    # negative values are likely.
     TYPE_INT64 = FieldDescriptorProto.Type.V(3)
+    """Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT64 if
+    negative values are likely.
+    """
+
     TYPE_UINT64 = FieldDescriptorProto.Type.V(4)
-    # Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT32 if
-    # negative values are likely.
     TYPE_INT32 = FieldDescriptorProto.Type.V(5)
+    """Not ZigZag encoded.  Negative numbers take 10 bytes.  Use TYPE_SINT32 if
+    negative values are likely.
+    """
+
     TYPE_FIXED64 = FieldDescriptorProto.Type.V(6)
     TYPE_FIXED32 = FieldDescriptorProto.Type.V(7)
     TYPE_BOOL = FieldDescriptorProto.Type.V(8)
     TYPE_STRING = FieldDescriptorProto.Type.V(9)
-    # Tag-delimited aggregate.
-    # Group type is deprecated and not supported in proto3. However, Proto3
-    # implementations should still be able to parse the group wire format and
-    # treat group fields as unknown fields.
     TYPE_GROUP = FieldDescriptorProto.Type.V(10)
-    # Length-delimited aggregate.
+    """Tag-delimited aggregate.
+    Group type is deprecated and not supported in proto3. However, Proto3
+    implementations should still be able to parse the group wire format and
+    treat group fields as unknown fields.
+    """
+
     TYPE_MESSAGE = FieldDescriptorProto.Type.V(11)
-    # New in version 2.
+    """Length-delimited aggregate."""
+
     TYPE_BYTES = FieldDescriptorProto.Type.V(12)
+    """New in version 2."""
+
     TYPE_UINT32 = FieldDescriptorProto.Type.V(13)
     TYPE_ENUM = FieldDescriptorProto.Type.V(14)
     TYPE_SFIXED32 = FieldDescriptorProto.Type.V(15)
     TYPE_SFIXED64 = FieldDescriptorProto.Type.V(16)
-    # Uses ZigZag encoding.
     TYPE_SINT32 = FieldDescriptorProto.Type.V(17)
-    # Uses ZigZag encoding.
+    """Uses ZigZag encoding."""
+
     TYPE_SINT64 = FieldDescriptorProto.Type.V(18)
+    """Uses ZigZag encoding."""
+
 
     class Label(_Label, metaclass=_LabelEnumTypeWrapper):
         pass
@@ -278,13 +322,15 @@ class FieldDescriptorProto(google.protobuf.message.Message):
         V = typing.NewType('V', builtins.int)
     class _LabelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_Label.V], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
-        # 0 is reserved for errors
         LABEL_OPTIONAL = FieldDescriptorProto.Label.V(1)
+        """0 is reserved for errors"""
+
         LABEL_REQUIRED = FieldDescriptorProto.Label.V(2)
         LABEL_REPEATED = FieldDescriptorProto.Label.V(3)
 
-    # 0 is reserved for errors
     LABEL_OPTIONAL = FieldDescriptorProto.Label.V(1)
+    """0 is reserved for errors"""
+
     LABEL_REQUIRED = FieldDescriptorProto.Label.V(2)
     LABEL_REPEATED = FieldDescriptorProto.Label.V(3)
 
@@ -302,56 +348,70 @@ class FieldDescriptorProto(google.protobuf.message.Message):
     name: typing.Text = ...
     number: builtins.int = ...
     label: global___FieldDescriptorProto.Label.V = ...
-    # If type_name is set, this need not be set.  If both this and type_name
-    # are set, this must be one of TYPE_ENUM, TYPE_MESSAGE or TYPE_GROUP.
     type: global___FieldDescriptorProto.Type.V = ...
-    # For message and enum types, this is the name of the type.  If the name
-    # starts with a '.', it is fully-qualified.  Otherwise, C++-like scoping
-    # rules are used to find the type (i.e. first the nested types within this
-    # message are searched, then within the parent, on up to the root
-    # namespace).
+    """If type_name is set, this need not be set.  If both this and type_name
+    are set, this must be one of TYPE_ENUM, TYPE_MESSAGE or TYPE_GROUP.
+    """
+
     type_name: typing.Text = ...
-    # For extensions, this is the name of the type being extended.  It is
-    # resolved in the same manner as type_name.
+    """For message and enum types, this is the name of the type.  If the name
+    starts with a '.', it is fully-qualified.  Otherwise, C++-like scoping
+    rules are used to find the type (i.e. first the nested types within this
+    message are searched, then within the parent, on up to the root
+    namespace).
+    """
+
     extendee: typing.Text = ...
-    # For numeric types, contains the original text representation of the value.
-    # For booleans, "true" or "false".
-    # For strings, contains the default text contents (not escaped in any way).
-    # For bytes, contains the C escaped value.  All bytes >= 128 are escaped.
-    # TODO(kenton):  Base-64 encode?
+    """For extensions, this is the name of the type being extended.  It is
+    resolved in the same manner as type_name.
+    """
+
     default_value: typing.Text = ...
-    # If set, gives the index of a oneof in the containing type's oneof_decl
-    # list.  This field is a member of that oneof.
+    """For numeric types, contains the original text representation of the value.
+    For booleans, "true" or "false".
+    For strings, contains the default text contents (not escaped in any way).
+    For bytes, contains the C escaped value.  All bytes >= 128 are escaped.
+    TODO(kenton):  Base-64 encode?
+    """
+
     oneof_index: builtins.int = ...
-    # JSON name of this field. The value is set by protocol compiler. If the
-    # user has set a "json_name" option on this field, that option's value
-    # will be used. Otherwise, it's deduced from the field's name by converting
-    # it to camelCase.
+    """If set, gives the index of a oneof in the containing type's oneof_decl
+    list.  This field is a member of that oneof.
+    """
+
     json_name: typing.Text = ...
+    """JSON name of this field. The value is set by protocol compiler. If the
+    user has set a "json_name" option on this field, that option's value
+    will be used. Otherwise, it's deduced from the field's name by converting
+    it to camelCase.
+    """
+
     @property
     def options(self) -> global___FieldOptions: ...
-    # If true, this is a proto3 "optional". When a proto3 field is optional, it
-    # tracks presence regardless of field type.
-    #
-    # When proto3_optional is true, this field must be belong to a oneof to
-    # signal to old proto3 clients that presence is tracked for this field. This
-    # oneof is known as a "synthetic" oneof, and this field must be its sole
-    # member (each proto3 optional field gets its own synthetic oneof). Synthetic
-    # oneofs exist in the descriptor only, and do not generate any API. Synthetic
-    # oneofs must be ordered after all "real" oneofs.
-    #
-    # For message fields, proto3_optional doesn't create any semantic change,
-    # since non-repeated message fields always track presence. However it still
-    # indicates the semantic detail of whether the user wrote "optional" or not.
-    # This can be useful for round-tripping the .proto file. For consistency we
-    # give message fields a synthetic oneof also, even though it is not required
-    # to track presence. This is especially important because the parser can't
-    # tell if a field is a message or an enum, so it must always create a
-    # synthetic oneof.
-    #
-    # Proto2 optional fields do not set this flag, because they already indicate
-    # optional with `LABEL_OPTIONAL`.
     proto3_optional: builtins.bool = ...
+    """If true, this is a proto3 "optional". When a proto3 field is optional, it
+    tracks presence regardless of field type.
+
+    When proto3_optional is true, this field must be belong to a oneof to
+    signal to old proto3 clients that presence is tracked for this field. This
+    oneof is known as a "synthetic" oneof, and this field must be its sole
+    member (each proto3 optional field gets its own synthetic oneof). Synthetic
+    oneofs exist in the descriptor only, and do not generate any API. Synthetic
+    oneofs must be ordered after all "real" oneofs.
+
+    For message fields, proto3_optional doesn't create any semantic change,
+    since non-repeated message fields always track presence. However it still
+    indicates the semantic detail of whether the user wrote "optional" or not.
+    This can be useful for round-tripping the .proto file. For consistency we
+    give message fields a synthetic oneof also, even though it is not required
+    to track presence. This is especially important because the parser can't
+    tell if a field is a message or an enum, so it must always create a
+    synthetic oneof.
+
+    Proto2 optional fields do not set this flag, because they already indicate
+    optional with `LABEL_OPTIONAL`.
+    """
+
     def __init__(self,
         *,
         name : typing.Optional[typing.Text] = ...,
@@ -366,12 +426,12 @@ class FieldDescriptorProto(google.protobuf.message.Message):
         options : typing.Optional[global___FieldOptions] = ...,
         proto3_optional : typing.Optional[builtins.bool] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"default_value",b"default_value",u"extendee",b"extendee",u"json_name",b"json_name",u"label",b"label",u"name",b"name",u"number",b"number",u"oneof_index",b"oneof_index",u"options",b"options",u"proto3_optional",b"proto3_optional",u"type",b"type",u"type_name",b"type_name"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"default_value",b"default_value",u"extendee",b"extendee",u"json_name",b"json_name",u"label",b"label",u"name",b"name",u"number",b"number",u"oneof_index",b"oneof_index",u"options",b"options",u"proto3_optional",b"proto3_optional",u"type",b"type",u"type_name",b"type_name"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["default_value",b"default_value","extendee",b"extendee","json_name",b"json_name","label",b"label","name",b"name","number",b"number","oneof_index",b"oneof_index","options",b"options","proto3_optional",b"proto3_optional","type",b"type","type_name",b"type_name"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["default_value",b"default_value","extendee",b"extendee","json_name",b"json_name","label",b"label","name",b"name","number",b"number","oneof_index",b"oneof_index","options",b"options","proto3_optional",b"proto3_optional","type",b"type","type_name",b"type_name"]) -> None: ...
 global___FieldDescriptorProto = FieldDescriptorProto
 
-# Describes a oneof.
 class OneofDescriptorProto(google.protobuf.message.Message):
+    """Describes a oneof."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     NAME_FIELD_NUMBER: builtins.int
     OPTIONS_FIELD_NUMBER: builtins.int
@@ -383,34 +443,37 @@ class OneofDescriptorProto(google.protobuf.message.Message):
         name : typing.Optional[typing.Text] = ...,
         options : typing.Optional[global___OneofOptions] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"name",b"name",u"options",b"options"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"name",b"name",u"options",b"options"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["name",b"name","options",b"options"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["name",b"name","options",b"options"]) -> None: ...
 global___OneofDescriptorProto = OneofDescriptorProto
 
-# Describes an enum type.
 class EnumDescriptorProto(google.protobuf.message.Message):
+    """Describes an enum type."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
-    # Range of reserved numeric values. Reserved values may not be used by
-    # entries in the same enum. Reserved ranges may not overlap.
-    #
-    # Note that this is distinct from DescriptorProto.ReservedRange in that it
-    # is inclusive such that it can appropriately represent the entire int32
-    # domain.
     class EnumReservedRange(google.protobuf.message.Message):
+        """Range of reserved numeric values. Reserved values may not be used by
+        entries in the same enum. Reserved ranges may not overlap.
+
+        Note that this is distinct from DescriptorProto.ReservedRange in that it
+        is inclusive such that it can appropriately represent the entire int32
+        domain.
+        """
         DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
         START_FIELD_NUMBER: builtins.int
         END_FIELD_NUMBER: builtins.int
-        # Inclusive.
         start: builtins.int = ...
-        # Inclusive.
+        """Inclusive."""
+
         end: builtins.int = ...
+        """Inclusive."""
+
         def __init__(self,
             *,
             start : typing.Optional[builtins.int] = ...,
             end : typing.Optional[builtins.int] = ...,
             ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal[u"end",b"end",u"start",b"start"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal[u"end",b"end",u"start",b"start"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["end",b"end","start",b"start"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["end",b"end","start",b"start"]) -> None: ...
 
     NAME_FIELD_NUMBER: builtins.int
     VALUE_FIELD_NUMBER: builtins.int
@@ -422,15 +485,19 @@ class EnumDescriptorProto(google.protobuf.message.Message):
     def value(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___EnumValueDescriptorProto]: ...
     @property
     def options(self) -> global___EnumOptions: ...
-    # Range of reserved numeric values. Reserved numeric values may not be used
-    # by enum values in the same enum declaration. Reserved ranges may not
-    # overlap.
     @property
-    def reserved_range(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___EnumDescriptorProto.EnumReservedRange]: ...
-    # Reserved enum value names, which may not be reused. A given name may only
-    # be reserved once.
+    def reserved_range(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___EnumDescriptorProto.EnumReservedRange]:
+        """Range of reserved numeric values. Reserved numeric values may not be used
+        by enum values in the same enum declaration. Reserved ranges may not
+        overlap.
+        """
+        pass
     @property
-    def reserved_name(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]: ...
+    def reserved_name(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]:
+        """Reserved enum value names, which may not be reused. A given name may only
+        be reserved once.
+        """
+        pass
     def __init__(self,
         *,
         name : typing.Optional[typing.Text] = ...,
@@ -439,12 +506,12 @@ class EnumDescriptorProto(google.protobuf.message.Message):
         reserved_range : typing.Optional[typing.Iterable[global___EnumDescriptorProto.EnumReservedRange]] = ...,
         reserved_name : typing.Optional[typing.Iterable[typing.Text]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"name",b"name",u"options",b"options"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"name",b"name",u"options",b"options",u"reserved_name",b"reserved_name",u"reserved_range",b"reserved_range",u"value",b"value"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["name",b"name","options",b"options"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["name",b"name","options",b"options","reserved_name",b"reserved_name","reserved_range",b"reserved_range","value",b"value"]) -> None: ...
 global___EnumDescriptorProto = EnumDescriptorProto
 
-# Describes a value within an enum.
 class EnumValueDescriptorProto(google.protobuf.message.Message):
+    """Describes a value within an enum."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     NAME_FIELD_NUMBER: builtins.int
     NUMBER_FIELD_NUMBER: builtins.int
@@ -459,12 +526,12 @@ class EnumValueDescriptorProto(google.protobuf.message.Message):
         number : typing.Optional[builtins.int] = ...,
         options : typing.Optional[global___EnumValueOptions] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"name",b"name",u"number",b"number",u"options",b"options"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"name",b"name",u"number",b"number",u"options",b"options"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["name",b"name","number",b"number","options",b"options"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["name",b"name","number",b"number","options",b"options"]) -> None: ...
 global___EnumValueDescriptorProto = EnumValueDescriptorProto
 
-# Describes a service.
 class ServiceDescriptorProto(google.protobuf.message.Message):
+    """Describes a service."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     NAME_FIELD_NUMBER: builtins.int
     METHOD_FIELD_NUMBER: builtins.int
@@ -480,12 +547,12 @@ class ServiceDescriptorProto(google.protobuf.message.Message):
         method : typing.Optional[typing.Iterable[global___MethodDescriptorProto]] = ...,
         options : typing.Optional[global___ServiceOptions] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"name",b"name",u"options",b"options"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"method",b"method",u"name",b"name",u"options",b"options"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["name",b"name","options",b"options"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["method",b"method","name",b"name","options",b"options"]) -> None: ...
 global___ServiceDescriptorProto = ServiceDescriptorProto
 
-# Describes a method of a service.
 class MethodDescriptorProto(google.protobuf.message.Message):
+    """Describes a method of a service."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     NAME_FIELD_NUMBER: builtins.int
     INPUT_TYPE_FIELD_NUMBER: builtins.int
@@ -494,16 +561,20 @@ class MethodDescriptorProto(google.protobuf.message.Message):
     CLIENT_STREAMING_FIELD_NUMBER: builtins.int
     SERVER_STREAMING_FIELD_NUMBER: builtins.int
     name: typing.Text = ...
-    # Input and output type names.  These are resolved in the same way as
-    # FieldDescriptorProto.type_name, but must refer to a message type.
     input_type: typing.Text = ...
+    """Input and output type names.  These are resolved in the same way as
+    FieldDescriptorProto.type_name, but must refer to a message type.
+    """
+
     output_type: typing.Text = ...
     @property
     def options(self) -> global___MethodOptions: ...
-    # Identifies if client streams multiple client messages
     client_streaming: builtins.bool = ...
-    # Identifies if server streams multiple server messages
+    """Identifies if client streams multiple client messages"""
+
     server_streaming: builtins.bool = ...
+    """Identifies if server streams multiple server messages"""
+
     def __init__(self,
         *,
         name : typing.Optional[typing.Text] = ...,
@@ -513,66 +584,75 @@ class MethodDescriptorProto(google.protobuf.message.Message):
         client_streaming : typing.Optional[builtins.bool] = ...,
         server_streaming : typing.Optional[builtins.bool] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"client_streaming",b"client_streaming",u"input_type",b"input_type",u"name",b"name",u"options",b"options",u"output_type",b"output_type",u"server_streaming",b"server_streaming"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"client_streaming",b"client_streaming",u"input_type",b"input_type",u"name",b"name",u"options",b"options",u"output_type",b"output_type",u"server_streaming",b"server_streaming"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["client_streaming",b"client_streaming","input_type",b"input_type","name",b"name","options",b"options","output_type",b"output_type","server_streaming",b"server_streaming"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["client_streaming",b"client_streaming","input_type",b"input_type","name",b"name","options",b"options","output_type",b"output_type","server_streaming",b"server_streaming"]) -> None: ...
 global___MethodDescriptorProto = MethodDescriptorProto
 
-# ===================================================================
-# Options
-
-# Each of the definitions above may have "options" attached.  These are
-# just annotations which may cause code to be generated slightly differently
-# or may contain hints for code that manipulates protocol messages.
-#
-# Clients may define custom options as extensions of the *Options messages.
-# These extensions may not yet be known at parsing time, so the parser cannot
-# store the values in them.  Instead it stores them in a field in the *Options
-# message called uninterpreted_option. This field must have the same name
-# across all *Options messages. We then use this field to populate the
-# extensions when we build a descriptor, at which point all protos have been
-# parsed and so all extensions are known.
-#
-# Extension numbers for custom options may be chosen as follows:
-# * For options which will only be used within a single application or
-#   organization, or for experimental options, use field numbers 50000
-#   through 99999.  It is up to you to ensure that you do not use the
-#   same number for multiple options.
-# * For options which will be published and used publicly by multiple
-#   independent entities, e-mail protobuf-global-extension-registry@google.com
-#   to reserve extension numbers. Simply provide your project name (e.g.
-#   Objective-C plugin) and your project website (if available) -- there's no
-#   need to explain how you intend to use them. Usually you only need one
-#   extension number. You can declare multiple options with only one extension
-#   number by putting them in a sub-message. See the Custom Options section of
-#   the docs for examples:
-#   https://developers.google.com/protocol-buffers/docs/proto#options
-#   If this turns out to be popular, a web service will be set up
-#   to automatically assign option numbers.
-
 class FileOptions(google.protobuf.message.Message):
+    """===================================================================
+    Options
+
+    Each of the definitions above may have "options" attached.  These are
+    just annotations which may cause code to be generated slightly differently
+    or may contain hints for code that manipulates protocol messages.
+
+    Clients may define custom options as extensions of the *Options messages.
+    These extensions may not yet be known at parsing time, so the parser cannot
+    store the values in them.  Instead it stores them in a field in the *Options
+    message called uninterpreted_option. This field must have the same name
+    across all *Options messages. We then use this field to populate the
+    extensions when we build a descriptor, at which point all protos have been
+    parsed and so all extensions are known.
+
+    Extension numbers for custom options may be chosen as follows:
+    * For options which will only be used within a single application or
+      organization, or for experimental options, use field numbers 50000
+      through 99999.  It is up to you to ensure that you do not use the
+      same number for multiple options.
+    * For options which will be published and used publicly by multiple
+      independent entities, e-mail protobuf-global-extension-registry@google.com
+      to reserve extension numbers. Simply provide your project name (e.g.
+      Objective-C plugin) and your project website (if available) -- there's no
+      need to explain how you intend to use them. Usually you only need one
+      extension number. You can declare multiple options with only one extension
+      number by putting them in a sub-message. See the Custom Options section of
+      the docs for examples:
+      https://developers.google.com/protocol-buffers/docs/proto#options
+      If this turns out to be popular, a web service will be set up
+      to automatically assign option numbers.
+
+    """
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
-    # Generated classes can be optimized for speed or code size.
     class OptimizeMode(_OptimizeMode, metaclass=_OptimizeModeEnumTypeWrapper):
+        """Generated classes can be optimized for speed or code size."""
         pass
     class _OptimizeMode:
         V = typing.NewType('V', builtins.int)
     class _OptimizeModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_OptimizeMode.V], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
-        # Generate complete code for parsing, serialization,
         SPEED = FileOptions.OptimizeMode.V(1)
-        # etc.
-        # Use ReflectionOps to implement these methods.
-        CODE_SIZE = FileOptions.OptimizeMode.V(2)
-        # Generate code using MessageLite and the lite runtime.
-        LITE_RUNTIME = FileOptions.OptimizeMode.V(3)
+        """Generate complete code for parsing, serialization,"""
 
-    # Generate complete code for parsing, serialization,
+        CODE_SIZE = FileOptions.OptimizeMode.V(2)
+        """etc.
+        Use ReflectionOps to implement these methods.
+        """
+
+        LITE_RUNTIME = FileOptions.OptimizeMode.V(3)
+        """Generate code using MessageLite and the lite runtime."""
+
+
     SPEED = FileOptions.OptimizeMode.V(1)
-    # etc.
-    # Use ReflectionOps to implement these methods.
+    """Generate complete code for parsing, serialization,"""
+
     CODE_SIZE = FileOptions.OptimizeMode.V(2)
-    # Generate code using MessageLite and the lite runtime.
+    """etc.
+    Use ReflectionOps to implement these methods.
+    """
+
     LITE_RUNTIME = FileOptions.OptimizeMode.V(3)
+    """Generate code using MessageLite and the lite runtime."""
+
 
     JAVA_PACKAGE_FIELD_NUMBER: builtins.int
     JAVA_OUTER_CLASSNAME_FIELD_NUMBER: builtins.int
@@ -595,91 +675,123 @@ class FileOptions(google.protobuf.message.Message):
     PHP_METADATA_NAMESPACE_FIELD_NUMBER: builtins.int
     RUBY_PACKAGE_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # Sets the Java package where classes generated from this .proto will be
-    # placed.  By default, the proto package is used, but this is often
-    # inappropriate because proto packages do not normally start with backwards
-    # domain names.
     java_package: typing.Text = ...
-    # Controls the name of the wrapper Java class generated for the .proto file.
-    # That class will always contain the .proto file's getDescriptor() method as
-    # well as any top-level extensions defined in the .proto file.
-    # If java_multiple_files is disabled, then all the other classes from the
-    # .proto file will be nested inside the single wrapper outer class.
+    """Sets the Java package where classes generated from this .proto will be
+    placed.  By default, the proto package is used, but this is often
+    inappropriate because proto packages do not normally start with backwards
+    domain names.
+    """
+
     java_outer_classname: typing.Text = ...
-    # If enabled, then the Java code generator will generate a separate .java
-    # file for each top-level message, enum, and service defined in the .proto
-    # file.  Thus, these types will *not* be nested inside the wrapper class
-    # named by java_outer_classname.  However, the wrapper class will still be
-    # generated to contain the file's getDescriptor() method as well as any
-    # top-level extensions defined in the file.
+    """Controls the name of the wrapper Java class generated for the .proto file.
+    That class will always contain the .proto file's getDescriptor() method as
+    well as any top-level extensions defined in the .proto file.
+    If java_multiple_files is disabled, then all the other classes from the
+    .proto file will be nested inside the single wrapper outer class.
+    """
+
     java_multiple_files: builtins.bool = ...
-    # This option does nothing.
+    """If enabled, then the Java code generator will generate a separate .java
+    file for each top-level message, enum, and service defined in the .proto
+    file.  Thus, these types will *not* be nested inside the wrapper class
+    named by java_outer_classname.  However, the wrapper class will still be
+    generated to contain the file's getDescriptor() method as well as any
+    top-level extensions defined in the file.
+    """
+
     java_generate_equals_and_hash: builtins.bool = ...
-    # If set true, then the Java2 code generator will generate code that
-    # throws an exception whenever an attempt is made to assign a non-UTF-8
-    # byte sequence to a string field.
-    # Message reflection will do the same.
-    # However, an extension field still accepts non-UTF-8 byte sequences.
-    # This option has no effect on when used with the lite runtime.
+    """This option does nothing."""
+
     java_string_check_utf8: builtins.bool = ...
+    """If set true, then the Java2 code generator will generate code that
+    throws an exception whenever an attempt is made to assign a non-UTF-8
+    byte sequence to a string field.
+    Message reflection will do the same.
+    However, an extension field still accepts non-UTF-8 byte sequences.
+    This option has no effect on when used with the lite runtime.
+    """
+
     optimize_for: global___FileOptions.OptimizeMode.V = ...
-    # Sets the Go package where structs generated from this .proto will be
-    # placed. If omitted, the Go package will be derived from the following:
-    #   - The basename of the package import path, if provided.
-    #   - Otherwise, the package statement in the .proto file, if present.
-    #   - Otherwise, the basename of the .proto file, without extension.
     go_package: typing.Text = ...
-    # Should generic services be generated in each language?  "Generic" services
-    # are not specific to any particular RPC system.  They are generated by the
-    # main code generators in each language (without additional plugins).
-    # Generic services were the only kind of service generation supported by
-    # early versions of google.protobuf.
-    #
-    # Generic services are now considered deprecated in favor of using plugins
-    # that generate code specific to your particular RPC system.  Therefore,
-    # these default to false.  Old code which depends on generic services should
-    # explicitly set them to true.
+    """Sets the Go package where structs generated from this .proto will be
+    placed. If omitted, the Go package will be derived from the following:
+      - The basename of the package import path, if provided.
+      - Otherwise, the package statement in the .proto file, if present.
+      - Otherwise, the basename of the .proto file, without extension.
+    """
+
     cc_generic_services: builtins.bool = ...
+    """Should generic services be generated in each language?  "Generic" services
+    are not specific to any particular RPC system.  They are generated by the
+    main code generators in each language (without additional plugins).
+    Generic services were the only kind of service generation supported by
+    early versions of google.protobuf.
+
+    Generic services are now considered deprecated in favor of using plugins
+    that generate code specific to your particular RPC system.  Therefore,
+    these default to false.  Old code which depends on generic services should
+    explicitly set them to true.
+    """
+
     java_generic_services: builtins.bool = ...
     py_generic_services: builtins.bool = ...
     php_generic_services: builtins.bool = ...
-    # Is this file deprecated?
-    # Depending on the target platform, this can emit Deprecated annotations
-    # for everything in the file, or it will be completely ignored; in the very
-    # least, this is a formalization for deprecating files.
     deprecated: builtins.bool = ...
-    # Enables the use of arenas for the proto messages in this file. This applies
-    # only to generated classes for C++.
+    """Is this file deprecated?
+    Depending on the target platform, this can emit Deprecated annotations
+    for everything in the file, or it will be completely ignored; in the very
+    least, this is a formalization for deprecating files.
+    """
+
     cc_enable_arenas: builtins.bool = ...
-    # Sets the objective c class prefix which is prepended to all objective c
-    # generated classes from this .proto. There is no default.
+    """Enables the use of arenas for the proto messages in this file. This applies
+    only to generated classes for C++.
+    """
+
     objc_class_prefix: typing.Text = ...
-    # Namespace for generated classes; defaults to the package.
+    """Sets the objective c class prefix which is prepended to all objective c
+    generated classes from this .proto. There is no default.
+    """
+
     csharp_namespace: typing.Text = ...
-    # By default Swift generators will take the proto package and CamelCase it
-    # replacing '.' with underscore and use that to prefix the types/symbols
-    # defined. When this options is provided, they will use this value instead
-    # to prefix the types/symbols defined.
+    """Namespace for generated classes; defaults to the package."""
+
     swift_prefix: typing.Text = ...
-    # Sets the php class prefix which is prepended to all php generated classes
-    # from this .proto. Default is empty.
+    """By default Swift generators will take the proto package and CamelCase it
+    replacing '.' with underscore and use that to prefix the types/symbols
+    defined. When this options is provided, they will use this value instead
+    to prefix the types/symbols defined.
+    """
+
     php_class_prefix: typing.Text = ...
-    # Use this option to change the namespace of php generated classes. Default
-    # is empty. When this option is empty, the package name will be used for
-    # determining the namespace.
+    """Sets the php class prefix which is prepended to all php generated classes
+    from this .proto. Default is empty.
+    """
+
     php_namespace: typing.Text = ...
-    # Use this option to change the namespace of php generated metadata classes.
-    # Default is empty. When this option is empty, the proto file name will be
-    # used for determining the namespace.
+    """Use this option to change the namespace of php generated classes. Default
+    is empty. When this option is empty, the package name will be used for
+    determining the namespace.
+    """
+
     php_metadata_namespace: typing.Text = ...
-    # Use this option to change the package of ruby generated classes. Default
-    # is empty. When this option is not set, the package name will be used for
-    # determining the ruby package.
+    """Use this option to change the namespace of php generated metadata classes.
+    Default is empty. When this option is empty, the proto file name will be
+    used for determining the namespace.
+    """
+
     ruby_package: typing.Text = ...
-    # The parser stores options it doesn't recognize here.
-    # See the documentation for the "Options" section above.
+    """Use this option to change the package of ruby generated classes. Default
+    is empty. When this option is not set, the package name will be used for
+    determining the ruby package.
+    """
+
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here.
+        See the documentation for the "Options" section above.
+        """
+        pass
     def __init__(self,
         *,
         java_package : typing.Optional[typing.Text] = ...,
@@ -704,8 +816,8 @@ class FileOptions(google.protobuf.message.Message):
         ruby_package : typing.Optional[typing.Text] = ...,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"cc_enable_arenas",b"cc_enable_arenas",u"cc_generic_services",b"cc_generic_services",u"csharp_namespace",b"csharp_namespace",u"deprecated",b"deprecated",u"go_package",b"go_package",u"java_generate_equals_and_hash",b"java_generate_equals_and_hash",u"java_generic_services",b"java_generic_services",u"java_multiple_files",b"java_multiple_files",u"java_outer_classname",b"java_outer_classname",u"java_package",b"java_package",u"java_string_check_utf8",b"java_string_check_utf8",u"objc_class_prefix",b"objc_class_prefix",u"optimize_for",b"optimize_for",u"php_class_prefix",b"php_class_prefix",u"php_generic_services",b"php_generic_services",u"php_metadata_namespace",b"php_metadata_namespace",u"php_namespace",b"php_namespace",u"py_generic_services",b"py_generic_services",u"ruby_package",b"ruby_package",u"swift_prefix",b"swift_prefix"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"cc_enable_arenas",b"cc_enable_arenas",u"cc_generic_services",b"cc_generic_services",u"csharp_namespace",b"csharp_namespace",u"deprecated",b"deprecated",u"go_package",b"go_package",u"java_generate_equals_and_hash",b"java_generate_equals_and_hash",u"java_generic_services",b"java_generic_services",u"java_multiple_files",b"java_multiple_files",u"java_outer_classname",b"java_outer_classname",u"java_package",b"java_package",u"java_string_check_utf8",b"java_string_check_utf8",u"objc_class_prefix",b"objc_class_prefix",u"optimize_for",b"optimize_for",u"php_class_prefix",b"php_class_prefix",u"php_generic_services",b"php_generic_services",u"php_metadata_namespace",b"php_metadata_namespace",u"php_namespace",b"php_namespace",u"py_generic_services",b"py_generic_services",u"ruby_package",b"ruby_package",u"swift_prefix",b"swift_prefix",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["cc_enable_arenas",b"cc_enable_arenas","cc_generic_services",b"cc_generic_services","csharp_namespace",b"csharp_namespace","deprecated",b"deprecated","go_package",b"go_package","java_generate_equals_and_hash",b"java_generate_equals_and_hash","java_generic_services",b"java_generic_services","java_multiple_files",b"java_multiple_files","java_outer_classname",b"java_outer_classname","java_package",b"java_package","java_string_check_utf8",b"java_string_check_utf8","objc_class_prefix",b"objc_class_prefix","optimize_for",b"optimize_for","php_class_prefix",b"php_class_prefix","php_generic_services",b"php_generic_services","php_metadata_namespace",b"php_metadata_namespace","php_namespace",b"php_namespace","py_generic_services",b"py_generic_services","ruby_package",b"ruby_package","swift_prefix",b"swift_prefix"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cc_enable_arenas",b"cc_enable_arenas","cc_generic_services",b"cc_generic_services","csharp_namespace",b"csharp_namespace","deprecated",b"deprecated","go_package",b"go_package","java_generate_equals_and_hash",b"java_generate_equals_and_hash","java_generic_services",b"java_generic_services","java_multiple_files",b"java_multiple_files","java_outer_classname",b"java_outer_classname","java_package",b"java_package","java_string_check_utf8",b"java_string_check_utf8","objc_class_prefix",b"objc_class_prefix","optimize_for",b"optimize_for","php_class_prefix",b"php_class_prefix","php_generic_services",b"php_generic_services","php_metadata_namespace",b"php_metadata_namespace","php_namespace",b"php_namespace","py_generic_services",b"py_generic_services","ruby_package",b"ruby_package","swift_prefix",b"swift_prefix","uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___FileOptions = FileOptions
 
 class MessageOptions(google.protobuf.message.Message):
@@ -715,59 +827,68 @@ class MessageOptions(google.protobuf.message.Message):
     DEPRECATED_FIELD_NUMBER: builtins.int
     MAP_ENTRY_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # Set true to use the old proto1 MessageSet wire format for extensions.
-    # This is provided for backwards-compatibility with the MessageSet wire
-    # format.  You should not use this for any other reason:  It's less
-    # efficient, has fewer features, and is more complicated.
-    #
-    # The message must be defined exactly as follows:
-    #   message Foo {
-    #     option message_set_wire_format = true;
-    #     extensions 4 to max;
-    #   }
-    # Note that the message cannot have any defined fields; MessageSets only
-    # have extensions.
-    #
-    # All extensions of your type must be singular messages; e.g. they cannot
-    # be int32s, enums, or repeated messages.
-    #
-    # Because this is an option, the above two restrictions are not enforced by
-    # the protocol compiler.
     message_set_wire_format: builtins.bool = ...
-    # Disables the generation of the standard "descriptor()" accessor, which can
-    # conflict with a field of the same name.  This is meant to make migration
-    # from proto1 easier; new code should avoid fields named "descriptor".
+    """Set true to use the old proto1 MessageSet wire format for extensions.
+    This is provided for backwards-compatibility with the MessageSet wire
+    format.  You should not use this for any other reason:  It's less
+    efficient, has fewer features, and is more complicated.
+
+    The message must be defined exactly as follows:
+      message Foo {
+        option message_set_wire_format = true;
+        extensions 4 to max;
+      }
+    Note that the message cannot have any defined fields; MessageSets only
+    have extensions.
+
+    All extensions of your type must be singular messages; e.g. they cannot
+    be int32s, enums, or repeated messages.
+
+    Because this is an option, the above two restrictions are not enforced by
+    the protocol compiler.
+    """
+
     no_standard_descriptor_accessor: builtins.bool = ...
-    # Is this message deprecated?
-    # Depending on the target platform, this can emit Deprecated annotations
-    # for the message, or it will be completely ignored; in the very least,
-    # this is a formalization for deprecating messages.
+    """Disables the generation of the standard "descriptor()" accessor, which can
+    conflict with a field of the same name.  This is meant to make migration
+    from proto1 easier; new code should avoid fields named "descriptor".
+    """
+
     deprecated: builtins.bool = ...
-    # Whether the message is an automatically generated map entry type for the
-    # maps field.
-    #
-    # For maps fields:
-    #     map<KeyType, ValueType> map_field = 1;
-    # The parsed descriptor looks like:
-    #     message MapFieldEntry {
-    #         option map_entry = true;
-    #         optional KeyType key = 1;
-    #         optional ValueType value = 2;
-    #     }
-    #     repeated MapFieldEntry map_field = 1;
-    #
-    # Implementations may choose not to generate the map_entry=true message, but
-    # use a native map in the target language to hold the keys and values.
-    # The reflection APIs in such implementations still need to work as
-    # if the field is a repeated message field.
-    #
-    # NOTE: Do not set the option in .proto files. Always use the maps syntax
-    # instead. The option should only be implicitly set by the proto compiler
-    # parser.
+    """Is this message deprecated?
+    Depending on the target platform, this can emit Deprecated annotations
+    for the message, or it will be completely ignored; in the very least,
+    this is a formalization for deprecating messages.
+    """
+
     map_entry: builtins.bool = ...
-    # The parser stores options it doesn't recognize here. See above.
+    """Whether the message is an automatically generated map entry type for the
+    maps field.
+
+    For maps fields:
+        map<KeyType, ValueType> map_field = 1;
+    The parsed descriptor looks like:
+        message MapFieldEntry {
+            option map_entry = true;
+            optional KeyType key = 1;
+            optional ValueType value = 2;
+        }
+        repeated MapFieldEntry map_field = 1;
+
+    Implementations may choose not to generate the map_entry=true message, but
+    use a native map in the target language to hold the keys and values.
+    The reflection APIs in such implementations still need to work as
+    if the field is a repeated message field.
+
+    NOTE: Do not set the option in .proto files. Always use the maps syntax
+    instead. The option should only be implicitly set by the proto compiler
+    parser.
+    """
+
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         message_set_wire_format : typing.Optional[builtins.bool] = ...,
@@ -776,8 +897,8 @@ class MessageOptions(google.protobuf.message.Message):
         map_entry : typing.Optional[builtins.bool] = ...,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated",u"map_entry",b"map_entry",u"message_set_wire_format",b"message_set_wire_format",u"no_standard_descriptor_accessor",b"no_standard_descriptor_accessor"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated",u"map_entry",b"map_entry",u"message_set_wire_format",b"message_set_wire_format",u"no_standard_descriptor_accessor",b"no_standard_descriptor_accessor",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated","map_entry",b"map_entry","message_set_wire_format",b"message_set_wire_format","no_standard_descriptor_accessor",b"no_standard_descriptor_accessor"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated","map_entry",b"map_entry","message_set_wire_format",b"message_set_wire_format","no_standard_descriptor_accessor",b"no_standard_descriptor_accessor","uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___MessageOptions = MessageOptions
 
 class FieldOptions(google.protobuf.message.Message):
@@ -788,13 +909,15 @@ class FieldOptions(google.protobuf.message.Message):
         V = typing.NewType('V', builtins.int)
     class _CTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_CType.V], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
-        # Default mode.
         STRING = FieldOptions.CType.V(0)
+        """Default mode."""
+
         CORD = FieldOptions.CType.V(1)
         STRING_PIECE = FieldOptions.CType.V(2)
 
-    # Default mode.
     STRING = FieldOptions.CType.V(0)
+    """Default mode."""
+
     CORD = FieldOptions.CType.V(1)
     STRING_PIECE = FieldOptions.CType.V(2)
 
@@ -804,19 +927,25 @@ class FieldOptions(google.protobuf.message.Message):
         V = typing.NewType('V', builtins.int)
     class _JSTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_JSType.V], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
-        # Use the default type.
         JS_NORMAL = FieldOptions.JSType.V(0)
-        # Use JavaScript strings.
-        JS_STRING = FieldOptions.JSType.V(1)
-        # Use JavaScript numbers.
-        JS_NUMBER = FieldOptions.JSType.V(2)
+        """Use the default type."""
 
-    # Use the default type.
+        JS_STRING = FieldOptions.JSType.V(1)
+        """Use JavaScript strings."""
+
+        JS_NUMBER = FieldOptions.JSType.V(2)
+        """Use JavaScript numbers."""
+
+
     JS_NORMAL = FieldOptions.JSType.V(0)
-    # Use JavaScript strings.
+    """Use the default type."""
+
     JS_STRING = FieldOptions.JSType.V(1)
-    # Use JavaScript numbers.
+    """Use JavaScript strings."""
+
     JS_NUMBER = FieldOptions.JSType.V(2)
+    """Use JavaScript numbers."""
+
 
     CTYPE_FIELD_NUMBER: builtins.int
     PACKED_FIELD_NUMBER: builtins.int
@@ -825,68 +954,80 @@ class FieldOptions(google.protobuf.message.Message):
     DEPRECATED_FIELD_NUMBER: builtins.int
     WEAK_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # The ctype option instructs the C++ code generator to use a different
-    # representation of the field than it normally would.  See the specific
-    # options below.  This option is not yet implemented in the open source
-    # release -- sorry, we'll try to include it in a future version!
     ctype: global___FieldOptions.CType.V = ...
-    # The packed option can be enabled for repeated primitive fields to enable
-    # a more efficient representation on the wire. Rather than repeatedly
-    # writing the tag and type for each element, the entire array is encoded as
-    # a single length-delimited blob. In proto3, only explicit setting it to
-    # false will avoid using packed encoding.
+    """The ctype option instructs the C++ code generator to use a different
+    representation of the field than it normally would.  See the specific
+    options below.  This option is not yet implemented in the open source
+    release -- sorry, we'll try to include it in a future version!
+    """
+
     packed: builtins.bool = ...
-    # The jstype option determines the JavaScript type used for values of the
-    # field.  The option is permitted only for 64 bit integral and fixed types
-    # (int64, uint64, sint64, fixed64, sfixed64).  A field with jstype JS_STRING
-    # is represented as JavaScript string, which avoids loss of precision that
-    # can happen when a large value is converted to a floating point JavaScript.
-    # Specifying JS_NUMBER for the jstype causes the generated JavaScript code to
-    # use the JavaScript "number" type.  The behavior of the default option
-    # JS_NORMAL is implementation dependent.
-    #
-    # This option is an enum to permit additional types to be added, e.g.
-    # goog.math.Integer.
+    """The packed option can be enabled for repeated primitive fields to enable
+    a more efficient representation on the wire. Rather than repeatedly
+    writing the tag and type for each element, the entire array is encoded as
+    a single length-delimited blob. In proto3, only explicit setting it to
+    false will avoid using packed encoding.
+    """
+
     jstype: global___FieldOptions.JSType.V = ...
-    # Should this field be parsed lazily?  Lazy applies only to message-type
-    # fields.  It means that when the outer message is initially parsed, the
-    # inner message's contents will not be parsed but instead stored in encoded
-    # form.  The inner message will actually be parsed when it is first accessed.
-    #
-    # This is only a hint.  Implementations are free to choose whether to use
-    # eager or lazy parsing regardless of the value of this option.  However,
-    # setting this option true suggests that the protocol author believes that
-    # using lazy parsing on this field is worth the additional bookkeeping
-    # overhead typically needed to implement it.
-    #
-    # This option does not affect the public interface of any generated code;
-    # all method signatures remain the same.  Furthermore, thread-safety of the
-    # interface is not affected by this option; const methods remain safe to
-    # call from multiple threads concurrently, while non-const methods continue
-    # to require exclusive access.
-    #
-    #
-    # Note that implementations may choose not to check required fields within
-    # a lazy sub-message.  That is, calling IsInitialized() on the outer message
-    # may return true even if the inner message has missing required fields.
-    # This is necessary because otherwise the inner message would have to be
-    # parsed in order to perform the check, defeating the purpose of lazy
-    # parsing.  An implementation which chooses not to check required fields
-    # must be consistent about it.  That is, for any particular sub-message, the
-    # implementation must either *always* check its required fields, or *never*
-    # check its required fields, regardless of whether or not the message has
-    # been parsed.
+    """The jstype option determines the JavaScript type used for values of the
+    field.  The option is permitted only for 64 bit integral and fixed types
+    (int64, uint64, sint64, fixed64, sfixed64).  A field with jstype JS_STRING
+    is represented as JavaScript string, which avoids loss of precision that
+    can happen when a large value is converted to a floating point JavaScript.
+    Specifying JS_NUMBER for the jstype causes the generated JavaScript code to
+    use the JavaScript "number" type.  The behavior of the default option
+    JS_NORMAL is implementation dependent.
+
+    This option is an enum to permit additional types to be added, e.g.
+    goog.math.Integer.
+    """
+
     lazy: builtins.bool = ...
-    # Is this field deprecated?
-    # Depending on the target platform, this can emit Deprecated annotations
-    # for accessors, or it will be completely ignored; in the very least, this
-    # is a formalization for deprecating fields.
+    """Should this field be parsed lazily?  Lazy applies only to message-type
+    fields.  It means that when the outer message is initially parsed, the
+    inner message's contents will not be parsed but instead stored in encoded
+    form.  The inner message will actually be parsed when it is first accessed.
+
+    This is only a hint.  Implementations are free to choose whether to use
+    eager or lazy parsing regardless of the value of this option.  However,
+    setting this option true suggests that the protocol author believes that
+    using lazy parsing on this field is worth the additional bookkeeping
+    overhead typically needed to implement it.
+
+    This option does not affect the public interface of any generated code;
+    all method signatures remain the same.  Furthermore, thread-safety of the
+    interface is not affected by this option; const methods remain safe to
+    call from multiple threads concurrently, while non-const methods continue
+    to require exclusive access.
+
+
+    Note that implementations may choose not to check required fields within
+    a lazy sub-message.  That is, calling IsInitialized() on the outer message
+    may return true even if the inner message has missing required fields.
+    This is necessary because otherwise the inner message would have to be
+    parsed in order to perform the check, defeating the purpose of lazy
+    parsing.  An implementation which chooses not to check required fields
+    must be consistent about it.  That is, for any particular sub-message, the
+    implementation must either *always* check its required fields, or *never*
+    check its required fields, regardless of whether or not the message has
+    been parsed.
+    """
+
     deprecated: builtins.bool = ...
-    # For Google-internal migration only. Do not use.
+    """Is this field deprecated?
+    Depending on the target platform, this can emit Deprecated annotations
+    for accessors, or it will be completely ignored; in the very least, this
+    is a formalization for deprecating fields.
+    """
+
     weak: builtins.bool = ...
-    # The parser stores options it doesn't recognize here. See above.
+    """For Google-internal migration only. Do not use."""
+
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         ctype : typing.Optional[global___FieldOptions.CType.V] = ...,
@@ -897,21 +1038,22 @@ class FieldOptions(google.protobuf.message.Message):
         weak : typing.Optional[builtins.bool] = ...,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"ctype",b"ctype",u"deprecated",b"deprecated",u"jstype",b"jstype",u"lazy",b"lazy",u"packed",b"packed",u"weak",b"weak"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"ctype",b"ctype",u"deprecated",b"deprecated",u"jstype",b"jstype",u"lazy",b"lazy",u"packed",b"packed",u"uninterpreted_option",b"uninterpreted_option",u"weak",b"weak"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["ctype",b"ctype","deprecated",b"deprecated","jstype",b"jstype","lazy",b"lazy","packed",b"packed","weak",b"weak"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["ctype",b"ctype","deprecated",b"deprecated","jstype",b"jstype","lazy",b"lazy","packed",b"packed","uninterpreted_option",b"uninterpreted_option","weak",b"weak"]) -> None: ...
 global___FieldOptions = FieldOptions
 
 class OneofOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # The parser stores options it doesn't recognize here. See above.
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___OneofOptions = OneofOptions
 
 class EnumOptions(google.protobuf.message.Message):
@@ -919,138 +1061,159 @@ class EnumOptions(google.protobuf.message.Message):
     ALLOW_ALIAS_FIELD_NUMBER: builtins.int
     DEPRECATED_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # Set this option to true to allow mapping different tag names to the same
-    # value.
     allow_alias: builtins.bool = ...
-    # Is this enum deprecated?
-    # Depending on the target platform, this can emit Deprecated annotations
-    # for the enum, or it will be completely ignored; in the very least, this
-    # is a formalization for deprecating enums.
+    """Set this option to true to allow mapping different tag names to the same
+    value.
+    """
+
     deprecated: builtins.bool = ...
-    # The parser stores options it doesn't recognize here. See above.
+    """Is this enum deprecated?
+    Depending on the target platform, this can emit Deprecated annotations
+    for the enum, or it will be completely ignored; in the very least, this
+    is a formalization for deprecating enums.
+    """
+
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         allow_alias : typing.Optional[builtins.bool] = ...,
         deprecated : typing.Optional[builtins.bool] = ...,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"allow_alias",b"allow_alias",u"deprecated",b"deprecated"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"allow_alias",b"allow_alias",u"deprecated",b"deprecated",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["allow_alias",b"allow_alias","deprecated",b"deprecated"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["allow_alias",b"allow_alias","deprecated",b"deprecated","uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___EnumOptions = EnumOptions
 
 class EnumValueOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     DEPRECATED_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # Is this enum value deprecated?
-    # Depending on the target platform, this can emit Deprecated annotations
-    # for the enum value, or it will be completely ignored; in the very least,
-    # this is a formalization for deprecating enum values.
     deprecated: builtins.bool = ...
-    # The parser stores options it doesn't recognize here. See above.
+    """Is this enum value deprecated?
+    Depending on the target platform, this can emit Deprecated annotations
+    for the enum value, or it will be completely ignored; in the very least,
+    this is a formalization for deprecating enum values.
+    """
+
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         deprecated : typing.Optional[builtins.bool] = ...,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated","uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___EnumValueOptions = EnumValueOptions
 
 class ServiceOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     DEPRECATED_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # Note:  Field numbers 1 through 32 are reserved for Google's internal RPC
-    #   framework.  We apologize for hoarding these numbers to ourselves, but
-    #   we were already using them long before we decided to release Protocol
-    #   Buffers.
-
-    # Is this service deprecated?
-    # Depending on the target platform, this can emit Deprecated annotations
-    # for the service, or it will be completely ignored; in the very least,
-    # this is a formalization for deprecating services.
     deprecated: builtins.bool = ...
-    # The parser stores options it doesn't recognize here. See above.
+    """Note:  Field numbers 1 through 32 are reserved for Google's internal RPC
+      framework.  We apologize for hoarding these numbers to ourselves, but
+      we were already using them long before we decided to release Protocol
+      Buffers.
+
+    Is this service deprecated?
+    Depending on the target platform, this can emit Deprecated annotations
+    for the service, or it will be completely ignored; in the very least,
+    this is a formalization for deprecating services.
+    """
+
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         deprecated : typing.Optional[builtins.bool] = ...,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated","uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___ServiceOptions = ServiceOptions
 
 class MethodOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
-    # Is this method side-effect-free (or safe in HTTP parlance), or idempotent,
-    # or neither? HTTP based RPC implementation may choose GET verb for safe
-    # methods, and PUT verb for idempotent methods instead of the default POST.
     class IdempotencyLevel(_IdempotencyLevel, metaclass=_IdempotencyLevelEnumTypeWrapper):
+        """Is this method side-effect-free (or safe in HTTP parlance), or idempotent,
+        or neither? HTTP based RPC implementation may choose GET verb for safe
+        methods, and PUT verb for idempotent methods instead of the default POST.
+        """
         pass
     class _IdempotencyLevel:
         V = typing.NewType('V', builtins.int)
     class _IdempotencyLevelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_IdempotencyLevel.V], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
         IDEMPOTENCY_UNKNOWN = MethodOptions.IdempotencyLevel.V(0)
-        # implies idempotent
         NO_SIDE_EFFECTS = MethodOptions.IdempotencyLevel.V(1)
-        # idempotent, but may have side effects
+        """implies idempotent"""
+
         IDEMPOTENT = MethodOptions.IdempotencyLevel.V(2)
+        """idempotent, but may have side effects"""
+
 
     IDEMPOTENCY_UNKNOWN = MethodOptions.IdempotencyLevel.V(0)
-    # implies idempotent
     NO_SIDE_EFFECTS = MethodOptions.IdempotencyLevel.V(1)
-    # idempotent, but may have side effects
+    """implies idempotent"""
+
     IDEMPOTENT = MethodOptions.IdempotencyLevel.V(2)
+    """idempotent, but may have side effects"""
+
 
     DEPRECATED_FIELD_NUMBER: builtins.int
     IDEMPOTENCY_LEVEL_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
-    # Note:  Field numbers 1 through 32 are reserved for Google's internal RPC
-    #   framework.  We apologize for hoarding these numbers to ourselves, but
-    #   we were already using them long before we decided to release Protocol
-    #   Buffers.
-
-    # Is this method deprecated?
-    # Depending on the target platform, this can emit Deprecated annotations
-    # for the method, or it will be completely ignored; in the very least,
-    # this is a formalization for deprecating methods.
     deprecated: builtins.bool = ...
+    """Note:  Field numbers 1 through 32 are reserved for Google's internal RPC
+      framework.  We apologize for hoarding these numbers to ourselves, but
+      we were already using them long before we decided to release Protocol
+      Buffers.
+
+    Is this method deprecated?
+    Depending on the target platform, this can emit Deprecated annotations
+    for the method, or it will be completely ignored; in the very least,
+    this is a formalization for deprecating methods.
+    """
+
     idempotency_level: global___MethodOptions.IdempotencyLevel.V = ...
-    # The parser stores options it doesn't recognize here. See above.
     @property
-    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]: ...
+    def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
+        """The parser stores options it doesn't recognize here. See above."""
+        pass
     def __init__(self,
         *,
         deprecated : typing.Optional[builtins.bool] = ...,
         idempotency_level : typing.Optional[global___MethodOptions.IdempotencyLevel.V] = ...,
         uninterpreted_option : typing.Optional[typing.Iterable[global___UninterpretedOption]] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated",u"idempotency_level",b"idempotency_level"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"deprecated",b"deprecated",u"idempotency_level",b"idempotency_level",u"uninterpreted_option",b"uninterpreted_option"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated","idempotency_level",b"idempotency_level"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["deprecated",b"deprecated","idempotency_level",b"idempotency_level","uninterpreted_option",b"uninterpreted_option"]) -> None: ...
 global___MethodOptions = MethodOptions
 
-# A message representing a option the parser does not recognize. This only
-# appears in options protos created by the compiler::Parser class.
-# DescriptorPool resolves these when building Descriptor objects. Therefore,
-# options protos in descriptor objects (e.g. returned by Descriptor::options(),
-# or produced by Descriptor::CopyTo()) will never have UninterpretedOptions
-# in them.
 class UninterpretedOption(google.protobuf.message.Message):
+    """A message representing a option the parser does not recognize. This only
+    appears in options protos created by the compiler::Parser class.
+    DescriptorPool resolves these when building Descriptor objects. Therefore,
+    options protos in descriptor objects (e.g. returned by Descriptor::options(),
+    or produced by Descriptor::CopyTo()) will never have UninterpretedOptions
+    in them.
+    """
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
-    # The name of the uninterpreted option.  Each string represents a segment in
-    # a dot-separated name.  is_extension is true iff a segment represents an
-    # extension (denoted with parentheses in options specs in .proto files).
-    # E.g.,{ ["foo", false], ["bar.baz", true], ["qux", false] } represents
-    # "foo.(bar.baz).qux".
     class NamePart(google.protobuf.message.Message):
+        """The name of the uninterpreted option.  Each string represents a segment in
+        a dot-separated name.  is_extension is true iff a segment represents an
+        extension (denoted with parentheses in options specs in .proto files).
+        E.g.,{ ["foo", false], ["bar.baz", true], ["qux", false] } represents
+        "foo.(bar.baz).qux".
+        """
         DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
         NAME_PART_FIELD_NUMBER: builtins.int
         IS_EXTENSION_FIELD_NUMBER: builtins.int
@@ -1061,8 +1224,8 @@ class UninterpretedOption(google.protobuf.message.Message):
             name_part : typing.Optional[typing.Text] = ...,
             is_extension : typing.Optional[builtins.bool] = ...,
             ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal[u"is_extension",b"is_extension",u"name_part",b"name_part"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal[u"is_extension",b"is_extension",u"name_part",b"name_part"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["is_extension",b"is_extension","name_part",b"name_part"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["is_extension",b"is_extension","name_part",b"name_part"]) -> None: ...
 
     NAME_FIELD_NUMBER: builtins.int
     IDENTIFIER_VALUE_FIELD_NUMBER: builtins.int
@@ -1073,9 +1236,11 @@ class UninterpretedOption(google.protobuf.message.Message):
     AGGREGATE_VALUE_FIELD_NUMBER: builtins.int
     @property
     def name(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption.NamePart]: ...
-    # The value of the uninterpreted option, in whatever type the tokenizer
-    # identified it as during parsing. Exactly one of these should be set.
     identifier_value: typing.Text = ...
+    """The value of the uninterpreted option, in whatever type the tokenizer
+    identified it as during parsing. Exactly one of these should be set.
+    """
+
     positive_int_value: builtins.int = ...
     negative_int_value: builtins.int = ...
     double_value: builtins.float = ...
@@ -1091,16 +1256,17 @@ class UninterpretedOption(google.protobuf.message.Message):
         string_value : typing.Optional[builtins.bytes] = ...,
         aggregate_value : typing.Optional[typing.Text] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal[u"aggregate_value",b"aggregate_value",u"double_value",b"double_value",u"identifier_value",b"identifier_value",u"negative_int_value",b"negative_int_value",u"positive_int_value",b"positive_int_value",u"string_value",b"string_value"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"aggregate_value",b"aggregate_value",u"double_value",b"double_value",u"identifier_value",b"identifier_value",u"name",b"name",u"negative_int_value",b"negative_int_value",u"positive_int_value",b"positive_int_value",u"string_value",b"string_value"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["aggregate_value",b"aggregate_value","double_value",b"double_value","identifier_value",b"identifier_value","negative_int_value",b"negative_int_value","positive_int_value",b"positive_int_value","string_value",b"string_value"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["aggregate_value",b"aggregate_value","double_value",b"double_value","identifier_value",b"identifier_value","name",b"name","negative_int_value",b"negative_int_value","positive_int_value",b"positive_int_value","string_value",b"string_value"]) -> None: ...
 global___UninterpretedOption = UninterpretedOption
 
-# ===================================================================
-# Optional source code info
-
-# Encapsulates information about the original source file from which a
-# FileDescriptorProto was generated.
 class SourceCodeInfo(google.protobuf.message.Message):
+    """===================================================================
+    Optional source code info
+
+    Encapsulates information about the original source file from which a
+    FileDescriptorProto was generated.
+    """
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     class Location(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
@@ -1109,86 +1275,92 @@ class SourceCodeInfo(google.protobuf.message.Message):
         LEADING_COMMENTS_FIELD_NUMBER: builtins.int
         TRAILING_COMMENTS_FIELD_NUMBER: builtins.int
         LEADING_DETACHED_COMMENTS_FIELD_NUMBER: builtins.int
-        # Identifies which part of the FileDescriptorProto was defined at this
-        # location.
-        #
-        # Each element is a field number or an index.  They form a path from
-        # the root FileDescriptorProto to the place where the definition.  For
-        # example, this path:
-        #   [ 4, 3, 2, 7, 1 ]
-        # refers to:
-        #   file.message_type(3)  // 4, 3
-        #       .field(7)         // 2, 7
-        #       .name()           // 1
-        # This is because FileDescriptorProto.message_type has field number 4:
-        #   repeated DescriptorProto message_type = 4;
-        # and DescriptorProto.field has field number 2:
-        #   repeated FieldDescriptorProto field = 2;
-        # and FieldDescriptorProto.name has field number 1:
-        #   optional string name = 1;
-        #
-        # Thus, the above path gives the location of a field name.  If we removed
-        # the last element:
-        #   [ 4, 3, 2, 7 ]
-        # this path refers to the whole field declaration (from the beginning
-        # of the label to the terminating semicolon).
         @property
-        def path(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
-        # Always has exactly three or four elements: start line, start column,
-        # end line (optional, otherwise assumed same as start line), end column.
-        # These are packed into a single field for efficiency.  Note that line
-        # and column numbers are zero-based -- typically you will want to add
-        # 1 to each before displaying to a user.
+        def path(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+            """Identifies which part of the FileDescriptorProto was defined at this
+            location.
+
+            Each element is a field number or an index.  They form a path from
+            the root FileDescriptorProto to the place where the definition.  For
+            example, this path:
+              [ 4, 3, 2, 7, 1 ]
+            refers to:
+              file.message_type(3)  // 4, 3
+                  .field(7)         // 2, 7
+                  .name()           // 1
+            This is because FileDescriptorProto.message_type has field number 4:
+              repeated DescriptorProto message_type = 4;
+            and DescriptorProto.field has field number 2:
+              repeated FieldDescriptorProto field = 2;
+            and FieldDescriptorProto.name has field number 1:
+              optional string name = 1;
+
+            Thus, the above path gives the location of a field name.  If we removed
+            the last element:
+              [ 4, 3, 2, 7 ]
+            this path refers to the whole field declaration (from the beginning
+            of the label to the terminating semicolon).
+            """
+            pass
         @property
-        def span(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
-        # If this SourceCodeInfo represents a complete declaration, these are any
-        # comments appearing before and after the declaration which appear to be
-        # attached to the declaration.
-        #
-        # A series of line comments appearing on consecutive lines, with no other
-        # tokens appearing on those lines, will be treated as a single comment.
-        #
-        # leading_detached_comments will keep paragraphs of comments that appear
-        # before (but not connected to) the current element. Each paragraph,
-        # separated by empty lines, will be one comment element in the repeated
-        # field.
-        #
-        # Only the comment content is provided; comment markers (e.g. //) are
-        # stripped out.  For block comments, leading whitespace and an asterisk
-        # will be stripped from the beginning of each line other than the first.
-        # Newlines are included in the output.
-        #
-        # Examples:
-        #
-        #   optional int32 foo = 1;  // Comment attached to foo.
-        #   // Comment attached to bar.
-        #   optional int32 bar = 2;
-        #
-        #   optional string baz = 3;
-        #   // Comment attached to baz.
-        #   // Another line attached to baz.
-        #
-        #   // Comment attached to qux.
-        #   //
-        #   // Another line attached to qux.
-        #   optional double qux = 4;
-        #
-        #   // Detached comment for corge. This is not leading or trailing comments
-        #   // to qux or corge because there are blank lines separating it from
-        #   // both.
-        #
-        #   // Detached comment for corge paragraph 2.
-        #
-        #   optional string corge = 5;
-        #   /* Block comment attached
-        #    * to corge.  Leading asterisks
-        #    * will be removed. */
-        #   /* Block comment attached to
-        #    * grault. */
-        #   optional int32 grault = 6;
-        #
-        #   // ignored detached comments.
+        def span(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+            """Always has exactly three or four elements: start line, start column,
+            end line (optional, otherwise assumed same as start line), end column.
+            These are packed into a single field for efficiency.  Note that line
+            and column numbers are zero-based -- typically you will want to add
+            1 to each before displaying to a user.
+            """
+            pass
         leading_comments: typing.Text = ...
+        """If this SourceCodeInfo represents a complete declaration, these are any
+        comments appearing before and after the declaration which appear to be
+        attached to the declaration.
+
+        A series of line comments appearing on consecutive lines, with no other
+        tokens appearing on those lines, will be treated as a single comment.
+
+        leading_detached_comments will keep paragraphs of comments that appear
+        before (but not connected to) the current element. Each paragraph,
+        separated by empty lines, will be one comment element in the repeated
+        field.
+
+        Only the comment content is provided; comment markers (e.g. //) are
+        stripped out.  For block comments, leading whitespace and an asterisk
+        will be stripped from the beginning of each line other than the first.
+        Newlines are included in the output.
+
+        Examples:
+
+          optional int32 foo = 1;  // Comment attached to foo.
+          // Comment attached to bar.
+          optional int32 bar = 2;
+
+          optional string baz = 3;
+          // Comment attached to baz.
+          // Another line attached to baz.
+
+          // Comment attached to qux.
+          //
+          // Another line attached to qux.
+          optional double qux = 4;
+
+          // Detached comment for corge. This is not leading or trailing comments
+          // to qux or corge because there are blank lines separating it from
+          // both.
+
+          // Detached comment for corge paragraph 2.
+
+          optional string corge = 5;
+          /* Block comment attached
+           * to corge.  Leading asterisks
+           * will be removed. */
+          /* Block comment attached to
+           * grault. */
+          optional int32 grault = 6;
+
+          // ignored detached comments.
+        """
+
         trailing_comments: typing.Text = ...
         @property
         def leading_detached_comments(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]: ...
@@ -1200,66 +1372,69 @@ class SourceCodeInfo(google.protobuf.message.Message):
             trailing_comments : typing.Optional[typing.Text] = ...,
             leading_detached_comments : typing.Optional[typing.Iterable[typing.Text]] = ...,
             ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal[u"leading_comments",b"leading_comments",u"trailing_comments",b"trailing_comments"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal[u"leading_comments",b"leading_comments",u"leading_detached_comments",b"leading_detached_comments",u"path",b"path",u"span",b"span",u"trailing_comments",b"trailing_comments"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["leading_comments",b"leading_comments","trailing_comments",b"trailing_comments"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["leading_comments",b"leading_comments","leading_detached_comments",b"leading_detached_comments","path",b"path","span",b"span","trailing_comments",b"trailing_comments"]) -> None: ...
 
     LOCATION_FIELD_NUMBER: builtins.int
-    # A Location identifies a piece of source code in a .proto file which
-    # corresponds to a particular definition.  This information is intended
-    # to be useful to IDEs, code indexers, documentation generators, and similar
-    # tools.
-    #
-    # For example, say we have a file like:
-    #   message Foo {
-    #     optional string foo = 1;
-    #   }
-    # Let's look at just the field definition:
-    #   optional string foo = 1;
-    #   ^       ^^     ^^  ^  ^^^
-    #   a       bc     de  f  ghi
-    # We have the following locations:
-    #   span   path               represents
-    #   [a,i)  [ 4, 0, 2, 0 ]     The whole field definition.
-    #   [a,b)  [ 4, 0, 2, 0, 4 ]  The label (optional).
-    #   [c,d)  [ 4, 0, 2, 0, 5 ]  The type (string).
-    #   [e,f)  [ 4, 0, 2, 0, 1 ]  The name (foo).
-    #   [g,h)  [ 4, 0, 2, 0, 3 ]  The number (1).
-    #
-    # Notes:
-    # - A location may refer to a repeated field itself (i.e. not to any
-    #   particular index within it).  This is used whenever a set of elements are
-    #   logically enclosed in a single code segment.  For example, an entire
-    #   extend block (possibly containing multiple extension definitions) will
-    #   have an outer location whose path refers to the "extensions" repeated
-    #   field without an index.
-    # - Multiple locations may have the same path.  This happens when a single
-    #   logical declaration is spread out across multiple places.  The most
-    #   obvious example is the "extend" block again -- there may be multiple
-    #   extend blocks in the same scope, each of which will have the same path.
-    # - A location's span is not always a subset of its parent's span.  For
-    #   example, the "extendee" of an extension declaration appears at the
-    #   beginning of the "extend" block and is shared by all extensions within
-    #   the block.
-    # - Just because a location's span is a subset of some other location's span
-    #   does not mean that it is a descendant.  For example, a "group" defines
-    #   both a type and a field in a single declaration.  Thus, the locations
-    #   corresponding to the type and field and their components will overlap.
-    # - Code which tries to interpret locations should probably be designed to
-    #   ignore those that it doesn't understand, as more types of locations could
-    #   be recorded in the future.
     @property
-    def location(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SourceCodeInfo.Location]: ...
+    def location(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SourceCodeInfo.Location]:
+        """A Location identifies a piece of source code in a .proto file which
+        corresponds to a particular definition.  This information is intended
+        to be useful to IDEs, code indexers, documentation generators, and similar
+        tools.
+
+        For example, say we have a file like:
+          message Foo {
+            optional string foo = 1;
+          }
+        Let's look at just the field definition:
+          optional string foo = 1;
+          ^       ^^     ^^  ^  ^^^
+          a       bc     de  f  ghi
+        We have the following locations:
+          span   path               represents
+          [a,i)  [ 4, 0, 2, 0 ]     The whole field definition.
+          [a,b)  [ 4, 0, 2, 0, 4 ]  The label (optional).
+          [c,d)  [ 4, 0, 2, 0, 5 ]  The type (string).
+          [e,f)  [ 4, 0, 2, 0, 1 ]  The name (foo).
+          [g,h)  [ 4, 0, 2, 0, 3 ]  The number (1).
+
+        Notes:
+        - A location may refer to a repeated field itself (i.e. not to any
+          particular index within it).  This is used whenever a set of elements are
+          logically enclosed in a single code segment.  For example, an entire
+          extend block (possibly containing multiple extension definitions) will
+          have an outer location whose path refers to the "extensions" repeated
+          field without an index.
+        - Multiple locations may have the same path.  This happens when a single
+          logical declaration is spread out across multiple places.  The most
+          obvious example is the "extend" block again -- there may be multiple
+          extend blocks in the same scope, each of which will have the same path.
+        - A location's span is not always a subset of its parent's span.  For
+          example, the "extendee" of an extension declaration appears at the
+          beginning of the "extend" block and is shared by all extensions within
+          the block.
+        - Just because a location's span is a subset of some other location's span
+          does not mean that it is a descendant.  For example, a "group" defines
+          both a type and a field in a single declaration.  Thus, the locations
+          corresponding to the type and field and their components will overlap.
+        - Code which tries to interpret locations should probably be designed to
+          ignore those that it doesn't understand, as more types of locations could
+          be recorded in the future.
+        """
+        pass
     def __init__(self,
         *,
         location : typing.Optional[typing.Iterable[global___SourceCodeInfo.Location]] = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"location",b"location"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["location",b"location"]) -> None: ...
 global___SourceCodeInfo = SourceCodeInfo
 
-# Describes the relationship between generated code and its original source
-# file. A GeneratedCodeInfo message is associated with only one generated
-# source file, but may contain references to different source .proto files.
 class GeneratedCodeInfo(google.protobuf.message.Message):
+    """Describes the relationship between generated code and its original source
+    file. A GeneratedCodeInfo message is associated with only one generated
+    source file, but may contain references to different source .proto files.
+    """
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     class Annotation(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
@@ -1267,19 +1442,26 @@ class GeneratedCodeInfo(google.protobuf.message.Message):
         SOURCE_FILE_FIELD_NUMBER: builtins.int
         BEGIN_FIELD_NUMBER: builtins.int
         END_FIELD_NUMBER: builtins.int
-        # Identifies the element in the original source .proto file. This field
-        # is formatted the same as SourceCodeInfo.Location.path.
         @property
-        def path(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
-        # Identifies the filesystem path to the original source .proto.
+        def path(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+            """Identifies the element in the original source .proto file. This field
+            is formatted the same as SourceCodeInfo.Location.path.
+            """
+            pass
         source_file: typing.Text = ...
-        # Identifies the starting offset in bytes in the generated code
-        # that relates to the identified object.
+        """Identifies the filesystem path to the original source .proto."""
+
         begin: builtins.int = ...
-        # Identifies the ending offset in bytes in the generated code that
-        # relates to the identified offset. The end offset should be one past
-        # the last relevant byte (so the length of the text = end - begin).
+        """Identifies the starting offset in bytes in the generated code
+        that relates to the identified object.
+        """
+
         end: builtins.int = ...
+        """Identifies the ending offset in bytes in the generated code that
+        relates to the identified offset. The end offset should be one past
+        the last relevant byte (so the length of the text = end - begin).
+        """
+
         def __init__(self,
             *,
             path : typing.Optional[typing.Iterable[builtins.int]] = ...,
@@ -1287,17 +1469,19 @@ class GeneratedCodeInfo(google.protobuf.message.Message):
             begin : typing.Optional[builtins.int] = ...,
             end : typing.Optional[builtins.int] = ...,
             ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal[u"begin",b"begin",u"end",b"end",u"source_file",b"source_file"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal[u"begin",b"begin",u"end",b"end",u"path",b"path",u"source_file",b"source_file"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["begin",b"begin","end",b"end","source_file",b"source_file"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["begin",b"begin","end",b"end","path",b"path","source_file",b"source_file"]) -> None: ...
 
     ANNOTATION_FIELD_NUMBER: builtins.int
-    # An Annotation connects some span of text in generated code to an element
-    # of its generating .proto file.
     @property
-    def annotation(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___GeneratedCodeInfo.Annotation]: ...
+    def annotation(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___GeneratedCodeInfo.Annotation]:
+        """An Annotation connects some span of text in generated code to an element
+        of its generating .proto file.
+        """
+        pass
     def __init__(self,
         *,
         annotation : typing.Optional[typing.Iterable[global___GeneratedCodeInfo.Annotation]] = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal[u"annotation",b"annotation"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["annotation",b"annotation"]) -> None: ...
 global___GeneratedCodeInfo = GeneratedCodeInfo

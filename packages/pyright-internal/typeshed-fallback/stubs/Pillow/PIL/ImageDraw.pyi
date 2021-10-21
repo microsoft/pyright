@@ -3,9 +3,9 @@ from typing import Any, Sequence, Tuple, Union, overload
 from typing_extensions import Literal
 
 from .Image import Image
+from .ImageColor import _Ink
 from .ImageFont import _Font
 
-_Ink = Union[str, int, Tuple[int, int, int]]
 _XY = Sequence[Union[float, Tuple[float, float]]]
 _Outline = Any
 

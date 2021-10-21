@@ -1,5 +1,5 @@
 import sys
-from typing import FrozenSet, Tuple
+from typing import FrozenSet
 
 from .connections import Connection as Connection
 from .constants import FIELD_TYPE as FIELD_TYPE
@@ -53,7 +53,7 @@ else:
 def get_client_info() -> str: ...
 
 __version__: str
-version_info: Tuple[int, int, int, str, int]
+version_info: tuple[int, int, int, str, int]
 NULL: str
 
 # pymysql/__init__.py says "Connect = connect = Connection = connections.Connection"
