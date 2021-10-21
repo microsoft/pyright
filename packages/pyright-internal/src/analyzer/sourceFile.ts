@@ -64,8 +64,9 @@ import { TypeEvaluator } from './typeEvaluatorTypes';
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
 
-// Allow files up to 32MB in length.
-const _maxSourceFileSize = 32 * 1024 * 1024;
+// Allow files up to 50MB in length, same as VS Code.
+// https://github.com/microsoft/vscode/blob/1e750a7514f365585d8dab1a7a82e0938481ea2f/src/vs/editor/common/model/textModel.ts#L194
+const _maxSourceFileSize = 50 * 1024 * 1024;
 
 interface ResolveImportResult {
     imports: ImportResult[];
