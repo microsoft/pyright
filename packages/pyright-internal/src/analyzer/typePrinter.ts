@@ -219,9 +219,12 @@ export function printType(
                 if (type.details.paramSpec) {
                     if (type.details.parameters.length > 0) {
                         // Remove the args and kwargs parameters from the end.
-                        const paramTypes = type.details.parameters.map((param) =>
-                            printType(param.type, printTypeFlags, returnTypeCallback, recursionTypes)
-                        );
+                        const paramTypes = type.details.parameters.map((param) => {
+                            if (!param.name) {
+                                return param.category === ParameterCategory.Simple ? '/' : '*';
+                            }
+                            return printType(param.type, printTypeFlags, returnTypeCallback, recursionTypes);
+                        });
                         return `Callable[Concatenate[${paramTypes.join(', ')}, ${TypeVarType.getReadableName(
                             type.details.paramSpec
                         )}], ${parts[1]}]`;
