@@ -1785,23 +1785,25 @@ export function removeParamSpecVariadicsFromSignature(type: FunctionType | Overl
 }
 
 function _removeParamSpecVariadicsFromFunction(type: FunctionType): FunctionType {
-    if (!type.details.paramSpec) {
-        return type;
-    }
-
     const paramCount = type.details.parameters.length;
     if (paramCount < 2) {
         return type;
     }
 
+    const argsParam = type.details.parameters[paramCount - 2];
+    const kwargsParam = type.details.parameters[paramCount - 1];
+
     if (
-        type.details.parameters[paramCount - 2].category !== ParameterCategory.VarArgList ||
-        type.details.parameters[paramCount - 1].category !== ParameterCategory.VarArgDictionary
+        argsParam.category !== ParameterCategory.VarArgList ||
+        kwargsParam.category !== ParameterCategory.VarArgDictionary ||
+        !isParamSpec(argsParam.type) ||
+        !isParamSpec(kwargsParam.type) ||
+        !isTypeSame(argsParam.type, kwargsParam.type)
     ) {
         return type;
     }
 
-    return FunctionType.cloneRemoveParamSpecVariadics(type);
+    return FunctionType.cloneRemoveParamSpecVariadics(type, argsParam.type);
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing

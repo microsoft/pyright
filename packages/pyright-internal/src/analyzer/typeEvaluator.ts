@@ -17572,7 +17572,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     srcType
                                 );
                                 if (boundSrcFunction) {
-                                    srcMemberType = boundSrcFunction;
+                                    srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
                                 }
 
                                 if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
@@ -17586,7 +17586,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         srcType
                                     );
                                     if (boundDeclaredType) {
-                                        destMemberType = boundDeclaredType;
+                                        destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
                                     }
                                 }
                             } else if (isInstantiableClass(srcMemberInfo.classType)) {
@@ -17598,7 +17598,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     recursionCount + 1
                                 );
                                 if (boundSrcFunction) {
-                                    srcMemberType = boundSrcFunction;
+                                    srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
                                 }
 
                                 if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
@@ -17610,7 +17610,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         recursionCount + 1
                                     );
                                     if (boundDeclaredType) {
-                                        destMemberType = boundDeclaredType;
+                                        destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
                                     }
                                 }
                             }

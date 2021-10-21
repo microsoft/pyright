@@ -1253,7 +1253,7 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    export function cloneRemoveParamSpecVariadics(type: FunctionType) {
+    export function cloneRemoveParamSpecVariadics(type: FunctionType, paramSpec: TypeVarType) {
         const newFunction = create(
             type.details.name,
             type.details.fullName,
@@ -1271,6 +1271,10 @@ export namespace FunctionType {
             0,
             newFunction.details.parameters.length - 2
         );
+
+        if (!newFunction.details.paramSpec) {
+            newFunction.details.paramSpec = paramSpec;
+        }
 
         return newFunction;
     }
