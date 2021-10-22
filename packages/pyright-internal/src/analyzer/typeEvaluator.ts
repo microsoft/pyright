@@ -21620,6 +21620,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getScopeIdForNode,
         makeTopLevelTypeVarsConcrete,
         mapSubtypesExpandTypeVars,
+        populateTypeVarMapBasedOnExpectedType,
         getEffectiveTypeOfSymbol,
         getEffectiveTypeOfSymbolForUsage,
         getFunctionDeclaredReturnType,

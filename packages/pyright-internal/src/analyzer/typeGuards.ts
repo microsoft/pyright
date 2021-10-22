@@ -48,6 +48,7 @@ import {
 } from './types';
 import {
     addConditionToType,
+    applySolvedTypeVars,
     canBeFalsy,
     canBeTruthy,
     ClassMember,
@@ -56,6 +57,7 @@ import {
     convertToInstantiable,
     doForEachSubtype,
     getTypeCondition,
+    getTypeVarScopeId,
     isLiteralType,
     isLiteralTypeOrUnion,
     isOpenEndedTupleClass,
@@ -67,6 +69,7 @@ import {
     removeTruthinessFromType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
+import { TypeVarMap } from './typeVarMap';
 
 export type TypeNarrowingCallback = (type: Type) => Type | undefined;
 
@@ -639,7 +642,41 @@ function narrowTypeForIsInstance(
                     } else if (filterIsSubclass) {
                         // If the variable type is a superclass of the isinstance
                         // filter, we can narrow the type to the subclass.
-                        filteredTypes.push(addConditionToType(filterType, constraints));
+                        let specializedFilterType = filterType;
+
+                        // Try to retain the type arguments for the filter type. This is
+                        // important because a specialized version of the filter cannot
+                        // be passed to isinstance or issubclass.
+                        if (isClass(filterType)) {
+                            if (
+                                ClassType.isSpecialBuiltIn(filterType) ||
+                                filterType.details.typeParameters.length > 0
+                            ) {
+                                const typeVarMap = new TypeVarMap(getTypeVarScopeId(filterType));
+                                const unspecializedFilterType = ClassType.cloneForSpecialization(
+                                    filterType,
+                                    /* typeArguments */ undefined,
+                                    /* isTypeArgumentExplicit */ false
+                                );
+
+                                if (
+                                    evaluator.populateTypeVarMapBasedOnExpectedType(
+                                        unspecializedFilterType,
+                                        ClassType.cloneAsInstance(varType),
+                                        typeVarMap,
+                                        []
+                                    )
+                                ) {
+                                    specializedFilterType = applySolvedTypeVars(
+                                        unspecializedFilterType,
+                                        typeVarMap,
+                                        /* unknownIfNotFound */ true
+                                    ) as ClassType;
+                                }
+                            }
+                        }
+
+                        filteredTypes.push(addConditionToType(specializedFilterType, constraints));
                     } else if (allowIntersections) {
                         // The two types appear to have no relation. It's possible that the
                         // two types are protocols or the program is expecting one type to
