@@ -47,9 +47,11 @@ import {
     UnknownType,
 } from './types';
 import {
+    applySolvedTypeVars,
     convertToInstance,
     doForEachSubtype,
     getTypeCondition,
+    getTypeVarScopeId,
     isLiteralType,
     isOpenEndedTupleClass,
     isTupleClass,
@@ -59,6 +61,7 @@ import {
     specializeTupleClass,
     stripLiteralValue,
 } from './typeUtils';
+import { TypeVarMap } from './typeVarMap';
 
 // PEP 634 indicates that several built-in classes are handled differently
 // when used with class pattern matching.
@@ -524,6 +527,36 @@ function narrowTypeBasedOnClassPattern(
                             )
                         ) {
                             resultType = convertToInstance(unexpandedSubtype);
+
+                            // Try to retain the type arguments for the pattern class type.
+                            if (isInstantiableClass(unexpandedSubtype) && isClassInstance(matchSubtype)) {
+                                if (
+                                    ClassType.isSpecialBuiltIn(unexpandedSubtype) ||
+                                    unexpandedSubtype.details.typeParameters.length > 0
+                                ) {
+                                    const typeVarMap = new TypeVarMap(getTypeVarScopeId(unexpandedSubtype));
+                                    const unspecializedMatchType = ClassType.cloneForSpecialization(
+                                        unexpandedSubtype,
+                                        /* typeArguments */ undefined,
+                                        /* isTypeArgumentExplicit */ false
+                                    );
+
+                                    if (
+                                        evaluator.populateTypeVarMapBasedOnExpectedType(
+                                            unspecializedMatchType,
+                                            matchSubtype,
+                                            typeVarMap,
+                                            []
+                                        )
+                                    ) {
+                                        resultType = applySolvedTypeVars(
+                                            ClassType.cloneAsInstance(unspecializedMatchType),
+                                            typeVarMap,
+                                            /* unknownIfNotFound */ true
+                                        ) as ClassType;
+                                    }
+                                }
+                            }
                         } else {
                             return undefined;
                         }

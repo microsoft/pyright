@@ -213,3 +213,28 @@ def func7(subj: object):
         case complex(real=a, imag=b):
             t_a1: Literal["float"] = reveal_type(a)
             t_b1: Literal["float"] = reveal_type(b)
+
+T2 = TypeVar("T2")
+
+
+class Parent(Generic[T]):
+    ...
+
+
+class Child1(Parent[T]):
+    ...
+
+
+class Child2(Parent[T], Generic[T, T2]):
+    ...
+
+
+def other_func(subj: Parent[int]):
+    match subj:
+        case Child1() as a1:
+            t_a1: Literal['Child1[int]'] = reveal_type(a1)
+            t_a: Literal['Child1[int]'] = reveal_type(subj)
+
+        case Child2() as b1:
+            t_b1: Literal['Child2[int, Unknown]'] = reveal_type(b1)
+            t_b: Literal['Child2[int, Unknown]'] = reveal_type(subj)
