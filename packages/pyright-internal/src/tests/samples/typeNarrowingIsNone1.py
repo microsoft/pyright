@@ -49,7 +49,7 @@ _T2 = TypeVar("_T2")
 
 def func4(x: _T2) -> _T2:
     if x is None:
-        t1: Literal["None*"] = reveal_type(x)
+        t1: Literal["None"] = reveal_type(x)
         raise ValueError()
     else:
         t2: Literal["_T2@func4"] = reveal_type(x)

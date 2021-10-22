@@ -2637,7 +2637,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return subtype.details.isSynthesized
                         ? boundType
                         : addConditionToType(boundType, [
-                              { typeVarName: TypeVarType.getNameWithScope(subtype), constraintIndex: 0 },
+                              {
+                                  typeVarName: TypeVarType.getNameWithScope(subtype),
+                                  constraintIndex: 0,
+                                  isBoundTypeVar: true,
+                              },
                           ]);
                 }
 
@@ -2675,6 +2679,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 {
                                     typeVarName: TypeVarType.getNameWithScope(subtype),
                                     constraintIndex,
+                                    isBoundTypeVar: false,
                                 },
                             ])
                         );
@@ -2693,6 +2698,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                   {
                                       typeVarName: TypeVarType.getNameWithScope(subtype),
                                       constraintIndex: 0,
+                                      isBoundTypeVar: true,
                                   },
                               ]);
                     }
@@ -2700,7 +2706,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return subtype.details.isSynthesized
                         ? objectType
                         : addConditionToType(objectType, [
-                              { typeVarName: TypeVarType.getNameWithScope(subtype), constraintIndex: 0 },
+                              {
+                                  typeVarName: TypeVarType.getNameWithScope(subtype),
+                                  constraintIndex: 0,
+                                  isBoundTypeVar: true,
+                              },
                           ]);
                 }
 
@@ -2737,12 +2747,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                const transformedType = callback(subtype, unexpandedType);
+                let transformedType = callback(subtype, unexpandedType);
                 if (transformedType !== unexpandedType) {
                     typeChanged = true;
                 }
                 if (transformedType) {
-                    newSubtypes.push(addConditionToType(transformedType, getTypeCondition(subtype)));
+                    // Apply the type condition if it's associated with a constrained
+                    // TypeVar but not a bound TypeVar.
+                    const typeCondition = getTypeCondition(subtype)?.filter((condition) => !condition.isBoundTypeVar);
+                    if (typeCondition && typeCondition.length > 0) {
+                        transformedType = addConditionToType(transformedType, typeCondition);
+                    }
+
+                    newSubtypes.push(transformedType);
                 }
                 return undefined;
             });

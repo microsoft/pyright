@@ -1478,6 +1478,7 @@ export namespace AnyType {
 export interface TypeCondition {
     typeVarName: string;
     constraintIndex: number;
+    isBoundTypeVar: boolean;
 }
 
 export namespace TypeCondition {
