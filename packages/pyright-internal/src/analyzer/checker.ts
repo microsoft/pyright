@@ -762,7 +762,7 @@ export class Checker extends ParseTreeWalker {
             returnType = NoneType.createInstance();
         }
 
-        if (this._evaluator.isNodeReachable(node) && enclosingFunctionNode) {
+        if (this._evaluator.isNodeReachable(node, /* sourceNode */ undefined) && enclosingFunctionNode) {
             if (declaredReturnType) {
                 if (isNoReturnType(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
@@ -1664,12 +1664,13 @@ export class Checker extends ParseTreeWalker {
 
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
         let reportedUnreachable = false;
+        let prevStatement: StatementNode | undefined;
 
         for (const statement of statements) {
             // No need to report unreachable more than once since the first time
             // covers all remaining statements in the statement list.
             if (!reportedUnreachable) {
-                if (!this._evaluator.isNodeReachable(statement)) {
+                if (!this._evaluator.isNodeReachable(statement, prevStatement)) {
                     // Create a text range that covers the next statement through
                     // the end of the statement list.
                     const start = statement.start;
@@ -1686,6 +1687,8 @@ export class Checker extends ParseTreeWalker {
             }
 
             this.walk(statement);
+
+            prevStatement = statement;
         }
     }
 
@@ -3918,7 +3921,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        if (this._evaluator.isNodeReachable(node)) {
+        if (this._evaluator.isNodeReachable(node, /* sourceNode */ undefined)) {
             if (declaredReturnType && isNoReturnType(declaredReturnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,

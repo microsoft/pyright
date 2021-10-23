@@ -74,7 +74,7 @@ export function createTypeEvaluatorWithTracker(
             run('verifyRaiseExceptionType', () => typeEvaluator.verifyRaiseExceptionType(n), n),
         verifyDeleteExpression: (n) => run('verifyDeleteExpression', () => typeEvaluator.verifyDeleteExpression(n), n),
         isAfterNodeReachable: (n) => run('isAfterNodeReachable', () => typeEvaluator.isAfterNodeReachable(n), n),
-        isNodeReachable: (n) => run('isNodeReachable', () => typeEvaluator.isNodeReachable(n), n),
+        isNodeReachable: (n, s) => run('isNodeReachable', () => typeEvaluator.isNodeReachable(n, s), n),
         suppressDiagnostics: (node, callback) =>
             run('suppressDiagnostics', () => typeEvaluator.suppressDiagnostics(node, callback)),
         getDeclarationsForNameNode: (n) =>

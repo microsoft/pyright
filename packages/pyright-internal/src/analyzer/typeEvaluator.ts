@@ -2006,13 +2006,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getEffectiveTypeOfSymbol(symbol);
     }
 
-    function isNodeReachable(node: ParseNode): boolean {
+    function isNodeReachable(node: ParseNode, sourceNode?: ParseNode): boolean {
         const flowNode = AnalyzerNodeInfo.getFlowNode(node);
         if (!flowNode) {
             return false;
         }
 
-        if (!isFlowNodeReachable(flowNode)) {
+        const sourceFlowNode = sourceNode ? AnalyzerNodeInfo.getFlowNode(sourceNode) : undefined;
+
+        if (!isFlowNodeReachable(flowNode, sourceFlowNode)) {
             return false;
         }
 

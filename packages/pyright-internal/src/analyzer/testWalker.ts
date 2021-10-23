@@ -92,7 +92,7 @@ export class NameTypeWalker extends ParseTreeWalker {
 
     override visitName(node: NameNode) {
         if (node.parent?.nodeType !== ParseNodeType.ImportFromAs && node.parent?.nodeType !== ParseNodeType.ImportAs) {
-            if (this._evaluator.isNodeReachable(node)) {
+            if (this._evaluator.isNodeReachable(node, /* sourceNode */ undefined)) {
                 this._evaluator.getType(node);
             }
         }

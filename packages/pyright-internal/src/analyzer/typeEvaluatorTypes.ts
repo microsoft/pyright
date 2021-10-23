@@ -240,7 +240,7 @@ export interface TypeEvaluator {
     verifyDeleteExpression: (node: ExpressionNode) => void;
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
-    isNodeReachable: (node: ParseNode) => boolean;
+    isNodeReachable: (node: ParseNode, sourceNode: ParseNode | undefined) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
 
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
