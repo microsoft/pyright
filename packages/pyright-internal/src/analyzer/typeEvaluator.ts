@@ -467,7 +467,7 @@ interface ReturnTypeInferenceContext {
 // types based on call-site argument types? The deeper we go,
 // the more types we may be able to infer, but the worse the
 // performance.
-const maxReturnTypeInferenceStackSize = 3;
+const maxReturnTypeInferenceStackSize = 2;
 
 // What is the max number of input arguments we should allow
 // for call-site return type inference? We've found that large,
