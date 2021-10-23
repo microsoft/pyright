@@ -118,12 +118,15 @@ export class CommandLineOptions {
     // Use indexing.
     indexing?: boolean | undefined;
 
-    // Use type evaluator call tracking
+    // Use type evaluator call tracking.
     logTypeEvaluationTime = false;
 
-    // Minimum threshold for type eval logging
+    // Minimum threshold for type eval logging.
     typeEvaluationTimeThreshold = 50;
 
-    // Run ambient analysis
+    // Run ambient analysis.
     enableAmbientAnalysis = true;
+
+    // Analyze functions and methods that have no type annotations?
+    analyzeUnannotatedFunctions = true;
 }

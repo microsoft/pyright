@@ -506,6 +506,7 @@ export interface EvaluatorOptions {
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
     minimumLoggingThreshold: number;
+    analyzeUnannotatedFunctions: boolean;
 }
 
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
@@ -3192,6 +3193,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type: Type | undefined;
         let isIncomplete = false;
         const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0 || fileInfo.isStubFile;
+
+        if (!evaluatorOptions.analyzeUnannotatedFunctions) {
+            const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
+            if (containingFunction && ParseTreeUtils.isUnannotatedFunction(containingFunction)) {
+                return {
+                    node,
+                    type: AnyType.create(),
+                    isIncomplete: false,
+                };
+            }
+        }
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
@@ -17270,29 +17282,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (type.details.declaration) {
                 const functionNode = type.details.declaration.node;
 
-                const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
+                // Skip return type inference if we are in "skip unannotated function" mode.
+                if (evaluatorOptions.analyzeUnannotatedFunctions) {
+                    const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
-                // For very complex functions that have no annotated parameter types,
-                // don't attempt to infer the return type because it can be extremely
-                // expensive.
-                const parametersAreAnnotated =
-                    type.details.parameters.length <= 1 ||
-                    type.details.parameters.some((param) => param.hasDeclaredType);
+                    // For very complex functions that have no annotated parameter types,
+                    // don't attempt to infer the return type because it can be extremely
+                    // expensive.
+                    const parametersAreAnnotated =
+                        type.details.parameters.length <= 1 ||
+                        type.details.parameters.some((param) => param.hasDeclaredType);
 
-                if (parametersAreAnnotated || codeFlowComplexity < maxReturnTypeInferenceCodeFlowComplexity) {
-                    // Temporarily disable speculative mode while we
-                    // lazily evaluate the return type.
-                    disableSpeculativeMode(() => {
-                        returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
-                    });
+                    if (parametersAreAnnotated || codeFlowComplexity < maxReturnTypeInferenceCodeFlowComplexity) {
+                        // Temporarily disable speculative mode while we
+                        // lazily evaluate the return type.
+                        disableSpeculativeMode(() => {
+                            returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+                        });
 
-                    // Do we need to wrap this in an awaitable?
-                    if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
-                        returnType = createAwaitableReturnType(
-                            functionNode,
-                            returnType,
-                            !!type.details.declaration?.isGenerator
-                        );
+                        // Do we need to wrap this in an awaitable?
+                        if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
+                            returnType = createAwaitableReturnType(
+                                functionNode,
+                                returnType,
+                                !!type.details.declaration?.isGenerator
+                            );
+                        }
                     }
                 }
             }
@@ -17309,6 +17324,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // params, try to analyze the function with the provided argument types and
         // attempt to do a better job at inference.
         if (
+            evaluatorOptions.analyzeUnannotatedFunctions &&
             isPartlyUnknown(returnType) &&
             FunctionType.hasUnannotatedParams(type) &&
             !FunctionType.isStubDefinition(type) &&

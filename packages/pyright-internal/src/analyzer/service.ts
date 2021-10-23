@@ -622,6 +622,8 @@ export class AnalyzerService {
             configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
 
+        configOptions.analyzeUnannotatedFunctions = commandLineOptions.analyzeUnannotatedFunctions ?? true;
+
         const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
             const settingSource = commandLineOptions.fromVsCodeExtension
                 ? 'the client settings'

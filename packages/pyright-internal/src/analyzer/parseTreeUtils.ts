@@ -1887,6 +1887,15 @@ export function getFullStatementRange(statementNode: ParseNode, tokenizerOutput:
     return { start: range.start, end: { line: range.end.line + 1, character: 0 } };
 }
 
+export function isUnannotatedFunction(node: FunctionNode) {
+    return (
+        node.returnTypeAnnotation === undefined &&
+        node.parameters.every(
+            (param) => param.typeAnnotation === undefined && param.typeAnnotationComment === undefined
+        )
+    );
+}
+
 function _getEndPositionIfMultipleStatementsAreOnSameLine(
     range: Range,
     tokenPosition: number,

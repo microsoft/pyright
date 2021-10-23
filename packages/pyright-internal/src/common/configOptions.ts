@@ -657,6 +657,10 @@ export class ConfigOptions {
     // Was this config initialized from JSON (pyrightconfig/pyproject)?
     initializedFromJson = false;
 
+    // Should we skip analysis of all functions and methods that have
+    // no parameter ore return type annotations?
+    analyzeUnannotatedFunctions = true;
+
     //---------------------------------------------------------------
     // Diagnostics Rule Set
 
