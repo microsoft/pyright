@@ -11447,13 +11447,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Validate that we received at least two type arguments. One type argument
-        // is allowed if it's a variadic type var.
-        if (types.length < 2) {
-            if (types.length < 1 || !isVariadicTypeVar(types[0]))
+        // is allowed if it's a variadic type var or None (since the latter is used
+        // to define NoReturn in typeshed stubs).
+        if (types.length === 1) {
+            if (!isVariadicTypeVar(types[0]) && !isNone(types[0])) {
                 addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
+            }
         }
 
-        if (types.length > 0) {
+        if (types.length === 0) {
+            addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
+        } else {
             const unionType = combineTypes(types);
             if (isUnion(unionType)) {
                 TypeBase.setNonCallable(unionType);
