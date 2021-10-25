@@ -164,7 +164,7 @@ export namespace TypeBase {
         return typeClone;
     }
 
-    export function cloneForCondition(type: Type, condition: TypeCondition[] | undefined) {
+    export function cloneForCondition<T extends Type>(type: T, condition: TypeCondition[] | undefined): T {
         // Handle the common case where there are no conditions. In this case,
         // cloning isn't necessary.
         if (type.condition === undefined && condition === undefined) {
@@ -1486,7 +1486,7 @@ export namespace AnyType {
 export interface TypeCondition {
     typeVarName: string;
     constraintIndex: number;
-    isBoundTypeVar: boolean;
+    isConstrainedTypeVar: boolean;
 }
 
 export namespace TypeCondition {

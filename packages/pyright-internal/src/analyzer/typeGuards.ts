@@ -685,7 +685,7 @@ function narrowTypeForIsInstance(
                         // the two types.
                         const className = `<subclass of ${varType.details.name} and ${concreteFilterType.details.name}>`;
                         const fileInfo = getFileInfo(errorNode);
-                        const newClassType = ClassType.createInstantiable(
+                        let newClassType = ClassType.createInstantiable(
                             className,
                             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
                             fileInfo.moduleName,
@@ -698,6 +698,22 @@ function narrowTypeForIsInstance(
                         );
                         newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(varType), concreteFilterType];
                         computeMroLinearization(newClassType);
+
+                        newClassType = addConditionToType(newClassType, concreteFilterType.condition) as ClassType;
+
+                        if (
+                            isTypeVar(unexpandedType) &&
+                            !unexpandedType.details.isParamSpec &&
+                            unexpandedType.details.constraints.length === 0
+                        ) {
+                            newClassType = addConditionToType(newClassType, [
+                                {
+                                    typeVarName: TypeVarType.getNameWithScope(unexpandedType),
+                                    constraintIndex: 0,
+                                    isConstrainedTypeVar: false,
+                                },
+                            ]) as ClassType;
+                        }
 
                         filteredTypes.push(isInstanceCheck ? ClassType.cloneAsInstance(newClassType) : newClassType);
                     }
@@ -1300,7 +1316,7 @@ function narrowTypeForCallable(
                         // new intersection type.
                         const className = `<callable subtype of ${subtype.details.name}>`;
                         const fileInfo = getFileInfo(errorNode);
-                        const newClassType = ClassType.createInstantiable(
+                        let newClassType = ClassType.createInstantiable(
                             className,
                             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
                             fileInfo.moduleName,
@@ -1313,6 +1329,8 @@ function narrowTypeForCallable(
                         );
                         newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(subtype)];
                         computeMroLinearization(newClassType);
+
+                        newClassType = addConditionToType(newClassType, subtype.condition) as ClassType;
 
                         // Add a __call__ method to the new class.
                         const callMethod = FunctionType.createInstance(

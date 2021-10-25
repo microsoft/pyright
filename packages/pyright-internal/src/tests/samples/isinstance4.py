@@ -1,6 +1,7 @@
 # This sample checks that isinstance and issubclass don't
 # allow the second argument to be a Protocol class.
 
+from inspect import isfunction
 from typing import Any, Callable, Literal, Protocol, Type, TypeVar, Union
 from types import FunctionType, LambdaType
 
@@ -37,11 +38,20 @@ def get_type_of_object(object: Union[Callable[..., Any], CustomClass]):
     return "nothing"
 
 
-_T = TypeVar("_T", bound=CustomClass)
+_T1 = TypeVar("_T1", bound=CustomClass)
 
 
-def func(cls: Type[_T], val: _T):
+def func1(cls: Type[_T1], val: _T1):
     if issubclass(cls, CustomClass):
         t1: Literal["Type[CustomClass]*"] = reveal_type(cls)
     else:
         t2: Literal["Never"] = reveal_type(cls)
+
+
+_T2 = TypeVar("_T2")
+
+
+def func2(x: _T2) -> Union[_T2, int]:
+    if callable(x) and isfunction(x):
+        return 1
+    return x

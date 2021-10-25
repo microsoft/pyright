@@ -2629,7 +2629,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                               {
                                   typeVarName: TypeVarType.getNameWithScope(subtype),
                                   constraintIndex: 0,
-                                  isBoundTypeVar: true,
+                                  isConstrainedTypeVar: false,
                               },
                           ]);
                 }
@@ -2668,7 +2668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 {
                                     typeVarName: TypeVarType.getNameWithScope(subtype),
                                     constraintIndex,
-                                    isBoundTypeVar: false,
+                                    isConstrainedTypeVar: true,
                                 },
                             ])
                         );
@@ -2687,7 +2687,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                   {
                                       typeVarName: TypeVarType.getNameWithScope(subtype),
                                       constraintIndex: 0,
-                                      isBoundTypeVar: true,
+                                      isConstrainedTypeVar: false,
                                   },
                               ]);
                     }
@@ -2698,7 +2698,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                               {
                                   typeVarName: TypeVarType.getNameWithScope(subtype),
                                   constraintIndex: 0,
-                                  isBoundTypeVar: true,
+                                  isConstrainedTypeVar: false,
                               },
                           ]);
                 }
@@ -2741,9 +2741,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeChanged = true;
                 }
                 if (transformedType) {
-                    // Apply the type condition if it's associated with a constrained
-                    // TypeVar but not a bound TypeVar.
-                    const typeCondition = getTypeCondition(subtype)?.filter((condition) => !condition.isBoundTypeVar);
+                    // Apply the type condition if it's associated with a constrained TypeVar.
+                    const typeCondition = getTypeCondition(subtype)?.filter(
+                        (condition) => condition.isConstrainedTypeVar
+                    );
                     if (typeCondition && typeCondition.length > 0) {
                         transformedType = addConditionToType(transformedType, typeCondition);
                     }

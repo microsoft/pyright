@@ -2,7 +2,7 @@
 # narrowing in the case where there is no overlap between the
 # value type and the test type.
 
-from typing import Literal, Type
+from typing import Literal, Type, TypeVar
 
 
 class A:
@@ -67,3 +67,12 @@ def func2(val: Type[A]):
         val.b_val
 
         t3: Literal["Type[A]"] = reveal_type(val)
+
+
+_T1 = TypeVar("_T1", bound=A)
+
+
+def func3(val: _T1) -> _T1:
+    if isinstance(val, B):
+        return val
+    return val
