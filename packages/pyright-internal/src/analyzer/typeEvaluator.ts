@@ -114,6 +114,7 @@ import {
     createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
     isExplicitTypeAliasDeclaration,
+    isFinalVariableDeclaration,
     isPossibleTypeAliasDeclaration,
 } from './declarationUtils';
 import { createNamedTupleType } from './namedTuples';
@@ -2417,9 +2418,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     assert(symbol !== undefined);
 
                     const typedDecls = symbol.getDeclarations();
-                    let isFinalVar = isFinalVariable(symbol);
 
-                    // Check for an attempt to overwrite a constant or final member variable.
+                    // Check for an attempt to overwrite a constant member variable.
                     if (
                         typedDecls.length > 0 &&
                         typedDecls[0].type === DeclarationType.Variable &&
@@ -2434,22 +2434,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 node.memberName
                             );
                         }
-
-                        // If a Final instance variable is declared in the class body but is
-                        // being assigned within an __init__ method, it's allowed.
-                        const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
-                        if (enclosingFunctionNode && enclosingFunctionNode.name.value === '__init__') {
-                            isFinalVar = false;
-                        }
-
-                        if (isFinalVar) {
-                            addError(
-                                Localizer.Diagnostic.finalReassigned().format({ name: node.memberName.value }),
-                                node.memberName
-                            );
-                        }
                     }
-                } else {
+
+               } else {
                     // Is the target a property?
                     const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                     if (declaredType && !isProperty(declaredType)) {
@@ -4635,7 +4622,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (memberInfo?.symbol.isClassVar()) {
                     if (flags & MemberAccessFlags.DisallowClassVarWrites) {
                         diag.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
+                        isTypeValid = false;
                         return undefined;
+                    }
+                }
+
+                if (memberInfo) {
+                    // Check for an attempt to overwrite a final member variable.
+                    const finalTypeDecl = memberInfo.symbol.getDeclarations().find(decl => isFinalVariableDeclaration(decl));
+
+                    if (
+                        finalTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalTypeDecl.node)
+                    ) {
+                        // If a Final instance variable is declared in the class body but is
+                        // being assigned within an __init__ method, it's allowed.
+                        const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                        if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
+                            diag.addMessage(
+                                Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
+                            isTypeValid = false;
+                            return undefined;
+                        }
                     }
                 }
 
