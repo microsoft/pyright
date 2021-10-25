@@ -369,6 +369,10 @@ export const enum ClassTypeFlags {
 
     // Class is declared within a type stub file.
     DefinedInStub = 1 << 23,
+
+    // Class does not allow writing or deleting its instance variables
+    // through a member access. Used with named tuples.
+    ReadOnlyInstanceVariables = 1 << 24,
 }
 
 export interface DataClassBehaviors {
@@ -715,6 +719,10 @@ export namespace ClassType {
 
     export function isTupleClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.TupleClass);
+    }
+
+    export function isReadOnlyInstanceVariables(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.ReadOnlyInstanceVariables);
     }
 
     export function getTypeParameters(classType: ClassType) {

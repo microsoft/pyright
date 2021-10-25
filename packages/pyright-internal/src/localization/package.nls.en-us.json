@@ -502,6 +502,7 @@
         "protocolIncompatible": "\"{sourceType}\" is incompatible with protocol \"{destType}\"",
         "protocolMemberMissing": "\"{name}\" is not present",
         "protocolMemberClassVar": "\"{name}\" is not a class variable",
+        "readOnlyAttribute": "Attribute \"{name}\" is read-only",
         "seeDeclaration": "See declaration",
         "seeClassDeclaration": "See class declaration",
         "seeFunctionDeclaration": "See function declaration",

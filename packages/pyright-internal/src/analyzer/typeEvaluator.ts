@@ -2435,8 +2435,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                         }
                     }
-
-               } else {
+                } else {
                     // Is the target a property?
                     const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                     if (declaredType && !isProperty(declaredType)) {
@@ -4627,23 +4626,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                if (memberInfo) {
-                    // Check for an attempt to overwrite a final member variable.
-                    const finalTypeDecl = memberInfo.symbol.getDeclarations().find(decl => isFinalVariableDeclaration(decl));
+                // Check for an attempt to overwrite a final member variable.
+                const finalTypeDecl = memberInfo?.symbol
+                    .getDeclarations()
+                    .find((decl) => isFinalVariableDeclaration(decl));
 
-                    if (
-                        finalTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalTypeDecl.node)
-                    ) {
-                        // If a Final instance variable is declared in the class body but is
-                        // being assigned within an __init__ method, it's allowed.
-                        const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
-                        if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
-                            diag.addMessage(
-                                Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
-                            isTypeValid = false;
-                            return undefined;
-                        }
+                if (finalTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalTypeDecl.node)) {
+                    // If a Final instance variable is declared in the class body but is
+                    // being assigned within an __init__ method, it's allowed.
+                    const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
+                    if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
+                        diag.addMessage(Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
+                        isTypeValid = false;
+                        return undefined;
                     }
+                }
+
+                // Check for an attempt to overwrite an instance variable that is
+                // read-only (e.g. in a named tuple).
+                if (memberInfo?.isInstanceMember && isClass(memberInfo.classType) && ClassType.isReadOnlyInstanceVariables(memberInfo.classType)) {
+                    diag.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
+                    isTypeValid = false;
+                    return undefined;
                 }
 
                 let enforceTargetType = false;
@@ -12065,10 +12069,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         // If the class directly derives from NamedTuple (in Python 3.6 or
-                        // newer), it's considered a dataclass.
+                        // newer), it's considered a (read-only) dataclass.
                         if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6) {
                             if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
-                                classType.details.flags |= ClassTypeFlags.DataClass;
+                                classType.details.flags |=
+                                    ClassTypeFlags.DataClass | ClassTypeFlags.ReadOnlyInstanceVariables;
                             }
                         }
 

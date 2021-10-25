@@ -93,7 +93,7 @@ export function createNamedTupleType(
         ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
         fileInfo.filePath,
-        ClassTypeFlags.None,
+        ClassTypeFlags.ReadOnlyInstanceVariables,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
         isInstantiableClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()

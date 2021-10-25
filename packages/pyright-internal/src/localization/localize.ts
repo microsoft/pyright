@@ -999,6 +999,8 @@ export namespace Localizer {
             );
         export const protocolMemberMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.protocolMemberMissing'));
+        export const readOnlyAttribute = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.readOnlyAttribute'));
         export const seeDeclaration = () => getRawString('DiagnosticAddendum.seeDeclaration');
         export const seeClassDeclaration = () => getRawString('DiagnosticAddendum.seeClassDeclaration');
         export const seeFunctionDeclaration = () => getRawString('DiagnosticAddendum.seeFunctionDeclaration');
