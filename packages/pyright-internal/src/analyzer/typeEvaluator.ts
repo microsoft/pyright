@@ -8234,6 +8234,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             curNode = typeVarScopeNode;
         }
 
+        // If the function is returning a callable, don't eliminate unsolved
+        // type vars within a union. There are legit uses for unsolved type vars
+        // within a callable.
+        if (isFunction(returnType) || isOverloadedFunction(returnType)) {
+            eliminateUnsolvedInUnions = false;
+        }
+
         let specializedReturnType = addConditionToType(
             applySolvedTypeVars(
                 returnType,

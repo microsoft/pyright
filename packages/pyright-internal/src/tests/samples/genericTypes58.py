@@ -2,7 +2,15 @@
 # within unions, where the TypeVar may not be matched during constraint
 # solving.
 
-from typing import Dict, List, Literal, Optional, TypeVar, Union
+from typing import (
+    Awaitable,
+    Callable,
+    Generic,
+    List,
+    Literal,
+    TypeVar,
+    Union,
+)
 
 
 _T = TypeVar("_T")
@@ -24,3 +32,22 @@ def func2(x: Union[str, None, _T]) -> List[Union[str, None, _T]]:
 t2_1: Literal["List[str | None]"] = reveal_type(func2(None))
 t2_2: Literal["List[str | None]"] = reveal_type(func2("hi"))
 t2_3: Literal["List[str | int | None]"] = reveal_type(func2(3))
+
+
+CallbackSig = Callable[..., Awaitable[None]]
+CallbackSigT = TypeVar("CallbackSigT", bound="CallbackSig")
+
+
+class UsesFoo(Generic[CallbackSigT]):
+    ...
+
+
+def dec1() -> Callable[
+    [Union[CallbackSigT, UsesFoo[CallbackSigT]]], UsesFoo[CallbackSigT]
+]:
+    ...
+
+
+@dec1()
+async def bars() -> None:
+    ...
