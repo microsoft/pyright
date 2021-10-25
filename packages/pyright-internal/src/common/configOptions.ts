@@ -700,6 +700,10 @@ export class ConfigOptions {
     // Run program in index generation mode.
     indexGenerationMode?: boolean | undefined;
 
+    // When a symbol cannot be resolved from an import, should it be
+    // treated as Any rather than Unknown?
+    evaluateUnknownImportsAsAny?: boolean;
+
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {
             return getStrictDiagnosticRuleSet();

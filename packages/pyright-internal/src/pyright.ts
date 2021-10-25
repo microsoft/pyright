@@ -371,9 +371,8 @@ function verifyPackageTypes(
     ignoreUnknownTypesFromImports: boolean
 ): ExitStatus {
     try {
-        const verifier = new PackageTypeVerifier(fileSystem);
-
-        const report = verifier.verify(packageName, ignoreUnknownTypesFromImports);
+        const verifier = new PackageTypeVerifier(fileSystem, packageName, ignoreUnknownTypesFromImports);
+        const report = verifier.verify();
         const jsonReport = buildTypeCompletenessReport(packageName, report);
 
         if (outputJson) {

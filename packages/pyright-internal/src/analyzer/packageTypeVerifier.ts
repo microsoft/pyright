@@ -53,8 +53,13 @@ export class PackageTypeVerifier {
     private _importResolver: ImportResolver;
     private _program: Program;
 
-    constructor(private _fileSystem: FileSystem) {
+    constructor(private _fileSystem: FileSystem, private _packageName: string, private _ignoreExternal = false) {
         this._configOptions = new ConfigOptions('');
+
+        if (_ignoreExternal) {
+            this._configOptions.evaluateUnknownImportsAsAny = true;
+        }
+
         this._execEnv = this._configOptions.findExecEnvironment('.');
         this._importResolver = new ImportResolver(
             this._fileSystem,
@@ -64,14 +69,14 @@ export class PackageTypeVerifier {
         this._program = new Program(this._importResolver, this._configOptions);
     }
 
-    verify(packageName: string, ignoreExternal = false): PackageTypeReport {
-        const trimmedPackageName = packageName.trim();
+    verify(): PackageTypeReport {
+        const trimmedPackageName = this._packageName.trim();
         const packageNameParts = trimmedPackageName.split('.');
 
         const report = getEmptyReport(
             packageNameParts[0],
             this._getDirectoryForPackage(packageNameParts[0]) || '',
-            ignoreExternal
+            this._ignoreExternal
         );
         const commonDiagnostics = report.generalDiagnostics;
 

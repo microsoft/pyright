@@ -743,6 +743,7 @@ export class Program {
                 logCalls: this._configOptions.logTypeEvaluationTime,
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
                 analyzeUnannotatedFunctions: this._configOptions.analyzeUnannotatedFunctions,
+                evaluateUnknownImportsAsAny: !!this._configOptions.evaluateUnknownImportsAsAny,
             },
             this._logTracker,
             this._configOptions.logTypeEvaluationTime

@@ -508,6 +508,7 @@ export interface EvaluatorOptions {
     logCalls: boolean;
     minimumLoggingThreshold: number;
     analyzeUnannotatedFunctions: boolean;
+    evaluateUnknownImportsAsAny: boolean;
 }
 
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
@@ -4046,7 +4047,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 node.memberName
                             );
                         }
-                        type = UnknownType.create();
+                        type = evaluatorOptions.evaluateUnknownImportsAsAny ? AnyType.create() : UnknownType.create();
                     }
                 }
                 break;
@@ -14359,7 +14360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!resolvedAliasInfo.declaration) {
-            return UnknownType.create();
+            return evaluatorOptions.evaluateUnknownImportsAsAny ? AnyType.create() : UnknownType.create();
         }
 
         if (node.nodeType === ParseNodeType.ImportFromAs) {
@@ -16858,7 +16859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // We couldn't resolve the alias. Substitute an unknown
         // type in this case.
         if (!resolvedDecl) {
-            return UnknownType.create();
+            return evaluatorOptions.evaluateUnknownImportsAsAny ? AnyType.create() : UnknownType.create();
         }
 
         function applyLoaderActionsToModuleType(
@@ -16872,7 +16873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     moduleType.fields = lookupResults.symbolTable;
                     moduleType.docString = lookupResults.docString;
                 } else {
-                    return UnknownType.create();
+                    return evaluatorOptions.evaluateUnknownImportsAsAny ? AnyType.create() : UnknownType.create();
                 }
             }
 
