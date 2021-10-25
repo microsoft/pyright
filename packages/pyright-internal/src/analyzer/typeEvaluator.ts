@@ -4644,7 +4644,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Check for an attempt to overwrite an instance variable that is
                 // read-only (e.g. in a named tuple).
-                if (memberInfo?.isInstanceMember && isClass(memberInfo.classType) && ClassType.isReadOnlyInstanceVariables(memberInfo.classType)) {
+                if (
+                    memberInfo?.isInstanceMember &&
+                    isClass(memberInfo.classType) &&
+                    ClassType.isReadOnlyInstanceVariables(memberInfo.classType)
+                ) {
                     diag.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
                     isTypeValid = false;
                     return undefined;
