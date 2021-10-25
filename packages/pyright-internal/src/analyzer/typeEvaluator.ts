@@ -11423,7 +11423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Unpacks the index expression for a "Union[X, Y, Z]" type annotation.
-    function createUnionType(typeArgs?: TypeResult[]): Type {
+    function createUnionType(errorNode: ParseNode, typeArgs?: TypeResult[]): Type {
         const types: Type[] = [];
 
         if (typeArgs) {
@@ -11444,6 +11444,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 types.push(typeArgType);
             }
+        }
+
+        // Validate that we received at least two type arguments. One type argument
+        // is allowed if it's a variadic type var.
+        if (types.length < 2) {
+            if (types.length < 1 || !isVariadicTypeVar(types[0]))
+                addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
         }
 
         if (types.length > 0) {
@@ -16094,7 +16101,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Union': {
-                    return createUnionType(typeArgs);
+                    return createUnionType(errorNode, typeArgs);
                 }
 
                 case 'Generic': {

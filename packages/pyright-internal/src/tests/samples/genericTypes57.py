@@ -16,7 +16,7 @@ def func2(v: List[Optional[Union[_T, str]]]) -> _T:
     ...
 
 
-v1: List[Optional[Union[int]]] = [1, None]
+v1: List[Optional[int]] = [1, None]
 r1 = func1(v1)
 t_r1: Literal["int"] = reveal_type(r1)
 
