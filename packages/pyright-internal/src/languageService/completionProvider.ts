@@ -2480,11 +2480,6 @@ export class CompletionProvider {
             return;
         }
 
-        // Don't add the same item twice.
-        if (completionList.items.find((item) => item.label === name && item.kind === itemKind)) {
-            return;
-        }
-
         const completionItem = CompletionItem.create(name);
         completionItem.kind = itemKind;
 
