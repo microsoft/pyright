@@ -1,4 +1,3 @@
-import types
 from _weakrefset import WeakSet as WeakSet
 from typing import Any, Callable, Generic, Iterable, Iterator, Mapping, MutableMapping, Tuple, Type, TypeVar, overload
 
@@ -16,12 +15,13 @@ _S = TypeVar("_S")
 _T = TypeVar("_T")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
+_CallableT = TypeVar("_CallableT", bound=Callable[..., Any])
 
 ProxyTypes: Tuple[Type[Any], ...]
 
-class WeakMethod(ref[types.MethodType]):
-    def __new__(cls, meth: types.MethodType, callback: Callable[[types.MethodType], Any] | None = ...) -> WeakMethod: ...
-    def __call__(self) -> types.MethodType | None: ...
+class WeakMethod(ref[_CallableT], Generic[_CallableT]):
+    def __new__(cls, meth: _CallableT, callback: Callable[[_CallableT], object] | None = ...) -> WeakMethod[_CallableT]: ...
+    def __call__(self) -> _CallableT | None: ...
 
 class WeakValueDictionary(MutableMapping[_KT, _VT]):
     @overload

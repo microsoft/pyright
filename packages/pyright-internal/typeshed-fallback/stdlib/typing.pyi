@@ -304,9 +304,7 @@ class Collection(Iterable[_T_co], Container[_T_co], Protocol[_T_co]):
     @abstractmethod
     def __len__(self) -> int: ...
 
-_Collection = Collection[_T_co]
-
-class Sequence(_Collection[_T_co], Reversible[_T_co], Generic[_T_co]):
+class Sequence(Collection[_T_co], Reversible[_T_co], Generic[_T_co]):
     @overload
     @abstractmethod
     def __getitem__(self, i: int) -> _T_co: ...
@@ -350,7 +348,7 @@ class MutableSequence(Sequence[_T], Generic[_T]):
     def remove(self, value: _T) -> None: ...
     def __iadd__(self, x: Iterable[_T]) -> MutableSequence[_T]: ...
 
-class AbstractSet(_Collection[_T_co], Generic[_T_co]):
+class AbstractSet(Collection[_T_co], Generic[_T_co]):
     @abstractmethod
     def __contains__(self, x: object) -> bool: ...
     # Mixin methods
@@ -433,7 +431,7 @@ class AsyncContextManager(Protocol[_T_co]):
         self, __exc_type: Type[BaseException] | None, __exc_value: BaseException | None, __traceback: TracebackType | None
     ) -> Awaitable[bool | None]: ...
 
-class Mapping(_Collection[_KT], Generic[_KT, _VT_co]):
+class Mapping(Collection[_KT], Generic[_KT, _VT_co]):
     # TODO: We wish the key type could also be covariant, but that doesn't work,
     # see discussion in https://github.com/python/typing/pull/273.
     @abstractmethod

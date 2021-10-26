@@ -2,7 +2,6 @@ import importlib.abc
 import types
 from typing import Any, Callable, Sequence
 
-# TODO: the loaders seem a bit backwards, attribute is protocol but __init__ arg isn't?
 class ModuleSpec:
     def __init__(
         self,
@@ -14,7 +13,7 @@ class ModuleSpec:
         is_package: bool | None = ...,
     ) -> None: ...
     name: str
-    loader: importlib.abc._LoaderProtocol | None
+    loader: importlib.abc.Loader | None
     origin: str | None
     submodule_search_locations: list[str] | None
     loader_state: Any

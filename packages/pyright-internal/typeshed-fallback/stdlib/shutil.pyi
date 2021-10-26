@@ -1,6 +1,6 @@
 import os
 import sys
-from _typeshed import StrPath, SupportsRead, SupportsWrite
+from _typeshed import StrOrBytesPath, StrPath, SupportsRead, SupportsWrite
 from typing import Any, AnyStr, Callable, Iterable, NamedTuple, Sequence, Set, TypeVar, Union, overload
 
 _PathT = TypeVar("_PathT", str, os.PathLike[str])
@@ -60,7 +60,7 @@ class _ntuple_diskusage(NamedTuple):
     used: int
     free: int
 
-def disk_usage(path: StrPath) -> _ntuple_diskusage: ...
+def disk_usage(path: int | StrOrBytesPath) -> _ntuple_diskusage: ...
 def chown(path: StrPath, user: str | int | None = ..., group: str | int | None = ...) -> None: ...
 
 if sys.version_info >= (3, 8):
