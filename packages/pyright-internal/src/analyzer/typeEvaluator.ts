@@ -18716,6 +18716,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     )
                 ) {
                     constrainedType = srcType;
+
+                    // If the source and dest are both instantiables (type[T]), then
+                    // we need to convert to an instance (T) for the
+                    if (TypeBase.isInstantiable(srcType)) {
+                        constrainedType = convertToInstance(srcType);
+                    }
                 }
             } else {
                 let isCompatible = true;

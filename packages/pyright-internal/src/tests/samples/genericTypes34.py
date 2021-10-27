@@ -1,7 +1,7 @@
 # This sample tests the handling of generic type aliases
 # with constrained types.
 
-from typing import Callable, Generic, TypeVar, Union
+from typing import Callable, Generic, Type, TypeVar, Union
 
 T = TypeVar("T", str, bool, None)
 
@@ -44,3 +44,11 @@ def f_union(val: Union[bool, str]) -> None:
         f_generic3(val)
     else:
         f_generic3(val)
+
+
+def func1(v: T, t: Type[T]):
+    print(t)
+
+
+def func2(v: T, t: Type[T]):
+    func1(v, t)
