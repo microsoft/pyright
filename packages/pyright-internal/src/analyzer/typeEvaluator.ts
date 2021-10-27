@@ -12337,7 +12337,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Determine if the class has a custom __class_getitem__ method. This applies
         // only to classes that have no type parameters, since those with type parameters
         // are assumed to follow normal subscripting semantics for generic classes.
-        if (classType.details.typeParameters.length === 0) {
+        if (classType.details.typeParameters.length === 0 && !ClassType.isBuiltIn(classType, 'type')) {
             if (
                 classType.details.baseClasses.some(
                     (baseClass) => isInstantiableClass(baseClass) && ClassType.hasCustomClassGetItem(baseClass)
