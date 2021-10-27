@@ -1,15 +1,27 @@
 from _typeshed import SupportsRead
-from collections.abc import Mapping, Sequence
-from typing import IO, Any, Union
+from typing import IO, Any, Mapping, Sequence, Text, Union
 
-from ._yaml import CEmitter, CParser
-from .constructor import BaseConstructor, FullConstructor, SafeConstructor, UnsafeConstructor
-from .representer import BaseRepresenter, SafeRepresenter
-from .resolver import BaseResolver, Resolver
+from yaml.constructor import BaseConstructor, FullConstructor, SafeConstructor, UnsafeConstructor
+from yaml.events import Event
+from yaml.nodes import Node
+from yaml.representer import BaseRepresenter, SafeRepresenter
+from yaml.resolver import BaseResolver, Resolver
+from yaml.tokens import Token
 
-__all__ = ["CBaseLoader", "CSafeLoader", "CFullLoader", "CUnsafeLoader", "CLoader", "CBaseDumper", "CSafeDumper", "CDumper"]
+_Readable = SupportsRead[Union[Text, bytes]]
 
-_Readable = SupportsRead[Union[str, bytes]]
+class CParser:
+    def __init__(self, stream: str | bytes | _Readable) -> None: ...
+    def dispose(self) -> None: ...
+    def get_token(self) -> Token | None: ...
+    def peek_token(self) -> Token | None: ...
+    def check_token(self, *choices) -> bool: ...
+    def get_event(self) -> Event | None: ...
+    def peek_event(self) -> Event | None: ...
+    def check_event(self, *choices) -> bool: ...
+    def check_node(self) -> bool: ...
+    def get_node(self) -> Node | None: ...
+    def get_single_node(self) -> Node | None: ...
 
 class CBaseLoader(CParser, BaseConstructor, BaseResolver):
     def __init__(self, stream: str | bytes | _Readable) -> None: ...
@@ -26,6 +38,22 @@ class CFullLoader(CParser, FullConstructor, Resolver):
 class CUnsafeLoader(CParser, UnsafeConstructor, Resolver):
     def __init__(self, stream: str | bytes | _Readable) -> None: ...
 
+class CEmitter(object):
+    def __init__(
+        self,
+        stream: IO[Any],
+        canonical: Any | None = ...,
+        indent: int | None = ...,
+        width: int | None = ...,
+        allow_unicode: Any | None = ...,
+        line_break: str | None = ...,
+        encoding: Text | None = ...,
+        explicit_start: Any | None = ...,
+        explicit_end: Any | None = ...,
+        version: Sequence[int] | None = ...,
+        tags: Mapping[Text, Text] | None = ...,
+    ) -> None: ...
+
 class CBaseDumper(CEmitter, BaseRepresenter, BaseResolver):
     def __init__(
         self,
@@ -37,31 +65,13 @@ class CBaseDumper(CEmitter, BaseRepresenter, BaseResolver):
         width: int | None = ...,
         allow_unicode: Any | None = ...,
         line_break: str | None = ...,
-        encoding: str | None = ...,
+        encoding: Text | None = ...,
         explicit_start: Any | None = ...,
         explicit_end: Any | None = ...,
         version: Sequence[int] | None = ...,
-        tags: Mapping[str, str] | None = ...,
-        sort_keys: bool = ...,
+        tags: Mapping[Text, Text] | None = ...,
     ) -> None: ...
 
-class CDumper(CEmitter, SafeRepresenter, Resolver):
-    def __init__(
-        self,
-        stream: IO[Any],
-        default_style: str | None = ...,
-        default_flow_style: bool = ...,
-        canonical: Any | None = ...,
-        indent: int | None = ...,
-        width: int | None = ...,
-        allow_unicode: Any | None = ...,
-        line_break: str | None = ...,
-        encoding: str | None = ...,
-        explicit_start: Any | None = ...,
-        explicit_end: Any | None = ...,
-        version: Sequence[int] | None = ...,
-        tags: Mapping[str, str] | None = ...,
-        sort_keys: bool = ...,
-    ) -> None: ...
+class CDumper(CEmitter, SafeRepresenter, Resolver): ...
 
 CSafeDumper = CDumper
