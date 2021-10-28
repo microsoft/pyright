@@ -8103,7 +8103,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If the expected type is a union, we don't know which type is expected,
             // so avoid using the expected type. The exception is if there are literals
             // in the union, where it's important to prepopulate the literals.
-            if (!isUnion(expectedType) || containsLiteralType(expectedType)) {
+            if (!isUnion(expectedType) || containsLiteralType(expectedType, /* includeTypeArgs */ true)) {
                 // Prepopulate the typeVarMap based on the specialized expected type if the
                 // callee has a declared return type. This will allow us to more closely match
                 // the expected type if possible. We set the AllowTypeVarNarrowing and

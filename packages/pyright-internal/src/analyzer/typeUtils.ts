@@ -590,13 +590,24 @@ export function isLiteralTypeOrUnion(type: Type): boolean {
     return false;
 }
 
-export function containsLiteralType(type: Type): boolean {
+export function containsLiteralType(type: Type, includeTypeArgs = false, recursionCount = 0): boolean {
+    if (recursionCount > maxTypeRecursionCount) {
+        return false;
+    }
+
     if (isClassInstance(type) && isLiteralType(type)) {
         return true;
     }
 
+    if (includeTypeArgs && isClass(type)) {
+        const typeArgs = type.tupleTypeArguments || type.typeArguments;
+        if (typeArgs) {
+            return typeArgs.some((typeArg) => containsLiteralType(typeArg, includeTypeArgs, recursionCount + 1));
+        }
+    }
+
     if (isUnion(type)) {
-        return type.subtypes.some((subtype) => isClassInstance(subtype) && isLiteralType(subtype));
+        return type.subtypes.some((subtype) => containsLiteralType(subtype, includeTypeArgs, recursionCount + 1));
     }
 
     return false;
