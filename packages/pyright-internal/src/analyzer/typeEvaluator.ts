@@ -11424,27 +11424,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Unpacks the index expression for a "Union[X, Y, Z]" type annotation.
-    function createUnionType(errorNode: ParseNode, typeArgs?: TypeResult[]): Type {
+    function createUnionType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
+    ): Type {
         const types: Type[] = [];
 
-        if (typeArgs) {
-            for (const typeArg of typeArgs) {
-                let typeArgType = typeArg.type;
-
-                if (!validateTypeArg(typeArg, /* allowEmptyTuple */ false, /* allowVariadicTypeVar */ true)) {
-                    typeArgType = UnknownType.create();
-                } else if (!TypeBase.isInstantiable(typeArgType)) {
-                    addExpectedClassDiagnostic(typeArgType, typeArg.node);
-                }
-
-                // If this is an unpacked TypeVar, note that it is in a union so we can differentiate
-                // between Unpack[Vs] and Union[Unpack[Vs]].
-                if (isTypeVar(typeArgType) && isVariadicTypeVar(typeArgType) && typeArgType.isVariadicUnpacked) {
-                    typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
-                }
-
-                types.push(typeArgType);
+        if (!typeArgs) {
+            // If no type arguments are provided, the resulting type
+            // depends on whether we're evaluating a type annotation or
+            // we're in some other context.
+            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
+                return NeverType.create();
             }
+
+            return classType;
+        }
+
+        for (const typeArg of typeArgs) {
+            let typeArgType = typeArg.type;
+
+            if (!validateTypeArg(typeArg, /* allowEmptyTuple */ false, /* allowVariadicTypeVar */ true)) {
+                typeArgType = UnknownType.create();
+            } else if (!TypeBase.isInstantiable(typeArgType)) {
+                addExpectedClassDiagnostic(typeArgType, typeArg.node);
+            }
+
+            // If this is an unpacked TypeVar, note that it is in a union so we can differentiate
+            // between Unpack[Vs] and Union[Unpack[Vs]].
+            if (isTypeVar(typeArgType) && isVariadicTypeVar(typeArgType) && typeArgType.isVariadicUnpacked) {
+                typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
+            }
+
+            types.push(typeArgType);
         }
 
         // Validate that we received at least two type arguments. One type argument
@@ -11456,17 +11471,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (types.length === 0) {
-            addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
-        } else {
-            const unionType = combineTypes(types);
-            if (isUnion(unionType)) {
-                TypeBase.setNonCallable(unionType);
-            }
-            return unionType;
+        const unionType = combineTypes(types);
+        if (isUnion(unionType)) {
+            TypeBase.setNonCallable(unionType);
         }
 
-        return NeverType.create();
+        return unionType;
     }
 
     // Creates a type that represents "Generic[T1, T2, ...]", used in the
@@ -16106,7 +16116,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Union': {
-                    return createUnionType(errorNode, typeArgs);
+                    return createUnionType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Generic': {

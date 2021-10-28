@@ -576,6 +576,12 @@ test('Unions3', () => {
     TestUtils.validateResults(analysisResults3_10, 0);
 });
 
+test('Unions4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions4.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('ParamSpec1', () => {
     const configOptions = new ConfigOptions('.');
 
