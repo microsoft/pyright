@@ -244,7 +244,7 @@ async function processArgs(): Promise<ExitStatus> {
         options.typeStubTargetImportName = args.createstub;
     }
 
-    options.analyzeUnannotatedFunctions = !args.skipAnalysisForUnannotatedFunctions;
+    options.analyzeUnannotatedFunctions = !args.skipunannotated;
 
     if (args.verbose) {
         options.verboseOutput = true;
