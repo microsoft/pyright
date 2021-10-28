@@ -698,6 +698,19 @@ export function applySolvedTypeVars(
             // don't transform that type variable.
             if (typeVar.scopeId && typeVarMap.hasSolveForScope(typeVar.scopeId) && !typeVar.isExemptFromReplacement) {
                 let replacement = typeVarMap.getTypeVarType(typeVar, useNarrowBoundOnly);
+
+                // If there was no narrow bound but there is a wide bound that
+                // contains literals, we'll use the wide bound even if "useNarrowBoundOnly"
+                // is specified.
+                if (!replacement && useNarrowBoundOnly) {
+                    const wideType = typeVarMap.getTypeVarType(typeVar);
+                    if (wideType) {
+                        if (containsLiteralType(wideType, /* includeTypeArgs */ true)) {
+                            replacement = wideType;
+                        }
+                    }
+                }
+
                 if (replacement) {
                     if (TypeBase.isInstantiable(typeVar)) {
                         replacement = convertToInstantiable(replacement);
