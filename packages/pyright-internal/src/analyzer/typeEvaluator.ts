@@ -16299,17 +16299,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         fullTypeParams.forEach((typeParam, index) => {
             if (typeArgs && index < typeArgs.length) {
                 if (typeParam.details.isParamSpec) {
+                    const typeArg = typeArgs[index];
                     const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
                     TypeBase.setNonCallable(functionType);
 
-                    if (isEllipsisType(typeArgs[index].type)) {
+                    if (isEllipsisType(typeArg.type)) {
                         FunctionType.addDefaultParameters(functionType);
                         typeArgTypes.push(functionType);
                         return;
                     }
 
-                    if (typeArgs[index].typeList) {
-                        typeArgs[index].typeList!.forEach((paramType, paramIndex) => {
+                    if (typeArg.typeList) {
+                        typeArg.typeList!.forEach((paramType, paramIndex) => {
                             FunctionType.addParameter(functionType, {
                                 category: ParameterCategory.Simple,
                                 name: `__p${paramIndex}`,
@@ -16318,6 +16319,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 hasDeclaredType: true,
                             });
                         });
+                        typeArgTypes.push(functionType);
+                        return;
+                    }
+
+                    if (isInstantiableClass(typeArg.type) && ClassType.isBuiltIn(typeArg.type, 'Concatenate')) {
+                        const concatTypeArgs = typeArg.type.typeArguments;
+                        if (concatTypeArgs && concatTypeArgs.length > 0) {
+                            concatTypeArgs.forEach((typeArg, index) => {
+                                if (index === concatTypeArgs.length - 1) {
+                                    if (isParamSpec(typeArg)) {
+                                        functionType.details.paramSpec = typeArg;
+                                    }
+                                } else {
+                                    FunctionType.addParameter(functionType, {
+                                        category: ParameterCategory.Simple,
+                                        name: `__p${index}`,
+                                        isNameSynthesized: true,
+                                        hasDeclaredType: true,
+                                        type: typeArg,
+                                    });
+                                }
+                            });
+                        }
+
                         typeArgTypes.push(functionType);
                         return;
                     }

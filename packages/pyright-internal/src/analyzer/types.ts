@@ -1207,7 +1207,8 @@ export namespace FunctionType {
                     (paramTypes.concrete.flags &
                         (FunctionTypeFlags.ClassMethod |
                             FunctionTypeFlags.StaticMethod |
-                            FunctionTypeFlags.ConstructorMethod)) |
+                            FunctionTypeFlags.ConstructorMethod |
+                            FunctionTypeFlags.ParamSpecValue)) |
                     FunctionTypeFlags.SynthesizedMethod;
 
                 // Update the specialized parameter types as well.

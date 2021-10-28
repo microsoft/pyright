@@ -2255,7 +2255,7 @@ function _transformTypeVarsInFunctionType(
             variadicTypesToUnpack!.forEach((unpackedType) => {
                 FunctionType.addParameter(newFunctionType, {
                     category: ParameterCategory.Simple,
-                    name: `_p${newFunctionType.details.parameters.length}`,
+                    name: `__p${newFunctionType.details.parameters.length}`,
                     isNameSynthesized: true,
                     type: unpackedType,
                     hasDeclaredType: true,
@@ -2265,7 +2265,7 @@ function _transformTypeVarsInFunctionType(
             const param = { ...functionType.details.parameters[index] };
             param.type = paramType;
             if (param.name && param.isNameSynthesized) {
-                param.name = `_p${newFunctionType.details.parameters.length}`;
+                param.name = `__p${newFunctionType.details.parameters.length}`;
             }
 
             FunctionType.addParameter(newFunctionType, param);
