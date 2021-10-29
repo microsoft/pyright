@@ -150,6 +150,12 @@ test('Super5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Super6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 

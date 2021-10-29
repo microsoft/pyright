@@ -6891,11 +6891,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             return createNamedTupleType(evaluatorInterface, errorNode, argList, false);
                         }
 
+                        let effectiveTypeVarMap = typeVarMap;
+                        if (!effectiveTypeVarMap) {
+                            // If a typeVarMap wasn't provided by the caller, allocate one here.
+                            effectiveTypeVarMap = new TypeVarMap(getTypeVarScopeId(expandedSubtype));
+
+                            // There are certain cases, such as with super().__new__(cls) calls where
+                            // the call is a constructor but the proper TypeVar scope has been lost.
+                            // We'll add a wildcard TypeVar scope here. This is a bit of a hack and
+                            // we may need to revisit this in the future.
+                            if (
+                                !effectiveTypeVarMap.getSolveForScopes() &&
+                                FunctionType.isConstructorMethod(expandedSubtype)
+                            ) {
+                                effectiveTypeVarMap.addSolveForScope(WildcardTypeVarScopeId);
+                            }
+                        }
+
                         const functionResult = validateFunctionArguments(
                             errorNode,
                             argList,
                             expandedSubtype,
-                            typeVarMap || new TypeVarMap(getTypeVarScopeId(expandedSubtype)),
+                            effectiveTypeVarMap,
                             skipUnknownArgCheck,
                             expectedType
                         );
