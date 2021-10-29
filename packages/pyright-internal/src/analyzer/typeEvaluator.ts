@@ -20270,7 +20270,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return constructorFunction;
     }
 
+    // If the class is a protocol and it has a `__call__` method but no other methods
+    // or attributes that would be incompatible with a function, this method returns
+    // the signature of the call implied by the `__call__` method. Otherwise it returns
+    // undefined.
     function getCallbackProtocolType(objType: ClassType): FunctionType | OverloadedFunctionType | undefined {
+        if (!isClassInstance(objType) || !ClassType.isProtocolClass(objType)) {
+            return undefined;
+        }
+
+        // Make sure that the protocol class doesn't define any fields that
+        // a normal function wouldn't be compatible with.
+        for (const mroClass of objType.details.mro) {
+            if (isClass(mroClass) && ClassType.isProtocolClass(mroClass)) {
+                for (const field of mroClass.details.fields) {
+                    if (field[0] !== '__call__' && !field[1].isIgnoredForProtocolMatch()) {
+                        return undefined;
+                    }
+                }
+            }
+        }
+
         const callMember = lookUpObjectMember(objType, '__call__');
         if (!callMember) {
             return undefined;

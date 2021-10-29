@@ -94,6 +94,7 @@ def func5(x: int) -> None:
     pass
 
 
+# This should generate an error.
 var4: TestClass4 = func5
 
 
@@ -107,3 +108,12 @@ def func6(a: int, b: str) -> int:
 
 
 f: TestClass5 = func6
+
+
+class TestClass6:
+    def __call__(self, *vals: bytes, maxlen: Optional[int] = None) -> List[bytes]:
+        return []
+
+
+# This should generate an error because TestClass6 is not a protocol class.
+var6: TestClass6 = good_cb
