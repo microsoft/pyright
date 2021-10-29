@@ -10510,7 +10510,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const ifType = getTypeOfExpression(node.ifExpression, expectedType, flags);
         const elseType = getTypeOfExpression(node.elseExpression, expectedType, flags);
 
-        const type = combineTypes([ifType.type, elseType.type]);
+        const type = removeNoReturnFromUnion(combineTypes([ifType.type, elseType.type]));
         return { type, node, isIncomplete: ifType.isIncomplete || elseType.isIncomplete };
     }
 
