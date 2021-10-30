@@ -39,15 +39,15 @@ def func1(p1: List[int], p2: _T):
 
     # This should generate a type error.
     c1 = p1[:,]
-    t_c1: Literal["int"] = reveal_type(c1)
+    t_c1: Literal["Unknown"] = reveal_type(c1)
 
     # This should generate a type error.
     c2 = p1[:,:]
-    t_c2: Literal["int"] = reveal_type(c2)
+    t_c2: Literal["Unknown"] = reveal_type(c2)
 
     # This should generate a type error.
     c3 = p1[1,]
-    t_c3: Literal["int"] = reveal_type(c3)
+    t_c3: Literal["Unknown"] = reveal_type(c3)
 
     d1 = p2[0]
     t_d1: Literal["Unknown"] = reveal_type(d1)

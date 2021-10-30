@@ -6295,15 +6295,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Create a helper lambda that evaluates the overload that matches
         // the arg/param lists.
-        const evaluateUsingFirstMatchingOverload = () => {
+        const evaluateUsingLastMatchingOverload = () => {
+            const lastOverload = filteredOverloads[filteredOverloads.length - 1];
+            const lastMatch = filteredMatchResults[filteredOverloads.length - 1];
+
             const effectiveTypeVarMap = typeVarMap ?? new TypeVarMap();
-            effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(filteredOverloads[0]));
+            effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(lastOverload));
             effectiveTypeVarMap.unlock();
 
             return validateFunctionArgumentTypes(
                 errorNode,
-                filteredMatchResults[0],
-                filteredOverloads[0],
+                lastMatch,
+                lastOverload,
                 effectiveTypeVarMap,
                 /* skipUnknownArgCheck */ true,
                 expectedType
@@ -6314,7 +6317,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // use the normal type matching mechanism because it is faster and
         // will provide a clearer error message.
         if (filteredMatchResults.length === 1) {
-            return evaluateUsingFirstMatchingOverload();
+            return evaluateUsingLastMatchingOverload();
         }
 
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
@@ -6353,7 +6356,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // in speculative mode because it's very expensive, and we're going to
         // suppress the diagnostic anyway.
         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
-            return evaluateUsingFirstMatchingOverload();
+            const result = evaluateUsingLastMatchingOverload();
+
+            // Replace the result with an unknown type since we don't know
+            // what overload should have been used.
+            result.returnType = UnknownType.create();
+            return result;
         }
 
         return { argumentErrors: true, isTypeIncomplete: false };

@@ -807,7 +807,7 @@ test('Subscript3', () => {
     // Analyze with Python 3.9 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['subscript3.py'], configOptions);
-    TestUtils.validateResults(analysisResults39, 34);
+    TestUtils.validateResults(analysisResults39, 30);
 
     // Analyze with Python 3.10 settings.
     // These are disabled because PEP 637 was rejected.

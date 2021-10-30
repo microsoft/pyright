@@ -63,7 +63,7 @@ test('Assignment1', () => {
 test('Assignment2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment2.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Assignment3', () => {
