@@ -8763,7 +8763,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     } else {
                         const argType = getTypeForArgumentExpectingType(argList[i]);
-                        if (requiresSpecialization(argType)) {
+                        if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
                         typeVar.details.boundType = convertToInstance(argType);
@@ -8800,7 +8800,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 } else {
                     const argType = getTypeForArgumentExpectingType(argList[i]);
-                    if (requiresSpecialization(argType)) {
+                    if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                         addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                     }
                     TypeVarType.addConstraint(typeVar, convertToInstance(argType));

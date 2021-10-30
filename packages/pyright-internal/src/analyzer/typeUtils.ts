@@ -2418,17 +2418,22 @@ export function requiresTypeArguments(classType: ClassType) {
     return false;
 }
 
-export function requiresSpecialization(type: Type, recursionCount = 0): boolean {
+export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, recursionCount = 0): boolean {
     switch (type.category) {
         case TypeCategory.Class: {
+            if (ClassType.isPseudoGenericClass(type) && ignorePseudoGeneric) {
+                return false;
+            }
+
             if (type.typeArguments) {
                 if (recursionCount > maxTypeRecursionCount) {
                     return false;
                 }
 
                 return (
-                    type.typeArguments.find((typeArg) => requiresSpecialization(typeArg, recursionCount + 1)) !==
-                    undefined
+                    type.typeArguments.find((typeArg) =>
+                        requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount + 1)
+                    ) !== undefined
                 );
             }
 
@@ -2447,7 +2452,13 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
             }
 
             for (let i = 0; i < type.details.parameters.length; i++) {
-                if (requiresSpecialization(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)) {
+                if (
+                    requiresSpecialization(
+                        FunctionType.getEffectiveParameterType(type, i),
+                        ignorePseudoGeneric,
+                        recursionCount + 1
+                    )
+                ) {
                     return true;
                 }
             }
@@ -2457,11 +2468,11 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
                     ? type.specializedTypes.returnType
                     : type.details.declaredReturnType;
             if (declaredReturnType) {
-                if (requiresSpecialization(declaredReturnType, recursionCount + 1)) {
+                if (requiresSpecialization(declaredReturnType, ignorePseudoGeneric, recursionCount + 1)) {
                     return true;
                 }
             } else if (type.inferredReturnType) {
-                if (requiresSpecialization(type.inferredReturnType, recursionCount + 1)) {
+                if (requiresSpecialization(type.inferredReturnType, ignorePseudoGeneric, recursionCount + 1)) {
                     return true;
                 }
             }
@@ -2471,12 +2482,18 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
 
         case TypeCategory.OverloadedFunction: {
             return (
-                type.overloads.find((overload) => requiresSpecialization(overload, recursionCount + 1)) !== undefined
+                type.overloads.find((overload) =>
+                    requiresSpecialization(overload, ignorePseudoGeneric, recursionCount + 1)
+                ) !== undefined
             );
         }
 
         case TypeCategory.Union: {
-            return findSubtype(type, (subtype) => requiresSpecialization(subtype, recursionCount + 1)) !== undefined;
+            return (
+                findSubtype(type, (subtype) =>
+                    requiresSpecialization(subtype, ignorePseudoGeneric, recursionCount + 1)
+                ) !== undefined
+            );
         }
 
         case TypeCategory.TypeVar: {
@@ -2489,7 +2506,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
             // if it has generic type arguments.
             if (type.typeAliasInfo?.typeArguments) {
                 return type.typeAliasInfo.typeArguments.some((typeArg) =>
-                    requiresSpecialization(typeArg, recursionCount + 1)
+                    requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount + 1)
                 );
             }
         }
