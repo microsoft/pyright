@@ -9680,7 +9680,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                                 // If the operator is an AND or OR, we need to combine the two types.
                                 if (operator === OperatorType.And || operator === OperatorType.Or) {
-                                    return combineTypes([leftSubtypeUnexpanded, rightSubtypeUnexpanded]);
+                                    return removeNoReturnFromUnion(
+                                        combineTypes([leftSubtypeUnexpanded, rightSubtypeUnexpanded])
+                                    );
                                 }
                                 // The other boolean operators always return a bool value.
                                 return getBuiltInObject(errorNode, 'bool');
