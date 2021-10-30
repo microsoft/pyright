@@ -484,7 +484,6 @@
         "overloadNotAssignable": "One or more overloads of \"{name}\" is not assignable",
         "overloadWithImplementation": "The body of a function overload should be \"...\"",
         "overriddenMethod": "Overridden method",
-        "overloadTooManyUnions": "Argument union types have too many subtypes to evaluate overload",
         "overriddenSymbol": "Overridden symbol",
         "overrideParamCount": "Parameter count mismatch; base method has {baseCount}, but override has {overrideCount}",
         "overrideParamName": "Parameter {index} name mismatch: base parameter is named \"{baseName}\", override parameter is named \"{overrideName}\"",

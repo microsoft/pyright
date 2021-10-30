@@ -6269,6 +6269,54 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         });
 
+        // If there are no possible arg/param matches among the overloads,
+        // emit an error that includes the argument types.
+        if (filteredMatchResults.length === 0) {
+            // Skip the error message if we're in speculative mode because it's very
+            // expensive, and we're going to suppress the diagnostic anyway.
+            if (!isDiagnosticSuppressedForNode(errorNode)) {
+                const functionName = type.overloads[0].details.name || '<anonymous function>';
+                const diagAddendum = new DiagnosticAddendum();
+                const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
+
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
+                );
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.noOverload().format({ name: functionName }) + diagAddendum.getString(),
+                    errorNode
+                );
+            }
+
+            return { argumentErrors: true, isTypeIncomplete: false };
+        }
+
+        // Create a helper lambda that evaluates the overload that matches
+        // the arg/param lists.
+        const evaluateUsingFirstMatchingOverload = () => {
+            const effectiveTypeVarMap = typeVarMap ?? new TypeVarMap();
+            effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(filteredOverloads[0]));
+            effectiveTypeVarMap.unlock();
+
+            return validateFunctionArgumentTypes(
+                errorNode,
+                filteredMatchResults[0],
+                filteredOverloads[0],
+                effectiveTypeVarMap,
+                /* skipUnknownArgCheck */ true,
+                expectedType
+            );
+        };
+
+        // If there is only one possible arg/param match among the overloads,
+        // use the normal type matching mechanism because it is faster and
+        // will provide a clearer error message.
+        if (filteredMatchResults.length === 1) {
+            return evaluateUsingFirstMatchingOverload();
+        }
+
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
         let isTypeIncomplete = false;
 
@@ -6305,25 +6353,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // in speculative mode because it's very expensive, and we're going to
         // suppress the diagnostic anyway.
         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
-            const functionName = type.overloads[0].details.name || '<anonymous function>';
-            const diagAddendum = new DiagnosticAddendum();
-            const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
-
-            diagAddendum.addMessage(
-                Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
-            );
-            if (expandedArgTypes && expandedArgTypes.length > maxOverloadUnionExpansionCount) {
-                diagAddendum.addMessage(Localizer.DiagnosticAddendum.overloadTooManyUnions());
-            }
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.noOverload().format({ name: functionName }) + diagAddendum.getString(),
-                errorNode
-            );
+            return evaluateUsingFirstMatchingOverload();
         }
 
-        return { argumentErrors: true, isTypeIncomplete };
+        return { argumentErrors: true, isTypeIncomplete: false };
     }
 
     // Replaces each item in the expandedArgTypes with n items where n is
