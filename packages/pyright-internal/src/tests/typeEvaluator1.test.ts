@@ -525,42 +525,84 @@ test('Lambda4', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Call1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call1.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('Call2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call2.py']);
+
+    TestUtils.validateResults(analysisResults, 11);
+});
+
+test('Call3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.7 settings. This will generate more errors.
+    configOptions.defaultPythonVersion = PythonVersion.V3_7;
+    const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['call3.py'], configOptions);
+    TestUtils.validateResults(analysisResults37, 30);
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['call3.py'], configOptions);
+    TestUtils.validateResults(analysisResults38, 17);
+});
+
+test('Call4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Call5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call5.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('Call6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call6.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Call7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call7.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('Function1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function1.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Function2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function2.py']);
 
-    TestUtils.validateResults(analysisResults, 11);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Function3', () => {
-    const configOptions = new ConfigOptions('.');
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function3.py']);
 
-    // Analyze with Python 3.7 settings. This will generate more errors.
-    configOptions.defaultPythonVersion = PythonVersion.V3_7;
-    const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['function3.py'], configOptions);
-    TestUtils.validateResults(analysisResults37, 30);
-
-    // Analyze with Python 3.8 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
-    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['function3.py'], configOptions);
-    TestUtils.validateResults(analysisResults38, 17);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Function4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function4.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Function5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function5.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Function6', () => {
@@ -572,73 +614,31 @@ test('Function6', () => {
 test('Function7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function7.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Function8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function8.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Function9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function9.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
-test('Function10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function10.py']);
-
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('Function11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function11.py']);
-
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('Function12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function12.py']);
+test('Unreachable1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py']);
 
     TestUtils.validateResults(analysisResults, 0, 0, 0, 2);
 });
 
-test('Function13', () => {
+test('FunctionMember1', () => {
     // Analyze with reportFunctionMemberAccess disabled.
-    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['function13.py']);
+    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py']);
     TestUtils.validateResults(analysisResult1, 0);
 
     // Analyze with reportFunctionMemberAccess enabled.
     const configOptions = new ConfigOptions('.');
     configOptions.diagnosticRuleSet.reportFunctionMemberAccess = 'error';
-    const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['function13.py'], configOptions);
+    const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py'], configOptions);
     TestUtils.validateResults(analysisResult2, 3);
-});
-
-test('Function14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function14.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('Function15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function15.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('Function16', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function16.py']);
-
-    TestUtils.validateResults(analysisResults, 4);
-});
-
-test('Function17', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function17.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Annotations1', () => {

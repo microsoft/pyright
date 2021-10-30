@@ -1,155 +1,82 @@
-# This sample tests the Python 3.8 "positional-only parameter" feature.
+# This sample tests that the type checker properly handles
+# types of args and kwargs correctly.
 
-from typing import Any, Dict, Protocol, Tuple
-
-
-def f0(a: int, b: int):
-    return 3
+from typing import Any, Dict, Hashable, Mapping, Protocol, Tuple
 
 
-def f1(a: int, b: int, /):
-    return 3
-
-# This should generate an error because only one
-# '/' parameter is allowed.
-def f2(a: int, /, b: int, /):
-    return 3
-
-def f3(a: int, /, b: int):
-    return 3
-
-def f4(a: int, /, b: int, *, c: int):
-    return 3
-
-# This should generate an error because a '/'
-# parameter shouldn't appear after '*'.
-def f5(a: int, *, b: int, /, c: int):
-    return 3
-
-# This should generate an error because a '/'
-# parameter cannot be the first in a param list.
-def f6(/, a: int, *, b: int):
-    return 3
-
-
-f0(2, 3)
-
-f1(2, 3)
-
-# This should generate an error because b
-# is a position-only parameter.
-f1(2, b=3)
-
-# This should generate an error because a and b
-# are position-only parameters.
-f1(a=2, b=3)
-
-f2(2, 3)
-
-# This should generate an error.
-f2(a=2, b=3)
-
-f3(2, 3)
-f3(2, b=3)
-
-# This should generate 1 error because a is a
-# position-only parameter.
-f3(a=2, b=3)
-
-f4(1, 2, c=3)
-f4(1, b=2, c=3)
-
-# This should generate an error because c is a
-# keyword-only parameter.
-f4(1, 2, 3)
-
-# This should generate an error because a is a
-# positional-only parameter.
-f4(a=1, b=2, c=3)
-
-# This will an error because of the bad
-# declaration. Test to make sure we don't crash.
-f5(1, b=2, c=3)
-
-f6(1, b=2)
-f6(a=1, b=2)
-
-class A:
-    def f(self, g: bool = False, /, **kwargs) -> None:
-        ...
-
-a = A()
-
-a.f(hello="world")
-
-
-def f7(name: str, /, **kwargs: Any):
-    return 3
-
-f7("hi", name=3)
-
-# This should generate an error
-f7("hi", name=3, name=4)
-
-
-class P1(Protocol):
-    def f(self, x: Any, /):
-        ...
-
-
-class C1:
-    def f(
-        self,
-        y: Any,
-    ):
-        ...
-
-
-c1: P1 = C1()
-
-
-class P2(Protocol):
-    def f(self, x: Any):
-        ...
-
-
-class C2:
-    def f(self, y: Any, /):
-        ...
-
-
-# This should generate an error
-c2: P2 = C2()
-
-
-def f8(a: int, b: int = 3, /):
+def requires_hashable_tuple(p1: Tuple[Hashable, ...]):
     ...
 
 
-kwargs: Dict[str, Any] = {}
-
-# This should generate an error
-f8()
-
-# This should generate an error
-f8(**kwargs)
+def requires_hashable_dict(p1: Dict[str, Hashable]):
+    ...
 
 
-f8(0, **kwargs)
-
-def f9(*, c: int):
-    pass
-
-# This should generate an error because it is missing a keyword
-# argument for keyword parameter "c".
-f9(*[1, 2, 3])
+def test_args(*args: Hashable):
+    if args:
+        aaa = list(args)
+        bbb = tuple(aaa)
+        args = bbb
+    requires_hashable_tuple(args)
 
 
-# This should generate an error because "/" cannot be used after "*args"
-def f10(x, *args, /, y):
-    pass
+def test_kwargs(**kwargs: Hashable):
+    requires_hashable_dict(kwargs)
 
-# This should generate an error because "*" cannot be used after "*args"
-def f11(x, *args, *, y):
-    pass
 
+class StrSubclass(str):
+    ...
+
+
+def test_kwargs2(
+    a: Mapping[str, Any],
+    b: Mapping[Any, Hashable],
+    c: Dict[StrSubclass, Hashable],
+    d: int,
+    e: Mapping[int, Hashable],
+    f: Tuple[str, ...],
+):
+    test_kwargs(**a)
+    test_kwargs(**b)
+    test_kwargs(**c)
+
+    # This should generate an error
+    test_kwargs(**d)
+
+    # This should generate an error
+    test_kwargs(**e)
+
+    # This should generate an error
+    test_kwargs(**f)
+
+
+class Callback1(Protocol):
+    def __call__(self) -> None:
+        ...
+
+
+def func1(
+    value: str = ...,
+    *args: object,
+) -> None:
+    ...
+
+
+def func2(
+    value: str = ...,
+    **kwargs: object,
+) -> None:
+    ...
+
+
+def func3(
+    value: str = ...,
+    *args: object,
+    **kwargs: object,
+) -> None:
+    ...
+
+
+v1: Callback1 = func1
+v2: Callback1 = func2
+v3: Callback1 = func3

@@ -1,13 +1,13 @@
-# This sample tests that the TypeVar matching logic for
-# functions is working correctly.
+# This sample tests assignment of a function that uses
+# a synthesized TypeVar type for the "self" parameter.
 
-from typing import List
+from typing import Callable
 
-a: List[str] = ["a", "bc"]
 
-# This should work because the "sorted" is defined
-# with the first parameter of Iterable[_T] and the
-# 'key' parameter Callable[[_T], Any]. Since "len"
-# is a function that takes a "Sized" and "str" is
-# a "Sized", the result of this should be List[str].
-b: List[str] = sorted(a, key=len)
+class TestClass:
+    def method(self) -> None:
+        pass
+
+
+# This should generate an error.
+func1: Callable[[float], None] = TestClass.method

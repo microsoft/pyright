@@ -1,82 +1,38 @@
-# This sample tests that the type checker properly handles
-# types of args and kwargs correctly.
+# This sample verifies that functions are treated as though they
+# derive from object.
 
-from typing import Any, Dict, Hashable, Mapping, Protocol, Tuple
+from typing import Callable, Union, overload
 
 
-def requires_hashable_tuple(p1: Tuple[Hashable, ...]):
+@overload
+def func1(a: str) -> str:
     ...
 
 
-def requires_hashable_dict(p1: Dict[str, Hashable]):
+@overload
+def func1(a: int) -> int:
     ...
 
 
-def test_args(*args: Hashable):
-    if args:
-        aaa = list(args)
-        bbb = tuple(aaa)
-        args = bbb
-    requires_hashable_tuple(args)
-
-
-def test_kwargs(**kwargs: Hashable):
-    requires_hashable_dict(kwargs)
-
-
-class StrSubclass(str):
+def func1(a: Union[str, int]) -> Union[str, int]:
     ...
 
 
-def test_kwargs2(
-    a: Mapping[str, Any],
-    b: Mapping[Any, Hashable],
-    c: Dict[StrSubclass, Hashable],
-    d: int,
-    e: Mapping[int, Hashable],
-    f: Tuple[str, ...],
-):
-    test_kwargs(**a)
-    test_kwargs(**b)
-    test_kwargs(**c)
-
-    # This should generate an error
-    test_kwargs(**d)
-
-    # This should generate an error
-    test_kwargs(**e)
-
-    # This should generate an error
-    test_kwargs(**f)
-
-
-class Callback1(Protocol):
-    def __call__(self) -> None:
-        ...
-
-
-def func1(
-    value: str = ...,
-    *args: object,
-) -> None:
+def func2(a: Union[str, int]) -> Union[str, int]:
     ...
 
 
-def func2(
-    value: str = ...,
-    **kwargs: object,
-) -> None:
+def takes_object(val: object) -> None:
     ...
 
 
-def func3(
-    value: str = ...,
-    *args: object,
-    **kwargs: object,
-) -> None:
-    ...
+takes_object(func1)
+takes_object(func2)
 
 
-v1: Callback1 = func1
-v2: Callback1 = func2
-v3: Callback1 = func3
+def func3(b: Callable[[str], bool]) -> None:
+    if b == func1:
+        pass
+
+    if b != func2:
+        pass

@@ -1,12 +1,17 @@
-# This sample tests that args and kwargs parameters are
-# properly typed.
-
-from typing import Tuple, Dict, List
+# This sample tests the ability of the type checker to
+# deal with circular references in return types.
 
 
-def function_with_args(*args: str) -> Tuple[str, ...]:
-    return args
+class Foo1:
+    # This should generate an error because 'dict' is
+    # a forward reference, so it refers to the function
+    # itself.
+    def dict(self) -> "dict":
+        # This should generate an error because the return
+        # type doesn't match.
+        return {}
 
 
-def function_with_kwargs(**kwargs: List[str]) -> Dict[str, List[str]]:
-    return kwargs
+class Foo2:
+    def dict(self) -> dict:
+        return {}

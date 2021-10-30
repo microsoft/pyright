@@ -44,7 +44,7 @@ class Foo:
 def func2():
     func1()
 
-    # This should not be marked unreachable because NotImplementeError
+    # This should not be marked unreachable because NotImplementedError
     # is special-cased.
     return 3
 

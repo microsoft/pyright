@@ -17,6 +17,7 @@ import {
     ClassType,
     combineTypes,
     findSubtype,
+    FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
     isAny,
@@ -149,6 +150,28 @@ export const enum CanAssignFlags {
     RetainLiteralsForTypeVar = 1 << 7,
 }
 
+export enum ParameterSource {
+    PositionOnly,
+    PositionOrKeyword,
+    KeywordOnly,
+}
+
+export interface ParameterDetails {
+    param: FunctionParameter;
+    index: number;
+    source: ParameterSource;
+}
+
+export interface ParameterListDetails {
+    variadicParamIndex?: number;
+    argsIndex?: number;
+    variadicArgsIndex?: number;
+    kwargsIndex?: number;
+    firstPositionOrKeywordIndex: number;
+    firstKeywordOnlyIndex?: number;
+    params: ParameterDetails[];
+}
+
 interface TypeVarTransformer {
     transformTypeVar: (typeVar: TypeVarType) => Type;
     transformVariadicTypeVar?: (paramSpec: TypeVarType) => Type[] | undefined;
@@ -157,6 +180,66 @@ interface TypeVarTransformer {
 }
 
 let synthesizedTypeVarIndexForExpectedType = 1;
+
+export function getParameterListDetails(type: FunctionType): ParameterListDetails {
+    const result: ParameterListDetails = {
+        firstPositionOrKeywordIndex: 0,
+        params: [],
+    };
+
+    const positionOnlyIndex = type.details.parameters.findIndex(
+        (p) => p.category === ParameterCategory.Simple && !p.name
+    );
+
+    if (positionOnlyIndex >= 0) {
+        result.firstPositionOrKeywordIndex = positionOnlyIndex;
+    }
+
+    let sawKeywordOnlySeparator = false;
+
+    type.details.parameters.forEach((param, index) => {
+        if (param.category === ParameterCategory.VarArgList) {
+            if (!sawKeywordOnlySeparator) {
+                result.firstKeywordOnlyIndex = result.params.length;
+                sawKeywordOnlySeparator = true;
+            }
+
+            if (param.name && result.argsIndex === undefined) {
+                result.argsIndex = result.params.length;
+
+                if (isVariadicTypeVar(param.type)) {
+                    result.variadicArgsIndex = result.params.length;
+                }
+            }
+        }
+
+        if (param.category === ParameterCategory.VarArgDictionary) {
+            if (result.kwargsIndex === undefined) {
+                result.kwargsIndex = result.params.length;
+            }
+        }
+
+        if (param.category === ParameterCategory.Simple) {
+            if (isVariadicTypeVar(param.type)) {
+                result.variadicParamIndex = index;
+            }
+        }
+
+        if (param.name) {
+            result.params.push({
+                param,
+                index,
+                source: sawKeywordOnlySeparator
+                    ? ParameterSource.KeywordOnly
+                    : positionOnlyIndex >= 0 && index < positionOnlyIndex
+                    ? ParameterSource.PositionOnly
+                    : ParameterSource.PositionOrKeyword,
+            });
+        }
+    });
+
+    return result;
+}
 
 export function isOptionalType(type: Type): boolean {
     if (isUnion(type)) {
