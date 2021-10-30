@@ -539,6 +539,12 @@ test('ThreePartVersion1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Generic1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generic1.py']);
+
+    TestUtils.validateResults(analysisResults, 9);
+});
+
 test('Unions1', () => {
     const configOptions = new ConfigOptions('.');
 

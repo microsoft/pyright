@@ -77,7 +77,7 @@ export const enum EvaluatorFlags {
 
     // The Generic class type is allowed in this context. It is
     // normally not allowed if ExpectingType is set.
-    GenericClassTypeAllowed = 1 << 9,
+    AllowGenericClassType = 1 << 9,
 
     // A type annotation restricts the types of expressions that are
     // allowed. If this flag is set, illegal type expressions are
@@ -106,6 +106,9 @@ export const enum EvaluatorFlags {
 
     // 'ClassVar' is not allowed in this context.
     ClassVarDisallowed = 1 << 17,
+
+    // 'Generic' cannot be used without type arguments in this context.
+    DisallowNakedGeneric = 1 << 18,
 }
 
 export interface TypeResult {

@@ -3349,7 +3349,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
-            if ((flags & EvaluatorFlags.GenericClassTypeAllowed) === 0) {
+            if ((flags & EvaluatorFlags.AllowGenericClassType) === 0) {
                 if (isInstantiableClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -11503,24 +11503,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Creates a type that represents "Generic[T1, T2, ...]", used in the
     // definition of a generic class.
-    function createGenericType(errorNode: ParseNode, classType: ClassType, typeArgs?: TypeResult[]): Type {
-        // Make sure there's at least one type arg.
-        if (!typeArgs || typeArgs.length === 0) {
-            addError(Localizer.Diagnostic.genericTypeArgMissing(), errorNode);
+    function createGenericType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
+    ): Type {
+        if (!typeArgs) {
+            // If no type arguments are provided, the resulting type
+            // depends on whether we're evaluating a type annotation or
+            // we're in some other context.
+            if ((flags & (EvaluatorFlags.ExpectingTypeAnnotation | EvaluatorFlags.DisallowNakedGeneric)) !== 0) {
+                addError(Localizer.Diagnostic.genericTypeArgMissing(), errorNode);
+            }
+
+            return classType;
         }
 
-        // Make sure that all of the type args are typeVars and are unique.
         const uniqueTypeVars: TypeVarType[] = [];
         if (typeArgs) {
+            // Make sure there's at least one type arg.
+            if (typeArgs.length === 0) {
+                addError(Localizer.Diagnostic.genericTypeArgMissing(), errorNode);
+            }
+
+            // Make sure that all of the type args are typeVars and are unique.
             typeArgs.forEach((typeArg) => {
                 if (!isTypeVar(typeArg.type)) {
                     addError(Localizer.Diagnostic.genericTypeArgTypeVar(), typeArg.node);
                 } else {
-                    for (const typeVar of uniqueTypeVars) {
-                        if (typeVar === typeArg.type) {
-                            addError(Localizer.Diagnostic.genericTypeArgUnique(), typeArg.node);
-                            break;
-                        }
+                    if (uniqueTypeVars.some((t) => isTypeSame(t, typeArg.type))) {
+                        addError(Localizer.Diagnostic.genericTypeArgUnique(), typeArg.node);
                     }
 
                     uniqueTypeVars.push(typeArg.type);
@@ -12081,7 +12094,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let metaclassNode: ExpressionNode | undefined;
         let exprFlags =
             EvaluatorFlags.ExpectingType |
-            EvaluatorFlags.GenericClassTypeAllowed |
+            EvaluatorFlags.AllowGenericClassType |
+            EvaluatorFlags.DisallowNakedGeneric |
             EvaluatorFlags.DisallowTypeVarsWithScopeId |
             EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
         if (fileInfo.isStubFile) {
@@ -16142,7 +16156,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Generic': {
-                    return createGenericType(errorNode, classType, typeArgs);
+                    return createGenericType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Final': {
