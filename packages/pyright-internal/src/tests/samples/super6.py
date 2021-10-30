@@ -9,7 +9,7 @@ FooBase = NamedTuple("FooBase", [("x", int)])
 class Foo(FooBase):
     def __new__(cls):
         obj = super().__new__(cls, x=1)
-        t1: Literal["~Foo"] = reveal_type(obj)
+        t1: Literal["Self@Foo"] = reveal_type(obj)
         return obj
 
 

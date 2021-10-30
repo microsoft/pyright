@@ -398,7 +398,7 @@ export function printType(
                             (printTypeFlags & PrintTypeFlags.OmitSelfClsTypeIndicator) === 0 &&
                             !isAnyOrUnknown(type.details.boundType)
                         ) {
-                            boundTypeString = `~${boundTypeString}`;
+                            boundTypeString = `Self@${boundTypeString}`;
                         }
 
                         if (TypeBase.isInstantiable(type)) {

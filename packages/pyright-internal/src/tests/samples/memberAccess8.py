@@ -72,4 +72,4 @@ class B:
 
 b = B()
 t_b1: Literal["str"] = reveal_type(b.foo)
-t_b2: Literal["Minimal[~B, str]"] = reveal_type(B.foo)
+t_b2: Literal["Minimal[Self@B, str]"] = reveal_type(B.foo)

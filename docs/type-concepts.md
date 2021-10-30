@@ -304,17 +304,17 @@ Notice that the type of variable `sum` is reported with asterisks (`*`). This in
 
 When a type annotation for a method’s `self` or `cls` parameter is omitted, pyright will infer its type based on the class that contains the method. The inferred type is internally represented as a type variable that is bound to the class.
 
-Within the function, the type of `self` is printed with a tilde preceding the class name. This indicates that the type is a TypeVar bound to the class rather than the class itself. Outside of the function, this TypeVar is resolved based on the usage.
+The type of `self` is represented as `Self@ClassName` where `ClassName` is the class that contains the method. Likewise, the `cls` parameter in a class method will have the type `Type[Self@ClassName]`.
 
 ```python
 class Parent:
     def method1(self):
-        reveal_type(self)  # ~Parent
+        reveal_type(self)  # Self@Parent
         return self
     
     @classmethod
     def method2(cls):
-        reveal_type(cls)  # Type[~Parent]
+        reveal_type(cls)  # Type[Self@Parent]
         return cls
 
 class Child(Parent):
