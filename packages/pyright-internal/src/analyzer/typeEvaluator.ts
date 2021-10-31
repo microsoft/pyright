@@ -4243,17 +4243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return undefined;
             }
 
-            if (usage.method === 'get') {
-                const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, /* exemptTypeVarReplacement */ true);
-                if (typeResult) {
-                    type = typeResult.type;
-                    if (typeResult.isIncomplete) {
-                        isTypeIncomplete = true;
-                    }
-                } else {
-                    type = UnknownType.create();
-                }
-            } else {
+            if (usage.method !== 'get') {
                 // If the usage indicates a 'set' or 'delete' and the access is within the
                 // class definition itself, use only the declared type to avoid circular
                 // type evaluation.
@@ -4271,17 +4261,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
+            }
 
-                if (!type) {
-                    const typeResult = getTypeOfMemberInternal(errorNode, memberInfo);
-                    if (typeResult) {
-                        type = typeResult.type;
-                        if (typeResult.isIncomplete) {
-                            isTypeIncomplete = true;
-                        }
-                    } else {
-                        type = UnknownType.create();
+            if (!type) {
+                const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, /* exemptTypeVarReplacement */ true);
+                if (typeResult) {
+                    type = typeResult.type;
+                    if (typeResult.isIncomplete) {
+                        isTypeIncomplete = true;
                     }
+                } else {
+                    type = UnknownType.create();
                 }
             }
 
@@ -4529,13 +4519,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             // Infer return types before specializing. Otherwise a generic inferred
                             // return type won't be properly specialized.
-                            if (isFunction(accessMethodType)) {
-                                getFunctionEffectiveReturnType(accessMethodType);
-                            } else if (isOverloadedFunction(accessMethodType)) {
-                                accessMethodType.overloads.forEach((overload) => {
-                                    getFunctionEffectiveReturnType(overload);
-                                });
-                            }
+                            inferReturnTypeIfNecessary(accessMethodType);
 
                             accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
 
@@ -17408,6 +17392,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return ClassType.isEnumClass(classInfo.classType);
+    }
+
+    function inferReturnTypeIfNecessary(type: Type) {
+        if (isFunction(type)) {
+            getFunctionEffectiveReturnType(type);
+        } else if (isOverloadedFunction(type)) {
+            type.overloads.forEach((overload) => {
+                getFunctionEffectiveReturnType(overload);
+            });
+        }
     }
 
     // Returns the return type of the function. If the type is explicitly provided in

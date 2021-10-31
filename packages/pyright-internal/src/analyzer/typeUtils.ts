@@ -1449,8 +1449,8 @@ export function removeTruthinessFromType(type: Type): Type {
     });
 }
 
-export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: boolean) {
-    const selfType = TypeVarType.createInstance(`__type_of_${isClsParam ? 'cls' : 'self'}_${classType.details.name}`);
+export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: boolean): TypeVarType {
+    const selfType = TypeVarType.createInstance(`__type_of_self__`);
     const scopeId = getTypeVarScopeId(classType) ?? '';
     selfType.details.isSynthesized = true;
     selfType.details.isSynthesizedSelfCls = true;
@@ -1463,7 +1463,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
         selfSpecializeClassType(classType, /* includeSubclasses */ true)
     );
 
-    return isClsParam ? convertToInstantiable(selfType) : selfType;
+    return isClsParam ? TypeVarType.cloneAsInstantiable(selfType) : selfType;
 }
 
 // Returns the declared yield type if provided, or undefined otherwise.
