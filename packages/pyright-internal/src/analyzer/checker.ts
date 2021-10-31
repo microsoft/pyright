@@ -1270,7 +1270,7 @@ export class Checker extends ParseTreeWalker {
                 let isPossiblyTrue = false;
 
                 doForEachSubtype(leftType, (leftSubtype) => {
-                    if (this._evaluator.canAssignType(rightType, leftSubtype, new DiagnosticAddendum())) {
+                    if (this._evaluator.canAssignType(rightType, leftSubtype)) {
                         isPossiblyTrue = true;
                     }
                 });
@@ -1365,8 +1365,8 @@ export class Checker extends ParseTreeWalker {
                 );
 
                 if (
-                    this._evaluator.canAssignType(genericLeftType, genericRightType, new DiagnosticAddendum()) ||
-                    this._evaluator.canAssignType(genericRightType, genericLeftType, new DiagnosticAddendum())
+                    this._evaluator.canAssignType(genericLeftType, genericRightType) ||
+                    this._evaluator.canAssignType(genericRightType, genericLeftType)
                 ) {
                     return true;
                 }
@@ -1397,8 +1397,8 @@ export class Checker extends ParseTreeWalker {
                 );
 
                 if (
-                    this._evaluator.canAssignType(genericLeftType, genericRightType, new DiagnosticAddendum()) ||
-                    this._evaluator.canAssignType(genericRightType, genericLeftType, new DiagnosticAddendum())
+                    this._evaluator.canAssignType(genericLeftType, genericRightType) ||
+                    this._evaluator.canAssignType(genericRightType, genericLeftType)
                 ) {
                     return true;
                 }
@@ -1551,7 +1551,7 @@ export class Checker extends ParseTreeWalker {
                     !this._evaluator.canAssignType(
                         returnType,
                         prevReturnType,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         new TypeVarMap(),
                         CanAssignFlags.SkipSolveTypeVars
                     )
@@ -1607,7 +1607,7 @@ export class Checker extends ParseTreeWalker {
         return this._evaluator.canAssignType(
             functionType,
             prevOverload,
-            new DiagnosticAddendum(),
+            /* diag */ undefined,
             /* typeVarMap */ undefined,
             CanAssignFlags.SkipSolveTypeVars |
                 CanAssignFlags.SkipFunctionReturnTypeCheck |
@@ -1618,7 +1618,7 @@ export class Checker extends ParseTreeWalker {
     private _isLegalOverloadImplementation(
         overload: FunctionType,
         implementation: FunctionType,
-        diag: DiagnosticAddendum
+        diag: DiagnosticAddendum | undefined
     ): boolean {
         const typeVarMap = new TypeVarMap(getTypeVarScopeId(implementation));
 
@@ -1655,7 +1655,9 @@ export class Checker extends ParseTreeWalker {
                     destType: this._evaluator.printType(implementationReturnType, /* expandTypeAlias */ false),
                 })
             );
-            diag.addAddendum(returnDiag);
+            if (diag) {
+                diag.addAddendum(returnDiag);
+            }
             isLegal = false;
         }
 
@@ -2520,13 +2522,13 @@ export class Checker extends ParseTreeWalker {
                     ClassType.isDerivedFrom(varType, filterType) ||
                     (isInstanceCheck &&
                         ClassType.isProtocolClass(filterType) &&
-                        this._evaluator.canAssignType(filterType, varType, new DiagnosticAddendum())) ||
+                        this._evaluator.canAssignType(filterType, varType)) ||
                     (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
                 const filterIsSubclass =
                     ClassType.isDerivedFrom(filterType, varType) ||
                     (isInstanceCheck &&
                         ClassType.isProtocolClass(varType) &&
-                        this._evaluator.canAssignType(varType, filterType, new DiagnosticAddendum()));
+                        this._evaluator.canAssignType(varType, filterType));
 
                 // Normally, a class should never be both a subclass and a
                 // superclass. However, this can happen if one of the classes
@@ -3860,7 +3862,6 @@ export class Checker extends ParseTreeWalker {
 
         const paramType = this._evaluator.makeTopLevelTypeVarsConcrete(paramInfo.type);
         const expectedType = isCls ? classType : convertToInstance(classType);
-        const diag = new DiagnosticAddendum();
 
         // If the declared type is a protocol class or instance, skip
         // the check. This has legitimate uses for mix-in classes.
@@ -3877,7 +3878,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (!this._evaluator.canAssignType(paramType, expectedType, diag)) {
+        if (!this._evaluator.canAssignType(paramType, expectedType)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,

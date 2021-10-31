@@ -9,7 +9,6 @@
  * negative ("else") narrowing cases.
  */
 
-import { DiagnosticAddendum } from '../common/diagnostic';
 import { ArgumentCategory, ExpressionNode, ParameterCategory, ParseNodeType } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
@@ -467,7 +466,7 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
         const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(subtype.tupleTypeArguments[indexValue]);
 
         if (isPositiveTest) {
-            if (!evaluator.canAssignType(typeOfEntry, NoneType.createInstance(), new DiagnosticAddendum())) {
+            if (!evaluator.canAssignType(typeOfEntry, NoneType.createInstance())) {
                 return undefined;
             }
         } else {
@@ -609,13 +608,13 @@ function narrowTypeForIsInstance(
                     (ClassType.isDerivedFrom(varType, concreteFilterType) ||
                         (isInstanceCheck &&
                             ClassType.isProtocolClass(concreteFilterType) &&
-                            evaluator.canAssignType(concreteFilterType, varType, new DiagnosticAddendum())) ||
+                            evaluator.canAssignType(concreteFilterType, varType)) ||
                         (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType)));
                 const filterIsSubclass =
                     ClassType.isDerivedFrom(concreteFilterType, varType) ||
                     (isInstanceCheck &&
                         ClassType.isProtocolClass(varType) &&
-                        evaluator.canAssignType(varType, concreteFilterType, new DiagnosticAddendum()));
+                        evaluator.canAssignType(varType, concreteFilterType));
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
@@ -801,7 +800,7 @@ function narrowTypeForIsInstance(
             for (const filterType of classTypeList) {
                 const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
-                if (evaluator.canAssignType(varType, convertToInstance(concreteFilterType), new DiagnosticAddendum())) {
+                if (evaluator.canAssignType(varType, convertToInstance(concreteFilterType))) {
                     // If the filter type is a Callable, use the original type. If the
                     // filter type is a callback protocol, use the filter type.
                     if (isFunction(filterType)) {
@@ -813,11 +812,7 @@ function narrowTypeForIsInstance(
             }
         } else if (
             !classTypeList.some((filterType) =>
-                evaluator.canAssignType(
-                    varType,
-                    convertToInstance(evaluator.makeTopLevelTypeVarsConcrete(filterType)),
-                    new DiagnosticAddendum()
-                )
+                evaluator.canAssignType(varType, convertToInstance(evaluator.makeTopLevelTypeVarsConcrete(filterType)))
             )
         ) {
             filteredTypes.push(unexpandedType);
@@ -980,7 +975,7 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
             return subtype;
         }
 
-        if (!evaluator.canAssignType(typeArg, subtype, new DiagnosticAddendum())) {
+        if (!evaluator.canAssignType(typeArg, subtype)) {
             // If the reference type isn't assignable to the element type, we will
             // assume that the __contains__ method will return false.
             return undefined;
@@ -1073,13 +1068,9 @@ function narrowTypeForDiscriminatedDictEntryComparison(
 
             if (tdEntry && isLiteralTypeOrUnion(tdEntry.valueType)) {
                 if (isPositiveTest) {
-                    return evaluator.canAssignType(tdEntry.valueType, literalType, new DiagnosticAddendum())
-                        ? subtype
-                        : undefined;
+                    return evaluator.canAssignType(tdEntry.valueType, literalType) ? subtype : undefined;
                 } else {
-                    return evaluator.canAssignType(literalType, tdEntry.valueType, new DiagnosticAddendum())
-                        ? undefined
-                        : subtype;
+                    return evaluator.canAssignType(literalType, tdEntry.valueType) ? undefined : subtype;
                 }
             }
         }
@@ -1107,13 +1098,9 @@ function narrowTypeForDiscriminatedTupleComparison(
                 const tupleEntryType = subtype.tupleTypeArguments[indexValue];
                 if (tupleEntryType && isLiteralTypeOrUnion(tupleEntryType)) {
                     if (isPositiveTest) {
-                        return evaluator.canAssignType(tupleEntryType, literalType, new DiagnosticAddendum())
-                            ? subtype
-                            : undefined;
+                        return evaluator.canAssignType(tupleEntryType, literalType) ? subtype : undefined;
                     } else {
-                        return evaluator.canAssignType(literalType, tupleEntryType, new DiagnosticAddendum())
-                            ? undefined
-                            : subtype;
+                        return evaluator.canAssignType(literalType, tupleEntryType) ? undefined : subtype;
                     }
                 }
             }
@@ -1151,13 +1138,9 @@ function narrowTypeForDiscriminatedFieldComparison(
 
             if (isLiteralTypeOrUnion(memberType)) {
                 if (isPositiveTest) {
-                    return evaluator.canAssignType(memberType, literalType, new DiagnosticAddendum())
-                        ? subtype
-                        : undefined;
+                    return evaluator.canAssignType(memberType, literalType) ? subtype : undefined;
                 } else {
-                    return evaluator.canAssignType(literalType, memberType, new DiagnosticAddendum())
-                        ? undefined
-                        : subtype;
+                    return evaluator.canAssignType(literalType, memberType) ? undefined : subtype;
                 }
             }
         }

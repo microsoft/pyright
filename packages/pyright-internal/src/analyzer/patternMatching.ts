@@ -10,7 +10,6 @@
  */
 
 import { assert } from '../common/debug';
-import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import {
@@ -390,7 +389,7 @@ function narrowTypeBasedOnLiteralPattern(
                 isLiteralType(literalType) &&
                 isClassInstance(subtype) &&
                 isLiteralType(subtype) &&
-                evaluator.canAssignType(literalType, subtype, new DiagnosticAddendum())
+                evaluator.canAssignType(literalType, subtype)
             ) {
                 return undefined;
             }
@@ -412,7 +411,7 @@ function narrowTypeBasedOnLiteralPattern(
     }
 
     return mapSubtypes(type, (subtype) => {
-        if (evaluator.canAssignType(subtype, literalType, new DiagnosticAddendum())) {
+        if (evaluator.canAssignType(subtype, literalType)) {
             return literalType;
         }
         return undefined;
@@ -452,10 +451,9 @@ function narrowTypeBasedOnClassPattern(
             return type;
         }
 
-        const diag = new DiagnosticAddendum();
         const classInstance = convertToInstance(classType);
         return mapSubtypes(type, (subtype) => {
-            if (evaluator.canAssignType(classInstance, subtype, diag)) {
+            if (evaluator.canAssignType(classInstance, subtype)) {
                 return undefined;
             }
 
@@ -511,20 +509,10 @@ function narrowTypeBasedOnClassPattern(
                     if (isClassInstance(concreteSubtype)) {
                         let resultType: Type;
 
-                        if (
-                            evaluator.canAssignType(
-                                expandedSubtype,
-                                ClassType.cloneAsInstantiable(concreteSubtype),
-                                new DiagnosticAddendum()
-                            )
-                        ) {
+                        if (evaluator.canAssignType(expandedSubtype, ClassType.cloneAsInstantiable(concreteSubtype))) {
                             resultType = matchSubtype;
                         } else if (
-                            evaluator.canAssignType(
-                                ClassType.cloneAsInstantiable(concreteSubtype),
-                                expandedSubtype,
-                                new DiagnosticAddendum()
-                            )
+                            evaluator.canAssignType(ClassType.cloneAsInstantiable(concreteSubtype), expandedSubtype)
                         ) {
                             resultType = convertToInstance(unexpandedSubtype);
 

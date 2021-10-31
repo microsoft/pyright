@@ -1302,7 +1302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         objectType: ClassType,
         memberName: string,
         usage: EvaluatorUsage = { method: 'get' },
-        diag: DiagnosticAddendum = new DiagnosticAddendum(),
+        diag: DiagnosticAddendum | undefined = undefined,
         memberAccessFlags = MemberAccessFlags.None,
         bindToType?: ClassType | TypeVarType
     ): TypeResult | undefined {
@@ -1329,7 +1329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType: ClassType,
         memberName: string,
         usage: EvaluatorUsage = { method: 'get' },
-        diag: DiagnosticAddendum = new DiagnosticAddendum(),
+        diag: DiagnosticAddendum | undefined = undefined,
         memberAccessFlags = MemberAccessFlags.None,
         bindToType?: ClassType | TypeVarType
     ): TypeResult | undefined {
@@ -1366,7 +1366,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     metaclass,
                     memberName,
                     usage,
-                    new DiagnosticAddendum(),
+                    /* diag */ undefined,
                     memberAccessFlags,
                     classType
                 );
@@ -2900,7 +2900,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isClassInstance(annotationType) && ClassType.isBuiltIn(annotationType, 'TypeAlias');
 
                     if (!isTypeAliasAnnotation) {
-                        if (canAssignType(annotationType, type, new DiagnosticAddendum())) {
+                        if (canAssignType(annotationType, type)) {
                             // Don't attempt to narrow based on the annotated type if the type
                             // is a enum because the annotated type in an enum doesn't reflect
                             // the type of the symbol.
@@ -4199,7 +4199,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType: ClassType,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         flags: MemberAccessFlags,
         bindToType?: ClassType | TypeVarType
     ): ClassMemberLookup | undefined {
@@ -4237,7 +4237,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let isTypeIncomplete = false;
 
             if (memberInfo.symbol.isInitVar()) {
-                diag.addMessage(Localizer.DiagnosticAddendum.memberIsInitVar().format({ name: memberName }));
+                if (diag) {
+                    diag.addMessage(Localizer.DiagnosticAddendum.memberIsInitVar().format({ name: memberName }));
+                }
                 return undefined;
             }
 
@@ -4287,7 +4289,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (ClassType.isTypedDictClass(classType)) {
                 const typedDecls = memberInfo.symbol.getTypedDeclarations();
                 if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+                    if (diag) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+                    }
                     return undefined;
                 }
             }
@@ -4322,14 +4326,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (usage.method === 'set' && usage.setType) {
                 // Verify that the assigned type is compatible.
-                if (!canAssignType(type, usage.setType, diag.createAddendum())) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.memberAssignment().format({
-                            type: printType(usage.setType),
-                            name: memberName,
-                            classType: printObjectTypeForClass(classType),
-                        })
-                    );
+                if (!canAssignType(type, usage.setType, diag?.createAddendum())) {
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.memberAssignment().format({
+                                type: printType(usage.setType),
+                                name: memberName,
+                                classType: printObjectTypeForClass(classType),
+                            })
+                        );
+                    }
                     return undefined;
                 }
 
@@ -4338,11 +4344,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ClassType.isFrozenDataClass(memberInfo.classType) &&
                     (flags & MemberAccessFlags.AccessClassMembersOnly) === 0
                 ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.dataclassFrozen().format({
-                            name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
-                        })
-                    );
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.dataclassFrozen().format({
+                                name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
+                            })
+                        );
+                    }
                     return undefined;
                 }
             }
@@ -4389,7 +4397,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+        if (diag) {
+            diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+        }
         return undefined;
     }
 
@@ -4406,7 +4416,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum
+        diag: DiagnosticAddendum | undefined
     ): Type | undefined {
         const treatConstructorAsClassMember = (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0;
         let isTypeValid = true;
@@ -4454,17 +4464,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (ClassType.isPropertyClass(lookupClass)) {
                         if (usage.method === 'set') {
                             if (!accessMethod) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.propertyMissingSetter().format({ name: memberName })
-                                );
+                                if (diag) {
+                                    diag.addMessage(
+                                        Localizer.DiagnosticAddendum.propertyMissingSetter().format({
+                                            name: memberName,
+                                        })
+                                    );
+                                }
                                 isTypeValid = false;
                                 return undefined;
                             }
                         } else if (usage.method === 'del') {
                             if (!accessMethod) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.propertyMissingDeleter().format({ name: memberName })
-                                );
+                                if (diag) {
+                                    diag.addMessage(
+                                        Localizer.DiagnosticAddendum.propertyMissingDeleter().format({
+                                            name: memberName,
+                                        })
+                                    );
+                                }
                                 isTypeValid = false;
                                 return undefined;
                             }
@@ -4529,7 +4547,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 (flags & MemberAccessFlags.AccessClassMembersOnly) !== 0 &&
                                 ClassType.isProtocolClass(baseTypeClass)
                             ) {
-                                diag.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
+                                if (diag) {
+                                    diag.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
+                                }
                                 isTypeValid = false;
                             }
                         }
@@ -4625,7 +4645,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (usage.method === 'set') {
                 if (memberInfo?.symbol.isClassVar()) {
                     if (flags & MemberAccessFlags.DisallowClassVarWrites) {
-                        diag.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
+                        if (diag) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName })
+                            );
+                        }
                         isTypeValid = false;
                         return undefined;
                     }
@@ -4641,7 +4665,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // being assigned within an __init__ method, it's allowed.
                     const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
                     if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
-                        diag.addMessage(Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
+                        if (diag) {
+                            diag.addMessage(Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
+                        }
                         isTypeValid = false;
                         return undefined;
                     }
@@ -4654,7 +4680,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isClass(memberInfo.classType) &&
                     ClassType.isReadOnlyInstanceVariables(memberInfo.classType)
                 ) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
+                    if (diag) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
+                    }
                     isTypeValid = false;
                     return undefined;
                 }
@@ -4713,7 +4741,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 classType,
                 '__getattribute__',
                 { method: 'get' },
-                new DiagnosticAddendum(),
+                /* diag */ undefined,
                 MemberAccessFlags.SkipObjectBaseClass
             )?.type;
 
@@ -4726,7 +4754,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 classType,
                 '__getattr__',
                 { method: 'get' },
-                new DiagnosticAddendum(),
+                /* diag */ undefined,
                 MemberAccessFlags.SkipObjectBaseClass
             )?.type;
             if (getAttrType && isFunction(getAttrType)) {
@@ -4738,7 +4766,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 classType,
                 '__setattr__',
                 { method: 'get' },
-                new DiagnosticAddendum(),
+                /* diag */ undefined,
                 MemberAccessFlags.SkipObjectBaseClass
             )?.type;
             if (setAttrType) {
@@ -4753,7 +4781,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 classType,
                 '__detattr__',
                 { method: 'get' },
-                new DiagnosticAddendum(),
+                /* diag */ undefined,
                 MemberAccessFlags.SkipObjectBaseClass
             )?.type;
             if (delAttrType) {
@@ -6452,7 +6480,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ClassType.cloneAsInstance(type),
             '__init__',
             { method: 'get' },
-            new DiagnosticAddendum(),
+            /* diag */ undefined,
             MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
         )?.type;
 
@@ -6564,7 +6592,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type,
                 '__new__',
                 { method: 'get' },
-                new DiagnosticAddendum(),
+                /* diag */ undefined,
                 MemberAccessFlags.AccessClassMembersOnly |
                     MemberAccessFlags.SkipObjectBaseClass |
                     MemberAccessFlags.TreatConstructorAsClassMethod,
@@ -6709,7 +6737,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* unknownIfNotFound */ true
         );
 
-        if (!canAssignType(expectedSubtype, specializedType, new DiagnosticAddendum())) {
+        if (!canAssignType(expectedSubtype, specializedType)) {
             return undefined;
         }
 
@@ -6785,12 +6813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the expected type is generic (but not specialized), we can't proceed.
         const expectedTypeArgs = expectedType.typeArguments;
         if (!expectedTypeArgs) {
-            return canAssignType(
-                type,
-                ClassType.cloneAsInstantiable(expectedType),
-                new DiagnosticAddendum(),
-                typeVarMap
-            );
+            return canAssignType(type, ClassType.cloneAsInstantiable(expectedType), /* diag */ undefined, typeVarMap);
         }
 
         // If the expected type is the same as the target type (commonly the case),
@@ -6834,7 +6857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ true);
         const syntheticTypeVarMap = new TypeVarMap(expectedTypeScopeId);
-        if (canAssignType(genericExpectedType, specializedType, new DiagnosticAddendum(), syntheticTypeVarMap)) {
+        if (canAssignType(genericExpectedType, specializedType, /* diag */ undefined, syntheticTypeVarMap)) {
             synthExpectedTypeArgs.forEach((typeVar, index) => {
                 const synthTypeVar = syntheticTypeVarMap.getTypeVarType(typeVar);
 
@@ -7834,7 +7857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 canAssignType(
                                     ClassType.cloneAsInstance(mappingType),
                                     argType,
-                                    new DiagnosticAddendum(),
+                                    /* diag */ undefined,
                                     mappingTypeVarMap
                                 )
                             ) {
@@ -7844,7 +7867,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 ) as ClassType;
                                 const typeArgs = specializedMapping.typeArguments;
                                 if (typeArgs && typeArgs.length >= 2) {
-                                    if (canAssignType(strObjType, typeArgs[0], new DiagnosticAddendum())) {
+                                    if (canAssignType(strObjType, typeArgs[0])) {
                                         isValidMappingType = true;
                                     }
                                     unpackedDictionaryArgType = typeArgs[1];
@@ -8173,7 +8196,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 canAssignType(
                     getFunctionEffectiveReturnType(type),
                     expectedType,
-                    new DiagnosticAddendum(),
+                    /* diag */ undefined,
                     typeVarMap,
                     CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar
                 );
@@ -9682,10 +9705,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         /* errorNode */ undefined
                                     );
 
-                                    if (
-                                        iteratorType &&
-                                        canAssignType(iteratorType, leftSubtype, new DiagnosticAddendum())
-                                    ) {
+                                    if (iteratorType && canAssignType(iteratorType, leftSubtype)) {
                                         returnType = getBuiltInObject(errorNode, 'bool');
                                     }
                                 }
@@ -9974,7 +9994,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             doForEachSubtype(expectedType, (subtype) => {
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
-                        return getTypeFromDictionaryExpected(node, subtype, new DiagnosticAddendum());
+                        return getTypeFromDictionaryExpected(node, subtype);
                     });
 
                     if (subtypeResult) {
@@ -10005,7 +10025,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromDictionaryExpected(
         node: DictionaryNode,
         expectedType: Type,
-        expectedDiagAddendum: DiagnosticAddendum
+        expectedDiagAddendum?: DiagnosticAddendum
     ): TypeResult | undefined {
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
 
@@ -10218,7 +10238,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (expectedKeyType) {
                     const adjExpectedKeyType = makeTopLevelTypeVarsConcrete(expectedKeyType);
                     if (!isAnyOrUnknown(adjExpectedKeyType)) {
-                        if (canAssignType(adjExpectedKeyType, keyType, new DiagnosticAddendum(), undefined)) {
+                        if (canAssignType(adjExpectedKeyType, keyType)) {
                             keyType = adjExpectedKeyType;
                         }
                     }
@@ -10272,7 +10292,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             canAssignType(
                                 ClassType.cloneAsInstance(mappingType),
                                 unexpandedType,
-                                new DiagnosticAddendum(),
+                                /* diag */ undefined,
                                 mappingTypeVarMap
                             )
                         ) {
@@ -10512,8 +10532,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         entryTypes: Type[],
         isNarrowable: boolean
     ): Type | undefined {
-        const diagDummy = new DiagnosticAddendum();
-
         // Synthesize a temporary bound type var. We will attempt to assign all list
         // entries to this type var, possibly narrowing the type in the process.
         const targetTypeVar = TypeVarType.createInstance('__typeArg');
@@ -10531,7 +10549,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // type explicitly includes literals.
         if (
             entryTypes.some(
-                (entryType) => !canAssignType(targetTypeVar, stripLiteralValue(entryType), diagDummy, typeVarMap)
+                (entryType) =>
+                    !canAssignType(targetTypeVar, stripLiteralValue(entryType), /* diag */ undefined, typeVarMap)
             )
         ) {
             // Allocate a fresh typeVarMap before we try again with literals not stripped.
@@ -10542,7 +10561,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 expectedType,
                 /* retainLiteral */ true
             );
-            if (entryTypes.some((entryType) => !canAssignType(targetTypeVar!, entryType, diagDummy, typeVarMap))) {
+            if (
+                entryTypes.some(
+                    (entryType) => !canAssignType(targetTypeVar!, entryType, /* diag */ undefined, typeVarMap)
+                )
+            ) {
                 return undefined;
             }
         }
@@ -11950,9 +11973,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // If there was a declared type, make sure the RHS value is compatible.
                 if (declaredType) {
-                    const diagAddendum = new DiagnosticAddendum();
-
-                    if (canAssignType(declaredType, srcType, diagAddendum)) {
+                    if (canAssignType(declaredType, srcType)) {
                         // Narrow the resulting type if possible.
                         if (!isAnyOrUnknown(srcType)) {
                             srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
@@ -12668,7 +12689,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             classType,
             '__init_subclass__',
             { method: 'get' },
-            new DiagnosticAddendum(),
+            /* diag */ undefined,
             MemberAccessFlags.AccessClassMembersOnly |
                 MemberAccessFlags.SkipObjectBaseClass |
                 MemberAccessFlags.SkipOriginalClass,
@@ -16775,7 +16796,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ClassType.cloneAsInstance(baseType),
                             '__init__',
                             { method: 'get' },
-                            new DiagnosticAddendum(),
+                            /* diag */ undefined,
                             MemberAccessFlags.SkipObjectBaseClass
                         )?.type;
 
@@ -17659,7 +17680,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignClassToProtocol(
         destType: ClassType,
         srcType: ClassType,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         allowMetaclassForProtocols: boolean,
@@ -17730,7 +17751,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!srcMemberInfo) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    if (diag) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    }
                     typesAreConsistent = false;
                 } else {
                     let destMemberType = getDeclaredTypeOfSymbol(symbol);
@@ -17799,7 +17822,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
 
-                        const subDiag = diag.createAddendum();
+                        const subDiag = diag?.createAddendum();
 
                         // Properties require special processing.
                         if (isClassInstance(destMemberType) && ClassType.isPropertyClass(destMemberType)) {
@@ -17809,14 +17832,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         ClassType.cloneAsInstantiable(destMemberType),
                                         ClassType.cloneAsInstantiable(srcMemberType),
                                         srcType,
-                                        subDiag.createAddendum(),
+                                        subDiag?.createAddendum(),
                                         genericDestTypeVarMap,
                                         recursionCount + 1
                                     )
                                 ) {
-                                    subDiag.addMessage(
-                                        Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
-                                    );
+                                    if (subDiag) {
+                                        subDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
+                                        );
+                                    }
                                     typesAreConsistent = false;
                                 }
                             } else {
@@ -17830,15 +17855,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     !canAssignType(
                                         getterType,
                                         srcMemberType,
-                                        subDiag.createAddendum(),
+                                        subDiag?.createAddendum(),
                                         genericDestTypeVarMap,
                                         CanAssignFlags.Default,
                                         recursionCount + 1
                                     )
                                 ) {
-                                    subDiag.addMessage(
-                                        Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
-                                    );
+                                    if (subDiag) {
+                                        subDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
+                                        );
+                                    }
                                     typesAreConsistent = false;
                                 }
                             }
@@ -17846,13 +17873,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             !canAssignType(
                                 destMemberType,
                                 srcMemberType,
-                                subDiag.createAddendum(),
+                                subDiag?.createAddendum(),
                                 genericDestTypeVarMap,
                                 CanAssignFlags.Default,
                                 recursionCount + 1
                             )
                         ) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            if (subDiag) {
+                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            }
                             typesAreConsistent = false;
                         }
 
@@ -17865,20 +17894,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (isDestFinal !== isSrcFinal) {
                             if (isDestFinal) {
-                                subDiag.addMessage(
-                                    Localizer.DiagnosticAddendum.memberIsFinalInProtocol().format({ name })
-                                );
+                                if (subDiag) {
+                                    subDiag.addMessage(
+                                        Localizer.DiagnosticAddendum.memberIsFinalInProtocol().format({ name })
+                                    );
+                                }
                             } else {
-                                subDiag.addMessage(
-                                    Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name })
-                                );
+                                if (subDiag) {
+                                    subDiag.addMessage(
+                                        Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name })
+                                    );
+                                }
                             }
                             typesAreConsistent = false;
                         }
                     }
 
                     if (symbol.isClassVar() && !srcMemberInfo.symbol.isClassMember()) {
-                        diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
+                        if (diag) {
+                            diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
+                        }
                         typesAreConsistent = false;
                     }
                 }
@@ -17897,7 +17932,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignClassToProtocol(
                         specializedBaseClass,
                         srcType,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMap,
                         flags,
                         allowMetaclassForProtocols,
@@ -17935,7 +17970,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignModuleToProtocol(
         destType: ClassType,
         srcType: ModuleType,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         recursionCount: number
@@ -17960,7 +17995,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const memberSymbol = srcType.fields.get(name);
 
                 if (!memberSymbol) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    if (diag) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    }
                     typesAreConsistent = false;
                 } else {
                     let declaredType = getDeclaredTypeOfSymbol(symbol);
@@ -17982,19 +18019,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
 
-                        const subDiag = diag.createAddendum();
+                        const subDiag = diag?.createAddendum();
 
                         if (
                             !canAssignType(
                                 declaredType,
                                 srcMemberType,
-                                subDiag.createAddendum(),
+                                subDiag?.createAddendum(),
                                 genericDestTypeVarMap,
                                 CanAssignFlags.Default,
                                 recursionCount + 1
                             )
                         ) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            if (subDiag) {
+                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            }
                             typesAreConsistent = false;
                         }
                     }
@@ -18014,7 +18053,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignModuleToProtocol(
                         specializedBaseClass,
                         srcType,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMap,
                         flags,
                         recursionCount + 1
@@ -18052,7 +18091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destPropertyType: ClassType,
         srcPropertyType: ClassType,
         srcClass: ClassType,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap?: TypeVarMap,
         recursionCount = 0
     ): boolean {
@@ -18085,7 +18124,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const srcAccessType = srcAccessSymbol ? getDeclaredTypeOfSymbol(srcAccessSymbol) : undefined;
 
                 if (!srcAccessType || !isFunction(srcAccessType)) {
-                    diag.addMessage(accessorInfo.missingDiagMsg());
+                    if (diag) {
+                        diag.addMessage(accessorInfo.missingDiagMsg());
+                    }
                     isAssignable = false;
                     return;
                 }
@@ -18111,13 +18152,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignType(
                         boundDestAccessType,
                         boundSrcAccessType,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMap,
                         CanAssignFlags.Default,
                         recursionCount + 1
                     )
                 ) {
-                    diag.addMessage('getter type is incompatible');
+                    if (diag) {
+                        diag.addMessage('getter type is incompatible');
+                    }
                     isAssignable = false;
                     return;
                 }
@@ -18211,7 +18254,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignClass(
         destType: ClassType,
         srcType: ClassType,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         recursionCount: number,
@@ -18245,19 +18288,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !canAssignClassToProtocol(
                     destType,
                     srcType,
-                    diag.createAddendum(),
+                    diag?.createAddendum(),
                     typeVarMap,
                     flags,
                     allowMetaclassForProtocols,
                     recursionCount + 1
                 )
             ) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.protocolIncompatible().format({
-                        sourceType: printType(convertToInstance(srcType)),
-                        destType: printType(convertToInstance(destType)),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.protocolIncompatible().format({
+                            sourceType: printType(convertToInstance(srcType)),
+                            destType: printType(convertToInstance(destType)),
+                        })
+                    );
+                }
                 return false;
             }
 
@@ -18299,12 +18344,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             srcErrorTypeText = srcType.details.fullName;
         }
 
-        diag.addMessage(
-            Localizer.DiagnosticAddendum.typeIncompatible().format({
-                sourceType: srcErrorTypeText,
-                destType: destErrorTypeText,
-            })
-        );
+        if (diag) {
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.typeIncompatible().format({
+                    sourceType: srcErrorTypeText,
+                    destType: destErrorTypeText,
+                })
+            );
+        }
         return false;
     }
 
@@ -18314,7 +18361,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: ClassType,
         srcType: ClassType,
         inheritanceChain: InheritanceChain,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         recursionCount: number
@@ -18372,7 +18419,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         if (isDestVariadic && isSrcHomogeneousType) {
-                            diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+                            if (diag) {
+                                diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+                            }
                             return false;
                         }
 
@@ -18424,24 +18473,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         argIndex < destTypeArgs.length ? destTypeArgs[argIndex] : AnyType.create();
                                 }
 
-                                const entryDiag = diag.createAddendum();
+                                const entryDiag = diag?.createAddendum();
 
                                 if (
                                     isSourceTypeMissing ||
                                     !canAssignType(
                                         destTypeArgType,
                                         srcTypeArgType,
-                                        entryDiag.createAddendum(),
+                                        entryDiag?.createAddendum(),
                                         curTypeVarMap,
                                         flags | CanAssignFlags.RetainLiteralsForTypeVar,
                                         recursionCount + 1
                                     )
                                 ) {
-                                    entryDiag.addMessage(
-                                        Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({
-                                            entry: argIndex + 1,
-                                        })
-                                    );
+                                    if (entryDiag) {
+                                        entryDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({
+                                                entry: argIndex + 1,
+                                            })
+                                        );
+                                    }
                                     return false;
                                 }
 
@@ -18451,18 +18502,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         } else {
                             if (isSrcHomogeneousType) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
-                                        expected: destArgCount,
-                                    })
-                                );
+                                if (diag) {
+                                    diag.addMessage(
+                                        Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
+                                            expected: destArgCount,
+                                        })
+                                    );
+                                }
                             } else {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
-                                        expected: destArgCount,
-                                        received: srcTypeArgs.length,
-                                    })
-                                );
+                                if (diag) {
+                                    diag.addMessage(
+                                        Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
+                                            expected: destArgCount,
+                                            received: srcTypeArgs.length,
+                                        })
+                                    );
+                                }
                             }
                             return false;
                         }
@@ -18553,7 +18608,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function verifyTypeArgumentsAssignable(
         destType: ClassType,
         srcType: ClassType,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         recursionCount: number
@@ -18602,13 +18657,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         )
                     ) {
                         if (destTypeParam) {
-                            const childDiag = diag.createAddendum();
-                            childDiag.addMessage(
-                                Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
-                                    name: TypeVarType.getReadableName(destTypeParam),
-                                })
-                            );
-                            childDiag.addAddendum(assignmentDiag);
+                            if (diag) {
+                                const childDiag = diag.createAddendum();
+                                childDiag.addMessage(
+                                    Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
+                                        name: TypeVarType.getReadableName(destTypeParam),
+                                    })
+                                );
+                                childDiag.addAddendum(assignmentDiag);
+                            }
                         }
                         return false;
                     }
@@ -18623,13 +18680,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount + 1
                         )
                     ) {
-                        const childDiag = diag.createAddendum();
-                        childDiag.addMessage(
-                            Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
-                                name: TypeVarType.getReadableName(destTypeParam),
-                            })
-                        );
-                        childDiag.addAddendum(assignmentDiag);
+                        if (diag) {
+                            const childDiag = diag.createAddendum();
+                            childDiag.addMessage(
+                                Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
+                                    name: TypeVarType.getReadableName(destTypeParam),
+                                })
+                            );
+                            childDiag.addAddendum(assignmentDiag);
+                        }
                         return false;
                     }
                 } else {
@@ -18643,13 +18702,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount + 1
                         )
                     ) {
-                        const childDiag = diag.createAddendum();
-                        childDiag.addMessage(
-                            Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
-                                name: TypeVarType.getReadableName(destTypeParam),
-                            })
-                        );
-                        childDiag.addAddendum(assignmentDiag);
+                        if (diag) {
+                            const childDiag = diag.createAddendum();
+                            childDiag.addMessage(
+                                Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
+                                    name: TypeVarType.getReadableName(destTypeParam),
+                                })
+                            );
+                            childDiag.addAddendum(assignmentDiag);
+                        }
                         return false;
                     }
                 }
@@ -18668,7 +18729,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignTypeToTypeVar(
         destType: TypeVarType,
         srcType: Type,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap,
         flags = CanAssignFlags.Default,
         recursionCount = 0
@@ -18692,12 +18753,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             isTypeVarInScope = false;
             if (!destType.details.isSynthesized) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                }
                 return false;
             }
         }
@@ -18773,12 +18836,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.typeParamSpec().format({
-                    type: printType(srcType),
-                    name: destType.details.name,
-                })
-            );
+            if (diag) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeParamSpec().format({
+                        type: printType(srcType),
+                        name: destType.details.name,
+                    })
+                );
+            }
             return false;
         }
 
@@ -18821,7 +18886,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignType(
                         destType,
                         concreteSrcType,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         new TypeVarMap(destType.scopeId),
                         /* flags */ undefined,
                         recursionCount + 1
@@ -18860,7 +18925,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             canAssignType(
                                 adjustedConstraint,
                                 srcSubtype,
-                                new DiagnosticAddendum(),
+                                /* diag */ undefined,
                                 /* typeVarMap */ undefined,
                                 /* flags */ undefined,
                                 recursionCount + 1
@@ -18871,7 +18936,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 canAssignType(
                                     constrainedSubtype,
                                     adjustedConstraint,
-                                    new DiagnosticAddendum(),
+                                    /* diag */ undefined,
                                     /* typeVarMap */ undefined,
                                     /* flags */ undefined,
                                     recursionCount + 1
@@ -18922,7 +18987,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return canAssignType(
                             adjustedConstraint,
                             concreteSrcType,
-                            new DiagnosticAddendum(),
+                            /* diag */ undefined,
                             /* typeVarMap */ undefined,
                             /* flags */ undefined,
                             recursionCount + 1
@@ -18935,12 +19000,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // or there were multiple types that were assignable and they
             // are not conditional, it's an error.
             if (!constrainedType) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                        type: printType(srcType),
-                        name: destType.details.name,
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                            type: printType(srcType),
+                            name: destType.details.name,
+                        })
+                    );
+                }
                 return false;
             }
 
@@ -18949,7 +19016,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignType(
                         curNarrowTypeBound,
                         constrainedType,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         /* typeVarMap */ undefined,
                         /* flags */ undefined,
                         recursionCount + 1
@@ -18962,7 +19029,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         canAssignType(
                             constrainedType,
                             curNarrowTypeBound,
-                            new DiagnosticAddendum(),
+                            /* diag */ undefined,
                             /* typeVarMap */ undefined,
                             /* flags */ undefined,
                             recursionCount + 1
@@ -18972,12 +19039,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeVarMap.setTypeVarType(destType, constrainedType);
                         }
                     } else {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                                type: printType(constrainedType),
-                                name: printType(curNarrowTypeBound),
-                            })
-                        );
+                        if (diag) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                                    type: printType(constrainedType),
+                                    name: printType(curNarrowTypeBound),
+                                })
+                            );
+                        }
                         return false;
                     }
                 }
@@ -18994,7 +19063,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Handle the unconstrained (but possibly bound) case.
         let newNarrowTypeBound = curNarrowTypeBound;
         let newWideTypeBound = curWideTypeBound;
-        const diagAddendum = new DiagnosticAddendum();
+        const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
         // Strip literals if the existing value contains no literals. This allows
         // for explicit (but no implicit) literal specialization of a generic class.
@@ -19009,12 +19078,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (TypeBase.isInstantiable(adjSrcType)) {
                 adjSrcType = convertToInstance(adjSrcType);
             } else {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(adjSrcType),
-                        destType: printType(destType),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(adjSrcType),
+                            destType: printType(destType),
+                        })
+                    );
+                }
                 return false;
             }
         }
@@ -19054,13 +19125,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         recursionCount + 1
                     )
                 ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(adjSrcType),
-                            destType: printType(curWideTypeBound),
-                        })
-                    );
-                    diag.addAddendum(diagAddendum);
+                    if (diag && diagAddendum) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(adjSrcType),
+                                destType: printType(curWideTypeBound),
+                            })
+                        );
+                        diag.addAddendum(diagAddendum);
+                    }
                     return false;
                 }
             }
@@ -19071,19 +19144,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignType(
                         newWideTypeBound!,
                         curNarrowTypeBound,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         /* typeVarMap */ undefined,
                         /* flags */ undefined,
                         recursionCount + 1
                     )
                 ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(adjSrcType),
-                            destType: printType(curNarrowTypeBound),
-                        })
-                    );
-                    diag.addAddendum(diagAddendum);
+                    if (diag && diagAddendum) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(adjSrcType),
+                                destType: printType(curNarrowTypeBound),
+                            })
+                        );
+                        diag.addAddendum(diagAddendum);
+                    }
                     return false;
                 }
             }
@@ -19111,7 +19186,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         canAssignType(
                             adjSrcType,
                             curNarrowTypeBound,
-                            new DiagnosticAddendum(),
+                            /* diag */ undefined,
                             typeVarMap,
                             /* flags */ undefined,
                             recursionCount + 1
@@ -19124,23 +19199,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     // We need to widen the type.
                     if (typeVarMap.isLocked() || isTypeVar(adjSrcType)) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: printType(curNarrowTypeBound),
-                                destType: printType(adjSrcType),
-                            })
-                        );
+                        if (diag) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                    sourceType: printType(curNarrowTypeBound),
+                                    destType: printType(adjSrcType),
+                                })
+                            );
+                        }
                         return false;
                     }
 
                     // Don't allow widening for variadic type variables.
                     if (isVariadicTypeVar(destType)) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: printType(curNarrowTypeBound),
-                                destType: printType(adjSrcType),
-                            })
-                        );
+                        if (diag) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                    sourceType: printType(curNarrowTypeBound),
+                                    destType: printType(adjSrcType),
+                                })
+                            );
+                        }
                         return false;
                     }
 
@@ -19148,7 +19227,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         canAssignType(
                             adjSrcType,
                             curNarrowTypeBound,
-                            new DiagnosticAddendum(),
+                            /* diag */ undefined,
                             typeVarMap,
                             /* flags */ undefined,
                             recursionCount + 1
@@ -19189,18 +19268,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignType(
                         makeTopLevelTypeVarsConcrete(curWideTypeBound),
                         newNarrowTypeBound!,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         typeVarMap,
                         /* flags */ undefined,
                         recursionCount + 1
                     )
                 ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(curWideTypeBound),
-                            destType: printType(adjSrcType),
-                        })
-                    );
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(curWideTypeBound),
+                                destType: printType(adjSrcType),
+                            })
+                        );
+                    }
                     return false;
                 }
             }
@@ -19221,7 +19302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !canAssignType(
                     destType.details.boundType,
                     makeTopLevelTypeVarsConcrete(updatedType),
-                    diag.createAddendum(),
+                    diag?.createAddendum(),
                     typeVarMap,
                     /* flags */ undefined,
                     recursionCount + 1
@@ -19230,13 +19311,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Avoid adding a message that will confuse users if the TypeVar was
                 // synthesized for internal purposes.
                 if (!destType.details.isSynthesized) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeBound().format({
-                            sourceType: printType(updatedType),
-                            destType: printType(destType.details.boundType),
-                            name: TypeVarType.getReadableName(destType),
-                        })
-                    );
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeBound().format({
+                                sourceType: printType(updatedType),
+                                destType: printType(destType.details.boundType),
+                                name: TypeVarType.getReadableName(destType),
+                            })
+                        );
+                    }
                 }
                 return false;
             }
@@ -19257,7 +19340,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignType(
         destType: Type,
         srcType: Type,
-        diag: DiagnosticAddendum,
+        diag?: DiagnosticAddendum,
         typeVarMap?: TypeVarMap,
         flags = CanAssignFlags.Default,
         recursionCount = 0
@@ -19428,12 +19511,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if ((flags & CanAssignFlags.EnforceInvariance) !== 0) {
                 if (!isAnyOrUnknown(destType)) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(srcType),
+                                destType: printType(destType),
+                            })
+                        );
+                    }
                     return false;
                 }
             }
@@ -19469,7 +19554,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignFromUnionType(
                         destType,
                         srcType,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         typeVarMap,
                         originalFlags,
                         recursionCount + 1
@@ -19483,7 +19568,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignToUnionType(
                         destType,
                         srcType,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         clonedTypeVarMap,
                         originalFlags,
                         recursionCount + 1
@@ -19533,7 +19618,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         canAssignType(
                             destType,
                             convertToInstantiable(srcTypeArgs[0]),
-                            diag.createAddendum(),
+                            diag?.createAddendum(),
                             typeVarMap,
                             flags,
                             recursionCount + 1
@@ -19542,12 +19627,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return true;
                     }
 
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(srcType),
+                                destType: printType(destType),
+                            })
+                        );
+                    }
                     return false;
                 }
             }
@@ -19570,12 +19657,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                }
                 return false;
             }
         }
@@ -19616,12 +19705,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (destType.literalValue !== undefined) {
                     const srcLiteral = concreteSrcType.literalValue;
                     if (srcLiteral === undefined || !ClassType.isLiteralValueSame(concreteSrcType, destType)) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
-                                sourceType: printType(srcType),
-                                destType: printType(destType),
-                            })
-                        );
+                        if (diag) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
+                                    sourceType: printType(srcType),
+                                    destType: printType(destType),
+                                })
+                            );
+                        }
 
                         return false;
                     }
@@ -19743,7 +19834,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isOverloadedFunction(concreteSrcType)) {
                 // Overloads are not compatible with ParamSpec.
                 if (destType.details.paramSpec) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.paramSpecOverload());
+                    if (diag) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.paramSpecOverload());
+                    }
                     return false;
                 }
 
@@ -19759,7 +19852,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return canAssignType(
                         destType,
                         overload,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMapClone,
                         flags,
                         recursionCount + 1
@@ -19767,9 +19860,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 if (overloadIndex < 0) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) })
-                    );
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) })
+                        );
+                    }
                     return false;
                 }
                 srcFunction = overloads[overloadIndex];
@@ -19791,7 +19886,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignFunction(
                         destType,
                         srcFunction,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMap ?? new TypeVarMap(getTypeVarScopeId(destType)),
                         flags,
                         recursionCount + 1
@@ -19803,7 +19898,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isOverloadedFunction(destType)) {
-            const overloadDiag = diag.createAddendum();
+            const overloadDiag = diag?.createAddendum();
 
             // All overloads in the dest must be assignable.
             const isAssignable = !destType.overloads.some((destOverload) => {
@@ -19818,7 +19913,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return !canAssignType(
                     destOverload,
                     srcType,
-                    overloadDiag.createAddendum(),
+                    overloadDiag?.createAddendum(),
                     typeVarMap || new TypeVarMap(getTypeVarScopeId(destOverload)),
                     flags,
                     recursionCount + 1
@@ -19826,11 +19921,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (!isAssignable) {
-                overloadDiag.addMessage(
-                    Localizer.DiagnosticAddendum.overloadNotAssignable().format({
-                        name: destType.overloads[0].details.name,
-                    })
-                );
+                if (overloadDiag) {
+                    overloadDiag.addMessage(
+                        Localizer.DiagnosticAddendum.overloadNotAssignable().format({
+                            name: destType.overloads[0].details.name,
+                        })
+                    );
+                }
                 return false;
             }
 
@@ -19860,16 +19957,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isNone(destType)) {
-            diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
+            if (diag) {
+                diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
+            }
             return false;
         }
 
-        diag.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                sourceType: printType(srcType),
-                destType: printType(destType),
-            })
-        );
+        if (diag) {
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                    sourceType: printType(srcType),
+                    destType: printType(destType),
+                })
+            );
+        }
 
         return false;
     }
@@ -19877,7 +19978,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignFromUnionType(
         destType: Type,
         srcType: UnionType,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         recursionCount: number
@@ -19943,7 +20044,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 !canAssignType(
                                     remainingDestSubtypes[destTypeIndex],
                                     srcSubtype,
-                                    diag.createAddendum(),
+                                    diag?.createAddendum(),
                                     typeVarMap,
                                     flags,
                                     recursionCount + 1
@@ -19967,7 +20068,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !canAssignType(
                             remainingDestSubtypes[0],
                             combineTypes(remainingSrcSubtypes),
-                            diag.createAddendum(),
+                            diag?.createAddendum(),
                             typeVarMap,
                             flags,
                             recursionCount + 1
@@ -19986,13 +20087,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // For union sources, all of the types need to be assignable to the dest.
         let isIncompatible = false;
         doForEachSubtype(srcType, (subtype) => {
-            if (!canAssignType(destType, subtype, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)) {
+            if (!canAssignType(destType, subtype, /* diag */ undefined, typeVarMap, flags, recursionCount + 1)) {
                 // That didn't work, so try again with concrete versions.
                 if (
                     !canAssignType(
                         destType,
                         makeTopLevelTypeVarsConcrete(subtype),
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMap,
                         flags,
                         recursionCount + 1
@@ -20004,12 +20105,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (isIncompatible) {
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                    sourceType: printType(srcType),
-                    destType: printType(destType),
-                })
-            );
+            if (diag) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
+            }
             return false;
         }
 
@@ -20019,7 +20122,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignToUnionType(
         destType: UnionType,
         srcType: Type,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         recursionCount: number
@@ -20033,7 +20136,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             doForEachSubtype(destType, (subtype, index) => {
                 if (
                     !isIncompatible &&
-                    !canAssignType(subtype, srcType, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)
+                    !canAssignType(subtype, srcType, diag?.createAddendum(), typeVarMap, flags, recursionCount + 1)
                 ) {
                     // Determine whether this subtype is assignable to
                     // another subtype elsewhere in the union. If so, we can ignore
@@ -20046,7 +20149,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     canAssignType(
                                         otherSubtype,
                                         subtype,
-                                        new DiagnosticAddendum(),
+                                        /* diag */ undefined,
                                         /* typeVarMap */ undefined,
                                         CanAssignFlags.Default,
                                         recursionCount + 1
@@ -20064,12 +20167,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (isIncompatible) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                }
                 return false;
             }
 
@@ -20077,7 +20182,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // For union destinations, we just need to match one of the types.
-        const diagAddendum = new DiagnosticAddendum();
+        const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
         let foundMatch = false;
         // Run through all subtypes in the union. Don't stop at the first
@@ -20108,7 +20213,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignType(
                         subtype,
                         srcType,
-                        diagAddendum.createAddendum(),
+                        diagAddendum?.createAddendum(),
                         typeVarMapClone,
                         flags,
                         recursionCount + 1
@@ -20142,7 +20247,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 foundMatch = canAssignType(
                     destType,
                     makeTopLevelTypeVarsConcrete(srcType),
-                    diagAddendum.createAddendum(),
+                    diagAddendum?.createAddendum(),
                     typeVarMap,
                     flags,
                     recursionCount + 1
@@ -20151,13 +20256,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!foundMatch) {
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                    sourceType: printType(srcType),
-                    destType: printType(destType),
-                })
-            );
-            diag.addAddendum(diagAddendum);
+            if (diag && diagAddendum) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
+                diag.addAddendum(diagAddendum);
+            }
             return false;
         }
         return true;
@@ -20198,7 +20305,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return canAssignType(
                         destType.details.boundType,
                         srcSubtype,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         /* typeVarMap */ undefined,
                         /* flags */ undefined,
                         recursionCount + 1
@@ -20213,7 +20320,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return canAssignType(
                         typeVarConstraint,
                         srcSubtype,
-                        new DiagnosticAddendum(),
+                        /* diag */ undefined,
                         /* typeVarMap */ undefined,
                         /* flags */ undefined,
                         recursionCount + 1
@@ -20372,7 +20479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: Type,
         srcType: Type,
         paramIndex: number,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         destTypeVarMap: TypeVarMap,
         srcTypeVarMap: TypeVarMap,
         flags: CanAssignFlags,
@@ -20399,19 +20506,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !canAssignType(
                     srcType,
                     specializedDestType,
-                    new DiagnosticAddendum(),
+                    /* diag */ undefined,
                     destTypeVarMap,
                     flags ^ CanAssignFlags.ReverseTypeVarMatching,
                     recursionCount + 1
                 )
             ) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.paramAssignment().format({
-                        index: paramIndex + 1,
-                        sourceType: printType(destType),
-                        destType: printType(srcType),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.paramAssignment().format({
+                            index: paramIndex + 1,
+                            sourceType: printType(destType),
+                            destType: printType(srcType),
+                        })
+                    );
+                }
                 return false;
             }
 
@@ -20422,19 +20531,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !canAssignType(
                 srcType,
                 specializedDestType,
-                diag.createAddendum(),
+                diag?.createAddendum(),
                 srcTypeVarMap,
                 flags,
                 recursionCount + 1
             )
         ) {
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.paramAssignment().format({
-                    index: paramIndex + 1,
-                    sourceType: printType(destType),
-                    destType: printType(srcType),
-                })
-            );
+            if (diag) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.paramAssignment().format({
+                        index: paramIndex + 1,
+                        sourceType: printType(destType),
+                        destType: printType(srcType),
+                    })
+                );
+            }
             return false;
         }
 
@@ -20536,7 +20647,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignFunction(
         destType: FunctionType,
         srcType: FunctionType,
-        diag: DiagnosticAddendum,
+        diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap,
         flags: CanAssignFlags,
         recursionCount: number
@@ -20584,22 +20695,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     const isDestPositionalOnly = destParam.source === ParameterSource.PositionOnly;
                     if (!isDestPositionalOnly && destParamName !== srcParamName) {
-                        diag.createAddendum().addMessage(
-                            Localizer.DiagnosticAddendum.functionParamName().format({
-                                srcName: srcParamName,
-                                destName: destParamName,
-                            })
-                        );
+                        if (diag) {
+                            diag.createAddendum().addMessage(
+                                Localizer.DiagnosticAddendum.functionParamName().format({
+                                    srcName: srcParamName,
+                                    destName: destParamName,
+                                })
+                            );
+                        }
                         canAssign = false;
                     }
                 }
 
                 if (!!destParam.param.hasDefault && !srcParam.param.hasDefault) {
-                    diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
-                            name: srcParamName,
-                        })
-                    );
+                    if (diag) {
+                        diag.createAddendum().addMessage(
+                            Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                                name: srcParamName,
+                            })
+                        );
+                    }
                     canAssign = false;
                 }
 
@@ -20622,7 +20737,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destParamType,
                         srcParamType,
                         paramIndex,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMap,
                         srcTypeVarMap,
                         flags,
@@ -20684,11 +20799,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (isSourceNonVariadicArgs) {
-                    diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.argsParamWithVariadic().format({
-                            paramName: srcParamDetails.params[srcParamDetails.argsIndex!].param.name!,
-                        })
-                    );
+                    if (diag) {
+                        diag.createAddendum().addMessage(
+                            Localizer.DiagnosticAddendum.argsParamWithVariadic().format({
+                                paramName: srcParamDetails.params[srcParamDetails.argsIndex!].param.name!,
+                            })
+                        );
+                    }
                     canAssign = false;
                 } else if (destParamDetails.argsIndex !== undefined) {
                     const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
@@ -20697,7 +20814,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             FunctionType.getEffectiveParameterType(destType, destArgsIndex),
                             srcPositionalsType,
                             destArgsIndex,
-                            diag.createAddendum(),
+                            diag?.createAddendum(),
                             typeVarMap,
                             srcTypeVarMap,
                             flags,
@@ -20721,12 +20838,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 destParamDetails.firstPositionOrKeywordIndex > 0 &&
                                 destParamDetails.firstPositionOrKeywordIndex < srcPositionalCount
                             ) {
-                                diag.createAddendum().addMessage(
-                                    Localizer.DiagnosticAddendum.functionTooFewParams().format({
-                                        expected: nonDefaultSrcParamCount,
-                                        received: destPositionalCount,
-                                    })
-                                );
+                                if (diag) {
+                                    diag.createAddendum().addMessage(
+                                        Localizer.DiagnosticAddendum.functionTooFewParams().format({
+                                            expected: nonDefaultSrcParamCount,
+                                            received: destPositionalCount,
+                                        })
+                                    );
+                                }
                                 canAssign = false;
                             }
                         }
@@ -20748,7 +20867,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         destArgsType,
                                         srcParamType,
                                         paramIndex,
-                                        diag.createAddendum(),
+                                        diag?.createAddendum(),
                                         typeVarMap,
                                         srcTypeVarMap,
                                         flags,
@@ -20775,14 +20894,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destParamDetails.params[paramIndex].index
                         );
                         if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
-                            diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+                            if (diag) {
+                                diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+                            }
                             canAssign = false;
                         } else if (
                             !canAssignFunctionParameter(
                                 destParamType,
                                 srcArgsType,
                                 paramIndex,
-                                diag.createAddendum(),
+                                diag?.createAddendum(),
                                 typeVarMap,
                                 srcTypeVarMap,
                                 flags,
@@ -20793,12 +20914,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 } else {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.functionTooManyParams().format({
-                            expected: srcPositionalCount,
-                            received: destPositionalCount,
-                        })
-                    );
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.functionTooManyParams().format({
+                                expected: srcPositionalCount,
+                                received: destPositionalCount,
+                            })
+                        );
+                    }
                     canAssign = false;
                 }
             }
@@ -20816,7 +20939,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destArgsType,
                         srcArgsType,
                         destArgsIndex,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         typeVarMap,
                         srcTypeVarMap,
                         flags,
@@ -20835,11 +20958,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destParamDetails.variadicArgsIndex === undefined &&
                 !isParamSpecInvolved
             ) {
-                diag.createAddendum().addMessage(
-                    Localizer.DiagnosticAddendum.argsParamMissing().format({
-                        paramName: destParamDetails.params[destParamDetails.argsIndex].param.name ?? '',
-                    })
-                );
+                if (diag) {
+                    diag.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.argsParamMissing().format({
+                            paramName: destParamDetails.params[destParamDetails.argsIndex].param.name ?? '',
+                        })
+                    );
+                }
                 canAssign = false;
             }
 
@@ -20873,14 +20998,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (index >= srcStartOfNamed) {
                             if (srcParam.param.name && srcParam.param.category === ParameterCategory.Simple) {
                                 const destParam = destParamMap.get(srcParam.param.name);
-                                const paramDiag = diag.createAddendum();
+                                const paramDiag = diag?.createAddendum();
                                 if (!destParam) {
                                     if (destParamDetails.kwargsIndex === undefined && !srcParam.param.hasDefault) {
-                                        paramDiag.addMessage(
-                                            Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
-                                                name: srcParam.param.name,
-                                            })
-                                        );
+                                        if (paramDiag) {
+                                            paramDiag.addMessage(
+                                                Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
+                                                    name: srcParam.param.name,
+                                                })
+                                            );
+                                        }
                                         canAssign = false;
                                     } else if (destParamDetails.kwargsIndex !== undefined) {
                                         // Make sure we can assign the type to the Kwargs.
@@ -20895,7 +21022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                                 destKwargsType,
                                                 srcParam.param.type,
                                                 destKwargsIndex,
-                                                diag.createAddendum(),
+                                                diag?.createAddendum(),
                                                 typeVarMap,
                                                 srcTypeVarMap,
                                                 flags,
@@ -20913,28 +21040,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         !canAssignType(
                                             srcParam.param.type,
                                             specializedDestParamType,
-                                            paramDiag.createAddendum(),
+                                            paramDiag?.createAddendum(),
                                             undefined,
                                             flags,
                                             recursionCount + 1
                                         )
                                     ) {
-                                        paramDiag.addMessage(
-                                            Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
-                                                name: srcParam.param.name,
-                                                sourceType: printType(specializedDestParamType),
-                                                destType: printType(srcParam.param.type),
-                                            })
-                                        );
+                                        if (paramDiag) {
+                                            paramDiag.addMessage(
+                                                Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
+                                                    name: srcParam.param.name,
+                                                    sourceType: printType(specializedDestParamType),
+                                                    destType: printType(srcParam.param.type),
+                                                })
+                                            );
+                                        }
                                         canAssign = false;
                                     }
 
                                     if (!!destParam.hasDefault && !srcParam.param.hasDefault) {
-                                        diag.createAddendum().addMessage(
-                                            Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
-                                                name: srcParam.param.name,
-                                            })
-                                        );
+                                        if (diag) {
+                                            diag.createAddendum().addMessage(
+                                                Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                                                    name: srcParam.param.name,
+                                                })
+                                            );
+                                        }
                                         canAssign = false;
                                     }
 
@@ -20957,7 +21088,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 destParam.type,
                                 srcKwargsType,
                                 destType.details.parameters.findIndex((p) => p === destParam),
-                                diag.createAddendum(),
+                                diag?.createAddendum(),
                                 typeVarMap,
                                 srcTypeVarMap,
                                 flags,
@@ -20968,10 +21099,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                         destParamMap.delete(destParam.name);
                     } else {
-                        const paramDiag = diag.createAddendum();
-                        paramDiag.addMessage(
-                            Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
-                        );
+                        if (diag) {
+                            diag.createAddendum().addMessage(
+                                Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
+                            );
+                        }
                         canAssign = false;
                     }
                 });
@@ -20989,7 +21121,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destKwargsType,
                             srcKwargsType,
                             destKwargsIndex,
-                            diag.createAddendum(),
+                            diag?.createAddendum(),
                             typeVarMap,
                             srcTypeVarMap,
                             flags,
@@ -21003,11 +21135,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If the dest has a "**kwargs" but the source doesn't, report the incompatibility.
                 // The converse situation is OK.
                 if (srcParamDetails.kwargsIndex === undefined && destParamDetails.kwargsIndex !== undefined) {
-                    diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.kwargsParamMissing().format({
-                            paramName: destParamDetails.params[destParamDetails.kwargsIndex].param.name!,
-                        })
-                    );
+                    if (diag) {
+                        diag.createAddendum().addMessage(
+                            Localizer.DiagnosticAddendum.kwargsParamMissing().format({
+                                paramName: destParamDetails.params[destParamDetails.kwargsIndex].param.name!,
+                            })
+                        );
+                    }
                     canAssign = false;
                 }
             }
@@ -21020,7 +21154,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 canAssignType(
                     typeVarEntry.typeVar,
                     srcTypeVarMap.getTypeVarType(typeVarEntry.typeVar)!,
-                    new DiagnosticAddendum(),
+                    /* diag */ undefined,
                     typeVarMap
                 );
             });
@@ -21078,7 +21212,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const destReturnType = getFunctionEffectiveReturnType(destType);
             if (!isAnyOrUnknown(destReturnType)) {
                 const srcReturnType = applySolvedTypeVars(getFunctionEffectiveReturnType(srcType), srcTypeVarMap);
-                const returnDiag = diag.createAddendum();
+                const returnDiag = diag?.createAddendum();
 
                 let isReturnTypeCompatible = false;
 
@@ -21090,7 +21224,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignType(
                         destReturnType,
                         srcReturnType,
-                        returnDiag.createAddendum(),
+                        returnDiag?.createAddendum(),
                         typeVarMap,
                         flags,
                         recursionCount + 1
@@ -21110,7 +21244,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             canAssignType(
                                 destReturnType,
                                 ClassType.cloneAsInstance(boolClassType),
-                                returnDiag.createAddendum(),
+                                returnDiag?.createAddendum(),
                                 typeVarMap,
                                 flags,
                                 recursionCount + 1
@@ -21122,12 +21256,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!isReturnTypeCompatible) {
-                    returnDiag.addMessage(
-                        Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
-                            sourceType: printType(srcReturnType),
-                            destType: printType(destReturnType),
-                        })
-                    );
+                    if (returnDiag) {
+                        returnDiag.addMessage(
+                            Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
+                                sourceType: printType(srcReturnType),
+                                destType: printType(destReturnType),
+                            })
+                        );
+                    }
                     canAssign = false;
                 }
             }
@@ -21496,9 +21632,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Make sure all the source constraint types map to constraint types in the dest.
             if (
                 srcType.details.constraints.every((sourceConstraint) => {
-                    return constraints.some((destConstraint) =>
-                        canAssignType(destConstraint, sourceConstraint, new DiagnosticAddendum())
-                    );
+                    return constraints.some((destConstraint) => canAssignType(destConstraint, sourceConstraint));
                 })
             ) {
                 return true;
@@ -21506,7 +21640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             // Try to find a match among the constraints.
             for (const constraint of constraints) {
-                if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
+                if (canAssignType(constraint, effectiveSrcType)) {
                     return true;
                 }
             }

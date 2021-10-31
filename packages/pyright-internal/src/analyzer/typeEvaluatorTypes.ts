@@ -318,7 +318,7 @@ export interface TypeEvaluator {
     canAssignType: (
         destType: Type,
         srcType: Type,
-        diag: DiagnosticAddendum,
+        diag?: DiagnosticAddendum,
         typeVarMap?: TypeVarMap,
         flags?: CanAssignFlags,
         recursionCount?: number

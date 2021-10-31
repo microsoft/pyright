@@ -550,7 +550,7 @@ export function canAssignTypedDict(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType,
-    diag: DiagnosticAddendum,
+    diag: DiagnosticAddendum | undefined,
     recursionCount = 0
 ) {
     let typesAreConsistent = true;
@@ -560,29 +560,35 @@ export function canAssignTypedDict(
     destEntries.forEach((destEntry, name) => {
         const srcEntry = srcEntries.get(name);
         if (!srcEntry) {
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
-                    name,
-                    type: evaluator.printType(srcType),
-                })
-            );
+            if (diag) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
+                        name,
+                        type: evaluator.printType(srcType),
+                    })
+                );
+            }
             typesAreConsistent = false;
         } else {
             if (destEntry.isRequired && !srcEntry.isRequired) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
-                        name,
-                        type: evaluator.printType(destType),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+                            name,
+                            type: evaluator.printType(destType),
+                        })
+                    );
+                }
                 typesAreConsistent = false;
             } else if (!destEntry.isRequired && srcEntry.isRequired) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldNotRequired().format({
-                        name,
-                        type: evaluator.printType(destType),
-                    })
-                );
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typedDictFieldNotRequired().format({
+                            name,
+                            type: evaluator.printType(destType),
+                        })
+                    );
+                }
                 typesAreConsistent = false;
             }
 
@@ -590,13 +596,15 @@ export function canAssignTypedDict(
                 !evaluator.canAssignType(
                     destEntry.valueType,
                     srcEntry.valueType,
-                    new DiagnosticAddendum(),
+                    /* diag */ undefined,
                     /* typeVarMap */ undefined,
                     /* flags */ undefined,
                     recursionCount + 1
                 )
             ) {
-                diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                if (diag) {
+                    diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                }
                 typesAreConsistent = false;
             }
         }
@@ -616,7 +624,7 @@ export function assignToTypedDict(
     classType: ClassType,
     keyTypes: Type[],
     valueTypes: Type[],
-    diagAddendum: DiagnosticAddendum
+    diagAddendum?: DiagnosticAddendum
 ): ClassType | undefined {
     assert(isClassInstance(classType));
     assert(ClassType.isTypedDictClass(classType));
@@ -637,22 +645,25 @@ export function assignToTypedDict(
             if (!symbolEntry) {
                 // The provided key name doesn't exist.
                 isMatch = false;
-                diagAddendum.addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldUndefined().format({
-                        name: keyType.literalValue as string,
-                        type: evaluator.printType(ClassType.cloneAsInstance(classType)),
-                    })
-                );
-            } else {
-                // Can we assign the value to the declared type?
-                const assignDiag = new DiagnosticAddendum();
-                if (!evaluator.canAssignType(symbolEntry.valueType, valueTypes[index], assignDiag)) {
+                if (diagAddendum) {
                     diagAddendum.addMessage(
-                        Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
+                        Localizer.DiagnosticAddendum.typedDictFieldUndefined().format({
                             name: keyType.literalValue as string,
-                            type: evaluator.printType(valueTypes[index]),
+                            type: evaluator.printType(ClassType.cloneAsInstance(classType)),
                         })
                     );
+                }
+            } else {
+                // Can we assign the value to the declared type?
+                if (!evaluator.canAssignType(symbolEntry.valueType, valueTypes[index])) {
+                    if (diagAddendum) {
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
+                                name: keyType.literalValue as string,
+                                type: evaluator.printType(valueTypes[index]),
+                            })
+                        );
+                    }
                     isMatch = false;
                 }
 
@@ -676,12 +687,14 @@ export function assignToTypedDict(
     // See if any required keys are missing.
     symbolMap.forEach((entry, name) => {
         if (entry.isRequired && !entry.isProvided) {
-            diagAddendum.addMessage(
-                Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
-                    name,
-                    type: evaluator.printType(classType),
-                })
-            );
+            if (diagAddendum) {
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+                        name,
+                        type: evaluator.printType(classType),
+                    })
+                );
+            }
             isMatch = false;
         }
     });
