@@ -58,10 +58,6 @@ export const enum PrintTypeFlags {
     // Omit "*" for types that are conditionally constrained when
     // used with constrained TypeVars.
     OmitConditionalConstraint = 1 << 6,
-
-    // Omit "~" for synthesized type variables that represent the
-    // type of an unannotated self or cls parameter.
-    OmitSelfClsTypeIndicator = 1 << 7,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -386,7 +382,7 @@ export function printType(
                     // If it's a synthesized type var used to implement `self` or `cls` types,
                     // print the type with a special character that indicates that the type
                     // is internally represented as a TypeVar.
-                    if (type.details.boundType) {
+                    if (type.details.isSynthesizedSelfCls && type.details.boundType) {
                         let boundTypeString = printType(
                             type.details.boundType,
                             printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,
@@ -394,10 +390,7 @@ export function printType(
                             recursionTypes
                         );
 
-                        if (
-                            (printTypeFlags & PrintTypeFlags.OmitSelfClsTypeIndicator) === 0 &&
-                            !isAnyOrUnknown(type.details.boundType)
-                        ) {
+                        if (!isAnyOrUnknown(type.details.boundType)) {
                             boundTypeString = `Self@${boundTypeString}`;
                         }
 
@@ -620,12 +613,7 @@ export function printFunctionParts(
                 const paramType = FunctionType.getEffectiveParameterType(type, index);
                 const paramTypeString =
                     recursionTypes.length < maxTypeRecursionCount
-                        ? printType(
-                              paramType,
-                              printTypeFlags | PrintTypeFlags.OmitSelfClsTypeIndicator,
-                              returnTypeCallback,
-                              recursionTypes
-                          )
+                        ? printType(paramType, printTypeFlags, returnTypeCallback, recursionTypes)
                         : '';
                 if (!param.isNameSynthesized) {
                     paramString += ': ';
