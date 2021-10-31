@@ -1060,3 +1060,15 @@ test('Parameters1', () => {
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['parameters1.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 1);
 });
+
+test('Self1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self1.py']);
+
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('Self2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self2.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});

@@ -726,10 +726,12 @@ export function isOpenEndedTupleClass(type: ClassType) {
 }
 
 // Partially specializes a type within the context of a specified
-// (presumably specialized) class.
+// (presumably specialized) class. Optionally specializes the `Self`
+// type variables, replacing them with selfClass.
 export function partiallySpecializeType(
     type: Type,
     contextClassType: ClassType,
+    selfClass?: ClassType,
     exemptTypeVarReplacement = false
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
@@ -744,7 +746,21 @@ export function partiallySpecializeType(
         /* makeConcrete */ undefined,
         exemptTypeVarReplacement
     );
+
+    if (selfClass) {
+        populateTypeVarMapForSelfType(typeVarMap, contextClassType, selfClass);
+    }
+
     return applySolvedTypeVars(type, typeVarMap);
+}
+
+export function populateTypeVarMapForSelfType(
+    typeVarMap: TypeVarMap,
+    contextClassType: ClassType,
+    selfClass: ClassType
+) {
+    const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
+    typeVarMap.setTypeVarType(synthesizedSelfTypeVar, convertToInstance(selfClass));
 }
 
 // If one of the exempt type variables appears within the type, it is replaced

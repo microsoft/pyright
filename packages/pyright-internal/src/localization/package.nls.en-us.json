@@ -305,6 +305,8 @@
         "revealLocalsArgs": "Expected no arguments for \"reveal_locals\" call",
         "revealLocalsNone": "No locals in this scope",
         "revealTypeArgs": "Expected a single positional argument for \"reveal_type\" call",
+        "selfTypeContext": "\"Self\" is not valid in this context",
+        "selfTypeWithTypedSelfOrCls": "\"Self\" cannot be used in a function with a `self` or `cls` parameter that has a type annotation other than \"Self\"",
         "setterGetterTypeMismatch": "Property setter value type is not assignable to the getter return type",
         "singleOverload": "\"{name}\" is marked as overload, but additional overloads are missing",
         "slotsAttributeError": "\"{name}\" is not specified in __slots__",

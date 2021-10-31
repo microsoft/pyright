@@ -260,6 +260,7 @@ import {
     ParameterListDetails,
     ParameterSource,
     partiallySpecializeType,
+    populateTypeVarMapForSelfType,
     removeFalsinessFromType,
     removeNoReturnFromUnion,
     removeParamSpecVariadicsFromSignature,
@@ -4264,7 +4265,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!type) {
-                const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, /* exemptTypeVarReplacement */ true);
+                // Determine whether to replace Self variables with a specific
+                // class. Avoid doing this if there's a "bindToType" specified
+                // because that case is used for super() calls where we want
+                // to leave the Self type generic (not specialized).
+                const selfClass = bindToType ? undefined : classType;
+
+                const typeResult = getTypeOfMemberInternal(
+                    errorNode,
+                    memberInfo,
+                    selfClass,
+                    /* exemptTypeVarReplacement */ true
+                );
+
                 if (typeResult) {
                     type = typeResult.type;
                     if (typeResult.isIncomplete) {
@@ -11259,6 +11272,72 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return ClassType.cloneForSpecialization(classType, [convertToInstance(typeArg)], !!typeArgs);
     }
 
+    function createSelfType(classType: ClassType, errorNode: ParseNode, typeArgs: TypeResult[] | undefined) {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+
+        // Self doesn't support any type arguments.
+        if (typeArgs) {
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeArgsExpectingNone().format({
+                    name: classType.details.name,
+                }),
+                typeArgs[0].node ?? errorNode
+            );
+        }
+
+        const enclosingClass = ParseTreeUtils.getEnclosingClass(errorNode);
+        const enclosingClassTypeResult = enclosingClass ? getTypeOfClass(enclosingClass) : undefined;
+        if (!enclosingClassTypeResult) {
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.selfTypeContext(),
+                errorNode
+            );
+
+            return UnknownType.create();
+        }
+
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(errorNode);
+        if (enclosingFunction) {
+            const functionFlags = getFunctionFlagsFromDecorators(enclosingFunction, /* isInClass */ true);
+
+            // Check for static methods.
+            if (functionFlags & FunctionTypeFlags.StaticMethod) {
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.selfTypeContext(),
+                    errorNode
+                );
+
+                return UnknownType.create();
+            }
+
+            if (enclosingFunction.parameters.length > 0) {
+                const firstParamTypeAnnotation = getTypeAnnotationForParameter(enclosingFunction, 0);
+                if (
+                    firstParamTypeAnnotation &&
+                    !ParseTreeUtils.isNodeContainedWithin(errorNode, firstParamTypeAnnotation)
+                ) {
+                    const annotationType = getTypeOfAnnotation(firstParamTypeAnnotation);
+                    if (!isTypeVar(annotationType) || !annotationType.details.isSynthesizedSelfCls) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.selfTypeWithTypedSelfOrCls(),
+                            errorNode
+                        );
+                    }
+                }
+            }
+        }
+
+        return synthesizeTypeVarForSelfCls(enclosingClassTypeResult.classType, /* isClsParam */ true);
+    }
+
     function createRequiredType(
         classType: ClassType,
         errorNode: ParseNode,
@@ -11799,6 +11878,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['Unpack', { alias: '', module: 'builtins' }],
             ['Required', { alias: '', module: 'builtins' }],
             ['NotRequired', { alias: '', module: 'builtins' }],
+            ['Self', { alias: '', module: 'builtins' }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -16229,6 +16309,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 case 'NotRequired': {
                     return createRequiredType(classType, errorNode, aliasedName === 'Required', typeArgs);
                 }
+
+                case 'Self': {
+                    return createSelfType(classType, errorNode, typeArgs);
+                }
             }
         }
 
@@ -17656,18 +17740,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfMemberInternal(
         node: ParseNode,
         member: ClassMember,
+        selfClass: ClassType | undefined,
         exemptTypeVarReplacement = false
     ): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
+
             if (typeResult) {
+                // If the type is a function or overloaded function, infer
+                // and cache the return type if necessary. This needs to be done
+                // prior to specializing.
+                inferReturnTypeIfNecessary(typeResult.type);
+
                 return {
                     node,
-                    type: partiallySpecializeType(typeResult.type, member.classType, exemptTypeVarReplacement),
+                    type: partiallySpecializeType(
+                        typeResult.type,
+                        member.classType,
+                        selfClass,
+                        exemptTypeVarReplacement
+                    ),
                     isIncomplete: !!typeResult.isIncomplete,
                 };
             }
         }
+
         return undefined;
     }
 
@@ -17711,6 +17808,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* isTypeArgumentExplicit */ false
         );
         const genericDestTypeVarMap = new TypeVarMap(getTypeVarScopeId(destType));
+
+        const selfTypeVarMap = new TypeVarMap(getTypeVarScopeId(destType));
+        populateTypeVarMapForSelfType(selfTypeVarMap, destType, srcType);
 
         // If the source is a TypedDict, use the _TypedDict placeholder class
         // instead. We don't want to use the TypedDict members for protocol
@@ -17756,6 +17856,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ? partiallySpecializeType(
                                   getEffectiveTypeOfSymbol(srcMemberInfo.symbol),
                                   srcMemberInfo.classType,
+                                  srcType,
                                   /* exemptTypeVarReplacement */ true
                               )
                             : UnknownType.create();
@@ -17790,6 +17891,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     }
                                 }
                             } else if (isInstantiableClass(srcMemberInfo.classType)) {
+                                // Replace any "Self" TypeVar within the dest with the source type.
+                                destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarMap);
+
                                 const boundSrcFunction = bindFunctionToClassOrObject(
                                     ClassType.cloneAsInstance(srcType),
                                     srcMemberType,
@@ -17814,6 +17918,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     }
                                 }
                             }
+                        } else {
+                            // Replace any "Self" TypeVar within the dest with the source type.
+                            destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarMap);
                         }
 
                         const subDiag = diag?.createAddendum();
