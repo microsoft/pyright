@@ -195,6 +195,9 @@ enum SortCategory {
     // A keyword in the python syntax.
     Keyword,
 
+    // An enum member.
+    EnumMember,
+
     // A normal symbol.
     NormalSymbol,
 
@@ -2252,6 +2255,19 @@ export class CompletionProvider {
             if (primaryDecl) {
                 itemKind = this._convertDeclarationTypeToItemKind(primaryDecl);
 
+                // Handle enum members specially. Enum members normally look like
+                // variables, but the are declared using assignment expressions
+                // within an enum class.
+                if (
+                    primaryDecl.type === DeclarationType.Variable &&
+                    detail.boundObjectOrClass &&
+                    isInstantiableClass(detail.boundObjectOrClass) &&
+                    ClassType.isEnumClass(detail.boundObjectOrClass) &&
+                    primaryDecl.node.parent?.nodeType === ParseNodeType.Assignment
+                ) {
+                    itemKind = CompletionItemKind.EnumMember;
+                }
+
                 // Are we resolving a completion item? If so, see if this symbol
                 // is the one that we're trying to match.
                 if (this._itemToResolve) {
@@ -2509,6 +2525,9 @@ export class CompletionProvider {
             completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, detail.autoImportText);
             completionItemData.autoImportText = detail.autoImportText;
             completionItem.detail = autoImportDetail;
+        } else if (itemKind === CompletionItemKind.EnumMember) {
+            // Handle enum members separately so they are sorted above other symbols.
+            completionItem.sortText = this._makeSortText(SortCategory.EnumMember, name);
         } else if (SymbolNameUtils.isDunderName(name)) {
             // Force dunder-named symbols to appear after all other symbols.
             completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);
