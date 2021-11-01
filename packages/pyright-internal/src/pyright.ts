@@ -20,7 +20,7 @@ import { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import { PackageTypeVerifier } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
-import { StderrConsole } from './common/console';
+import { LogLevel, StandardConsoleWithLevel, StderrConsoleWithLevel } from './common/console';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
@@ -132,7 +132,7 @@ async function processArgs(): Promise<ExitStatus> {
         { name: 'pythonplatform', type: String },
         { name: 'pythonversion', type: String },
         { name: 'skipunannotated', type: Boolean },
-        { name: 'stats' },
+        { name: 'stats', type: Boolean },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
         { name: 'verifytypes', type: String },
@@ -256,8 +256,16 @@ async function processArgs(): Promise<ExitStatus> {
 
     options.checkOnlyOpenFiles = false;
 
+    if (!!args.stats && !!args.verbose) {
+        options.logTypeEvaluationTime = true;
+    }
+
     const treatWarningsAsErrors = !!args.warnings;
-    const output = args.outputjson ? new StderrConsole() : undefined;
+    const logLevel = options.logTypeEvaluationTime ? LogLevel.Log : LogLevel.Error;
+
+    // If using outputjson, redirect all console output to stderr so it doesn't mess
+    // up the JSON output, which goes to stdout.
+    const output = args.outputjson ? new StderrConsoleWithLevel(logLevel) : new StandardConsoleWithLevel(logLevel);
     const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output, new ChokidarFileWatcherProvider(output)));
 
     // The package type verification uses a different path.
@@ -338,7 +346,7 @@ async function processArgs(): Promise<ExitStatus> {
                 timingStats.printSummary(console);
             }
 
-            if (args.stats !== undefined) {
+            if (args.stats) {
                 // Print the stats details.
                 service.printStats();
                 timingStats.printDetails(console);

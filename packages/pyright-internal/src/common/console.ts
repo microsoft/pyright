@@ -68,6 +68,16 @@ export class StandardConsole implements ConsoleInterface {
     }
 }
 
+export class StandardConsoleWithLevel extends StandardConsole {
+    constructor(private _maxLevel: LogLevel = LogLevel.Log) {
+        super();
+    }
+
+    get level(): LogLevel {
+        return this._maxLevel;
+    }
+}
+
 export class StderrConsole implements ConsoleInterface {
     log(message: string) {
         console.error(message);
@@ -83,6 +93,16 @@ export class StderrConsole implements ConsoleInterface {
 
     error(message: string) {
         console.error(message);
+    }
+}
+
+export class StderrConsoleWithLevel extends StderrConsole {
+    constructor(private _maxLevel: LogLevel = LogLevel.Log) {
+        super();
+    }
+
+    get level(): LogLevel {
+        return this._maxLevel;
     }
 }
 
