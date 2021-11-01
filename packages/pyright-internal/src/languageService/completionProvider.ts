@@ -287,7 +287,7 @@ interface SymbolDetail {
     funcParensDisabled?: boolean | undefined;
     autoImportSource?: string | undefined;
     autoImportAlias?: string | undefined;
-    boundObject?: ClassType | undefined;
+    boundObjectOrClass?: ClassType | undefined;
     edits?: Edits | undefined;
 }
 
@@ -1173,13 +1173,12 @@ export class CompletionProvider {
                     }
                 }
 
-                const boundObject = isClassInstance(subtype) ? subtype : undefined;
                 this._addSymbolsForSymbolTable(
                     symbolTable,
                     (_) => true,
                     priorWord,
                     /* isInImport */ false,
-                    boundObject,
+                    isClass(subtype) ? subtype : undefined,
                     completionList
                 );
             });
@@ -2202,7 +2201,7 @@ export class CompletionProvider {
         includeSymbolCallback: (name: string) => boolean,
         priorWord: string,
         isInImport: boolean,
-        boundObject: ClassType | undefined,
+        boundObjectOrClass: ClassType | undefined,
         completionList: CompletionList
     ) {
         symbolTable.forEach((symbol, name) => {
@@ -2217,7 +2216,7 @@ export class CompletionProvider {
                 // added from an inner scope's symbol table.
                 if (!completionList.items.some((item) => item.label === name)) {
                     this._addSymbol(name, symbol, priorWord, completionList, {
-                        boundObject,
+                        boundObjectOrClass,
                         funcParensDisabled: isInImport,
                     });
                 }
@@ -2285,11 +2284,18 @@ export class CompletionProvider {
 
                                 case DeclarationType.Function: {
                                     const functionType =
-                                        detail.boundObject && (isFunction(type) || isOverloadedFunction(type))
-                                            ? this._evaluator.bindFunctionToClassOrObject(detail.boundObject, type)
+                                        detail.boundObjectOrClass && (isFunction(type) || isOverloadedFunction(type))
+                                            ? this._evaluator.bindFunctionToClassOrObject(
+                                                  detail.boundObjectOrClass,
+                                                  type
+                                              )
                                             : type;
                                     if (functionType) {
-                                        if (isProperty(functionType) && detail.boundObject) {
+                                        if (
+                                            isProperty(functionType) &&
+                                            detail.boundObjectOrClass &&
+                                            isClassInstance(detail.boundObjectOrClass)
+                                        ) {
                                             const propertyType =
                                                 this._evaluator.getGetterTypeFromProperty(
                                                     functionType as ClassType,
@@ -2351,9 +2357,9 @@ export class CompletionProvider {
                             } else if (isInstantiableClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isFunction(type)) {
-                                const functionType = detail.boundObject
+                                const functionType = detail.boundObjectOrClass
                                     ? (this._evaluator.bindFunctionToClassOrObject(
-                                          detail.boundObject,
+                                          detail.boundObjectOrClass,
                                           type
                                       ) as FunctionType)
                                     : type;
@@ -2369,9 +2375,9 @@ export class CompletionProvider {
                                 const classResults = enclosingClass
                                     ? this._evaluator.getTypeOfClass(enclosingClass)
                                     : undefined;
-                                const functionType = detail.boundObject
+                                const functionType = detail.boundObjectOrClass
                                     ? (this._evaluator.bindFunctionToClassOrObject(
-                                          detail.boundObject,
+                                          detail.boundObjectOrClass,
                                           type
                                       ) as OverloadedFunctionType)
                                     : type;
