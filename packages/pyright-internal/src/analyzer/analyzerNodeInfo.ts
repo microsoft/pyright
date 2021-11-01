@@ -22,7 +22,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
-import { FlowFlags, FlowNode } from './codeFlow';
+import { FlowFlags, FlowNode } from './codeFlowTypes';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { Scope } from './scope';

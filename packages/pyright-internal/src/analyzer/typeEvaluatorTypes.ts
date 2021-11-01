@@ -17,17 +17,21 @@ import {
     ArgumentCategory,
     ArgumentNode,
     CallNode,
+    CaseNode,
     ClassNode,
     ExpressionNode,
     FunctionNode,
+    MatchNode,
     NameNode,
     ParameterCategory,
+    ParameterNode,
     ParseNode,
     RaiseNode,
 } from '../parser/parseNodes';
 import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { Declaration } from './declaration';
+import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
 import {
     ClassType,
@@ -236,7 +240,11 @@ export interface TypeEvaluator {
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     getTypeForExpressionExpectingType: (node: ExpressionNode, allowFinal: boolean) => Type;
+    evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
+    evaluateTypesForMatchNode: (node: MatchNode) => void;
+    evaluateTypesForCaseNode: (node: CaseNode) => void;
+    evaluateTypeOfParameter: (node: ParameterNode) => void;
 
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;
@@ -275,12 +283,16 @@ export interface TypeEvaluator {
         typeVarMap: TypeVarMap,
         liveTypeVarScopes: TypeVarScopeId[]
     ) => boolean;
+    lookUpSymbolRecursive: (node: ParseNode, name: string, honorCodeFlow: boolean) => SymbolWithScope | undefined;
+    getDeclaredTypeOfSymbol: (symbol: Symbol) => Type | undefined;
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getEffectiveTypeOfSymbolForUsage: (
         symbol: Symbol,
         usageNode?: NameNode,
         useLastDecl?: boolean
     ) => EffectiveTypeResult;
+    getInferredTypeOfDeclaration: (decl: Declaration) => Type | undefined;
+    getDeclaredTypeForExpression: (expression: ExpressionNode, usage?: EvaluatorUsage) => Type | undefined;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
     getFunctionInferredReturnType: (type: FunctionType, args?: ValidateArgTypeParams[]) => Type;
     getBestOverloadForArguments: (
@@ -364,4 +376,6 @@ export interface TypeEvaluator {
 
     getTypeCacheSize: () => number;
     useSpeculativeMode: <T>(speculativeNode: ParseNode, callback: () => T) => T;
+
+    checkForCancellation: () => void;
 }

@@ -67,8 +67,12 @@ export function createTypeEvaluatorWithTracker(
         getTypeOfClass: (n) => run('getTypeOfClass', () => typeEvaluator.getTypeOfClass(n), n),
         getTypeOfFunction: (n) => run('getTypeOfFunction', () => typeEvaluator.getTypeOfFunction(n), n),
         getTypeForExpressionExpectingType: typeEvaluator.getTypeForExpressionExpectingType,
+        evaluateTypeForSubnode: typeEvaluator.evaluateTypeForSubnode,
         evaluateTypesForStatement: (n) =>
             run('evaluateTypesForStatement', () => typeEvaluator.evaluateTypesForStatement(n), n),
+        evaluateTypesForMatchNode: typeEvaluator.evaluateTypesForMatchNode,
+        evaluateTypesForCaseNode: typeEvaluator.evaluateTypesForCaseNode,
+        evaluateTypeOfParameter: typeEvaluator.evaluateTypeOfParameter,
         getExpectedType: (n) => run('getExpectedType', () => typeEvaluator.getExpectedType(n), n),
         verifyRaiseExceptionType: (n) =>
             run('verifyRaiseExceptionType', () => typeEvaluator.verifyRaiseExceptionType(n), n),
@@ -96,10 +100,14 @@ export function createTypeEvaluatorWithTracker(
             run('makeTopLevelTypeVarsConcrete', () => typeEvaluator.makeTopLevelTypeVarsConcrete(t), t),
         mapSubtypesExpandTypeVars: typeEvaluator.mapSubtypesExpandTypeVars,
         populateTypeVarMapBasedOnExpectedType: typeEvaluator.populateTypeVarMapBasedOnExpectedType,
+        lookUpSymbolRecursive: typeEvaluator.lookUpSymbolRecursive,
+        getDeclaredTypeOfSymbol: typeEvaluator.getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol: (s) =>
             run('getEffectiveTypeOfSymbol', () => typeEvaluator.getEffectiveTypeOfSymbol(s), s),
         getEffectiveTypeOfSymbolForUsage: (s, u, d) =>
             run('getEffectiveTypeOfSymbolForUsage', () => typeEvaluator.getEffectiveTypeOfSymbolForUsage(s, u, d), s),
+        getInferredTypeOfDeclaration: typeEvaluator.getInferredTypeOfDeclaration,
+        getDeclaredTypeForExpression: typeEvaluator.getDeclaredTypeForExpression,
         getFunctionDeclaredReturnType: (n) =>
             run('getFunctionDeclaredReturnType', () => typeEvaluator.getFunctionDeclaredReturnType(n), n),
         getFunctionInferredReturnType: (t, a) =>
@@ -137,6 +145,7 @@ export function createTypeEvaluatorWithTracker(
         printFunctionParts: (t) => run('printFunctionParts', () => typeEvaluator.printFunctionParts(t), t),
         getTypeCacheSize: typeEvaluator.getTypeCacheSize,
         useSpeculativeMode: typeEvaluator.useSpeculativeMode,
+        checkForCancellation: typeEvaluator.checkForCancellation,
     };
 
     return withTracker;

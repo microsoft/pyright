@@ -100,7 +100,7 @@ import {
     FlowWildcardImport,
     getUniqueFlowNodeId,
     isCodeFlowSupportedForReference,
-} from './codeFlow';
+} from './codeFlowTypes';
 import {
     AliasDeclaration,
     ClassDeclaration,

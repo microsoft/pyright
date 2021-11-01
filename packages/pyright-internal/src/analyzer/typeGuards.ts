@@ -12,7 +12,7 @@
 import { ArgumentCategory, ExpressionNode, ParameterCategory, ParseNodeType } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { FlowCondition, FlowFlags } from './codeFlow';
+import { FlowCondition, FlowFlags } from './codeFlowTypes';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';

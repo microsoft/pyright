@@ -1,5 +1,5 @@
 /*
- * codeFlow.ts
+ * codeFlowTypes.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  * Author: Eric Traut
