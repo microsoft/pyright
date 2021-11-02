@@ -5730,7 +5730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node.arguments[0].name === undefined
                 ) {
                     // Handle the special-case "reveal_type" call.
-                    returnResult.type = getTypeFromRevealType(node);
+                    returnResult = getTypeFromRevealType(node);
                 } else {
                     addError(Localizer.Diagnostic.revealTypeArgs(), node);
                 }
@@ -5810,10 +5810,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return returnResult;
     }
 
-    function getTypeFromRevealType(node: CallNode) {
-        const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
+    function getTypeFromRevealType(node: CallNode): TypeResult {
+        const typeResult = getTypeOfExpression(node.arguments[0].valueExpression);
+        const type = typeResult.type;
         const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
         const typeString = printType(type, /* expandTypeAlias */ true);
+
         addInformation(
             Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: exprString, type: typeString }),
             node.arguments[0]
@@ -5822,11 +5824,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Return a literal string with the type. We can use this in unit tests
         // to validate the exact type.
         const strType = getBuiltInType(node, 'str');
+        let returnType: Type = AnyType.create();
+
         if (isInstantiableClass(strType)) {
-            return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, typeString));
+            returnType = ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, typeString));
         }
 
-        return AnyType.create();
+        return {
+            node,
+            type: returnType,
+            isIncomplete: typeResult.isIncomplete,
+        };
     }
 
     function getTypeFromRevealLocals(node: CallNode) {
