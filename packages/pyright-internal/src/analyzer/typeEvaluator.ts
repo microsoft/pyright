@@ -2433,6 +2433,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         type = makeTopLevelTypeVarsConcrete(type);
 
+        const diagAddendum = new DiagnosticAddendum();
+
         doForEachSubtype(type, (subtype) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
@@ -2477,17 +2479,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // Have we accounted for all of the targets and sources? If not, we have a size mismatch.
                     if (targetIndex < target.expressions.length || sourceIndex < sourceEntryCount) {
-                        const fileInfo = AnalyzerNodeInfo.getFileInfo(target);
                         const expectedEntryCount =
                             unpackIndex >= 0 ? target.expressions.length - 1 : target.expressions.length;
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.tupleSizeMismatch().format({
+                        const subDiag = diagAddendum.createAddendum();
+                        subDiag.addMessage(
+                            Localizer.DiagnosticAddendum.tupleAssignmentMismatch().format({
+                                type: printType(subtype),
+                            })
+                        );
+                        subDiag.createAddendum().addMessage(
+                            Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
                                 expected: expectedEntryCount,
                                 received: sourceEntryCount,
-                            }),
-                            target
+                            })
                         );
                     }
                 }
@@ -2500,6 +2504,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         });
+
+        if (!diagAddendum.isEmpty()) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(target);
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.tupleAssignmentMismatch().format({
+                    type: printType(type),
+                }) + diagAddendum.getString(),
+                target
+            );
+        }
 
         // Assign the resulting types to the individual names in the tuple target expression.
         target.expressions.forEach((expr, index) => {
