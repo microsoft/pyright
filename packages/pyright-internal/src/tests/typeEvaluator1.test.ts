@@ -641,6 +641,12 @@ test('FunctionMember1', () => {
     TestUtils.validateResults(analysisResult2, 3);
 });
 
+test('FunctionMember2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionMember2.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Annotations1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 

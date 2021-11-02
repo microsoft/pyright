@@ -4062,14 +4062,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.Function:
             case TypeCategory.OverloadedFunction: {
-                const functionObj = getBuiltInObject(node, 'function');
-
-                // The "__defaults__" member is not currently defined in the "function"
-                // class, so we'll special-case it here.
-                if (functionObj && memberName !== '__defaults__') {
-                    type = getTypeFromMemberAccessWithBaseType(node, { type: functionObj, node }, usage, flags).type;
-                } else {
+                if (memberName === '__defaults__') {
+                    // The "__defaults__" member is not currently defined in the "function"
+                    // class, so we'll special-case it here.
                     type = AnyType.create();
+                } else if (memberName === '__self__') {
+                    // The "__self__" member is not currently defined in the "function"
+                    // class, so we'll special-case it here.
+                    const functionType = isFunction(baseType) ? baseType : baseType.overloads[0];
+                    type = functionType.boundToType;
+                } else {
+                    const functionObj = getBuiltInObject(node, 'function');
+                    if (!functionObj) {
+                        type = AnyType.create();
+                    } else {
+                        type = getTypeFromMemberAccessWithBaseType(
+                            node,
+                            { type: functionObj, node },
+                            usage,
+                            flags
+                        ).type;
+                    }
                 }
                 break;
             }
@@ -20661,7 +20674,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     : baseClass;
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
-                    baseType,
+                    TypeBase.isInstance(baseType) ? ClassType.cloneAsInstantiable(baseType) : baseType,
                     memberType,
                     memberClass || baseClass,
                     errorNode,
@@ -20675,7 +20688,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
 
                 return partiallySpecializeFunctionForBoundClassOrObject(
-                    baseType,
+                    TypeBase.isInstance(baseType) ? ClassType.cloneAsInstantiable(baseType) : baseType,
                     memberType,
                     memberClass || baseClass,
                     errorNode,
