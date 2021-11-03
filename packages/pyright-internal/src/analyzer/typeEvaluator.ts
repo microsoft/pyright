@@ -1483,13 +1483,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // more type information than __new__.
                         methodType = getBoundMethod(subtype, '__init__');
 
-                        if (
-                            !methodType ||
-                            (isFunction(methodType) && FunctionType.isSkipConstructorCheck(methodType))
-                        ) {
-                            // If there was no __init__ method, use the __new__ method
-                            // instead.
-                            methodType = getBoundMethod(subtype, '__new__', /* treatConstructorAsClassMember */ true);
+                        // Is this the __init__ method provided by the object class?
+                        const isObjectInit =
+                            !!methodType &&
+                            isFunction(methodType) &&
+                            methodType.details.fullName === 'builtins.object.__init__';
+                        const isSkipConstructor =
+                            !!methodType && isFunction(methodType) && FunctionType.isSkipConstructorCheck(methodType);
+
+                        // If there was no `__init__` or the only `__init__` that was found
+                        // was form the `object` class, see if we can find a better `__new__`
+                        // method.
+                        if (!methodType || isObjectInit || isSkipConstructor) {
+                            const constructorType = getBoundMethod(
+                                subtype,
+                                '__new__',
+                                /* treatConstructorAsClassMember */ true
+                            );
+
+                            if (constructorType) {
+                                // Is this the __new__ method provided by the object class?
+                                const isObjectNew =
+                                    isFunction(constructorType) &&
+                                    constructorType.details.fullName === 'builtins.object.__new__';
+
+                                if (!isObjectNew) {
+                                    methodType = constructorType;
+                                }
+                            }
                         }
 
                         if (methodType) {
