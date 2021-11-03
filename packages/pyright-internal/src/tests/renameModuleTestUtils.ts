@@ -10,14 +10,38 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { createMapFromItems } from '../common/collectionUtils';
+import { assertNever } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { FileEditAction } from '../common/editAction';
+import { FileEditAction, FileEditActions, FileOperations } from '../common/editAction';
 import { getDirectoryPath, isFile } from '../common/pathUtils';
 import { convertRangeToTextRange } from '../common/positionUtils';
-import { rangesAreEqual, TextRange } from '../common/textRange';
+import { Position, rangesAreEqual, TextRange } from '../common/textRange';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { TestState } from './harness/fourslash/testState';
+
+export function testMoveSymbolAtPosition(
+    state: TestState,
+    filePath: string,
+    newFilePath: string,
+    position: Position,
+    text?: string,
+    replacementText?: string
+) {
+    const actions = state.program.moveSymbolAtPosition(filePath, newFilePath, position, CancellationToken.None);
+    assert(actions);
+
+    const ranges: Range[] = [];
+    if (text !== undefined) {
+        ranges.push(...state.getRangesByText().get(text)!);
+    } else {
+        ranges.push(...state.getRanges().filter((r) => !!r.marker?.data));
+    }
+
+    assert.strictEqual(actions.edits.length, ranges.length);
+
+    _verifyFileOperations(state, actions, ranges, replacementText);
+}
 
 export function testRenameModule(
     state: TestState,
@@ -38,16 +62,45 @@ export function testRenameModule(
 
     assert.strictEqual(edits.length, ranges.length);
 
-    const editsPerFileMap = createMapFromItems(edits, (e) => e.filePath);
+    const fileOperations: FileOperations[] = [];
+    fileOperations.push({ kind: 'rename', oldFilePath: filePath, newFilePath });
 
     // Make sure we don't have missing imports on the original state.
-    for (const editFileName of editsPerFileMap.keys()) {
-        const sourceFile = state.program.getBoundSourceFile(editFileName)!;
-        _verifyMissingImportsDiagnostics(sourceFile.getDiagnostics(state.configOptions));
-    }
+    _verifyFileOperations(state, { edits, fileOperations }, ranges, replacementText);
+}
 
-    // Verify edits
-    for (const edit of edits) {
+function _verifyFileOperations(
+    state: TestState,
+    fileEditActions: FileEditActions,
+    ranges: Range[],
+    replacementText: string | undefined
+) {
+    const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.filePath);
+
+    _verifyMissingImports();
+
+    _verifyEdits(state, fileEditActions, ranges, replacementText);
+
+    _applyFileOperations(state, fileEditActions);
+
+    // Make sure we don't have missing imports after the change.
+    _verifyMissingImports();
+
+    function _verifyMissingImports() {
+        for (const editFileName of editsPerFileMap.keys()) {
+            const sourceFile = state.program.getBoundSourceFile(editFileName)!;
+            _verifyMissingImportsDiagnostics(sourceFile.getDiagnostics(state.configOptions));
+        }
+    }
+}
+
+function _verifyEdits(
+    state: TestState,
+    fileEditActions: FileEditActions,
+    ranges: Range[],
+    replacementText: string | undefined
+) {
+    for (const edit of fileEditActions.edits) {
         assert(
             ranges.some((r) => {
                 const data = r.marker?.data as { r: string } | undefined;
@@ -64,9 +117,13 @@ export function testRenameModule(
             })'`
         );
     }
+}
 
+function _applyFileOperations(state: TestState, fileEditActions: FileEditActions) {
     // Apply changes
     // First, apply text changes
+    const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.filePath);
+
     for (const [editFileName, editsPerFile] of editsPerFileMap) {
         const result = _applyEdits(state, editFileName, editsPerFile);
         state.testFS.writeFileSync(editFileName, result.text, 'utf8');
@@ -74,9 +131,12 @@ export function testRenameModule(
         // Update open file content if the file is in opened state.
         if (result.version) {
             let openedFilePath = editFileName;
-            if (editFileName === filePath) {
-                openedFilePath = newFilePath;
-                state.program.setFileClosed(filePath);
+            const renamed = fileEditActions.fileOperations.find(
+                (o) => o.kind === 'rename' && o.oldFilePath === editFileName
+            );
+            if (renamed?.kind === 'rename') {
+                openedFilePath = renamed.newFilePath;
+                state.program.setFileClosed(renamed.oldFilePath);
             }
 
             state.program.setFileOpened(openedFilePath, result.version + 1, [{ text: result.text }]);
@@ -84,25 +144,37 @@ export function testRenameModule(
     }
 
     // Second, apply filename change to disk or rename directory.
-    if (isFile(state.testFS, filePath)) {
-        state.testFS.mkdirpSync(getDirectoryPath(newFilePath));
-        state.testFS.renameSync(filePath, newFilePath);
+    for (const fileOperation of fileEditActions.fileOperations) {
+        switch (fileOperation.kind) {
+            case 'create': {
+                state.testFS.mkdirpSync(getDirectoryPath(fileOperation.filePath));
+                state.testFS.writeFileSync(fileOperation.filePath, '');
+                break;
+            }
+            case 'rename': {
+                if (isFile(state.testFS, fileOperation.oldFilePath)) {
+                    state.testFS.mkdirpSync(getDirectoryPath(fileOperation.newFilePath));
+                    state.testFS.renameSync(fileOperation.oldFilePath, fileOperation.newFilePath);
 
-        // Add new file as tracked file
-        state.program.addTrackedFile(newFilePath);
-    } else {
-        state.testFS.renameSync(filePath, newFilePath);
+                    // Add new file as tracked file
+                    state.program.addTrackedFile(fileOperation.newFilePath);
+                } else {
+                    state.testFS.renameSync(fileOperation.oldFilePath, fileOperation.newFilePath);
+                }
+                break;
+            }
+            case 'delete': {
+                state.testFS.rimrafSync(fileOperation.filePath);
+                break;
+            }
+            default:
+                assertNever(fileOperation);
+        }
     }
 
     // And refresh program.
     state.importResolver.invalidateCache();
     state.program.markAllFilesDirty(true);
-
-    // Make sure we don't have missing imports after the change.
-    for (const editFileName of editsPerFileMap.keys()) {
-        const sourceFile = state.program.getBoundSourceFile(editFileName)!;
-        _verifyMissingImportsDiagnostics(sourceFile.getDiagnostics(state.configOptions));
-    }
 }
 
 function _verifyMissingImportsDiagnostics(diagnostics: Diagnostic[] | undefined) {

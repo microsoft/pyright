@@ -20,7 +20,7 @@ import {
     isClassDeclaration,
     isFunctionDeclaration,
     isParameterDeclaration,
-    isSpecialBuiltInClassDeclarations,
+    isSpecialBuiltInClassDeclaration,
     isVariableDeclaration,
     ParameterDeclaration,
     SpecialBuiltInClassDeclaration,
@@ -62,7 +62,7 @@ export class SourceMapper {
             return this._findVariableDeclarations(stubDecl);
         } else if (isParameterDeclaration(stubDecl)) {
             return this._findParameterDeclarations(stubDecl);
-        } else if (isSpecialBuiltInClassDeclarations(stubDecl)) {
+        } else if (isSpecialBuiltInClassDeclaration(stubDecl)) {
             return this._findSpecialBuiltInClassDeclarations(stubDecl);
         }
 

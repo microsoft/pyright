@@ -1886,6 +1886,26 @@ export function parseAndGetTestState(code: string, projectRoot = '/', anonymousF
     return { data, state };
 }
 
+export function getNodeForRange(codeOrState: string | TestState, markerName = 'marker'): ParseNode {
+    const state = isString(codeOrState) ? parseAndGetTestState(codeOrState).state : codeOrState;
+    const range = state.getRangeByMarkerName(markerName);
+    assert(range);
+
+    const textRange = TextRange.fromBounds(range.pos, range.end);
+
+    const node = getNodeAtMarker(state, markerName);
+    let current: ParseNode | undefined = node;
+    while (current) {
+        if (TextRange.containsRange(current, textRange)) {
+            return current;
+        }
+
+        current = current.parent;
+    }
+
+    return node;
+}
+
 export function getNodeAtMarker(codeOrState: string | TestState, markerName = 'marker'): ParseNode {
     const state = isString(codeOrState) ? parseAndGetTestState(codeOrState).state : codeOrState;
     const marker = state.getMarkerByName(markerName);

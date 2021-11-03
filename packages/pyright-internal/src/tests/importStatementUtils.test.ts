@@ -10,13 +10,14 @@ import assert from 'assert';
 
 import { ImportType } from '../analyzer/importResult';
 import {
-    getImportGroupFromModuleNameAndType,
     getRelativeModuleName,
-    getTextEditsForAutoImportInsertion,
+    getTextEditsForAutoImportInsertions,
     getTextEditsForAutoImportSymbolAddition,
     getTopLevelImports,
     ImportNameInfo,
+    ImportNameWithModuleInfo,
 } from '../analyzer/importStatementUtils';
+import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -166,6 +167,66 @@ test('getTextEditsForAutoImportInsertion - at the top after module doc string', 
     `;
 
     testInsertion(code, 'marker1', [{ alias: 's' }, { name: 'path', alias: 'p' }], 'sys', ImportType.BuiltIn);
+});
+
+test('getTextEditsForAutoImportInsertions - mix of import and from import statements', () => {
+    const code = `
+//// [|/*marker1*/{|"r":"import sys as s!n!from sys import path as p!n!!n!!n!"|}|]import os
+    `;
+
+    const module = { moduleName: 'sys', importType: ImportType.BuiltIn, isLocalTypingsFile: false };
+    testInsertions(code, 'marker1', [
+        { module, alias: 's' },
+        { module, name: 'path', alias: 'p' },
+    ]);
+});
+
+test('getTextEditsForAutoImportInsertions - multiple modules with different group', () => {
+    const code = `
+//// [|/*marker1*/|][|{|"r":"from sys import path as p!n!!n!!n!"|}|][|{|"r":"import numpy!n!!n!!n!"|}|][|{|"r":"from test import join!n!!n!!n!"|}|]import os
+    `;
+
+    const module1 = { moduleName: 'sys', importType: ImportType.BuiltIn, isLocalTypingsFile: false };
+    const module2 = { moduleName: 'numpy', importType: ImportType.ThirdParty, isLocalTypingsFile: false };
+    const module3 = { moduleName: 'test', importType: ImportType.Local, isLocalTypingsFile: false };
+
+    testInsertions(code, 'marker1', [
+        { module: module1, name: 'path', alias: 'p' },
+        { module: module2 },
+        { module: module3, name: 'join' },
+    ]);
+});
+
+test('getTextEditsForAutoImportInsertions - multiple modules with existing imports', () => {
+    const code = `
+//// import os[|/*marker1*/|][|{|"r":"!n!from sys import path as p"|}|][|{|"r":"!n!!n!import numpy"|}|][|{|"r":"!n!!n!from test import join"|}|]
+    `;
+
+    const module1 = { moduleName: 'sys', importType: ImportType.BuiltIn, isLocalTypingsFile: false };
+    const module2 = { moduleName: 'numpy', importType: ImportType.ThirdParty, isLocalTypingsFile: false };
+    const module3 = { moduleName: 'test', importType: ImportType.Local, isLocalTypingsFile: false };
+
+    testInsertions(code, 'marker1', [
+        { module: module1, name: 'path', alias: 'p' },
+        { module: module2 },
+        { module: module3, name: 'join' },
+    ]);
+});
+
+test('getTextEditsForAutoImportInsertions - multiple modules with same group', () => {
+    const code = `
+//// import os[|/*marker1*/|][|{|"r":"!n!!n!import module2!n!from module1 import path as p!n!from module3 import join"|}|]
+    `;
+
+    const module1 = { moduleName: 'module1', importType: ImportType.Local, isLocalTypingsFile: false };
+    const module2 = { moduleName: 'module2', importType: ImportType.Local, isLocalTypingsFile: false };
+    const module3 = { moduleName: 'module3', importType: ImportType.Local, isLocalTypingsFile: false };
+
+    testInsertions(code, 'marker1', [
+        { module: module1, name: 'path', alias: 'p' },
+        { module: module2 },
+        { module: module3, name: 'join' },
+    ]);
 });
 
 test('getTextEditsForAutoImportSymbolAddition', () => {
@@ -396,27 +457,19 @@ function testAddition(
     testTextEdits(state, edits, ranges);
 }
 
-function testInsertion(
+function testInsertions(
     code: string,
     markerName: string,
-    importNameInfo: ImportNameInfo | ImportNameInfo[],
-    moduleName: string,
-    importType: ImportType
+    importNameInfo: ImportNameWithModuleInfo | ImportNameWithModuleInfo[]
 ) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName(markerName)!;
     const parseResults = state.program.getBoundSourceFile(marker!.fileName)!.getParseResults()!;
 
     const importStatements = getTopLevelImports(parseResults.parseTree);
-    const edits = getTextEditsForAutoImportInsertion(
+    const edits = getTextEditsForAutoImportInsertions(
         importNameInfo,
         importStatements,
-        moduleName,
-        getImportGroupFromModuleNameAndType({
-            moduleName,
-            importType,
-            isLocalTypingsFile: false,
-        }),
         parseResults,
         convertOffsetToPosition(marker.position, parseResults.tokenizerOutput.lines)
     );
@@ -425,6 +478,35 @@ function testInsertion(
     assert.strictEqual(edits.length, ranges.length, `${markerName} expects ${ranges.length} but got ${edits.length}`);
 
     testTextEdits(state, edits, ranges);
+}
+
+function testInsertion(
+    code: string,
+    markerName: string,
+    importNameInfo: ImportNameInfo | ImportNameInfo[],
+    moduleName: string,
+    importType: ImportType
+) {
+    importNameInfo = isArray(importNameInfo) ? importNameInfo : [importNameInfo];
+    if (importNameInfo.length === 0) {
+        importNameInfo.push({});
+    }
+
+    testInsertions(
+        code,
+        markerName,
+        importNameInfo.map((i) => {
+            return {
+                module: {
+                    moduleName,
+                    importType,
+                    isLocalTypingsFile: false,
+                },
+                name: i.name,
+                alias: i.alias,
+            };
+        })
+    );
 }
 
 function testTextEdits(state: TestState, edits: TextEditAction[], ranges: Range[]) {

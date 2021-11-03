@@ -342,8 +342,8 @@ export function createMapFromItems<T>(items: T[], keyGetter: (t: T) => string) {
         }, new Map<string, T[]>());
 }
 
-export function addIfUnique<T>(arr: T[], t: T): T[] {
-    if (contains(arr, t)) {
+export function addIfUnique<T>(arr: T[], t: T, equalityComparer: EqualityComparer<T> = equateValues): T[] {
+    if (contains(arr, t, equalityComparer)) {
         return arr;
     }
 
