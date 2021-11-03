@@ -747,7 +747,7 @@ export class AnalyzerService {
         const typingsSubdirPath = this._getTypeStubFolder();
 
         this._program.writeTypeStub(
-            this._typeStubTargetPath!,
+            this._typeStubTargetPath ?? '',
             this._typeStubTargetIsSingleFile,
             typingsSubdirPath,
             token
@@ -758,7 +758,7 @@ export class AnalyzerService {
         const typingsSubdirPath = this._getTypeStubFolder();
 
         return this._backgroundAnalysisProgram.writeTypeStub(
-            this._typeStubTargetPath!,
+            this._typeStubTargetPath ?? '',
             this._typeStubTargetIsSingleFile,
             typingsSubdirPath,
             token
@@ -1027,6 +1027,10 @@ export class AnalyzerService {
 
                 if (isDirectory(this._fs, rootPackagePath)) {
                     this._typeStubTargetPath = rootPackagePath;
+                } else if (isFile(this._fs, rootPackagePath)) {
+                    // This can occur if there is a "dir/__init__.py" at the same level as a
+                    // module "dir/module.py" that is specifically targeted for stub generation.
+                    this._typeStubTargetPath = getDirectoryPath(rootPackagePath);
                 }
 
                 if (!finalResolvedPath) {
