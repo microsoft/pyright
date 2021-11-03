@@ -587,7 +587,13 @@ export function canAssignTypedDict(
             }
 
             if (
-                !isTypeSame(destEntry.valueType, srcEntry.valueType, /* ignorePseudoGeneric */ true, recursionCount + 1)
+                !isTypeSame(
+                    destEntry.valueType,
+                    srcEntry.valueType,
+                    /* ignorePseudoGeneric */ true,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
             ) {
                 diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                 typesAreConsistent = false;

@@ -2752,7 +2752,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expandSubtype(type);
         }
 
-        return typeChanged ? combineTypes(newSubtypes) : type;
+        if (!typeChanged) {
+            return type;
+        }
+
+        const newType = combineTypes(newSubtypes);
+
+        // Do our best to retain type aliases.
+        if (newType.category === TypeCategory.Union) {
+            UnionType.addTypeAliasSource(newType, type);
+        }
+        return newType;
     }
 
     function markNamesAccessed(node: ParseNode, names: string[]) {
@@ -19646,7 +19656,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignConditionalTypeToTypeVar(destType: TypeVarType, srcType: Type, recursionCount: number): boolean {
         // The srcType is assignable only if all of its subtypes are assignable.
         return !findSubtype(srcType, (srcSubtype) => {
-            if (isTypeSame(destType, srcSubtype, /* ignorePseudoGeneric */ true, recursionCount + 1)) {
+            if (
+                isTypeSame(
+                    destType,
+                    srcSubtype,
+                    /* ignorePseudoGeneric */ true,
+                    /* ignoreTypeFlags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 return false;
             }
 
