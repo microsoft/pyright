@@ -25,7 +25,7 @@ import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
-import { FileEditAction, TextEditAction } from '../common/editAction';
+import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import {
@@ -52,6 +52,7 @@ import {
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
 import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
+import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
@@ -1582,7 +1583,7 @@ export class Program {
                 }
             }
 
-            const renameModuleProvider = RenameModuleProvider.create(
+            const renameModuleProvider = RenameModuleProvider.createForModule(
                 this._importResolver,
                 this._configOptions,
                 this._evaluator!,
@@ -1594,38 +1595,68 @@ export class Program {
                 return undefined;
             }
 
-            // _sourceFileList contains every user files that match "include" pattern including
-            // py file even if corresponding pyi exists.
-            for (const currentFileInfo of this._sourceFileList) {
-                // Make sure we only touch user code to prevent us
-                // from accidentally changing third party library or type stub.
-                if (!this._isUserCode(currentFileInfo)) {
-                    continue;
-                }
+            this._processModuleReferences(renameModuleProvider, renameModuleProvider.lastModuleName, path);
+            return renameModuleProvider.getEdits();
+        });
+    }
 
-                // If module name isn't mentioned in the current file, skip the file
-                // except the file that got actually renamed/moved.
-                // The file that got moved might have relative import paths we need to update.
-                const filePath = currentFileInfo.sourceFile.getFilePath();
-                const content = currentFileInfo.sourceFile.getFileContent() ?? '';
-                if (filePath !== path && content.indexOf(renameModuleProvider.symbolName) < 0) {
-                    continue;
-                }
-
-                this._bindFile(currentFileInfo, content);
-                const parseResult = currentFileInfo.sourceFile.getParseResults();
-                if (!parseResult) {
-                    continue;
-                }
-
-                renameModuleProvider.renameReferences(filePath, parseResult);
-
-                // This operation can consume significant memory, so check
-                // for situations where we need to discard the type cache.
-                this._handleMemoryHighUsage();
+    moveSymbolAtPosition(
+        filePath: string,
+        newFilePath: string,
+        position: Position,
+        token: CancellationToken
+    ): FileEditActions | undefined {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const fileInfo = this._getSourceFileInfoFromPath(filePath);
+            if (!fileInfo) {
+                return undefined;
             }
 
-            return renameModuleProvider.getEdits();
+            this._bindFile(fileInfo);
+            const parseResults = fileInfo.sourceFile.getParseResults();
+            if (!parseResults) {
+                return undefined;
+            }
+
+            const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
+            if (offset === undefined) {
+                return undefined;
+            }
+
+            const node = findNodeByOffset(parseResults.parseTree, offset);
+            if (node === undefined) {
+                return undefined;
+            }
+
+            // If this isn't a name node, there are no references to be found.
+            if (node.nodeType !== ParseNodeType.Name) {
+                return undefined;
+            }
+
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
+            const declarations = DocumentSymbolCollector.getDeclarationsForNode(
+                node,
+                this._evaluator!,
+                /* resolveLocalNames */ false,
+                token,
+                this._createSourceMapper(execEnv)
+            );
+
+            const renameModuleProvider = RenameModuleProvider.createForSymbol(
+                this._importResolver,
+                this._configOptions,
+                this._evaluator!,
+                filePath,
+                newFilePath,
+                declarations,
+                token
+            );
+            if (!renameModuleProvider) {
+                return undefined;
+            }
+
+            this._processModuleReferences(renameModuleProvider, node.value, filePath);
+            return { edits: renameModuleProvider.getEdits(), fileOperations: [] };
         });
     }
 
@@ -1871,6 +1902,43 @@ export class Program {
 
     test_createSourceMapper(execEnv: ExecutionEnvironment) {
         return this._createSourceMapper(execEnv, /*mapCompiled*/ false);
+    }
+
+    private _processModuleReferences(
+        renameModuleProvider: RenameModuleProvider,
+        filteringText: string,
+        currentFilePath: string
+    ) {
+        // _sourceFileList contains every user files that match "include" pattern including
+        // py file even if corresponding pyi exists.
+        for (const currentFileInfo of this._sourceFileList) {
+            // Make sure we only touch user code to prevent us
+            // from accidentally changing third party library or type stub.
+            if (!this._isUserCode(currentFileInfo)) {
+                continue;
+            }
+
+            // If module name isn't mentioned in the current file, skip the file
+            // except the file that got actually renamed/moved.
+            // The file that got moved might have relative import paths we need to update.
+            const filePath = currentFileInfo.sourceFile.getFilePath();
+            const content = currentFileInfo.sourceFile.getFileContent() ?? '';
+            if (filePath !== currentFilePath && content.indexOf(filteringText) < 0) {
+                continue;
+            }
+
+            this._bindFile(currentFileInfo, content);
+            const parseResult = currentFileInfo.sourceFile.getParseResults();
+            if (!parseResult) {
+                continue;
+            }
+
+            renameModuleProvider.renameReferences(filePath, parseResult);
+
+            // This operation can consume significant memory, so check
+            // for situations where we need to discard the type cache.
+            this._handleMemoryHighUsage();
+        }
     }
 
     private _handleMemoryHighUsage() {

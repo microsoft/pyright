@@ -69,6 +69,10 @@ export interface ImportNameInfo {
     alias?: string;
 }
 
+export interface ImportNameWithModuleInfo extends ImportNameInfo {
+    module: ModuleNameAndType;
+}
+
 // Determines which import grouping should be used when sorting imports.
 export function getImportGroup(statement: ImportStatement): ImportGroup {
     if (statement.importResult) {
@@ -313,6 +317,37 @@ interface InsertionEdit {
     preChange: string;
     importStatement: string;
     postChange: string;
+    importGroup: ImportGroup;
+}
+
+export function getTextEditsForAutoImportInsertions(
+    importNameInfo: ImportNameWithModuleInfo[] | ImportNameWithModuleInfo,
+    importStatements: ImportStatements,
+    parseResults: ParseResults,
+    invocationPosition: Position
+): TextEditAction[] {
+    const insertionEdits: InsertionEdit[] = [];
+
+    importNameInfo = Array.isArray(importNameInfo) ? importNameInfo : [importNameInfo];
+    if (importNameInfo.length === 0) {
+        return [];
+    }
+
+    const map = createMapFromItems(importNameInfo, (i) => i.module.moduleName);
+    for (const importInfo of map.values()) {
+        insertionEdits.push(
+            ..._getInsertionEditsForAutoImportInsertion(
+                importInfo,
+                importStatements,
+                importInfo[0].module.moduleName,
+                getImportGroupFromModuleNameAndType(importInfo[0].module),
+                parseResults,
+                invocationPosition
+            )
+        );
+    }
+
+    return _convertInsertionEditsToTextEdits(parseResults, insertionEdits);
 }
 
 export function getTextEditsForAutoImportInsertion(
@@ -323,6 +358,72 @@ export function getTextEditsForAutoImportInsertion(
     parseResults: ParseResults,
     invocationPosition: Position
 ): TextEditAction[] {
+    const insertionEdits = _getInsertionEditsForAutoImportInsertion(
+        importNameInfo,
+        importStatements,
+        moduleName,
+        importGroup,
+        parseResults,
+        invocationPosition
+    );
+
+    return _convertInsertionEditsToTextEdits(parseResults, insertionEdits);
+}
+
+function _convertInsertionEditsToTextEdits(parseResults: ParseResults, insertionEdits: InsertionEdit[]) {
+    if (insertionEdits.length < 2) {
+        return insertionEdits.map((e) => getTextEdit(e));
+    }
+
+    // Merge edits with the same insertion point.
+    const editsMap = [...createMapFromItems(insertionEdits, (e) => `${e.importGroup} ${Range.print(e.range)}`)]
+        .sort((a, b) => compareStringsCaseSensitive(a[0], b[0]))
+        .map((v) => v[1]);
+
+    const textEditList: TextEditAction[] = [];
+    for (const editGroup of editsMap) {
+        if (editGroup.length === 1) {
+            textEditList.push(getTextEdit(editGroup[0]));
+        } else {
+            textEditList.push({
+                range: editGroup[0].range,
+                replacementText:
+                    editGroup[0].preChange +
+                    editGroup
+                        .map((e) => e.importStatement)
+                        .sort((a, b) => compareImports(a, b))
+                        .join(parseResults.tokenizerOutput.predominantEndOfLineSequence) +
+                    editGroup[0].postChange,
+            });
+        }
+    }
+
+    return textEditList;
+
+    function getTextEdit(edit: InsertionEdit): TextEditAction {
+        return { range: edit.range, replacementText: edit.preChange + edit.importStatement + edit.postChange };
+    }
+
+    function compareImports(a: string, b: string) {
+        const isImport1 = a.startsWith('import');
+        const isImport2 = b.startsWith('import');
+
+        if (isImport1 === isImport2) {
+            return a < b ? -1 : 1;
+        }
+
+        return isImport1 ? -1 : 1;
+    }
+}
+
+function _getInsertionEditsForAutoImportInsertion(
+    importNameInfo: ImportNameInfo[] | ImportNameInfo,
+    importStatements: ImportStatements,
+    moduleName: string,
+    importGroup: ImportGroup,
+    parseResults: ParseResults,
+    invocationPosition: Position
+): InsertionEdit[] {
     const insertionEdits: InsertionEdit[] = [];
 
     importNameInfo = Array.isArray(importNameInfo) ? importNameInfo : [importNameInfo];
@@ -346,34 +447,7 @@ export function getTextEditsForAutoImportInsertion(
         appendToEdits(fromImports, (names) => `from ${moduleName} import ${names.join(', ')}`);
     }
 
-    if (insertionEdits.length < 2) {
-        return insertionEdits.map((e) => getTextEdit(e));
-    }
-
-    // Merge edits with the same insertion point.
-    const editsMap = createMapFromItems(insertionEdits, (e) => Range.print(e.range));
-    const textEditList: TextEditAction[] = [];
-    for (const editGroup of editsMap.values()) {
-        if (editGroup.length === 1) {
-            textEditList.push(getTextEdit(editGroup[0]));
-        } else {
-            textEditList.push({
-                range: editGroup[0].range,
-                replacementText:
-                    editGroup[0].preChange +
-                    editGroup
-                        .map((e) => e.importStatement)
-                        .join(parseResults.tokenizerOutput.predominantEndOfLineSequence) +
-                    editGroup[0].postChange,
-            });
-        }
-    }
-
-    return textEditList;
-
-    function getTextEdit(edit: InsertionEdit): TextEditAction {
-        return { range: edit.range, replacementText: edit.preChange + edit.importStatement + edit.postChange };
-    }
+    return insertionEdits;
 
     function getImportAsText(nameInfo: ImportNameInfo, moduleName: string) {
         const importText = nameInfo.name ? nameInfo.name : moduleName;
@@ -390,7 +464,7 @@ export function getTextEditsForAutoImportInsertion(
             .reduce((set, v) => addIfUnique(set, v.text), [] as string[]);
 
         insertionEdits.push(
-            _getTextEditsForAutoImportInsertion(
+            _getInsertionEditForAutoImportInsertion(
                 importStatementGetter(importNames),
                 importStatements,
                 moduleName,
@@ -402,7 +476,7 @@ export function getTextEditsForAutoImportInsertion(
     }
 }
 
-function _getTextEditsForAutoImportInsertion(
+function _getInsertionEditForAutoImportInsertion(
     importStatement: string,
     importStatements: ImportStatements,
     moduleName: string,
@@ -533,7 +607,7 @@ function _getTextEditsForAutoImportInsertion(
     }
 
     const range = { start: insertionPosition, end: insertionPosition };
-    return { range, preChange, importStatement, postChange };
+    return { range, preChange, importStatement, postChange, importGroup };
 }
 
 function _processImportNode(node: ImportNode, localImports: ImportStatements, followsNonImportStatement: boolean) {
@@ -669,7 +743,10 @@ export function getTextRangeForImportNameDeletion(
     nameNodeIndex: number
 ): TextRange {
     let editSpan: TextRange;
-    if (nameNodeIndex === nameNodes.length - 1) {
+    if (nameNodes.length === 1 && nameNodeIndex === 0) {
+        // get span of "import [|A|]"
+        editSpan = nameNodes[0];
+    } else if (nameNodeIndex === nameNodes.length - 1) {
         // get span of "import A[|, B|]"
         const start = TextRange.getEnd(nameNodes[nameNodeIndex - 1]);
         const length = TextRange.getEnd(nameNodes[nameNodeIndex]) - start;

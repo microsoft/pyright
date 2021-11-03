@@ -223,6 +223,10 @@ export function isAliasDeclaration(decl: Declaration): decl is AliasDeclaration 
     return decl.type === DeclarationType.Alias;
 }
 
-export function isSpecialBuiltInClassDeclarations(decl: Declaration): decl is SpecialBuiltInClassDeclaration {
+export function isSpecialBuiltInClassDeclaration(decl: Declaration): decl is SpecialBuiltInClassDeclaration {
     return decl.type === DeclarationType.SpecialBuiltInClass;
+}
+
+export function isIntrinsicDeclaration(decl: Declaration): decl is IntrinsicDeclaration {
+    return decl.type === DeclarationType.Intrinsic;
 }

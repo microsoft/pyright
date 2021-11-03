@@ -1411,19 +1411,6 @@ export function getCallNodeAndActiveParameterIndex(
     }
 }
 
-export function getAncestorNodeOfType(node: ParseNode, nodeType: ParseNodeType): ParseNode | undefined {
-    let curNode: ParseNode | undefined = node;
-
-    while (curNode) {
-        if (curNode.nodeType === nodeType) {
-            return curNode;
-        }
-        curNode = curNode.parent;
-    }
-
-    return undefined;
-}
-
 export function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
     const index = tokens.getItemAtPosition(position);
     if (index < 0) {
@@ -1857,6 +1844,89 @@ export function getDottedNameWithGivenNodeAsLastName(node: NameNode): MemberAcce
     }
 
     return node.parent;
+}
+
+export function getDottedName(node: MemberAccessNode | NameNode): NameNode[] | undefined {
+    // ex) [a] or [a].b
+    // simple case, [a]
+    if (node.nodeType === ParseNodeType.Name) {
+        return [node];
+    }
+
+    // dotted name case.
+    const names: NameNode[] = [];
+    if (_getDottedName(node, names)) {
+        return names.reverse();
+    }
+
+    return undefined;
+
+    function _getDottedName(node: MemberAccessNode | NameNode, names: NameNode[]): boolean {
+        if (node.nodeType === ParseNodeType.Name) {
+            names.push(node);
+            return true;
+        }
+
+        names.push(node.memberName);
+
+        if (
+            node.leftExpression.nodeType === ParseNodeType.Name ||
+            node.leftExpression.nodeType === ParseNodeType.MemberAccess
+        ) {
+            return _getDottedName(node.leftExpression, names);
+        }
+
+        return false;
+    }
+}
+
+export function getFirstNameOfDottedName(node: MemberAccessNode | NameNode): NameNode | undefined {
+    // ex) [a] or [a].b
+    if (node.nodeType === ParseNodeType.Name) {
+        return node;
+    }
+
+    if (
+        node.leftExpression.nodeType === ParseNodeType.Name ||
+        node.leftExpression.nodeType === ParseNodeType.MemberAccess
+    ) {
+        return getFirstNameOfDottedName(node.leftExpression);
+    }
+
+    return undefined;
+}
+
+export function isFirstNameOfDottedName(node: NameNode): boolean {
+    // ex) [A] or [A].B.C.D
+    if (node.parent?.nodeType !== ParseNodeType.MemberAccess) {
+        return true;
+    }
+
+    if (node.parent.leftExpression === node) {
+        return true;
+    }
+
+    return false;
+}
+
+export function isLastNameOfDottedName(node: NameNode): boolean {
+    // ex) A or D.C.B.[A]
+    if (node.parent?.nodeType !== ParseNodeType.MemberAccess) {
+        return true;
+    }
+
+    if (
+        node.parent.leftExpression.nodeType !== ParseNodeType.Name &&
+        node.parent.leftExpression.nodeType !== ParseNodeType.MemberAccess
+    ) {
+        return false;
+    }
+
+    if (node.parent.leftExpression === node) {
+        return false;
+    }
+
+    return node.parent.parent?.nodeType !== ParseNodeType.MemberAccess;
 }
 
 export function getStringNodeValueRange(node: StringNode) {
