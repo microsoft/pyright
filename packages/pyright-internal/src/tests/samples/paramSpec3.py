@@ -1,6 +1,15 @@
 # This sample tests ParamSpec (PEP 612) behavior.
 
-from typing import Awaitable, Callable, Optional, ParamSpec, TypeVar, Union, overload
+from typing import (
+    Awaitable,
+    Callable,
+    Generic,
+    Optional,
+    ParamSpec,
+    TypeVar,
+    Union,
+    overload,
+)
 
 Ps = ParamSpec("Ps")
 R = TypeVar("R")
@@ -51,3 +60,12 @@ def bar(x: Union[int, str]) -> Optional[str]:
 # This should generate an error because ParamSpec cannot
 # be used with an overloaded function.
 x = add_logging(bar)
+
+
+class Foo(Generic[Ps, R]):
+    def __init__(self, func: Callable[Ps, R]):
+        self.func = func
+
+
+def transform_foo(f: Callable[Ps, R]) -> Foo[Ps, R]:
+    return Foo(f)

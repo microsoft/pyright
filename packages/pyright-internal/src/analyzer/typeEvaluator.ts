@@ -20114,7 +20114,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (effectiveDestType.details.paramSpec) {
                     if (effectiveSrcType.details.paramSpec) {
                         typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
-                            paramSpec: effectiveSrcType.details.paramSpec,
+                            paramSpec: convertToInstance(effectiveSrcType.details.paramSpec) as TypeVarType,
                         });
                     } else {
                         typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
