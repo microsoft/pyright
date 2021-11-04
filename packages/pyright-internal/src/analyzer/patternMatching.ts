@@ -27,13 +27,14 @@ import {
 } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { getTypedDictMembersForClass } from './typedDicts';
-import { TypeEvaluator } from './typeEvaluatorTypes';
+import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import {
     AnyType,
     ClassType,
     combineTypes,
     isAnyOrUnknown,
+    isClass,
     isClassInstance,
     isInstantiableClass,
     isNever,
@@ -57,6 +58,7 @@ import {
     lookUpClassMember,
     mapSubtypes,
     partiallySpecializeType,
+    specializeClassType,
     specializeTupleClass,
     stripLiteralValue,
 } from './typeUtils';
@@ -424,7 +426,19 @@ function narrowTypeBasedOnClassPattern(
     pattern: PatternClassNode,
     isPositiveTest: boolean
 ): Type {
-    const classType = evaluator.getTypeOfExpression(pattern.className).type;
+    let exprType = evaluator.getTypeOfExpression(
+        pattern.className,
+        /* expectedType */ undefined,
+        EvaluatorFlags.DoNotSpecialize
+    ).type;
+
+    // If this is a class (but not a type alias that refers to a class),
+    // specialize it with
+    if (isClass(exprType) && !exprType.typeAliasInfo) {
+        exprType = specializeClassType(exprType);
+    }
+
+    const classType = exprType;
 
     if (!isPositiveTest) {
         // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
@@ -472,19 +486,19 @@ function narrowTypeBasedOnClassPattern(
     }
 
     // Check for certain uses of type aliases that generate runtime exceptions.
-    if (classType.typeAliasInfo) {
-        if (isUnion(classType)) {
+    if (exprType.typeAliasInfo) {
+        if (isUnion(exprType)) {
             evaluator.addDiagnostic(
                 getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(classType) }),
+                Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
                 pattern.className
             );
-        } else if (isInstantiableClass(classType) && classType.typeArguments && classType.isTypeArgumentExplicit) {
+        } else if (isInstantiableClass(exprType) && exprType.typeArguments && exprType.isTypeArgumentExplicit) {
             evaluator.addDiagnostic(
                 getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.DiagnosticAddendum.classPatternTypeAlias().format({ type: evaluator.printType(classType) }),
+                Localizer.DiagnosticAddendum.classPatternTypeAlias().format({ type: evaluator.printType(exprType) }),
                 pattern.className
             );
         }
