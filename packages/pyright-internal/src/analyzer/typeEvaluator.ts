@@ -15294,6 +15294,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeList: typeArgs,
                     },
                 ];
+            } else if (typeArgs.length > 1) {
+                const paramSpecTypeArg = typeArgs.find((typeArg) => isParamSpec(typeArg.type));
+                if (paramSpecTypeArg) {
+                    addError(Localizer.Diagnostic.paramSpecContext(), paramSpecTypeArg.node);
+                }
+
+                const listTypeArg = typeArgs.find((typeArg) => !!typeArg.typeList);
+                if (listTypeArg) {
+                    addError(Localizer.Diagnostic.typeArgListNotAllowed(), listTypeArg.node);
+                }
             }
         }
 

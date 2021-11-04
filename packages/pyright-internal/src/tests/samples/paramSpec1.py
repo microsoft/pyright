@@ -1,6 +1,6 @@
 # This sample tests error conditions for ParamSpec (PEP 612).
 
-from typing import Any, Callable, List, ParamSpec, Tuple, cast
+from typing import Any, Callable, List, ParamSpec, Protocol, Tuple, cast
 
 
 TParams = ParamSpec("TParams")
@@ -33,3 +33,32 @@ def func1(x: Callable[TParams, Any]):
 
     # This should generate an error.
     g: Tuple[TParams]
+
+
+P = ParamSpec("P")
+
+
+class SomeWrapper(Protocol[P]):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs):
+        ...
+
+
+# This should generate an error because P cannot be used with other
+# type arguments.
+def func2(x: SomeWrapper[P, int]):
+    pass
+
+
+# This should generate an error because P cannot be used with other
+# type arguments.
+def func3(x: SomeWrapper[[P, int]]):
+    pass
+
+
+def func4(x: SomeWrapper[P]):
+    pass
+
+
+# This form is considered an error.
+def func5(x: SomeWrapper[[P]]):
+    pass
