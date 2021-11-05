@@ -150,6 +150,7 @@ namespace Keywords {
         'return',
         'try',
         'while',
+        'with',
     ];
 
     const python3_5: string[] = [...base, 'async', 'await'];
