@@ -5,8 +5,6 @@ def returnsFloat1() -> float:
     a = 1
     b = not a
 
-    # This should generate an error because bool
-    # cannot be assigned to a float.
     return b
 
 

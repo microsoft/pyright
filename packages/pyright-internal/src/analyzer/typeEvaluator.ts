@@ -17215,7 +17215,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Handle special-case type promotions.
         const promotionList = typePromotions.get(destType.details.fullName);
-        if (promotionList && promotionList.some((srcName) => srcName === srcType.details.fullName)) {
+        if (
+            promotionList &&
+            promotionList.some((srcName) =>
+                srcType.details.mro.some((mroClass) => isClass(mroClass) && srcName === mroClass.details.fullName)
+            )
+        ) {
             if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
                 return true;
             }

@@ -436,7 +436,7 @@ test('Expressions2', () => {
 test('Expressions3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions3.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Expressions4', () => {
