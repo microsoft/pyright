@@ -8191,9 +8191,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // the expected type if possible. We set the AllowTypeVarNarrowing and
                 // SkipStripLiteralForTypeVar flags so the type can be further narrowed
                 // and so literals are not stripped.
+                const effectiveReturnType = getFunctionEffectiveReturnType(type);
+                let effectiveExpectedType: Type = expectedType;
+
+                // If the return type is not the same as the expected type but is
+                // assignable to the expected type, determine which type arguments
+                // are needed to match the expected type.
+                if (
+                    isClassInstance(effectiveReturnType) &&
+                    isClassInstance(expectedType) &&
+                    !ClassType.isSameGenericClass(effectiveReturnType, expectedType)
+                ) {
+                    const tempTypeVarMap = new TypeVarMap(getTypeVarScopeId(effectiveReturnType));
+                    populateTypeVarMapBasedOnExpectedType(
+                        ClassType.cloneAsInstantiable(effectiveReturnType),
+                        expectedType,
+                        tempTypeVarMap,
+                        getTypeVarScopesForNode(errorNode)
+                    );
+
+                    const genericReturnType = ClassType.cloneForSpecialization(
+                        effectiveReturnType,
+                        /* typeArguments */ undefined,
+                        /* isTypeArgumentExplicit */ false
+                    );
+
+                    effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarMap);
+                }
+
                 canAssignType(
-                    getFunctionEffectiveReturnType(type),
-                    expectedType,
+                    effectiveReturnType,
+                    effectiveExpectedType,
                     /* diag */ undefined,
                     typeVarMap,
                     CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar
