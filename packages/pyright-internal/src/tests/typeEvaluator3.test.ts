@@ -309,7 +309,7 @@ test('TypeAlias4', () => {
 test('TypeAlias5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias5.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('TypeAlias6', () => {

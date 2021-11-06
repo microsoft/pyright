@@ -392,6 +392,8 @@ export namespace Localizer {
         export const genericClassAssigned = () => getRawString('Diagnostic.genericClassAssigned');
         export const genericClassDeleted = () => getRawString('Diagnostic.genericClassDeleted');
         export const genericNotAllowed = () => getRawString('Diagnostic.genericNotAllowed');
+        export const genericTypeAliasBoundTypeVar = () =>
+            new ParameterizedString<{ names: string }>(getRawString('Diagnostic.genericTypeAliasBoundTypeVar'));
         export const genericTypeArgMissing = () => getRawString('Diagnostic.genericTypeArgMissing');
         export const genericTypeArgTypeVar = () => getRawString('Diagnostic.genericTypeArgTypeVar');
         export const genericTypeArgUnique = () => getRawString('Diagnostic.genericTypeArgUnique');

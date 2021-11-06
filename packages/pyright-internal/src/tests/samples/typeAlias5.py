@@ -2,7 +2,7 @@
 # TypeVars.
 
 from datetime import datetime
-from typing import IO, List, Type, TypeVar, Union
+from typing import IO, Dict, Generic, List, Type, TypeVar, Union
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -39,3 +39,12 @@ v2: FooIsh[Bar] = Bar()
 
 # This should generate an error.
 v3: FooIsh[Type[Bar]] = 42
+
+
+MyTypeAlias = Dict[_T1, _T2]
+
+
+class MyClass1(Generic[_T1, _T2]):
+    # This should generate an error because S and T are bound
+    # type variables.
+    MyTypeAlias = Dict[_T1, _T2]

@@ -11801,12 +11801,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
+        const typeAliasScopeId = getScopeIdForNode(name);
+
+        const boundTypeVars = typeParameters.filter(typeVar => typeVar.scopeId !== typeAliasScopeId);
+        if (boundTypeVars.length > 0) {
+            addError(
+                Localizer.Diagnostic.genericTypeAliasBoundTypeVar().format({
+                    names: boundTypeVars.map(t => `${t.details.name}`).join(', ')
+                }),
+                errorNode
+            );
+        }
 
         return TypeBase.cloneForTypeAlias(
             type,
             name.value,
             `${fileInfo.moduleName}.${name.value}`,
-            getScopeIdForNode(name),
+            typeAliasScopeId,
             typeParameters.length > 0 ? typeParameters : undefined
         );
     }
