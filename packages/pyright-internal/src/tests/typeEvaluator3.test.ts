@@ -315,62 +315,62 @@ test('TypeAlias5', () => {
 test('TypeAlias6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias6.py']);
 
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeAlias7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias7.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeAlias8', () => {
-    const configOptions = new ConfigOptions('.');
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias8.py']);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias8.py'], configOptions);
-
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('TypeAlias9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias9.py']);
 
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('RecursiveTypeAlias1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias1.py']);
+
+    TestUtils.validateResults(analysisResults, 9);
+});
+
+test('RecursiveTypeAlias2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias2.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
+test('RecursiveTypeAlias3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('RecursiveTypeAlias4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias4.py']);
+
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeAlias10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias10.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeAlias11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias11.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeAlias12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias12.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeAlias13', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias13.pyi']);
+test('RecursiveTypeAlias5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias5.pyi']);
 
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('TypeAlias14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias14.py']);
-
-    TestUtils.validateResults(analysisResults, 6);
-});
-
-test('TypeAlias15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias15.py']);
+test('RecursiveTypeAlias6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias6.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

@@ -1,26 +1,24 @@
-# This sample tests Pyright's handling of recursive type aliases.
+# This sample verifies that a generic type alias with a Callable
+# works correctly.
 
-from typing import List, Literal, TypeAlias, Union
+# pyright: reportInvalidTypeVarUse=false
 
-# This should generate an error because the forward reference
-# type needs to be in quotes.
-GenericClass0 = List[Union[GenericClass0, int]]
+from typing import Callable, Literal, TypeVar
 
-# This should generate an error because the type alias directly
-# refers to itself.
-RecursiveUnion = Union["RecursiveUnion", int]
-
-a1: RecursiveUnion = 3
-
-# This should generate an error because the type alias refers
-# to itself through a mutually-referential type alias.
-MutualReference1 = Union["MutualReference2", int]
-MutualReference2 = Union["MutualReference1", str]
-
-# This should generate an error because the type alias refers
-# to itself.
-MutualReference3: TypeAlias = "MutualReference3"
+T = TypeVar("T")
+F = Callable[[T], T]
 
 
-RecursiveType: TypeAlias = list[Union[str, "RecursiveType"]]
-t1: Literal["Type[list[str | RecursiveType]]"] = reveal_type(RecursiveType)
+def f() -> F[T]:
+    def g(x: T) -> T:
+        ...
+
+    return g
+
+
+g = f()
+v1 = g("foo")
+t_v1: Literal["str"] = reveal_type(v1)
+
+v2 = g(1)
+t_v2: Literal["int"] = reveal_type(v2)

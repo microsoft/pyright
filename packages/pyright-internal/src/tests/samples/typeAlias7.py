@@ -1,32 +1,50 @@
-# This sample tests Pyright's handling of recursive type aliases
-# that are also generic.
+# This sample tests the handling of generic type aliases that are
+# defined in terms of other generic type aliases in a nested manner.
 
-from typing import List, TypeVar, Union
-
-_T1 = TypeVar("_T1", str, int)
-_T2 = TypeVar("_T2")
-
-GenericTypeAlias1 = List[Union["GenericTypeAlias1[_T1]", _T1]]
-
-SpecializedTypeAlias1 = GenericTypeAlias1[str]
-
-a1: SpecializedTypeAlias1 = ["hi", ["hi", "hi"]]
-
-# This should generate an error because int doesn't match the
-# constraint of the TypeVar _T1.
-SpecializedClass2 = GenericTypeAlias1[float]
-
-b1: GenericTypeAlias1[str] = ["hi", "bye", [""], [["hi"]]]
-
-# This should generate an error.
-b2: GenericTypeAlias1[str] = ["hi", [2.4]]
+from typing import Awaitable, Callable, Generic, TypeVar
 
 
-GenericTypeAlias2 = List[Union["GenericTypeAlias2[_T1, _T2]", _T1, _T2]]
+TSource = TypeVar("TSource")
+TError = TypeVar("TError")
+TResult = TypeVar("TResult")
+TNext = TypeVar("TNext")
 
-c2: GenericTypeAlias2[str, int] = [[3, ["hi"]], "hi"]
 
-c3: GenericTypeAlias2[str, float] = [[3, ["hi", 3.4, [3.4]]], "hi"]
+class Context(Generic[TResult]):
+    Response: TResult
 
-# This should generate an error because a float is a type mismatch.
-c4: GenericTypeAlias2[str, int] = [[3, ["hi", 3, [3.4]]], "hi"]
+
+class Result(Generic[TResult, TError]):
+    def map(
+        self, mapper: Callable[[Context[TResult]], TResult]
+    ) -> "Result[TResult, TError]":
+        return Result()
+
+
+HttpFuncResult = Result[Context[TResult], TError]
+HttpFuncResultAsync = Awaitable[Result[Context[TResult], TError]]
+
+HttpFunc = Callable[
+    [Context[TNext]],
+    HttpFuncResultAsync[TResult, TError],
+]
+
+HttpHandler = Callable[
+    [
+        HttpFunc[TNext, TResult, TError],
+        Context[TSource],
+    ],
+    HttpFuncResultAsync[TResult, TError],
+]
+
+
+async def run_async(
+    ctx: Context[TSource],
+    handler: HttpHandler[str, TResult, TError, TSource],
+) -> Result[TResult, TError]:
+    result = Result[TResult, TError]()
+
+    def mapper(x: Context[TResult]) -> TResult:
+        return x.Response
+
+    return result.map(mapper)
