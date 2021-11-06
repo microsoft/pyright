@@ -56,3 +56,13 @@ SimpleNonAlias: Type[int] = int
 t1: Literal["Type[int]"] = reveal_type(SimpleAlias)
 t2: Literal["Type[int]"] = reveal_type(ExplicitAlias)
 t3: Literal["Type[int]"] = reveal_type(SimpleNonAlias)
+
+
+class ClassB:
+    my_type1: TA = int
+
+
+def func1():
+    # This should generate an error because type aliases are allowed
+    # only in classes or modules.
+    my_type1: TA = int

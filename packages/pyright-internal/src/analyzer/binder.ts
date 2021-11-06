@@ -3309,12 +3309,13 @@ export class Binder extends ParseTreeWalker {
                     if (isExplicitTypeAlias) {
                         typeAnnotationNode = undefined;
 
-                        // Type aliases are allowed only in the global scope.
+                        // Type aliases are allowed only in the global or class scope.
                         if (
+                            this._currentScope.type !== ScopeType.Class &&
                             this._currentScope.type !== ScopeType.Module &&
                             this._currentScope.type !== ScopeType.Builtin
                         ) {
-                            this._addError(Localizer.Diagnostic.typeAliasNotInModule(), typeAnnotation);
+                            this._addError(Localizer.Diagnostic.typeAliasNotInModuleOrClass(), typeAnnotation);
                         }
                     } else if (finalInfo.isFinal) {
                         typeAnnotationNode = finalInfo.finalTypeNode;

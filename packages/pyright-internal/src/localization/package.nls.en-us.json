@@ -337,7 +337,7 @@
         "tupleIndexOutOfRange": "Index {index} is out of range for tuple with length {length}",
         "typeAliasIsRecursiveDirect": "Type alias \"{name}\" cannot use itself in its definition",
         "typeAliasIsRecursiveIndirect": "Type alias \"{name}\" cannot refer to itself indirectly in its definition",
-        "typeAliasNotInModule": "A TypeAlias can be defined only within a module scope",
+        "typeAliasNotInModuleOrClass": "A TypeAlias can be defined only within a module or class scope",
         "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
         "typeArgListNotAllowed": "List expression not allowed for this type argument",
         "typeAnnotationCall": "Illegal type annotation: call expression not allowed",
