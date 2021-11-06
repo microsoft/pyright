@@ -460,7 +460,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             // We provide a progress bar a cancellation button so the user can cancel
             // any long-running actions.
             const progress = await this._getProgressReporter(
-                params.workDoneToken,
                 workDoneReporter,
                 Localizer.CodeAction.findingReferences(),
                 token
@@ -918,7 +917,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (this.isLongRunningCommand(params.command)) {
                 // Create a progress dialog for long-running commands.
                 const progress = await this._getProgressReporter(
-                    params.workDoneToken,
                     reporter,
                     Localizer.CodeAction.executingCommand(),
                     token
@@ -1235,13 +1233,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return MarkupKind.PlainText;
     }
 
-    private async _getProgressReporter(
-        progressId: string | number | undefined,
-        reporter: WorkDoneProgressReporter,
-        title: string,
-        token: CancellationToken
-    ) {
-        if (progressId) {
+    private async _getProgressReporter(reporter: WorkDoneProgressReporter, title: string, token: CancellationToken) {
+        // This is a bit ugly, but we need to determine whether the provided reporter
+        // is an actual client-side progress reporter or a dummy (null) progress reporter
+        // created by the LSP library. If it's the latter, we'll create a server-initiated
+        // progress reporter.
+        if (reporter.constructor.name !== 'NullProgressReporter') {
             return { reporter: reporter, source: CancelAfter(token) };
         }
 
