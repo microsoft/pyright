@@ -4,11 +4,6 @@
 from typing import Callable, Generic, Literal, TypeVar, Union
 
 
-def foo1(a: int):
-    if isinstance(a, int | str | bytes):
-        return 3
-
-
 def foo2(a: int | str):
     if isinstance(a, int):
         return 1

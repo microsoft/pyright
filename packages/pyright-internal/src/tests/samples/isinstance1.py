@@ -37,14 +37,14 @@ def func4(x: Union[int, SomeTypedDict]):
 
 
 def func5(x: int | str | complex):
-    if isinstance(x, int | str):
+    if isinstance(x, (int, str)):
         t1: Literal["int | str"] = reveal_type(x)
     else:
         t2: Literal["complex"] = reveal_type(x)
 
 
 def func6(x: Type[int] | Type[str] | Type[complex]):
-    if issubclass(x, int | str):
+    if issubclass(x, (int, str)):
         t1: Literal["Type[int] | Type[str]"] = reveal_type(x)
     else:
         t2: Literal["Type[complex]"] = reveal_type(x)

@@ -3800,6 +3800,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: UnknownType.create(), node, isIncomplete: true };
         }
 
+        // Handle the special case where the expression is an actual
+        // UnionType special form.
+        if (isUnion(baseType) && TypeBase.isSpecialForm(baseType)) {
+            if (objectType) {
+                baseType = objectType;
+            }
+        }
+
         const getTypeFromNoneBase = () => {
             if (noneType && isInstantiableClass(noneType)) {
                 const typeResult = getTypeFromObjectMember(
@@ -6912,7 +6920,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { returnType: UnknownType.create(), argumentErrors: true };
         }
 
-        if (TypeBase.isNonCallable(callType)) {
+        if (TypeBase.isSpecialForm(callType)) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -9444,8 +9452,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                const newUnion = combineTypes([leftType, adjustedRightType]);
+                if (isUnion(newUnion)) {
+                    TypeBase.setSpecialForm(newUnion);
+                }
+
                 return {
-                    type: combineTypes([leftType, adjustedRightType]),
+                    type: newUnion,
                     node,
                 };
             }
@@ -11006,7 +11019,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Create a new function that is marked as "static" so there is later
         // no attempt to bind it as though it's an instance or class method.
         const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
-        TypeBase.setNonCallable(functionType);
+        TypeBase.setSpecialForm(functionType);
         functionType.details.declaredReturnType = UnknownType.create();
 
         const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(errorNode);
@@ -11128,7 +11141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const optionalType = combineTypes([typeArg0Type, NoneType.createType()]);
 
         if (isUnion(optionalType)) {
-            TypeBase.setNonCallable(optionalType);
+            TypeBase.setSpecialForm(optionalType);
         }
 
         return optionalType;
@@ -11595,7 +11608,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!isCallable) {
-            TypeBase.setNonCallable(returnType);
+            TypeBase.setSpecialForm(returnType);
         }
 
         return returnType;
@@ -11651,7 +11664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const unionType = combineTypes(types);
         if (isUnion(unionType)) {
-            TypeBase.setNonCallable(unionType);
+            TypeBase.setSpecialForm(unionType);
         }
 
         return unionType;
@@ -15351,7 +15364,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (typeParam.details.isParamSpec) {
                     const typeArg = typeArgs[index];
                     const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
-                    TypeBase.setNonCallable(functionType);
+                    TypeBase.setSpecialForm(functionType);
 
                     if (isEllipsisType(typeArg.type)) {
                         FunctionType.addDefaultParameters(functionType);
@@ -18536,6 +18549,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap);
             }
             return true;
+        }
+
+        // Handle the special case where the expression is an actual
+        // UnionType special form.
+        if (isUnion(srcType) && TypeBase.isSpecialForm(srcType)) {
+            if (objectType) {
+                srcType = objectType;
+            }
         }
 
         if (isUnion(destType)) {
