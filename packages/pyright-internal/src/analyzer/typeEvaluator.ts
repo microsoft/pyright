@@ -8053,16 +8053,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (param.category === ParameterCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name)!;
                         if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
-                            const paramType = FunctionType.getEffectiveParameterType(type, index);
-
                             if (
                                 param.defaultType &&
                                 !isEllipsisType(param.defaultType) &&
-                                requiresSpecialization(paramType)
+                                requiresSpecialization(param.type)
                             ) {
                                 validateArgTypeParams.push({
                                     paramCategory: param.category,
-                                    paramType: paramType,
+                                    paramType: param.type,
                                     requiresTypeVarMatching: true,
                                     argument: {
                                         argumentCategory: ArgumentCategory.Simple,
@@ -18259,33 +18257,52 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Make sure we don't exceed the wide type bound.
-            if (curWideTypeBound) {
+            if (curWideTypeBound && newNarrowTypeBound) {
                 if (
                     !isTypeSame(
                         curWideTypeBound,
-                        newNarrowTypeBound!,
+                        newNarrowTypeBound,
                         /* ignorePseudoGeneric */ undefined,
                         /* ignoreTypeFlags */ undefined,
                         recursionCount + 1
-                    ) &&
-                    !canAssignType(
-                        makeTopLevelTypeVarsConcrete(curWideTypeBound),
-                        newNarrowTypeBound!,
-                        /* diag */ undefined,
-                        typeVarMap,
-                        /* flags */ undefined,
-                        recursionCount + 1
                     )
                 ) {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: printType(curWideTypeBound),
-                                destType: printType(adjSrcType),
-                            })
-                        );
+                    let makeConcrete = true;
+
+                    // Handle the case where the wide type is type T and the narrow type
+                    // is type T | <some other type>. In this case, it violates the
+                    // wide type bound.
+                    if (isTypeVar(curWideTypeBound)) {
+                        if (isTypeSame(newNarrowTypeBound, curWideTypeBound)) {
+                            makeConcrete = false;
+                        } else if (
+                            isUnion(newNarrowTypeBound) &&
+                            newNarrowTypeBound.subtypes.some((subtype) => isTypeSame(subtype, curWideTypeBound))
+                        ) {
+                            makeConcrete = false;
+                        }
                     }
-                    return false;
+
+                    if (
+                        !canAssignType(
+                            makeConcrete ? makeTopLevelTypeVarsConcrete(curWideTypeBound) : curWideTypeBound,
+                            newNarrowTypeBound,
+                            /* diag */ undefined,
+                            typeVarMap,
+                            /* flags */ undefined,
+                            recursionCount + 1
+                        )
+                    ) {
+                        if (diag) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                    sourceType: printType(curWideTypeBound),
+                                    destType: printType(adjSrcType),
+                                })
+                            );
+                        }
+                        return false;
+                    }
                 }
             }
         }

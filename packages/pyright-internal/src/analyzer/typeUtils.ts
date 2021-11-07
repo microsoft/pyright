@@ -1360,7 +1360,7 @@ export function buildTypeVarMap(
                     typeArgType = typeArgs[index];
                 }
 
-                typeVarMap.setTypeVarType(typeParam, typeArgType, /* wideBound */ undefined, /* retainLiteral */ true);
+                typeVarMap.setTypeVarType(typeParam, typeArgType, typeArgType, /* retainLiteral */ true);
             }
         }
     });

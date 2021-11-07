@@ -745,6 +745,18 @@ test('GenericTypes70', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('GenericTypes71', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.diagnosticRuleSet.strictParameterNoneValue = false;
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes71.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3);
+
+    configOptions.diagnosticRuleSet.strictParameterNoneValue = true;
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes71.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 
