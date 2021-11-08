@@ -183,6 +183,7 @@ import {
     TypedDictEntry,
     TypeSourceId,
     TypeVarScopeId,
+    TypeVarScopeType,
     TypeVarType,
     UnboundType,
     UnionType,
@@ -3479,7 +3480,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             type = TypeVarType.cloneForScopeId(
                                 type,
                                 getScopeIdForNode(enclosingScope),
-                                enclosingScope.name.value
+                                enclosingScope.name.value,
+                                enclosingScope.nodeType === ParseNodeType.Function
+                                    ? TypeVarScopeType.Function
+                                    : TypeVarScopeType.Class
                             );
                         } else {
                             fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
@@ -3682,7 +3686,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         type: TypeVarType.cloneForScopeId(
                             type,
                             leftType.details.recursiveTypeAliasScopeId,
-                            leftType.details.recursiveTypeAliasName
+                            leftType.details.recursiveTypeAliasName,
+                            TypeVarScopeType.TypeAlias
                         ),
                         foundInterveningClass: false,
                     };
@@ -11832,7 +11837,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
         const typeAliasScopeId = getScopeIdForNode(name);
 
-        const boundTypeVars = typeParameters.filter((typeVar) => typeVar.scopeId !== typeAliasScopeId);
+        const boundTypeVars = typeParameters.filter(
+            (typeVar) => typeVar.scopeId !== typeAliasScopeId && typeVar.scopeType === TypeVarScopeType.Class
+        );
         if (boundTypeVars.length > 0) {
             addError(
                 Localizer.Diagnostic.genericTypeAliasBoundTypeVar().format({
@@ -12544,7 +12551,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 typeVar.details.isSynthesized = true;
                                 typeVar.scopeId = getScopeIdForNode(initDeclNode);
                                 typeVar.details.boundType = UnknownType.create();
-                                return TypeVarType.cloneForScopeId(typeVar, getScopeIdForNode(node), node.name.value);
+                                return TypeVarType.cloneForScopeId(
+                                    typeVar,
+                                    getScopeIdForNode(node),
+                                    node.name.value,
+                                    TypeVarScopeType.Class
+                                );
                             });
                         }
                     }

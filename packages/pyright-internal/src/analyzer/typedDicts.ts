@@ -50,6 +50,7 @@ import {
     OverloadedFunctionType,
     Type,
     TypedDictEntry,
+    TypeVarScopeType,
     TypeVarType,
     UnknownType,
 } from './types';
@@ -300,7 +301,12 @@ export function synthesizeTypedDictClassMethods(
         const typeVarScopeId = evaluator.getScopeIdForNode(node);
         let defaultTypeVar = TypeVarType.createInstance(`__${classType.details.name}_default`);
         defaultTypeVar.details.isSynthesized = true;
-        defaultTypeVar = TypeVarType.cloneForScopeId(defaultTypeVar, typeVarScopeId, classType.details.name);
+        defaultTypeVar = TypeVarType.cloneForScopeId(
+            defaultTypeVar,
+            typeVarScopeId,
+            classType.details.name,
+            TypeVarScopeType.Function
+        );
 
         const createGetMethod = (keyType: Type, valueType: Type, includeDefault: boolean) => {
             const getOverload = FunctionType.createInstance(

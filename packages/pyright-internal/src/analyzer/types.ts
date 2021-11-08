@@ -1716,6 +1716,12 @@ export interface TypeVarDetails {
 
 export type ParamSpecAccess = 'args' | 'kwargs';
 
+export const enum TypeVarScopeType {
+    Class,
+    Function,
+    TypeAlias,
+}
+
 export interface TypeVarType extends TypeBase {
     category: TypeCategory.TypeVar;
     details: TypeVarDetails;
@@ -1727,6 +1733,9 @@ export interface TypeVarType extends TypeBase {
     // provides the scope for this type variable. This might not be unique,
     // so it should be used only for error messages.
     scopeName?: string | undefined;
+
+    // If the TypeVar is bound to a scope, this is the scope type.
+    scopeType?: TypeVarScopeType;
 
     // String formatted as <name>.<scopeId>.
     nameWithScope?: string | undefined;
@@ -1779,11 +1788,17 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForScopeId(type: TypeVarType, scopeId: string, scopeName: string) {
+    export function cloneForScopeId(
+        type: TypeVarType,
+        scopeId: string,
+        scopeName: string,
+        scopeType: TypeVarScopeType
+    ) {
         const newInstance: TypeVarType = { ...type };
         newInstance.nameWithScope = makeNameWithScope(type.details.name, scopeId);
         newInstance.scopeId = scopeId;
         newInstance.scopeName = scopeName;
+        newInstance.scopeType = scopeType;
         return newInstance;
     }
 
