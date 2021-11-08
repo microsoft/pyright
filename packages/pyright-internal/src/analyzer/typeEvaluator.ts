@@ -19130,6 +19130,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Handle the special case where the dest is a union of Any and
+        // a type variable and CanAssignFlags.AllowTypeVarNarrowing is
+        // in effect. This occurs, for example, with the return type of
+        // the getattr function.
+        if ((flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0 && isUnion(destType)) {
+            const nonAnySubtypes = destType.subtypes.filter((t) => !isAnyOrUnknown(t));
+            if (nonAnySubtypes.length === 1 && isTypeVar(nonAnySubtypes[0])) {
+                canAssignType(nonAnySubtypes[0], srcType, /* diag */ undefined, typeVarMap, flags, recursionCount + 1);
+
+                // This always succeeds because the destination contains Any.
+                return true;
+            }
+        }
+
         // For union sources, all of the types need to be assignable to the dest.
         let isIncompatible = false;
         doForEachSubtype(srcType, (subtype) => {
