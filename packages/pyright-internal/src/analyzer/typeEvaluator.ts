@@ -12502,37 +12502,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType.details.fields = innerScope?.symbolTable || new Map<string, Symbol>();
 
         // Determine whether the class's instance variables are constrained
-        // to those defined by __slots__. If so, build a complete list of
-        // all slots names defined by the class hierarchy.
+        // to those defined by __slots__. We need to do this prior to dataclass
+        // processing because dataclasses can implicitly add to the slots
+        // list.
         const slotsNames = innerScope?.getSlotsNames();
         if (slotsNames) {
             classType.details.localSlotsNames = slotsNames;
-
-            let isLimitedToSlots = true;
-            const extendedSlotsNames = [...slotsNames];
-
-            classType.details.baseClasses.forEach((baseClass) => {
-                if (isInstantiableClass(baseClass)) {
-                    if (
-                        !ClassType.isBuiltIn(baseClass, 'object') &&
-                        !ClassType.isBuiltIn(baseClass, 'type') &&
-                        !ClassType.isBuiltIn(baseClass, 'Generic')
-                    ) {
-                        if (baseClass.details.inheritedSlotsNames === undefined) {
-                            isLimitedToSlots = false;
-                        } else {
-                            extendedSlotsNames.push(...baseClass.details.inheritedSlotsNames);
-                        }
-                    }
-                } else {
-                    isLimitedToSlots = false;
-                }
-            });
-
-            if (isLimitedToSlots) {
-                classType.details.inheritedSlotsNames = extendedSlotsNames;
-            }
         }
+
         if (ClassType.isTypedDictClass(classType)) {
             synthesizeTypedDictClassMethods(evaluatorInterface, node, classType);
         }
@@ -12713,6 +12690,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             synthesizeDataClassMethods(evaluatorInterface, node, classType, skipSynthesizedInit);
+        }
+
+        // Build a complete list of all slots names defined by the class hierarchy.
+        // This needs to be done after dataclass processing.
+        if (classType.details.localSlotsNames) {
+            let isLimitedToSlots = true;
+            const extendedSlotsNames = [...classType.details.localSlotsNames];
+
+            classType.details.baseClasses.forEach((baseClass) => {
+                if (isInstantiableClass(baseClass)) {
+                    if (
+                        !ClassType.isBuiltIn(baseClass, 'object') &&
+                        !ClassType.isBuiltIn(baseClass, 'type') &&
+                        !ClassType.isBuiltIn(baseClass, 'Generic')
+                    ) {
+                        if (baseClass.details.inheritedSlotsNames === undefined) {
+                            isLimitedToSlots = false;
+                        } else {
+                            extendedSlotsNames.push(...baseClass.details.inheritedSlotsNames);
+                        }
+                    }
+                } else {
+                    isLimitedToSlots = false;
+                }
+            });
+
+            if (isLimitedToSlots) {
+                classType.details.inheritedSlotsNames = extendedSlotsNames;
+            }
         }
 
         // Update the undecorated class type.

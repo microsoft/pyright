@@ -269,6 +269,7 @@ export namespace Localizer {
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
+        export const dataClassSlotsOverwrite = () => getRawString('Diagnostic.dataClassSlotsOverwrite');
         export const declaredReturnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(
                 getRawString('Diagnostic.declaredReturnTypePartiallyUnknown')

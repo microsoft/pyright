@@ -502,6 +502,14 @@ test('DataClass16', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('DataClass17', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass17.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('InitVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initVar1.py']);
 

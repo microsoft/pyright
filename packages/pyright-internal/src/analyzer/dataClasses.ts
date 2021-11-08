@@ -455,6 +455,10 @@ export function synthesizeDataClassMethods(
     }
     symbolTable.set('__dataclass_fields__', Symbol.createWithType(SymbolFlags.ClassMember, dictType));
 
+    if (ClassType.isGeneratedDataClassSlots(classType) && classType.details.localSlotsNames === undefined) {
+        classType.details.localSlotsNames = localDataClassEntries.map((entry) => entry.name);
+    }
+
     // If this dataclass derived from a NamedTuple, update the NamedTuple with
     // the specialized entry types.
     updateNamedTupleBaseClass(
@@ -732,6 +736,23 @@ function applyDataClassBehaviorOverride(
                 classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
             } else if (value === true) {
                 classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassEq;
+            }
+            break;
+
+        case 'slots':
+            if (value === true) {
+                classType.details.flags |= ClassTypeFlags.GenerateDataClassSlots;
+
+                if (classType.details.localSlotsNames) {
+                    evaluator.addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.dataClassSlotsOverwrite(),
+                        errorNode
+                    );
+                }
+            } else if (value === false) {
+                classType.details.flags &= ~ClassTypeFlags.GenerateDataClassSlots;
             }
             break;
     }

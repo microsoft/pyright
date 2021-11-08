@@ -373,6 +373,9 @@ export const enum ClassTypeFlags {
     // Class does not allow writing or deleting its instance variables
     // through a member access. Used with named tuples.
     ReadOnlyInstanceVariables = 1 << 24,
+
+    // For dataclasses, should __slots__ be generated?
+    GenerateDataClassSlots = 1 << 25,
 }
 
 export interface DataClassBehaviors {
@@ -659,6 +662,10 @@ export namespace ClassType {
 
     export function isDataClassKeywordOnlyParams(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.DataClassKeywordOnlyParams);
+    }
+
+    export function isGeneratedDataClassSlots(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.GenerateDataClassSlots);
     }
 
     export function isTypedDictClass(classType: ClassType) {
