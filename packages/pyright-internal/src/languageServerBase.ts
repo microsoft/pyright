@@ -46,6 +46,7 @@ import {
     WorkspaceEdit,
     WorkspaceFolder,
 } from 'vscode-languageserver';
+import { attachWorkDone } from 'vscode-languageserver/lib/common/progress';
 
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
@@ -181,6 +182,8 @@ interface ClientCapabilities {
     supportsUnnecessaryDiagnosticTag: boolean;
     completionItemResolveSupportsAdditionalTextEdits: boolean;
 }
+
+const nullProgressReporter = attachWorkDone(undefined as any, undefined);
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _defaultClientConfig: any;
@@ -1238,7 +1241,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // is an actual client-side progress reporter or a dummy (null) progress reporter
         // created by the LSP library. If it's the latter, we'll create a server-initiated
         // progress reporter.
-        if (reporter.constructor.name !== 'NullProgressReporter') {
+        if (reporter.constructor !== nullProgressReporter.constructor) {
             return { reporter: reporter, source: CancelAfter(token) };
         }
 
