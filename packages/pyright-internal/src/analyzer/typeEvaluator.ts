@@ -174,6 +174,7 @@ import {
     NoneType,
     OverloadedFunctionType,
     ParamSpecEntry,
+    removeAnyFromUnion,
     removeNoneFromUnion,
     removeUnbound,
     Type,
@@ -18439,7 +18440,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (
                 isTypeSame(
                     destType,
-                    srcType,
+                    removeAnyFromUnion(srcType),
                     /* ignorePseudoGeneric */ undefined,
                     /* ignoreTypeFlags */ undefined,
                     recursionCount + 1
