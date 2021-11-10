@@ -574,6 +574,8 @@ export function printFunctionParts(
     recursionTypes: Type[] = []
 ): [string[], string] {
     const paramTypeStrings: string[] = [];
+    let sawDefinedName = false;
+
     type.details.parameters.forEach((param, index) => {
         // Handle specialized variadic type parameters specially.
         if (
@@ -604,6 +606,7 @@ export function printFunctionParts(
 
         if (param.name && !param.isNameSynthesized) {
             paramString += param.name;
+            sawDefinedName = true;
         }
 
         let defaultValueAssignment = '=';
@@ -639,7 +642,11 @@ export function printFunctionParts(
                 defaultValueAssignment = ' = ';
             }
         } else if (param.category === ParameterCategory.Simple) {
-            paramString += '/';
+            if (sawDefinedName) {
+                paramString += '/';
+            } else {
+                return;
+            }
         }
 
         if (param.hasDefault) {

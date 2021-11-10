@@ -11087,6 +11087,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         hasDeclaredType: true,
                     });
                 });
+
+                FunctionType.addParameter(functionType, {
+                    category: ParameterCategory.Simple,
+                    isNameSynthesized: false,
+                    type: UnknownType.create(),
+                });
             } else if (isEllipsisType(typeArgs[0].type)) {
                 FunctionType.addDefaultParameters(functionType);
                 functionType.details.flags |= FunctionTypeFlags.SkipParamCompatibilityCheck;
