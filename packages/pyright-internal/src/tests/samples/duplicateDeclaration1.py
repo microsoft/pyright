@@ -1,7 +1,7 @@
 # This sample tests the detection of duplicate (overwritten) symbols.
 
 
-from typing import overload
+from typing import Callable, overload
 
 
 class C:
@@ -64,3 +64,52 @@ def b():
 
 
 b: int = 3
+
+
+def func1(cond: bool):
+    if cond:
+
+        def a() -> int:
+            return 3
+
+        # This should generate an error because its inferred return
+        # type differs from b above.
+        def b():
+            return 3
+
+        # This should generate an error because the parameter names don't match.
+        def c(a: int, b: str) -> None:
+            return None
+
+        # This should generate an error because the parameter is positional-only.
+        def d(a: int) -> None:
+            return None
+
+        def e(a: int, /) -> None:
+            return None
+
+        # This should generate an error because the parameter is not positional-only.
+        f: Callable[[int], None] = lambda a: None
+
+        g: Callable[[int], None] = lambda a: None
+
+    else:
+
+        def a() -> int:
+            return 2
+
+        def b():
+            return 2
+
+        def c(a: int, c: str) -> None:
+            return None
+
+        d: Callable[[int], None] = lambda a: None
+
+        e: Callable[[int], None] = lambda a: None
+
+        def f(a: int) -> None:
+            return None
+
+        def g(a: int, /) -> None:
+            return None

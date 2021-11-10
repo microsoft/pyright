@@ -2148,15 +2148,43 @@ export class Checker extends ParseTreeWalker {
                 );
                 addPrimaryDeclInfo(diag);
             } else if (otherDecl.type === DeclarationType.Function) {
-                const diag = this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    otherDecl.isMethod
-                        ? Localizer.Diagnostic.obscuredMethodDeclaration().format({ name })
-                        : Localizer.Diagnostic.obscuredFunctionDeclaration().format({ name }),
-                    otherDecl.node.name
-                );
-                addPrimaryDeclInfo(diag);
+                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
+
+                // If the return type has not yet been inferred, do so now.
+                if (primaryType && isFunction(primaryType)) {
+                    this._evaluator.getFunctionInferredReturnType(primaryType);
+                }
+
+                let duplicateIsOk = false;
+                const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
+
+                const suite1 = ParseTreeUtils.getEnclosingSuite(primaryDecl.node);
+                const suite2 = ParseTreeUtils.getEnclosingSuite(otherDecl.node);
+
+                const isInSameStatementList = suite1 === suite2;
+
+                // If the return type has not yet been inferred, do so now.
+                if (otherType && isFunction(otherType)) {
+                    this._evaluator.getFunctionInferredReturnType(otherType);
+                }
+
+                // If both declarations are functions, it's OK if they
+                // both have the same signatures.
+                if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
+                    duplicateIsOk = true;
+                }
+
+                if (!duplicateIsOk || isInSameStatementList) {
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        otherDecl.isMethod
+                            ? Localizer.Diagnostic.obscuredMethodDeclaration().format({ name })
+                            : Localizer.Diagnostic.obscuredFunctionDeclaration().format({ name }),
+                        otherDecl.node.name
+                    );
+                    addPrimaryDeclInfo(diag);
+                }
             } else if (otherDecl.type === DeclarationType.Parameter) {
                 if (otherDecl.node.name) {
                     const diag = this._evaluator.addDiagnostic(
@@ -2174,13 +2202,10 @@ export class Checker extends ParseTreeWalker {
                     if (otherDecl.node.nodeType === ParseNodeType.Name) {
                         let duplicateIsOk = false;
 
-                        // If both declarations are variables, it's OK if they
-                        // both have the same declared type.
-                        if (primaryDecl.type === DeclarationType.Variable) {
-                            const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
-                            if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
-                                duplicateIsOk = true;
-                            }
+                        // It's OK if they both have the same declared type.
+                        const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
+                        if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
+                            duplicateIsOk = true;
                         }
 
                         if (!duplicateIsOk) {

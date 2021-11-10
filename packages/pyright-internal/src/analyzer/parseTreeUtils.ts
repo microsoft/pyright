@@ -480,6 +480,19 @@ export function printOperator(operator: OperatorType): string {
     return 'unknown';
 }
 
+export function getEnclosingSuite(node: ParseNode): SuiteNode | undefined {
+    let curNode = node.parent;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Suite) {
+            return curNode;
+        }
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
+
 export function getEnclosingClass(node: ParseNode, stopAtFunction = false): ClassNode | undefined {
     let curNode = node.parent;
     while (curNode) {
