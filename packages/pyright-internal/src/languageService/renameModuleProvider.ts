@@ -646,10 +646,7 @@ export class RenameModuleProvider {
                     continue;
                 }
 
-                const moduleNameNode = getFirstAncestorOrSelfOfKind(
-                    nodeFound,
-                    ParseNodeType.ModuleName
-                ) as ModuleNameNode;
+                const moduleNameNode = getFirstAncestorOrSelfOfKind(nodeFound, ParseNodeType.ModuleName)!;
 
                 // * Enhancement * one case we don't handle is introducing new symbol in __all__
                 // or converting "import" statement to "from import" statement.
@@ -701,11 +698,7 @@ export class RenameModuleProvider {
                     continue;
                 }
 
-                const moduleNameNode = getFirstAncestorOrSelfOfKind(
-                    nodeFound,
-                    ParseNodeType.ModuleName
-                ) as ModuleNameNode;
-
+                const moduleNameNode = getFirstAncestorOrSelfOfKind(nodeFound, ParseNodeType.ModuleName)!;
                 const fromNode = moduleNameNode.parent as ImportFromNode;
 
                 // We need to check whether imports of this import statement has

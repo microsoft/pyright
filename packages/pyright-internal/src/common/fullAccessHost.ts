@@ -16,13 +16,26 @@ import { HostKind, NoAccessHost } from './host';
 import { isDirectory, normalizePath } from './pathUtils';
 import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
 
-const extractSys = [
+// preventLocalImports removes the working directory from sys.path.
+// The -c flag adds it automatically, which can allow some stdlib
+// modules (like json) to be overridden by other files (like json.py).
+const removeCwdFromSysPath = [
     'import os, os.path, sys',
     'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
     'cwd = normalize(os.getcwd())',
     'sys.path[:] = [p for p in sys.path if p != "" and normalize(p) != cwd]',
-    'import json',
+];
+
+const extractSys = [
+    ...removeCwdFromSysPath,
+    'import sys, json',
     'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
+].join('; ');
+
+const extractVersion = [
+    ...removeCwdFromSysPath,
+    'import sys, json',
+    'json.dump(dict(major=sys.version_info[0], minor=sys.version_info[1]), sys.stdout)',
 ].join('; ');
 
 export class LimitedAccessHost extends NoAccessHost {
@@ -104,10 +117,7 @@ export class FullAccessHost extends LimitedAccessHost {
         const importFailureInfo = logInfo ?? [];
 
         try {
-            const commandLineArgs: string[] = [
-                '-c',
-                'import sys, json; json.dump(dict(major=sys.version_info[0], minor=sys.version_info[1]), sys.stdout)',
-            ];
+            const commandLineArgs: string[] = ['-c', extractVersion];
             let execOutput: string;
 
             if (pythonPath) {

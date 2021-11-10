@@ -1616,12 +1616,12 @@ export class Link {
 
 /** Removes a directory in a `FileSet` */
 export class Rmdir {
-    _rmdirBrand?: never; // brand necessary for proper type guards
+    ' rmdirBrand'?: never; // brand necessary for proper type guards
 }
 
 /** Unlinks a file in a `FileSet` */
 export class Unlink {
-    _unlinkBrand?: never; // brand necessary for proper type guards
+    ' unlinkBrand'?: never; // brand necessary for proper type guards
 }
 
 /** Extended options for a symbolic link in a `FileSet` */

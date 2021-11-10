@@ -248,13 +248,13 @@ class DocStringConverter {
             return;
         }
 
-        const line = this.formatPlainTextIndent(this._currentLine());
+        const line = this._formatPlainTextIndent(this._currentLine());
 
         this._appendTextLine(line);
         this._eatLine();
     }
 
-    private formatPlainTextIndent(line: string) {
+    private _formatPlainTextIndent(line: string) {
         const prev = this._lineAt(this._lineNum - 1);
         const prevIndent = this._prevIndent();
         const currIndent = this._currentIndent();

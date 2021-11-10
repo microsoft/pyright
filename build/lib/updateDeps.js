@@ -47,7 +47,7 @@ async function updatePackage(packageFile, transitive, reject = undefined) {
         reject: reject,
     });
 
-    if (!transitive && Object.keys(updateResult).length === 0) {
+    if (!transitive && Object.keys(/**@type {any}*/ (updateResult)).length === 0) {
         // If nothing changed and we aren't updating transitive deps, don't run npm install.
         return;
     }

@@ -39,7 +39,7 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { TokenizerOutput } from '../parser/tokenizer';
-import { KeywordType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
 
@@ -1830,9 +1830,21 @@ function* _getAncestorsIncludingSelf(node: ParseNode | undefined) {
     }
 }
 
-export function getFirstAncestorOrSelfOfKind(node: ParseNode | undefined, type: ParseNodeType): ParseNode | undefined {
+type NodeForType<NT extends ParseNodeType, T extends ParseNode> = T extends ParseNode & { nodeType: NT } ? T : never;
+
+export function getFirstAncestorOrSelfOfKind<NT extends ParseNodeType, T extends ParseNode>(
+    node: ParseNode | undefined,
+    type: NT
+): NodeForType<NT, T> | undefined {
+    return getFirstAncestorOrSelf(node, (n) => n.nodeType === type) as NodeForType<NT, T> | undefined;
+}
+
+export function getFirstAncestorOrSelf(
+    node: ParseNode | undefined,
+    predicate: (node: ParseNode) => boolean
+): ParseNode | undefined {
     for (const current of _getAncestorsIncludingSelf(node)) {
-        if (current.nodeType === type) {
+        if (predicate(current)) {
             return current;
         }
     }
@@ -1943,9 +1955,13 @@ export function isLastNameOfDottedName(node: NameNode): boolean {
 }
 
 export function getStringNodeValueRange(node: StringNode) {
-    const length = node.token.quoteMarkLength;
-    const hasEnding = !(node.token.flags & StringTokenFlags.Unterminated);
-    return TextRange.create(node.start + length, node.length - length - (hasEnding ? length : 0));
+    return getStringValueRange(node.token);
+}
+
+export function getStringValueRange(token: StringToken) {
+    const length = token.quoteMarkLength;
+    const hasEnding = !(token.flags & StringTokenFlags.Unterminated);
+    return TextRange.create(token.start + length, token.length - length - (hasEnding ? length : 0));
 }
 
 export function getFullStatementRange(statementNode: ParseNode, tokenizerOutput: TokenizerOutput): Range {

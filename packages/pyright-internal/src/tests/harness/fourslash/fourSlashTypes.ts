@@ -104,16 +104,16 @@ export class TestCancellationToken implements HostCancellationToken {
     // 0 - cancelled
     // >0 - not cancelled
     // <0 - not cancelled and value denotes number of isCancellationRequested after which token become cancelled
-    private static readonly notCanceled = -1;
-    private numberOfCallsBeforeCancellation = TestCancellationToken.notCanceled;
+    private static readonly _notCanceled = -1;
+    private _numberOfCallsBeforeCancellation = TestCancellationToken._notCanceled;
 
     isCancellationRequested(): boolean {
-        if (this.numberOfCallsBeforeCancellation < 0) {
+        if (this._numberOfCallsBeforeCancellation < 0) {
             return false;
         }
 
-        if (this.numberOfCallsBeforeCancellation > 0) {
-            this.numberOfCallsBeforeCancellation--;
+        if (this._numberOfCallsBeforeCancellation > 0) {
+            this._numberOfCallsBeforeCancellation--;
             return false;
         }
 
@@ -122,10 +122,10 @@ export class TestCancellationToken implements HostCancellationToken {
 
     setCancelled(numberOfCalls = 0): void {
         debug.assert(numberOfCalls >= 0);
-        this.numberOfCallsBeforeCancellation = numberOfCalls;
+        this._numberOfCallsBeforeCancellation = numberOfCalls;
     }
 
     resetCancelled(): void {
-        this.numberOfCallsBeforeCancellation = TestCancellationToken.notCanceled;
+        this._numberOfCallsBeforeCancellation = TestCancellationToken._notCanceled;
     }
 }

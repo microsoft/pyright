@@ -101,6 +101,8 @@ function hasZipMagic(fs: FakeFS<PortablePath>, p: PortablePath): boolean {
     }
 }
 
+/* eslint-disable @typescript-eslint/naming-convention */
+
 // Patch fslib's ZipOpenFS to also consider .egg files to be .zip files.
 //
 // For now, override findZip (even though it's private), with the intent
@@ -174,6 +176,8 @@ class EggZipOpenFS extends ZipOpenFS {
         }
     }
 }
+
+/* eslint-enable @typescript-eslint/naming-convention */
 
 class YarnFS extends PosixFS {
     private readonly _eggZipOpenFS: EggZipOpenFS;
