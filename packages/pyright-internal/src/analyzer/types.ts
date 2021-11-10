@@ -2094,6 +2094,13 @@ export function isTypeSame(
                 return false;
             }
 
+            const positionalOnlyIndex1 = params1.findIndex(
+                (param) => param.category === ParameterCategory.Simple && !param.name
+            );
+            const positionalOnlyIndex2 = params2.findIndex(
+                (param) => param.category === ParameterCategory.Simple && !param.name
+            );
+
             // Make sure the parameter details match.
             for (let i = 0; i < params1.length; i++) {
                 const param1 = params1[i];
@@ -2103,8 +2110,17 @@ export function isTypeSame(
                     return false;
                 }
 
-                if (param1.name !== param2.name) {
+                const isName1Relevant = positionalOnlyIndex1 !== undefined && i >= positionalOnlyIndex1;
+                const isName2Relevant = positionalOnlyIndex2 !== undefined && i >= positionalOnlyIndex2;
+
+                if (isName1Relevant !== isName2Relevant) {
                     return false;
+                }
+
+                if (isName1Relevant) {
+                    if (param1.name !== param2.name) {
+                        return false;
+                    }
                 }
 
                 const param1Type = FunctionType.getEffectiveParameterType(type1, i);
@@ -2127,10 +2143,18 @@ export function isTypeSame(
             if (type1.specializedTypes && type1.specializedTypes.returnType) {
                 return1Type = type1.specializedTypes.returnType;
             }
+            if (!return1Type && type1.inferredReturnType) {
+                return1Type = type1.inferredReturnType;
+            }
+
             let return2Type = functionType2.details.declaredReturnType;
             if (functionType2.specializedTypes && functionType2.specializedTypes.returnType) {
                 return2Type = functionType2.specializedTypes.returnType;
             }
+            if (!return2Type && functionType2.inferredReturnType) {
+                return2Type = functionType2.inferredReturnType;
+            }
+
             if (return1Type || return2Type) {
                 if (
                     !return1Type ||
@@ -2145,10 +2169,6 @@ export function isTypeSame(
                 ) {
                     return false;
                 }
-            }
-
-            if (type1.details.declaration !== functionType2.details.declaration) {
-                return false;
             }
 
             return true;
