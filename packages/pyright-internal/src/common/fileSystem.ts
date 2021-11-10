@@ -119,7 +119,7 @@ export const nullFileWatcherProvider: FileWatcherProvider = {
 };
 
 export class VirtualDirent implements fs.Dirent {
-    constructor(public name: string, public _file: boolean) {}
+    constructor(public name: string, private _file: boolean) {}
 
     isFile(): boolean {
         return this._file;

@@ -62,7 +62,61 @@
                 "args": "none"
             }
         ],
-        "@typescript-eslint/no-use-before-define": 0
+        "@typescript-eslint/no-use-before-define": 0,
+        "@typescript-eslint/naming-convention": [
+            "error",
+            {
+                "selector": [
+                    "classProperty",
+                    "typeProperty",
+                    "parameterProperty",
+                    "classMethod",
+                    "typeMethod",
+                    "accessor"
+                ],
+                "modifiers": ["private"],
+                "leadingUnderscore": "require",
+                "format": ["camelCase"],
+                "filter": {
+                    "regex": "^(test_| )",
+                    "match": false
+                }
+            },
+            {
+                "selector": [
+                    "classProperty",
+                    "typeProperty",
+                    "parameterProperty",
+                    "classMethod",
+                    "typeMethod",
+                    "accessor"
+                ],
+                "modifiers": ["protected"],
+                "leadingUnderscore": "allow",
+                "format": ["camelCase"],
+                "filter": {
+                    "regex": "^(test_| )",
+                    "match": false
+                }
+            },
+            {
+                "selector": [
+                    "classProperty",
+                    "typeProperty",
+                    "parameterProperty",
+                    "classMethod",
+                    "typeMethod",
+                    "accessor"
+                ],
+                "modifiers": ["public"],
+                "leadingUnderscore": "forbid",
+                "format": ["camelCase"],
+                "filter": {
+                    "regex": "^(test_| )",
+                    "match": false
+                }
+            }
+        ]
     },
     "overrides": [
         {

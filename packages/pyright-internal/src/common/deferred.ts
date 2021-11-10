@@ -22,7 +22,7 @@ class DeferredImpl<T> implements Deferred<T> {
     private _rejected = false;
     private _promise: Promise<T>;
 
-    constructor(private scope: any = null) {
+    constructor(private _scope: any = null) {
         this._promise = new Promise<T>((res, rej) => {
             this._resolve = res;
             this._reject = rej;
@@ -31,13 +31,13 @@ class DeferredImpl<T> implements Deferred<T> {
 
     public resolve(_value?: T | PromiseLike<T>) {
         // eslint-disable-next-line prefer-rest-params
-        this._resolve.apply(this.scope ? this.scope : this, arguments as any);
+        this._resolve.apply(this._scope ? this._scope : this, arguments as any);
         this._resolved = true;
     }
 
     public reject(_reason?: any) {
         // eslint-disable-next-line prefer-rest-params
-        this._reject.apply(this.scope ? this.scope : this, arguments as any);
+        this._reject.apply(this._scope ? this._scope : this, arguments as any);
         this._rejected = true;
     }
 

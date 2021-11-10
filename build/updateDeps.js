@@ -14,6 +14,7 @@ async function main() {
         // These packages impact compatibility with VS Code and other users;
         // ensure they remained pinned exactly.
         '@types/vscode',
+        'vsce',
         'vscode-jsonrpc',
         'vscode-languageclient',
         'vscode-languageserver',

@@ -466,6 +466,7 @@ export class SourceFile {
 
             this._lastFileContentLength = fileContents.length;
             this._lastFileContentHash = contentsHash;
+            this._isFileDeleted = false;
         }
     }
 
