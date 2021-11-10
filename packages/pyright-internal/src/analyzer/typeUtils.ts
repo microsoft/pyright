@@ -148,6 +148,12 @@ export const enum CanAssignFlags {
     // In most cases, literals are stripped when assigning to a
     // type variable. This overrides the standard behavior.
     RetainLiteralsForTypeVar = 1 << 7,
+
+    // When validating the type of a self or cls parameter, allow
+    // a type mismatch. This is used in overload consistency validation
+    // because overloads can provide explicit type annotations for self
+    // or cls.
+    SkipSelfClsTypeCheck = 1 << 8,
 }
 
 export enum ParameterSource {

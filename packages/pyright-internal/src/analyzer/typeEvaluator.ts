@@ -19831,7 +19831,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     // Handle the special case where the source parameter is a synthesized
                     // TypeVar for "self" or "cls".
-                    if (!isTypeVar(srcParamType) || !srcParamType.details.isSynthesized) {
+                    if (
+                        (flags & CanAssignFlags.SkipSelfClsTypeCheck) === 0 ||
+                        !isTypeVar(srcParamType) ||
+                        !srcParamType.details.isSynthesized
+                    ) {
                         canAssign = false;
                     }
                 }

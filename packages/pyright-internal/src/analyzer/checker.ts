@@ -1628,7 +1628,9 @@ export class Checker extends ParseTreeWalker {
             implementation,
             diag,
             typeVarMap,
-            CanAssignFlags.SkipFunctionReturnTypeCheck | CanAssignFlags.ReverseTypeVarMatching
+            CanAssignFlags.SkipFunctionReturnTypeCheck |
+                CanAssignFlags.ReverseTypeVarMatching |
+                CanAssignFlags.SkipSelfClsTypeCheck
         );
 
         // Now check the return types.
