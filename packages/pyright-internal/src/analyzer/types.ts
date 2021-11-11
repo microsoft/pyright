@@ -1288,6 +1288,14 @@ export namespace FunctionType {
             newFunction.details.parameters.length - 2
         );
 
+        if (type.specializedTypes) {
+            newFunction.specializedTypes = { ...type.specializedTypes };
+            newFunction.specializedTypes.parameterTypes = newFunction.specializedTypes.parameterTypes.slice(
+                0,
+                newFunction.specializedTypes.parameterTypes.length - 2
+            );
+        }
+
         if (!newFunction.details.paramSpec) {
             newFunction.details.paramSpec = paramSpec;
         }
