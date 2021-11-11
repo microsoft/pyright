@@ -14821,7 +14821,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        if (parent.nodeType === ParseNodeType.Parameter) {
+        if (parent.nodeType === ParseNodeType.Parameter && lastContextualExpression !== parent.defaultValue) {
             evaluateTypeOfParameter(parent);
             return;
         }
