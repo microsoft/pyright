@@ -99,7 +99,7 @@ test('AssignmentExpr6', () => {
 
 test('AssignmentExpr7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr7.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('AssignmentExpr8', () => {

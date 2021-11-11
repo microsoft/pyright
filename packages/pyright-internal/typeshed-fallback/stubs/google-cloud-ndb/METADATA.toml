@@ -1,0 +1,2 @@
+version = "1.9.*"
+requires = ["types-six"]

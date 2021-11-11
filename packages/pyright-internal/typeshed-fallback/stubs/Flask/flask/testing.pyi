@@ -6,7 +6,7 @@ from werkzeug.test import Client, EnvironBuilder as WerkzeugEnvironBuilder
 
 # Response type for the client below.
 # By default _R is Tuple[Iterable[Any], Text | int, werkzeug.datastructures.Headers], however
-# most commonly it is wrapped in a Reponse object.
+# most commonly it is wrapped in a Response object.
 _R = TypeVar("_R")
 
 class FlaskClient(Client[_R]):
