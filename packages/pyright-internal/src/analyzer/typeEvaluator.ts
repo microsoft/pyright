@@ -480,6 +480,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let noneType: Type | undefined;
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
+    let functionObj: Type | undefined;
     let tupleClassType: Type | undefined;
     let boolClassType: Type | undefined;
     let strClassType: Type | undefined;
@@ -688,6 +689,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             objectType = getBuiltInObject(node, 'object');
             typeClassType = getBuiltInType(node, 'type');
+            functionObj = getBuiltInObject(node, 'function');
 
             // Initialize and cache "Collection" to break a cyclical dependency
             // that occurs when resolving tuple below.
@@ -4125,7 +4127,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const functionType = isFunction(baseType) ? baseType : baseType.overloads[0];
                     type = functionType.boundToType;
                 } else {
-                    const functionObj = getBuiltInObject(node, 'function');
                     if (!functionObj) {
                         type = AnyType.create();
                     } else {
@@ -19537,7 +19538,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isClass(mroClass) && ClassType.isProtocolClass(mroClass)) {
                 for (const field of mroClass.details.fields) {
                     if (field[0] !== '__call__' && !field[1].isIgnoredForProtocolMatch()) {
-                        return undefined;
+                        let fieldIsPartOfFunction = false;
+
+                        if (functionObj && isClass(functionObj)) {
+                            if (functionObj.details.fields.has(field[0])) {
+                                fieldIsPartOfFunction = true;
+                            }
+                        }
+
+                        if (!fieldIsPartOfFunction) {
+                            return undefined;
+                        }
                     }
                 }
             }
