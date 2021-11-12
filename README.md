@@ -28,6 +28,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 646](https://www.python.org/dev/peps/pep-0646/) variadic generics
 * [PEP 647](https://www.python.org/dev/peps/pep-0647/) user-defined type guards
 * [PEP 655](https://www.python.org/dev/peps/pep-0655/) required typed dictionary items
+* [PEP 673](https://www.python.org/dev/peps/pep-0673/) Self type
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
