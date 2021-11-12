@@ -11963,6 +11963,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['Required', { alias: '', module: 'builtins' }],
             ['NotRequired', { alias: '', module: 'builtins' }],
             ['Self', { alias: '', module: 'builtins' }],
+            ['NoReturn', { alias: '', module: 'builtins' }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
