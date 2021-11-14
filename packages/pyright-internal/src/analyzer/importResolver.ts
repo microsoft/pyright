@@ -1335,9 +1335,10 @@ export class ImportResolver {
                 /* isStdLib */ false,
                 importFailureInfo
             );
+
             if (typeshedImport) {
                 typeshedImport.isTypeshedFile = true;
-                return typeshedImport;
+                bestResultSoFar = this._pickBestImport(bestResultSoFar, typeshedImport, moduleDescriptor);
             }
         }
 
@@ -1382,6 +1383,20 @@ export class ImportResolver {
                 ) {
                     return newImport;
                 }
+            }
+
+            // Prefer py.typed over non-py.typed.
+            if (bestImportSoFar.pyTypedInfo && !newImport.pyTypedInfo) {
+                return bestImportSoFar;
+            } else if (!bestImportSoFar.pyTypedInfo && newImport.pyTypedInfo) {
+                return newImport;
+            }
+
+            // Prefer pyi over py.
+            if (bestImportSoFar.isStubFile && !newImport.isStubFile) {
+                return bestImportSoFar;
+            } else if (!bestImportSoFar.isStubFile && newImport.isStubFile) {
+                return newImport;
             }
 
             // All else equal, prefer shorter resolution paths.
