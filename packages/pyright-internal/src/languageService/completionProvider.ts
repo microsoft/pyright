@@ -61,7 +61,6 @@ import {
     isOverloadedFunction,
     isUnbound,
     isUnknown,
-    OverloadedFunctionType,
     Type,
     TypeBase,
     UnknownType,
@@ -2378,16 +2377,15 @@ export class CompletionProvider {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isFunction(type)) {
                                 const functionType = detail.boundObjectOrClass
-                                    ? (this._evaluator.bindFunctionToClassOrObject(
-                                          detail.boundObjectOrClass,
-                                          type
-                                      ) as FunctionType)
+                                    ? this._evaluator.bindFunctionToClassOrObject(detail.boundObjectOrClass, type)
                                     : type;
-                                documentation = getFunctionDocStringFromType(
-                                    functionType,
-                                    this._sourceMapper,
-                                    this._evaluator
-                                );
+                                if (functionType && isFunction(functionType)) {
+                                    documentation = getFunctionDocStringFromType(
+                                        functionType,
+                                        this._sourceMapper,
+                                        this._evaluator
+                                    );
+                                }
                             } else if (isOverloadedFunction(type)) {
                                 const enclosingClass = isFunctionDeclaration(primaryDecl)
                                     ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)
@@ -2396,18 +2394,17 @@ export class CompletionProvider {
                                     ? this._evaluator.getTypeOfClass(enclosingClass)
                                     : undefined;
                                 const functionType = detail.boundObjectOrClass
-                                    ? (this._evaluator.bindFunctionToClassOrObject(
-                                          detail.boundObjectOrClass,
-                                          type
-                                      ) as OverloadedFunctionType)
+                                    ? this._evaluator.bindFunctionToClassOrObject(detail.boundObjectOrClass, type)
                                     : type;
-                                documentation = getOverloadedFunctionDocStringsInherited(
-                                    functionType,
-                                    primaryDecl,
-                                    this._sourceMapper,
-                                    this._evaluator,
-                                    classResults?.classType
-                                ).find((doc) => doc);
+                                if (functionType && isOverloadedFunction(functionType)) {
+                                    documentation = getOverloadedFunctionDocStringsInherited(
+                                        functionType,
+                                        primaryDecl,
+                                        this._sourceMapper,
+                                        this._evaluator,
+                                        classResults?.classType
+                                    ).find((doc) => doc);
+                                }
                             } else if (primaryDecl?.type === DeclarationType.Function) {
                                 // @property functions
                                 documentation = getPropertyDocStringInherited(
