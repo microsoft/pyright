@@ -1015,14 +1015,9 @@ export interface ParamSpecEntry {
 }
 
 export interface ParamSpecValue {
-    concrete?: {
-        flags: FunctionTypeFlags;
-        parameters: ParamSpecEntry[];
-    };
-
-    // If the param spec is assigned to another param spec,
-    // this will contain that type, and concrete will be undefined.
-    paramSpec?: TypeVarType | undefined;
+    flags: FunctionTypeFlags;
+    parameters: ParamSpecEntry[];
+    paramSpec: TypeVarType | undefined;
 }
 
 export namespace FunctionType {
@@ -1195,38 +1190,36 @@ export namespace FunctionType {
         delete newFunction.details.paramSpec;
 
         if (paramTypes) {
-            if (paramTypes.concrete) {
-                newFunction.details.parameters = [
-                    ...type.details.parameters,
-                    ...paramTypes.concrete.parameters.map((specEntry) => {
-                        return {
-                            category: specEntry.category,
-                            name: specEntry.name,
-                            hasDefault: specEntry.hasDefault,
-                            isNameSynthesized: specEntry.isNameSynthesized,
-                            hasDeclaredType: true,
-                            type: specEntry.type,
-                        };
-                    }),
-                ];
+            newFunction.details.parameters = [
+                ...type.details.parameters,
+                ...paramTypes.parameters.map((specEntry) => {
+                    return {
+                        category: specEntry.category,
+                        name: specEntry.name,
+                        hasDefault: specEntry.hasDefault,
+                        isNameSynthesized: specEntry.isNameSynthesized,
+                        hasDeclaredType: true,
+                        type: specEntry.type,
+                    };
+                }),
+            ];
 
-                newFunction.details.flags =
-                    (paramTypes.concrete.flags &
-                        (FunctionTypeFlags.ClassMethod |
-                            FunctionTypeFlags.StaticMethod |
-                            FunctionTypeFlags.ConstructorMethod |
-                            FunctionTypeFlags.ParamSpecValue)) |
-                    FunctionTypeFlags.SynthesizedMethod;
+            newFunction.details.flags =
+                (paramTypes.flags &
+                    (FunctionTypeFlags.ClassMethod |
+                        FunctionTypeFlags.StaticMethod |
+                        FunctionTypeFlags.ConstructorMethod |
+                        FunctionTypeFlags.ParamSpecValue)) |
+                FunctionTypeFlags.SynthesizedMethod;
 
-                // Update the specialized parameter types as well.
-                if (newFunction.specializedTypes) {
-                    paramTypes.concrete.parameters.forEach((paramInfo) => {
-                        newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
-                    });
-                }
-            } else if (paramTypes.paramSpec) {
-                newFunction.details.paramSpec = paramTypes.paramSpec;
+            // Update the specialized parameter types as well.
+            if (newFunction.specializedTypes) {
+                paramTypes.parameters.forEach((paramInfo) => {
+                    newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
+                });
             }
+
+            newFunction.details.paramSpec = paramTypes.paramSpec;
         }
 
         return newFunction;
@@ -1245,26 +1238,24 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
 
-        if (paramTypes.concrete) {
-            // Remove the last two parameters, which are the *args and **kwargs.
-            newFunction.details.parameters = newFunction.details.parameters.slice(
-                0,
-                newFunction.details.parameters.length - 2
-            );
+        // Remove the last two parameters, which are the *args and **kwargs.
+        newFunction.details.parameters = newFunction.details.parameters.slice(
+            0,
+            newFunction.details.parameters.length - 2
+        );
 
-            paramTypes.concrete.parameters.forEach((specEntry) => {
-                newFunction.details.parameters.push({
-                    category: specEntry.category,
-                    name: specEntry.name,
-                    hasDefault: specEntry.hasDefault,
-                    isNameSynthesized: specEntry.isNameSynthesized,
-                    hasDeclaredType: true,
-                    type: specEntry.type,
-                });
+        paramTypes.parameters.forEach((specEntry) => {
+            newFunction.details.parameters.push({
+                category: specEntry.category,
+                name: specEntry.name,
+                hasDefault: specEntry.hasDefault,
+                isNameSynthesized: specEntry.isNameSynthesized,
+                hasDeclaredType: true,
+                type: specEntry.type,
             });
-        } else if (paramTypes.paramSpec) {
-            newFunction.details.paramSpec = paramTypes.paramSpec;
-        }
+        });
+
+        newFunction.details.paramSpec = paramTypes.paramSpec;
 
         return newFunction;
     }

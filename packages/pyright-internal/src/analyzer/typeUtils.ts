@@ -1353,10 +1353,16 @@ export function buildTypeVarMap(
                             });
                         });
                         typeVarMap.setParamSpec(typeParam, {
-                            concrete: { parameters: paramSpecEntries, flags: typeArgType.details.flags },
+                            parameters: paramSpecEntries,
+                            flags: typeArgType.details.flags,
+                            paramSpec: typeArgType.details.paramSpec,
                         });
                     } else if (isParamSpec(typeArgType)) {
-                        typeVarMap.setParamSpec(typeParam, { paramSpec: typeArgType });
+                        typeVarMap.setParamSpec(typeParam, {
+                            flags: FunctionTypeFlags.None,
+                            parameters: [],
+                            paramSpec: typeArgType,
+                        });
                     }
                 }
             } else {
@@ -2100,11 +2106,11 @@ function _transformTypeVarsInClassType(
             if (paramSpecEntries) {
                 specializationNeeded = true;
 
-                if (paramSpecEntries.concrete) {
+                if (paramSpecEntries.parameters.length > 0) {
                     // Create a function type from the param spec entries.
                     const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
 
-                    paramSpecEntries.concrete.parameters.forEach((entry) => {
+                    paramSpecEntries.parameters.forEach((entry) => {
                         FunctionType.addParameter(functionType, {
                             category: entry.category,
                             name: entry.name,
@@ -2114,6 +2120,8 @@ function _transformTypeVarsInClassType(
                             type: entry.type,
                         });
                     });
+
+                    functionType.details.paramSpec = paramSpecEntries.paramSpec;
 
                     return functionType;
                 }
