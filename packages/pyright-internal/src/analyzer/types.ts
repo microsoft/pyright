@@ -1212,6 +1212,10 @@ export namespace FunctionType {
                         FunctionTypeFlags.ParamSpecValue)) |
                 FunctionTypeFlags.SynthesizedMethod;
 
+            if (FunctionType.isParamSpecValue(type)) {
+                newFunction.details.flags |= FunctionTypeFlags.ParamSpecValue;
+            }
+
             // Update the specialized parameter types as well.
             if (newFunction.specializedTypes) {
                 paramTypes.parameters.forEach((paramInfo) => {

@@ -795,6 +795,14 @@ test('ParamSpec23', () => {
     TestUtils.validateResults(results, 0);
 });
 
+test('ParamSpec24', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec24.py'], configOptions);
+    TestUtils.validateResults(results, 0);
+});
+
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
 

@@ -1343,13 +1343,14 @@ export function buildTypeVarMap(
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
                         const paramSpecEntries: ParamSpecEntry[] = [];
-                        typeArgType.details.parameters.forEach((param) => {
+                        const typeArgFunctionType = typeArgType;
+                        typeArgType.details.parameters.forEach((param, paramIndex) => {
                             paramSpecEntries.push({
                                 category: param.category,
                                 name: param.name,
                                 hasDefault: !!param.hasDefault,
                                 isNameSynthesized: param.isNameSynthesized,
-                                type: param.type,
+                                type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
                             });
                         });
                         typeVarMap.setParamSpec(typeParam, {
