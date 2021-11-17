@@ -20281,24 +20281,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (effectiveDestType.details.paramSpec) {
                     typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
-                            parameters: effectiveSrcType.details.parameters
-                                .map((p, index) => {
-                                    const paramSpecEntry: ParamSpecEntry = {
-                                        category: p.category,
-                                        name: p.name,
-                                        isNameSynthesized: p.isNameSynthesized,
-                                        hasDefault: !!p.hasDefault,
-                                        type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
-                                    };
-                                    return paramSpecEntry;
-                                })
-                                .slice(
-                                    // Skip position-only and keyword-only separators.
-                                    effectiveDestType.details.parameters.filter((p) => p.name).length,
-                                    effectiveSrcType.details.parameters.length
-                                ),
+                        parameters: effectiveSrcType.details.parameters
+                            .map((p, index) => {
+                                const paramSpecEntry: ParamSpecEntry = {
+                                    category: p.category,
+                                    name: p.name,
+                                    isNameSynthesized: p.isNameSynthesized,
+                                    hasDefault: !!p.hasDefault,
+                                    type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
+                                };
+                                return paramSpecEntry;
+                            })
+                            .slice(
+                                // Skip position-only and keyword-only separators.
+                                effectiveDestType.details.parameters.filter((p) => p.name).length,
+                                effectiveSrcType.details.parameters.length
+                            ),
                         flags: effectiveSrcType.details.flags,
-                            paramSpec: effectiveSrcType.details.paramSpec ? convertToInstance(effectiveSrcType.details.paramSpec) as TypeVarType : undefined
+                        paramSpec: effectiveSrcType.details.paramSpec
+                            ? (convertToInstance(effectiveSrcType.details.paramSpec) as TypeVarType)
+                            : undefined,
                     });
                 }
             }
