@@ -135,6 +135,8 @@ const _byteOrderMarker = 0xfeff;
 
 const _maxStringTokenLength = 32 * 1024;
 
+export const defaultTabSize = 8;
+
 export interface TokenizerOutput {
     // List of all tokens.
     tokens: TextRangeCollection<Token>;
@@ -268,8 +270,8 @@ export class Tokenizer {
             let averageSpacePerIndent = Math.round(this._indentSpacesTotal / this._indentCount);
             if (averageSpacePerIndent < 1) {
                 averageSpacePerIndent = 1;
-            } else if (averageSpacePerIndent > 8) {
-                averageSpacePerIndent = 8;
+            } else if (averageSpacePerIndent > defaultTabSize) {
+                averageSpacePerIndent = defaultTabSize;
             }
             predominantTabSequence = '';
             for (let i = 0; i < averageSpacePerIndent; i++) {
@@ -525,7 +527,7 @@ export class Tokenizer {
                     // Translate tabs into spaces assuming both 1-space
                     // and 8-space tab stops.
                     tab1Spaces++;
-                    tab8Spaces += 8 - (tab8Spaces % 8);
+                    tab8Spaces += defaultTabSize - (tab8Spaces % defaultTabSize);
                     isTabPresent = true;
                     this._cs.moveNext();
                     break;

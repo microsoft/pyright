@@ -33,7 +33,9 @@ import {
     ParameterNode,
     ParseNode,
     ParseNodeType,
+    StatementListNode,
     StatementNode,
+    StringListNode,
     StringNode,
     SuiteNode,
     TypeAnnotationNode,
@@ -1166,32 +1168,40 @@ export function getDocString(statements: StatementNode[]): string | undefined {
         return undefined;
     }
 
-    // If the first statement in the suite isn't a StringNode,
-    // assume there is no docString.
-    const statementList = statements[0];
-    if (statementList.statements.length === 0 || statementList.statements[0].nodeType !== ParseNodeType.StringList) {
-        return undefined;
-    }
-
-    // A docstring can consist of multiple joined strings in a single expression.
-    const strings = statementList.statements[0].strings;
-    if (strings.length === 0) {
-        return undefined;
-    }
-
-    // Any f-strings invalidate the entire docstring.
-    if (strings.some((n) => (n.token.flags & StringTokenFlags.Format) !== 0)) {
+    if (!isDocString(statements[0])) {
         return undefined;
     }
 
     // It's up to the user to convert normalize/convert this as needed.
-
+    const strings = (statements[0].statements[0] as StringListNode).strings;
     if (strings.length === 1) {
         // Common case.
         return strings[0].value;
     }
 
     return strings.map((s) => s.value).join('');
+}
+
+export function isDocString(statementList: StatementListNode): boolean {
+    // If the first statement in the suite isn't a StringNode,
+    // assume there is no docString.
+    if (statementList.statements.length === 0 || statementList.statements[0].nodeType !== ParseNodeType.StringList) {
+        return false;
+    }
+
+    // A docstring can consist of multiple joined strings in a single expression.
+    const strings = statementList.statements[0].strings;
+    if (strings.length === 0) {
+        return false;
+    }
+
+    // Any f-strings invalidate the entire docstring.
+    if (strings.some((n) => (n.token.flags & StringTokenFlags.Format) !== 0)) {
+        return false;
+    }
+
+    // It's up to the user to convert normalize/convert this as needed.
+    return true;
 }
 
 // Sometimes a NamedTuple assignment statement is followed by a statement

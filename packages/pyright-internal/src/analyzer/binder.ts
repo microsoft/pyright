@@ -77,7 +77,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
-import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
@@ -3527,19 +3527,8 @@ export class Binder extends ParseTreeWalker {
         }
 
         const nextStatement = suiteOrModule.statements[assignmentIndex + 1];
-        if (
-            nextStatement.nodeType !== ParseNodeType.StatementList ||
-            nextStatement.statements.length === 0 ||
-            nextStatement.statements[0].nodeType !== ParseNodeType.StringList
-        ) {
-            return undefined;
-        }
 
-        // A docstring can consist of multiple joined strings in a single expression.
-        const strings = nextStatement.statements[0].strings;
-
-        // Any f-strings invalidate the entire docstring.
-        if (strings.some((n) => (n.token.flags & StringTokenFlags.Format) !== 0)) {
+        if (nextStatement.nodeType !== ParseNodeType.StatementList || !ParseTreeUtils.isDocString(nextStatement)) {
             return undefined;
         }
 
@@ -3571,6 +3560,8 @@ export class Binder extends ParseTreeWalker {
             return undefined;
         }
 
+        // A docstring can consist of multiple joined strings in a single expression.
+        const strings = (nextStatement.statements[0] as StringListNode).strings;
         if (strings.length === 1) {
             // Common case.
             return strings[0].value;
