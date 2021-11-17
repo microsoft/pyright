@@ -133,6 +133,7 @@ import {
     ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
+    TypeArgumentResult,
     TypeEvaluator,
     TypeResult,
     ValidateArgTypeParams,
@@ -6336,7 +6337,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!isDiagnosticSuppressedForNode(errorNode)) {
                 const functionName = type.overloads[0].details.name || '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
+                const argTypes = argList.map((t) => printType(getTypeForArgument(t).type));
 
                 diagAddendum.addMessage(
                     Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
@@ -7069,8 +7070,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (isCast) {
                             // Verify that the cast is necessary.
-                            const castToType = getTypeForArgumentExpectingType(argList[0]);
-                            const castFromType = getTypeForArgument(argList[1]);
+                            const castToType = getTypeForArgumentExpectingType(argList[0]).type;
+                            const castFromType = getTypeForArgument(argList[1]).type;
                             if (isInstantiableClass(castToType) && isClassInstance(castFromType)) {
                                 if (
                                     isTypeSame(
@@ -7126,7 +7127,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     if (argList.length === 1) {
                                         // The one-parameter form of "type" returns the class
                                         // for the specified object.
-                                        const argType = getTypeForArgument(argList[0]);
+                                        const argType = getTypeForArgument(argList[0]).type;
                                         if (
                                             isClassInstance(argType) ||
                                             (isTypeVar(argType) && TypeBase.isInstance(argType)) ||
@@ -7566,7 +7567,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isParamVariadic =
                     typeParams[paramIndex].category === ParameterCategory.VarArgList && isVariadicTypeVar(paramType);
                 let isArgCompatibleWithVariadic = false;
-                const argType = getTypeForArgument(argList[argIndex]);
+                const argType = getTypeForArgument(argList[argIndex]).type;
                 let listElementType: Type | undefined;
                 let advanceToNextArg = false;
 
@@ -7797,7 +7798,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             while (argIndex < argList.length) {
                 if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
                     // Verify that the type used in this expression is a Mapping[str, T].
-                    const argType = getTypeForArgument(argList[argIndex]);
+                    const argType = getTypeForArgument(argList[argIndex]).type;
                     if (isAnyOrUnknown(argType)) {
                         unpackedDictionaryArgType = argType;
                     } else if (isClassInstance(argType) && ClassType.isTypedDictClass(argType)) {
@@ -8119,7 +8120,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (tupleClassType && isInstantiableClass(tupleClassType)) {
                         const tupleTypeArgs = variadicArgs.map((argParam) =>
-                            stripLiteralValue(getTypeForArgument(argParam.argument))
+                            stripLiteralValue(getTypeForArgument(argParam.argument).type)
                         );
                         const specializedTuple = ClassType.cloneAsInstance(
                             specializeTupleClass(
@@ -8661,7 +8662,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (argParam.argType) {
                 argType = argParam.argType;
             } else {
-                argType = getTypeForArgument(argParam.argument);
+                const argTypeResult = getTypeForArgument(argParam.argument);
+                argType = argTypeResult.type;
+                if (argTypeResult.isIncomplete) {
+                    isTypeIncomplete = true;
+                }
             }
         }
 
@@ -8801,7 +8806,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Do not check for unknown types if the expected type is "Any".
             // Don't print types if reportUnknownArgumentType is disabled for performance.
-            if (fileInfo.diagnosticRuleSet.reportUnknownArgumentType !== 'none' && !isAny(argParam.paramType)) {
+            if (
+                fileInfo.diagnosticRuleSet.reportUnknownArgumentType !== 'none' &&
+                !isAny(argParam.paramType) &&
+                !isTypeIncomplete
+            ) {
                 if (isUnknown(simplifiedType)) {
                     const diagAddendum = getDiagAddendum();
                     addDiagnostic(
@@ -8878,7 +8887,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList[i].valueExpression || errorNode
                         );
                     } else {
-                        const argType = getTypeForArgumentExpectingType(argList[i]);
+                        const argType = getTypeForArgumentExpectingType(argList[i]).type;
                         if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
@@ -8915,7 +8924,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argList[i].valueExpression || errorNode
                     );
                 } else {
-                    const argType = getTypeForArgumentExpectingType(argList[i]);
+                    const argType = getTypeForArgumentExpectingType(argList[i]).type;
                     if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                         addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                     }
@@ -9144,7 +9153,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (argList.length >= 2) {
-            const baseClass = getTypeForArgumentExpectingType(argList[1]);
+            const baseClass = getTypeForArgumentExpectingType(argList[1]).type;
 
             if (isInstantiableClass(baseClass)) {
                 if (ClassType.isProtocolClass(baseClass)) {
@@ -9213,13 +9222,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Implements the semantics of the multi-parameter variant of the "type" call.
     function createType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-        const arg0Type = getTypeForArgument(argList[0]);
+        const arg0Type = getTypeForArgument(argList[0]).type;
         if (!isClassInstance(arg0Type) || !ClassType.isBuiltIn(arg0Type, 'str')) {
             return undefined;
         }
         const className = (arg0Type.literalValue as string) || '_';
 
-        const arg1Type = getTypeForArgument(argList[1]);
+        const arg1Type = getTypeForArgument(argList[1]).type;
         if (!isClassInstance(arg1Type) || !isTupleClass(arg1Type) || arg1Type.tupleTypeArguments === undefined) {
             return undefined;
         }
@@ -15483,28 +15492,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return specializedClass;
     }
 
-    function getTypeForArgument(arg: FunctionArgument): Type {
+    function getTypeForArgument(arg: FunctionArgument): TypeArgumentResult {
         if (arg.type) {
-            return arg.type;
+            return { type: arg.type };
         }
 
         if (!arg.valueExpression) {
             // We shouldn't ever get here, but just in case.
-            return UnknownType.create();
+            return { type: UnknownType.create() };
         }
 
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        return getTypeOfExpression(arg.valueExpression).type;
+        return getTypeOfExpression(arg.valueExpression);
     }
 
     // This function is like getTypeForArgument except that it is
     // used in cases where the argument is expected to be a type
     // and therefore follows the normal rules of types (e.g. they
     // can be forward-declared in stubs, etc.).
-    function getTypeForArgumentExpectingType(arg: FunctionArgument): Type {
+    function getTypeForArgumentExpectingType(arg: FunctionArgument): TypeArgumentResult {
         if (arg.type) {
-            return arg.type;
+            return { type: arg.type };
         }
 
         // If there was no defined type provided, there should always
@@ -15512,7 +15521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getTypeForExpressionExpectingType(arg.valueExpression!);
     }
 
-    function getTypeForExpressionExpectingType(node: ExpressionNode, allowFinal = false) {
+    function getTypeForExpressionExpectingType(node: ExpressionNode, allowFinal = false): TypeResult {
         let flags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.EvaluateStringLiteralAsType |
@@ -15529,7 +15538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flags |= EvaluatorFlags.FinalDisallowed;
         }
 
-        return getTypeOfExpression(node, undefined, flags).type;
+        return getTypeOfExpression(node, undefined, flags);
     }
 
     function getBuiltInType(node: ParseNode, name: string): Type {

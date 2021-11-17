@@ -115,6 +115,11 @@ export const enum EvaluatorFlags {
     DisallowNakedGeneric = 1 << 18,
 }
 
+export interface TypeArgumentResult {
+    type: Type;
+    isIncomplete?: boolean | undefined;
+}
+
 export interface TypeResult {
     type: Type;
     node: ParseNode;
@@ -239,7 +244,7 @@ export interface TypeEvaluator {
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
-    getTypeForExpressionExpectingType: (node: ExpressionNode, allowFinal: boolean) => Type;
+    getTypeForExpressionExpectingType: (node: ExpressionNode, allowFinal: boolean) => TypeResult;
     evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
     evaluateTypesForMatchNode: (node: MatchNode) => void;

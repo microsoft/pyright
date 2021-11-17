@@ -480,6 +480,10 @@ export function getCodeFlowEngine(
 
                         let sawIncomplete = false;
 
+                        // Set the cache entry to undefined before evaluating the
+                        // expression in case it depends on itself.
+                        setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ true);
+
                         labelNode.antecedents.forEach((antecedent) => {
                             const flowTypeResult = getTypeFromFlowNode(
                                 antecedent,
@@ -677,6 +681,10 @@ export function getCodeFlowEngine(
                                 conditionalFlowNode
                             );
                             if (typeNarrowingCallback) {
+                                // Set the cache entry to undefined before evaluating the
+                                // expression in case it depends on itself.
+                                setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ true);
+
                                 const flowTypeResult = getTypeFromFlowNode(
                                     conditionalFlowNode.antecedent,
                                     reference,
