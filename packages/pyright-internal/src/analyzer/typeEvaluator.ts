@@ -9293,6 +9293,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let exprType = makeTopLevelTypeVarsConcrete(exprTypeResult.type);
         const isIncomplete = exprTypeResult.isIncomplete;
 
+        if (isNever(exprType)) {
+            return { node, type: NeverType.create(), isIncomplete };
+        }
+
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
         const unaryOperatorMap: { [operator: number]: string } = {
@@ -9512,7 +9516,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const diag = new DiagnosticAddendum();
         let type = validateBinaryOperation(node.operator, leftType, rightType, node, expectedType, diag);
 
-        if (!diag.isEmpty() || !type || isNever(type)) {
+        if (!diag.isEmpty() || !type) {
             if (!isIncomplete) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
@@ -9600,6 +9604,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const rightTypeResult = getTypeOfExpression(node.rightExpression);
         const rightType = rightTypeResult.type;
         const isIncomplete = !!rightTypeResult.isIncomplete || !!leftTypeResult.isIncomplete;
+
+        if (isNever(leftType) || isNever(rightType)) {
+            return { node, type: NeverType.create(), isIncomplete };
+        }
 
         type = mapSubtypesExpandTypeVars(
             leftType,
@@ -9702,6 +9710,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type | undefined {
         let type: Type | undefined;
         let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
+
+        if (isNever(leftType) || isNever(rightType)) {
+            return NeverType.create();
+        }
 
         if (booleanOperatorMap[operator] !== undefined) {
             // If it's an AND or OR, we need to handle short-circuiting by
@@ -9941,7 +9953,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        return type;
+        return type && isNever(type) ? undefined : type;
     }
 
     function getTypeFromMagicMethodReturn(
