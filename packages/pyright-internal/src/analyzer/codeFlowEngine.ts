@@ -541,6 +541,8 @@ export function getCodeFlowEngine(
 
                         // See if we've been here before. If so, there will be an incomplete cache entry.
                         let cacheEntry = getCacheEntry(curFlowNode, usedOuterScopeAlias);
+                        let typeAtStart: Type | undefined;
+
                         if (cacheEntry === undefined) {
                             // We haven't been here before, so create a new incomplete cache entry.
                             cacheEntry = setCacheEntry(
@@ -549,6 +551,8 @@ export function getCodeFlowEngine(
                                 usedOuterScopeAlias,
                                 /* isIncomplete */ true
                             );
+                        } else {
+                            typeAtStart = cacheEntry.type;
                         }
 
                         const isRecursive =
@@ -647,6 +651,18 @@ export function getCodeFlowEngine(
                                 usedOuterScopeAlias,
                                 isIncomplete,
                             };
+                        }
+
+                        // If we've been here more than once and the type has converged (didn't change
+                        // since last time), assume that the type is complete.
+                        if (
+                            sawIncomplete &&
+                            visitCount > 1 &&
+                            typeAtStart &&
+                            cacheEntry.type &&
+                            isTypeSame(typeAtStart, cacheEntry.type)
+                        ) {
+                            sawIncomplete = false;
                         }
 
                         // The result is incomplete if one or more entries were incomplete.
