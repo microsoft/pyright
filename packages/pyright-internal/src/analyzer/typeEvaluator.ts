@@ -9289,7 +9289,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromUnaryOperation(node: UnaryOperationNode, expectedType: Type | undefined): TypeResult {
-        let exprType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.expression).type);
+        const exprTypeResult = getTypeOfExpression(node.expression);
+        let exprType = makeTopLevelTypeVarsConcrete(exprTypeResult.type);
+        const isIncomplete = exprTypeResult.isIncomplete;
 
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
@@ -9360,7 +9362,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { type, node };
+        return { type, node, isIncomplete };
     }
 
     function operatorSupportsComparisonChaining(op: OperatorType) {
