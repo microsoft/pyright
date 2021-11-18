@@ -11329,12 +11329,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
-        let type = typeArgs[0].type;
+        const type = typeArgs[0].type;
 
-        // A ClassVar should not allow generic types, but the typeshed
-        // stubs use this in a few cases. For now, just specialize
-        // it in a general way.
-        type = makeTopLevelTypeVarsConcrete(type);
+        // A ClassVar should not allow TypeVars or generic types parameterized
+        // by TypeVars.
+        if (requiresSpecialization(type)) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.classVarWithTypeVar(),
+                typeArgs[0].node ?? errorNode
+            );
+        }
 
         return type;
     }

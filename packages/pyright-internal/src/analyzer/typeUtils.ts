@@ -2470,7 +2470,7 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
 
             // If there are any type parameters, we need to specialize
             // since there are no corresponding type arguments.
-            return ClassType.getTypeParameters(type).length > 0;
+            return !ClassType.isPseudoGenericClass(type) && ClassType.getTypeParameters(type).length > 0;
         }
 
         case TypeCategory.Function: {

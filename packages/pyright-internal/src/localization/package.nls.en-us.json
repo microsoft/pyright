@@ -47,6 +47,7 @@
         "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
         "classVarOverridesInstanceVar": "Class variable \"{name}\" overrides instance variable of same name in class \"{className}\"",
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
+        "classVarWithTypeVar": "\"ClassVar\" type cannot include type variables",
         "clsSelfParamTypeMismatch": "Type of parameter \"{name}\" must be a supertype of its class \"{classType}\"",
         "comparisonAlwaysFalse": "Condition will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "comparisonAlwaysTrue": "Condition will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",

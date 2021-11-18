@@ -245,6 +245,7 @@ export namespace Localizer {
                 getRawString('Diagnostic.classVarOverridesInstanceVar')
             );
         export const classVarTooManyArgs = () => getRawString('Diagnostic.classVarTooManyArgs');
+        export const classVarWithTypeVar = () => getRawString('Diagnostic.classVarWithTypeVar');
         export const clsSelfParamTypeMismatch = () =>
             new ParameterizedString<{ name: string; classType: string }>(
                 getRawString('Diagnostic.clsSelfParamTypeMismatch')
