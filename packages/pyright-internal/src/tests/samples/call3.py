@@ -153,3 +153,16 @@ def f10(x, *args, /, y):
 def f11(x, *args, *, y):
     pass
 
+
+
+def f12(a: int, b: str, /):
+    ...
+
+
+def f13(v: Tuple[int, str]):
+    f12(*v)
+
+def f14(v: Tuple[int]):
+    # This should generate an error because parameter "b" has
+    # no corresponding argument.
+    f12(*v)

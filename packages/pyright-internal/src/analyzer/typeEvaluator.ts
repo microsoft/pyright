@@ -7765,7 +7765,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // the positional-only parameters.
         if (
             positionalOnlyIndex >= 0 &&
-            positionalArgCount < positionalOnlyIndex &&
+            paramIndex < positionalOnlyIndex &&
             (!foundUnpackedListArg || hasParamSpecArgsKwargs)
         ) {
             const firstParamWithDefault = typeParams.findIndex((param) => param.hasDefault);
