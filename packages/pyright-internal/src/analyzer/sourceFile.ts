@@ -971,10 +971,10 @@ export class SourceFile {
     }
 
     bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope: Scope | undefined) {
-        assert(!this.isParseRequired());
-        assert(this.isBindingRequired());
-        assert(!this._isBindingInProgress);
-        assert(this._parseResults !== undefined);
+        assert(!this.isParseRequired(), 'Bind called before parsing');
+        assert(this.isBindingRequired(), 'Bind called unnecessarily');
+        assert(!this._isBindingInProgress, 'Bind called while binding in progress');
+        assert(this._parseResults !== undefined, 'Parse results not available');
 
         return this._logTracker.log(`binding: ${this._getPathForLogging(this._filePath)}`, () => {
             try {
@@ -1003,7 +1003,7 @@ export class SourceFile {
 
                     this._bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
                     const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
-                    assert(moduleScope !== undefined);
+                    assert(moduleScope !== undefined, 'Module scope not returned by binder');
                     this._moduleSymbolTable = moduleScope!.symbolTable;
                 });
             } catch (e: any) {
@@ -1037,11 +1037,11 @@ export class SourceFile {
     }
 
     check(evaluator: TypeEvaluator) {
-        assert(!this.isParseRequired());
-        assert(!this.isBindingRequired());
-        assert(!this._isBindingInProgress);
-        assert(this.isCheckingRequired());
-        assert(this._parseResults !== undefined);
+        assert(!this.isParseRequired(), 'Check called before parsing');
+        assert(!this.isBindingRequired(), 'Check called before binding');
+        assert(!this._isBindingInProgress, 'Check called while binding in progress');
+        assert(this.isCheckingRequired(), 'Check called unnecessarily');
+        assert(this._parseResults !== undefined, 'Parse results not available');
 
         return this._logTracker.log(`checking: ${this._getPathForLogging(this._filePath)}`, () => {
             try {
@@ -1092,7 +1092,7 @@ export class SourceFile {
         importLookup: ImportLookup,
         builtinsScope?: Scope
     ) {
-        assert(this._parseResults !== undefined);
+        assert(this._parseResults !== undefined, 'Parse results not available');
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
