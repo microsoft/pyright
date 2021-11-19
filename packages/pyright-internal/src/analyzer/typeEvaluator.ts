@@ -4930,7 +4930,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Do we need to adjust the type arguments to map to a variadic type
         // param at the end of the list?
-        if (variadicIndex >= 0) {
+        if (variadicIndex >= 0 && variadicIndex < typeArgs.length) {
             if (tupleClassType && isInstantiableClass(tupleClassType)) {
                 const variadicTypeResults = typeArgs.slice(
                     variadicIndex,
