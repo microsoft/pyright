@@ -479,6 +479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
+    let unionType: Type | undefined;
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
     let functionObj: Type | undefined;
@@ -12771,6 +12772,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Validate __init_subclass__ call.
         validateInitSubclassArgs(node, classType, initSubclassArgs);
 
+        // Stash away a reference to the UnionType class if we encounter it.
+        // There's no easy way to otherwise reference it.
+        if (ClassType.isBuiltIn(classType, 'UnionType')) {
+            unionType = ClassType.cloneAsInstance(classType);
+        }
+
         return { classType, decoratedType };
     }
 
@@ -18656,9 +18663,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Handle the special case where the expression is an actual
         // UnionType special form.
         if (isUnion(srcType) && TypeBase.isSpecialForm(srcType)) {
-            if (objectType) {
-                srcType = objectType;
-            }
+            srcType = unionType || objectType || AnyType.create();
         }
 
         if (isUnion(destType)) {

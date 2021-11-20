@@ -202,9 +202,15 @@ test('isInstance2', () => {
 });
 
 test('isInstance3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py']);
+    const configOptions = new ConfigOptions('.');
 
-    TestUtils.validateResults(analysisResults, 3);
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 4);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 1);
 });
 
 test('isInstance4', () => {

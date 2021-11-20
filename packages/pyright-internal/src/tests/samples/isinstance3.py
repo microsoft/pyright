@@ -24,9 +24,15 @@ if isinstance(a, A):
 if isinstance(a, A[str]):
     pass
 
-# This should generate an error because unions are not
-# allowed.
-if issubclass(a, Union[A, int]):
+# This should generate an error in Python 3.9 and older
+# because unions are not allowed.
+if issubclass(A, Union[A, int]):
+    pass
+
+# This should generate an error in Python 3.9 and older
+# because unions are not allowed. A second error will be
+# generated because the | operator isn't allowed.
+if issubclass(A, A | int):
     pass
 
 
