@@ -13097,18 +13097,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (annotatedType) {
-                // PEP 484 indicates that if a parameter has a default value of 'None'
-                // the type checker should assume that the type is optional (i.e. a union
-                // of the specified type and 'None'). Skip this step if the type is already
-                // optional to avoid losing alias names when combining the types.
-                if (param.defaultValue && param.defaultValue.nodeType === ParseNodeType.Constant) {
-                    if (param.defaultValue.constType === KeywordType.None && !isOptionalType(annotatedType)) {
-                        isNoneWithoutOptional = true;
-
-                        if (!fileInfo.diagnosticRuleSet.strictParameterNoneValue) {
-                            annotatedType = combineTypes([annotatedType, NoneType.createInstance()]);
-                        }
-                    }
+                const adjustedAnnotatedType = adjustParameterAnnotatedType(param, annotatedType);
+                if (adjustedAnnotatedType !== annotatedType) {
+                    annotatedType = adjustedAnnotatedType;
+                    isNoneWithoutOptional = true;
                 }
             }
 
@@ -13290,6 +13282,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(node, decoratedType, /* isIncomplete */ false);
 
         return { functionType, decoratedType };
+    }
+
+    function adjustParameterAnnotatedType(param: ParameterNode, type: Type): Type {
+        // PEP 484 indicates that if a parameter has a default value of 'None'
+        // the type checker should assume that the type is optional (i.e. a union
+        // of the specified type and 'None'). Skip this step if the type is already
+        // optional to avoid losing alias names when combining the types.
+        if (
+            param.defaultValue?.nodeType === ParseNodeType.Constant &&
+            param.defaultValue.constType === KeywordType.None &&
+            !isOptionalType(type) &&
+            !AnalyzerNodeInfo.getFileInfo(param).diagnosticRuleSet.strictParameterNoneValue
+        ) {
+            type = combineTypes([type, NoneType.createInstance()]);
+        }
+
+        return type;
     }
 
     // Synthesizes the "self" or "cls" parameter type if they are not explicitly annotated.
@@ -14912,18 +14921,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeAnnotation = getTypeAnnotationForParameter(functionNode, paramIndex);
 
         if (typeAnnotation) {
+            const param = functionNode.parameters[paramIndex];
+            const annotatedType = getTypeOfAnnotation(typeAnnotation, {
+                associateTypeVarsWithScope: true,
+                allowTypeVarTuple: functionNode.parameters[paramIndex].category === ParameterCategory.VarArgList,
+                disallowRecursiveTypeAlias: true,
+            });
+
             writeTypeCache(
                 node.name!,
-                transformVariadicParamType(
-                    node,
-                    node.category,
-                    getTypeOfAnnotation(typeAnnotation, {
-                        associateTypeVarsWithScope: true,
-                        allowTypeVarTuple:
-                            functionNode.parameters[paramIndex].category === ParameterCategory.VarArgList,
-                        disallowRecursiveTypeAlias: true,
-                    })
-                ),
+                transformVariadicParamType(node, node.category, adjustParameterAnnotatedType(param, annotatedType)),
                 /* isIncomplete */ false
             );
             return;
@@ -15968,7 +15975,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         allowTypeVarTuple: declaration.node.category === ParameterCategory.VarArgList,
                         disallowRecursiveTypeAlias: true,
                     });
-                    return transformVariadicParamType(declaration.node, declaration.node.category, declaredType);
+
+                    return transformVariadicParamType(
+                        declaration.node,
+                        declaration.node.category,
+                        adjustParameterAnnotatedType(declaration.node, declaredType)
+                    );
                 }
 
                 return undefined;
