@@ -393,7 +393,12 @@ export function getCodeFlowEngine(
 
                                 // Set the cache entry to undefined before evaluating the
                                 // expression in case it depends on itself.
-                                setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ true);
+                                setCacheEntry(
+                                    curFlowNode,
+                                    reference ? undefined : initialType,
+                                    usedOuterScopeAlias,
+                                    /* isIncomplete */ true
+                                );
                                 let flowTypeResult = evaluateAssignmentFlowNode(assignmentFlowNode);
                                 if (flowTypeResult && isTypeAliasPlaceholder(flowTypeResult.type)) {
                                     flowTypeResult = undefined;
@@ -482,7 +487,12 @@ export function getCodeFlowEngine(
 
                         // Set the cache entry to undefined before evaluating the
                         // expression in case it depends on itself.
-                        setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ true);
+                        setCacheEntry(
+                            curFlowNode,
+                            reference ? undefined : initialType,
+                            usedOuterScopeAlias,
+                            /* isIncomplete */ true
+                        );
 
                         labelNode.antecedents.forEach((antecedent) => {
                             const flowTypeResult = getTypeFromFlowNode(
@@ -547,7 +557,7 @@ export function getCodeFlowEngine(
                             // We haven't been here before, so create a new incomplete cache entry.
                             cacheEntry = setCacheEntry(
                                 curFlowNode,
-                                undefined,
+                                reference ? undefined : initialType,
                                 usedOuterScopeAlias,
                                 /* isIncomplete */ true
                             );
@@ -580,7 +590,7 @@ export function getCodeFlowEngine(
                                 cacheEntry = setIncompleteSubtype(
                                     curFlowNode,
                                     index,
-                                    subtypeEntry?.type,
+                                    subtypeEntry?.type ?? (reference ? undefined : initialType),
                                     /* isIncomplete */ true,
                                     /* isPending */ true,
                                     usedOuterScopeAlias
@@ -699,7 +709,12 @@ export function getCodeFlowEngine(
                             if (typeNarrowingCallback) {
                                 // Set the cache entry to undefined before evaluating the
                                 // expression in case it depends on itself.
-                                setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ true);
+                                setCacheEntry(
+                                    curFlowNode,
+                                    reference ? undefined : initialType,
+                                    usedOuterScopeAlias,
+                                    /* isIncomplete */ true
+                                );
 
                                 const flowTypeResult = getTypeFromFlowNode(
                                     conditionalFlowNode.antecedent,
