@@ -11291,14 +11291,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!type) {
-                if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
-                    addError(Localizer.Diagnostic.literalUnsupportedType(), item);
-                    type = UnknownType.create();
-                } else {
-                    // This is a Literal[x] used in a context where we were not
-                    // expecting a type. Treat it as an "Any" type.
-                    type = AnyType.create();
-                }
+                addError(Localizer.Diagnostic.literalUnsupportedType(), item);
+                type = UnknownType.create();
             }
 
             literalTypes.push(type);
