@@ -1371,6 +1371,11 @@ export class ImportResolver {
                 return newImport;
             }
 
+            // Prefer local packages.
+            if (bestImportSoFar.importType === ImportType.Local && !bestImportSoFar.isNamespacePackage) {
+                return bestImportSoFar;
+            }
+
             // If both are namespace imports, select the one that resolves the symbols.
             if (
                 bestImportSoFar.isNamespacePackage &&
