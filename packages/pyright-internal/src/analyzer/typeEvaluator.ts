@@ -2944,13 +2944,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             default: {
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(target);
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.assignmentTargetExpr(),
-                    target
-                );
+                addError(Localizer.Diagnostic.assignmentTargetExpr(), target);
                 break;
             }
         }
