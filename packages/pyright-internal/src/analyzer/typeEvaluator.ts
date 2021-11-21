@@ -17344,6 +17344,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
+            if ((flags & CanAssignFlags.EnforceInvariance) !== 0 && !ClassType.isSameGenericClass(destType, srcType)) {
+                return false;
+            }
             return canAssignTypedDict(evaluatorInterface, destType, srcType, diag, recursionCount);
         }
 
