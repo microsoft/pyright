@@ -1058,6 +1058,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (!isEmptyVariadic) {
                     addExpectedClassDiagnostic(typeResult.type, node);
+                    typeResult.type = UnknownType.create();
                 }
             }
         }
@@ -11178,6 +11179,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeArg0Type = UnknownType.create();
         } else if (!TypeBase.isInstantiable(typeArg0Type)) {
             addExpectedClassDiagnostic(typeArg0Type, typeArgs[0].node);
+            typeArg0Type = UnknownType.create();
         }
 
         const optionalType = combineTypes([typeArg0Type, NoneType.createType()]);
@@ -11686,6 +11688,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeArgType = UnknownType.create();
             } else if (!TypeBase.isInstantiable(typeArgType)) {
                 addExpectedClassDiagnostic(typeArgType, typeArg.node);
+                typeArgType = UnknownType.create();
             }
 
             // If this is an unpacked TypeVar, note that it is in a union so we can differentiate

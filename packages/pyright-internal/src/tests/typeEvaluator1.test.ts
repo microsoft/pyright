@@ -602,7 +602,7 @@ test('Function4', () => {
 test('Function5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function5.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Function6', () => {
