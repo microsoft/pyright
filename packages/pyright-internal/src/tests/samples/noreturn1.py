@@ -41,3 +41,11 @@ def func5(x: bool) -> NoReturn:
 
 
 x1: Callable[[bool], bool] = func2
+
+
+async def func6() -> NoReturn:
+    ...
+
+
+async def func7() -> NoReturn:
+    await func6()

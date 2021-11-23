@@ -1086,9 +1086,22 @@ export function getCodeFlowEngine(
                     functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
                 }
 
-                if (functionType && !FunctionType.isAsync(functionType)) {
-                    if (functionType.details.declaredReturnType) {
-                        if (isNoReturnType(functionType.details.declaredReturnType)) {
+                if (functionType) {
+                    const returnType = functionType.details.declaredReturnType;
+                    if (FunctionType.isAsync(functionType)) {
+                        if (
+                            returnType &&
+                            isClassInstance(returnType) &&
+                            ClassType.isBuiltIn(returnType, 'Coroutine') &&
+                            returnType.typeArguments &&
+                            returnType.typeArguments.length >= 3
+                        ) {
+                            if (isNoReturnType(returnType.typeArguments[2])) {
+                                noReturnTypeCount++;
+                            }
+                        }
+                    } else if (returnType) {
+                        if (isNoReturnType(returnType)) {
                             noReturnTypeCount++;
                         }
                     } else if (functionType.details.declaration) {
