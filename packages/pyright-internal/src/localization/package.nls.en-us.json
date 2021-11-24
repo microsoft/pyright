@@ -527,6 +527,7 @@
         "typedDictFieldTypeMismatch": "Type \"{type}\" is not assignable to field \"{name}\"",
         "typedDictFieldRedefinition": "Type in parent class is \"{parentType}\" and type in child class is \"{childType}\"",
         "typedDictFieldUndefined": "\"{name}\" is an undefined field in type \"{type}\"",
+        "typedDictFinalMismatch": "\"{sourceType}\" is incompatible with \"{destType}\" because of a @final mismatch",
         "typeIncompatible": "\"{sourceType}\" is incompatible with \"{destType}\"",
         "typeNotCallable": "Type \"{type}\" is not callable",
         "typeNotClass": "\"{type}\" is not a class",
