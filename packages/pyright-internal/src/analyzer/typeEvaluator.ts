@@ -6351,7 +6351,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Create a helper lambda that evaluates the overload that matches
         // the arg/param lists.
-        const evaluateUsingLastMatchingOverload = () => {
+        const evaluateUsingLastMatchingOverload = (skipUnknownArgCheck: boolean) => {
             const lastOverload = filteredOverloads[filteredOverloads.length - 1];
             const lastMatch = filteredMatchResults[filteredOverloads.length - 1];
 
@@ -6364,7 +6364,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 lastMatch,
                 lastOverload,
                 effectiveTypeVarMap,
-                /* skipUnknownArgCheck */ true,
+                skipUnknownArgCheck,
                 expectedType
             );
         };
@@ -6373,7 +6373,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // use the normal type matching mechanism because it is faster and
         // will provide a clearer error message.
         if (filteredMatchResults.length === 1) {
-            return evaluateUsingLastMatchingOverload();
+            return evaluateUsingLastMatchingOverload(/* skipUnknownArgCheck */ false);
         }
 
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
@@ -6412,7 +6412,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // in speculative mode because it's very expensive, and we're going to
         // suppress the diagnostic anyway.
         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
-            const result = evaluateUsingLastMatchingOverload();
+            const result = evaluateUsingLastMatchingOverload(/* skipUnknownArgCheck */ true);
 
             // Replace the result with an unknown type since we don't know
             // what overload should have been used.
