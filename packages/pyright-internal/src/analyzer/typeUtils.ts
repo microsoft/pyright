@@ -1545,11 +1545,7 @@ export function getGeneratorYieldType(declaredReturnType: Type, isAsync: boolean
                 ['AsyncGenerator', 'Generator'],
             ];
 
-            if (
-                expectedClasses.some((classes) =>
-                    ClassType.isBuiltIn(subtype, isAsync ? classes[0] : classes[1])
-                )
-            ) {
+            if (expectedClasses.some((classes) => ClassType.isBuiltIn(subtype, isAsync ? classes[0] : classes[1]))) {
                 return subtype.typeArguments && subtype.typeArguments.length >= 1
                     ? subtype.typeArguments[0]
                     : UnknownType.create();
