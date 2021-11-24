@@ -2,16 +2,34 @@
 # augmented assignments (combining a binary operator
 # with an assignment).
 
+from typing import Literal
+
+
 a = 1
 b = 3.4
 
 a += b
+t1: Literal["float"] = reveal_type(a)
+
 a -= b
+t2: Literal["float"] = reveal_type(a)
+
 a *= b
+t3: Literal["float"] = reveal_type(a)
+
 a /= b
+t4: Literal["float"] = reveal_type(a)
+
 a //= b
+t5: Literal["float"] = reveal_type(a)
+
 a %= b
+t6: Literal["float"] = reveal_type(a)
+
 a **= b
+t7: Literal["Any"] = reveal_type(a)
+
+a = 1
 
 # This should generate an error because
 # matrix multiply isn't supported by int.

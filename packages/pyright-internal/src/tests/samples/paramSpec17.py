@@ -17,6 +17,12 @@ def repr_func_call(func: Callable[P, object], *args: P.args, **kwargs: P.kwargs)
     return func.__name__ + "(" + ", ".join(arg_reprs) + ")"
 
 
+def print(
+    *values: object,
+    sep: str | None = ...,
+    end: str | None = ...,
+) -> None: ...
+
 repr_func_call(print)
 
 

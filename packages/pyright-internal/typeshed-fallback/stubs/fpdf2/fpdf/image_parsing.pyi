@@ -1,6 +1,11 @@
-from typing import Any
+from typing import Any, Tuple
+from typing_extensions import Literal
 
-SUPPORTED_IMAGE_FILTERS: Any
+_ImageFilter = Literal["AUTO", "FlateDecode", "DCTDecode", "JPXDecode"]
+
+SUPPORTED_IMAGE_FILTERS: Tuple[_ImageFilter, ...]
 
 def load_image(filename): ...
-def get_img_info(img, image_filter: str = ...): ...
+
+# Returned dict could be typed as a TypedDict.
+def get_img_info(img, image_filter: _ImageFilter = ..., dims: Any | None = ...) -> dict[str, Any]: ...

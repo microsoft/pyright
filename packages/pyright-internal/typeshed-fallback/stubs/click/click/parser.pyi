@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Set, Tuple
+from typing import Any, Iterable, Tuple
 
 from click.core import Context
 
@@ -13,7 +13,7 @@ class Option:
     nargs: int
     const: Any
     obj: Any
-    prefixes: Set[str]
+    prefixes: set[str]
     _short_opts: list[str]
     _long_opts: list[str]
     def __init__(
@@ -49,7 +49,7 @@ class OptionParser:
     ignore_unknown_options: bool
     _short_opt: dict[str, Option]
     _long_opt: dict[str, Option]
-    _opt_prefixes: Set[str]
+    _opt_prefixes: set[str]
     _args: list[Argument]
     def __init__(self, ctx: Context | None = ...) -> None: ...
     def add_option(

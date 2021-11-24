@@ -144,6 +144,8 @@ class CodeType:
             co_name: str = ...,
             co_lnotab: bytes = ...,
         ) -> CodeType: ...
+    if sys.version_info >= (3, 11):
+        def co_positions(self) -> Iterable[tuple[int | None, int | None, int | None, int | None]]: ...
 
 @final
 class MappingProxyType(Mapping[_KT, _VT_co], Generic[_KT, _VT_co]):
@@ -178,6 +180,10 @@ class ModuleType:
     __path__: MutableSequence[str]
     __spec__: ModuleSpec | None
     def __init__(self, name: str, doc: str | None = ...) -> None: ...
+    # __getattr__ doesn't exist at runtime,
+    # but having it here in typeshed makes dynamic imports
+    # using `builtins.__import__` or `importlib.import_module` less painful
+    def __getattr__(self, name: str) -> Any: ...
 
 @final
 class GeneratorType(Generator[_T_co, _T_contra, _V_co]):

@@ -3,7 +3,7 @@ import sys
 import types
 from _typeshed import Self
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable, Generator, Mapping, Sequence, Set
+from collections.abc import Awaitable, Callable, Generator, Mapping, Sequence
 from types import (
     AsyncGeneratorType,
     BuiltinFunctionType,
@@ -313,7 +313,7 @@ class ClosureVars(NamedTuple):
     nonlocals: Mapping[str, Any]
     globals: Mapping[str, Any]
     builtins: Mapping[str, Any]
-    unbound: Set[str]
+    unbound: set[str]
 
 def getclosurevars(func: Callable[..., Any]) -> ClosureVars: ...
 def unwrap(func: Callable[..., Any], *, stop: Callable[[Any], Any] | None = ...) -> Any: ...
