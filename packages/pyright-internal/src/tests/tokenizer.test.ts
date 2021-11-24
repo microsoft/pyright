@@ -315,7 +315,7 @@ test('PunctuationTokens', () => {
 test('IndentDedent', () => {
     const t = new Tokenizer();
     const results = t.tokenize('test\n' + '  i1\n' + '  i2  # \n' + '       # \n' + '  \ti3\n' + '\ti4\n' + ' i1');
-    assert.equal(results.tokens.count, 15 + _implicitTokenCount);
+    assert.equal(results.tokens.count, 16 + _implicitTokenCount);
 
     assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(1).type, TokenType.NewLine);
@@ -329,17 +329,19 @@ test('IndentDedent', () => {
     assert.equal((results.tokens.getItemAt(7) as IndentToken).indentAmount, 8);
     assert.equal(results.tokens.getItemAt(8).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(9).type, TokenType.NewLine);
-    assert.equal(results.tokens.getItemAt(10).type, TokenType.Identifier);
-    assert.equal(results.tokens.getItemAt(11).type, TokenType.NewLine);
-    assert.equal(results.tokens.getItemAt(12).type, TokenType.Dedent);
-    assert.equal((results.tokens.getItemAt(12) as DedentToken).indentAmount, 2);
-    assert.equal((results.tokens.getItemAt(12) as DedentToken).matchesIndent, true);
+    assert.equal(results.tokens.getItemAt(10).type, TokenType.Indent);
+    assert.equal((results.tokens.getItemAt(10) as IndentToken).isIndentAmbiguous, true);
+    assert.equal(results.tokens.getItemAt(11).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(12).type, TokenType.NewLine);
     assert.equal(results.tokens.getItemAt(13).type, TokenType.Dedent);
-    assert.equal((results.tokens.getItemAt(13) as DedentToken).indentAmount, 1);
-    assert.equal((results.tokens.getItemAt(13) as DedentToken).matchesIndent, false);
-    assert.equal(results.tokens.getItemAt(14).type, TokenType.Identifier);
-    assert.equal(results.tokens.getItemAt(15).type, TokenType.NewLine);
-    assert.equal(results.tokens.getItemAt(16).type, TokenType.EndOfStream);
+    assert.equal((results.tokens.getItemAt(13) as DedentToken).indentAmount, 2);
+    assert.equal((results.tokens.getItemAt(13) as DedentToken).matchesIndent, true);
+    assert.equal(results.tokens.getItemAt(14).type, TokenType.Dedent);
+    assert.equal((results.tokens.getItemAt(14) as DedentToken).indentAmount, 1);
+    assert.equal((results.tokens.getItemAt(14) as DedentToken).matchesIndent, false);
+    assert.equal(results.tokens.getItemAt(15).type, TokenType.Identifier);
+    assert.equal(results.tokens.getItemAt(16).type, TokenType.NewLine);
+    assert.equal(results.tokens.getItemAt(17).type, TokenType.EndOfStream);
 });
 
 test('IndentDedentParen', () => {

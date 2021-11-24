@@ -607,6 +607,14 @@ export class Tokenizer {
                 this._tokens.push(
                     IndentToken.create(this._cs.position, 0, tab8Spaces, isIndentAmbiguous, this._getComments())
                 );
+            } else if (prevTabInfo.tab8Spaces === tab8Spaces) {
+                // The Python spec says that if there is ambiguity about how tabs should
+                // be translated into spaces because the user has intermixed tabs and
+                // spaces, it should be an error. We'll record this condition in the token
+                // so the parser can later report it.
+                if ((prevTabInfo.isSpacePresent && isTabPresent) || (prevTabInfo.isTabPresent && isSpacePresent)) {
+                    this._tokens.push(IndentToken.create(this._cs.position, 0, tab8Spaces, true, this._getComments()));
+                }
             } else {
                 // The Python spec says that dedent amounts need to match the indent
                 // amount exactly. An error is generated at runtime if it doesn't.

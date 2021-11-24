@@ -13,9 +13,9 @@ class MixinA(InterfaceA):
 	  	print('MixinA.a')
 
 class InterfaceAB(InterfaceA):
-	@abc.abstractmethod
-  	def b(self) -> None:
-	  	print('InterfaceAB.b')
+    @abc.abstractmethod
+    def b(self) -> None:
+        print('InterfaceAB.b')
 
 class ClassAB(InterfaceAB, MixinA):
   	def b(self) -> None:

@@ -492,13 +492,13 @@ export namespace ClassNode {
     // function or class declaration.
     export function createDummyForDecorators(decorators: DecoratorNode[]) {
         const node: ClassNode = {
-            start: 0,
+            start: decorators[0].start,
             length: 0,
             nodeType: ParseNodeType.Class,
             id: _nextNodeId++,
             decorators,
             name: {
-                start: 0,
+                start: decorators[0].start,
                 length: 0,
                 id: 0,
                 nodeType: ParseNodeType.Name,
@@ -513,7 +513,7 @@ export namespace ClassNode {
             },
             arguments: [],
             suite: {
-                start: 0,
+                start: decorators[0].start,
                 length: 0,
                 id: 0,
                 nodeType: ParseNodeType.Suite,
