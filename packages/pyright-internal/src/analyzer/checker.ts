@@ -132,6 +132,7 @@ import {
     doForEachSubtype,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
+    getGeneratorYieldType,
     getTypeVarScopeId,
     isEllipsisType,
     isLiteralType,
@@ -3929,11 +3930,7 @@ export class Checker extends ParseTreeWalker {
                 assert(isFunction(functionTypeResult.functionType));
                 declaredReturnType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
                 if (declaredReturnType) {
-                    declaredYieldType = this._evaluator.getTypeFromIterator(
-                        declaredReturnType,
-                        !!enclosingFunctionNode.isAsync,
-                        /* errorNode */ undefined
-                    );
+                    declaredYieldType = getGeneratorYieldType(declaredReturnType, !!enclosingFunctionNode.isAsync);
                 }
 
                 if (declaredReturnType && !declaredYieldType && enclosingFunctionNode.returnTypeAnnotation) {

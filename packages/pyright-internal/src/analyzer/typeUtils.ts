@@ -1495,20 +1495,6 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     return isClsParam ? TypeVarType.cloneAsInstantiable(selfType) : selfType;
 }
 
-// Returns the declared yield type if provided, or undefined otherwise.
-export function getDeclaredGeneratorYieldType(functionType: FunctionType): Type | undefined {
-    const returnType = FunctionType.getSpecializedReturnType(functionType);
-    if (returnType) {
-        const generatorTypeArgs = getGeneratorTypeArgs(returnType);
-
-        if (generatorTypeArgs && generatorTypeArgs.length >= 1) {
-            return generatorTypeArgs[0];
-        }
-    }
-
-    return undefined;
-}
-
 // Returns the declared "send" type (the type returned from the yield
 // statement) if it was declared, or undefined otherwise.
 export function getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
@@ -1516,12 +1502,10 @@ export function getDeclaredGeneratorSendType(functionType: FunctionType): Type |
     if (returnType) {
         const generatorTypeArgs = getGeneratorTypeArgs(returnType);
 
-        if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
+        if (generatorTypeArgs) {
             // The send type is the second type arg.
-            return generatorTypeArgs[1];
+            return generatorTypeArgs.length >= 2 ? generatorTypeArgs[1] : UnknownType.create();
         }
-
-        return UnknownType.create();
     }
 
     return undefined;
@@ -1534,15 +1518,49 @@ export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type
     if (returnType) {
         const generatorTypeArgs = getGeneratorTypeArgs(returnType);
 
-        if (generatorTypeArgs && generatorTypeArgs.length >= 3) {
+        if (generatorTypeArgs) {
             // The send type is the third type arg.
-            return generatorTypeArgs[2];
+            return generatorTypeArgs.length >= 3 ? generatorTypeArgs[2] : UnknownType.create();
         }
-
-        return UnknownType.create();
     }
 
     return undefined;
+}
+
+// If the declared return type is a Generator, Iterable, Iterator or the async
+// counterparts, returns the yield type. If the type is invalid for a generator,
+// returns undefined.
+export function getGeneratorYieldType(declaredReturnType: Type, isAsync: boolean): Type | undefined {
+    let isLegalGeneratorType = true;
+
+    const yieldType = mapSubtypes(declaredReturnType, (subtype) => {
+        if (isAnyOrUnknown(subtype)) {
+            return subtype;
+        }
+
+        if (isClassInstance(subtype)) {
+            const expectedClasses = [
+                ['AsyncIterable', 'Iterable'],
+                ['AsyncIterator', 'Iterator'],
+                ['AsyncGenerator', 'Generator'],
+            ];
+
+            if (
+                expectedClasses.some((classes) =>
+                    ClassType.isBuiltIn(subtype, isAsync ? classes[0] : classes[1])
+                )
+            ) {
+                return subtype.typeArguments && subtype.typeArguments.length >= 1
+                    ? subtype.typeArguments[0]
+                    : UnknownType.create();
+            }
+        }
+
+        isLegalGeneratorType = false;
+        return undefined;
+    });
+
+    return isLegalGeneratorType ? yieldType : undefined;
 }
 
 export function convertToInstance(type: Type): Type {

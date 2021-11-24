@@ -1,7 +1,7 @@
 # This sample tests various type checking operations relating to
 # generator functions (those with a "yield" method).
 
-from typing import Any, Generator, Dict, Iterator
+from typing import Any, Generator, Dict, Iterable, Iterator, List
 
 
 class ClassA:
@@ -56,7 +56,7 @@ def generator3() -> Generator[ClassA, int, Any]:
         yield 3
 
 
-def generator4() -> Iterator[ClassA]:
+def generator4() -> Iterable[ClassA]:
     yield ClassA()
 
     return True
@@ -103,3 +103,8 @@ def generator9() -> int:
 async def generator10() -> int:
     yield None
     return 3
+
+
+# This should generate an error.
+def generator11() -> List[int]:
+    yield 3
