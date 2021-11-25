@@ -72,7 +72,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportUnusedFunction** [boolean or string, optional]: Generate or suppress diagnostics for a function or method with a private name (starting with an underscore) that is not accessed. The default value for this setting is 'none'.
 
-**reportUnusedVariable** [boolean or string, optional]: Generate or suppress diagnostics for a variable that is not accessed. The default value for this setting is 'none'.
+**reportUnusedVariable** [boolean or string, optional]: Generate or suppress diagnostics for a variable that is not accessed. The default value for this setting is 'none'. Variables whose names begin with an underscore are exempt from this check.
 
 **reportDuplicateImport** [boolean or string, optional]: Generate or suppress diagnostics for an imported symbol or module that is imported more than once. The default value for this setting is 'none'.
 
