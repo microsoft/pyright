@@ -3055,8 +3055,8 @@ export class Checker extends ParseTreeWalker {
                 if (isNoReturnType(declaredReturnType)) {
                     // If the function consists entirely of "...", assume that it's
                     // an abstract method or a protocol method and don't require that
-                    // the return type matches.
-                    if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
+                    // the return type matches. This check can also be skipped for an overload.
+                    if (!ParseTreeUtils.isSuiteEmpty(node.suite) && !FunctionType.isOverloaded(functionType)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -3073,8 +3073,8 @@ export class Checker extends ParseTreeWalker {
                     if (!this._evaluator.canAssignType(declaredReturnType, NoneType.createInstance(), diagAddendum)) {
                         // If the function consists entirely of "...", assume that it's
                         // an abstract method or a protocol method and don't require that
-                        // the return type matches.
-                        if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
+                        // the return type matches. This check can also be skipped for an overload.
+                        if (!ParseTreeUtils.isSuiteEmpty(node.suite) && !FunctionType.isOverloaded(functionType)) {
                             this._evaluator.addDiagnostic(
                                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,

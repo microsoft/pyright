@@ -876,11 +876,14 @@ export function isNodeContainedWithin(node: ParseNode, potentialContainer: Parse
 }
 
 export function isSuiteEmpty(node: SuiteNode): boolean {
+    let sawEllipsis = false;
+
     for (const statement of node.statements) {
         if (statement.nodeType === ParseNodeType.StatementList) {
             for (const substatement of statement.statements) {
                 if (substatement.nodeType === ParseNodeType.Ellipsis) {
                     // Allow an ellipsis
+                    sawEllipsis = true;
                 } else if (substatement.nodeType === ParseNodeType.StringList) {
                     // Allow doc strings
                 } else {
@@ -892,7 +895,7 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
         }
     }
 
-    return true;
+    return sawEllipsis;
 }
 
 export function isMatchingExpression(reference: ExpressionNode, expression: ExpressionNode): boolean {
