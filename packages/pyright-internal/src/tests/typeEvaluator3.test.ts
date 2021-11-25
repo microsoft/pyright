@@ -659,6 +659,14 @@ test('Match7', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Match8', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match8.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('List1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['list1.py']);
     TestUtils.validateResults(analysisResults, 0);
