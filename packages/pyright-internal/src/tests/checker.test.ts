@@ -297,10 +297,16 @@ test('Python2', () => {
     TestUtils.validateResults(analysisResults, 6);
 });
 
-test('InconsistentSpaceTab', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentSpaceTab.py']);
+test('InconsistentSpaceTab1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentSpaceTab1.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('InconsistentSpaceTab2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentSpaceTab2.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('DuplicateDeclaration1', () => {

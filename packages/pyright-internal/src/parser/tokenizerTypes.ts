@@ -236,6 +236,7 @@ export interface DedentToken extends Token {
     readonly type: TokenType.Dedent;
     readonly indentAmount: number;
     readonly matchesIndent: boolean;
+    readonly isDedentAmbiguous: boolean;
 }
 
 export namespace DedentToken {
@@ -244,6 +245,7 @@ export namespace DedentToken {
         length: number,
         indentAmount: number,
         matchesIndent: boolean,
+        isDedentAmbiguous: boolean,
         comments: Comment[] | undefined
     ) {
         const token: DedentToken = {
@@ -253,6 +255,7 @@ export namespace DedentToken {
             comments,
             indentAmount,
             matchesIndent,
+            isDedentAmbiguous,
         };
 
         return token;

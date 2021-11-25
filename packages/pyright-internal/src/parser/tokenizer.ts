@@ -244,7 +244,7 @@ export class Tokenizer {
         }
 
         // Insert any implied dedent tokens.
-        this._setIndent(0, 0, true, false);
+        this._setIndent(0, 0, /* isSpacePresent */ false, /* isTabPresent */ false);
 
         // Add a final end-of-stream token to make parsing easier.
         this._tokens.push(Token.create(TokenType.EndOfStream, this._cs.position, 0, this._getComments()));
@@ -616,6 +616,13 @@ export class Tokenizer {
                     this._tokens.push(IndentToken.create(this._cs.position, 0, tab8Spaces, true, this._getComments()));
                 }
             } else {
+                // The Python spec says that if there is ambiguity about how tabs should
+                // be translated into spaces because the user has intermixed tabs and
+                // spaces, it should be an error. We'll record this condition in the token
+                // so the parser can later report it.
+                let isDedentAmbiguous =
+                    (prevTabInfo.isSpacePresent && isTabPresent) || (prevTabInfo.isTabPresent && isSpacePresent);
+
                 // The Python spec says that dedent amounts need to match the indent
                 // amount exactly. An error is generated at runtime if it doesn't.
                 // We'll record that error condition within the token, allowing the
@@ -637,8 +644,17 @@ export class Tokenizer {
                     const matchesIndent = index < dedentPoints.length - 1 || dedentAmount === tab8Spaces;
                     const actualDedentAmount = index < dedentPoints.length - 1 ? dedentAmount : tab8Spaces;
                     this._tokens.push(
-                        DedentToken.create(this._cs.position, 0, actualDedentAmount, matchesIndent, this._getComments())
+                        DedentToken.create(
+                            this._cs.position,
+                            0,
+                            actualDedentAmount,
+                            matchesIndent,
+                            isDedentAmbiguous,
+                            this._getComments()
+                        )
                     );
+
+                    isDedentAmbiguous = false;
                 });
             }
         }

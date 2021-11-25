@@ -505,6 +505,9 @@ export class Parser {
                     if (!dedentToken.matchesIndent) {
                         this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
                     }
+                    if (dedentToken.isDedentAmbiguous) {
+                        this._addError(Localizer.Diagnostic.inconsistentTabs(), dedentToken);
+                    }
                     break;
                 }
 
@@ -1206,6 +1209,10 @@ export class Parser {
                     }
 
                     if (nextToken.type === TokenType.Dedent) {
+                        if ((nextToken as DedentToken).isDedentAmbiguous) {
+                            this._addError(Localizer.Diagnostic.inconsistentTabs(), nextToken);
+                        }
+
                         indent--;
 
                         if (indent === 0) {
@@ -1277,6 +1284,9 @@ export class Parser {
                 if (this._consumeTokenIfType(TokenType.Dedent)) {
                     if (!dedentToken.matchesIndent) {
                         this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
+                    }
+                    if (dedentToken.isDedentAmbiguous) {
+                        this._addError(Localizer.Diagnostic.inconsistentTabs(), dedentToken);
                     }
                     break;
                 }
