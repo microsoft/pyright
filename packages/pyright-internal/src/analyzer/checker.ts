@@ -2335,6 +2335,12 @@ export class Checker extends ParseTreeWalker {
 
                 if (decl.node.nodeType === ParseNodeType.Name) {
                     nameNode = decl.node;
+
+                    // Don't emit a diagnostic if the name starts with an underscore.
+                    // This indicates that the variable is unused.
+                    if (nameNode.value.startsWith('_')) {
+                        diagnosticLevel = 'none';
+                    }
                 } else if (decl.node.nodeType === ParseNodeType.Parameter) {
                     nameNode = decl.node.name;
 

@@ -1084,3 +1084,15 @@ test('Self2', () => {
 
     TestUtils.validateResults(analysisResults, 5);
 });
+
+test('UnusedVariable1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.diagnosticRuleSet.reportUnusedVariable = 'none';
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportUnusedVariable = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 3);
+});
