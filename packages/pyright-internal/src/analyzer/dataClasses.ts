@@ -406,7 +406,7 @@ export function synthesizeDataClassMethods(
     ) {
         const matchArgsNames: string[] = [];
         fullDataClassEntries.forEach((entry) => {
-            if (entry.includeInInit) {
+            if (entry.includeInInit && !entry.isKeywordOnly) {
                 // Use the field name, not its alias (if it has one).
                 matchArgsNames.push(entry.name);
             }
