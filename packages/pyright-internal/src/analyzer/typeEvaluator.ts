@@ -4198,20 +4198,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (usage.method === 'get') {
+            let skipPartialUnknownCheck = isIncomplete;
+
             // Don't report an error if the type is a partially-specialized
-            // class. This comes up frequently in cases where a type is passed
-            // as an argument (e.g. "defaultdict(list)").
-            if (node.parent?.nodeType !== ParseNodeType.Argument || !isInstantiableClass(type)) {
-                if (!isIncomplete) {
-                    reportPossibleUnknownAssignment(
-                        fileInfo.diagnosticRuleSet.reportUnknownMemberType,
-                        DiagnosticRule.reportUnknownMemberType,
-                        node.memberName,
-                        type,
-                        node,
-                        /* ignoreEmptyContainers */ false
-                    );
-                }
+            // class being passed as an argument. This comes up frequently in
+            // cases where a type is passed as an argument (e.g. "defaultdict(list)").
+            // It can also come up in cases like "isinstance(x, (list, dict))".
+            if (
+                isInstantiableClass(type) &&
+                ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.Argument)
+            ) {
+                skipPartialUnknownCheck = true;
+            }
+
+            if (!skipPartialUnknownCheck) {
+                reportPossibleUnknownAssignment(
+                    fileInfo.diagnosticRuleSet.reportUnknownMemberType,
+                    DiagnosticRule.reportUnknownMemberType,
+                    node.memberName,
+                    type,
+                    node,
+                    /* ignoreEmptyContainers */ false
+                );
             }
         }
 
@@ -8816,14 +8824,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argParam.errorNode
                     );
                 } else if (isPartlyUnknown(simplifiedType, true)) {
+                    let suppressPartialUnknown = false;
+
                     // Don't report an error if the type is a partially-specialized
                     // class. This comes up frequently in cases where a type is passed
                     // as an argument (e.g. "defaultdict(list)").
+                    if (isInstantiableClass(simplifiedType)) {
+                        suppressPartialUnknown = true;
+                    }
 
                     // If the parameter type is also partially unknown, don't report
                     // the error because it's likely that the partially-unknown type
                     // arose due to bidirectional type matching.
-                    if (!isPartlyUnknown(argParam.paramType) && !isInstantiableClass(simplifiedType)) {
+                    if (isPartlyUnknown(argParam.paramType)) {
+                        suppressPartialUnknown = true;
+                    }
+
+                    if (!suppressPartialUnknown) {
                         const diagAddendum = getDiagAddendum();
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.argumentType().format({

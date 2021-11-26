@@ -875,6 +875,19 @@ export function isNodeContainedWithin(node: ParseNode, potentialContainer: Parse
     return false;
 }
 
+export function isNodeContainedWithinNodeType(node: ParseNode, containerType: ParseNodeType): boolean {
+    let curNode: ParseNode | undefined = node;
+    while (curNode) {
+        if (curNode.nodeType === containerType) {
+            return true;
+        }
+
+        curNode = curNode.parent;
+    }
+
+    return false;
+}
+
 export function isSuiteEmpty(node: SuiteNode): boolean {
     let sawEllipsis = false;
 
