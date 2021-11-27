@@ -136,10 +136,14 @@ defined in PEP 557.
 `frozen` is a parameter supported in the stdlib dataclass, and its meaning is
 defined in PEP 557.
 
-`kw_only` is a parameter supported by some dataclass-like libraries
-(for example, attrs and pydantic) that controls whether the synthesized
-`__init__` method uses keyword-only parameters or whether parameters
-are positional.
+`init` is a parameter supported in the stdlib dataclass, and its meaning is
+defined in PEP 557.
+
+`kw_only` is a parameter supported in the stdlib dataclass, first introduced
+in Python 3.10.
+
+`slots` is a parameter supported in the stdlib dataclass, first introduced
+in Python 3.10.
 
 
 Parameters to `dataclass_transform` allow for some basic customization of
@@ -281,10 +285,10 @@ Literal[True]).
 `default` is an optional parameter that provides the default value for the
 field.
 
-`default_factory` is an optional parameter that provides a runtime callback
-that returns the default value for the field. If `default` and `default_value`
-are both unspecified, the field is assumed to have no default value and must be
-provided a value when the class is instantiated.
+`default_factory` or `factory` is an optional parameter that provides a runtime
+callback that returns the default value for the field. If `default` and
+`default_value` are both unspecified, the field is assumed to have no default
+value and must be provided a value when the class is instantiated.
 
 `alias` is an optional str parameter that provides an alternative name for
 the field. This alternative name is used in the synthesized `__init__` method.
@@ -469,10 +473,6 @@ inherited fields that are redeclared in subclasses. The dataclass specification
 preserves the original order, but attrs defines a new order based on subclasses.
 Users of attrs who rely on this ordering will not see the correct order
 of parameters in the synthesized `__init__` method.
-
-The attrs library also differs from stdlib dataclasses in that it uses the
-parameter name `factory` rather than `default_factory` in its `attr.ib` and
-`attr.field` functions.
 
 
 Django
