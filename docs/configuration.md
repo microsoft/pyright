@@ -54,7 +54,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportGeneralTypeIssues** [boolean or string, optional]: Generate or suppress diagnostics for general type inconsistencies, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors. The default value for this setting is 'error'.
 
-**reportPropertyTypeMismatch** [boolean or string, optional]: Generate or suppress diagnostics for properties where the type of the value passed to the setter is not assignable to the value returned by the getter. Such mismatches violate the intended use of properties, which are meant to act like variables. The default value for this setting is 'error'.
+**reportPropertyTypeMismatch** [boolean or string, optional]: Generate or suppress diagnostics for properties where the type of the value passed to the setter is not assignable to the value returned by the getter. Such mismatches violate the intended use of properties, which are meant to act like variables. The default value for this setting is 'none'.
 
 **reportFunctionMemberAccess** [boolean or string, optional]: Generate or suppress diagnostics for non-standard member accesses for functions. The default value for this setting is 'none'.
 
@@ -274,7 +274,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | strictParameterNoneValue                  | false      | false      | true       |
 | enableTypeIgnoreComments                  | true       | true       | true       |
 | reportGeneralTypeIssues                   | "none"     | "error"    | "error"    |
-| reportPropertyTypeMismatch                | "none"     | "error"    | "error"    |
+| reportPropertyTypeMismatch                | "none"     | "none"     | "none"     |
 | reportFunctionMemberAccess                | "none"     | "none"     | "error"    |
 | reportMissingImports                      | "warning"  | "error"    | "error"    |
 | reportMissingModuleSource                 | "warning"  | "warning"  | "warning"  |

@@ -780,12 +780,14 @@ test('Properties5', () => {
 });
 
 test('Properties6', () => {
+    const configOptions = new ConfigOptions('.');
+
     // Analyze with reportPropertyTypeMismatch enabled.
-    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['properties6.py']);
+    configOptions.diagnosticRuleSet.reportPropertyTypeMismatch = 'error';
+    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['properties6.py'], configOptions);
     TestUtils.validateResults(analysisResult1, 2);
 
     // Analyze with reportPropertyTypeMismatch disabled.
-    const configOptions = new ConfigOptions('.');
     configOptions.diagnosticRuleSet.reportPropertyTypeMismatch = 'none';
     const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['properties6.py'], configOptions);
     TestUtils.validateResults(analysisResult2, 0);

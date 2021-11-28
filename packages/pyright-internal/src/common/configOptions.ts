@@ -441,7 +441,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'error',
-        reportPropertyTypeMismatch: 'error',
+        reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'none',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
@@ -512,7 +512,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         reportGeneralTypeIssues: 'error',
-        reportPropertyTypeMismatch: 'error',
+        reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',

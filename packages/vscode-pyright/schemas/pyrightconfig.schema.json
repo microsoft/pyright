@@ -141,7 +141,7 @@
       "$id": "#/properties/reportPropertyTypeMismatch",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of property getter/setter type mismatches",
-      "default": "error"
+      "default": "none"
     },
     "reportFunctionMemberAccess": {
       "$id": "#/properties/reportFunctionMemberAccess",
