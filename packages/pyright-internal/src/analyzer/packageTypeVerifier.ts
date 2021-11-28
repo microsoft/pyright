@@ -620,33 +620,31 @@ export class PackageTypeVerifier {
                         // Reference the class.
                         this._getSymbolForClass(report, type, publicSymbolMap);
                     }
+                }
 
-                    // Analyze type arguments if present to make sure they are known.
-                    if (type.typeArguments) {
-                        type.typeArguments!.forEach((typeArg, index) => {
-                            if (isUnknown(typeArg)) {
-                                this._addSymbolError(
-                                    symbolInfo,
-                                    `Type argument ${index} has unknown type`,
-                                    declRange,
-                                    declFilePath
-                                );
-                                isKnown = false;
-                            } else if (isPartlyUnknown(typeArg)) {
-                                const diag = new DiagnosticAddendum();
-                                diag.addMessage(
-                                    `Type is ${this._program.printType(typeArg, /* expandTypeAlias */ false)}`
-                                );
-                                this._addSymbolError(
-                                    symbolInfo,
-                                    `Type argument ${index} has partially unknown type` + diag.getString(),
-                                    declRange,
-                                    declFilePath
-                                );
-                                isKnown = false;
-                            }
-                        });
-                    }
+                // Analyze type arguments if present to make sure they are known.
+                if (type.typeArguments) {
+                    type.typeArguments!.forEach((typeArg, index) => {
+                        if (isUnknown(typeArg)) {
+                            this._addSymbolError(
+                                symbolInfo,
+                                `Type argument ${index} has unknown type`,
+                                declRange,
+                                declFilePath
+                            );
+                            isKnown = false;
+                        } else if (isPartlyUnknown(typeArg)) {
+                            const diag = new DiagnosticAddendum();
+                            diag.addMessage(`Type is ${this._program.printType(typeArg, /* expandTypeAlias */ false)}`);
+                            this._addSymbolError(
+                                symbolInfo,
+                                `Type argument ${index} has partially unknown type` + diag.getString(),
+                                declRange,
+                                declFilePath
+                            );
+                            isKnown = false;
+                        }
+                    });
                 }
 
                 if (!isKnown) {
@@ -1056,19 +1054,19 @@ export class PackageTypeVerifier {
                         // Reference the class.
                         this._getSymbolForClass(report, type, publicSymbolMap);
                     }
+                }
 
-                    // Analyze type arguments if present to make sure they are known.
-                    if (type.typeArguments) {
-                        type.typeArguments!.forEach((typeArg, index) => {
-                            if (isUnknown(typeArg)) {
-                                diag.addMessage(`Type argument ${index} has unknown type`);
-                                isKnown = false;
-                            } else if (isPartlyUnknown(typeArg)) {
-                                diag.addMessage(`Type argument ${index} has partially unknown type`);
-                                isKnown = false;
-                            }
-                        });
-                    }
+                // Analyze type arguments if present to make sure they are known.
+                if (type.typeArguments) {
+                    type.typeArguments!.forEach((typeArg, index) => {
+                        if (isUnknown(typeArg)) {
+                            diag.addMessage(`Type argument ${index} has unknown type`);
+                            isKnown = false;
+                        } else if (isPartlyUnknown(typeArg)) {
+                            diag.addMessage(`Type argument ${index} has partially unknown type`);
+                            isKnown = false;
+                        }
+                    });
                 }
 
                 return isKnown;
