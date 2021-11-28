@@ -1171,6 +1171,7 @@ export class PackageTypeVerifier {
                 '__qualname__',
                 '__slots__',
                 '__all__',
+                '__weakref__',
             ];
             return knownClassSymbols.some((sym) => sym === name);
         } else if (scopeType === ScopeType.Module) {
