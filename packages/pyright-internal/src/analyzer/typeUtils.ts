@@ -1738,6 +1738,18 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
         return true;
     }
 
+    // If this is a generic type alias, see if any of its type arguments
+    // are either unspecified or are partially known.
+    if (type.typeAliasInfo?.typeArguments) {
+        if (
+            type.typeAliasInfo.typeArguments.some((typeArg) =>
+                isPartlyUnknown(typeArg, allowUnknownTypeArgsForClasses, recursionCount + 1)
+            )
+        ) {
+            return true;
+        }
+    }
+
     // See if a union contains an unknown type.
     if (isUnion(type)) {
         return (
@@ -1779,7 +1791,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
             // Ignore parameters such as "*" that have no name.
             if (type.details.parameters[i].name) {
                 const paramType = FunctionType.getEffectiveParameterType(type, i);
-                if (isPartlyUnknown(paramType, false, recursionCount + 1)) {
+                if (isPartlyUnknown(paramType, /* allowUnknownTypeArgsForClasses */ false, recursionCount + 1)) {
                     return true;
                 }
             }
@@ -1787,7 +1799,11 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
         if (
             type.details.declaredReturnType &&
-            isPartlyUnknown(type.details.declaredReturnType, false, recursionCount + 1)
+            isPartlyUnknown(
+                type.details.declaredReturnType,
+                /* allowUnknownTypeArgsForClasses */ false,
+                recursionCount + 1
+            )
         ) {
             return true;
         }

@@ -8823,7 +8823,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.Diagnostic.argTypeUnknown() + diagAddendum.getString(),
                         argParam.errorNode
                     );
-                } else if (isPartlyUnknown(simplifiedType, true)) {
+                } else if (isPartlyUnknown(simplifiedType, /* allowUnknownTypeArgsForClasses */ true)) {
                     let suppressPartialUnknown = false;
 
                     // Don't report an error if the type is a partially-specialized
