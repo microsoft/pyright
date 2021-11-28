@@ -200,8 +200,6 @@ import {
     areTypesSame,
     buildTypeVarMapFromSpecializedClass,
     CanAssignFlags,
-    canBeFalsy,
-    canBeTruthy,
     ClassMember,
     ClassMemberLookupFlags,
     combineSameSizedTuples,
@@ -240,10 +238,8 @@ import {
     ParameterSource,
     partiallySpecializeType,
     populateTypeVarMapForSelfType,
-    removeFalsinessFromType,
     removeNoReturnFromUnion,
     removeParamSpecVariadicsFromSignature,
-    removeTruthinessFromType,
     requiresSpecialization,
     requiresTypeArguments,
     setTypeArgumentsRecursive,
@@ -1241,6 +1237,198 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return returnType;
+    }
+
+    function canBeFalsy(type: Type, recursionLevel = 0): boolean {
+        if (recursionLevel > maxTypeRecursionCount) {
+            return true;
+        }
+
+        switch (type.category) {
+            case TypeCategory.Unbound:
+            case TypeCategory.Unknown:
+            case TypeCategory.Any:
+            case TypeCategory.Never:
+            case TypeCategory.None: {
+                return true;
+            }
+
+            case TypeCategory.Union: {
+                return findSubtype(type, (subtype) => canBeFalsy(subtype, recursionLevel + 1)) !== undefined;
+            }
+
+            case TypeCategory.Function:
+            case TypeCategory.OverloadedFunction:
+            case TypeCategory.Module:
+            case TypeCategory.TypeVar: {
+                return false;
+            }
+
+            case TypeCategory.Class: {
+                if (TypeBase.isInstantiable(type)) {
+                    return false;
+                }
+
+                // Handle tuples specially.
+                if (isTupleClass(type) && type.tupleTypeArguments) {
+                    return isOpenEndedTupleClass(type) || type.tupleTypeArguments.length === 0;
+                }
+
+                // Check for Literal[False] and Literal[True].
+                if (ClassType.isBuiltIn(type, 'bool') && type.literalValue !== undefined) {
+                    return type.literalValue === false;
+                }
+
+                const lenMethod = lookUpObjectMember(type, '__len__');
+                if (lenMethod) {
+                    return true;
+                }
+
+                const boolMethod = lookUpObjectMember(type, '__bool__');
+                if (boolMethod) {
+                    const boolMethodType = getTypeOfMember(boolMethod);
+
+                    // If the __bool__ function unconditionally returns True, it can never be falsy.
+                    if (isFunction(boolMethodType) && boolMethodType.details.declaredReturnType) {
+                        const returnType = boolMethodType.details.declaredReturnType;
+                        if (
+                            isClassInstance(returnType) &&
+                            ClassType.isBuiltIn(returnType, 'bool') &&
+                            returnType.literalValue === true
+                        ) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+
+                return false;
+            }
+        }
+    }
+
+    function canBeTruthy(type: Type, recursionLevel = 0): boolean {
+        if (recursionLevel > maxTypeRecursionCount) {
+            return true;
+        }
+
+        switch (type.category) {
+            case TypeCategory.Unknown:
+            case TypeCategory.Function:
+            case TypeCategory.OverloadedFunction:
+            case TypeCategory.Module:
+            case TypeCategory.TypeVar:
+            case TypeCategory.Never:
+            case TypeCategory.Any: {
+                return true;
+            }
+
+            case TypeCategory.Union: {
+                return findSubtype(type, (subtype) => canBeTruthy(subtype, recursionLevel + 1)) !== undefined;
+            }
+
+            case TypeCategory.Unbound:
+            case TypeCategory.None: {
+                return false;
+            }
+
+            case TypeCategory.Class: {
+                if (TypeBase.isInstantiable(type)) {
+                    return true;
+                }
+
+                // Check for Tuple[()] (an empty tuple).
+                if (isTupleClass(type)) {
+                    if (type.tupleTypeArguments && type.tupleTypeArguments!.length === 0) {
+                        return false;
+                    }
+                }
+
+                // Check for Literal[False], Literal[0], Literal[""].
+                if (type.literalValue === false || type.literalValue === 0 || type.literalValue === '') {
+                    return false;
+                }
+
+                const boolMethod = lookUpObjectMember(type, '__bool__');
+                if (boolMethod) {
+                    const boolMethodType = getTypeOfMember(boolMethod);
+
+                    // If the __bool__ function unconditionally returns False, it can never be truthy.
+                    if (isFunction(boolMethodType) && boolMethodType.details.declaredReturnType) {
+                        const returnType = boolMethodType.details.declaredReturnType;
+                        if (
+                            isClassInstance(returnType) &&
+                            ClassType.isBuiltIn(returnType, 'bool') &&
+                            returnType.literalValue === false
+                        ) {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+            }
+        }
+    }
+
+    // Filters a type such that that no part of it is definitely
+    // truthy. For example, if a type is a union of None
+    // and a custom class "Foo" that has no __len__ or __nonzero__
+    // method, this method would strip off the "Foo"
+    // and return only the "None".
+    function removeTruthinessFromType(type: Type): Type {
+        return mapSubtypes(type, (subtype) => {
+            if (isClassInstance(subtype)) {
+                if (subtype.literalValue !== undefined) {
+                    // If the object is already definitely falsy, it's fine to
+                    // include, otherwise it should be removed.
+                    return !subtype.literalValue ? subtype : undefined;
+                }
+
+                // If the object is a bool, make it "false", since
+                // "true" is a truthy value.
+                if (ClassType.isBuiltIn(subtype, 'bool')) {
+                    return ClassType.cloneWithLiteral(subtype, /* value */ false);
+                }
+            }
+
+            // If it's possible for the type to be falsy, include it.
+            if (canBeFalsy(subtype)) {
+                return subtype;
+            }
+
+            return undefined;
+        });
+    }
+
+    // Filters a type such that that no part of it is definitely
+    // falsy. For example, if a type is a union of None
+    // and an "int", this method would strip off the "None"
+    // and return only the "int".
+    function removeFalsinessFromType(type: Type): Type {
+        return mapSubtypes(type, (subtype) => {
+            if (isClassInstance(subtype)) {
+                if (subtype.literalValue !== undefined) {
+                    // If the object is already definitely truthy, it's fine to
+                    // include, otherwise it should be removed.
+                    return subtype.literalValue ? subtype : undefined;
+                }
+
+                // If the object is a bool, make it "true", since
+                // "false" is a falsy value.
+                if (ClassType.isBuiltIn(subtype, 'bool')) {
+                    return ClassType.cloneWithLiteral(subtype, /* value */ true);
+                }
+            }
+
+            // If it's possible for the type to be truthy, include it.
+            if (canBeTruthy(subtype)) {
+                return subtype;
+            }
+
+            return undefined;
+        });
     }
 
     // Gets a member type from an object and if it's a function binds
@@ -21173,6 +21361,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         evaluateTypesForMatchNode,
         evaluateTypesForCaseNode,
         evaluateTypeOfParameter,
+        canBeTruthy,
+        canBeFalsy,
+        removeTruthinessFromType,
+        removeFalsinessFromType,
         verifyRaiseExceptionType,
         verifyDeleteExpression,
         isAfterNodeReachable,

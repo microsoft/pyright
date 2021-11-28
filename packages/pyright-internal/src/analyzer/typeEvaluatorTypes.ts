@@ -251,6 +251,11 @@ export interface TypeEvaluator {
     evaluateTypesForCaseNode: (node: CaseNode) => void;
     evaluateTypeOfParameter: (node: ParameterNode) => void;
 
+    canBeTruthy: (type: Type) => boolean;
+    canBeFalsy: (type: Type) => boolean;
+    removeTruthinessFromType: (type: Type) => Type;
+    removeFalsinessFromType: (type: Type) => Type;
+
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;
     verifyDeleteExpression: (node: ExpressionNode) => void;

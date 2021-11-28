@@ -48,8 +48,6 @@ import {
 import {
     addConditionToType,
     applySolvedTypeVars,
-    canBeFalsy,
-    canBeTruthy,
     ClassMember,
     computeMroLinearization,
     convertToInstance,
@@ -64,8 +62,6 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
-    removeFalsinessFromType,
-    removeTruthinessFromType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
@@ -429,12 +425,12 @@ export function getTypeNarrowingCallback(
             // Narrow the type based on whether the subtype can be true or false.
             return mapSubtypes(type, (subtype) => {
                 if (isPositiveTest) {
-                    if (canBeTruthy(subtype)) {
-                        return removeFalsinessFromType(subtype);
+                    if (evaluator.canBeTruthy(subtype)) {
+                        return evaluator.removeFalsinessFromType(subtype);
                     }
                 } else {
-                    if (canBeFalsy(subtype)) {
-                        return removeTruthinessFromType(subtype);
+                    if (evaluator.canBeFalsy(subtype)) {
+                        return evaluator.removeTruthinessFromType(subtype);
                     }
                 }
                 return undefined;

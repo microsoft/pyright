@@ -403,6 +403,12 @@ test('typeNarrowingCallable1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('TypeNarrowingFalsy1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingFalsy1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ReturnTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['returnTypes1.py']);
 

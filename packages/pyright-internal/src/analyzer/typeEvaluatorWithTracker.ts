@@ -73,6 +73,10 @@ export function createTypeEvaluatorWithTracker(
         evaluateTypesForMatchNode: typeEvaluator.evaluateTypesForMatchNode,
         evaluateTypesForCaseNode: typeEvaluator.evaluateTypesForCaseNode,
         evaluateTypeOfParameter: typeEvaluator.evaluateTypeOfParameter,
+        canBeTruthy: typeEvaluator.canBeTruthy,
+        canBeFalsy: typeEvaluator.canBeFalsy,
+        removeTruthinessFromType: typeEvaluator.removeTruthinessFromType,
+        removeFalsinessFromType: typeEvaluator.removeFalsinessFromType,
         getExpectedType: (n) => run('getExpectedType', () => typeEvaluator.getExpectedType(n), n),
         verifyRaiseExceptionType: (n) =>
             run('verifyRaiseExceptionType', () => typeEvaluator.verifyRaiseExceptionType(n), n),
