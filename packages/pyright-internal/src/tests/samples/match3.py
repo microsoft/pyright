@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain class patterns.
 
-from typing import Generic, Literal, NamedTuple, TypeVar, Union
+from typing import Generic, Literal, NamedTuple, Optional, TypeVar, Union
 from dataclasses import dataclass, field
 
 foo = 3
@@ -65,8 +65,8 @@ TInt = TypeVar("TInt", bound=int)
 def test_bound_typevar(value_to_match: TInt) -> TInt:
     match value_to_match:
         case int() as a1:
-            t_a1: Literal["TInt@test_bound_typevar"] = reveal_type(a1)
-            t_v1: Literal["TInt@test_bound_typevar"] = reveal_type(value_to_match)
+            t_a1: Literal["int*"] = reveal_type(a1)
+            t_v1: Literal["int*"] = reveal_type(value_to_match)
 
         case float() as a2:
             t_a2: Literal["Never"] = reveal_type(a2)
@@ -82,8 +82,8 @@ def test_bound_typevar(value_to_match: TInt) -> TInt:
 def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TInt, Literal[3], float, str]:
     match value_to_match:
         case int() as a1:
-            t_a1: Literal["TInt@test_union | int"] = reveal_type(a1)
-            t_v1: Literal["TInt@test_union | int"] = reveal_type(value_to_match)
+            t_a1: Literal["int* | int"] = reveal_type(a1)
+            t_v1: Literal["int* | int"] = reveal_type(value_to_match)
 
         case float() as a2:
             t_a2: Literal["float"] = reveal_type(a2)
@@ -229,7 +229,7 @@ class Child2(Parent[T], Generic[T, T2]):
     ...
 
 
-def other_func(subj: Parent[int]):
+def func8(subj: Parent[int]):
     match subj:
         case Child1() as a1:
             t_a1: Literal['Child1[int]'] = reveal_type(a1)
@@ -238,3 +238,39 @@ def other_func(subj: Parent[int]):
         case Child2() as b1:
             t_b1: Literal['Child2[int, Unknown]'] = reveal_type(b1)
             t_b: Literal['Child2[int, Unknown]'] = reveal_type(subj)
+
+T3 = TypeVar("T3")
+
+def func9(v: T3) -> Optional[T3]:
+    match v:
+        case str():
+            t1: Literal['str*'] = reveal_type(v)
+            return v
+        
+        case _:
+            return None
+
+
+T4 = TypeVar("T4", int, str)
+
+def func10(v: T4) -> Optional[T4]:
+    match v:
+        case str():
+            t1: Literal['str*'] = reveal_type(v)
+            return v
+        
+        case float():
+            t2: Literal['int*'] = reveal_type(v)
+            return v
+        
+        case int():
+            t3: Literal['int*'] = reveal_type(v)
+            return v
+        
+        case list():
+            t4: Literal['Never'] = reveal_type(v)
+            return v
+        
+        case _:
+            return None
+

@@ -47,6 +47,7 @@ import {
     UnknownType,
 } from './types';
 import {
+    addConditionToType,
     applySolvedTypeVars,
     convertToInstance,
     doForEachSubtype,
@@ -513,7 +514,7 @@ function narrowTypeBasedOnClassPattern(
             }
 
             if (isInstantiableClass(expandedSubtype)) {
-                return mapSubtypes(type, (matchSubtype) => {
+                return evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (matchSubtype) => {
                     const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(matchSubtype);
 
                     if (isAnyOrUnknown(concreteSubtype)) {
@@ -528,7 +529,10 @@ function narrowTypeBasedOnClassPattern(
                         } else if (
                             evaluator.canAssignType(ClassType.cloneAsInstantiable(concreteSubtype), expandedSubtype)
                         ) {
-                            resultType = convertToInstance(unexpandedSubtype);
+                            resultType = addConditionToType(
+                                convertToInstance(unexpandedSubtype),
+                                getTypeCondition(matchSubtype)
+                            );
 
                             // Try to retain the type arguments for the pattern class type.
                             if (isInstantiableClass(unexpandedSubtype) && isClassInstance(matchSubtype)) {
