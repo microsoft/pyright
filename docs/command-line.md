@@ -85,3 +85,7 @@ Each Diagnostic is output in the following format:
 ```
 
 Diagnostic line and character numbers are zero-based.
+
+**Note:** Not all diagnostics have an associated diagnostic rule. For example, parse errors are emitted unconditionally and have no associated rule. Diagnostic rules are used only for diagnostics that can be disabled or enabled.
+
+If a rule is associated with the diagnostic, it is included in the output. If it's not, the rule field is omitted from the JSON output. If you are consuming this output, your code should be prepared to handle the case where there is no rule.
