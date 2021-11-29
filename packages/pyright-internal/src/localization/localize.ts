@@ -326,8 +326,8 @@ export namespace Localizer {
         export const expectedBoolLiteral = () => getRawString('Diagnostic.expectedBoolLiteral');
         export const expectedCase = () => getRawString('Diagnostic.expectedCase');
         export const expectedClassName = () => getRawString('Diagnostic.expectedClassName');
-        export const expectedCloseBracket = () => getRawString('Diagnostic.expectedCloseBracket');
         export const expectedCloseBrace = () => getRawString('Diagnostic.expectedCloseBrace');
+        export const expectedCloseBracket = () => getRawString('Diagnostic.expectedCloseBracket');
         export const expectedCloseParen = () => getRawString('Diagnostic.expectedCloseParen');
         export const expectedColon = () => getRawString('Diagnostic.expectedColon');
         export const expectedComplexNumberLiteral = () => getRawString('Diagnostic.expectedComplexNumberLiteral');

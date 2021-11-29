@@ -782,6 +782,7 @@ export class Parser {
 
         const patternCaptureOrValue = this._parsePatternCaptureOrValue();
         if (patternCaptureOrValue) {
+            const openParenToken = this._peekToken();
             if (
                 patternCaptureOrValue.nodeType === ParseNodeType.Error ||
                 !this._consumeTokenIfType(TokenType.OpenParenthesis)
@@ -798,7 +799,7 @@ export class Parser {
             const classPattern = PatternClassNode.create(classNameExpr, args);
 
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedCloseParen(), openParenToken);
 
                 // Consume the remainder of tokens on the line for error
                 // recovery.
@@ -863,7 +864,7 @@ export class Parser {
                     nextToken.type === TokenType.OpenParenthesis
                         ? Localizer.Diagnostic.expectedCloseParen()
                         : Localizer.Diagnostic.expectedCloseBracket(),
-                    this._peekToken()
+                    nextToken
                 );
                 this._consumeTokensUntilType([
                     TokenType.Colon,
@@ -880,7 +881,7 @@ export class Parser {
             if (this._consumeTokenIfType(TokenType.CloseCurlyBrace)) {
                 extendRange(mappingPattern, lastToken);
             } else {
-                this._addError(Localizer.Diagnostic.expectedCloseBrace(), this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedCloseBrace(), nextToken);
                 this._consumeTokensUntilType([TokenType.Colon, TokenType.CloseCurlyBrace]);
             }
 
@@ -1582,6 +1583,7 @@ export class Parser {
             );
         }
 
+        const openParenToken = this._peekToken();
         if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
             this._addError(Localizer.Diagnostic.expectedOpenParen(), this._peekToken());
             return ErrorNode.create(
@@ -1595,7 +1597,7 @@ export class Parser {
         const paramList = this._parseVarArgsList(TokenType.CloseParenthesis, /* allowAnnotations */ true);
 
         if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-            this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedCloseParen(), openParenToken);
             this._consumeTokensUntilType([TokenType.Colon]);
         }
 
@@ -1904,7 +1906,7 @@ export class Parser {
 
         if (isParenthesizedWithItemList) {
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedCloseParen(), possibleParen);
             }
         }
 
@@ -2031,11 +2033,12 @@ export class Parser {
         }
 
         let argList: ArgumentNode[] = [];
+        const openParenToken = this._peekToken();
         if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
             argList = this._parseArgList();
 
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedCloseParen(), openParenToken);
             }
         }
 
@@ -2143,6 +2146,7 @@ export class Parser {
                 importFromNode.wildcardToken = possibleStarToken;
                 this._containsWildcardImport = true;
             } else {
+                const openParenToken = this._peekToken();
                 const inParen = this._consumeTokenIfType(TokenType.OpenParenthesis);
                 let trailingCommaToken: Token | undefined;
 
@@ -2192,7 +2196,7 @@ export class Parser {
 
                     const nextToken = this._peekToken();
                     if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                        this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+                        this._addError(Localizer.Diagnostic.expectedCloseParen(), openParenToken);
                     } else {
                         extendRange(importFromNode, nextToken);
                     }
@@ -3078,6 +3082,7 @@ export class Parser {
         // Consume trailers.
         while (true) {
             // Is it a function call?
+            const startOfTrailerToken = this._peekToken();
             if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
                 // Generally, function calls are not allowed within type annotations,
                 // but they are permitted in "Annotated" annotations.
@@ -3097,7 +3102,7 @@ export class Parser {
                 const nextToken = this._peekToken();
                 let isArgListTerminated = false;
                 if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                    this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+                    this._addError(Localizer.Diagnostic.expectedCloseParen(), startOfTrailerToken);
 
                     // Consume the remainder of tokens on the line for error
                     // recovery.
@@ -3164,6 +3169,7 @@ export class Parser {
                     this._handleExpressionParseError(
                         ErrorExpressionCategory.MissingIndexCloseBracket,
                         Localizer.Diagnostic.expectedCloseBracket(),
+                        startOfTrailerToken,
                         indexNode
                     );
                 }
@@ -3176,6 +3182,7 @@ export class Parser {
                     return this._handleExpressionParseError(
                         ErrorExpressionCategory.MissingMemberAccessName,
                         Localizer.Diagnostic.expectedMemberName(),
+                        startOfTrailerToken,
                         atomExpression
                     );
                 }
@@ -3273,6 +3280,7 @@ export class Parser {
             const errorNode = this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingIndexOrSlice,
                 Localizer.Diagnostic.expectedSliceIndex(),
+                /* targetToken */ undefined,
                 /* childNode */ undefined,
                 [TokenType.CloseBracket]
             );
@@ -3526,10 +3534,11 @@ export class Parser {
     private _handleExpressionParseError(
         category: ErrorExpressionCategory,
         errorMsg: string,
+        targetToken?: Token,
         childNode?: ExpressionNode,
         additionalStopTokens?: TokenType[]
     ): ErrorNode {
-        this._addError(errorMsg, this._peekToken());
+        this._addError(errorMsg, targetToken ?? this._peekToken());
         const expr = ErrorNode.create(this._peekToken(), category, childNode);
         const stopTokens = [TokenType.NewLine];
         if (additionalStopTokens) {
@@ -3584,6 +3593,7 @@ export class Parser {
                 return this._handleExpressionParseError(
                     ErrorExpressionCategory.MissingTupleCloseParen,
                     Localizer.Diagnostic.expectedCloseParen(),
+                    startParen,
                     yieldExpr
                 );
             } else {
@@ -3605,6 +3615,7 @@ export class Parser {
             return this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingTupleCloseParen,
                 Localizer.Diagnostic.expectedCloseParen(),
+                startParen,
                 exprListResult.parseError ?? tupleOrExpression
             );
         } else {
@@ -3629,6 +3640,7 @@ export class Parser {
             return this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingListCloseBracket,
                 Localizer.Diagnostic.expectedCloseBracket(),
+                startBracket,
                 exprListResult.parseError ?? _createList()
             );
         }
@@ -3797,7 +3809,7 @@ export class Parser {
 
         let closeCurlyBrace: Token | undefined = this._peekToken();
         if (!this._consumeTokenIfType(TokenType.CloseCurlyBrace)) {
-            this._addError(Localizer.Diagnostic.expectedCloseBrace(), this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedCloseBrace(), startBrace);
             closeCurlyBrace = undefined;
         }
 
@@ -4024,7 +4036,7 @@ export class Parser {
         }
 
         if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-            this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedCloseParen(), openParenToken);
             this._consumeTokensUntilType([TokenType.Colon]);
         }
 
