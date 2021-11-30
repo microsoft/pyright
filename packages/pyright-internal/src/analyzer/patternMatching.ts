@@ -434,7 +434,7 @@ function narrowTypeBasedOnClassPattern(
     ).type;
 
     // If this is a class (but not a type alias that refers to a class),
-    // specialize it with
+    // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.typeAliasInfo) {
         exprType = specializeClassType(exprType);
     }

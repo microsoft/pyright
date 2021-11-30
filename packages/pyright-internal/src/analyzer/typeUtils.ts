@@ -1097,23 +1097,12 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     return [];
 }
 
-// If the class is generic, the type is cloned, and its own
-// type parameters are used as type arguments. This is useful
-// for typing "self" or "cls" within a class's implementation.
-export function selfSpecializeClassType(type: ClassType, includeSubclasses = false): ClassType {
-    if (!ClassType.isUnspecialized(type) && !includeSubclasses) {
-        return type;
-    }
-
-    const typeArgs = ClassType.getTypeParameters(type);
-    return ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ false, includeSubclasses);
-}
-
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown.
 export function specializeClassType(type: ClassType): ClassType {
     const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
     const typeParams = ClassType.getTypeParameters(type);
+
     typeParams.forEach((typeParam) => {
         typeVarMap.setTypeVarType(typeParam, UnknownType.create());
     });
@@ -1322,11 +1311,14 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
     selfType.scopeId = scopeId;
 
-    // The self/cls parameter is allowed to skip the abstract class test
-    // because the caller is possibly passing in a non-abstract subclass.
-    selfType.details.boundType = ClassType.cloneAsInstance(
-        selfSpecializeClassType(classType, /* includeSubclasses */ true)
+    const boundType = ClassType.cloneForSpecialization(
+        classType,
+        ClassType.getTypeParameters(classType),
+        /* isTypeArgumentExplicit */ false,
+        /* includeSubclasses */ true
     );
+
+    selfType.details.boundType = ClassType.cloneAsInstance(boundType);
 
     return isClsParam ? TypeVarType.cloneAsInstantiable(selfType) : selfType;
 }
