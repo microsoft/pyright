@@ -18611,8 +18611,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (diag) {
                             diag.addMessage(
                                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                    sourceType: printType(curWideTypeBound),
-                                    destType: printType(adjSrcType),
+                                    sourceType: printType(adjSrcType),
+                                    destType: printType(curWideTypeBound),
                                 })
                             );
                         }
