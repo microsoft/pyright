@@ -1259,12 +1259,10 @@ export class Program {
                         !invokedFromUserFile ||
                         this._isUserCode(curSourceFileInfo)
                     ) {
-                        this._parseFile(curSourceFileInfo);
-
                         // See if the reference symbol's string is located somewhere within the file.
                         // If not, we can skip additional processing for the file.
-                        const parseResults = curSourceFileInfo.sourceFile.getParseResults();
-                        if (!parseResults || parseResults.text.search(referencesResult.symbolName) >= 0) {
+                        const fileContents = curSourceFileInfo.sourceFile.getFileContent();
+                        if (!fileContents || fileContents.search(referencesResult.symbolName) >= 0) {
                             this._bindFile(curSourceFileInfo);
 
                             curSourceFileInfo.sourceFile.addReferences(
