@@ -2175,6 +2175,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function isNodeReachable(node: ParseNode, sourceNode?: ParseNode): boolean {
         const flowNode = AnalyzerNodeInfo.getFlowNode(node);
         if (!flowNode) {
+            if (node.parent) {
+                return isNodeReachable(node.parent, sourceNode);
+            }
             return false;
         }
 
@@ -10857,11 +10860,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromTernary(node: TernaryNode, flags: EvaluatorFlags, expectedType: Type | undefined): TypeResult {
         getTypeOfExpression(node.testExpression);
 
-        const ifType = getTypeOfExpression(node.ifExpression, expectedType, flags);
-        const elseType = getTypeOfExpression(node.elseExpression, expectedType, flags);
+        const typesToCombine: Type[] = [];
+        let isIncomplete = false;
 
-        const type = removeNoReturnFromUnion(combineTypes([ifType.type, elseType.type]));
-        return { type, node, isIncomplete: ifType.isIncomplete || elseType.isIncomplete };
+        if (isNodeReachable(node.ifExpression)) {
+            const ifType = getTypeOfExpression(node.ifExpression, expectedType, flags);
+            typesToCombine.push(ifType.type);
+            if (ifType.isIncomplete) {
+                isIncomplete = true;
+            }
+        }
+
+        if (isNodeReachable(node.elseExpression)) {
+            const elseType = getTypeOfExpression(node.elseExpression, expectedType, flags);
+            typesToCombine.push(elseType.type);
+            if (elseType.isIncomplete) {
+                isIncomplete = true;
+            }
+        }
+
+        const type = removeNoReturnFromUnion(combineTypes(typesToCombine));
+        return { type, node, isIncomplete };
     }
 
     function getTypeFromYield(node: YieldNode): TypeResult {
