@@ -1259,19 +1259,26 @@ export class Program {
                         !invokedFromUserFile ||
                         this._isUserCode(curSourceFileInfo)
                     ) {
-                        this._bindFile(curSourceFileInfo);
+                        this._parseFile(curSourceFileInfo);
 
-                        curSourceFileInfo.sourceFile.addReferences(
-                            referencesResult,
-                            includeDeclaration,
-                            this._evaluator!,
-                            token
-                        );
+                        // See if the reference symbol's string is located somewhere within the file.
+                        // If not, we can skip additional processing for the file.
+                        const parseResults = curSourceFileInfo.sourceFile.getParseResults();
+                        if (!parseResults || parseResults.text.search(referencesResult.symbolName) >= 0) {
+                            this._bindFile(curSourceFileInfo);
+
+                            curSourceFileInfo.sourceFile.addReferences(
+                                referencesResult,
+                                includeDeclaration,
+                                this._evaluator!,
+                                token
+                            );
+                        }
+
+                        // This operation can consume significant memory, so check
+                        // for situations where we need to discard the type cache.
+                        this._handleMemoryHighUsage();
                     }
-
-                    // This operation can consume significant memory, so check
-                    // for situations where we need to discard the type cache.
-                    this._handleMemoryHighUsage();
                 }
 
                 // Make sure to include declarations regardless where they are defined
