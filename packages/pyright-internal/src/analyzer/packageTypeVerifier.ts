@@ -628,7 +628,7 @@ export class PackageTypeVerifier {
                         if (isUnknown(typeArg)) {
                             this._addSymbolError(
                                 symbolInfo,
-                                `Type argument ${index} has unknown type`,
+                                `Type argument ${index + 1} for class "${type.details.name}" has unknown type`,
                                 declRange,
                                 declFilePath
                             );
@@ -638,7 +638,9 @@ export class PackageTypeVerifier {
                             diag.addMessage(`Type is ${this._program.printType(typeArg, /* expandTypeAlias */ false)}`);
                             this._addSymbolError(
                                 symbolInfo,
-                                `Type argument ${index} has partially unknown type` + diag.getString(),
+                                `Type argument ${index + 1} for class "${
+                                    type.details.name
+                                }" has partially unknown type` + diag.getString(),
                                 declRange,
                                 declFilePath
                             );
@@ -1060,10 +1062,14 @@ export class PackageTypeVerifier {
                 if (type.typeArguments) {
                     type.typeArguments!.forEach((typeArg, index) => {
                         if (isUnknown(typeArg)) {
-                            diag.addMessage(`Type argument ${index} has unknown type`);
+                            diag.addMessage(
+                                `Type argument ${index + 1} for class "${type.details.name}" has unknown type`
+                            );
                             isKnown = false;
                         } else if (isPartlyUnknown(typeArg)) {
-                            diag.addMessage(`Type argument ${index} has partially unknown type`);
+                            diag.addMessage(
+                                `Type argument ${index + 1} for class "${type.details.name}" has partially unknown type`
+                            );
                             isKnown = false;
                         }
                     });
