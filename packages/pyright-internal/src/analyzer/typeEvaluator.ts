@@ -3371,7 +3371,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
-        const symbolWithScope = lookUpSymbolRecursive(node, name, !allowForwardReferences, allowForwardReferences);
+        const symbolWithScope = lookUpSymbolRecursive(
+            node,
+            name,
+            !allowForwardReferences,
+            allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+        );
 
         if (symbolWithScope) {
             let useCodeFlowAnalysis = !allowForwardReferences;
@@ -16114,23 +16119,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            let allowForwardReferences = fileInfo.isStubFile;
 
             // Determine if this node is within a quoted type annotation.
-            if (
-                ParseTreeUtils.isWithinTypeAnnotation(
-                    node,
-                    !isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))
-                )
-            ) {
-                allowForwardReferences = true;
-            }
+            const isWithinTypeAnnotation = ParseTreeUtils.isWithinTypeAnnotation(
+                node,
+                !isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))
+            );
+            const allowForwardReferences = isWithinTypeAnnotation || fileInfo.isStubFile;
 
             const symbolWithScope = lookUpSymbolRecursive(
                 node,
                 node.value,
                 !allowForwardReferences,
-                allowForwardReferences
+                isWithinTypeAnnotation
             );
 
             if (symbolWithScope) {
