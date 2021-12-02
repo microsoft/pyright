@@ -723,6 +723,28 @@ export class SourceFile {
         );
     }
 
+    getTypeDefinitionsForPosition(
+        sourceMapper: SourceMapper,
+        position: Position,
+        evaluator: TypeEvaluator,
+        filePath: string,
+        token: CancellationToken
+    ): DocumentRange[] | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._parseResults) {
+            return undefined;
+        }
+
+        return DefinitionProvider.getTypeDefinitionsForPosition(
+            sourceMapper,
+            this._parseResults,
+            position,
+            evaluator,
+            filePath,
+            token
+        );
+    }
+
     getDeclarationForNode(
         sourceMapper: SourceMapper,
         node: NameNode,
