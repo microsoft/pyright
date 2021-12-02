@@ -3371,7 +3371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
-        const symbolWithScope = lookUpSymbolRecursive(node, name, !allowForwardReferences);
+        const symbolWithScope = lookUpSymbolRecursive(node, name, !allowForwardReferences, allowForwardReferences);
 
         if (symbolWithScope) {
             let useCodeFlowAnalysis = !allowForwardReferences;
@@ -15825,7 +15825,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return nameType;
     }
 
-    function lookUpSymbolRecursive(node: ParseNode, name: string, honorCodeFlow: boolean): SymbolWithScope | undefined {
+    function lookUpSymbolRecursive(
+        node: ParseNode,
+        name: string,
+        honorCodeFlow: boolean,
+        preferGlobalScope = false
+    ): SymbolWithScope | undefined {
         const scope = ScopeUtils.getScopeForNode(node);
         let symbolWithScope = scope?.lookUpSymbolRecursive(name);
 
@@ -15867,6 +15872,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     symbolWithScope = undefined;
                 }
+            }
+        }
+
+        // PEP 563 indicates that if a forward reference can be resolved in the module
+        // scope (or, by implication, in the builtins scope), it should prefer that
+        // resolution over local resolutions.
+        if (symbolWithScope && preferGlobalScope) {
+            let curSymbolWithScope: SymbolWithScope | undefined = symbolWithScope;
+            while (
+                curSymbolWithScope.scope.type !== ScopeType.Module &&
+                curSymbolWithScope.scope.type !== ScopeType.Builtin &&
+                curSymbolWithScope.scope.parent
+            ) {
+                curSymbolWithScope = curSymbolWithScope.scope.parent.lookUpSymbolRecursive(
+                    name,
+                    curSymbolWithScope.isOutsideCallerModule,
+                    curSymbolWithScope.isBeyondExecutionScope || curSymbolWithScope.scope.isIndependentlyExecutable()
+                );
+                if (!curSymbolWithScope) {
+                    break;
+                }
+            }
+
+            if (
+                curSymbolWithScope?.scope.type === ScopeType.Module ||
+                curSymbolWithScope?.scope.type === ScopeType.Builtin
+            ) {
+                symbolWithScope = curSymbolWithScope;
             }
         }
 
@@ -16093,7 +16126,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 allowForwardReferences = true;
             }
 
-            const symbolWithScope = lookUpSymbolRecursive(node, node.value, !allowForwardReferences);
+            const symbolWithScope = lookUpSymbolRecursive(
+                node,
+                node.value,
+                !allowForwardReferences,
+                allowForwardReferences
+            );
+
             if (symbolWithScope) {
                 declarations.push(...symbolWithScope.symbol.getDeclarations());
             }

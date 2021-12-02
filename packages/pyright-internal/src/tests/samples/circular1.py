@@ -5,7 +5,7 @@
 class Example1:
     # This should not generate an error because "int"
     # is not forward-declared.
-    str: str = 4
+    str: str = ""
 
     int = int
 
@@ -13,5 +13,4 @@ class Example1:
 
 
 class Example2:
-    # This should generate an error because it's forward-declared.
     int: "int" = 4

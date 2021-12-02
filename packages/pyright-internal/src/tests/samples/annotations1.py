@@ -51,3 +51,23 @@ y: """
         str
     ]
 """
+
+
+class ClassD:
+    ClassA: "ClassA"
+
+    # This should generate an error because ClassF refers
+    # to itself, and there is no ClassF declared at the module
+    # level.
+    ClassF: "ClassF"
+
+    str: "str"
+
+    def int(self):
+        ...
+
+    foo: "int"
+
+    # This should generate an error because it refers to the local
+    # "int" symbol rather than the builtins "int".
+    bar: int

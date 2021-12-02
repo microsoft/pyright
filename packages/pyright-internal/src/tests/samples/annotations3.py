@@ -29,6 +29,15 @@ class ClassB(ClassA):
     def func4(self) -> Optional["ClassC"]:
         return None
 
+    def func5(self, x: ClassA):
+        x.func0()
+
+    class ClassA:
+        ...
+
+    def func6(self, x: ClassC):
+        x.my_int
+
 
 class ClassC:
-    pass
+    my_int: int

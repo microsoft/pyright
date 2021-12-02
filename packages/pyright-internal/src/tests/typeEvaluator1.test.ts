@@ -605,12 +605,6 @@ test('Function4', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Function5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function5.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
 test('Function6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function6.py']);
 
@@ -656,7 +650,7 @@ test('FunctionMember2', () => {
 test('Annotations1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Annotations2', () => {
