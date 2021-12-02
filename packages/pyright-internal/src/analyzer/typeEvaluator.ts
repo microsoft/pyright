@@ -7364,6 +7364,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     return createNamedTupleType(evaluatorInterface, errorNode, argList, true);
                                 }
 
+                                if (className === 'NewType') {
+                                    return createNewType(errorNode, argList);
+                                }
+
                                 if (
                                     className === 'Protocol' ||
                                     className === 'Generic' ||
