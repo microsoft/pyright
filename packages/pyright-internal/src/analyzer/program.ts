@@ -1218,6 +1218,30 @@ export class Program {
         });
     }
 
+    getTypeDefinitionsForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): DocumentRange[] | undefined {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
+
+            this._bindFile(sourceFileInfo);
+
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
+            return sourceFileInfo.sourceFile.getTypeDefinitionsForPosition(
+                this._createSourceMapper(execEnv, /* mapCompiled */ false, /* preferStubs */ true),
+                position,
+                this._evaluator!,
+                filePath,
+                token
+            );
+        });
+    }
+
     reportReferencesForPosition(
         filePath: string,
         position: Position,
@@ -2116,7 +2140,7 @@ export class Program {
         return false;
     }
 
-    private _createSourceMapper(execEnv: ExecutionEnvironment, mapCompiled?: boolean) {
+    private _createSourceMapper(execEnv: ExecutionEnvironment, mapCompiled?: boolean, preferStubs?: boolean) {
         const sourceMapper = new SourceMapper(
             this._importResolver,
             execEnv,
@@ -2130,7 +2154,8 @@ export class Program {
                 return this.getBoundSourceFile(implFilePath);
             },
             (f) => this.getBoundSourceFile(f),
-            mapCompiled ?? false
+            mapCompiled ?? false,
+            preferStubs ?? false
         );
         return sourceMapper;
     }

@@ -12,6 +12,11 @@
 import './common/extensions';
 
 import {
+    CallHierarchyIncomingCallsParams,
+    CallHierarchyItem,
+    CallHierarchyOutgoingCall,
+    CallHierarchyOutgoingCallsParams,
+    CallHierarchyPrepareParams,
     CancellationToken,
     CancellationTokenSource,
     CodeAction,
@@ -23,19 +28,36 @@ import {
     CompletionTriggerKind,
     ConfigurationItem,
     Connection,
+    Declaration,
+    DeclarationLink,
+    Definition,
+    DefinitionLink,
     Diagnostic,
     DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
+    DidChangeConfigurationParams,
+    DidChangeTextDocumentParams,
     DidChangeWatchedFilesNotification,
+    DidChangeWatchedFilesParams,
+    DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams,
+    DocumentHighlight,
+    DocumentHighlightParams,
     DocumentSymbol,
+    DocumentSymbolParams,
     ExecuteCommandParams,
+    HoverParams,
     InitializeParams,
     InitializeResult,
     Location,
     MarkupKind,
     ParameterInformation,
+    ReferenceParams,
     RemoteWindow,
+    RenameParams,
+    SignatureHelp,
+    SignatureHelpParams,
     SignatureHelpTriggerKind,
     SignatureInformation,
     SymbolInformation,
@@ -45,8 +67,9 @@ import {
     WorkDoneProgressReporter,
     WorkspaceEdit,
     WorkspaceFolder,
+    WorkspaceSymbolParams,
 } from 'vscode-languageserver';
-import { attachWorkDone } from 'vscode-languageserver/lib/common/progress';
+import { attachWorkDone, ResultProgressReporter } from 'vscode-languageserver/lib/common/progress';
 
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
@@ -70,9 +93,10 @@ import { DiagnosticRule } from './common/diagnosticRules';
 import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/fileSystem';
 import { Host } from './common/host';
-import { convertPathToUri, convertUriToPath } from './common/pathUtils';
+import { convertPathToUri } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position } from './common/textRange';
+import { UriParser } from './common/uriParser';
 import { convertWorkspaceEdits } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData, CompletionResults } from './languageService/completionProvider';
@@ -139,6 +163,7 @@ export interface LanguageServerInterface {
     createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
     reanalyze(): void;
     restart(): void;
+    decodeTextDocumentUri(uriString: string): string;
 
     readonly rootPath: string;
     readonly console: ConsoleInterface;
@@ -160,6 +185,7 @@ export interface ServerOptions {
     disableChecker?: boolean;
     supportedCommands?: string[];
     supportedCodeActions?: string[];
+    uriParser: UriParser;
 }
 
 interface ClientCapabilities {
@@ -227,6 +253,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // File system abstraction.
     fs: FileSystem;
 
+    protected _uriParser: UriParser;
+
     constructor(
         protected _serverOptions: ServerOptions,
         protected _connection: Connection,
@@ -246,7 +274,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._workspaceMap = this._serverOptions.workspaceMap;
         this._fileWatcherProvider = this._serverOptions.fileWatcherProvider;
-        this.fs = new PyrightFileSystem(this._serverOptions.fileSystem);
+        this.fs = this._serverOptions.fileSystem;
+        this._uriParser = this._serverOptions.uriParser;
 
         // Set the working directory to a known location within
         // the extension directory. Otherwise the execution of
@@ -263,6 +292,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         // Listen on the connection.
         this._connection.listen();
+    }
+
+    // Convert uri to path
+    decodeTextDocumentUri(uriString: string): string {
+        return this._uriParser.decodeTextDocumentUri(uriString);
     }
 
     abstract createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
@@ -399,587 +433,50 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // in the passed params the rootPath of the workspace plus the client capabilities.
         this._connection.onInitialize((params) => this.initialize(params, supportedCommands, supportedCodeActions));
 
-        this._connection.onDidChangeConfiguration((params) => {
-            this.console.log(`Received updated settings`);
-            if (params?.settings) {
-                this._defaultClientConfig = params?.settings;
-            }
-            this.updateSettingsForAllWorkspaces();
-        });
+        this._connection.onInitialized(() => this.onInitialized());
+
+        this._connection.onDidChangeConfiguration((params) => this.onDidChangeConfiguration(params));
 
         this._connection.onCodeAction((params, token) => this.executeCodeAction(params, token));
 
-        const getDefinitions = async (
-            params: TextDocumentPositionParams,
-            token: CancellationToken,
-            filter: DefinitionFilter
-        ) => {
-            this.recordUserInteractionTime();
+        this._connection.onDefinition(async (params, token) => this.onDefinition(params, token));
+        this._connection.onDeclaration(async (params, token) => this.onDeclaration(params, token));
+        this._connection.onTypeDefinition(async (params, token) => this.onTypeDefinition(params, token));
 
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-
-            const position: Position = {
-                line: params.position.line,
-                character: params.position.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return undefined;
-            }
-
-            const locations = workspace.serviceInstance.getDefinitionForPosition(filePath, position, filter, token);
-            if (!locations) {
-                return undefined;
-            }
-            return locations
-                .filter((loc) => !this.fs.isInZipOrEgg(loc.path))
-                .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
-        };
-
-        this._connection.onDefinition((params, token) =>
-            getDefinitions(
-                params,
-                token,
-                this.client.hasGoToDeclarationCapability ? DefinitionFilter.PreferSource : DefinitionFilter.All
-            )
+        this._connection.onReferences(async (params, token, workDoneReporter, resultReporter) =>
+            this.onReferences(params, token, workDoneReporter, resultReporter)
         );
 
-        this._connection.onDeclaration((params, token) =>
-            getDefinitions(
-                params,
-                token,
-                this.client.hasGoToDeclarationCapability ? DefinitionFilter.PreferStubs : DefinitionFilter.All
-            )
+        this._connection.onDocumentSymbol(async (params, token) => this.onDocumentSymbol(params, token));
+        this._connection.onWorkspaceSymbol(async (params, token, _, resultReporter) =>
+            this.onWorkspaceSymbol(params, token, resultReporter)
         );
 
-        this._connection.onReferences(async (params, token, workDoneReporter, resultReporter) => {
-            if (this._pendingFindAllRefsCancellationSource) {
-                this._pendingFindAllRefsCancellationSource.cancel();
-                this._pendingFindAllRefsCancellationSource = undefined;
-            }
+        this._connection.onHover(async (params, token) => this.onHover(params, token));
 
-            // VS Code doesn't support cancellation of "final all references".
-            // We provide a progress bar a cancellation button so the user can cancel
-            // any long-running actions.
-            const progress = await this._getProgressReporter(
-                workDoneReporter,
-                Localizer.CodeAction.findingReferences(),
-                token
-            );
+        this._connection.onDocumentHighlight(async (params, token) => this.onDocumentHighlight(params, token));
 
-            const source = progress.source;
-            this._pendingFindAllRefsCancellationSource = source;
-
-            try {
-                const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-                const position: Position = {
-                    line: params.position.line,
-                    character: params.position.character,
-                };
-
-                const workspace = await this.getWorkspaceForFile(filePath);
-                if (workspace.disableLanguageServices) {
-                    return;
-                }
-
-                const convert = (locs: DocumentRange[]): Location[] => {
-                    return locs
-                        .filter((loc) => !this.fs.isInZipOrEgg(loc.path))
-                        .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
-                };
-
-                const locations: Location[] = [];
-                const reporter: ReferenceCallback = resultReporter
-                    ? (locs) => resultReporter.report(convert(locs))
-                    : (locs) => locations.push(...convert(locs));
-
-                workspace.serviceInstance.reportReferencesForPosition(
-                    filePath,
-                    position,
-                    params.context.includeDeclaration,
-                    reporter,
-                    source.token
-                );
-
-                return locations;
-            } finally {
-                progress.reporter.done();
-                source.dispose();
-            }
-        });
-
-        this._connection.onDocumentSymbol(async (params, token) => {
-            this.recordUserInteractionTime();
-
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return undefined;
-            }
-
-            const symbolList: DocumentSymbol[] = [];
-            workspace.serviceInstance.addSymbolsForDocument(filePath, symbolList, token);
-            if (this.client.hasHierarchicalDocumentSymbolCapability) {
-                return symbolList;
-            }
-
-            return convertToFlatSymbols(params.textDocument.uri, symbolList);
-        });
-
-        this._connection.onWorkspaceSymbol(async (params, token, _, resultReporter) => {
-            const symbolList: SymbolInformation[] = [];
-
-            const reporter: WorkspaceSymbolCallback = resultReporter
-                ? (symbols) => resultReporter.report(symbols)
-                : (symbols) => symbolList.push(...symbols);
-
-            for (const workspace of this._workspaceMap.values()) {
-                await workspace.isInitialized.promise;
-                if (!workspace.disableLanguageServices) {
-                    workspace.serviceInstance.reportSymbolsForWorkspace(params.query, reporter, token);
-                }
-            }
-
-            return symbolList;
-        });
-
-        this._connection.onHover(async (params, token) => {
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-
-            const position: Position = {
-                line: params.position.line,
-                character: params.position.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            const hoverResults = workspace.serviceInstance.getHoverForPosition(
-                filePath,
-                position,
-                this.client.hoverContentFormat,
-                token
-            );
-            return convertHoverResults(this.client.hoverContentFormat, hoverResults);
-        });
-
-        this._connection.onDocumentHighlight(async (params, token) => {
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-
-            const position: Position = {
-                line: params.position.line,
-                character: params.position.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            return workspace.serviceInstance.getDocumentHighlight(filePath, position, token);
-        });
-
-        this._connection.onSignatureHelp(async (params, token) => {
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-
-            const position: Position = {
-                line: params.position.line,
-                character: params.position.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return;
-            }
-            const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(
-                filePath,
-                position,
-                this.client.signatureDocFormat,
-                token
-            );
-            if (!signatureHelpResults) {
-                return undefined;
-            }
-
-            const signatures = signatureHelpResults.signatures.map((sig) => {
-                let paramInfo: ParameterInformation[] = [];
-                if (sig.parameters) {
-                    paramInfo = sig.parameters.map((param) =>
-                        ParameterInformation.create(
-                            this.client.hasSignatureLabelOffsetCapability
-                                ? [param.startOffset, param.endOffset]
-                                : param.text,
-                            param.documentation
-                        )
-                    );
-                }
-
-                const sigInfo = SignatureInformation.create(sig.label, undefined, ...paramInfo);
-                if (sig.documentation !== undefined) {
-                    sigInfo.documentation = sig.documentation;
-                }
-                if (sig.activeParameter !== undefined) {
-                    sigInfo.activeParameter = sig.activeParameter;
-                }
-                return sigInfo;
-            });
-
-            // A signature is active if it contains an active parameter,
-            // or if both the signature and its invocation have no parameters.
-            const isActive = (sig: SignatureInformation) =>
-                sig.activeParameter !== undefined ||
-                (!signatureHelpResults.callHasParameters && !sig.parameters?.length);
-
-            let activeSignature: number | null = signatures.findIndex(isActive);
-            if (activeSignature === -1) {
-                activeSignature = null;
-            }
-
-            let activeParameter = activeSignature !== null ? signatures[activeSignature].activeParameter! : null;
-
-            // Check if we should reuse the user's signature selection. If the retrigger was not "invoked"
-            // (i.e., the signature help call was automatically generated by the client due to some navigation
-            // or text change), check to see if the previous signature is still "active". If so, we mark it as
-            // active in our response.
-            //
-            // This isn't a perfect method. For nested calls, we can't tell when we are moving between them.
-            // Ideally, we would include a token in the signature help responses to compare later, allowing us
-            // to know when the user's navigated to a nested call (and therefore the old signature's info does
-            // not apply), but for now manually retriggering the signature help will work around the issue.
-            if (params.context?.isRetrigger && params.context.triggerKind !== SignatureHelpTriggerKind.Invoked) {
-                const prevActiveSignature = params.context.activeSignatureHelp?.activeSignature ?? null;
-                if (prevActiveSignature !== null && prevActiveSignature < signatures.length) {
-                    const sig = signatures[prevActiveSignature];
-                    if (isActive(sig)) {
-                        activeSignature = prevActiveSignature;
-                        activeParameter = sig.activeParameter ?? null;
-                    }
-                }
-            }
-
-            if (this.client.hasActiveParameterCapability || activeSignature === null) {
-                // If there is no active parameter, then we want the client to not highlight anything.
-                // Unfortunately, the LSP spec says that "undefined" or "out of bounds" values should be
-                // treated as 0, which is the first parameter. That's not what we want, but thankfully
-                // VS Code (and potentially other clients) choose to handle out of bounds values by
-                // not highlighting them, which is what we want.
-                //
-                // The spec defines activeParameter as uinteger, so use the maximum length of any
-                // signature's parameter list to ensure that the value is always out of range.
-                //
-                // We always set this even if some signature has an active parameter, as this
-                // value is used as the fallback for signatures that don't explicitly specify an
-                // active parameter (and we use "undefined" to mean "no active parameter").
-                //
-                // We could apply this hack to each individual signature such that they all specify
-                // activeParameter, but that would make it more difficult to determine which actually
-                // are active when comparing, and we already have to set this for clients which don't
-                // support per-signature activeParameter.
-                //
-                // See:
-                //   - https://github.com/microsoft/language-server-protocol/issues/1271
-                //   - https://github.com/microsoft/pyright/pull/1783
-                activeParameter = Math.max(...signatures.map((s) => s.parameters?.length ?? 0));
-            }
-
-            return { signatures, activeSignature, activeParameter };
-        });
+        this._connection.onSignatureHelp(async (params, token) => this.onSignatureHelp(params, token));
 
         this._connection.onCompletion((params, token) => this.onCompletion(params, token));
 
-        this._connection.onCompletionResolve(async (params, token) => {
-            // Cancellation bugs in vscode and LSP:
-            // https://github.com/microsoft/vscode-languageserver-node/issues/615
-            // https://github.com/microsoft/vscode/issues/95485
-            //
-            // If resolver throws cancellation exception, LSP and VSCode
-            // cache that result and never call us back.
-            const completionItemData = params.data as CompletionItemData;
-            if (completionItemData && completionItemData.filePath) {
-                const workspace = await this.getWorkspaceForFile(completionItemData.workspacePath);
-                this.resolveWorkspaceCompletionItem(workspace, completionItemData.filePath, params, token);
-            }
-            return params;
-        });
+        this._connection.onCompletionResolve(async (params, token) => this.onCompletionResolve(params, token));
 
-        this._connection.onRenameRequest(async (params, token) => {
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
+        this._connection.onRenameRequest(async (params, token) => this.onRenameRequest(params, token));
 
-            const position: Position = {
-                line: params.position.line,
-                character: params.position.character,
-            };
+        const callHierarchy = this._connection.languages.callHierarchy;
+        callHierarchy.onPrepare(async (params, token) => this.onPrepare(params, token));
+        callHierarchy.onIncomingCalls(async (params, token) => this.onIncomingCalls(params, token));
+        callHierarchy.onOutgoingCalls(async (params, token) => this.onOutgoingCalls(params, token));
 
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return;
-            }
+        this._connection.onDidOpenTextDocument(async (params) => this.onDidOpenTextDocument(params));
+        this._connection.onDidChangeTextDocument(async (params) => this.onDidChangeTextDocument(params));
+        this._connection.onDidCloseTextDocument(async (params) => this.onDidCloseTextDocument(params));
+        this._connection.onDidChangeWatchedFiles((params) => this.onDidChangeWatchedFiles(params));
 
-            const editActions = workspace.serviceInstance.renameSymbolAtPosition(
-                filePath,
-                position,
-                params.newName,
-                workspace.rootPath === '',
-                token
-            );
-
-            if (!editActions) {
-                return undefined;
-            }
-
-            return convertWorkspaceEdits(this.fs, editActions);
-        });
-
-        this._connection.languages.callHierarchy.onPrepare(async (params, token) => {
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-
-            const position: Position = {
-                line: params.position.line,
-                character: params.position.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return null;
-            }
-
-            const callItem = workspace.serviceInstance.getCallForPosition(filePath, position, token) || null;
-            if (!callItem) {
-                return null;
-            }
-
-            if (this.fs.isInZipOrEgg(callItem.uri)) {
-                return null;
-            }
-
-            // Convert the file path in the item to proper URI.
-            callItem.uri = convertPathToUri(this.fs, callItem.uri);
-
-            return [callItem];
-        });
-
-        this._connection.languages.callHierarchy.onIncomingCalls(async (params, token) => {
-            const filePath = convertUriToPath(this.fs, params.item.uri);
-
-            const position: Position = {
-                line: params.item.range.start.line,
-                character: params.item.range.start.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return null;
-            }
-
-            let callItems = workspace.serviceInstance.getIncomingCallsForPosition(filePath, position, token) || null;
-            if (!callItems || callItems.length === 0) {
-                return null;
-            }
-
-            callItems = callItems.filter((item) => !this.fs.isInZipOrEgg(item.from.uri));
-
-            // Convert the file paths in the items to proper URIs.
-            callItems.forEach((item) => {
-                item.from.uri = convertPathToUri(this.fs, item.from.uri);
-            });
-
-            return callItems;
-        });
-
-        this._connection.languages.callHierarchy.onOutgoingCalls(async (params, token) => {
-            const filePath = convertUriToPath(this.fs, params.item.uri);
-
-            const position: Position = {
-                line: params.item.range.start.line,
-                character: params.item.range.start.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return null;
-            }
-
-            let callItems = workspace.serviceInstance.getOutgoingCallsForPosition(filePath, position, token) || null;
-            if (!callItems || callItems.length === 0) {
-                return null;
-            }
-
-            callItems = callItems.filter((item) => !this.fs.isInZipOrEgg(item.to.uri));
-
-            // Convert the file paths in the items to proper URIs.
-            callItems.forEach((item) => {
-                item.to.uri = convertPathToUri(this.fs, item.to.uri);
-            });
-
-            return callItems;
-        });
-
-        this._connection.onDidOpenTextDocument(async (params) => {
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-            if (!(this.fs as PyrightFileSystem).addUriMap(params.textDocument.uri, filePath)) {
-                // We do not support opening 1 file with 2 different uri.
-                return;
-            }
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            workspace.serviceInstance.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
-        });
-
-        this._connection.onDidChangeTextDocument(async (params) => {
-            this.recordUserInteractionTime();
-
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-            if (!(this.fs as PyrightFileSystem).hasUriMapEntry(params.textDocument.uri, filePath)) {
-                // We do not support opening 1 file with 2 different uri.
-                return;
-            }
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            workspace.serviceInstance.updateOpenFileContents(
-                filePath,
-                params.textDocument.version,
-                params.contentChanges
-            );
-        });
-
-        this._connection.onDidCloseTextDocument(async (params) => {
-            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-            if (!(this.fs as PyrightFileSystem).removeUriMap(params.textDocument.uri, filePath)) {
-                // We do not support opening 1 file with 2 different uri.
-                return;
-            }
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            workspace.serviceInstance.setFileClosed(filePath);
-        });
-
-        this._connection.onDidChangeWatchedFiles((params) => {
-            params.changes.forEach((change) => {
-                const filePath = convertUriToPath(this.fs, change.uri);
-                const eventType: FileWatcherEventType = change.type === 1 ? 'add' : 'change';
-                this._fileWatcherProvider.onFileChange(eventType, filePath);
-            });
-        });
-
-        this._connection.onInitialized(() => {
-            if (this.client.hasWorkspaceFoldersCapability) {
-                this._connection.workspace.onDidChangeWorkspaceFolders((event) => {
-                    event.removed.forEach((workspace) => {
-                        const rootPath = convertUriToPath(this.fs, workspace.uri);
-                        this._workspaceMap.delete(rootPath);
-                    });
-
-                    event.added.forEach(async (workspace) => {
-                        const rootPath = convertUriToPath(this.fs, workspace.uri);
-                        const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath);
-                        this._workspaceMap.set(rootPath, newWorkspace);
-                        await this.updateSettingsForWorkspace(newWorkspace);
-                    });
-                });
-            }
-
-            // Set up our file watchers.
-            if (this.client.hasWatchFileCapability) {
-                this._connection.client.register(DidChangeWatchedFilesNotification.type, {
-                    watchers: [
-                        ...configFileNames.map((fileName) => {
-                            return {
-                                globPattern: `**/${fileName}`,
-                                kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
-                            };
-                        }),
-                        {
-                            globPattern: '**',
-                            kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
-                        },
-                    ],
-                });
-            }
-        });
-
-        this._connection.onExecuteCommand(async (params, token, reporter) => {
-            // Cancel running command if there is one.
-            if (this._pendingCommandCancellationSource) {
-                this._pendingCommandCancellationSource.cancel();
-                this._pendingCommandCancellationSource = undefined;
-            }
-
-            const executeCommand = async (token: CancellationToken) => {
-                const result = await this.executeCommand(params, token);
-                if (WorkspaceEdit.is(result)) {
-                    // Tell client to apply edits.
-                    // Do not await; the client isn't expecting a result.
-                    this._connection.workspace.applyEdit({ label: `Command '${params.command}'`, edit: result });
-                }
-
-                if (CommandResult.is(result)) {
-                    // Tell client to apply edits.
-                    // Await so that we return after the edit is complete.
-                    await this._connection.workspace.applyEdit({ label: result.label, edit: result.edits });
-                }
-
-                return result;
-            };
-
-            if (this.isLongRunningCommand(params.command)) {
-                // Create a progress dialog for long-running commands.
-                const progress = await this._getProgressReporter(
-                    reporter,
-                    Localizer.CodeAction.executingCommand(),
-                    token
-                );
-
-                const source = progress.source;
-                this._pendingCommandCancellationSource = source;
-
-                try {
-                    const result = await executeCommand(source.token);
-                    return result;
-                } finally {
-                    progress.reporter.done();
-                    source.dispose();
-                }
-            } else {
-                const result = await executeCommand(token);
-                return result;
-            }
-        });
-    }
-
-    protected resolveWorkspaceCompletionItem(
-        workspace: WorkspaceServiceInstance,
-        filePath: string,
-        item: CompletionItem,
-        token: CancellationToken
-    ): void {
-        workspace.serviceInstance.resolveCompletionItem(filePath, item, this.getCompletionOptions(), undefined, token);
-    }
-
-    protected getWorkspaceCompletionsForPosition(
-        workspace: WorkspaceServiceInstance,
-        filePath: string,
-        position: Position,
-        workspacePath: string,
-        token: CancellationToken
-    ): Promise<CompletionResults | undefined> {
-        return workspace.serviceInstance.getCompletionsForPosition(
-            filePath,
-            position,
-            workspacePath,
-            this.getCompletionOptions(),
-            undefined,
-            token
+        this._connection.onExecuteCommand(async (params, token, reporter) =>
+            this.onExecuteCommand(params, token, reporter)
         );
-    }
-
-    updateSettingsForAllWorkspaces(): void {
-        this._workspaceMap.forEach((workspace) => {
-            this.updateSettingsForWorkspace(workspace).ignoreErrors();
-        });
-    }
-
-    protected getCompletionOptions() {
-        return {
-            format: this.client.completionDocFormat,
-            snippet: this.client.completionSupportsSnippet,
-            lazyEdit: this.client.completionItemResolveSupportsAdditionalTextEdits,
-        };
     }
 
     protected initialize(
@@ -1034,7 +531,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // Create a service instance for each of the workspace folders.
         if (params.workspaceFolders) {
             params.workspaceFolders.forEach((folder) => {
-                const path = convertUriToPath(this.fs, folder.uri);
+                const path = this._uriParser.decodeTextDocumentUri(folder.uri);
                 this._workspaceMap.set(path, this.createWorkspaceServiceInstance(folder, path));
             });
         } else if (params.rootPath) {
@@ -1046,6 +543,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
                 definitionProvider: { workDoneProgress: true },
                 declarationProvider: { workDoneProgress: true },
+                typeDefinitionProvider: { workDoneProgress: true },
                 referencesProvider: { workDoneProgress: true },
                 documentSymbolProvider: { workDoneProgress: true },
                 workspaceSymbolProvider: { workDoneProgress: true },
@@ -1074,6 +572,631 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         };
 
         return result;
+    }
+
+    protected onInitialized() {
+        if (this.client.hasWorkspaceFoldersCapability) {
+            this._connection.workspace.onDidChangeWorkspaceFolders((event) => {
+                event.removed.forEach((workspace) => {
+                    const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
+                    this._workspaceMap.delete(rootPath);
+                });
+
+                event.added.forEach(async (workspace) => {
+                    const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
+                    const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath);
+                    this._workspaceMap.set(rootPath, newWorkspace);
+                    await this.updateSettingsForWorkspace(newWorkspace);
+                });
+            });
+        }
+
+        // Set up our file watchers.
+        if (this.client.hasWatchFileCapability) {
+            this._connection.client.register(DidChangeWatchedFilesNotification.type, {
+                watchers: [
+                    ...configFileNames.map((fileName) => {
+                        return {
+                            globPattern: `**/${fileName}`,
+                            kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                        };
+                    }),
+                    {
+                        globPattern: '**',
+                        kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                    },
+                ],
+            });
+        }
+    }
+
+    protected onDidChangeConfiguration(params: DidChangeConfigurationParams) {
+        this.console.log(`Received updated settings`);
+        if (params?.settings) {
+            this._defaultClientConfig = params?.settings;
+        }
+        this.updateSettingsForAllWorkspaces();
+    }
+
+    protected async onDefinition(
+        params: TextDocumentPositionParams,
+        token: CancellationToken
+    ): Promise<Definition | DefinitionLink[] | undefined | null> {
+        return this.getDefinitions(
+            params,
+            token,
+            this.client.hasGoToDeclarationCapability ? DefinitionFilter.PreferSource : DefinitionFilter.All,
+            (workspace, filePath, position, filter, token) =>
+                workspace.serviceInstance.getDefinitionForPosition(filePath, position, filter, token)
+        );
+    }
+
+    protected async onDeclaration(
+        params: TextDocumentPositionParams,
+        token: CancellationToken
+    ): Promise<Declaration | DeclarationLink[] | undefined | null> {
+        return this.getDefinitions(
+            params,
+            token,
+            this.client.hasGoToDeclarationCapability ? DefinitionFilter.PreferStubs : DefinitionFilter.All,
+            (workspace, filePath, position, filter, token) =>
+                workspace.serviceInstance.getDefinitionForPosition(filePath, position, filter, token)
+        );
+    }
+
+    protected async onTypeDefinition(
+        params: TextDocumentPositionParams,
+        token: CancellationToken
+    ): Promise<Definition | DefinitionLink[] | undefined | null> {
+        return this.getDefinitions(params, token, DefinitionFilter.All, (workspace, filePath, position, _, token) =>
+            workspace.serviceInstance.getTypeDefinitionForPosition(filePath, position, token)
+        );
+    }
+
+    protected async getDefinitions(
+        params: TextDocumentPositionParams,
+        token: CancellationToken,
+        filter: DefinitionFilter,
+        getDefinitionsFunc: (
+            workspace: WorkspaceServiceInstance,
+            filePath: string,
+            position: Position,
+            filter: DefinitionFilter,
+            token: CancellationToken
+        ) => DocumentRange[] | undefined
+    ) {
+        this.recordUserInteractionTime();
+
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return undefined;
+        }
+
+        const locations = getDefinitionsFunc(workspace, filePath, position, filter, token);
+        if (!locations) {
+            return undefined;
+        }
+        return locations
+            .filter((loc) => !this.fs.isInZipOrEgg(loc.path))
+            .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
+    }
+
+    protected async onReferences(
+        params: ReferenceParams,
+        token: CancellationToken,
+        workDoneReporter: WorkDoneProgressReporter,
+        resultReporter: ResultProgressReporter<Location[]> | undefined
+    ): Promise<Location[] | null | undefined> {
+        if (this._pendingFindAllRefsCancellationSource) {
+            this._pendingFindAllRefsCancellationSource.cancel();
+            this._pendingFindAllRefsCancellationSource = undefined;
+        }
+
+        // VS Code doesn't support cancellation of "final all references".
+        // We provide a progress bar a cancellation button so the user can cancel
+        // any long-running actions.
+        const progress = await this._getProgressReporter(
+            workDoneReporter,
+            Localizer.CodeAction.findingReferences(),
+            token
+        );
+
+        const source = progress.source;
+        this._pendingFindAllRefsCancellationSource = source;
+
+        try {
+            const { filePath, position } = this._uriParser.decodeTextDocumentPosition(
+                params.textDocument,
+                params.position
+            );
+
+            const workspace = await this.getWorkspaceForFile(filePath);
+            if (workspace.disableLanguageServices) {
+                return;
+            }
+
+            const convert = (locs: DocumentRange[]): Location[] => {
+                return locs
+                    .filter((loc) => !this.fs.isInZipOrEgg(loc.path))
+                    .map((loc) => Location.create(convertPathToUri(this.fs, loc.path), loc.range));
+            };
+
+            const locations: Location[] = [];
+            const reporter: ReferenceCallback = resultReporter
+                ? (locs) => resultReporter.report(convert(locs))
+                : (locs) => locations.push(...convert(locs));
+
+            workspace.serviceInstance.reportReferencesForPosition(
+                filePath,
+                position,
+                params.context.includeDeclaration,
+                reporter,
+                source.token
+            );
+
+            return locations;
+        } finally {
+            progress.reporter.done();
+            source.dispose();
+        }
+    }
+
+    protected async onDocumentSymbol(
+        params: DocumentSymbolParams,
+        token: CancellationToken
+    ): Promise<DocumentSymbol[] | SymbolInformation[] | null | undefined> {
+        this.recordUserInteractionTime();
+
+        const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return undefined;
+        }
+
+        const symbolList: DocumentSymbol[] = [];
+        workspace.serviceInstance.addSymbolsForDocument(filePath, symbolList, token);
+        if (this.client.hasHierarchicalDocumentSymbolCapability) {
+            return symbolList;
+        }
+
+        return convertToFlatSymbols(params.textDocument.uri, symbolList);
+    }
+
+    protected async onWorkspaceSymbol(
+        params: WorkspaceSymbolParams,
+        token: CancellationToken,
+        resultReporter: ResultProgressReporter<SymbolInformation[]> | undefined
+    ): Promise<SymbolInformation[] | null | undefined> {
+        const symbolList: SymbolInformation[] = [];
+
+        const reporter: WorkspaceSymbolCallback = resultReporter
+            ? (symbols) => resultReporter.report(symbols)
+            : (symbols) => symbolList.push(...symbols);
+
+        for (const workspace of this._workspaceMap.values()) {
+            await workspace.isInitialized.promise;
+            if (!workspace.disableLanguageServices) {
+                workspace.serviceInstance.reportSymbolsForWorkspace(params.query, reporter, token);
+            }
+        }
+
+        return symbolList;
+    }
+
+    protected async onHover(params: HoverParams, token: CancellationToken) {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        const hoverResults = workspace.serviceInstance.getHoverForPosition(
+            filePath,
+            position,
+            this.client.hoverContentFormat,
+            token
+        );
+        return convertHoverResults(this.client.hoverContentFormat, hoverResults);
+    }
+
+    protected async onDocumentHighlight(
+        params: DocumentHighlightParams,
+        token: CancellationToken
+    ): Promise<DocumentHighlight[] | null | undefined> {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+        const workspace = await this.getWorkspaceForFile(filePath);
+        return workspace.serviceInstance.getDocumentHighlight(filePath, position, token);
+    }
+
+    protected async onSignatureHelp(
+        params: SignatureHelpParams,
+        token: CancellationToken
+    ): Promise<SignatureHelp | undefined | null> {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return;
+        }
+        const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(
+            filePath,
+            position,
+            this.client.signatureDocFormat,
+            token
+        );
+        if (!signatureHelpResults) {
+            return undefined;
+        }
+
+        const signatures = signatureHelpResults.signatures.map((sig) => {
+            let paramInfo: ParameterInformation[] = [];
+            if (sig.parameters) {
+                paramInfo = sig.parameters.map((param) =>
+                    ParameterInformation.create(
+                        this.client.hasSignatureLabelOffsetCapability
+                            ? [param.startOffset, param.endOffset]
+                            : param.text,
+                        param.documentation
+                    )
+                );
+            }
+
+            const sigInfo = SignatureInformation.create(sig.label, undefined, ...paramInfo);
+            if (sig.documentation !== undefined) {
+                sigInfo.documentation = sig.documentation;
+            }
+            if (sig.activeParameter !== undefined) {
+                sigInfo.activeParameter = sig.activeParameter;
+            }
+            return sigInfo;
+        });
+
+        // A signature is active if it contains an active parameter,
+        // or if both the signature and its invocation have no parameters.
+        const isActive = (sig: SignatureInformation) =>
+            sig.activeParameter !== undefined || (!signatureHelpResults.callHasParameters && !sig.parameters?.length);
+
+        let activeSignature: number | null = signatures.findIndex(isActive);
+        if (activeSignature === -1) {
+            activeSignature = null;
+        }
+
+        let activeParameter = activeSignature !== null ? signatures[activeSignature].activeParameter! : null;
+
+        // Check if we should reuse the user's signature selection. If the retrigger was not "invoked"
+        // (i.e., the signature help call was automatically generated by the client due to some navigation
+        // or text change), check to see if the previous signature is still "active". If so, we mark it as
+        // active in our response.
+        //
+        // This isn't a perfect method. For nested calls, we can't tell when we are moving between them.
+        // Ideally, we would include a token in the signature help responses to compare later, allowing us
+        // to know when the user's navigated to a nested call (and therefore the old signature's info does
+        // not apply), but for now manually retriggering the signature help will work around the issue.
+        if (params.context?.isRetrigger && params.context.triggerKind !== SignatureHelpTriggerKind.Invoked) {
+            const prevActiveSignature = params.context.activeSignatureHelp?.activeSignature ?? null;
+            if (prevActiveSignature !== null && prevActiveSignature < signatures.length) {
+                const sig = signatures[prevActiveSignature];
+                if (isActive(sig)) {
+                    activeSignature = prevActiveSignature;
+                    activeParameter = sig.activeParameter ?? null;
+                }
+            }
+        }
+
+        if (this.client.hasActiveParameterCapability || activeSignature === null) {
+            // If there is no active parameter, then we want the client to not highlight anything.
+            // Unfortunately, the LSP spec says that "undefined" or "out of bounds" values should be
+            // treated as 0, which is the first parameter. That's not what we want, but thankfully
+            // VS Code (and potentially other clients) choose to handle out of bounds values by
+            // not highlighting them, which is what we want.
+            //
+            // The spec defines activeParameter as uinteger, so use the maximum length of any
+            // signature's parameter list to ensure that the value is always out of range.
+            //
+            // We always set this even if some signature has an active parameter, as this
+            // value is used as the fallback for signatures that don't explicitly specify an
+            // active parameter (and we use "undefined" to mean "no active parameter").
+            //
+            // We could apply this hack to each individual signature such that they all specify
+            // activeParameter, but that would make it more difficult to determine which actually
+            // are active when comparing, and we already have to set this for clients which don't
+            // support per-signature activeParameter.
+            //
+            // See:
+            //   - https://github.com/microsoft/language-server-protocol/issues/1271
+            //   - https://github.com/microsoft/pyright/pull/1783
+            activeParameter = Math.max(...signatures.map((s) => s.parameters?.length ?? 0));
+        }
+
+        return { signatures, activeSignature, activeParameter };
+    }
+
+    protected async onCompletion(
+        params: CompletionParams,
+        token: CancellationToken
+    ): Promise<CompletionList | undefined> {
+        // We set completion incomplete for the first invocation and next consecutive call,
+        // but after that we mark it as completed so the client doesn't repeatedly call back.
+        // We mark the first one as incomplete because completion could be invoked without
+        // any meaningful character provided, such as an explicit completion invocation (ctrl+space)
+        // or a period. That might cause us to not include some items (e.g., auto-imports).
+        // The next consecutive call provides some characters to help us to pick
+        // better completion items. After that, we are not going to introduce new items,
+        // so we can let the client to do the filtering and caching.
+        const completionIncomplete =
+            this._lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
+            params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
+
+        this._lastTriggerKind = params.context?.triggerKind;
+
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return;
+        }
+
+        const completions = await this.getWorkspaceCompletionsForPosition(
+            workspace,
+            filePath,
+            position,
+            workspace.rootPath,
+            token
+        );
+
+        if (completions && completions.completionList) {
+            completions.completionList.isIncomplete = completionIncomplete;
+        }
+
+        return completions?.completionList;
+    }
+
+    // Cancellation bugs in vscode and LSP:
+    // https://github.com/microsoft/vscode-languageserver-node/issues/615
+    // https://github.com/microsoft/vscode/issues/95485
+    //
+    // If resolver throws cancellation exception, LSP and VSCode
+    // cache that result and never call us back.
+    protected async onCompletionResolve(params: CompletionItem, token: CancellationToken): Promise<CompletionItem> {
+        const completionItemData = params.data as CompletionItemData;
+        if (completionItemData && completionItemData.filePath) {
+            const workspace = await this.getWorkspaceForFile(completionItemData.workspacePath);
+            this.resolveWorkspaceCompletionItem(workspace, completionItemData.filePath, params, token);
+        }
+        return params;
+    }
+
+    protected async onRenameRequest(
+        params: RenameParams,
+        token: CancellationToken
+    ): Promise<WorkspaceEdit | null | undefined> {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return;
+        }
+
+        const editActions = workspace.serviceInstance.renameSymbolAtPosition(
+            filePath,
+            position,
+            params.newName,
+            workspace.rootPath === '',
+            token
+        );
+
+        if (!editActions) {
+            return undefined;
+        }
+
+        return convertWorkspaceEdits(this.fs, editActions);
+    }
+
+    protected async onPrepare(
+        params: CallHierarchyPrepareParams,
+        token: CancellationToken
+    ): Promise<CallHierarchyItem[] | null> {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return null;
+        }
+
+        const callItem = workspace.serviceInstance.getCallForPosition(filePath, position, token) || null;
+        if (!callItem) {
+            return null;
+        }
+
+        if (this.fs.isInZipOrEgg(callItem.uri)) {
+            return null;
+        }
+
+        // Convert the file path in the item to proper URI.
+        callItem.uri = convertPathToUri(this.fs, callItem.uri);
+
+        return [callItem];
+    }
+
+    protected async onIncomingCalls(params: CallHierarchyIncomingCallsParams, token: CancellationToken) {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.item, params.item.range.start);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return null;
+        }
+
+        let callItems = workspace.serviceInstance.getIncomingCallsForPosition(filePath, position, token) || null;
+        if (!callItems || callItems.length === 0) {
+            return null;
+        }
+
+        callItems = callItems.filter((item) => !this.fs.isInZipOrEgg(item.from.uri));
+
+        // Convert the file paths in the items to proper URIs.
+        callItems.forEach((item) => {
+            item.from.uri = convertPathToUri(this.fs, item.from.uri);
+        });
+
+        return callItems;
+    }
+
+    protected async onOutgoingCalls(
+        params: CallHierarchyOutgoingCallsParams,
+        token: CancellationToken
+    ): Promise<CallHierarchyOutgoingCall[] | null> {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.item, params.item.range.start);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return null;
+        }
+
+        let callItems = workspace.serviceInstance.getOutgoingCallsForPosition(filePath, position, token) || null;
+        if (!callItems || callItems.length === 0) {
+            return null;
+        }
+
+        callItems = callItems.filter((item) => !this.fs.isInZipOrEgg(item.to.uri));
+
+        // Convert the file paths in the items to proper URIs.
+        callItems.forEach((item) => {
+            item.to.uri = convertPathToUri(this.fs, item.to.uri);
+        });
+
+        return callItems;
+    }
+
+    protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams) {
+        const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
+
+        if (!(this.fs as PyrightFileSystem).addUriMap(params.textDocument.uri, filePath)) {
+            // We do not support opening 1 file with 2 different uri.
+            return;
+        }
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        workspace.serviceInstance.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
+    }
+
+    protected async onDidChangeTextDocument(params: DidChangeTextDocumentParams) {
+        this.recordUserInteractionTime();
+
+        const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
+        if (!(this.fs as PyrightFileSystem).hasUriMapEntry(params.textDocument.uri, filePath)) {
+            // We do not support opening 1 file with 2 different uri.
+            return;
+        }
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        workspace.serviceInstance.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges);
+    }
+
+    protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
+        const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
+        if (!(this.fs as PyrightFileSystem).removeUriMap(params.textDocument.uri, filePath)) {
+            // We do not support opening 1 file with 2 different uri.
+            return;
+        }
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        workspace.serviceInstance.setFileClosed(filePath);
+    }
+
+    protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
+        params.changes.forEach((change) => {
+            const filePath = this._uriParser.decodeTextDocumentUri(change.uri);
+            const eventType: FileWatcherEventType = change.type === 1 ? 'add' : 'change';
+            this._fileWatcherProvider.onFileChange(eventType, filePath);
+        });
+    }
+
+    protected async onExecuteCommand(
+        params: ExecuteCommandParams,
+        token: CancellationToken,
+        reporter: WorkDoneProgressReporter
+    ) {
+        // Cancel running command if there is one.
+        if (this._pendingCommandCancellationSource) {
+            this._pendingCommandCancellationSource.cancel();
+            this._pendingCommandCancellationSource = undefined;
+        }
+
+        const executeCommand = async (token: CancellationToken) => {
+            const result = await this.executeCommand(params, token);
+            if (WorkspaceEdit.is(result)) {
+                // Tell client to apply edits.
+                // Do not await; the client isn't expecting a result.
+                this._connection.workspace.applyEdit({ label: `Command '${params.command}'`, edit: result });
+            }
+
+            if (CommandResult.is(result)) {
+                // Tell client to apply edits.
+                // Await so that we return after the edit is complete.
+                await this._connection.workspace.applyEdit({ label: result.label, edit: result.edits });
+            }
+
+            return result;
+        };
+
+        if (this.isLongRunningCommand(params.command)) {
+            // Create a progress dialog for long-running commands.
+            const progress = await this._getProgressReporter(reporter, Localizer.CodeAction.executingCommand(), token);
+
+            const source = progress.source;
+            this._pendingCommandCancellationSource = source;
+
+            try {
+                const result = await executeCommand(source.token);
+                return result;
+            } finally {
+                progress.reporter.done();
+                source.dispose();
+            }
+        } else {
+            const result = await executeCommand(token);
+            return result;
+        }
+    }
+
+    protected resolveWorkspaceCompletionItem(
+        workspace: WorkspaceServiceInstance,
+        filePath: string,
+        item: CompletionItem,
+        token: CancellationToken
+    ): void {
+        workspace.serviceInstance.resolveCompletionItem(filePath, item, this.getCompletionOptions(), undefined, token);
+    }
+
+    protected getWorkspaceCompletionsForPosition(
+        workspace: WorkspaceServiceInstance,
+        filePath: string,
+        position: Position,
+        workspacePath: string,
+        token: CancellationToken
+    ): Promise<CompletionResults | undefined> {
+        return workspace.serviceInstance.getCompletionsForPosition(
+            filePath,
+            position,
+            workspacePath,
+            this.getCompletionOptions(),
+            undefined,
+            token
+        );
+    }
+
+    updateSettingsForAllWorkspaces(): void {
+        this._workspaceMap.forEach((workspace) => {
+            this.updateSettingsForWorkspace(workspace).ignoreErrors();
+        });
+    }
+
+    protected getCompletionOptions() {
+        return {
+            format: this.client.completionDocFormat,
+            snippet: this.client.completionSupportsSnippet,
+            lazyEdit: this.client.completionItemResolveSupportsAdditionalTextEdits,
+        };
     }
 
     protected createWorkspaceServiceInstance(
@@ -1155,50 +1278,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         typeStubTargetImportName?: string
     ) {
         AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
-    }
-
-    protected async onCompletion(
-        params: CompletionParams,
-        token: CancellationToken
-    ): Promise<CompletionList | undefined> {
-        // We set completion incomplete for the first invocation and next consecutive call,
-        // but after that we mark it as completed so the client doesn't repeatedly call back.
-        // We mark the first one as incomplete because completion could be invoked without
-        // any meaningful character provided, such as an explicit completion invocation (ctrl+space)
-        // or a period. That might cause us to not include some items (e.g., auto-imports).
-        // The next consecutive call provides some characters to help us to pick
-        // better completion items. After that, we are not going to introduce new items,
-        // so we can let the client to do the filtering and caching.
-        const completionIncomplete =
-            this._lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
-            params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
-
-        this._lastTriggerKind = params.context?.triggerKind;
-
-        const filePath = convertUriToPath(this.fs, params.textDocument.uri);
-        const position: Position = {
-            line: params.position.line,
-            character: params.position.character,
-        };
-
-        const workspace = await this.getWorkspaceForFile(filePath);
-        if (workspace.disableLanguageServices) {
-            return;
-        }
-
-        const completions = await this.getWorkspaceCompletionsForPosition(
-            workspace,
-            filePath,
-            position,
-            workspace.rootPath,
-            token
-        );
-
-        if (completions && completions.completionList) {
-            completions.completionList.isIncomplete = completionIncomplete;
-        }
-
-        return completions?.completionList;
     }
 
     protected convertLogLevel(logLevelValue?: string): LogLevel {

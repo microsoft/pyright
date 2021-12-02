@@ -298,6 +298,14 @@ export class AnalyzerService {
         return this._program.getDefinitionsForPosition(filePath, position, filter, token);
     }
 
+    getTypeDefinitionForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): DocumentRange[] | undefined {
+        return this._program.getTypeDefinitionsForPosition(filePath, position, token);
+    }
+
     reportReferencesForPosition(
         filePath: string,
         position: Position,

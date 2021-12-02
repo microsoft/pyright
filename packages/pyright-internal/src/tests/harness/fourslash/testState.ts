@@ -1362,6 +1362,34 @@ export class TestState {
         }
     }
 
+    verifyFindTypeDefinitions(map: {
+        [marker: string]: {
+            definitions: DocumentRange[];
+        };
+    }) {
+        this._analyze();
+
+        for (const marker of this.getMarkers()) {
+            const fileName = marker.fileName;
+            const name = this.getMarkerName(marker);
+
+            if (!(name in map)) {
+                continue;
+            }
+
+            const expected = map[name].definitions;
+
+            const position = this.convertOffsetToPosition(fileName, marker.position);
+            const actual = this.program.getTypeDefinitionsForPosition(fileName, position, CancellationToken.None);
+
+            assert.strictEqual(actual?.length ?? 0, expected.length, name);
+
+            for (const r of expected) {
+                assert.strictEqual(actual?.filter((d) => this._deepEqual(d, r)).length, 1, name);
+            }
+        }
+    }
+
     verifyRename(map: {
         [marker: string]: {
             newName: string;

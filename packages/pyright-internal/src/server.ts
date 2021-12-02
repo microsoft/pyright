@@ -29,11 +29,13 @@ import { FileBasedCancellationProvider } from './common/fileBasedCancellationUti
 import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
-import { convertUriToPath, resolvePaths } from './common/pathUtils';
+import { resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import { createFromRealFileSystem, WorkspaceFileWatcherProvider } from './common/realFileSystem';
+import { UriParser } from './common/uriParser';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
+import { PyrightFileSystem } from './pyrightFileSystem';
 import { WorkspaceMap } from './workspaceMap';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
@@ -54,6 +56,7 @@ export class PyrightServer extends LanguageServerBase {
         const workspaceMap = new WorkspaceMap();
         const fileWatcherProvider = new WorkspaceFileWatcherProvider(workspaceMap, console);
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
+        const pyrightFileSystem = new PyrightFileSystem(fileSystem);
 
         super(
             {
@@ -61,11 +64,12 @@ export class PyrightServer extends LanguageServerBase {
                 rootDirectory,
                 version,
                 workspaceMap,
-                fileSystem,
+                fileSystem: pyrightFileSystem,
                 fileWatcherProvider,
                 cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
+                uriParser: new UriParser(pyrightFileSystem),
             },
             connection,
             console
@@ -240,7 +244,7 @@ export class PyrightServer extends LanguageServerBase {
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const filePath = convertUriToPath(this.fs, params.textDocument.uri);
+        const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
     }

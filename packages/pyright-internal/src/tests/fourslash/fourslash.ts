@@ -311,6 +311,11 @@ declare namespace _ {
             },
             filter?: DefinitionFilter
         ): void;
+        verifyFindTypeDefinitions(map: {
+            [marker: string]: {
+                definitions: DocumentRange[];
+            };
+        }): void;
         verifyRename(map: {
             [marker: string]: {
                 newName: string;
