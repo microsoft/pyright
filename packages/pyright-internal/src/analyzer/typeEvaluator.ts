@@ -6837,6 +6837,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarMap.addSolveForScope(type.typeAliasInfo.typeVarScopeId);
                 }
 
+                typeVarMap.addSolveForScope(getTypeVarScopeId(constructorMethodType));
+
                 if (constructorMethodType) {
                     // Skip the unknown argument check if we've already checked for __init__.
                     const callResult = validateCallArguments(
