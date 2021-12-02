@@ -127,7 +127,7 @@ export class TypeVarMap {
     }
 
     // Provides a "score" - a value that values completeness (number
-    // of type variables that are assigned) and completeness.
+    // of type variables that are assigned) and simplicity.
     getScore() {
         let score = 0;
 
@@ -136,11 +136,11 @@ export class TypeVarMap {
             // Add 1 to the score for each type variable defined.
             score += 1;
 
-            // Add a fractional amount based on the complexity of the definition.
+            // Add a fractional amount based on the simplicity of the definition.
             // The more complex, the lower the score. In the spirit of Occam's
             // Razor, we always want to favor simple answers.
             const typeVarType = this.getTypeVarType(value.typeVar)!;
-            score += this._getComplexityScoreForType(typeVarType);
+            score += this._getSimplicityScoreForType(typeVarType);
         });
 
         score += this._paramSpecMap.size;
@@ -252,11 +252,11 @@ export class TypeVarMap {
         return TypeVarType.getNameWithScope(reference);
     }
 
-    // Returns a "score" for a type that captures the relative complexity
+    // Returns a "score" for a type that captures the relative simplicity
     // of the type. Scores should all be between 0 and 1 where 0 means
     // very complex and 1 means simple. This is a heuristic, so there's
     // often no objectively correct answer.
-    private _getComplexityScoreForType(type: Type, recursionCount = 0): number {
+    private _getSimplicityScoreForType(type: Type, recursionCount = 0): number {
         if (recursionCount > maxTypeRecursionCount) {
             return 0;
         }
@@ -282,7 +282,7 @@ export class TypeVarMap {
                 // accurately computing the score. Assume a fixed value.
                 if (type.subtypes.length < 16) {
                     doForEachSubtype(type, (subtype) => {
-                        const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
+                        const subtypeScore = this._getSimplicityScoreForType(subtype, recursionCount + 1);
                         if (subtypeScore < minScore) {
                             minScore = subtypeScore;
                         }
@@ -295,9 +295,9 @@ export class TypeVarMap {
             }
 
             case TypeCategory.Class: {
-                // Score a class as 0.5 plus half of the average complexity
+                // Score a class as 0.5 plus half of the average simplicity
                 // score of its type arguments.
-                return this._getComplexityScoreForClass(type, recursionCount + 1);
+                return this._getSimplicityScoreForClass(type, recursionCount + 1);
             }
         }
 
@@ -305,27 +305,29 @@ export class TypeVarMap {
         return 0;
     }
 
-    private _getComplexityScoreForClass(classType: ClassType, recursionCount: number): number {
+    private _getSimplicityScoreForClass(classType: ClassType, recursionCount: number): number {
         let typeArgScoreSum = 0;
         let typeArgCount = 0;
+        let simplicityScore = 0.5;
 
         if (classType.tupleTypeArguments) {
             classType.tupleTypeArguments.forEach((type) => {
-                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
+                typeArgScoreSum += this._getSimplicityScoreForType(type, recursionCount + 1);
                 typeArgCount++;
             });
+
+            simplicityScore += (typeArgScoreSum / typeArgCount) * 0.45;
         } else if (classType.typeArguments) {
             classType.typeArguments.forEach((type) => {
-                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
+                typeArgScoreSum += this._getSimplicityScoreForType(type, recursionCount + 1);
                 typeArgCount++;
             });
+
+            simplicityScore += (typeArgScoreSum / typeArgCount) * 0.45;
+        } else {
+            simplicityScore += 0.5;
         }
 
-        let score = 0.5;
-        if (typeArgCount > 0) {
-            score += (typeArgScoreSum / typeArgCount) * 0.5;
-        }
-
-        return score;
+        return simplicityScore;
     }
 }
