@@ -20186,6 +20186,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
+            if (
+                destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.firstPositionOrKeywordIndex &&
+                !isParamSpecInvolved
+            ) {
+                if (diag) {
+                    diag.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.argsPositionOnly().format({
+                            expected: srcParamDetails.firstPositionOrKeywordIndex,
+                            received: destParamDetails.firstPositionOrKeywordIndex,
+                        })
+                    );
+                }
+                canAssign = false;
+            }
+
             if (destParamDetails.variadicArgsIndex !== undefined) {
                 // Package up the remaining source positional parameters
                 // and assign them to the variadic.

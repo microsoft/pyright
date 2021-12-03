@@ -448,6 +448,7 @@
         "argParamFunction": "Argument corresponds to parameter \"{paramName}\" in function \"{functionName}\"",
         "argsParamMissing": "Parameter \"*{paramName}\" has no corresponding parameter",
         "argsParamWithVariadic": "Parameter \"*{paramName}\" is incompatible with TypeVarTuple",
+        "argsPositionOnly": "Position-only parameter mismatch; expected {expected} but received {received}",
         "argumentType": "Argument type is \"{type}\"",
         "argumentTypes": "Argument types: ({types})",
         "assignToNone": "Type cannot be assigned to type \"None\"",
