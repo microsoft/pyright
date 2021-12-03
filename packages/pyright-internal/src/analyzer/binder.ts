@@ -1799,6 +1799,11 @@ export class Binder extends ParseTreeWalker {
             this._addAntecedent(postContextManagerLabel, this._currentFlowNode!);
             this._currentFlowNode = postContextManagerLabel;
 
+            // Model the call to `__exit__` as a potential exception generator.
+            if (!this._isCodeUnreachable()) {
+                this._addExceptTargets(this._currentFlowNode!);
+            }
+
             if (node.asyncToken) {
                 const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
                 if (!enclosingFunction || !enclosingFunction.isAsync) {

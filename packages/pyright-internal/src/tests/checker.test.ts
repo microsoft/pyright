@@ -155,6 +155,12 @@ test('With4', () => {
     TestUtils.validateResults(analysisResults2, 0);
 });
 
+test('With5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Mro1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['mro1.py']);
 
