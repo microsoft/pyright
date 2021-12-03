@@ -20196,13 +20196,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (
-                destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.firstPositionOrKeywordIndex &&
+                destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.positionOnlyParamCount &&
                 !isParamSpecInvolved
             ) {
                 if (diag) {
                     diag.createAddendum().addMessage(
                         Localizer.DiagnosticAddendum.argsPositionOnly().format({
-                            expected: srcParamDetails.firstPositionOrKeywordIndex,
+                            expected: srcParamDetails.positionOnlyParamCount,
                             received: destParamDetails.firstPositionOrKeywordIndex,
                         })
                     );

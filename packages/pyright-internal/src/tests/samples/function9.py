@@ -38,3 +38,38 @@ def make_writer2(w: _Writer2):
 
 
 make_writer2(Writer2())
+
+
+class _Writer3(Protocol):
+    def write(self, a: str, b: str) -> object:
+        pass
+
+
+class Writer3:
+    def write(self, __a: str, b: str):
+        pass
+
+
+def make_writer3(w: _Writer3):
+    pass
+
+
+# This should generate an error because the source function is positional-only.
+make_writer3(Writer3())
+
+
+class _Writer4(Protocol):
+    def write(self, __a: str, b: str) -> object:
+        pass
+
+
+class Writer4:
+    def write(self, a: str, b: str):
+        pass
+
+
+def make_writer4(w: _Writer4):
+    pass
+
+
+make_writer4(Writer4())

@@ -626,7 +626,7 @@ test('Function8', () => {
 test('Function9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function9.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Unreachable1', () => {

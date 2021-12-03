@@ -11,6 +11,7 @@ import { assert } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
+import { isDunderName } from './symbolNameUtils';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import {
     AnyType,
@@ -174,6 +175,7 @@ export interface ParameterListDetails {
     variadicArgsIndex?: number;
     kwargsIndex?: number;
     firstPositionOrKeywordIndex: number;
+    positionOnlyParamCount: number;
     firstKeywordOnlyIndex?: number;
     params: ParameterDetails[];
 }
@@ -181,15 +183,45 @@ export interface ParameterListDetails {
 export function getParameterListDetails(type: FunctionType): ParameterListDetails {
     const result: ParameterListDetails = {
         firstPositionOrKeywordIndex: 0,
+        positionOnlyParamCount: 0,
         params: [],
     };
 
-    const positionOnlyIndex = type.details.parameters.findIndex(
+    let positionOnlyIndex = type.details.parameters.findIndex(
         (p) => p.category === ParameterCategory.Simple && !p.name
     );
 
+    // Handle the old (pre Python 3.8) way of specifying positional-only
+    // parameters by naming them with "__".
+    if (positionOnlyIndex < 0) {
+        for (let i = 0; i < type.details.parameters.length; i++) {
+            const p = type.details.parameters[i];
+            if (p.category !== ParameterCategory.Simple) {
+                break;
+            }
+
+            if (!p.name) {
+                break;
+            }
+
+            if (isDunderName(p.name) || !p.name.startsWith('__')) {
+                break;
+            }
+
+            positionOnlyIndex = i + 1;
+        }
+    }
+
     if (positionOnlyIndex >= 0) {
         result.firstPositionOrKeywordIndex = positionOnlyIndex;
+    }
+
+    for (let i = 0; i < positionOnlyIndex; i++) {
+        if (type.details.parameters[i].hasDefault) {
+            break;
+        }
+
+        result.positionOnlyParamCount++;
     }
 
     let sawKeywordOnlySeparator = false;
