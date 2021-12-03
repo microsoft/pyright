@@ -1783,7 +1783,7 @@ export class Parser {
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
             starCount = 2;
         } else if (this._consumeTokenIfOperator(OperatorType.Divide)) {
-            if (this._getLanguageVersion() < PythonVersion.V3_8) {
+            if (this._getLanguageVersion() < PythonVersion.V3_8 && !this._parseOptions.isStubFile) {
                 this._addError(Localizer.Diagnostic.positionOnlyIncompatible(), firstToken);
             }
             slashCount = 1;
