@@ -376,6 +376,9 @@ export const enum ClassTypeFlags {
 
     // For dataclasses, should __slots__ be generated?
     GenerateDataClassSlots = 1 << 25,
+
+    // For dataclasses, should __hash__ be generated?
+    SynthesizeDataClassUnsafeHash = 1 << 26,
 }
 
 export interface DataClassBehaviors {
@@ -666,6 +669,10 @@ export namespace ClassType {
 
     export function isGeneratedDataClassSlots(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.GenerateDataClassSlots);
+    }
+
+    export function isSynthesizeDataClassUnsafeHash(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SynthesizeDataClassUnsafeHash);
     }
 
     export function isTypedDictClass(classType: ClassType) {

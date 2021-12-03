@@ -139,6 +139,11 @@ defined in PEP 557.
 `init` is a parameter supported in the stdlib dataclass, and its meaning is
 defined in PEP 557.
 
+`unsafe_hash` is a parameter supported in the stdlib dataclass, and its meaning is
+defined in PEP 557.
+
+`hash` is an alias for the `unsafe_hash` parameter.
+
 `kw_only` is a parameter supported in the stdlib dataclass, first introduced
 in Python 3.10.
 

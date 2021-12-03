@@ -62,7 +62,8 @@ export function synthesizeDataClassMethods(
     evaluator: TypeEvaluator,
     node: ClassNode,
     classType: ClassType,
-    skipSynthesizeInit: boolean
+    skipSynthesizeInit: boolean,
+    skipSynthesizeHash: boolean
 ) {
     assert(ClassType.isDataClass(classType));
 
@@ -443,6 +444,30 @@ export function synthesizeDataClassMethods(
         });
     }
 
+    let synthesizeHashFunction =
+        !ClassType.isSkipSynthesizedDataClassEq(classType) && ClassType.isFrozenDataClass(classType);
+    const synthesizeHashNone =
+        !ClassType.isSkipSynthesizedDataClassEq(classType) && !ClassType.isFrozenDataClass(classType);
+
+    if (!skipSynthesizeHash) {
+        synthesizeHashFunction = false;
+    }
+
+    // If the user has indicated that a hash function should be generated even if it's unsafe
+    // to do so or there is already a hash function present, override the default logic.
+    if (ClassType.isSynthesizeDataClassUnsafeHash(classType)) {
+        synthesizeHashFunction = true;
+    }
+
+    if (synthesizeHashFunction) {
+        const hashMethod = FunctionType.createInstance('__hash__', '', '', FunctionTypeFlags.SynthesizedMethod);
+        FunctionType.addParameter(hashMethod, selfParam);
+        hashMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'int');
+        symbolTable.set('__hash__', Symbol.createWithType(SymbolFlags.ClassMember, hashMethod));
+    } else if (synthesizeHashNone && !skipSynthesizeHash) {
+        symbolTable.set('__hash__', Symbol.createWithType(SymbolFlags.ClassMember, NoneType.createInstance()));
+    }
+
     let dictType = evaluator.getBuiltInType(node, 'dict');
     if (isInstantiableClass(dictType)) {
         dictType = ClassType.cloneAsInstance(
@@ -753,6 +778,13 @@ function applyDataClassBehaviorOverride(
                 }
             } else if (value === false) {
                 classType.details.flags &= ~ClassTypeFlags.GenerateDataClassSlots;
+            }
+            break;
+
+        case 'hash':
+        case 'unsafe_hash':
+            if (value === true) {
+                classType.details.flags |= ClassTypeFlags.SynthesizeDataClassUnsafeHash;
             }
             break;
     }

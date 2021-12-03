@@ -12963,7 +12963,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            synthesizeDataClassMethods(evaluatorInterface, node, classType, skipSynthesizedInit);
+            let skipSynthesizeHash = false;
+            const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
+            if (hashSymbol) {
+                const hashSymbolType = getTypeOfMember(hashSymbol);
+                if (isFunction(hashSymbolType) && !FunctionType.isSynthesizedMethod(hashSymbolType)) {
+                    skipSynthesizeHash = true;
+                }
+            }
+
+            synthesizeDataClassMethods(evaluatorInterface, node, classType, skipSynthesizedInit, skipSynthesizeHash);
         }
 
         // Build a complete list of all slots names defined by the class hierarchy.
