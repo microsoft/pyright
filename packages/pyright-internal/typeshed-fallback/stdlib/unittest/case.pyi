@@ -14,7 +14,6 @@ from typing import (
     Generic,
     Iterable,
     Mapping,
-    NamedTuple,
     NoReturn,
     Pattern,
     Sequence,
@@ -23,6 +22,7 @@ from typing import (
     TypeVar,
     overload,
 )
+from unittest._log import _AssertLogsContext, _LoggingWatcher
 from warnings import WarningMessage
 
 if sys.version_info >= (3, 9):
@@ -81,7 +81,7 @@ class TestCase:
     def assertLess(self, a: Any, b: Any, msg: Any = ...) -> None: ...
     def assertLessEqual(self, a: Any, b: Any, msg: Any = ...) -> None: ...
     @overload
-    def assertRaises(  # type: ignore
+    def assertRaises(  # type: ignore[misc]
         self,
         expected_exception: Type[BaseException] | Tuple[Type[BaseException], ...],
         callable: Callable[..., Any],
@@ -91,7 +91,7 @@ class TestCase:
     @overload
     def assertRaises(self, expected_exception: Type[_E] | Tuple[Type[_E], ...], msg: Any = ...) -> _AssertRaisesContext[_E]: ...
     @overload
-    def assertRaisesRegex(  # type: ignore
+    def assertRaisesRegex(  # type: ignore[misc]
         self,
         expected_exception: Type[BaseException] | Tuple[Type[BaseException], ...],
         expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
@@ -107,13 +107,13 @@ class TestCase:
         msg: Any = ...,
     ) -> _AssertRaisesContext[_E]: ...
     @overload
-    def assertWarns(  # type: ignore
+    def assertWarns(  # type: ignore[misc]
         self, expected_warning: Type[Warning] | Tuple[Type[Warning], ...], callable: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> None: ...
     @overload
     def assertWarns(self, expected_warning: Type[Warning] | Tuple[Type[Warning], ...], msg: Any = ...) -> _AssertWarnsContext: ...
     @overload
-    def assertWarnsRegex(  # type: ignore
+    def assertWarnsRegex(  # type: ignore[misc]
         self,
         expected_warning: Type[Warning] | Tuple[Type[Warning], ...],
         expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
@@ -128,7 +128,13 @@ class TestCase:
         expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
         msg: Any = ...,
     ) -> _AssertWarnsContext: ...
-    def assertLogs(self, logger: str | logging.Logger | None = ..., level: int | str | None = ...) -> _AssertLogsContext: ...
+    def assertLogs(
+        self, logger: str | logging.Logger | None = ..., level: int | str | None = ...
+    ) -> _AssertLogsContext[_LoggingWatcher]: ...
+    if sys.version_info >= (3, 10):
+        def assertNoLogs(
+            self, logger: str | logging.Logger | None = ..., level: int | str | None = ...
+        ) -> _AssertLogsContext[None]: ...
     @overload
     def assertAlmostEqual(
         self, first: float, second: float, places: int | None = ..., msg: Any = ..., delta: float | None = ...
@@ -195,7 +201,7 @@ class TestCase:
         def assert_(self, expr: bool, msg: Any = ...) -> None: ...
         def failIf(self, expr: bool, msg: Any = ...) -> None: ...
         @overload
-        def failUnlessRaises(  # type: ignore
+        def failUnlessRaises(  # type: ignore[misc]
             self,
             exception: Type[BaseException] | Tuple[Type[BaseException], ...],
             callable: Callable[..., Any] = ...,
@@ -215,7 +221,7 @@ class TestCase:
         def assertRegexpMatches(self, text: AnyStr, regex: AnyStr | Pattern[AnyStr], msg: Any = ...) -> None: ...
         def assertNotRegexpMatches(self, text: AnyStr, regex: AnyStr | Pattern[AnyStr], msg: Any = ...) -> None: ...
         @overload
-        def assertRaisesRegexp(  # type: ignore
+        def assertRaisesRegexp(  # type: ignore[misc]
             self,
             exception: Type[BaseException] | Tuple[Type[BaseException], ...],
             expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
@@ -244,10 +250,6 @@ class FunctionTestCase(TestCase):
     ) -> None: ...
     def runTest(self) -> None: ...
 
-class _LoggingWatcher(NamedTuple):
-    records: list[logging.LogRecord]
-    output: list[str]
-
 class _AssertRaisesContext(Generic[_E]):
     exception: _E
     def __enter__(self: Self) -> Self: ...
@@ -266,16 +268,3 @@ class _AssertWarnsContext:
     def __exit__(
         self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None: ...
-
-class _AssertLogsContext:
-    LOGGING_FORMAT: str
-    records: list[logging.LogRecord]
-    output: list[str]
-    def __init__(self, test_case: TestCase, logger_name: str, level: int) -> None: ...
-    if sys.version_info >= (3, 10):
-        def __enter__(self) -> _LoggingWatcher | None: ...
-    else:
-        def __enter__(self) -> _LoggingWatcher: ...
-    def __exit__(
-        self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
-    ) -> bool | None: ...

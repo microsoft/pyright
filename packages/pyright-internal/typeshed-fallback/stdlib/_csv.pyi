@@ -1,5 +1,8 @@
 from typing import Any, Iterable, Iterator, List, Protocol, Type, Union
 
+# __version__ is deliberately not defined here or in csv.pyi,
+# as it appears to have been hardcoded at "1.0" for a very long time!
+
 QUOTE_ALL: int
 QUOTE_MINIMAL: int
 QUOTE_NONE: int
@@ -31,7 +34,7 @@ class _writer:
     def writerows(self, rows: Iterable[Iterable[Any]]) -> None: ...
 
 class _Writer(Protocol):
-    def write(self, s: str, /) -> Any: ...
+    def write(self, __s: str) -> object: ...
 
 def writer(csvfile: _Writer, dialect: _DialectLike = ..., **fmtparams: Any) -> _writer: ...
 def reader(csvfile: Iterable[str], dialect: _DialectLike = ..., **fmtparams: Any) -> _reader: ...

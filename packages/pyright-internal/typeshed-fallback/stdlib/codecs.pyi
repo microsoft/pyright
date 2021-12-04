@@ -53,11 +53,11 @@ _BytesToBytesEncodingT = Literal[
 @overload
 def encode(obj: bytes, encoding: _BytesToBytesEncodingT, errors: str = ...) -> bytes: ...
 @overload
-def encode(obj: str, encoding: Literal["rot13", "rot_13"] = ..., errors: str = ...) -> str: ...  # type: ignore
+def encode(obj: str, encoding: Literal["rot13", "rot_13"] = ..., errors: str = ...) -> str: ...  # type: ignore[misc]
 @overload
 def encode(obj: str, encoding: str = ..., errors: str = ...) -> bytes: ...
 @overload
-def decode(obj: bytes, encoding: _BytesToBytesEncodingT, errors: str = ...) -> bytes: ...  # type: ignore
+def decode(obj: bytes, encoding: _BytesToBytesEncodingT, errors: str = ...) -> bytes: ...  # type: ignore[misc]
 @overload
 def decode(obj: str, encoding: Literal["rot13", "rot_13"] = ..., errors: str = ...) -> str: ...
 @overload

@@ -25,6 +25,9 @@ if sys.version_info >= (3, 8):
 else:
     from collections import OrderedDict as _DictReadMapping
 
+# __version__ is deliberately not defined here or in _csv.pyi,
+# as it appears to have been hardcoded at "1.0" for a very long time!
+
 _T = TypeVar("_T")
 
 class excel(Dialect):

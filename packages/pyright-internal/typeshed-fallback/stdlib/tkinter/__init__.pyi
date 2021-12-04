@@ -688,7 +688,8 @@ class Tk(Misc, Wm):
     quit: Any
     record: Any
     setvar: Any
-    split: Any
+    if sys.version_info < (3, 11):
+        split: Any
     splitlist: Any
     unsetvar: Any
     wantobjects: Any
@@ -1135,7 +1136,7 @@ class Canvas(Widget, XView, YView):
     # Canvas.bbox() args are `str | _CanvasItemId`, but mypy rejects that
     # description because it's incompatible with Misc.bbox(), an alias for
     # Misc.grid_bbox(). Yes it is, but there's not much we can do about it.
-    def bbox(self, *args: str | _CanvasItemId) -> tuple[int, int, int, int]: ...  # type: ignore
+    def bbox(self, *args: str | _CanvasItemId) -> tuple[int, int, int, int]: ...  # type: ignore[override]
     @overload
     def tag_bind(
         self,
@@ -1505,10 +1506,10 @@ class Canvas(Widget, XView, YView):
     #
     # But mypy doesn't like aliasing here (maybe because Misc defines the same names)
     def tag_lower(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...
-    def lower(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...  # type: ignore
+    def lower(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...  # type: ignore[override]
     def tag_raise(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...
-    def tkraise(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...  # type: ignore
-    def lift(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...  # type: ignore
+    def tkraise(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...  # type: ignore[override]
+    def lift(self, __first: str | _CanvasItemId, __second: str | _CanvasItemId | None = ...) -> None: ...  # type: ignore[override]
     def scale(self, *args): ...
     def scan_mark(self, x, y): ...
     def scan_dragto(self, x, y, gain: int = ...): ...
@@ -1737,7 +1738,7 @@ class Entry(Widget, XView):
     def scan_mark(self, x): ...
     def scan_dragto(self, x): ...
     def selection_adjust(self, index: _EntryIndex) -> None: ...
-    def selection_clear(self) -> None: ...  # type: ignore
+    def selection_clear(self) -> None: ...  # type: ignore[override]
     def selection_from(self, index: _EntryIndex) -> None: ...
     def selection_present(self) -> bool: ...
     def selection_range(self, start: _EntryIndex, end: _EntryIndex) -> None: ...
@@ -1983,7 +1984,7 @@ class Listbox(Widget, XView, YView):
     def see(self, index): ...
     def selection_anchor(self, index): ...
     select_anchor: Any
-    def selection_clear(self, first, last: Any | None = ...): ...  # type: ignore
+    def selection_clear(self, first, last: Any | None = ...): ...  # type: ignore[override]
     select_clear: Any
     def selection_includes(self, index): ...
     select_includes: Any
@@ -2793,7 +2794,7 @@ class Text(Widget, XView, YView):
     @overload
     def configure(self, cnf: str) -> tuple[str, str, str, Any, Any]: ...
     config = configure
-    def bbox(self, index: _TextIndex) -> tuple[int, int, int, int] | None: ...  # type: ignore
+    def bbox(self, index: _TextIndex) -> tuple[int, int, int, int] | None: ...  # type: ignore[override]
     def compare(self, index1: _TextIndex, op: Literal["<", "<=", "==", ">=", ">", "!="], index2: _TextIndex) -> bool: ...
     def count(self, index1, index2, *args): ...  # TODO
     @overload

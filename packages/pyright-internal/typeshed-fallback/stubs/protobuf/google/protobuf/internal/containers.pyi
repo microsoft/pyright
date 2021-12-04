@@ -13,6 +13,7 @@ from typing import (
     Union,
     overload,
 )
+from typing_extensions import SupportsIndex
 
 from google.protobuf.descriptor import Descriptor
 from google.protobuf.internal.message_listener import MessageListener
@@ -33,7 +34,7 @@ class BaseContainer(Sequence[_T]):
     def __repr__(self) -> str: ...
     def sort(self, *, key: Optional[Callable[[_T], Any]] = ..., reverse: bool = ...) -> None: ...
     @overload
-    def __getitem__(self, key: int) -> _T: ...
+    def __getitem__(self, key: SupportsIndex) -> _T: ...
     @overload
     def __getitem__(self, key: slice) -> List[_T]: ...
 

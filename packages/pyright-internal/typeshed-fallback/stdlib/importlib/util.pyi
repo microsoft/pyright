@@ -7,9 +7,9 @@ from typing_extensions import ParamSpec
 
 _P = ParamSpec("_P")
 
-def module_for_loader(fxn: Callable[_P, types.ModuleType]) -> Callable[_P, types.ModuleType]: ...  # type: ignore
-def set_loader(fxn: Callable[_P, types.ModuleType]) -> Callable[_P, types.ModuleType]: ...  # type: ignore
-def set_package(fxn: Callable[_P, types.ModuleType]) -> Callable[_P, types.ModuleType]: ...  # type: ignore
+def module_for_loader(fxn: Callable[_P, types.ModuleType]) -> Callable[_P, types.ModuleType]: ...  # type: ignore[misc]
+def set_loader(fxn: Callable[_P, types.ModuleType]) -> Callable[_P, types.ModuleType]: ...  # type: ignore[misc]
+def set_package(fxn: Callable[_P, types.ModuleType]) -> Callable[_P, types.ModuleType]: ...  # type: ignore[misc]
 def resolve_name(name: str, package: str | None) -> str: ...
 
 MAGIC_NUMBER: bytes

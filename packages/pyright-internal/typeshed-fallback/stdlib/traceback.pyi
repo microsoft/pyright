@@ -9,7 +9,7 @@ def print_tb(tb: TracebackType | None, limit: int | None = ..., file: IO[str] | 
 
 if sys.version_info >= (3, 10):
     def print_exception(
-        __exc: Type[BaseException] | None,
+        __exc: Type[BaseException] | BaseException | None,
         value: BaseException | None = ...,
         tb: TracebackType | None = ...,
         limit: int | None = ...,

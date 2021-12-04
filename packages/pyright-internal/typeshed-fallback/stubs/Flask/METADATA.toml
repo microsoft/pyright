@@ -1,4 +1,0 @@
-version = "1.1.*"
-python2 = true
-requires = ["types-Jinja2", "types-Werkzeug", "types-click"]
-obsolete_since = "2.0"

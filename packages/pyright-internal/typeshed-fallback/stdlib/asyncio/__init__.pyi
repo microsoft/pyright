@@ -2,7 +2,7 @@ import sys
 from typing import Type
 
 from .base_events import BaseEventLoop as BaseEventLoop
-from .coroutines import coroutine as coroutine, iscoroutine as iscoroutine, iscoroutinefunction as iscoroutinefunction
+from .coroutines import iscoroutine as iscoroutine, iscoroutinefunction as iscoroutinefunction
 from .events import (
     AbstractEventLoop as AbstractEventLoop,
     AbstractEventLoopPolicy as AbstractEventLoopPolicy,
@@ -71,6 +71,8 @@ from .transports import (
     WriteTransport as WriteTransport,
 )
 
+if sys.version_info < (3, 11):
+    from .coroutines import coroutine as coroutine
 if sys.version_info >= (3, 7):
     from .events import get_running_loop as get_running_loop
 if sys.version_info >= (3, 8):
