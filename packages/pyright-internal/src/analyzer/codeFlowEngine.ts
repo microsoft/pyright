@@ -233,6 +233,21 @@ export function getCodeFlowEngine(
                 return cachedEntry.recursiveVisitCount;
             }
 
+            function incrementFlowNodeConvergenceCount(flowNode: FlowNode, reset = false) {
+                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
+                if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
+                    return 0;
+                }
+
+                if (reset) {
+                    cachedEntry.recursiveConvergenceCount = 0;
+                } else {
+                    cachedEntry.recursiveConvergenceCount = (cachedEntry.recursiveConvergenceCount ?? 0) + 1;
+                }
+
+                return cachedEntry.recursiveConvergenceCount;
+            }
+
             function getCacheEntry(flowNode: FlowNode, usedOuterScopeAlias: boolean): FlowNodeTypeResult | undefined {
                 if (!flowNodeTypeCache!.has(flowNode.id)) {
                     return undefined;
@@ -665,14 +680,18 @@ export function getCodeFlowEngine(
 
                         // If we've been here more than once and the type has converged (didn't change
                         // since last time), assume that the type is complete.
-                        if (
-                            sawIncomplete &&
-                            visitCount > 1 &&
-                            typeAtStart &&
-                            cacheEntry.type &&
-                            isTypeSame(typeAtStart, cacheEntry.type)
-                        ) {
-                            sawIncomplete = false;
+                        if (sawIncomplete && typeAtStart && cacheEntry.type) {
+                            if (isTypeSame(typeAtStart, cacheEntry.type)) {
+                                // The type was the same more than two times, so it is not oscillating
+                                // or changing. It's safe to conclude that additional times through
+                                // the loop won't cause it to change further.
+                                if (incrementFlowNodeConvergenceCount(flowNode) > 2) {
+                                    sawIncomplete = false;
+                                }
+                            } else {
+                                // The type changed since last time, so reset the convergence count.
+                                incrementFlowNodeConvergenceCount(flowNode, /* reset */ true);
+                            }
                         }
 
                         // The result is incomplete if one or more entries were incomplete.

@@ -40,6 +40,9 @@ export interface IncompleteType {
     // attempting to compute a type.
     recursiveVisitCount?: number;
 
+    // Number of times this type has been evaluated as the same.
+    recursiveConvergenceCount?: number;
+
     // Tracks whether something has changed since this cache entry
     // was written that might change the incomplete type; if this
     // doesn't match the global "incomplete generation count", this
