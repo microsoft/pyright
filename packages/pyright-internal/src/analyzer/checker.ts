@@ -384,7 +384,7 @@ export class Checker extends ParseTreeWalker {
                             isUnknown(paramType) ||
                             (isTypeVar(paramType) &&
                                 paramType.details.isSynthesized &&
-                                !paramType.details.isSynthesizedSelfCls)
+                                !paramType.details.isSynthesizedSelf)
                         ) {
                             this._evaluator.addDiagnostic(
                                 this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
@@ -415,7 +415,7 @@ export class Checker extends ParseTreeWalker {
                             hasAnnotation = true;
                         } else {
                             // See if this is a "self" and "cls" parameter. They are exempt from this rule.
-                            if (isTypeVar(paramType) && paramType.details.isSynthesizedSelfCls) {
+                            if (isTypeVar(paramType) && paramType.details.isSynthesizedSelf) {
                                 hasAnnotation = true;
                             }
                         }

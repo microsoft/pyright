@@ -11646,7 +11646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !ParseTreeUtils.isNodeContainedWithin(errorNode, firstParamTypeAnnotation)
                 ) {
                     const annotationType = getTypeOfAnnotation(firstParamTypeAnnotation);
-                    if (!isTypeVar(annotationType) || !annotationType.details.isSynthesizedSelfCls) {
+                    if (!isTypeVar(annotationType) || !annotationType.details.isSynthesizedSelf) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -13906,7 +13906,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // type instead. Note that this might also be a "cls" parameter if
         // the property is a classmethod.
         let objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
-        if (isTypeVar(objType) && objType.details.isSynthesizedSelfCls) {
+        if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
             objType = makeTopLevelTypeVarsConcrete(objType);
         }
         getFunction2.details.parameters.push({
@@ -14031,7 +14031,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             hasDeclaredType: true,
         });
         let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
-        if (isTypeVar(objType) && objType.details.isSynthesizedSelfCls) {
+        if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
             objType = makeTopLevelTypeVarsConcrete(objType);
         }
         setFunction.details.parameters.push({
@@ -14102,7 +14102,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             hasDeclaredType: true,
         });
         let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
-        if (isTypeVar(objType) && objType.details.isSynthesizedSelfCls) {
+        if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
             objType = makeTopLevelTypeVarsConcrete(objType);
         }
         delFunction.details.parameters.push({

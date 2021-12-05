@@ -382,7 +382,7 @@ export function printType(
                     // If it's a synthesized type var used to implement `self` or `cls` types,
                     // print the type with a special character that indicates that the type
                     // is internally represented as a TypeVar.
-                    if (type.details.isSynthesizedSelfCls && type.details.boundType) {
+                    if (type.details.isSynthesizedSelf && type.details.boundType) {
                         let boundTypeString = printType(
                             type.details.boundType,
                             printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,

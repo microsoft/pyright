@@ -1712,7 +1712,7 @@ export interface TypeVarDetails {
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
-    isSynthesizedSelfCls?: boolean | undefined;
+    isSynthesizedSelf?: boolean | undefined;
     synthesizedIndex?: number | undefined;
 
     // Used for recursive type aliases.

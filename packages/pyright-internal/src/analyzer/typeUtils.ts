@@ -1213,7 +1213,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     const selfType = TypeVarType.createInstance(`__type_of_self__`);
     const scopeId = getTypeVarScopeId(classType) ?? '';
     selfType.details.isSynthesized = true;
-    selfType.details.isSynthesizedSelfCls = true;
+    selfType.details.isSynthesizedSelf = true;
     selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
     selfType.scopeId = scopeId;
 
@@ -2236,7 +2236,7 @@ class TypeVarTransformer {
 
                 if (
                     isTypeVar(oldTypeArgType) &&
-                    oldTypeArgType.details.isSynthesizedSelfCls &&
+                    oldTypeArgType.details.isSynthesizedSelf &&
                     oldTypeArgType.details.boundType
                 ) {
                     const transformedSelfCls = this.apply(
