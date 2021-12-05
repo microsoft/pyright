@@ -4511,11 +4511,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // to leave the Self type generic (not specialized).
                 const selfClass = bindToType ? undefined : classType;
 
-                const typeResult = getTypeOfMemberInternal(
-                    errorNode,
-                    memberInfo,
-                    selfClass,
-                );
+                const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass);
 
                 if (typeResult) {
                     type = typeResult.type;
@@ -17038,7 +17034,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfMemberInternal(
         node: ParseNode,
         member: ClassMember,
-        selfClass: ClassType | undefined,
+        selfClass: ClassType | undefined
     ): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
@@ -17051,11 +17047,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 return {
                     node,
-                    type: partiallySpecializeType(
-                        typeResult.type,
-                        member.classType,
-                        selfClass,
-                    ),
+                    type: partiallySpecializeType(typeResult.type, member.classType, selfClass),
                     isIncomplete: !!typeResult.isIncomplete,
                 };
             }
@@ -17152,7 +17144,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ? partiallySpecializeType(
                                   getEffectiveTypeOfSymbol(srcMemberInfo.symbol),
                                   srcMemberInfo.classType,
-                                  srcType,
+                                  srcType
                               )
                             : UnknownType.create();
 
