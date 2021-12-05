@@ -652,12 +652,7 @@ export function isOpenEndedTupleClass(type: ClassType) {
 // Partially specializes a type within the context of a specified
 // (presumably specialized) class. Optionally specializes the `Self`
 // type variables, replacing them with selfClass.
-export function partiallySpecializeType(
-    type: Type,
-    contextClassType: ClassType,
-    selfClass?: ClassType,
-    exemptTypeVarReplacement = false
-): Type {
+export function partiallySpecializeType(type: Type, contextClassType: ClassType, selfClass?: ClassType): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
     if (ClassType.isUnspecialized(contextClassType)) {
@@ -665,11 +660,7 @@ export function partiallySpecializeType(
     }
 
     // Partially specialize the type using the specialized class type vars.
-    const typeVarMap = buildTypeVarMapFromSpecializedClass(
-        contextClassType,
-        /* makeConcrete */ undefined,
-        exemptTypeVarReplacement
-    );
+    const typeVarMap = buildTypeVarMapFromSpecializedClass(contextClassType, /* makeConcrete */ undefined);
 
     if (selfClass) {
         populateTypeVarMapForSelfType(typeVarMap, contextClassType, selfClass);
@@ -685,14 +676,6 @@ export function populateTypeVarMapForSelfType(
 ) {
     const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
     typeVarMap.setTypeVarType(synthesizedSelfTypeVar, convertToInstance(selfClass));
-}
-
-// If one of the exempt type variables appears within the type, it is replaced
-// with a clone that indicates the TypeVar should not be replaced when
-// applySolvedTypeVars is called.
-export function markTypeVarsReplacementExempt(type: Type, exemptTypeVars: TypeVarType[]): Type {
-    const transformer = new MarkTypeVarsReplacementExemptTransformer(exemptTypeVars);
-    return transformer.apply(type);
 }
 
 // Specializes a (potentially generic) type by substituting
@@ -1093,11 +1076,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
-export function buildTypeVarMapFromSpecializedClass(
-    classType: ClassType,
-    makeConcrete = true,
-    exemptTypeVarReplacement = false
-): TypeVarMap {
+export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeConcrete = true): TypeVarMap {
     const typeParameters = ClassType.getTypeParameters(classType);
     let typeArguments = classType.typeArguments;
 
@@ -1106,8 +1085,6 @@ export function buildTypeVarMapFromSpecializedClass(
     // fill in concrete types.
     if (!typeArguments && !makeConcrete) {
         typeArguments = typeParameters;
-    } else if (exemptTypeVarReplacement) {
-        typeArguments = typeArguments?.map((typeArg) => markTypeVarsReplacementExempt(typeArg, typeParameters));
     }
 
     const typeVarMap = buildTypeVarMap(typeParameters, typeArguments, getTypeVarScopeId(classType));
@@ -2026,6 +2003,8 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
 // Recursively walks a type and calls a callback for each TypeVar, allowing
 // it to be replaced with something else.
 class TypeVarTransformer {
+    private _isTransformingTypeArg = false;
+
     apply(type: Type, recursionSet = new Set<string>(), recursionLevel = 0): Type {
         if (recursionLevel > maxTypeRecursionCount) {
             return type;
@@ -2083,16 +2062,18 @@ class TypeVarTransformer {
             const typeVarName = TypeVarType.getNameWithScope(type);
             if (!recursionSet.has(typeVarName)) {
                 replacementType = this.transformTypeVar(type);
-                recursionSet.add(typeVarName);
-                replacementType = this.apply(replacementType, recursionSet, recursionLevel + 1);
+
+                if (!this._isTransformingTypeArg) {
+                    recursionSet.add(typeVarName);
+                    replacementType = this.apply(replacementType, recursionSet, recursionLevel + 1);
+                    recursionSet.delete(typeVarName);
+                }
 
                 // If we're transforming a variadic type variable that was in a union,
                 // expand the union types.
                 if (isVariadicTypeVar(type) && type.isVariadicInUnion) {
                     replacementType = _expandVariadicUnpackedUnion(replacementType);
                 }
-
-                recursionSet.delete(typeVarName);
             }
 
             return replacementType;
@@ -2217,6 +2198,9 @@ class TypeVarTransformer {
             return paramSpec;
         };
 
+        const wasTransformingTypeArg = this._isTransformingTypeArg;
+        this._isTransformingTypeArg = true;
+
         // If type args were previously provided, specialize them.
         if (classType.typeArguments) {
             newTypeArgs = classType.typeArguments.map((oldTypeArgType) => {
@@ -2272,9 +2256,12 @@ class TypeVarTransformer {
                         replacementType = this.transformTypeVar(typeParam);
 
                         if (replacementType !== typeParam) {
-                            recursionSet.add(typeParamName);
-                            replacementType = this.apply(replacementType, recursionSet, recursionLevel + 1);
-                            recursionSet.delete(typeParamName);
+                            if (!this._isTransformingTypeArg) {
+                                recursionSet.add(typeParamName);
+                                replacementType = this.apply(replacementType, recursionSet, recursionLevel + 1);
+                                recursionSet.delete(typeParamName);
+                            }
+
                             specializationNeeded = true;
                         }
                     }
@@ -2312,6 +2299,8 @@ class TypeVarTransformer {
                 }
             }
         }
+
+        this._isTransformingTypeArg = wasTransformingTypeArg;
 
         // If specialization wasn't needed, don't allocate a new class.
         if (!specializationNeeded) {
@@ -2466,24 +2455,6 @@ class TypeVarTransformer {
     }
 }
 
-// Marks any specified type vars as "exempt from replacement".
-class MarkTypeVarsReplacementExemptTransformer extends TypeVarTransformer {
-    constructor(private _exemptTypeVars: TypeVarType[]) {
-        super();
-    }
-
-    override transformTypeVar(typeVar: TypeVarType): Type {
-        if (
-            this._exemptTypeVars.some(
-                (exemptTypeVar) => isTypeSame(typeVar, exemptTypeVar) && !typeVar.isExemptFromReplacement
-            )
-        ) {
-            return TypeVarType.cloneAsExemptFromReplacement(typeVar);
-        }
-        return typeVar;
-    }
-}
-
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
@@ -2499,7 +2470,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     override transformTypeVar(typeVar: TypeVarType) {
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
-        if (typeVar.scopeId && this._typeVarMap.hasSolveForScope(typeVar.scopeId) && !typeVar.isExemptFromReplacement) {
+        if (typeVar.scopeId && this._typeVarMap.hasSolveForScope(typeVar.scopeId)) {
             let replacement = this._typeVarMap.getTypeVarType(typeVar, this._useNarrowBoundOnly);
 
             // If there was no narrow bound but there is a wide bound that

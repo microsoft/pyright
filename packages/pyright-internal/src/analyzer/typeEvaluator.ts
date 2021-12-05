@@ -331,10 +331,24 @@ interface ParamAssignmentInfo {
 }
 
 interface CallResult {
+    // Specialized return type of call
     returnType?: Type | undefined;
+
+    // Is return type incomplete?
     isTypeIncomplete?: boolean | undefined;
+
+    // Were any errors discovered when evaluating argument types?
     argumentErrors: boolean;
+
+    // The parameter associated with the "active" argument (used
+    // for signature help provider)
     activeParam?: FunctionParameter | undefined;
+
+    // If the call is to an __init__ with an annotated self parameter,
+    // this field indicates the specialized type of that self type; this
+    // is used for overloaded constructors where the arguments to the
+    // constructor influence the specialized type of the constructed object.
+    specializedInitSelfType?: Type | undefined;
 }
 
 // Maps binary operators to the magic methods that implement them.
@@ -4501,7 +4515,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     errorNode,
                     memberInfo,
                     selfClass,
-                    /* exemptTypeVarReplacement */ true
                 );
 
                 if (typeResult) {
@@ -6448,7 +6461,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isTypeIncomplete = true;
         }
 
-        return { argumentErrors: false, returnType: combineTypes(returnTypes), isTypeIncomplete };
+        return {
+            argumentErrors: false,
+            returnType: combineTypes(returnTypes),
+            isTypeIncomplete,
+            specializedInitSelfType: finalCallResult.specializedInitSelfType,
+        };
     }
 
     function getBestOverloadForArguments(
@@ -6781,7 +6799,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 if (!callResult.argumentErrors) {
-                    returnType = applyExpectedTypeForConstructor(type, /* expectedType */ undefined, typeVarMap);
+                    let adjustedClassType = type;
+                    if (
+                        callResult.specializedInitSelfType &&
+                        isClassInstance(callResult.specializedInitSelfType) &&
+                        ClassType.isSameGenericClass(callResult.specializedInitSelfType, type)
+                    ) {
+                        adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
+                    }
+
+                    returnType = applyExpectedTypeForConstructor(
+                        adjustedClassType,
+                        /* expectedType */ undefined,
+                        typeVarMap
+                    );
                 } else {
                     reportedErrors = true;
                 }
@@ -7142,6 +7173,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult {
         let argumentErrors = false;
         let isTypeIncomplete = false;
+        let specializedInitSelfType: Type | undefined;
 
         if (recursionCount > maxTypeRecursionCount) {
             return { returnType: UnknownType.create(), argumentErrors: true };
@@ -7219,6 +7251,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
+                        } else {
+                            specializedInitSelfType = functionResult.specializedInitSelfType;
                         }
 
                         if (functionResult.isTypeIncomplete) {
@@ -7263,6 +7297,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
+                        } else {
+                            specializedInitSelfType = functionResult.specializedInitSelfType;
                         }
 
                         if (functionResult.isTypeIncomplete) {
@@ -7584,6 +7620,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             argumentErrors,
             returnType: isNever(returnType) ? undefined : returnType,
             isTypeIncomplete,
+            specializedInitSelfType,
         };
     }
 
@@ -8378,6 +8415,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult {
         let isTypeIncomplete = false;
         let argumentErrors = false;
+        let specializedInitSelfType: Type | undefined;
 
         const typeCondition = getTypeCondition(type);
 
@@ -8402,6 +8440,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type.strippedFirstParamType.typeArguments
             ) {
                 const typeParams = type.strippedFirstParamType.details.typeParameters;
+                specializedInitSelfType = type.strippedFirstParamType;
                 type.strippedFirstParamType.typeArguments.forEach((typeArg, index) => {
                     if (index < typeParams.length) {
                         const typeParam = typeParams[index];
@@ -8628,11 +8667,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
+        if (specializedInitSelfType) {
+            specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, typeVarMap);
+        }
+
         return {
             argumentErrors,
             returnType: specializedReturnType,
             isTypeIncomplete,
             activeParam: matchResults.activeParam,
+            specializedInitSelfType,
         };
     }
 
@@ -16995,7 +17039,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node: ParseNode,
         member: ClassMember,
         selfClass: ClassType | undefined,
-        exemptTypeVarReplacement = false
     ): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
@@ -17012,7 +17055,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeResult.type,
                         member.classType,
                         selfClass,
-                        exemptTypeVarReplacement
                     ),
                     isIncomplete: !!typeResult.isIncomplete,
                 };
@@ -17111,7 +17153,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                   getEffectiveTypeOfSymbol(srcMemberInfo.symbol),
                                   srcMemberInfo.classType,
                                   srcType,
-                                  /* exemptTypeVarReplacement */ true
                               )
                             : UnknownType.create();
 
