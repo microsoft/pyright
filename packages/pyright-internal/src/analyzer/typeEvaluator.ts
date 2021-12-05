@@ -18804,6 +18804,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (destType === srcType) {
+            // If the dest type is a TypeVar and a TypeVarMap was provided, we may
+            // need to assign the TypeVar to itself under certain circumstances.
+            // This is needed for cases where generic class A[T] calls its own
+            // constructor with an argument of type T.
+            if (
+                isTypeVar(destType) &&
+                !destType.details.isParamSpec &&
+                !destType.details.isVariadic &&
+                destType.scopeType === TypeVarScopeType.Class &&
+                typeVarMap &&
+                !typeVarMap.isLocked() &&
+                typeVarMap.hasSolveForScope(destType.scopeId) &&
+                !typeVarMap.getTypeVar(destType) &&
+                (flags & (CanAssignFlags.SkipSolveTypeVars | CanAssignFlags.ReverseTypeVarMatching)) === 0
+            ) {
+                typeVarMap.setTypeVarType(destType, srcType);
+            }
+
             return true;
         }
 
