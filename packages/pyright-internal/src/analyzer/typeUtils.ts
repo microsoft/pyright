@@ -2123,17 +2123,7 @@ class TypeVarTransformer {
             return newUnionType;
         }
 
-        if (isClassInstance(type)) {
-            const classType = this._transformTypeVarsInClassType(
-                ClassType.cloneAsInstantiable(type),
-                recursionSet,
-                recursionLevel + 1
-            );
-
-            return ClassType.cloneAsInstance(classType);
-        }
-
-        if (isInstantiableClass(type)) {
+        if (isClass(type)) {
             return this._transformTypeVarsInClassType(type, recursionSet, recursionLevel + 1);
         }
 
