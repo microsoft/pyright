@@ -2239,15 +2239,15 @@ class TypeVarTransformer {
                     oldTypeArgType.details.isSynthesizedSelf &&
                     oldTypeArgType.details.boundType
                 ) {
-                    const transformedSelfCls = this.apply(
+                    const transformedSelf = this.apply(
                         oldTypeArgType.details.boundType,
                         recursionSet,
                         recursionLevel + 1
                     );
 
-                    if (transformedSelfCls !== oldTypeArgType.details.boundType) {
+                    if (transformedSelf !== oldTypeArgType.details.boundType) {
                         specializationNeeded = true;
-                        return transformedSelfCls;
+                        return TypeVarType.cloneAsSpecializedSelf(oldTypeArgType, transformedSelf);
                     }
                 }
 

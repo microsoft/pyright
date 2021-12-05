@@ -52,8 +52,8 @@ class D(C[float]):
     ...
 
 
-t1: Literal["CachedSlotProperty[C[T@C], int]"] = reveal_type(C.prop)
-t2: Literal["CachedSlotProperty[C[float], int]"] = reveal_type(D.prop)
+t1: Literal["CachedSlotProperty[Self@C[T@C], int]"] = reveal_type(C.prop)
+t2: Literal["CachedSlotProperty[Self@C[float], int]"] = reveal_type(D.prop)
 
 
 c = C("")

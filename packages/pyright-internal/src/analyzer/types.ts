@@ -1855,6 +1855,14 @@ export namespace TypeVarType {
         return newInstance;
     }
 
+    export function cloneAsSpecializedSelf(type: TypeVarType, specializedBoundType: Type) {
+        assert(type.details.isSynthesizedSelf);
+        const newInstance: TypeVarType = { ...type };
+        newInstance.details = { ...newInstance.details };
+        newInstance.details.boundType = specializedBoundType;
+        return newInstance;
+    }
+
     export function makeNameWithScope(name: string, scopeId: string) {
         return `${name}.${scopeId}`;
     }
