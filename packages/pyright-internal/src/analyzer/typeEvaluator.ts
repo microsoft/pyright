@@ -175,7 +175,6 @@ import {
     NoneType,
     OverloadedFunctionType,
     ParamSpecEntry,
-    removeAnyFromUnion,
     removeNoneFromUnion,
     removeUnbound,
     Type,
@@ -18788,19 +18787,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
-            // If it's an exact match, no need to do any more work.
-            if (
-                isTypeSame(
-                    destType,
-                    removeAnyFromUnion(srcType),
-                    /* ignorePseudoGeneric */ undefined,
-                    /* ignoreTypeFlags */ undefined,
-                    recursionCount + 1
-                )
-            ) {
-                return true;
-            }
-
             // If the dest is a constrained or bound type variable and all of the
             // types in the source are conditioned on that same type variable
             // and have compatible types, we'll consider it assignable.

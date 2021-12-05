@@ -2346,12 +2346,6 @@ export function isTypeSame(
     return true;
 }
 
-// If the type is a union, remove any "unknown" or "any" type
-// from the union, returning only the known types.
-export function removeAnyFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => isAnyOrUnknown(t));
-}
-
 // If the type is a union, remove an "unknown" type from the union,
 // returning only the known types.
 export function removeUnknownFromUnion(type: Type): Type {
