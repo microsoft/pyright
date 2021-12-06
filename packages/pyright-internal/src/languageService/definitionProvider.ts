@@ -138,7 +138,11 @@ export class DefinitionProvider {
     ) {
         if (declarations) {
             declarations.forEach((decl) => {
-                let resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+                let resolvedDecl = evaluator.resolveAliasDeclaration(
+                    decl,
+                    /* resolveLocalNames */ true,
+                    /* allowExternallyHiddenAccess */ true
+                );
                 if (resolvedDecl && resolvedDecl.path) {
                     // If the decl is an unresolved import, skip it.
                     if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
