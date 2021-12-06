@@ -473,6 +473,19 @@ test('Classes8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Classes9', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 

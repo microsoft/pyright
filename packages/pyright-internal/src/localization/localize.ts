@@ -221,6 +221,10 @@ export namespace Localizer {
         export const baseClassInvalid = () => getRawString('Diagnostic.baseClassInvalid');
         export const baseClassFinal = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.baseClassFinal'));
+        export const baseClassMethodTypeIncompatible = () =>
+            new ParameterizedString<{ classType: string; name: string }>(
+                getRawString('Diagnostic.baseClassMethodTypeIncompatible')
+            );
         export const baseClassUnknown = () => getRawString('Diagnostic.baseClassUnknown');
         export const bindTypeMismatch = () =>
             new ParameterizedString<{ type: string; methodName: string; paramName: string }>(
@@ -879,6 +883,10 @@ export namespace Localizer {
             new ParameterizedString<{ types: string }>(getRawString('DiagnosticAddendum.argumentTypes'));
         export const assignToNone = () => getRawString('DiagnosticAddendum.assignToNone');
         export const asyncHelp = () => getRawString('DiagnosticAddendum.asyncHelp');
+        export const baseClassProvidesType = () =>
+            new ParameterizedString<{ baseClass: string; type: string }>(
+                getRawString('DiagnosticAddendum.baseClassProvidesType')
+            );
         export const classPatternTypeAlias = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.classPatternTypeAlias'));
         export const dataclassFrozen = () =>

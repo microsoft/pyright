@@ -125,11 +125,13 @@ import {
 import {
     applySolvedTypeVars,
     CanAssignFlags,
+    ClassMember,
     ClassMemberLookupFlags,
     convertToInstance,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     doForEachSubtype,
+    getClassFieldsRecursive,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
     getGeneratorYieldType,
@@ -313,6 +315,8 @@ export class Checker extends ParseTreeWalker {
                 this._validateBaseClassOverrides(classTypeResult.classType);
                 this._validateSlotsClassVarConflict(classTypeResult.classType);
             }
+
+            this._validateMultipleInheritanceCompatibility(classTypeResult.classType, node.name);
 
             this._validateFinalMemberOverrides(classTypeResult.classType);
 
@@ -3379,6 +3383,145 @@ export class Checker extends ParseTreeWalker {
                 });
             }
         });
+    }
+
+    // Validates that any methods in multiple base classes are compatible with each other.
+    private _validateMultipleInheritanceCompatibility(classType: ClassType, errorNode: ParseNode) {
+        // Skip this check if reportIncompatibleMethodOverride is disabled because it's
+        // a relatively expensive check.
+        if (this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride === 'none') {
+            return;
+        }
+
+        const baseClasses: ClassType[] = [];
+
+        // Filter any unknown base classes. Also remove Generic and Protocol
+        // base classes.
+        classType.details.baseClasses.forEach((baseClass) => {
+            if (
+                isClass(baseClass) &&
+                !ClassType.isBuiltIn(baseClass, 'Generic') &&
+                !ClassType.isBuiltIn(baseClass, 'Protocol')
+            ) {
+                baseClasses.push(baseClass);
+            }
+        });
+
+        // If there is only one base class, there's nothing to do.
+        if (baseClasses.length < 2) {
+            return;
+        }
+
+        // Build maps of symbols for each of the base classes.
+        const symbolMaps = baseClasses.map((baseClass) => {
+            const specializedBaseClass = classType.details.mro.find(
+                (c) => isClass(c) && ClassType.isSameGenericClass(c, baseClass)
+            );
+            if (!specializedBaseClass || !isClass(specializedBaseClass)) {
+                return new Map<string, ClassMember>();
+            }
+
+            // Retrieve all of the specialized symbols from the base class and its ancestors.
+            return getClassFieldsRecursive(specializedBaseClass);
+        });
+
+        for (let symbolMapBaseIndex = 1; symbolMapBaseIndex < symbolMaps.length; symbolMapBaseIndex++) {
+            const baseSymbolMap = symbolMaps[symbolMapBaseIndex];
+
+            for (const [name, baseClassAndSymbol] of baseSymbolMap) {
+                // Special-case dundered methods, which can differ in signature. Also
+                // exempt private symbols.
+                if (SymbolNameUtils.isDunderName(name) || SymbolNameUtils.isPrivateName(name)) {
+                    continue;
+                }
+
+                const baseClassType = baseClassAndSymbol.classType;
+                if (!isClass(baseClassType)) {
+                    continue;
+                }
+
+                for (
+                    let symbolMapOverrideIndex = 0;
+                    symbolMapOverrideIndex < symbolMapBaseIndex;
+                    symbolMapOverrideIndex++
+                ) {
+                    const overrideSymbolMap = symbolMaps[symbolMapOverrideIndex];
+                    const overrideClassAndSymbol = overrideSymbolMap.get(name);
+
+                    if (overrideClassAndSymbol) {
+                        let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
+                        baseType = partiallySpecializeType(baseType, baseClasses[symbolMapBaseIndex]);
+                        let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideClassAndSymbol.symbol);
+                        overrideType = partiallySpecializeType(overrideType, baseClasses[symbolMapOverrideIndex]);
+
+                        if (isFunction(baseType) || isOverloadedFunction(baseType)) {
+                            const diagAddendum = new DiagnosticAddendum();
+                            let overrideFunction: FunctionType | undefined;
+
+                            if (isFunction(overrideType)) {
+                                overrideFunction = overrideType;
+                            } else if (isOverloadedFunction(overrideType)) {
+                                // Use the last overload.
+                                overrideFunction = overrideType.overloads[overrideType.overloads.length - 1];
+                            }
+
+                            if (overrideFunction) {
+                                if (
+                                    !this._evaluator.canOverrideMethod(
+                                        baseType,
+                                        overrideFunction,
+                                        diagAddendum,
+                                        /* enforceParamNameMatch */ true
+                                    )
+                                ) {
+                                    const decl = overrideFunction.details.declaration;
+                                    if (decl && decl.type === DeclarationType.Function) {
+                                        const diag = this._evaluator.addDiagnostic(
+                                            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                                            DiagnosticRule.reportIncompatibleMethodOverride,
+                                            Localizer.Diagnostic.baseClassMethodTypeIncompatible().format({
+                                                classType: classType.details.name,
+                                                name,
+                                            }) + diagAddendum.getString(),
+                                            errorNode
+                                        );
+
+                                        const overrideDecl = getLastTypedDeclaredForSymbol(
+                                            overrideClassAndSymbol.symbol
+                                        );
+                                        const baseDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+
+                                        if (diag && overrideDecl && baseDecl) {
+                                            diag.addRelatedInfo(
+                                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
+                                                    baseClass: this._evaluator.printType(
+                                                        convertToInstance(baseClasses[symbolMapOverrideIndex])
+                                                    ),
+                                                    type: this._evaluator.printType(overrideType),
+                                                }),
+                                                overrideDecl.path,
+                                                overrideDecl.range
+                                            );
+
+                                            diag.addRelatedInfo(
+                                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
+                                                    baseClass: this._evaluator.printType(
+                                                        convertToInstance(baseClasses[symbolMapBaseIndex])
+                                                    ),
+                                                    type: this._evaluator.printType(baseType),
+                                                }),
+                                                baseDecl.path,
+                                                baseDecl.range
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Validates that any overridden methods or variables contain the same

@@ -894,6 +894,35 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
     return undefined;
 }
 
+export function getClassFieldsRecursive(classType: ClassType): Map<string, ClassMember> {
+    const memberMap = new Map<string, ClassMember>();
+
+    // Evaluate the types of members from the end of the MRO to the beginning.
+    for (let i = classType.details.mro.length - 1; i >= 0; i--) {
+        const mroClass = classType.details.mro[i];
+
+        // If this ancestor class is unknown, throw away all symbols
+        // found so far because they could be overridden by the unknown class.
+        if (!isClass(mroClass)) {
+            memberMap.clear();
+            continue;
+        }
+
+        mroClass.details.fields.forEach((symbol, name) => {
+            if (!symbol.isIgnoredForProtocolMatch() && symbol.hasTypedDeclarations()) {
+                memberMap.set(name, {
+                    classType: mroClass,
+                    symbol,
+                    isInstanceMember: symbol.isInstanceMember(),
+                    isTypeDeclared: true,
+                });
+            }
+        });
+    }
+
+    return memberMap;
+}
+
 // Combines two lists of type var types, maintaining the combined order
 // but removing any duplicates.
 export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
