@@ -1539,6 +1539,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
         if (
             type.details.declaredReturnType &&
+            !FunctionType.isParamSpecValue(type) &&
             isPartlyUnknown(
                 type.details.declaredReturnType,
                 /* allowUnknownTypeArgsForClasses */ false,
@@ -2029,6 +2030,34 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
     }
 }
 
+export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Type {
+    if (paramSpecEntry.parameters.length > 0) {
+        // Create a function type from the param spec entries.
+        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+
+        paramSpecEntry.parameters.forEach((entry) => {
+            FunctionType.addParameter(functionType, {
+                category: entry.category,
+                name: entry.name,
+                hasDefault: entry.hasDefault,
+                isNameSynthesized: entry.isNameSynthesized,
+                hasDeclaredType: true,
+                type: entry.type,
+            });
+        });
+
+        functionType.details.paramSpec = paramSpecEntry.paramSpec;
+
+        return functionType;
+    }
+
+    if (paramSpecEntry.paramSpec) {
+        return paramSpecEntry.paramSpec;
+    }
+
+    return UnknownType.create();
+}
+
 // Recursively walks a type and calls a callback for each TypeVar, allowing
 // it to be replaced with something else.
 class TypeVarTransformer {
@@ -2196,35 +2225,10 @@ class TypeVarTransformer {
             const paramSpecEntries = this.transformParamSpec(paramSpec);
             if (paramSpecEntries) {
                 specializationNeeded = true;
-
-                if (paramSpecEntries.parameters.length > 0) {
-                    // Create a function type from the param spec entries.
-                    const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
-
-                    paramSpecEntries.parameters.forEach((entry) => {
-                        FunctionType.addParameter(functionType, {
-                            category: entry.category,
-                            name: entry.name,
-                            hasDefault: entry.hasDefault,
-                            isNameSynthesized: entry.isNameSynthesized,
-                            hasDeclaredType: true,
-                            type: entry.type,
-                        });
-                    });
-
-                    functionType.details.paramSpec = paramSpecEntries.paramSpec;
-
-                    return functionType;
-                }
-
-                if (paramSpecEntries.paramSpec) {
-                    return paramSpecEntries.paramSpec;
-                }
+                return convertParamSpecValueToType(paramSpecEntries);
             } else {
                 return UnknownType.create();
             }
-
-            return paramSpec;
         };
 
         const wasTransformingTypeArg = this._isTransformingTypeArg;

@@ -700,6 +700,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasRedeclared'));
         export const typeAnnotationCall = () => getRawString('Diagnostic.typeAnnotationCall');
         export const typeAnnotationVariable = () => getRawString('Diagnostic.typeAnnotationVariable');
+        export const typeArgListExpected = () => getRawString('Diagnostic.typeArgListExpected');
         export const typeArgListNotAllowed = () => getRawString('Diagnostic.typeArgListNotAllowed');
         export const typeArgsExpectingNone = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeArgsExpectingNone'));

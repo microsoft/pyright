@@ -205,6 +205,7 @@ import {
     computeMroLinearization,
     containsLiteralType,
     containsUnknown,
+    convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
     derivesFromClassRecursive,
@@ -5209,7 +5210,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !baseType.typeAliasInfo.typeArguments
         ) {
             const typeParameters = baseType.typeAliasInfo.typeParameters;
-            const typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters);
+            let typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters);
+
+            // PEP 612 says that if the class has only one type parameter consisting
+            // of a ParamSpec, the list of arguments does not need to be enclosed in
+            // a list. We'll handle that case specially here. Presumably this applies to
+            // type aliases as well.
+            if (typeParameters.length === 1 && typeParameters[0].details.isParamSpec && typeArgs) {
+                if (
+                    typeArgs.every(
+                        (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
+                    )
+                ) {
+                    typeArgs = [
+                        {
+                            type: UnknownType.create(),
+                            node: typeArgs[0].node,
+                            typeList: typeArgs,
+                        },
+                    ];
+                }
+            }
 
             if (
                 typeArgs.length > typeParameters.length &&
@@ -5228,9 +5249,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typeVarMap = new TypeVarMap(baseType.typeAliasInfo.typeVarScopeId);
             const diag = new DiagnosticAddendum();
             typeParameters.forEach((param, index) => {
-                const typeArgType: Type =
-                    index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
-                canAssignTypeToTypeVar(param, typeArgType, diag, typeVarMap);
+                if (param.details.isParamSpec && index < typeArgs.length) {
+                    if (typeArgs[index].typeList) {
+                        const functionType = FunctionType.createInstantiable(
+                            '',
+                            '',
+                            '',
+                            FunctionTypeFlags.ParamSpecValue
+                        );
+                        TypeBase.setSpecialForm(functionType);
+                        typeArgs[index].typeList!.forEach((paramType, paramIndex) => {
+                            FunctionType.addParameter(functionType, {
+                                category: ParameterCategory.Simple,
+                                name: `__p${paramIndex}`,
+                                isNameSynthesized: true,
+                                type: convertToInstance(paramType.type),
+                                hasDeclaredType: true,
+                            });
+                        });
+
+                        canAssignTypeToTypeVar(param, functionType, diag, typeVarMap);
+                    } else if (isParamSpec(typeArgs[index].type)) {
+                        canAssignTypeToTypeVar(param, convertToInstance(typeArgs[index].type), diag, typeVarMap);
+                    } else {
+                        addError(Localizer.Diagnostic.typeArgListExpected(), typeArgs[index].node);
+                    }
+                } else {
+                    if (index < typeArgs.length && typeArgs[index].typeList) {
+                        addError(Localizer.Diagnostic.typeArgListNotAllowed(), typeArgs[index].node);
+                    }
+
+                    const typeArgType: Type =
+                        index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
+                    canAssignTypeToTypeVar(param, typeArgType, diag, typeVarMap);
+                }
             });
 
             if (!diag.isEmpty()) {
@@ -5243,9 +5295,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const aliasTypeArgs: Type[] = [];
             baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
-                const typeVarType = isParamSpec(typeParam)
-                    ? typeVarMap.getParamSpec(typeParam)?.paramSpec
-                    : typeVarMap.getTypeVarType(typeParam);
+                let typeVarType: Type | undefined;
+                if (isParamSpec(typeParam)) {
+                    const paramSpecValue = typeVarMap.getParamSpec(typeParam);
+                    typeVarType = paramSpecValue ? convertParamSpecValueToType(paramSpecValue) : UnknownType.create();
+                } else {
+                    typeVarType = typeVarMap.getTypeVarType(typeParam);
+                }
                 aliasTypeArgs.push(typeVarType || UnknownType.create());
             });
 
