@@ -2482,7 +2482,7 @@ class TypeVarTransformer {
             }
         });
 
-        newFunctionType.details.declaredReturnType = FunctionType.getSpecializedReturnType(functionType);
+        newFunctionType.details.declaredReturnType = specializedParameters.returnType;
 
         return newFunctionType;
     }
