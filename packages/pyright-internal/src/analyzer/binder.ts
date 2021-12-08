@@ -2705,6 +2705,7 @@ export class Binder extends ParseTreeWalker {
                 // Look for "<string> in Y" or "<string> not in Y".
                 if (expression.operator === OperatorType.In || expression.operator === OperatorType.NotIn) {
                     if (
+                        expression.leftExpression.nodeType === ParseNodeType.StringList &&
                         this._isNarrowingExpression(
                             expression.rightExpression,
                             expressionList,
