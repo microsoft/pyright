@@ -432,6 +432,19 @@ test('multiline list', () => {
     testIndentation(code, 7);
 });
 
+test('unfinished block', () => {
+    const code = `
+//// def foo(a: Union[int, str]):
+////     while True:
+////     [|/*marker*/|]
+//// 
+//// def bar() -> int:
+////     return 1
+    `;
+
+    testIndentation(code, 8);
+});
+
 function testIndentation(code: string, indentation: number, preferDedent?: boolean) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');

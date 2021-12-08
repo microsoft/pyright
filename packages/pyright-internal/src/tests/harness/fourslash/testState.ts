@@ -316,7 +316,7 @@ export class TestState {
     goToPosition(positionOrLineAndColumn: number | Position) {
         const pos = isNumber(positionOrLineAndColumn)
             ? positionOrLineAndColumn
-            : this._convertPositionToOffset(this.activeFile.fileName, positionOrLineAndColumn);
+            : this.convertPositionToOffset(this.activeFile.fileName, positionOrLineAndColumn);
         this.currentCaretPosition = pos;
         this.selectionEnd = -1;
     }
@@ -345,7 +345,7 @@ export class TestState {
     }
 
     selectLine(index: number) {
-        const lineStart = this._convertPositionToOffset(this.activeFile.fileName, { line: index, character: 0 });
+        const lineStart = this.convertPositionToOffset(this.activeFile.fileName, { line: index, character: 0 });
         const lineEnd = lineStart + this._getLineContent(index).length;
         this.selectRange({ fileName: this.activeFile.fileName, pos: lineStart, end: lineEnd });
     }
@@ -467,8 +467,8 @@ export class TestState {
     }
 
     deleteLineRange(startIndex: number, endIndexInclusive: number) {
-        const startPos = this._convertPositionToOffset(this.activeFile.fileName, { line: startIndex, character: 0 });
-        const endPos = this._convertPositionToOffset(this.activeFile.fileName, {
+        const startPos = this.convertPositionToOffset(this.activeFile.fileName, { line: startIndex, character: 0 });
+        const endPos = this.convertPositionToOffset(this.activeFile.fileName, {
             line: endIndexInclusive + 1,
             character: 0,
         });
@@ -1483,7 +1483,7 @@ export class TestState {
         return files[0].content;
     }
 
-    private _convertPositionToOffset(fileName: string, position: Position): number {
+    protected convertPositionToOffset(fileName: string, position: Position): number {
         const lines = this._getTextRangeCollection(fileName);
         return convertPositionToOffset(position, lines)!;
     }
@@ -1631,7 +1631,7 @@ export class TestState {
 
     private _getLineContent(index: number) {
         const text = this._getFileContent(this.activeFile.fileName);
-        const pos = this._convertPositionToOffset(this.activeFile.fileName, { line: index, character: 0 });
+        const pos = this.convertPositionToOffset(this.activeFile.fileName, { line: index, character: 0 });
         let startPos = pos;
         let endPos = pos;
 
