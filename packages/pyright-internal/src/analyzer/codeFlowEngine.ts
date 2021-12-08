@@ -699,10 +699,12 @@ export function getCodeFlowEngine(
                             // If there is an "Unknown" type within a union type, remove
                             // it. Otherwise we might end up resolving the cycle with a type
                             // that includes an undesirable unknown.
+                            // Note that we return isIncomplete = false here but do not
+                            // save the cached entry for next time. This is because the
                             return {
                                 type: cacheEntry?.type ? removeUnknownFromUnion(cacheEntry.type) : undefined,
                                 usedOuterScopeAlias: loopUsedOuterScopeAlias,
-                                isIncomplete: true,
+                                isIncomplete: false,
                             };
                         }
 

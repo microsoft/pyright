@@ -4309,6 +4309,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             {
                                 type: subtype,
                                 node,
+                                isIncomplete: baseTypeResult.isIncomplete,
                             },
                             usage,
                             EvaluatorFlags.None
@@ -4365,34 +4366,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!type) {
-            let diagMessage = Localizer.Diagnostic.memberAccess();
-            if (usage.method === 'set') {
-                diagMessage = Localizer.Diagnostic.memberSet();
-            } else if (usage.method === 'del') {
-                diagMessage = Localizer.Diagnostic.memberDelete();
-            }
-
-            // If there is an expected type diagnostic addendum (used for assignments),
-            // use that rather than the local diagnostic addendum because it will be
-            // more informative.
-            if (usage.setExpectedTypeDiag) {
-                diag = usage.setExpectedTypeDiag;
-            }
-
             const isFunctionRule =
                 isFunction(baseType) ||
                 isOverloadedFunction(baseType) ||
                 (isClassInstance(baseType) && ClassType.isBuiltIn(baseType, 'function'));
-            const [ruleSet, rule] = isFunctionRule
-                ? [fileInfo.diagnosticRuleSet.reportFunctionMemberAccess, DiagnosticRule.reportFunctionMemberAccess]
-                : [fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues];
 
-            addDiagnostic(
-                ruleSet,
-                rule,
-                diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(),
-                node.memberName
-            );
+            if (!baseTypeResult.isIncomplete) {
+                let diagMessage = Localizer.Diagnostic.memberAccess();
+                if (usage.method === 'set') {
+                    diagMessage = Localizer.Diagnostic.memberSet();
+                } else if (usage.method === 'del') {
+                    diagMessage = Localizer.Diagnostic.memberDelete();
+                }
+
+                // If there is an expected type diagnostic addendum (used for assignments),
+                // use that rather than the local diagnostic addendum because it will be
+                // more informative.
+                if (usage.setExpectedTypeDiag) {
+                    diag = usage.setExpectedTypeDiag;
+                }
+
+                const [ruleSet, rule] = isFunctionRule
+                    ? [fileInfo.diagnosticRuleSet.reportFunctionMemberAccess, DiagnosticRule.reportFunctionMemberAccess]
+                    : [fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues];
+
+                addDiagnostic(
+                    ruleSet,
+                    rule,
+                    diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(),
+                    node.memberName
+                );
+            }
 
             // If this is member access on a function, use "Any" so if the
             // reportFunctionMemberAccess rule is disabled, we don't trigger
