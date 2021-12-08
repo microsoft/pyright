@@ -23,13 +23,14 @@ const removeCwdFromSysPath = [
     'import os, os.path, sys',
     'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
     'cwd = normalize(os.getcwd())',
+    'orig_sys_path = [p for p in sys.path if p != ""]',
     'sys.path[:] = [p for p in sys.path if p != "" and normalize(p) != cwd]',
 ];
 
 const extractSys = [
     ...removeCwdFromSysPath,
     'import sys, json',
-    'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
+    'json.dump(dict(path=orig_sys_path, prefix=sys.prefix), sys.stdout)',
 ].join('; ');
 
 const extractVersion = [
