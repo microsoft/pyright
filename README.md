@@ -76,16 +76,25 @@ For emacs users, you can install [lsp-mode](https://github.com/emacs-lsp/lsp-mod
 To activate the pyright extension follow the instructions in the [docs](https://emacs-lsp.github.io/lsp-pyright/).
 
 ### Command-line
-The latest version of the command-line tool can be installed with npm, which is part of node. If you don't have a recent version of node on your system, install that first from [nodejs.org](https://nodejs.org). 
+A [community-maintained](https://github.com/RobertCraigie/pyright-python) Python package by the name of “pyright” is available on pypi and conda-forge. This package will automatically install node (which Pyright requires) and keep Pyright up to date.
+
+`pip install pyright`
+
+or
+
+`conda install pyright`
+
+Once installed, you can run the tool from the command line as follows:
+`pyright <options>`
+
+
+Alternatively, you can install the command-line version of Pyright directly from npm, which is part of node. If you don't have a recent version of node on your system, install that first from [nodejs.org](https://nodejs.org). 
 
 To install pyright globally:
 `npm install -g pyright`
 
 On MacOS or Linux, sudo is required to install globally:
 `sudo npm install -g pyright`
-
-Once installed, you can run the tool from the command line as follows:
-`pyright <options>`
 
 To update to the latest version:
 `sudo npm update -g pyright`
