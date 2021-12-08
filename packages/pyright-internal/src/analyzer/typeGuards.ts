@@ -954,7 +954,7 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
 
     const builtInName = containerType.details.name;
 
-    if (!['list', 'set', 'frozenset', 'deque'].some((name) => name === builtInName)) {
+    if (!['list', 'set', 'frozenset', 'deque', 'tuple'].some((name) => name === builtInName)) {
         return referenceType;
     }
 
