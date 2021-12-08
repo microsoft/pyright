@@ -1,6 +1,6 @@
 # This sample tests type narrowing for the "in" operator.
 
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 import random
 
 
@@ -38,3 +38,14 @@ if y in [2]:
     # This should generate an error because y should
     # be narrowed to an int.
     verify_str(y)
+
+
+def func1(x: Optional[Union[int, str]]):
+    if x in (1, 2):
+        t1: Literal["int"] = reveal_type(x)
+
+    if x in (1, "2"):
+        t2: Literal["int | str"] = reveal_type(x)
+
+    if x in (1, None):
+        t3: Literal["int | None"] = reveal_type(x)
