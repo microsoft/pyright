@@ -187,7 +187,7 @@ function _getIndentationForNode(
         };
     }
 
-    if (container.statements.filter((s) => s.length > 0).length === 0) {
+    if (_containsNoIndentBeforeFirstStatement(parseResults, container)) {
         const tabSize = _getTabSize(parseResults);
         const outerContainer = getFirstAncestorOrSelf(
             container,
@@ -206,6 +206,39 @@ function _getIndentationForNode(
             indentation: _getIndentationFromIndentToken(tokens, tokens.getItemAtPosition(container.start)),
         };
     }
+}
+
+function _containsNoIndentBeforeFirstStatement(parseResults: ParseResults, suite: SuiteNode): boolean {
+    if (suite.statements.filter((s) => s.length > 0).length === 0) {
+        // There is no statement in the suite.
+        // ex)
+        // def foo():
+        // | <= here
+        return true;
+    }
+
+    // If suite contains no indent before first statement, then consider user is in the middle of writing block
+    // and parser is in broken state.
+    // ex)
+    // def foo():
+    //     while True:
+    //     | <= here
+    // def bar():
+    //     pass
+    //
+    // parser will think "def bar" belongs to "while True" with invalid indentation.
+    const tokens = parseResults.tokenizerOutput.tokens;
+    const start = tokens.getItemAtPosition(suite.start);
+    const end = tokens.getItemAtPosition(suite.statements[0].start);
+
+    for (let i = start; i <= end; i++) {
+        const token = _getTokenAtIndex(tokens, i);
+        if (token?.type === TokenType.Indent) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function _getFirstTokenOFStatement(
