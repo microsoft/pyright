@@ -7193,6 +7193,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ true);
         const syntheticTypeVarMap = new TypeVarMap(expectedTypeScopeId);
         if (canAssignType(genericExpectedType, specializedType, /* diag */ undefined, syntheticTypeVarMap)) {
+            let isResultValid = true;
+
             synthExpectedTypeArgs.forEach((typeVar, index) => {
                 const synthTypeVar = syntheticTypeVarMap.getTypeVarType(typeVar);
 
@@ -7212,18 +7214,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeVarMap,
                             liveTypeVarScopes
                         );
+
                         if (expectedTypeArgValue) {
                             typeVarMap.setTypeVarType(
                                 targetTypeVar,
                                 typeVar.details.variance === Variance.Covariant ? undefined : expectedTypeArgValue,
                                 typeVar.details.variance === Variance.Contravariant ? undefined : expectedTypeArgValue
                             );
+                        } else {
+                            isResultValid = false;
                         }
                     }
                 }
             });
 
-            return true;
+            return isResultValid;
         }
 
         return false;
