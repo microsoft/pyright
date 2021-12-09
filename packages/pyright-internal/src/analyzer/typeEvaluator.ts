@@ -5447,6 +5447,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return concreteSubtype;
                     }
 
+                    if (concreteSubtype.typeArguments) {
+                        addError(
+                            Localizer.Diagnostic.classAlreadySpecialized().format({
+                                type: printType(convertToInstance(concreteSubtype), /* expandTypeAlias */ true),
+                            }),
+                            node.baseExpression
+                        );
+                        return concreteSubtype;
+                    }
+
                     return createSpecializedClassType(concreteSubtype, typeArgs, flags, node);
                 }
 
@@ -12421,6 +12431,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed;
+                    flags &= ~EvaluatorFlags.DoNotSpecialize;
 
                     typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
                 } else if (node.leftExpression.nodeType === ParseNodeType.Name) {
@@ -13188,6 +13199,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (isFunction(decoratorType)) {
             if (decoratorType.details.builtInName === 'final') {
                 originalClassType.details.flags |= ClassTypeFlags.Final;
+
+                // Don't call getTypeFromDecorator for final. We'll hard-code its
+                // behavior because its function definition results in a cyclical
+                // dependency between builtins, typing and _typeshed stubs.
+                return inputClassType;
             } else if (decoratorType.details.builtInName === 'runtime_checkable') {
                 originalClassType.details.flags |= ClassTypeFlags.RuntimeCheckable;
             }

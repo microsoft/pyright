@@ -235,6 +235,8 @@ export namespace Localizer {
         export const callableFirstArg = () => getRawString('Diagnostic.callableFirstArg');
         export const callableSecondArg = () => getRawString('Diagnostic.callableSecondArg');
         export const casePatternIsIrrefutable = () => getRawString('Diagnostic.casePatternIsIrrefutable');
+        export const classAlreadySpecialized = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classAlreadySpecialized'));
         export const classDecoratorTypeUnknown = () => getRawString('Diagnostic.classDecoratorTypeUnknown');
         export const classDefinitionCycle = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classDefinitionCycle'));
