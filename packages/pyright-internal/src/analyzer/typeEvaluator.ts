@@ -12959,6 +12959,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (metaclassNode) {
             const metaclassType = getTypeOfExpression(metaclassNode, undefined, exprFlags).type;
             if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
+                if (requiresSpecialization(metaclassType)) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.metaclassIsGeneric(),
+                        metaclassNode
+                    );
+                }
+
                 classType.details.declaredMetaclass = metaclassType;
                 if (isInstantiableClass(metaclassType)) {
                     if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
