@@ -15578,6 +15578,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Type': {
+                    // PEP 484 says that Type[Any] should be considered
+                    // equivalent to type.
+                    if (
+                        typeArgs?.length === 1 &&
+                        isAnyOrUnknown(typeArgs[0].type) &&
+                        typeClassType &&
+                        isInstantiableClass(typeClassType)
+                    ) {
+                        return typeClassType;
+                    }
+
                     let typeType = createSpecialType(classType, typeArgs, 1);
                     if (isInstantiableClass(typeType)) {
                         typeType = explodeGenericClass(typeType);
@@ -15651,6 +15662,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle "type" specially, since it needs to act like "Type"
             // in Python 3.9 and newer.
             if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
+                // PEP 484 says that type[Any] should be considered
+                // equivalent to type.
+                if (typeArgs.length === 1 && isAnyOrUnknown(typeArgs[0].type)) {
+                    return classType;
+                }
+
                 const typeClass = getTypingType(errorNode, 'Type');
                 if (typeClass && isInstantiableClass(typeClass)) {
                     let typeType = createSpecialType(
