@@ -245,6 +245,7 @@ export class Binder extends ParseTreeWalker {
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
                 this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str | None');
                 this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
+                this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__loader__', node, 'Any');
                 this._addBuiltInSymbolToCurrentScope('__package__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__spec__', node, 'Any');

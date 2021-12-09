@@ -7,6 +7,7 @@ class TestClass:
     print(__doc__)
     print(__module__)
     print(__name__)
+    print(__qualname__)
 
 
 base = TestClass.__base__
