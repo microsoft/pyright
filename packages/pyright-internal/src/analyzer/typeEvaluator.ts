@@ -5215,6 +5215,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
+        // If this is not instantiable, then the index expression isn't a specialization.
+        if (!TypeBase.isInstantiable(baseType)) {
+            return undefined;
+        }
+
+        // If this is already specialized, the index expression isn't a specialization.
+        if (baseType.typeAliasInfo.typeArguments) {
+            return undefined;
+        }
+
         const typeParameters = baseType.typeAliasInfo.typeParameters;
         let typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters);
 

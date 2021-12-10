@@ -3,7 +3,7 @@
 
 # pyright: reportMissingTypeArgument=true
 
-from typing import Generic, TypeAlias, TypeVar
+from typing import Any, Generic, TypeAlias, TypeVar
 
 _T = TypeVar("_T")
 
@@ -30,3 +30,16 @@ C = A[str]
 
 # This should generate an error because C is already specialized.
 v4: C[int]
+
+
+class D(Generic[_T]):
+    def __getitem__(self, key: Any) -> int:
+        ...
+
+
+D_Alias = D[_T]
+
+d: D_Alias[Any] = D()
+item = d[0]
+
+x: int = D_Alias[Any]()[0]
