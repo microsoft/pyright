@@ -1357,7 +1357,10 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
-            if (isInstantiableClass(rightType) || (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))) {
+            if (
+                isInstantiableClass(rightType) ||
+                (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
+            ) {
                 const genericLeftType = ClassType.cloneForSpecialization(
                     leftType,
                     /* typeArguments */ undefined,
