@@ -12,7 +12,6 @@
 import { ArgumentCategory, ExpressionNode, ParameterCategory, ParseNodeType } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { FlowCondition, FlowFlags } from './codeFlowTypes';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
@@ -68,18 +67,16 @@ import { TypeVarMap } from './typeVarMap';
 
 export type TypeNarrowingCallback = (type: Type) => Type | undefined;
 
-// Given a reference expression and a flow node, returns a callback that
-// can be used to narrow the type described by the target expression.
-// If the specified flow node is not associated with the target expression,
+// Given a reference expression and a test expression, returns a callback that
+// can be used to narrow the type described by the reference expression.
+// If the specified flow node is not associated with the test expression,
 // it returns undefined.
 export function getTypeNarrowingCallback(
     evaluator: TypeEvaluator,
     reference: ExpressionNode,
-    flowNode: FlowCondition
+    testExpression: ExpressionNode,
+    isPositiveTest: boolean
 ): TypeNarrowingCallback | undefined {
-    let testExpression = flowNode.expression;
-    const isPositiveTest = !!(flowNode.flags & (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition));
-
     if (testExpression.nodeType === ParseNodeType.AssignmentExpression) {
         if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
             testExpression = testExpression.rightExpression;

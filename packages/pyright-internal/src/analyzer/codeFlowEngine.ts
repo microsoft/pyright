@@ -725,7 +725,8 @@ export function getCodeFlowEngine(
                             const typeNarrowingCallback = getTypeNarrowingCallback(
                                 evaluator,
                                 reference,
-                                conditionalFlowNode
+                                conditionalFlowNode.expression,
+                                !!(conditionalFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition))
                             );
                             if (typeNarrowingCallback) {
                                 // Set the cache entry to undefined before evaluating the
@@ -777,7 +778,11 @@ export function getCodeFlowEngine(
                                 const typeNarrowingCallback = getTypeNarrowingCallback(
                                     evaluator,
                                     conditionalFlowNode.reference,
-                                    conditionalFlowNode
+                                    conditionalFlowNode.expression,
+                                    !!(
+                                        conditionalFlowNode.flags &
+                                        (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
+                                    )
                                 );
                                 if (typeNarrowingCallback) {
                                     const refTypeInfo = evaluator.getTypeOfExpression(conditionalFlowNode.reference!);
