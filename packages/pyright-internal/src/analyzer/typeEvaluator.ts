@@ -15249,6 +15249,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
+        if (parent.nodeType === ParseNodeType.Function) {
+            if (
+                lastContextualExpression === parent.returnTypeAnnotation ||
+                lastContextualExpression === parent.functionAnnotationComment
+            ) {
+                const annotationType = getTypeOfAnnotation(lastContextualExpression);
+                if (annotationType) {
+                    writeTypeCache(lastContextualExpression, annotationType, /* isIncomplete */ false);
+                }
+                return;
+            }
+        }
+
         if (parent.nodeType === ParseNodeType.ModuleName) {
             // A name within a module name isn't an expression,
             // so there's nothing we can evaluate here.
