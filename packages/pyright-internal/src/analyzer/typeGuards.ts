@@ -9,10 +9,20 @@
  * negative ("else") narrowing cases.
  */
 
-import { ArgumentCategory, ExpressionNode, ParameterCategory, ParseNodeType } from '../parser/parseNodes';
+import {
+    ArgumentCategory,
+    ExpressionNode,
+    isExpressionNode,
+    NameNode,
+    ParameterCategory,
+    ParseNodeType,
+} from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { ScopeType } from './scope';
+import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
@@ -435,7 +445,62 @@ export function getTypeNarrowingCallback(
         };
     }
 
+    // Is this a reference to a local variable that was assigned a value
+    // that can inform type narrowing of the reference expression?
+    if (testExpression.nodeType === ParseNodeType.Name && reference.nodeType === ParseNodeType.Name) {
+        // Make sure the reference expression is a constant parameter or variable.
+        // If it is modified somewhere within the scope, it's not safe to apply
+        // this form of type narrowing.
+        if (getDeclForLocalConst(evaluator, reference) !== undefined) {
+            const testExprDecl = getDeclForLocalConst(evaluator, testExpression);
+
+            if (testExprDecl && testExprDecl.type === DeclarationType.Variable) {
+                const initNode = testExprDecl.inferredTypeSource;
+
+                if (initNode && initNode !== testExpression && isExpressionNode(initNode)) {
+                    return getTypeNarrowingCallback(evaluator, reference, initNode, isPositiveTest);
+                }
+            }
+        }
+    }
+
+    // We normally won't find a "not" operator here because they are stripped out
+    // by the binder when it creates condition flow nodes, but we can find this
+    // in the case of local variables type narrowing.
+    if (testExpression.nodeType === ParseNodeType.UnaryOperation) {
+        if (testExpression.operator === OperatorType.Not) {
+            return getTypeNarrowingCallback(evaluator, reference, testExpression.expression, !isPositiveTest);
+        }
+    }
+
     return undefined;
+}
+
+// Determines whether the symbol is a local variable or parameter within
+// the current scope _and_ is a constant (assigned only once). If so, it
+// returns the declaration for the symbol.
+function getDeclForLocalConst(evaluator: TypeEvaluator, name: NameNode): Declaration | undefined {
+    const scope = getScopeForNode(name);
+    if (scope?.type !== ScopeType.Function && scope?.type !== ScopeType.Module) {
+        return undefined;
+    }
+
+    const symbol = scope.lookUpSymbol(name.value);
+    if (!symbol) {
+        return undefined;
+    }
+
+    const decls = symbol.getDeclarations();
+    if (decls.length !== 1) {
+        return undefined;
+    }
+
+    const primaryDecl = decls[0];
+    if (primaryDecl.type !== DeclarationType.Variable && primaryDecl.type !== DeclarationType.Parameter) {
+        return undefined;
+    }
+
+    return primaryDecl;
 }
 
 // Handle type narrowing for expressions of the form "a[I] is None" and "a[I] is not None" where

@@ -187,6 +187,55 @@ def func2(val: Optional[int]):
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `int` (specifically, a value of 0) or `None` in the negative case.
 
+### Narrowing Based on a Local Variable
+
+Pyright also supports a type guard expression `c`, where `c` is an identifier that refers to a local variable that is assigned one of the above supported type guard expression forms. For example, `c = a is not None` can be used to narrow the expression `a`. This pattern is supported only in cases where `c` is a local variable within a module or function scope and is assigned a value only once. It is also limited to cases where expression `a` is a simple identifier (as opposed to a member access expression or subscript expression), is local to the function or module scope, and is assigned only once within the scope. Unary `not` operators are allowed for expression `a`, but binary `and` and `or` are not.
+
+```python
+def func1(x: str | None):
+    is_str = x is not None
+
+    if is_str:
+        reveal_type(x) # str
+    else:
+        reveal_type(x) # None
+```
+
+```python
+def func2(val: str | bytes):
+    is_str = not isinstance(val, bytes)
+
+    if not is_str:
+        reveal_type(val) # bytes
+    else:
+        reveal_type(val) # str
+```
+
+```python
+def func3(x: List[str | None]) -> str:
+    is_str = x[0] is not None
+
+    if is_str:
+        # This technique doesn't work for subscript expressions,
+        # so x[0] is not narrowed in this case.
+        reveal_type(x[0]) # str | None
+```
+
+```python
+def func4(x: str | None):
+    is_str = x is not None
+
+    if is_str:
+        # This technique doesn't work in cases where the target
+        # expression is assigned elsewhere. Here `x` is assigned
+        # elsewhere in the function, so its type is not narrowed
+        # in this case.
+        reveal_type(x) # str | None
+    
+    x = ""
+```
+
+
 ### Narrowing for Implied Else
 When an “if” or “elif” clause is used without a corresponding “else”, Pyright will generally assume that the code can “fall through” without executing the “if” or “elif” block. However, there are cases where the analyzer can determine that a fall-through is not possible because the “if” or “elif” is guaranteed to be executed based on type analysis.
 

@@ -409,6 +409,12 @@ test('TypeNarrowingFalsy1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingLocalConst1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLocalConst1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ReturnTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['returnTypes1.py']);
 
