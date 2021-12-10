@@ -1356,8 +1356,8 @@ export class Checker extends ParseTreeWalker {
             return !isTypeSame(leftType, rightType);
         }
 
-        if (isInstantiableClass(leftType)) {
-            if (isInstantiableClass(rightType)) {
+        if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
+            if (isInstantiableClass(rightType) || (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))) {
                 const genericLeftType = ClassType.cloneForSpecialization(
                     leftType,
                     /* typeArguments */ undefined,

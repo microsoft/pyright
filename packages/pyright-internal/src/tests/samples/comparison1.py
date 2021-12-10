@@ -62,3 +62,11 @@ def func2(
 
     if b == e:
         return
+
+
+def func3(base: type) -> None:
+    if base == ClassA:
+        ...
+
+    if ClassA == base:
+        ...
