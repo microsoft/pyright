@@ -187,9 +187,11 @@ def func2(val: Optional[int]):
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `int` (specifically, a value of 0) or `None` in the negative case.
 
-### Narrowing Based on a Local Variable
+### Aliased Conditional Expression
 
-Pyright also supports a type guard expression `c`, where `c` is an identifier that refers to a local variable that is assigned one of the above supported type guard expression forms. For example, `c = a is not None` can be used to narrow the expression `a`. This pattern is supported only in cases where `c` is a local variable within a module or function scope and is assigned a value only once. It is also limited to cases where expression `a` is a simple identifier (as opposed to a member access expression or subscript expression), is local to the function or module scope, and is assigned only once within the scope. Unary `not` operators are allowed for expression `a`, but binary `and` and `or` are not.
+Pyright also supports a type guard expression `c`, where `c` is an identifier that refers to a local variable that is assigned one of the above supported type guard expression forms. These are called “aliased conditional expressions”. Examples include `c = a is not None` and `c = isinstance(a, str)`. When “c” is used within a conditional check, it can be used to narrow the type of expression `a`.
+
+This pattern is supported only in cases where `c` is a local variable within a module or function scope and is assigned a value only once. It is also limited to cases where expression `a` is a simple identifier (as opposed to a member access expression or subscript expression), is local to the function or module scope, and is assigned only once within the scope. Unary `not` operators are allowed for expression `a`, but binary `and` and `or` are not.
 
 ```python
 def func1(x: str | None):
