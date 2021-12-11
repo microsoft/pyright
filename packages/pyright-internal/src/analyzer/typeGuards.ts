@@ -721,7 +721,7 @@ function narrowTypeForIsInstance(
                                         unspecializedFilterType,
                                         ClassType.cloneAsInstance(varType),
                                         typeVarMap,
-                                        []
+                                        /* liveTypeVarScopes */ undefined
                                     )
                                 ) {
                                     specializedFilterType = applySolvedTypeVars(

@@ -291,7 +291,7 @@ export interface TypeEvaluator {
         type: ClassType,
         expectedType: Type,
         typeVarMap: TypeVarMap,
-        liveTypeVarScopes: TypeVarScopeId[]
+        liveTypeVarScopes: TypeVarScopeId[] | undefined
     ) => boolean;
     lookUpSymbolRecursive: (node: ParseNode, name: string, honorCodeFlow: boolean) => SymbolWithScope | undefined;
     getDeclaredTypeOfSymbol: (symbol: Symbol) => Type | undefined;

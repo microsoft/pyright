@@ -2,7 +2,7 @@
 # narrow the type of a specialized class to a subclass where the type
 # arguments are implied by the type arguments of the wider class.
 
-from typing import Generic, Literal, Type, TypeVar, Union
+from typing import Generic, Iterable, Literal, Sequence, Type, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -33,3 +33,8 @@ def func2(
         t2: Literal["Type[OtherClass[str]] | Type[OtherClass[complex]]"] = reveal_type(
             b
         )
+
+
+def func3(value: Iterable[T]) -> Sequence[T] | None:
+    if isinstance(value, Sequence):
+        return value

@@ -7142,7 +7142,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: ClassType,
         expectedType: Type,
         typeVarMap: TypeVarMap,
-        liveTypeVarScopes: TypeVarScopeId[]
+        liveTypeVarScopes: TypeVarScopeId[] | undefined
     ): boolean {
         if (isAny(expectedType)) {
             type.details.typeParameters.forEach((typeParam) => {
@@ -7219,11 +7219,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const targetTypeVar =
                         ClassType.getTypeParameters(specializedType)[synthTypeVar.details.synthesizedIndex];
                     if (index < expectedTypeArgs.length) {
-                        const expectedTypeArgValue = transformExpectedTypeForConstructor(
-                            expectedTypeArgs[index],
-                            typeVarMap,
-                            liveTypeVarScopes
-                        );
+                        let expectedTypeArgValue: Type | undefined = expectedTypeArgs[index];
+
+                        if (liveTypeVarScopes) {
+                            expectedTypeArgValue = transformExpectedTypeForConstructor(
+                                expectedTypeArgValue,
+                                typeVarMap,
+                                liveTypeVarScopes
+                            );
+                        }
 
                         if (expectedTypeArgValue) {
                             typeVarMap.setTypeVarType(
