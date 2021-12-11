@@ -18325,93 +18325,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (destType.details.isParamSpec) {
-            if (isTypeVar(srcType) && srcType.details.isParamSpec) {
-                const existingEntry = typeVarMap.getParamSpec(destType);
-                if (existingEntry) {
-                    if (existingEntry.parameters.length === 0 && existingEntry.paramSpec) {
-                        // If there's an existing entry that matches, that's fine.
-                        if (
-                            isTypeSame(
-                                existingEntry.paramSpec,
-                                srcType,
-                                /* ignorePseudoGeneric */ undefined,
-                                /* ignoreTypeFlags */ undefined,
-                                recursionCount + 1
-                            )
-                        ) {
-                            return true;
-                        }
-                    }
-                } else {
-                    if (!typeVarMap.isLocked() && isTypeVarInScope) {
-                        typeVarMap.setParamSpec(destType, {
-                            flags: FunctionTypeFlags.None,
-                            parameters: [],
-                            paramSpec: srcType,
-                        });
-                    }
-                    return true;
-                }
-            } else if (isFunction(srcType)) {
-                const functionSrcType = srcType;
-                const parameters = srcType.details.parameters.map((p, index) => {
-                    const paramSpecEntry: ParamSpecEntry = {
-                        category: p.category,
-                        name: p.name,
-                        isNameSynthesized: p.isNameSynthesized,
-                        hasDefault: !!p.hasDefault,
-                        type: FunctionType.getEffectiveParameterType(functionSrcType, index),
-                    };
-                    return paramSpecEntry;
-                });
-
-                const existingEntry = typeVarMap.getParamSpec(destType);
-                if (existingEntry) {
-                    // Verify that the existing entry matches the new entry.
-                    if (
-                        !existingEntry.paramSpec &&
-                        existingEntry.parameters.length === parameters.length &&
-                        !existingEntry.parameters.some((existingParam, index) => {
-                            const newParam = parameters[index];
-                            return (
-                                existingParam.category !== newParam.category ||
-                                existingParam.name !== newParam.name ||
-                                existingParam.hasDefault !== newParam.hasDefault ||
-                                !isTypeSame(
-                                    existingParam.type,
-                                    newParam.type,
-                                    /* ignorePseudoGeneric */ undefined,
-                                    /* ignoreTypeFlags */ undefined,
-                                    recursionCount + 1
-                                )
-                            );
-                        })
-                    ) {
-                        return true;
-                    }
-                } else {
-                    if (!typeVarMap.isLocked() && isTypeVarInScope) {
-                        typeVarMap.setParamSpec(destType, {
-                            parameters,
-                            flags: srcType.details.flags,
-                            paramSpec: undefined,
-                        });
-                    }
-                    return true;
-                }
-            } else if (isAnyOrUnknown(srcType)) {
-                return true;
-            }
-
-            if (diag) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeParamSpec().format({
-                        type: printType(srcType),
-                        name: destType.details.name,
-                    })
-                );
-            }
-            return false;
+            return canAssignTypeToParamSpec(destType, srcType, diag, typeVarMap, recursionCount);
         }
 
         if (destType.details.isVariadic) {
@@ -18916,6 +18830,102 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return true;
+    }
+
+    function canAssignTypeToParamSpec(
+        destType: TypeVarType,
+        srcType: Type,
+        diag: DiagnosticAddendum | undefined,
+        typeVarMap: TypeVarMap,
+        recursionCount = 0
+    ) {
+        if (isTypeVar(srcType) && srcType.details.isParamSpec) {
+            const existingEntry = typeVarMap.getParamSpec(destType);
+            if (existingEntry) {
+                if (existingEntry.parameters.length === 0 && existingEntry.paramSpec) {
+                    // If there's an existing entry that matches, that's fine.
+                    if (
+                        isTypeSame(
+                            existingEntry.paramSpec,
+                            srcType,
+                            /* ignorePseudoGeneric */ undefined,
+                            /* ignoreTypeFlags */ undefined,
+                            recursionCount + 1
+                        )
+                    ) {
+                        return true;
+                    }
+                }
+            } else {
+                if (!typeVarMap.isLocked() && typeVarMap.hasSolveForScope(destType.scopeId)) {
+                    typeVarMap.setParamSpec(destType, {
+                        flags: FunctionTypeFlags.None,
+                        parameters: [],
+                        paramSpec: srcType,
+                    });
+                }
+                return true;
+            }
+        } else if (isFunction(srcType)) {
+            const functionSrcType = srcType;
+            const parameters = srcType.details.parameters.map((p, index) => {
+                const paramSpecEntry: ParamSpecEntry = {
+                    category: p.category,
+                    name: p.name,
+                    isNameSynthesized: p.isNameSynthesized,
+                    hasDefault: !!p.hasDefault,
+                    type: FunctionType.getEffectiveParameterType(functionSrcType, index),
+                };
+                return paramSpecEntry;
+            });
+
+            const existingEntry = typeVarMap.getParamSpec(destType);
+            if (existingEntry) {
+                // Verify that the existing entry matches the new entry.
+                if (
+                    !existingEntry.paramSpec &&
+                    existingEntry.parameters.length === parameters.length &&
+                    !existingEntry.parameters.some((existingParam, index) => {
+                        const newParam = parameters[index];
+                        return (
+                            existingParam.category !== newParam.category ||
+                            existingParam.name !== newParam.name ||
+                            existingParam.hasDefault !== newParam.hasDefault ||
+                            !isTypeSame(
+                                existingParam.type,
+                                newParam.type,
+                                /* ignorePseudoGeneric */ undefined,
+                                /* ignoreTypeFlags */ undefined,
+                                recursionCount + 1
+                            )
+                        );
+                    })
+                ) {
+                    return true;
+                }
+            } else {
+                if (!typeVarMap.isLocked() && typeVarMap.hasSolveForScope(destType.scopeId)) {
+                    typeVarMap.setParamSpec(destType, {
+                        parameters,
+                        flags: srcType.details.flags,
+                        paramSpec: undefined,
+                    });
+                }
+                return true;
+            }
+        } else if (isAnyOrUnknown(srcType)) {
+            return true;
+        }
+
+        if (diag) {
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.typeParamSpec().format({
+                    type: printType(srcType),
+                    name: destType.details.name,
+                })
+            );
+        }
+        return false;
     }
 
     // Determines if the source type can be assigned to the dest type.
