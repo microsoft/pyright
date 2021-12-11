@@ -7696,6 +7696,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         return callResult.returnType || UnknownType.create();
                     }
+
+                    case TypeCategory.Module: {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.moduleNotCallable(),
+                            errorNode
+                        );
+                        return undefined;
+                    }
                 }
 
                 return undefined;
