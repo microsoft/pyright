@@ -468,6 +468,16 @@ export class PackageTypeVerifier {
                     const symbolCategory = this._getSymbolCategory(symbol, symbolType);
                     const isExported = publicSymbolMap.has(fullName);
 
+                    // If the only reference to this symbol is a "__slots__" entry, we will
+                    // skip it when considering type completeness.
+                    if (
+                        decls.length === 1 &&
+                        primaryDecl?.type === DeclarationType.Variable &&
+                        primaryDecl.isDefinedBySlots
+                    ) {
+                        return;
+                    }
+
                     symbolInfo = {
                         category: symbolCategory,
                         name,
