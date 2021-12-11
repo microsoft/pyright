@@ -884,17 +884,20 @@ export namespace ClassType {
     }
 }
 
-export interface FunctionParameter {
+export interface ParamSpecEntry {
     category: ParameterCategory;
     name?: string | undefined;
-    isNameSynthesized?: boolean | undefined;
-    isTypeInferred?: boolean | undefined;
+    isNameSynthesized?: boolean;
     hasDefault?: boolean | undefined;
+    type: Type;
+}
+
+export interface FunctionParameter extends ParamSpecEntry {
+    isTypeInferred?: boolean | undefined;
     defaultValueExpression?: ExpressionNode | undefined;
     defaultType?: Type | undefined;
     hasDeclaredType?: boolean | undefined;
     typeAnnotation?: ExpressionNode | undefined;
-    type: Type;
 }
 
 export const enum FunctionTypeFlags {
@@ -1013,18 +1016,10 @@ export interface FunctionType extends TypeBase {
     boundTypeVarScopeId?: TypeVarScopeId | undefined;
 }
 
-export interface ParamSpecEntry {
-    category: ParameterCategory;
-    name?: string | undefined;
-    isNameSynthesized?: boolean;
-    hasDefault: boolean;
-    type: Type;
-}
-
 export interface ParamSpecValue {
     flags: FunctionTypeFlags;
     parameters: ParamSpecEntry[];
-    paramSpec: TypeVarType | undefined;
+    paramSpec?: TypeVarType;
 }
 
 export namespace FunctionType {
