@@ -2031,7 +2031,7 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
 }
 
 export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Type {
-    if (paramSpecEntry.parameters.length > 0) {
+    if (paramSpecEntry.parameters.length > 0 || !paramSpecEntry.paramSpec) {
         // Create a function type from the param spec entries.
         const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
 
@@ -2051,11 +2051,7 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Typ
         return functionType;
     }
 
-    if (paramSpecEntry.paramSpec) {
-        return paramSpecEntry.paramSpec;
-    }
-
-    return UnknownType.create();
+    return paramSpecEntry.paramSpec;
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing
@@ -2222,10 +2218,10 @@ class TypeVarTransformer {
         const typeParams = ClassType.getTypeParameters(classType);
 
         const transformParamSpec = (paramSpec: TypeVarType) => {
-            const paramSpecEntries = this.transformParamSpec(paramSpec);
-            if (paramSpecEntries) {
+            const paramSpecValue = this.transformParamSpec(paramSpec);
+            if (paramSpecValue) {
                 specializationNeeded = true;
-                return convertParamSpecValueToType(paramSpecEntries);
+                return convertParamSpecValueToType(paramSpecValue);
             } else {
                 return UnknownType.create();
             }
