@@ -7513,6 +7513,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (
                                     className === 'Enum' ||
                                     className === 'IntEnum' ||
+                                    className === 'StrEnum' ||
                                     className === 'Flag' ||
                                     className === 'IntFlag'
                                 ) {
