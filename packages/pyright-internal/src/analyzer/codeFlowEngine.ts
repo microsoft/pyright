@@ -415,8 +415,15 @@ export function getCodeFlowEngine(
                                     /* isIncomplete */ true
                                 );
                                 let flowTypeResult = evaluateAssignmentFlowNode(assignmentFlowNode);
-                                if (flowTypeResult && isTypeAliasPlaceholder(flowTypeResult.type)) {
-                                    flowTypeResult = undefined;
+                                if (flowTypeResult) {
+                                    if (isTypeAliasPlaceholder(flowTypeResult.type)) {
+                                        flowTypeResult = undefined;
+                                    } else if (
+                                        reference.nodeType === ParseNodeType.MemberAccess &&
+                                        evaluator.isAsymmetricDescriptorAssignment(assignmentFlowNode.node)
+                                    ) {
+                                        flowTypeResult = undefined;
+                                    }
                                 }
                                 return setCacheEntry(
                                     curFlowNode,

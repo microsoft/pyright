@@ -145,6 +145,10 @@ export interface TypeResult {
     // "super" call can specify a different class or object to
     // bind.
     bindToType?: ClassType | TypeVarType | undefined;
+
+    // Is member a descriptor object that is asymmetric with respect
+    // to __get__ and __set__ types?
+    isAsymmetricDescriptor?: boolean;
 }
 
 export interface EvaluatorUsage {
@@ -262,6 +266,7 @@ export interface TypeEvaluator {
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode, sourceNode: ParseNode | undefined) => boolean;
+    isAsymmetricDescriptorAssignment: (node: ParseNode) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
 
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;

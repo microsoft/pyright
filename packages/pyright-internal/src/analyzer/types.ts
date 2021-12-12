@@ -469,6 +469,11 @@ export interface ClassType extends TypeBase {
     // that are not required have been confirmed to be present
     // through the use of a guard expression.
     typedDictNarrowedEntries?: Map<string, TypedDictEntry> | undefined;
+
+    // Indicates whether the class is an asymmetric descriptor
+    // or property - one where the __get__ and __set__ types differ.
+    // If undefined, it hasn't been tested yet for asymmetry.
+    isAsymmetricDescriptor?: boolean;
 }
 
 export namespace ClassType {

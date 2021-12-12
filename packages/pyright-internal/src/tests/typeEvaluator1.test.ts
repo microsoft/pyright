@@ -1116,3 +1116,9 @@ test('UnusedVariable1', () => {
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['unusedVariable1.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 3);
 });
+
+test('Descriptor1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['descriptor1.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
