@@ -284,7 +284,7 @@ This “narrowing for implied else” technique works for all narrowing expressi
 
 ### Narrowing Any
 
-In general, the type `Any` is not narrowed. The only exceptions to this rule are the built-in `isinstance` and `issubclass` type guards plus user-defined type guards. In all other cases, `Any` is left as is, even for assignments.
+In general, the type `Any` is not narrowed. The only exceptions to this rule are the built-in `isinstance` and `issubclass` type guards, class pattern matching in “match” statements, and user-defined type guards. In all other cases, `Any` is left as is, even for assignments.
 
 ```python
 a: Any = 3

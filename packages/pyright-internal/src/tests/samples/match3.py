@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain class patterns.
 
-from typing import Generic, Literal, NamedTuple, Optional, TypeVar, Union
+from typing import Any, Generic, Literal, NamedTuple, Optional, TypeVar, Union
 from dataclasses import dataclass, field
 
 foo = 3
@@ -11,16 +11,24 @@ class ClassA:
     attr_a: int
     attr_b: str
 
+
 def test_unknown(value_to_match):
     match value_to_match:
         case ClassA(attr_a=a2) as a1:
-            t_a1: Literal["Unknown"] = reveal_type(a1)
-            t_a2: Literal["Unknown"] = reveal_type(a2)
-            t_v1: Literal["Unknown"] = reveal_type(value_to_match)
+            t_a1: Literal["ClassA"] = reveal_type(a1)
+            t_a2: Literal["int"] = reveal_type(a2)
+            t_v1: Literal["ClassA"] = reveal_type(value_to_match)
 
         # This should generate an error because foo isn't instantiable.
         case foo() as a3:
             pass
+
+def test_any(value_to_match: Any):
+    match value_to_match:
+        case list() as a1:
+            t_a1: Literal["list[Unknown]"] = reveal_type(a1)
+            t_v1: Literal["list[Unknown]"] = reveal_type(value_to_match)
+
 
 def test_custom_type(value_to_match: ClassA):
     match value_to_match:
@@ -274,3 +282,12 @@ def func10(v: T4) -> Optional[T4]:
         case _:
             return None
 
+def func11(subj: Any):
+    match subj:
+        case Child1() as a1:
+            t_a1: Literal['Child1[Unknown]'] = reveal_type(a1)
+            t_a: Literal['Child1[Unknown]'] = reveal_type(subj)
+
+        case Child2() as b1:
+            t_b1: Literal['Child2[Unknown, Unknown]'] = reveal_type(b1)
+            t_b: Literal['Child2[Unknown, Unknown]'] = reveal_type(subj)

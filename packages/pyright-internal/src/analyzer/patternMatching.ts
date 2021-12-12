@@ -518,7 +518,7 @@ function narrowTypeBasedOnClassPattern(
                     const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(matchSubtype);
 
                     if (isAnyOrUnknown(concreteSubtype)) {
-                        return matchSubtype;
+                        return convertToInstance(unexpandedSubtype);
                     }
 
                     if (isClassInstance(concreteSubtype)) {
