@@ -71,3 +71,8 @@ class ClassD:
     # This should generate an error because it refers to the local
     # "int" symbol rather than the builtins "int".
     bar: int
+
+
+# This should generate an error because modules are not allowed in
+# type annotations.
+z: typing

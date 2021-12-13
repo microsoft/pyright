@@ -1199,9 +1199,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const classType = getTypeOfExpression(node, /* expectedType */ undefined, evaluatorFlags).type;
+        const annotationType = getTypeOfExpression(node, /* expectedType */ undefined, evaluatorFlags).type;
 
-        return convertToInstance(classType);
+        if (isModule(annotationType)) {
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.moduleAsType(),
+                node
+            );
+        }
+
+        return convertToInstance(annotationType);
     }
 
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
