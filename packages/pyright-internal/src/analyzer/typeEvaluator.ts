@@ -2926,6 +2926,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return combineTypes(typesToCombine);
                 }
 
+                if (subtype.details.isExemptFromBoundCheck) {
+                    return AnyType.create();
+                }
+
                 // Convert to an "object" or "type" instance depending on whether
                 // it's instantiable.
                 if (TypeBase.isInstantiable(subtype)) {
@@ -7351,6 +7355,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typeVar = TypeVarType.createInstance(`__source${index}`);
             typeVar.details.isSynthesized = true;
             typeVar.details.synthesizedIndex = index;
+            typeVar.details.isExemptFromBoundCheck = true;
             return typeVar;
         });
 

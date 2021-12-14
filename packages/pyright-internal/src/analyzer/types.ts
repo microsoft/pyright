@@ -1714,6 +1714,7 @@ export interface TypeVarDetails {
     isSynthesized: boolean;
     isSynthesizedSelf?: boolean | undefined;
     synthesizedIndex?: number | undefined;
+    isExemptFromBoundCheck?: boolean;
 
     // Used for recursive type aliases.
     recursiveTypeAliasName?: string | undefined;
