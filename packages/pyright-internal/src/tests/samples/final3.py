@@ -78,6 +78,10 @@ class Foo:
         self.member7: Final = 6
 
 
+t1: Literal["Literal[4]"] = reveal_type(Foo.member1)
+t2: Literal["Literal[4]"] = reveal_type(Foo(True).member1)
+
+
 class Bar(Foo):
     # This should generate an error because we are overriding
     # a member that is marked Final in the parent class.

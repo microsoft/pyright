@@ -2488,7 +2488,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // version by stripping off the literal.
             const scope = ScopeUtils.getScopeForNode(nameNode);
             if (scope?.type === ScopeType.Class) {
-                if (TypeBase.isInstance(destType) && !isConstantName(nameValue)) {
+                if (
+                    TypeBase.isInstance(destType) &&
+                    !isConstantName(nameValue) &&
+                    !isFinalVariable(symbolWithScope.symbol)
+                ) {
                     destType = stripLiteralValue(destType);
                 }
             }
