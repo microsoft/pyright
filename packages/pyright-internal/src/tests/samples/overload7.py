@@ -3,8 +3,10 @@
 
 from typing import (
     Any,
+    Callable,
     Dict,
     Generic,
+    Iterable,
     List,
     Literal,
     Optional,
@@ -237,4 +239,30 @@ def func11(var: int) -> int:
 
 
 def func11(var: Union[_T6, int]) -> Union[_T6, int]:
+    ...
+
+
+_T7 = TypeVar("_T7")
+_T8 = TypeVar("_T8")
+_T9 = TypeVar("_T9")
+
+
+@overload
+def func12(func: Callable[[_T7], _T8], iterable: Iterable[_T7], /) -> Iterable[_T8]:
+    ...
+
+
+@overload
+def func12(
+    func: Callable[[_T7], _T8], iterable: Iterable[_T7], /, default_value: _T9
+) -> Iterable[_T8 | _T9]:
+    ...
+
+
+def func12(
+    func: Callable[[_T7], _T8],
+    iterable: Iterable[_T7],
+    /,
+    default_value: _T9 = None,
+) -> Iterable[_T8 | _T9]:
     ...

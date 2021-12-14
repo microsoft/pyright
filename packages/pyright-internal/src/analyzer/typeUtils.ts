@@ -155,6 +155,11 @@ export const enum CanAssignFlags {
     // because overloads can provide explicit type annotations for self
     // or cls.
     SkipSelfClsTypeCheck = 1 << 8,
+
+    // If an assignment is made to a TypeVar that is out of scope,
+    // do not generate an error. This is used for populating the
+    // typeVarMap when handling contravariant parameters in a callable.
+    IgnoreTypeVarScope = 1 << 9,
 }
 
 export enum ParameterSource {

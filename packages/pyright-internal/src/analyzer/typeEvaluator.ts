@@ -18494,6 +18494,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
+            // If we're in "reverse type var matching" mode, don't generate
+            // an error in this path.
+            if ((flags & CanAssignFlags.IgnoreTypeVarScope) !== 0) {
+                return true;
+            }
+
             isTypeVarInScope = false;
             if (!destType.details.isSynthesized) {
                 if (diag) {
@@ -20323,7 +20329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     specializedDestType,
                     /* diag */ undefined,
                     destTypeVarMap,
-                    flags ^ CanAssignFlags.ReverseTypeVarMatching,
+                    (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.IgnoreTypeVarScope,
                     recursionCount + 1
                 )
             ) {
