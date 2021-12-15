@@ -16029,13 +16029,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
                 )
             ) {
-                typeArgs = [
-                    {
-                        type: UnknownType.create(),
-                        node: typeArgs[0].node,
-                        typeList: typeArgs,
-                    },
-                ];
+                if (
+                    typeArgs.length !== 1 ||
+                    !isInstantiableClass(typeArgs[0].type) ||
+                    !ClassType.isBuiltIn(typeArgs[0].type, 'Concatenate')
+                ) {
+                    // Package up the type arguments into a typeList.
+                    typeArgs = [
+                        {
+                            type: UnknownType.create(),
+                            node: typeArgs[0].node,
+                            typeList: typeArgs,
+                        },
+                    ];
+                }
             } else if (typeArgs.length > 1) {
                 const paramSpecTypeArg = typeArgs.find((typeArg) => isParamSpec(typeArg.type));
                 if (paramSpecTypeArg) {
