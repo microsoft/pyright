@@ -2496,6 +2496,8 @@ export class Checker extends ParseTreeWalker {
         ];
 
         const classTypeList: ClassType[] = [];
+        let arg1IncludesSubclasses = false;
+
         doForEachSubtype(arg1Type, (arg1Subtype) => {
             if (isClass(arg1Subtype)) {
                 if (TypeBase.isInstantiable(arg1Subtype)) {
@@ -2506,18 +2508,33 @@ export class Checker extends ParseTreeWalker {
                     ) {
                         isValidType = false;
                     }
+
+                    if (arg1Subtype.includeSubclasses) {
+                        arg1IncludesSubclasses = true;
+                    }
                 } else {
                     // The isinstance and issubclass call supports a variation where the second
                     // parameter is a tuple of classes.
-                    if (isTupleClass(arg1Subtype) && arg1Subtype.tupleTypeArguments) {
-                        arg1Subtype.tupleTypeArguments.forEach((typeArg) => {
-                            if (isInstantiableClass(typeArg)) {
-                                classTypeList.push(typeArg);
-                            } else {
-                                isValidType = false;
-                            }
-                        });
+                    if (isTupleClass(arg1Subtype)) {
+                        if (arg1Subtype.tupleTypeArguments) {
+                            arg1Subtype.tupleTypeArguments.forEach((typeArg) => {
+                                if (isInstantiableClass(typeArg)) {
+                                    classTypeList.push(typeArg);
+
+                                    if (typeArg.includeSubclasses) {
+                                        arg1IncludesSubclasses = true;
+                                    }
+                                } else {
+                                    isValidType = false;
+                                }
+                            });
+                        }
+                    } else {
+                        if (arg1Subtype.includeSubclasses) {
+                            arg1IncludesSubclasses = true;
+                        }
                     }
+
                     if (
                         ClassType.isBuiltIn(arg1Subtype) &&
                         nonstandardClassTypes.some((name) => name === arg1Subtype.details.name)
@@ -2639,7 +2656,9 @@ export class Checker extends ParseTreeWalker {
             return combineTypes(objTypeList);
         };
 
-        if (isTypeSame(filteredType, arg0Type, /* ignorePseudoGeneric */ true)) {
+        // If arg1IncludesSubclasses is true, it contains a Type[X] class rather than X. A Type[X]
+        // could be a subclass of X, so the "unnecessary isinstance check" may be legit.
+        if (!arg1IncludesSubclasses && isTypeSame(filteredType, arg0Type, /* ignorePseudoGeneric */ true)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
