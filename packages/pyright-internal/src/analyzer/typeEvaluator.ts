@@ -1032,7 +1032,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                const iterTypeResult = getTypeOfExpression(node.expression, iterExpectedType, flags)
+                const iterTypeResult = getTypeOfExpression(node.expression, iterExpectedType, flags);
                 const iterType = iterTypeResult.type;
                 if (
                     (flags & EvaluatorFlags.TypeVarTupleDisallowed) === 0 &&
