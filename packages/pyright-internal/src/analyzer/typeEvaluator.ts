@@ -302,6 +302,7 @@ interface MatchArgsToParamsResult {
     overloadIndex: number;
 
     argumentErrors: boolean;
+    isTypeIncomplete: boolean;
     argParams: ValidateArgTypeParams[];
     activeParam?: FunctionParameter | undefined;
     paramSpecTarget?: TypeVarType | undefined;
@@ -6954,6 +6955,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let validatedTypes = false;
         let returnType: Type | undefined;
         let reportedErrors = false;
+        let isTypeIncomplete = false;
 
         // Create a helper function that determines whether we should skip argument
         // validation for either __init__ or __new__. This is required for certain
@@ -7007,7 +7009,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (!callResult?.argumentErrors) {
                             // Call validateCallArguments again, this time without speculative
                             // mode, so any errors are reported.
-                            validateCallArguments(
+                            const callResult = validateCallArguments(
                                 errorNode,
                                 argList,
                                 initMethodType,
@@ -7015,6 +7017,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 skipUnknownArgCheck,
                                 NoneType.createInstance()
                             );
+
+                            if (callResult.isTypeIncomplete) {
+                                isTypeIncomplete = true;
+                            }
+
                             return applyExpectedSubtypeForConstructor(type, expectedSubType, typeVarMap);
                         }
                     }
@@ -7056,6 +7063,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* expectedType */ undefined,
                         typeVarMap
                     );
+
+                    if (callResult.isTypeIncomplete) {
+                        isTypeIncomplete = true;
+                    }
                 } else {
                     reportedErrors = true;
                 }
@@ -7131,6 +7142,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         reportedErrors = true;
                     } else {
                         let newReturnType = callResult.returnType;
+
+                        if (callResult.isTypeIncomplete) {
+                            isTypeIncomplete = true;
+                        }
 
                         // If the constructor returned an object whose type matches the class of
                         // the original type being constructed, use the return type in case it was
@@ -7230,7 +7245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
         }
 
-        return { argumentErrors: reportedErrors, returnType };
+        return { argumentErrors: reportedErrors, returnType, isTypeIncomplete };
     }
 
     function applyExpectedSubtypeForConstructor(
@@ -7755,9 +7770,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 skipUnknownArgCheck,
                                 expectedType
                             );
+
                             if (constructorResult.argumentErrors) {
                                 argumentErrors = true;
                             }
+
+                            if (constructorResult.isTypeIncomplete) {
+                                isTypeIncomplete = true;
+                            }
+
                             let returnType = constructorResult.returnType;
 
                             // If the expandedSubtype originated from a TypeVar, convert
@@ -7905,6 +7926,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // The last parameter might be a var arg dictionary. If so, strip it off.
         const varArgDictParam = typeParams.find((param) => param.category === ParameterCategory.VarArgDictionary);
         let reportedArgError = false;
+        let isTypeIncomplete = false;
 
         // Is there a positional-only "/" parameter? If so, it separates the
         // positional-only from positional or keyword parameters.
@@ -8075,7 +8097,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isParamVariadic =
                     typeParams[paramIndex].category === ParameterCategory.VarArgList && isVariadicTypeVar(paramType);
                 let isArgCompatibleWithVariadic = false;
-                const argType = getTypeForArgument(argList[argIndex]).type;
+                const argTypeResult = getTypeForArgument(argList[argIndex]);
+                const argType = argTypeResult.type;
                 let listElementType: Type | undefined;
                 let advanceToNextArg = false;
 
@@ -8146,6 +8169,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                           type: listElementType,
                       }
                     : undefined;
+                if (funcArg && argTypeResult.isIncomplete) {
+                    isTypeIncomplete = true;
+                }
 
                 const paramName = typeParams[paramIndex].name;
 
@@ -8675,6 +8701,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             overload: type,
             overloadIndex,
             argumentErrors: reportedArgError,
+            isTypeIncomplete,
             argParams: validateArgTypeParams,
             paramSpecTarget,
             paramSpecArgList,
@@ -8693,7 +8720,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         skipUnknownArgCheck = false,
         expectedType?: Type
     ): CallResult {
-        let isTypeIncomplete = false;
+        let isTypeIncomplete = matchResults.isTypeIncomplete;
         let argumentErrors = false;
         let specializedInitSelfType: Type | undefined;
         const type = matchResults.overload;
