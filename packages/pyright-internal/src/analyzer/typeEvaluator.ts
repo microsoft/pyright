@@ -1032,7 +1032,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                const iterType = getTypeOfExpression(node.expression, iterExpectedType, flags).type;
+                const iterTypeResult = getTypeOfExpression(node.expression, iterExpectedType, flags);
+                const iterType = iterTypeResult.type;
                 if (
                     (flags & EvaluatorFlags.TypeVarTupleDisallowed) === 0 &&
                     isVariadicTypeVar(iterType) &&
@@ -1041,7 +1042,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeResult = { type: TypeVarType.cloneForUnpacked(iterType), node };
                 } else {
                     const type = getTypeFromIterator(iterType, /* isAsync */ false, node) || UnknownType.create();
-                    typeResult = { type, unpackedType: iterType, node };
+                    typeResult = { type, unpackedType: iterType, node, isIncomplete: iterTypeResult.isIncomplete };
                 }
                 break;
             }

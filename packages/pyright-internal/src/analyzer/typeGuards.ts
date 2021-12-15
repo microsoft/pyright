@@ -1268,7 +1268,7 @@ function narrowTypeForLiteralComparison(
                 // If we're able to enumerate all possible literal values
                 // (for bool or enum), we can eliminate all others in a negative test.
                 const allLiteralTypes = enumerateLiteralsForType(evaluator, subtype);
-                if (allLiteralTypes) {
+                if (allLiteralTypes && allLiteralTypes.length > 0) {
                     return combineTypes(
                         allLiteralTypes.filter((type) => !ClassType.isLiteralValueSame(type, literalType))
                     );
@@ -1297,8 +1297,8 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
         // Enumerate all of the values in this enumeration.
         const enumList: ClassType[] = [];
         const fields = type.details.fields;
-        fields.forEach((symbol, name) => {
-            if (!symbol.isIgnoredForProtocolMatch() && !symbol.isInstanceMember()) {
+        fields.forEach((symbol) => {
+            if (!symbol.isIgnoredForProtocolMatch()) {
                 const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
                 if (
                     isClassInstance(symbolType) &&
