@@ -1297,8 +1297,8 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
         // Enumerate all of the values in this enumeration.
         const enumList: ClassType[] = [];
         const fields = type.details.fields;
-        fields.forEach((symbol, name) => {
-            if (!symbol.isIgnoredForProtocolMatch() && !symbol.isInstanceMember()) {
+        fields.forEach((symbol) => {
+            if (!symbol.isIgnoredForProtocolMatch()) {
                 const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
                 if (
                     isClassInstance(symbolType) &&
