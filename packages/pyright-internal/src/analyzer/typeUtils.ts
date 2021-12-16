@@ -28,7 +28,7 @@ import {
     isFunction,
     isInstantiableClass,
     isNever,
-    isNone,
+    isNoneInstance,
     isOverloadedFunction,
     isParamSpec,
     isTypeSame,
@@ -277,7 +277,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
 export function isOptionalType(type: Type): boolean {
     if (isUnion(type)) {
-        return findSubtype(type, (subtype) => isNone(subtype)) !== undefined;
+        return findSubtype(type, (subtype) => isNoneInstance(subtype)) !== undefined;
     }
 
     return false;
@@ -2078,7 +2078,7 @@ class TypeVarTransformer {
             return type;
         }
 
-        if (isNone(type)) {
+        if (isNoneInstance(type)) {
             return type;
         }
 

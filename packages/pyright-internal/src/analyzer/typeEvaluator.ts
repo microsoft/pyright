@@ -159,7 +159,8 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isNone,
+    isNoneInstance,
+    isNoneTypeClass,
     isOverloadedFunction,
     isParamSpec,
     isTypeSame,
@@ -4359,7 +4360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.Union: {
                 type = mapSubtypes(baseType, (subtype) => {
-                    if (isNone(subtype)) {
+                    if (isNoneInstance(subtype)) {
                         const typeResult = getTypeFromNoneBase();
                         if (typeResult) {
                             type = addConditionToType(typeResult.type, getTypeCondition(baseType));
@@ -5622,7 +5623,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return UnknownType.create();
                 }
 
-                if (isNone(concreteSubtype)) {
+                if (isNoneInstance(concreteSubtype)) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
                         DiagnosticRule.reportOptionalSubscript,
@@ -7647,7 +7648,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         if (
                                             isClassInstance(argType) ||
                                             (isTypeVar(argType) && TypeBase.isInstance(argType)) ||
-                                            isNone(argType)
+                                            isNoneInstance(argType)
                                         ) {
                                             return convertToInstantiable(stripLiteralValue(argType));
                                         }
@@ -10033,7 +10034,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !customMetaclassSupportsMethod(rightType, '__ror__')
         ) {
             let adjustedRightType = rightType;
-            if (!isNone(leftType) && isNone(rightType) && TypeBase.isInstance(rightType)) {
+            if (!isNoneInstance(leftType) && isNoneInstance(rightType) && TypeBase.isInstance(rightType)) {
                 // Handle the special case where "None" is being added to the union
                 // with something else. Even though "None" will normally be interpreted
                 // as the None singleton object in contexts where a type annotation isn't
@@ -10600,7 +10601,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isClassInstance(subtype) || isInstantiableClass(subtype) || isTypeVar(subtype)) {
                 return handleSubtype(subtype);
-            } else if (isNone(subtype)) {
+            } else if (isNoneInstance(subtype)) {
                 // NoneType derives from 'object', so do the lookup on 'object'
                 // in this case.
                 const obj = getBuiltInObject(errorNode, 'object');
@@ -12294,7 +12295,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // is allowed if it's a variadic type var or None (since the latter is used
         // to define NoReturn in typeshed stubs).
         if (types.length === 1) {
-            if (!isVariadicTypeVar(types[0]) && !isNone(types[0])) {
+            if (!isVariadicTypeVar(types[0]) && !isNoneInstance(types[0])) {
                 addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
             }
         }
@@ -19459,8 +19460,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return canAssignToUnionType(destType, srcType, diag, typeVarMap, originalFlags, recursionCount + 1);
         }
 
-        if (isNone(destType) && isNone(srcType)) {
-            return TypeBase.isInstance(destType) === TypeBase.isInstance(srcType);
+        if (isNoneInstance(destType) && isNoneInstance(srcType)) {
+            return true;
+        }
+
+        if (isNoneTypeClass(destType) && isNoneTypeClass(srcType)) {
+            return true;
         }
 
         // Is the src a specialized "Type" object?
@@ -19803,7 +19808,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Are we trying to assign None to a protocol?
-        if (isNone(srcType) && isClassInstance(destType) && ClassType.isProtocolClass(destType)) {
+        if (isNoneInstance(srcType) && isClassInstance(destType) && ClassType.isProtocolClass(destType)) {
             if (noneType && isInstantiableClass(noneType)) {
                 return canAssignClassToProtocol(
                     ClassType.cloneAsInstantiable(destType),
@@ -19817,7 +19822,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (isNone(destType)) {
+        if (isNoneInstance(destType)) {
             if (diag) {
                 diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
             }
@@ -20064,7 +20069,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // match we find because we may need to match TypeVars in other
         // subtypes. We special-case "None" so we can handle Optional[T]
         // without matching the None to the type var.
-        if (isNone(srcType) && isOptionalType(destType)) {
+        if (isNoneInstance(srcType) && isOptionalType(destType)) {
             foundMatch = true;
         } else {
             let bestTypeVarMap: TypeVarMap | undefined;

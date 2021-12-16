@@ -1896,8 +1896,12 @@ export function isNever(type: Type): type is NeverType {
     return type.category === TypeCategory.Never;
 }
 
-export function isNone(type: Type): type is NoneType {
-    return type.category === TypeCategory.None;
+export function isNoneInstance(type: Type): type is NoneType {
+    return type.category === TypeCategory.None && TypeBase.isInstance(type);
+}
+
+export function isNoneTypeClass(type: Type): type is NoneType {
+    return type.category === TypeCategory.None && TypeBase.isInstantiable(type);
 }
 
 export function isAny(type: Type): type is AnyType {
@@ -2360,7 +2364,7 @@ export function removeUnbound(type: Type): Type {
 // If the type is a union, remove an "None" type from the union,
 // returning only the known types.
 export function removeNoneFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => isNone(t));
+    return removeFromUnion(type, (t: Type) => isNoneInstance(t));
 }
 
 export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {

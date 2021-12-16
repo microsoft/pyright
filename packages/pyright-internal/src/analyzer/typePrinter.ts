@@ -17,7 +17,7 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
-    isNone,
+    isNoneInstance,
     isParamSpec,
     isTypeSame,
     isVariadicTypeVar,
@@ -299,7 +299,7 @@ export function printType(
                     }
                 }
 
-                const noneIndex = type.subtypes.findIndex((subtype) => isNone(subtype));
+                const noneIndex = type.subtypes.findIndex((subtype) => isNoneInstance(subtype));
                 if (noneIndex >= 0 && !subtypeHandledSet.has(noneIndex)) {
                     const typeWithoutNone = removeNoneFromUnion(type);
                     if (isNever(typeWithoutNone)) {
@@ -425,7 +425,7 @@ export function printType(
             }
 
             case TypeCategory.None: {
-                return `${TypeBase.isInstantiable(type) ? 'NoneType' : 'None'}${getConditionalIndicator(type)}`;
+                return `${TypeBase.isInstantiable(type) ? 'Type[None]' : 'None'}${getConditionalIndicator(type)}`;
             }
 
             case TypeCategory.Never: {

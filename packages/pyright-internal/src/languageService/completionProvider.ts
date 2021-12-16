@@ -57,7 +57,7 @@ import {
     isFunction,
     isInstantiableClass,
     isModule,
-    isNone,
+    isNoneInstance,
     isOverloadedFunction,
     isUnbound,
     isUnknown,
@@ -1172,7 +1172,7 @@ export class CompletionProvider {
                     if (functionClass && isInstantiableClass(functionClass)) {
                         getMembersForClass(functionClass, symbolTable, /* includeInstanceVars */ true);
                     }
-                } else if (isNone(subtype)) {
+                } else if (isNoneInstance(subtype)) {
                     const objectClass = this._evaluator.getBuiltInType(leftExprNode, 'object');
                     if (objectClass && isInstantiableClass(objectClass)) {
                         getMembersForClass(objectClass, symbolTable, TypeBase.isInstance(subtype));

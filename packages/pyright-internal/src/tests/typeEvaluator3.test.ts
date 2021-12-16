@@ -757,6 +757,12 @@ test('None1', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('None2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['none2.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Constructor1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor1.py']);
 

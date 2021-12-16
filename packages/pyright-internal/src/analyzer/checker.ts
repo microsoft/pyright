@@ -103,7 +103,7 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isNone,
+    isNoneInstance,
     isOverloadedFunction,
     isParamSpec,
     isPossiblyUnbound,
@@ -863,7 +863,7 @@ export class Checker extends ParseTreeWalker {
                 doForEachSubtype(exceptionType, (subtype) => {
                     subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
-                    if (!isAnyOrUnknown(subtype) && !isNone(subtype)) {
+                    if (!isAnyOrUnknown(subtype) && !isNoneInstance(subtype)) {
                         if (isClass(subtype)) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
                                 diagAddendum.addMessage(
@@ -1351,7 +1351,7 @@ export class Checker extends ParseTreeWalker {
             return !isTypeSame(leftType, rightType);
         }
 
-        if (isNone(leftType) || isNone(rightType)) {
+        if (isNoneInstance(leftType) || isNoneInstance(rightType)) {
             return !isTypeSame(leftType, rightType);
         }
 
@@ -1431,7 +1431,7 @@ export class Checker extends ParseTreeWalker {
     // Determines whether the specified type is one that should trigger
     // an "unused" value diagnostic.
     private _isTypeValidForUnusedValueTest(type: Type) {
-        return !isNone(type) && !isNoReturnType(type) && !isNever(type) && !isAnyOrUnknown(type);
+        return !isNoneInstance(type) && !isNoReturnType(type) && !isNever(type) && !isAnyOrUnknown(type);
     }
 
     // Verifies that each local type variable is used more than once.
@@ -2993,7 +2993,7 @@ export class Checker extends ParseTreeWalker {
             const declaredReturnType = functionType.details.declaredReturnType;
 
             if (returnAnnotation && declaredReturnType) {
-                if (!isNone(declaredReturnType) && !isNoReturnType(declaredReturnType)) {
+                if (!isNoneInstance(declaredReturnType) && !isNoReturnType(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -3005,7 +3005,7 @@ export class Checker extends ParseTreeWalker {
                 const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
                 if (
                     !isNoReturnType(inferredReturnType) &&
-                    !isNone(inferredReturnType) &&
+                    !isNoneInstance(inferredReturnType) &&
                     !isAnyOrUnknown(inferredReturnType)
                 ) {
                     this._evaluator.addDiagnostic(

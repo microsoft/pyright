@@ -40,7 +40,8 @@ import {
     isInstantiableClass,
     isModule,
     isNever,
-    isNone,
+    isNoneInstance,
+    isNoneTypeClass,
     isOverloadedFunction,
     isTypeSame,
     isTypeVar,
@@ -528,7 +529,7 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
                 return undefined;
             }
         } else {
-            if (isNone(typeOfEntry)) {
+            if (isNoneInstance(typeOfEntry)) {
                 return undefined;
             }
         }
@@ -567,7 +568,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             }
 
             // See if it's a match for None.
-            if (isNone(subtype) === isPositiveTest) {
+            if (isNoneInstance(subtype) === isPositiveTest) {
                 return adjustedSubtype;
             }
 
@@ -590,7 +591,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
         types.forEach((subtype) => {
             if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                 classTypeList.push(subtype);
-            } else if (isNone(subtype) && TypeBase.isInstantiable(subtype)) {
+            } else if (isNoneTypeClass(subtype)) {
                 classTypeList.push(subtype);
             } else if (
                 isFunction(subtype) &&
@@ -911,8 +912,8 @@ function narrowTypeForIsInstance(
             }
 
             if (isInstanceCheck) {
-                if (isNone(subtype)) {
-                    const containsNoneType = classTypeList.some((t) => isNone(t) && TypeBase.isInstantiable(t));
+                if (isNoneInstance(subtype)) {
+                    const containsNoneType = classTypeList.some((t) => isNoneTypeClass(t));
                     if (isPositiveTest) {
                         return containsNoneType ? subtype : undefined;
                     } else {
@@ -1235,7 +1236,7 @@ function narrowTypeForTypeIs(type: Type, classType: ClassType, isPositiveTest: b
                 // in which case `type(x) is y` would fail.
                 return subtype;
             }
-        } else if (isNone(subtype)) {
+        } else if (isNoneInstance(subtype)) {
             return isPositiveTest ? undefined : subtype;
         }
 
@@ -1275,7 +1276,7 @@ function narrowTypeForLiteralComparison(
                 }
             }
         } else if (isPositiveTest) {
-            if (isIsOperator || isNone(subtype)) {
+            if (isIsOperator || isNoneInstance(subtype)) {
                 return undefined;
             }
         }

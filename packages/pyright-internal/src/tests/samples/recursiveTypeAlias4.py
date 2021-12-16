@@ -18,11 +18,11 @@ JSONType = Union[JSONPrimitive, JSONStructured]
 def f2(args: JSONStructured):
     if isinstance(args, List):
         t1: Literal[
-            "List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[List[JSONType]] | Type[Dict[str, ...]] | None] | None]"
+            "List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]"
         ] = reveal_type(args)
     else:
         t2: Literal[
-            "Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]] | None]"
+            "Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]"
         ] = reveal_type(args)
         dargs: JSONObject = args
 
@@ -31,11 +31,11 @@ def f2(args: JSONStructured):
 def f3(args: JSONStructured):
     if isinstance(args, Dict):
         t1: Literal[
-            "Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]] | None]"
+            "Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]"
         ] = reveal_type(args)
     else:
         t2: Literal[
-            "List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[List[JSONType]] | Type[Dict[str, ...]] | None] | None]"
+            "List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]"
         ] = reveal_type(args)
         largs: JSONArray = args
 
