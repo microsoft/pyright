@@ -960,9 +960,10 @@ export const enum FunctionTypeFlags {
     // Function has one or more parameters that are missing type annotations
     UnannotatedParams = 1 << 14,
 
-    // Any collection of parameters will match this function. This is used
-    // for Callable[..., x].
-    SkipParamCompatibilityCheck = 1 << 15,
+    // The *args and **kwargs parameters do not need to be present for this
+    // function to be compatible. This is used for Callable[..., x] and
+    // ... type arguments to ParamSpec and Concatenate.
+    SkipArgsKwargsCompatibilityCheck = 1 << 15,
 
     // This function represents the value bound to a ParamSpec, so its return
     // type is not meaningful.
@@ -1216,6 +1217,7 @@ export namespace FunctionType {
                     (FunctionTypeFlags.ClassMethod |
                         FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
+                        FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck |
                         FunctionTypeFlags.ParamSpecValue)) |
                 FunctionTypeFlags.SynthesizedMethod;
 
@@ -1390,8 +1392,8 @@ export namespace FunctionType {
         return (type.details.flags & FunctionTypeFlags.UnannotatedParams) !== 0;
     }
 
-    export function shouldSkipParamCompatibilityCheck(type: FunctionType) {
-        return (type.details.flags & FunctionTypeFlags.SkipParamCompatibilityCheck) !== 0;
+    export function shouldSkipArgsKwargsCompatibilityCheck(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) !== 0;
     }
 
     export function isParamSpecValue(type: FunctionType) {

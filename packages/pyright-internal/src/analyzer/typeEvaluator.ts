@@ -5410,7 +5410,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (isParamSpec(typeArgs[index].type)) {
                     canAssignTypeToTypeVar(param, convertToInstance(typeArgs[index].type), diag, typeVarMap);
                 } else if (isEllipsisType(typeArgs[index].type)) {
-                    const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
+                    const functionType = FunctionType.createInstantiable(
+                        '',
+                        '',
+                        '',
+                        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                    );
                     TypeBase.setSpecialForm(functionType);
                     FunctionType.addDefaultParameters(functionType);
                     canAssignTypeToTypeVar(param, functionType, diag, typeVarMap);
@@ -11695,7 +11700,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             } else if (isEllipsisType(typeArgs[0].type)) {
                 FunctionType.addDefaultParameters(functionType);
-                functionType.details.flags |= FunctionTypeFlags.SkipParamCompatibilityCheck;
+                functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
             } else if (isParamSpec(typeArgs[0].type)) {
                 functionType.details.paramSpec = typeArgs[0].type;
             } else {
@@ -11746,7 +11751,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else {
             FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
-            functionType.details.flags |= FunctionTypeFlags.SkipParamCompatibilityCheck;
+            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
         }
 
         return functionType;
@@ -13808,6 +13813,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 writeTypeCache(paramNameNode, paramType, /* isIncomplete */ false);
             }
         });
+
+        // If the function ends in P.args and P.kwargs parameters, make it exempt from
+        // args/kwargs compatibility checks. This is important for protocol comparisons.
+        if (paramTypes.length >= 2) {
+            const paramType1 = paramTypes[paramTypes.length - 2];
+            const paramType2 = paramTypes[paramTypes.length - 1];
+            if (
+                isParamSpec(paramType1) &&
+                paramType1.paramSpecAccess === 'args' &&
+                isParamSpec(paramType2) &&
+                paramType2.paramSpecAccess === 'kwargs'
+            ) {
+                functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+            }
+        }
 
         // If there was a defined return type, analyze that first so when we
         // walk the contents of the function, return statements can be
@@ -20531,297 +20551,168 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ? !!srcType.details.paramSpec
                 : !!destType.details.paramSpec;
 
-        if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
-            const destPositionalCount =
-                destParamDetails.argsIndex ?? destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
-            const srcPositionalCount =
-                srcParamDetails.argsIndex ?? srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
-            const positionalsToMatch = Math.min(destPositionalCount, srcPositionalCount);
+        const destPositionalCount =
+            destParamDetails.argsIndex ?? destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
+        const srcPositionalCount =
+            srcParamDetails.argsIndex ?? srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
+        const positionalsToMatch = Math.min(destPositionalCount, srcPositionalCount);
 
-            // Match positional parameters.
-            for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
-                const destParam = destParamDetails.params[paramIndex];
-                const srcParam = srcParamDetails.params[paramIndex];
+        // Match positional parameters.
+        for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
+            const destParam = destParamDetails.params[paramIndex];
+            const srcParam = srcParamDetails.params[paramIndex];
 
-                // Find the original index of this source param. If we synthesized it above (for
-                // a variadic parameter), it may not be found.
-                const srcParamType =
-                    srcParam.index >= 0
-                        ? FunctionType.getEffectiveParameterType(srcType, srcParam.index)
-                        : srcParam.param.type;
-                const destParamType = FunctionType.getEffectiveParameterType(destType, destParam.index);
+            // Find the original index of this source param. If we synthesized it above (for
+            // a variadic parameter), it may not be found.
+            const srcParamType =
+                srcParam.index >= 0
+                    ? FunctionType.getEffectiveParameterType(srcType, srcParam.index)
+                    : srcParam.param.type;
+            const destParamType = FunctionType.getEffectiveParameterType(destType, destParam.index);
 
-                const destParamName = destParam.param.name ?? '';
-                const srcParamName = srcParam.param.name ?? '';
-                if (
-                    destParamName &&
-                    !isPrivateOrProtectedName(destParamName) &&
-                    !isPrivateOrProtectedName(srcParamName)
-                ) {
-                    const isDestPositionalOnly = destParam.source === ParameterSource.PositionOnly;
-                    if (!isDestPositionalOnly && destParamName !== srcParamName) {
-                        if (diag) {
-                            diag.createAddendum().addMessage(
-                                Localizer.DiagnosticAddendum.functionParamName().format({
-                                    srcName: srcParamName,
-                                    destName: destParamName,
-                                })
-                            );
-                        }
-                        canAssign = false;
-                    }
-                }
-
-                if (!!destParam.param.hasDefault && !srcParam.param.hasDefault) {
+            const destParamName = destParam.param.name ?? '';
+            const srcParamName = srcParam.param.name ?? '';
+            if (destParamName && !isPrivateOrProtectedName(destParamName) && !isPrivateOrProtectedName(srcParamName)) {
+                const isDestPositionalOnly = destParam.source === ParameterSource.PositionOnly;
+                if (!isDestPositionalOnly && destParamName !== srcParamName) {
                     if (diag) {
                         diag.createAddendum().addMessage(
-                            Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
-                                name: srcParamName,
+                            Localizer.DiagnosticAddendum.functionParamName().format({
+                                srcName: srcParamName,
+                                destName: destParamName,
                             })
                         );
                     }
                     canAssign = false;
                 }
-
-                // Handle the special case of an overloaded __init__ method whose self
-                // parameter is annotated.
-                if (
-                    paramIndex === 0 &&
-                    srcType.details.name === '__init__' &&
-                    FunctionType.isInstanceMethod(srcType) &&
-                    destType.details.name === '__init__' &&
-                    FunctionType.isInstanceMethod(destType) &&
-                    FunctionType.isOverloaded(destType) &&
-                    destParam.param.hasDeclaredType
-                ) {
-                    continue;
-                }
-
-                if (
-                    !canAssignFunctionParameter(
-                        destParamType,
-                        srcParamType,
-                        paramIndex,
-                        diag?.createAddendum(),
-                        typeVarMap,
-                        srcTypeVarMap,
-                        flags,
-                        recursionCount
-                    )
-                ) {
-                    // Handle the special case where the source parameter is a synthesized
-                    // TypeVar for "self" or "cls".
-                    if (
-                        (flags & CanAssignFlags.SkipSelfClsTypeCheck) === 0 ||
-                        !isTypeVar(srcParamType) ||
-                        !srcParamType.details.isSynthesized
-                    ) {
-                        canAssign = false;
-                    }
-                }
             }
 
-            if (
-                destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.positionOnlyParamCount &&
-                !isParamSpecInvolved
-            ) {
+            if (!!destParam.param.hasDefault && !srcParam.param.hasDefault) {
                 if (diag) {
                     diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.argsPositionOnly().format({
-                            expected: srcParamDetails.positionOnlyParamCount,
-                            received: destParamDetails.firstPositionOrKeywordIndex,
+                        Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                            name: srcParamName,
                         })
                     );
                 }
                 canAssign = false;
             }
 
-            if (destParamDetails.variadicArgsIndex !== undefined) {
-                // Package up the remaining source positional parameters
-                // and assign them to the variadic.
-                const remainingSrcPositionals: Type[] = [];
-                if (destPositionalCount < srcPositionalCount) {
-                    remainingSrcPositionals.push(
-                        ...srcParamDetails.params
-                            .slice(destPositionalCount, srcPositionalCount)
-                            .map((param) => param.param.type)
-                    );
-                }
+            // Handle the special case of an overloaded __init__ method whose self
+            // parameter is annotated.
+            if (
+                paramIndex === 0 &&
+                srcType.details.name === '__init__' &&
+                FunctionType.isInstanceMethod(srcType) &&
+                destType.details.name === '__init__' &&
+                FunctionType.isInstanceMethod(destType) &&
+                FunctionType.isOverloaded(destType) &&
+                destParam.param.hasDeclaredType
+            ) {
+                continue;
+            }
 
-                let isSourceNonVariadicArgs = false;
-                if (srcParamDetails.argsIndex !== undefined) {
-                    const srcArgsType = FunctionType.getEffectiveParameterType(
-                        srcType,
-                        srcParamDetails.params[srcParamDetails.argsIndex].index
-                    );
-                    if (isVariadicTypeVar(srcArgsType)) {
-                        remainingSrcPositionals.push(srcArgsType);
-                    } else {
-                        isSourceNonVariadicArgs = true;
-                    }
-                }
-
-                let srcPositionalsType: Type;
-                if (remainingSrcPositionals.length === 1 && isVariadicTypeVar(remainingSrcPositionals[0])) {
-                    // Handle the special case where we're assigning a variadic type
-                    // variable to a variadic type variable.
-                    srcPositionalsType = remainingSrcPositionals[0];
-                } else {
-                    if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                        srcPositionalsType = convertToInstance(
-                            specializeTupleClass(
-                                tupleClassType,
-                                remainingSrcPositionals,
-                                /* isTypeArgumentExplicit */ true,
-                                /* stripLiterals */ true,
-                                /* isForUnpackedVariadicTypeVar */ true
-                            )
-                        );
-                    } else {
-                        srcPositionalsType = UnknownType.create();
-                    }
-                }
-
-                if (isSourceNonVariadicArgs) {
-                    if (diag) {
-                        diag.createAddendum().addMessage(
-                            Localizer.DiagnosticAddendum.argsParamWithVariadic().format({
-                                paramName: srcParamDetails.params[srcParamDetails.argsIndex!].param.name!,
-                            })
-                        );
-                    }
-                    canAssign = false;
-                } else if (destParamDetails.argsIndex !== undefined) {
-                    const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
-                    if (
-                        !canAssignFunctionParameter(
-                            FunctionType.getEffectiveParameterType(destType, destArgsIndex),
-                            srcPositionalsType,
-                            destArgsIndex,
-                            diag?.createAddendum(),
-                            typeVarMap,
-                            srcTypeVarMap,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        canAssign = false;
-                    }
-                }
-            } else if (destPositionalCount < srcPositionalCount) {
-                // If the dest type includes a ParamSpec, the additional parameters
-                // can be assigned to it, so no need to report an error here.
-                if (!isParamSpecInvolved) {
-                    const nonDefaultSrcParamCount = srcParamDetails.params.filter(
-                        (p) => !!p.param.name && !p.param.hasDefault && p.param.category === ParameterCategory.Simple
-                    ).length;
-
-                    if (destParamDetails.argsIndex === undefined) {
-                        if (destPositionalCount < nonDefaultSrcParamCount) {
-                            if (
-                                destParamDetails.firstPositionOrKeywordIndex > 0 &&
-                                destParamDetails.firstPositionOrKeywordIndex < srcPositionalCount
-                            ) {
-                                if (diag) {
-                                    diag.createAddendum().addMessage(
-                                        Localizer.DiagnosticAddendum.functionTooFewParams().format({
-                                            expected: nonDefaultSrcParamCount,
-                                            received: destPositionalCount,
-                                        })
-                                    );
-                                }
-                                canAssign = false;
-                            }
-                        }
-                    } else {
-                        // Make sure the remaining positional arguments are of the
-                        // correct type for the *args parameter.
-                        const destArgsType = FunctionType.getEffectiveParameterType(
-                            destType,
-                            destParamDetails.params[destParamDetails.argsIndex].index
-                        );
-                        if (!isAnyOrUnknown(destArgsType)) {
-                            for (let paramIndex = destPositionalCount; paramIndex < srcPositionalCount; paramIndex++) {
-                                const srcParamType = FunctionType.getEffectiveParameterType(
-                                    srcType,
-                                    srcParamDetails.params[paramIndex].index
-                                );
-                                if (
-                                    !canAssignFunctionParameter(
-                                        destArgsType,
-                                        srcParamType,
-                                        paramIndex,
-                                        diag?.createAddendum(),
-                                        typeVarMap,
-                                        srcTypeVarMap,
-                                        flags,
-                                        recursionCount
-                                    )
-                                ) {
-                                    canAssign = false;
-                                }
-                            }
-                        }
-                    }
-                }
-            } else if (srcPositionalCount < destPositionalCount) {
-                if (srcParamDetails.argsIndex !== undefined) {
-                    // Make sure the remaining dest parameters can be assigned to the source
-                    // *args parameter type.
-                    const srcArgsType = FunctionType.getEffectiveParameterType(
-                        srcType,
-                        srcParamDetails.params[srcParamDetails.argsIndex].index
-                    );
-                    for (let paramIndex = srcPositionalCount; paramIndex < destPositionalCount; paramIndex++) {
-                        const destParamType = FunctionType.getEffectiveParameterType(
-                            destType,
-                            destParamDetails.params[paramIndex].index
-                        );
-                        if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
-                            if (diag) {
-                                diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
-                            }
-                            canAssign = false;
-                        } else if (
-                            !canAssignFunctionParameter(
-                                destParamType,
-                                srcArgsType,
-                                paramIndex,
-                                diag?.createAddendum(),
-                                typeVarMap,
-                                srcTypeVarMap,
-                                flags,
-                                recursionCount
-                            )
-                        ) {
-                            canAssign = false;
-                        }
-                    }
-                } else {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.functionTooManyParams().format({
-                                expected: srcPositionalCount,
-                                received: destPositionalCount,
-                            })
-                        );
-                    }
+            if (
+                !canAssignFunctionParameter(
+                    destParamType,
+                    srcParamType,
+                    paramIndex,
+                    diag?.createAddendum(),
+                    typeVarMap,
+                    srcTypeVarMap,
+                    flags,
+                    recursionCount
+                )
+            ) {
+                // Handle the special case where the source parameter is a synthesized
+                // TypeVar for "self" or "cls".
+                if (
+                    (flags & CanAssignFlags.SkipSelfClsTypeCheck) === 0 ||
+                    !isTypeVar(srcParamType) ||
+                    !srcParamType.details.isSynthesized
+                ) {
                     canAssign = false;
                 }
             }
+        }
 
-            // If both src and dest have an "*args" parameter, make sure
-            // their types are compatible.
-            if (srcParamDetails.argsIndex !== undefined && destParamDetails.argsIndex !== undefined) {
-                const srcArgsIndex = srcParamDetails.params[srcParamDetails.argsIndex].index;
-                const srcArgsType = FunctionType.getEffectiveParameterType(srcType, srcArgsIndex);
+        if (
+            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+            destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.positionOnlyParamCount &&
+            !isParamSpecInvolved
+        ) {
+            if (diag) {
+                diag.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.argsPositionOnly().format({
+                        expected: srcParamDetails.positionOnlyParamCount,
+                        received: destParamDetails.firstPositionOrKeywordIndex,
+                    })
+                );
+            }
+            canAssign = false;
+        }
+
+        if (destParamDetails.variadicArgsIndex !== undefined) {
+            // Package up the remaining source positional parameters
+            // and assign them to the variadic.
+            const remainingSrcPositionals: Type[] = [];
+            if (destPositionalCount < srcPositionalCount) {
+                remainingSrcPositionals.push(
+                    ...srcParamDetails.params
+                        .slice(destPositionalCount, srcPositionalCount)
+                        .map((param) => param.param.type)
+                );
+            }
+
+            let isSourceNonVariadicArgs = false;
+            if (srcParamDetails.argsIndex !== undefined) {
+                const srcArgsType = FunctionType.getEffectiveParameterType(
+                    srcType,
+                    srcParamDetails.params[srcParamDetails.argsIndex].index
+                );
+                if (isVariadicTypeVar(srcArgsType)) {
+                    remainingSrcPositionals.push(srcArgsType);
+                } else {
+                    isSourceNonVariadicArgs = true;
+                }
+            }
+
+            let srcPositionalsType: Type;
+            if (remainingSrcPositionals.length === 1 && isVariadicTypeVar(remainingSrcPositionals[0])) {
+                // Handle the special case where we're assigning a variadic type
+                // variable to a variadic type variable.
+                srcPositionalsType = remainingSrcPositionals[0];
+            } else {
+                if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                    srcPositionalsType = convertToInstance(
+                        specializeTupleClass(
+                            tupleClassType,
+                            remainingSrcPositionals,
+                            /* isTypeArgumentExplicit */ true,
+                            /* stripLiterals */ true,
+                            /* isForUnpackedVariadicTypeVar */ true
+                        )
+                    );
+                } else {
+                    srcPositionalsType = UnknownType.create();
+                }
+            }
+
+            if (isSourceNonVariadicArgs) {
+                if (diag) {
+                    diag.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.argsParamWithVariadic().format({
+                            paramName: srcParamDetails.params[srcParamDetails.argsIndex!].param.name!,
+                        })
+                    );
+                }
+                canAssign = false;
+            } else if (destParamDetails.argsIndex !== undefined) {
                 const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
-                const destArgsType = FunctionType.getEffectiveParameterType(destType, destArgsIndex);
-
                 if (
                     !canAssignFunctionParameter(
-                        destArgsType,
-                        srcArgsType,
+                        FunctionType.getEffectiveParameterType(destType, destArgsIndex),
+                        srcPositionalsType,
                         destArgsIndex,
                         diag?.createAddendum(),
                         typeVarMap,
@@ -20833,178 +20724,85 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssign = false;
                 }
             }
-
-            // If the dest has an "*args" but the source doesn't, report the incompatibility.
-            // The converse situation is OK.
-            if (
-                srcParamDetails.argsIndex === undefined &&
-                destParamDetails.argsIndex !== undefined &&
-                destParamDetails.variadicArgsIndex === undefined &&
-                !isParamSpecInvolved
-            ) {
-                if (diag) {
-                    diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.argsParamMissing().format({
-                            paramName: destParamDetails.params[destParamDetails.argsIndex].param.name ?? '',
-                        })
-                    );
-                }
-                canAssign = false;
-            }
-
-            // Handle matching of named (keyword) parameters.
+        } else if (destPositionalCount < srcPositionalCount) {
+            // If the dest type includes a ParamSpec, the additional parameters
+            // can be assigned to it, so no need to report an error here.
             if (!isParamSpecInvolved) {
-                // Build a dictionary of named parameters in the dest.
-                const destParamMap = new Map<string, FunctionParameter>();
+                const nonDefaultSrcParamCount = srcParamDetails.params.filter(
+                    (p) => !!p.param.name && !p.param.hasDefault && p.param.category === ParameterCategory.Simple
+                ).length;
 
-                if (destParamDetails.firstKeywordOnlyIndex !== undefined) {
-                    destParamDetails.params.forEach((param, index) => {
-                        if (index >= destParamDetails.firstKeywordOnlyIndex!) {
-                            if (param.param.name && param.param.category === ParameterCategory.Simple) {
-                                destParamMap.set(param.param.name, param.param);
-                            }
-                        }
-                    });
-                }
-
-                // If the dest has fewer positional arguments than the source, the remaining
-                // positional arguments in the source can be treated as named arguments.
-                let srcStartOfNamed =
-                    srcParamDetails.firstKeywordOnlyIndex !== undefined
-                        ? srcParamDetails.firstKeywordOnlyIndex
-                        : srcParamDetails.params.length;
-                if (destPositionalCount < srcPositionalCount && destParamDetails.argsIndex === undefined) {
-                    srcStartOfNamed = destPositionalCount;
-                }
-
-                if (srcStartOfNamed >= 0) {
-                    srcParamDetails.params.forEach((srcParam, index) => {
-                        if (index >= srcStartOfNamed) {
-                            if (srcParam.param.name && srcParam.param.category === ParameterCategory.Simple) {
-                                const destParam = destParamMap.get(srcParam.param.name);
-                                const paramDiag = diag?.createAddendum();
-                                if (!destParam) {
-                                    if (destParamDetails.kwargsIndex === undefined && !srcParam.param.hasDefault) {
-                                        if (paramDiag) {
-                                            paramDiag.addMessage(
-                                                Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
-                                                    name: srcParam.param.name,
-                                                })
-                                            );
-                                        }
-                                        canAssign = false;
-                                    } else if (destParamDetails.kwargsIndex !== undefined) {
-                                        // Make sure we can assign the type to the Kwargs.
-                                        const destKwargsIndex =
-                                            destParamDetails.params[destParamDetails.kwargsIndex].index;
-                                        const destKwargsType = FunctionType.getEffectiveParameterType(
-                                            destType,
-                                            destKwargsIndex
-                                        );
-                                        if (
-                                            !canAssignFunctionParameter(
-                                                destKwargsType,
-                                                srcParam.param.type,
-                                                destKwargsIndex,
-                                                diag?.createAddendum(),
-                                                typeVarMap,
-                                                srcTypeVarMap,
-                                                flags,
-                                                recursionCount
-                                            )
-                                        ) {
-                                            canAssign = false;
-                                        }
-                                    }
-                                } else {
-                                    const specializedDestParamType = typeVarMap
-                                        ? applySolvedTypeVars(destParam.type, typeVarMap)
-                                        : destParam.type;
-                                    if (
-                                        !canAssignType(
-                                            srcParam.param.type,
-                                            specializedDestParamType,
-                                            paramDiag?.createAddendum(),
-                                            undefined,
-                                            flags,
-                                            recursionCount + 1
-                                        )
-                                    ) {
-                                        if (paramDiag) {
-                                            paramDiag.addMessage(
-                                                Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
-                                                    name: srcParam.param.name,
-                                                    sourceType: printType(specializedDestParamType),
-                                                    destType: printType(srcParam.param.type),
-                                                })
-                                            );
-                                        }
-                                        canAssign = false;
-                                    }
-
-                                    if (!!destParam.hasDefault && !srcParam.param.hasDefault) {
-                                        if (diag) {
-                                            diag.createAddendum().addMessage(
-                                                Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
-                                                    name: srcParam.param.name,
-                                                })
-                                            );
-                                        }
-                                        canAssign = false;
-                                    }
-
-                                    destParamMap.delete(srcParam.param.name);
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // See if there are any unmatched named parameters.
-                destParamMap.forEach((destParam, paramName) => {
-                    if (srcParamDetails.kwargsIndex !== undefined && destParam.name) {
-                        // Make sure the src kwargs type is compatible.
-                        const srcKwargsIndex = srcParamDetails.params[srcParamDetails.kwargsIndex].index;
-                        const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
-
+                if (destParamDetails.argsIndex === undefined) {
+                    if (destPositionalCount < nonDefaultSrcParamCount) {
                         if (
-                            !canAssignFunctionParameter(
-                                destParam.type,
-                                srcKwargsType,
-                                destType.details.parameters.findIndex((p) => p === destParam),
-                                diag?.createAddendum(),
-                                typeVarMap,
-                                srcTypeVarMap,
-                                flags,
-                                recursionCount
-                            )
+                            destParamDetails.firstPositionOrKeywordIndex > 0 &&
+                            destParamDetails.firstPositionOrKeywordIndex < srcPositionalCount
                         ) {
+                            if (diag) {
+                                diag.createAddendum().addMessage(
+                                    Localizer.DiagnosticAddendum.functionTooFewParams().format({
+                                        expected: nonDefaultSrcParamCount,
+                                        received: destPositionalCount,
+                                    })
+                                );
+                            }
                             canAssign = false;
                         }
-                        destParamMap.delete(destParam.name);
-                    } else {
-                        if (diag) {
-                            diag.createAddendum().addMessage(
-                                Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
+                    }
+                } else {
+                    // Make sure the remaining positional arguments are of the
+                    // correct type for the *args parameter.
+                    const destArgsType = FunctionType.getEffectiveParameterType(
+                        destType,
+                        destParamDetails.params[destParamDetails.argsIndex].index
+                    );
+                    if (!isAnyOrUnknown(destArgsType)) {
+                        for (let paramIndex = destPositionalCount; paramIndex < srcPositionalCount; paramIndex++) {
+                            const srcParamType = FunctionType.getEffectiveParameterType(
+                                srcType,
+                                srcParamDetails.params[paramIndex].index
                             );
+                            if (
+                                !canAssignFunctionParameter(
+                                    destArgsType,
+                                    srcParamType,
+                                    paramIndex,
+                                    diag?.createAddendum(),
+                                    typeVarMap,
+                                    srcTypeVarMap,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                canAssign = false;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (srcPositionalCount < destPositionalCount) {
+            if (srcParamDetails.argsIndex !== undefined) {
+                // Make sure the remaining dest parameters can be assigned to the source
+                // *args parameter type.
+                const srcArgsType = FunctionType.getEffectiveParameterType(
+                    srcType,
+                    srcParamDetails.params[srcParamDetails.argsIndex].index
+                );
+                for (let paramIndex = srcPositionalCount; paramIndex < destPositionalCount; paramIndex++) {
+                    const destParamType = FunctionType.getEffectiveParameterType(
+                        destType,
+                        destParamDetails.params[paramIndex].index
+                    );
+                    if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
+                        if (diag) {
+                            diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
                         }
                         canAssign = false;
-                    }
-                });
-
-                // If both src and dest have a "*kwargs" parameter, make sure their types are compatible.
-                if (srcParamDetails.kwargsIndex !== undefined && destParamDetails.kwargsIndex !== undefined) {
-                    const srcKwargsIndex = srcParamDetails.params[srcParamDetails.kwargsIndex].index;
-                    const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
-
-                    const destKwargsIndex = destParamDetails.params[destParamDetails.kwargsIndex].index;
-                    const destKwargsType = FunctionType.getEffectiveParameterType(destType, destKwargsIndex);
-
-                    if (
+                    } else if (
                         !canAssignFunctionParameter(
-                            destKwargsType,
-                            srcKwargsType,
-                            destKwargsIndex,
+                            destParamType,
+                            srcArgsType,
+                            paramIndex,
                             diag?.createAddendum(),
                             typeVarMap,
                             srcTypeVarMap,
@@ -21015,19 +20813,240 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         canAssign = false;
                     }
                 }
+            } else {
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.functionTooManyParams().format({
+                            expected: srcPositionalCount,
+                            received: destPositionalCount,
+                        })
+                    );
+                }
+                canAssign = false;
+            }
+        }
 
-                // If the dest has a "**kwargs" but the source doesn't, report the incompatibility.
-                // The converse situation is OK.
-                if (srcParamDetails.kwargsIndex === undefined && destParamDetails.kwargsIndex !== undefined) {
+        // If both src and dest have an "*args" parameter, make sure
+        // their types are compatible.
+        if (srcParamDetails.argsIndex !== undefined && destParamDetails.argsIndex !== undefined) {
+            const srcArgsIndex = srcParamDetails.params[srcParamDetails.argsIndex].index;
+            const srcArgsType = FunctionType.getEffectiveParameterType(srcType, srcArgsIndex);
+            const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
+            const destArgsType = FunctionType.getEffectiveParameterType(destType, destArgsIndex);
+
+            if (
+                !canAssignFunctionParameter(
+                    destArgsType,
+                    srcArgsType,
+                    destArgsIndex,
+                    diag?.createAddendum(),
+                    typeVarMap,
+                    srcTypeVarMap,
+                    flags,
+                    recursionCount
+                )
+            ) {
+                canAssign = false;
+            }
+        }
+
+        // If the dest has an "*args" but the source doesn't, report the incompatibility.
+        // The converse situation is OK.
+        if (
+            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+            srcParamDetails.argsIndex === undefined &&
+            destParamDetails.argsIndex !== undefined &&
+            destParamDetails.variadicArgsIndex === undefined &&
+            !isParamSpecInvolved
+        ) {
+            if (diag) {
+                diag.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.argsParamMissing().format({
+                        paramName: destParamDetails.params[destParamDetails.argsIndex].param.name ?? '',
+                    })
+                );
+            }
+            canAssign = false;
+        }
+
+        // Handle matching of named (keyword) parameters.
+        if (!isParamSpecInvolved) {
+            // Build a dictionary of named parameters in the dest.
+            const destParamMap = new Map<string, FunctionParameter>();
+
+            if (destParamDetails.firstKeywordOnlyIndex !== undefined) {
+                destParamDetails.params.forEach((param, index) => {
+                    if (index >= destParamDetails.firstKeywordOnlyIndex!) {
+                        if (param.param.name && param.param.category === ParameterCategory.Simple) {
+                            destParamMap.set(param.param.name, param.param);
+                        }
+                    }
+                });
+            }
+
+            // If the dest has fewer positional arguments than the source, the remaining
+            // positional arguments in the source can be treated as named arguments.
+            let srcStartOfNamed =
+                srcParamDetails.firstKeywordOnlyIndex !== undefined
+                    ? srcParamDetails.firstKeywordOnlyIndex
+                    : srcParamDetails.params.length;
+            if (destPositionalCount < srcPositionalCount && destParamDetails.argsIndex === undefined) {
+                srcStartOfNamed = destPositionalCount;
+            }
+
+            if (srcStartOfNamed >= 0) {
+                srcParamDetails.params.forEach((srcParam, index) => {
+                    if (index >= srcStartOfNamed) {
+                        if (srcParam.param.name && srcParam.param.category === ParameterCategory.Simple) {
+                            const destParam = destParamMap.get(srcParam.param.name);
+                            const paramDiag = diag?.createAddendum();
+                            if (!destParam) {
+                                if (destParamDetails.kwargsIndex === undefined && !srcParam.param.hasDefault) {
+                                    if (paramDiag) {
+                                        paramDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
+                                                name: srcParam.param.name,
+                                            })
+                                        );
+                                    }
+                                    canAssign = false;
+                                } else if (destParamDetails.kwargsIndex !== undefined) {
+                                    // Make sure we can assign the type to the Kwargs.
+                                    const destKwargsIndex = destParamDetails.params[destParamDetails.kwargsIndex].index;
+                                    const destKwargsType = FunctionType.getEffectiveParameterType(
+                                        destType,
+                                        destKwargsIndex
+                                    );
+                                    if (
+                                        !canAssignFunctionParameter(
+                                            destKwargsType,
+                                            srcParam.param.type,
+                                            destKwargsIndex,
+                                            diag?.createAddendum(),
+                                            typeVarMap,
+                                            srcTypeVarMap,
+                                            flags,
+                                            recursionCount
+                                        )
+                                    ) {
+                                        canAssign = false;
+                                    }
+                                }
+                            } else {
+                                const specializedDestParamType = typeVarMap
+                                    ? applySolvedTypeVars(destParam.type, typeVarMap)
+                                    : destParam.type;
+                                if (
+                                    !canAssignType(
+                                        srcParam.param.type,
+                                        specializedDestParamType,
+                                        paramDiag?.createAddendum(),
+                                        undefined,
+                                        flags,
+                                        recursionCount + 1
+                                    )
+                                ) {
+                                    if (paramDiag) {
+                                        paramDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
+                                                name: srcParam.param.name,
+                                                sourceType: printType(specializedDestParamType),
+                                                destType: printType(srcParam.param.type),
+                                            })
+                                        );
+                                    }
+                                    canAssign = false;
+                                }
+
+                                if (!!destParam.hasDefault && !srcParam.param.hasDefault) {
+                                    if (diag) {
+                                        diag.createAddendum().addMessage(
+                                            Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                                                name: srcParam.param.name,
+                                            })
+                                        );
+                                    }
+                                    canAssign = false;
+                                }
+
+                                destParamMap.delete(srcParam.param.name);
+                            }
+                        }
+                    }
+                });
+            }
+
+            // See if there are any unmatched named parameters.
+            destParamMap.forEach((destParam, paramName) => {
+                if (srcParamDetails.kwargsIndex !== undefined && destParam.name) {
+                    // Make sure the src kwargs type is compatible.
+                    const srcKwargsIndex = srcParamDetails.params[srcParamDetails.kwargsIndex].index;
+                    const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
+
+                    if (
+                        !canAssignFunctionParameter(
+                            destParam.type,
+                            srcKwargsType,
+                            destType.details.parameters.findIndex((p) => p === destParam),
+                            diag?.createAddendum(),
+                            typeVarMap,
+                            srcTypeVarMap,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        canAssign = false;
+                    }
+                    destParamMap.delete(destParam.name);
+                } else {
                     if (diag) {
                         diag.createAddendum().addMessage(
-                            Localizer.DiagnosticAddendum.kwargsParamMissing().format({
-                                paramName: destParamDetails.params[destParamDetails.kwargsIndex].param.name!,
-                            })
+                            Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
                         );
                     }
                     canAssign = false;
                 }
+            });
+
+            // If both src and dest have a "*kwargs" parameter, make sure their types are compatible.
+            if (srcParamDetails.kwargsIndex !== undefined && destParamDetails.kwargsIndex !== undefined) {
+                const srcKwargsIndex = srcParamDetails.params[srcParamDetails.kwargsIndex].index;
+                const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
+
+                const destKwargsIndex = destParamDetails.params[destParamDetails.kwargsIndex].index;
+                const destKwargsType = FunctionType.getEffectiveParameterType(destType, destKwargsIndex);
+
+                if (
+                    !canAssignFunctionParameter(
+                        destKwargsType,
+                        srcKwargsType,
+                        destKwargsIndex,
+                        diag?.createAddendum(),
+                        typeVarMap,
+                        srcTypeVarMap,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    canAssign = false;
+                }
+            }
+
+            // If the dest has a "**kwargs" but the source doesn't, report the incompatibility.
+            // The converse situation is OK.
+            if (
+                !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+                srcParamDetails.kwargsIndex === undefined &&
+                destParamDetails.kwargsIndex !== undefined
+            ) {
+                if (diag) {
+                    diag.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.kwargsParamMissing().format({
+                            paramName: destParamDetails.params[destParamDetails.kwargsIndex].param.name!,
+                        })
+                    );
+                }
+                canAssign = false;
             }
         }
 
