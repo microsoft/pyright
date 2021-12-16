@@ -346,7 +346,7 @@
         "typeAliasIsRecursiveIndirect": "Type alias \"{name}\" cannot refer to itself indirectly in its definition",
         "typeAliasNotInModuleOrClass": "A TypeAlias can be defined only within a module or class scope",
         "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
-        "typeArgListExpected": "Expected ParamSpec or list of types",
+        "typeArgListExpected": "Expected ParamSpec, ellipsis, or list of types",
         "typeArgListNotAllowed": "List expression not allowed for this type argument",
         "typeAnnotationCall": "Illegal type annotation: call expression not allowed",
         "typeAnnotationVariable": "Illegal type annotation: variable not allowed unless it is a type alias",

@@ -78,3 +78,16 @@ def func2_1(x: CommandHandler2[str]):
 
 def func2_2(x: CommandHandler2[[str, int]]):
     x("hi", 3)
+
+
+HandlerAlias = Callable[P, None]
+
+list_of_handlers: list[HandlerAlias[...]] = []
+
+
+class HandlerProtocol(Protocol[P]):
+    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None:
+        ...
+
+
+list_of_handler_protocols: list[HandlerProtocol[...]] = []

@@ -5409,6 +5409,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignTypeToTypeVar(param, functionType, diag, typeVarMap);
                 } else if (isParamSpec(typeArgs[index].type)) {
                     canAssignTypeToTypeVar(param, convertToInstance(typeArgs[index].type), diag, typeVarMap);
+                } else if (isEllipsisType(typeArgs[index].type)) {
+                    const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
+                    TypeBase.setSpecialForm(functionType);
+                    FunctionType.addDefaultParameters(functionType);
+                    canAssignTypeToTypeVar(param, functionType, diag, typeVarMap);
                 } else {
                     addError(Localizer.Diagnostic.typeArgListExpected(), typeArgs[index].node);
                 }
