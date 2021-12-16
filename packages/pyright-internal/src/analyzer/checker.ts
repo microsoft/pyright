@@ -3303,19 +3303,28 @@ export class Checker extends ParseTreeWalker {
         const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
         const objectObject = ClassType.cloneAsInstance(objectType);
-        const arbitraryTypeObject = ClassType.createInstantiable('', '', '', '', 0, 0, undefined, undefined);
+        const dummyTypeObject = ClassType.createInstantiable(
+            '__protocolVarianceDummy',
+            '',
+            '',
+            '',
+            0,
+            0,
+            undefined,
+            undefined
+        );
 
         updatedTypeParams.forEach((param, paramIndex) => {
-            // Replace all type arguments with an arbitary type except for the
+            // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with an object instance.
             const srcTypeArgs = updatedTypeParams.map((_, i) => {
-                return i === paramIndex ? objectObject : arbitraryTypeObject;
+                return i === paramIndex ? objectObject : dummyTypeObject;
             });
 
-            // Replace all type arguments with an arbitary type except for the
+            // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with itself.
             const destTypeArgs = updatedTypeParams.map((p, i) => {
-                return i === paramIndex ? p : arbitraryTypeObject;
+                return i === paramIndex ? p : dummyTypeObject;
             });
 
             const srcType = ClassType.cloneForSpecialization(
