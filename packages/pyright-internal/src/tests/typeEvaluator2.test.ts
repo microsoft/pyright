@@ -915,6 +915,14 @@ test('Protocol21', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Protocol22', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.reportInvalidTypeVarUse = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol22.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
