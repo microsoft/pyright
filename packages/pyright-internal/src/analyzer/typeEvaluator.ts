@@ -10673,7 +10673,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ? getScopeIdForNode(enclosingScope)
             : WildcardTypeVarScopeId;
 
-        let returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
+        const returnAnnotationOptions: AnnotationTypeOptions = {};
+        if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
+            returnAnnotationOptions.associateTypeVarsWithScope = true;
+        }
+
+        let returnType = getTypeOfAnnotation(node.returnTypeAnnotation, returnAnnotationOptions);
         if (node.isAsync) {
             functionType.details.flags |= FunctionTypeFlags.Async;
             returnType = createAwaitableReturnType(node, returnType, /* isGenerator */ false);
@@ -10683,11 +10688,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let addPositionalOnly = true;
 
+        const paramAnnotationOptions: AnnotationTypeOptions = {
+            associateTypeVarsWithScope: true,
+            allowParamSpec: true,
+            allowTypeVarTuple: true
+        };
+
         node.parameters.forEach((param, paramIndex) => {
-            const paramType = getTypeOfAnnotation(param.typeAnnotation, {
-                allowParamSpec: true,
-                allowTypeVarTuple: true,
-            });
+            const paramType = getTypeOfAnnotation(param.typeAnnotation, paramAnnotationOptions);
 
             if (isEllipsisType(paramType)) {
                 if (param.category !== ParameterCategory.Simple || paramIndex !== node.parameters.length - 1) {

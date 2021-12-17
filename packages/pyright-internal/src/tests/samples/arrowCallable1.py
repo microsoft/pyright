@@ -3,6 +3,10 @@
 from typing import Callable, Concatenate, Literal, ParamSpec, TypeVar
 from typing_extensions import TypeVarTuple, Unpack
 
+P = ParamSpec("P")
+T = TypeVar("T")
+Ts = TypeVarTuple("Ts")
+
 def func0(
     a: (int, str) -> float,
     b: (int | str) -> (int | str),
@@ -27,6 +31,10 @@ def func4() -> ((int) -> ((str) -> bool)):
     ...
 t_func4: Literal['() -> ((int) -> ((str) -> bool))'] = reveal_type(func4)
 
+def func5() -> (T) -> T:
+    ...
+t_func5: Literal['() -> ((T@func5) -> T@func5)'] = reveal_type(func5)
+
 
 A1 = (int) -> str | bool
 t_a1: Literal['(int) -> (str | bool)'] = reveal_type(A1)
@@ -50,10 +58,6 @@ t_c2: Literal['() -> (int | (() -> bool))'] = reveal_type(C2)
 
 C3 = (() -> int) | (() -> bool)
 t_c3: Literal['(() -> int) | (() -> bool)'] = reveal_type(C3)
-
-P = ParamSpec("P")
-T = TypeVar("T")
-Ts = TypeVarTuple("Ts")
 
 D0 = (int,) -> bool
 t_d0: Literal['(int) -> bool'] = reveal_type(D0)
