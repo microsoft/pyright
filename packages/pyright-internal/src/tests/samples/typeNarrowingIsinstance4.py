@@ -37,4 +37,4 @@ def check_callable3(val: Union[Callable[[int, str], None], Callable[[int], None]
     if isinstance(val, Baz):
         t1: Literal["Never"] = reveal_type(val)
     else:
-        t2: Literal["(int, str) -> None | (int) -> None"] = reveal_type(val)
+        t2: Literal["((int, str) -> None) | ((int) -> None)"] = reveal_type(val)

@@ -49,8 +49,8 @@ export const enum PrintTypeFlags {
     PEP604 = 1 << 3,
 
     // Include a parentheses around a union if there's more than
-    // one subtype or a callable.
-    ParenthesizeUnionOrCallable = 1 << 4,
+    // one subtype.
+    ParenthesizeUnion = 1 << 4,
 
     // Expand type aliases to display their individual parts?
     ExpandTypeAlias = 1 << 5,
@@ -58,6 +58,9 @@ export const enum PrintTypeFlags {
     // Omit "*" for types that are conditionally constrained when
     // used with constrained TypeVars.
     OmitConditionalConstraint = 1 << 6,
+
+    // Include a parentheses around a callable.
+    ParenthesizeCallable = 1 << 7,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -68,8 +71,9 @@ export function printType(
     returnTypeCallback: FunctionReturnTypeCallback,
     recursionTypes: Type[] = []
 ): string {
-    const parenthesizeUnionOrCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeUnionOrCallable) !== 0;
-    printTypeFlags &= ~PrintTypeFlags.ParenthesizeUnionOrCallable;
+    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
+    const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
+    printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     // If this is a type alias, see if we should use its name rather than
     // the type it represents.
@@ -218,7 +222,7 @@ export function printType(
                 }
                 const fullSignature = `${paramSignature} -> ${parts[1]}`;
 
-                if (parenthesizeUnionOrCallable) {
+                if (parenthesizeCallable) {
                     return `(${fullSignature})`;
                 }
 
@@ -242,6 +246,12 @@ export function printType(
                 // Allocate another set that represents the textual representations
                 // of the subtypes in the union.
                 const subtypeStrings = new Set<string>();
+
+                // If we're using "|" notation, enclose callable subtypes in parens.
+                const updatedPrintTypeFlags =
+                    printTypeFlags & PrintTypeFlags.PEP604
+                        ? printTypeFlags | PrintTypeFlags.ParenthesizeCallable
+                        : printTypeFlags;
 
                 // Start by matching possible type aliases to the subtypes.
                 if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0 && type.typeAliasSources) {
@@ -282,7 +292,7 @@ export function printType(
 
                         if (matchedAllSubtypes && !allSubtypesPreviouslyHandled) {
                             subtypeStrings.add(
-                                printType(typeAliasSource, printTypeFlags, returnTypeCallback, recursionTypes)
+                                printType(typeAliasSource, updatedPrintTypeFlags, returnTypeCallback, recursionTypes)
                             );
                             indicesCoveredByTypeAlias.forEach((index) => subtypeHandledSet.add(index));
                         }
@@ -296,7 +306,12 @@ export function printType(
                         return 'None';
                     }
 
-                    const optionalType = printType(typeWithoutNone, printTypeFlags, returnTypeCallback, recursionTypes);
+                    const optionalType = printType(
+                        typeWithoutNone,
+                        updatedPrintTypeFlags,
+                        returnTypeCallback,
+                        recursionTypes
+                    );
 
                     if (printTypeFlags & PrintTypeFlags.PEP604) {
                         return optionalType + ' | None';
@@ -314,7 +329,9 @@ export function printType(
                         } else if (isInstantiableClass(subtype) && subtype.literalValue !== undefined) {
                             literalClassStrings.add(printLiteralValue(subtype));
                         } else {
-                            subtypeStrings.add(printType(subtype, printTypeFlags, returnTypeCallback, recursionTypes));
+                            subtypeStrings.add(
+                                printType(subtype, updatedPrintTypeFlags, returnTypeCallback, recursionTypes)
+                            );
                         }
                     }
                 });
@@ -340,7 +357,7 @@ export function printType(
 
                 if (printTypeFlags & PrintTypeFlags.PEP604) {
                     const unionString = dedupedSubtypeStrings.join(' | ');
-                    if (parenthesizeUnionOrCallable) {
+                    if (parenthesizeUnion) {
                         return `(${unionString})`;
                     }
                     return unionString;
@@ -676,7 +693,7 @@ export function printFunctionParts(
         recursionTypes.length < maxTypeRecursionCount
             ? printType(
                   returnType,
-                  printTypeFlags | PrintTypeFlags.ParenthesizeUnionOrCallable,
+                  printTypeFlags | PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable,
                   returnTypeCallback,
                   recursionTypes
               )
