@@ -35,10 +35,10 @@ def g(a: Optional[Callable[[int], int]]):
         a(3)
 
 
-T = TypeVar("T")
+_T1 = TypeVar("_T1")
 
 
-def test1(arg: Union[T, Callable[[], T]]) -> T:
+def test1(arg: Union[_T1, Callable[[], _T1]]) -> _T1:
     if callable(arg):
         return arg()
     return arg
@@ -65,10 +65,10 @@ def test2(o: Foo) -> None:
         o(1, 2, 3)
 
 
-T = TypeVar("T", int, str, Callable[[], int], Callable[[], str])
+_T2 = TypeVar("_T2", int, str, Callable[[], int], Callable[[], str])
 
 
-def test3(v: T) -> Union[T, int, str]:
+def test3(v: _T2) -> Union[_T2, int, str]:
     if callable(v):
         t1: Literal["(() -> int) | (() -> str)"] = reveal_type(v)
         t2: Literal["int* | str*"] = reveal_type(v())

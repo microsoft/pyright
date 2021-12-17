@@ -20227,7 +20227,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 // This is a non-bound and non-constrained type variable with a matching condition.
-                assert(condition.constraintIndex === 0);
                 return true;
             });
         });
