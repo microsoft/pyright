@@ -10691,7 +10691,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const paramAnnotationOptions: AnnotationTypeOptions = {
             associateTypeVarsWithScope: true,
             allowParamSpec: true,
-            allowTypeVarTuple: true
+            allowTypeVarTuple: true,
         };
 
         node.parameters.forEach((param, paramIndex) => {
