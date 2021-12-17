@@ -18,4 +18,4 @@ T = TypeVar("T")
 
 def outer(f: Callable[Concatenate[str, Po], object]):
     x = is_inty(f)
-    t_x: Literal["Callable[Concatenate[str, Po@outer], int]"] = reveal_type(x)
+    t_x: Literal["(str, **Po@outer) -> int"] = reveal_type(x)

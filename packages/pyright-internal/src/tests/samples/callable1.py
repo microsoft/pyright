@@ -48,6 +48,6 @@ def func6(a: Callable6):
 
 
 def func7(a: Callable):
-    t_a: Literal["(*args: Unknown, **kwargs: Unknown) -> Unknown"] = reveal_type(a)
+    t_a: Literal["(...) -> Unknown"] = reveal_type(a)
     b = a(3, 4, 5)
     t_b: Literal["Unknown"] = reveal_type(b)

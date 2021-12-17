@@ -113,6 +113,10 @@ export const enum EvaluatorFlags {
 
     // 'Generic' cannot be used without type arguments in this context.
     DisallowNakedGeneric = 1 << 18,
+
+    // The node is not parsed by the interpreter because it is within
+    // a comment or a string literal.
+    NotParsedByInterpreter = 1 << 19,
 }
 
 export interface TypeArgumentResult {
@@ -232,6 +236,7 @@ export interface AnnotationTypeOptions {
     allowClassVar?: boolean;
     associateTypeVarsWithScope?: boolean;
     allowTypeVarTuple?: boolean;
+    allowParamSpec?: boolean;
     disallowRecursiveTypeAlias?: boolean;
 }
 

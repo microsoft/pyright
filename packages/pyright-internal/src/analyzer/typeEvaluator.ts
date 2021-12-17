@@ -834,7 +834,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeResult = getTypeOfExpression(
                             node.typeAnnotation,
                             undefined,
-                            flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType
+                            flags |
+                                EvaluatorFlags.AllowForwardReferences |
+                                EvaluatorFlags.NotParsedByInterpreter |
+                                EvaluatorFlags.ExpectingType
                         );
                     } else if (!node.typeAnnotation && node.strings.length === 1) {
                         // We didn't know at parse time that this string node was going
@@ -845,7 +848,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeResult = getTypeOfExpression(
                                 expr,
                                 undefined,
-                                flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType
+                                flags |
+                                    EvaluatorFlags.AllowForwardReferences |
+                                    EvaluatorFlags.NotParsedByInterpreter |
+                                    EvaluatorFlags.ExpectingType
                             );
                         }
                     }
@@ -1155,8 +1161,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.ExpectingTypeAnnotation |
             EvaluatorFlags.ConvertEllipsisToAny |
-            EvaluatorFlags.EvaluateStringLiteralAsType |
-            EvaluatorFlags.ParamSpecDisallowed;
+            EvaluatorFlags.EvaluateStringLiteralAsType;
 
         if (options?.isVariableAnnotation) {
             evaluatorFlags |= EvaluatorFlags.VariableTypeAnnotation;
@@ -1172,6 +1177,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!options?.allowTypeVarTuple) {
             evaluatorFlags |= EvaluatorFlags.TypeVarTupleDisallowed;
+        }
+
+        if (!options?.allowParamSpec) {
+            evaluatorFlags |= EvaluatorFlags.ParamSpecDisallowed;
         }
 
         if (options?.associateTypeVarsWithScope) {
@@ -1191,14 +1200,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the annotation is part of a comment, allow forward references
         // even if it's not enclosed in quotes.
         if (node?.parent?.nodeType === ParseNodeType.Assignment && node.parent.typeAnnotationComment === node) {
-            evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+            evaluatorFlags |= EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.NotParsedByInterpreter;
         } else if (node?.parent?.nodeType === ParseNodeType.FunctionAnnotation) {
             if (node.parent.returnTypeAnnotation === node || node.parent.paramTypeAnnotations.some((n) => n === node)) {
-                evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+                evaluatorFlags |= EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.NotParsedByInterpreter;
             }
         } else if (node?.parent?.nodeType === ParseNodeType.Parameter) {
             if (node.parent.typeAnnotationComment === node) {
-                evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+                evaluatorFlags |= EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.NotParsedByInterpreter;
             }
         }
 
@@ -3982,6 +3991,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     EvaluatorFlags.ExpectingTypeAnnotation |
                     EvaluatorFlags.VariableTypeAnnotation |
                     EvaluatorFlags.AllowForwardReferences |
+                    EvaluatorFlags.NotParsedByInterpreter |
                     EvaluatorFlags.DisallowTypeVarsWithScopeId |
                     EvaluatorFlags.DisallowTypeVarsWithoutScopeId |
                     EvaluatorFlags.AssociateTypeVarsWithCurrentScope));
@@ -16127,6 +16137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (isEllipsisType(typeArg.type)) {
                         FunctionType.addDefaultParameters(functionType);
+                        functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
                         typeArgTypes.push(functionType);
                         return;
                     }

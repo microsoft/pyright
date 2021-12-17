@@ -54,12 +54,10 @@ class Y(Generic[P2]):
 
 
 y1 = Y(x4)
-t_y1: Literal["Y[(x: X[int, (*args: Any, **kwargs: Any)])]"] = reveal_type(y1)
+t_y1: Literal["Y[(x: X[int, (...)])]"] = reveal_type(y1)
 
 y2 = y1.m1()
-t_y2: Literal["X[int, (float, x: X[int, (*args: Any, **kwargs: Any)])]"] = reveal_type(
-    y2
-)
+t_y2: Literal["X[int, (float, x: X[int, (...)])]"] = reveal_type(y2)
 
 
 class Z(Generic[P1]):

@@ -49,8 +49,8 @@ export const enum PrintTypeFlags {
     PEP604 = 1 << 3,
 
     // Include a parentheses around a union if there's more than
-    // one subtype.
-    ParenthesizeUnion = 1 << 4,
+    // one subtype or a callable.
+    ParenthesizeUnionOrCallable = 1 << 4,
 
     // Expand type aliases to display their individual parts?
     ExpandTypeAlias = 1 << 5,
@@ -68,8 +68,8 @@ export function printType(
     returnTypeCallback: FunctionReturnTypeCallback,
     recursionTypes: Type[] = []
 ): string {
-    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
-    printTypeFlags &= ~PrintTypeFlags.ParenthesizeUnion;
+    const parenthesizeUnionOrCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeUnionOrCallable) !== 0;
+    printTypeFlags &= ~PrintTypeFlags.ParenthesizeUnionOrCallable;
 
     // If this is a type alias, see if we should use its name rather than
     // the type it represents.
@@ -212,27 +212,17 @@ export function printType(
                 // If it's a Callable with a ParamSpec, use the
                 // Callable notation.
                 const parts = printFunctionParts(type, printTypeFlags, returnTypeCallback, recursionTypes);
-                if (type.details.paramSpec) {
-                    if (type.details.parameters.length > 0) {
-                        // Remove the args and kwargs parameters from the end.
-                        const paramTypes = type.details.parameters.map((param) => {
-                            if (!param.name) {
-                                return param.category === ParameterCategory.Simple ? '/' : '*';
-                            }
-                            return printType(param.type, printTypeFlags, returnTypeCallback, recursionTypes);
-                        });
-                        return `Callable[Concatenate[${paramTypes.join(', ')}, ${TypeVarType.getReadableName(
-                            type.details.paramSpec
-                        )}], ${parts[1]}]`;
-                    }
-                    return `Callable[${TypeVarType.getReadableName(type.details.paramSpec)}, ${parts[1]}]`;
-                }
-
                 const paramSignature = `(${parts[0].join(', ')})`;
                 if (FunctionType.isParamSpecValue(type)) {
                     return paramSignature;
                 }
-                return `${paramSignature} -> ${parts[1]}`;
+                const fullSignature = `${paramSignature} -> ${parts[1]}`;
+
+                if (parenthesizeUnionOrCallable) {
+                    return `(${fullSignature})`;
+                }
+
+                return fullSignature;
             }
 
             case TypeCategory.OverloadedFunction: {
@@ -350,7 +340,7 @@ export function printType(
 
                 if (printTypeFlags & PrintTypeFlags.PEP604) {
                     const unionString = dedupedSubtypeStrings.join(' | ');
-                    if (parenthesizeUnion) {
+                    if (parenthesizeUnionOrCallable) {
                         return `(${unionString})`;
                     }
                     return unionString;
@@ -610,6 +600,8 @@ export function printFunctionParts(
         }
 
         let defaultValueAssignment = '=';
+        let isParamSpecArgsKwargsParam = false;
+
         if (param.name) {
             // Avoid printing type types if parameter have unknown type.
             if (param.hasDeclaredType || param.isTypeInferred) {
@@ -624,10 +616,11 @@ export function printFunctionParts(
                 paramString += paramTypeString;
 
                 if (isParamSpec(paramType)) {
-                    if (param.category === ParameterCategory.VarArgList) {
-                        paramString += '.args';
-                    } else if (param.category === ParameterCategory.VarArgDictionary) {
-                        paramString += '.kwargs';
+                    if (
+                        param.category === ParameterCategory.VarArgList ||
+                        param.category === ParameterCategory.VarArgDictionary
+                    ) {
+                        isParamSpecArgsKwargsParam = true;
                     }
                 }
 
@@ -660,15 +653,30 @@ export function printFunctionParts(
             }
         }
 
+        // If this is a (...) signature, replace the *args, **kwargs with "...".
+        if (FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type) && !isParamSpecArgsKwargsParam) {
+            if (param.category === ParameterCategory.VarArgList) {
+                paramString = '...';
+            } else if (param.category === ParameterCategory.VarArgDictionary) {
+                return;
+            }
+        }
+
         paramTypeStrings.push(paramString);
     });
+
+    if (type.details.paramSpec) {
+        paramTypeStrings.push(
+            `**${printType(type.details.paramSpec, printTypeFlags, returnTypeCallback, recursionTypes)}`
+        );
+    }
 
     const returnType = returnTypeCallback(type);
     const returnTypeString =
         recursionTypes.length < maxTypeRecursionCount
             ? printType(
                   returnType,
-                  printTypeFlags | PrintTypeFlags.ParenthesizeUnion,
+                  printTypeFlags | PrintTypeFlags.ParenthesizeUnionOrCallable,
                   returnTypeCallback,
                   recursionTypes
               )
