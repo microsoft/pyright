@@ -980,3 +980,15 @@ test('TryExcept6', () => {
 
     TestUtils.validateResults(analysisResults, 1);
 });
+
+test('TryExcept7', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 2);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0);
+});

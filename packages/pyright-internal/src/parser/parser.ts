@@ -1497,6 +1497,14 @@ export class Parser {
                 break;
             }
 
+            // See if this is a Python 3.11 exception group.
+            const possibleStarToken = this._peekToken();
+            if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
+                if (this._getLanguageVersion() < PythonVersion.V3_11 && !this._parseOptions.isStubFile) {
+                    this._addError(Localizer.Diagnostic.exceptionGroupIncompatible(), possibleStarToken);
+                }
+            }
+
             let typeExpr: ExpressionNode | undefined;
             let symbolName: IdentifierToken | undefined;
             if (this._peekTokenType() !== TokenType.Colon) {
