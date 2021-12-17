@@ -10,6 +10,7 @@
 import { fail } from '../common/debug';
 import {
     ArgumentNode,
+    ArrowCallableNode,
     AssertNode,
     AssignmentExpressionNode,
     AssignmentNode,
@@ -117,6 +118,12 @@ export class ParseTreeWalker {
             case ParseNodeType.Argument:
                 if (this.visitArgument(node)) {
                     return [node.name, node.valueExpression];
+                }
+                break;
+
+            case ParseNodeType.ArrowCallable:
+                if (this.visitArrowCallable(node)) {
+                    return [...node.parameters.map((param) => param.typeAnnotation), node.returnTypeAnnotation];
                 }
                 break;
 
@@ -581,6 +588,10 @@ export class ParseTreeWalker {
 
     // Override these methods as necessary.
     visitArgument(node: ArgumentNode) {
+        return true;
+    }
+
+    visitArrowCallable(node: ArrowCallableNode) {
         return true;
     }
 

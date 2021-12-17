@@ -1122,3 +1122,23 @@ test('Descriptor1', () => {
 
     TestUtils.validateResults(analysisResults, 6);
 });
+
+test('ArrowCallable1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['arrowCallable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 10);
+});
+
+test('ArrowCallable2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['arrowCallable2.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 2);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['arrowCallable2.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0);
+});

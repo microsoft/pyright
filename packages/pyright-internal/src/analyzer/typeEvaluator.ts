@@ -28,6 +28,7 @@ import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
+    ArrowCallableNode,
     AssignmentNode,
     AugmentedAssignmentNode,
     BinaryOperationNode,
@@ -987,6 +988,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParseNodeType.Lambda: {
                 typeResult = getTypeFromLambda(node, expectedTypeAlt);
+                break;
+            }
+
+            case ParseNodeType.ArrowCallable: {
+                typeResult = getTypeFromArrowCallable(node, flags);
                 break;
             }
 
@@ -10644,6 +10650,113 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
     }
 
+    function getTypeFromArrowCallable(node: ArrowCallableNode, flags: EvaluatorFlags): TypeResult {
+        // Emit an error if this will cause a runtime exception.
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        if (
+            !fileInfo.isStubFile &&
+            fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_11 &&
+            (flags & EvaluatorFlags.NotParsedByInterpreter) === 0
+        ) {
+            addError(Localizer.Diagnostic.arrowCallableIllegal(), node);
+        }
+
+        const isIncomplete = false;
+        const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
+
+        const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+
+        // Handle the case where the Callable has no enclosing scope. This can
+        // happen in the case where a generic function return type is annotated
+        // with a generic type alias that includes a Callable in its definition.
+        functionType.details.typeVarScopeId = enclosingScope
+            ? getScopeIdForNode(enclosingScope)
+            : WildcardTypeVarScopeId;
+
+        let returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
+        if (node.isAsync) {
+            functionType.details.flags |= FunctionTypeFlags.Async;
+            returnType = createAwaitableReturnType(node, returnType, /* isGenerator */ false);
+        }
+
+        functionType.details.declaredReturnType = returnType;
+
+        let addPositionalOnly = true;
+
+        node.parameters.forEach((param, paramIndex) => {
+            const paramType = getTypeOfAnnotation(param.typeAnnotation, {
+                allowParamSpec: true,
+                allowTypeVarTuple: true,
+            });
+
+            if (isEllipsisType(paramType)) {
+                if (param.category !== ParameterCategory.Simple || paramIndex !== node.parameters.length - 1) {
+                    addError(Localizer.Diagnostic.ellipsisContext(), param.typeAnnotation);
+                    FunctionType.addParameter(functionType, {
+                        category: ParameterCategory.Simple,
+                        name: `__p${paramIndex}`,
+                        isNameSynthesized: true,
+                        type: UnknownType.create(),
+                        hasDeclaredType: true,
+                    });
+                } else {
+                    functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+                    FunctionType.addDefaultParameters(functionType);
+                    addPositionalOnly = false;
+                }
+            } else if (param.category === ParameterCategory.Simple) {
+                if (isTypeVar(paramType) && paramType.details.isParamSpec) {
+                    addError(Localizer.Diagnostic.arrowCallableParamSpec(), param.typeAnnotation);
+                }
+
+                if (isTypeVar(paramType) && paramType.details.isVariadic && !paramType.isVariadicUnpacked) {
+                    addError(Localizer.Diagnostic.arrowCallableVariadicTypeVar(), param.typeAnnotation);
+                }
+
+                FunctionType.addParameter(functionType, {
+                    category: ParameterCategory.Simple,
+                    name: `__p${paramIndex}`,
+                    isNameSynthesized: true,
+                    type: convertToInstance(paramType),
+                    hasDeclaredType: true,
+                });
+            } else if (param.category === ParameterCategory.VarArgList) {
+                if (!isVariadicTypeVar(paramType)) {
+                    addError(Localizer.Diagnostic.arrowCallableNotVariadicTypeVar(), param.typeAnnotation);
+                } else {
+                    if (paramType.isVariadicUnpacked) {
+                        addError(Localizer.Diagnostic.arrowCallableVariadicTypeVarUnpacked(), param.typeAnnotation);
+                    }
+
+                    FunctionType.addParameter(functionType, {
+                        category: ParameterCategory.Simple,
+                        name: `__p${paramIndex}`,
+                        isNameSynthesized: true,
+                        type: convertToInstance(TypeVarType.cloneForUnpacked(paramType)),
+                        hasDeclaredType: true,
+                    });
+                }
+            } else if (param.category === ParameterCategory.VarArgDictionary) {
+                if (!isParamSpec(paramType)) {
+                    addError(Localizer.Diagnostic.arrowCallableNotParamSpec(), param.typeAnnotation);
+                } else if (paramIndex !== node.parameters.length - 1) {
+                    addError(Localizer.Diagnostic.arrowCallableParamSpecNotLast(), param.typeAnnotation);
+                } else {
+                    functionType.details.paramSpec = paramType;
+                }
+            }
+        });
+
+        if (addPositionalOnly) {
+            FunctionType.addParameter(functionType, {
+                category: ParameterCategory.Simple,
+                type: UnknownType.create(),
+            });
+        }
+
+        return { node, type: functionType, isIncomplete };
+    }
+
     function getTypeFromDictionary(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
         // If the expected type is a union, analyze for each of the subtypes
         // to find one that matches.
@@ -15419,7 +15532,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.nodeType === ParseNodeType.PatternMapping ||
                 node.nodeType === ParseNodeType.PatternValue ||
                 node.nodeType === ParseNodeType.PatternMappingKeyEntry ||
-                node.nodeType === ParseNodeType.PatternMappingExpandEntry
+                node.nodeType === ParseNodeType.PatternMappingExpandEntry ||
+                node.nodeType === ParseNodeType.ArrowCallable
             );
         }
 
