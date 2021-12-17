@@ -542,7 +542,7 @@
             }
           },
           "pythonVersion": {
-            "$id": "#/properties/pythonVersion",
+            "$id": "#/properties/executionEnvironments/items/properties/pythonVersion",
             "type": "string",
             "title": "Python version to assume during type analysis",
             "default": "",
@@ -552,7 +552,7 @@
             "pattern": "^3\\.[0-9]+$"
           },
           "pythonPlatform": {
-            "$id": "#/properties/pythonPlatform",
+            "$id": "#/properties/executionEnvironments/items/properties/pythonPlatform",
             "type": "string",
             "title": "Python platform to assume during type analysis",
             "default": "",
