@@ -12021,8 +12021,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType: ClassType,
         errorNode: ParseNode,
         isRequired: boolean,
-        typeArgs: TypeResult[] | undefined
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
     ): Type {
+        // If no type arguments are provided, the resulting type
+        // depends on whether we're evaluating a type annotation or
+        // we're in some other context.
+        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+            return classType;
+        }
+
         if (!typeArgs || typeArgs.length !== 1) {
             addError(
                 isRequired ? Localizer.Diagnostic.requiredArgCount() : Localizer.Diagnostic.notRequiredArgCount(),
@@ -15932,7 +15940,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 case 'Required':
                 case 'NotRequired': {
-                    return createRequiredType(classType, errorNode, aliasedName === 'Required', typeArgs);
+                    return createRequiredType(classType, errorNode, aliasedName === 'Required', typeArgs, flags);
                 }
 
                 case 'Self': {
