@@ -456,11 +456,11 @@
       "default": "error"
     },
     "extraPaths": {
-      "$id": "#/properties/executionEnvironments/items/properties/extraPaths",
+      "$id": "#/properties/extraPaths",
       "type": "array",
       "title": "Additional import search resolution paths",
       "items": {
-        "$id": "#/properties/executionEnvironments/items/properties/extraPaths/items",
+        "$id": "#/properties/extraPaths/items",
         "type": "string",
         "title": "Additional import search resolution path",
         "default": "",
