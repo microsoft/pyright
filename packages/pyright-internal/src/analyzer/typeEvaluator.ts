@@ -17597,7 +17597,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diag: DiagnosticAddendum | undefined,
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
-        allowMetaclassForProtocols: boolean,
+        treatSourceAsInstantiable: boolean,
         recursionCount: number
     ): boolean {
         if (recursionCount > maxTypeRecursionCount) {
@@ -17608,7 +17608,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Some protocol definitions include recursive references to themselves.
         // We need to protect against infinite recursion, so we'll check for that here.
-        if (ClassType.isSameGenericClass(srcType, destType)) {
+        if (ClassType.isSameGenericClass(srcType, destType) && !treatSourceAsInstantiable) {
             if (
                 isTypeSame(
                     srcType,
@@ -17652,15 +17652,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let isMemberFromMetaclass = false;
                 let srcMemberInfo: ClassMember | undefined;
 
-                // Look up in the metaclass first if allowed.
+                // Look in the metaclass first if we're treating the source as an instantiable class.
                 if (
-                    allowMetaclassForProtocols &&
+                    treatSourceAsInstantiable &&
                     srcType.details.effectiveMetaclass &&
                     isInstantiableClass(srcType.details.effectiveMetaclass)
                 ) {
                     srcMemberInfo = lookUpClassMember(srcType.details.effectiveMetaclass, name);
-                    srcClassTypeVarMap.addSolveForScope(getTypeVarScopeId(srcType.details.effectiveMetaclass));
-                    isMemberFromMetaclass = true;
+                    if (srcMemberInfo) {
+                        srcClassTypeVarMap.addSolveForScope(getTypeVarScopeId(srcType.details.effectiveMetaclass));
+                        isMemberFromMetaclass = true;
+                    }
                 }
 
                 if (!srcMemberInfo) {
@@ -17717,7 +17719,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarMap);
 
                                 const boundSrcFunction = bindFunctionToClassOrObject(
-                                    ClassType.cloneAsInstance(srcType),
+                                    treatSourceAsInstantiable ? srcType : ClassType.cloneAsInstance(srcType),
                                     srcMemberType,
                                     srcMemberInfo.classType,
                                     /* errorNode */ undefined,
@@ -17749,7 +17751,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         // Properties require special processing.
                         if (isClassInstance(destMemberType) && ClassType.isPropertyClass(destMemberType)) {
-                            if (isClassInstance(srcMemberType) && ClassType.isPropertyClass(srcMemberType)) {
+                            if (
+                                isClassInstance(srcMemberType) &&
+                                ClassType.isPropertyClass(srcMemberType) &&
+                                !treatSourceAsInstantiable
+                            ) {
                                 if (
                                     !canAssignProperty(
                                         ClassType.cloneAsInstantiable(destMemberType),
@@ -17858,7 +17864,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         diag?.createAddendum(),
                         typeVarMap,
                         flags,
-                        allowMetaclassForProtocols,
+                        treatSourceAsInstantiable,
                         recursionCount + 1
                     )
                 ) {
@@ -18181,8 +18187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags,
         recursionCount: number,
-        reportErrorsUsingObjType: boolean,
-        allowMetaclassForProtocols = false
+        reportErrorsUsingObjType: boolean
     ): boolean {
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
@@ -18232,7 +18237,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Use the slow path for protocols if the dest doesn't explicitly
         // derive from the source. We also need to use this path if we're
         // testing to see if the metaclass matches the protocol.
-        if (ClassType.isProtocolClass(destType) && (!isDerivedFrom || allowMetaclassForProtocols)) {
+        if (ClassType.isProtocolClass(destType) && !isDerivedFrom) {
             if (
                 !canAssignClassToProtocol(
                     destType,
@@ -18240,7 +18245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag?.createAddendum(),
                     typeVarMap,
                     flags,
-                    allowMetaclassForProtocols,
+                    /* treatSourceAsInstantiable */ false,
                     recursionCount + 1
                 )
             ) {
@@ -19798,6 +19803,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return canAssignType(callbackType, concreteSrcType, diag, typeVarMap, flags, recursionCount + 1);
                 }
 
+                // If the destType is an instantiation of a Protocol,
+                // see if the class type itself satisfies the protocol.
+                if (ClassType.isProtocolClass(destType)) {
+                    return canAssignClassToProtocol(
+                        ClassType.cloneAsInstantiable(destType),
+                        concreteSrcType,
+                        diag,
+                        typeVarMap,
+                        flags,
+                        /* treatSourceAsInstantiable */ true,
+                        recursionCount + 1
+                    );
+                }
+
                 // Determine if the metaclass can be assigned to the object.
                 const metaclass = concreteSrcType.details.effectiveMetaclass;
                 if (metaclass) {
@@ -19806,13 +19825,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         return canAssignClass(
                             ClassType.cloneAsInstantiable(destType),
-                            ClassType.isProtocolClass(destType) ? concreteSrcType : metaclass,
+                            metaclass,
                             diag,
                             typeVarMap,
                             flags,
                             recursionCount + 1,
-                            /* reportErrorsUsingObjType */ false,
-                            /* allowMetaclassForProtocols */ true
+                            /* reportErrorsUsingObjType */ false
                         );
                     }
                 }
@@ -19973,7 +19991,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag,
                     typeVarMap,
                     flags,
-                    /* allowMetaclassForProtocols */ false,
+                    /* treatSourceAsInstantiable */ false,
                     recursionCount + 1
                 );
             }
