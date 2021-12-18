@@ -19512,17 +19512,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if ((flags & CanAssignFlags.EnforceInvariance) !== 0) {
-                if (!isAnyOrUnknown(destType)) {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: printType(srcType),
-                                destType: printType(destType),
-                            })
-                        );
-                    }
-                    return false;
+                if (isAnyOrUnknown(destType)) {
+                    return true;
                 }
+
+                // If the source is a ParamSpec and the dest is a "...", this is
+                // effectively like an "Any" signature, so we'll treat it as though
+                // it's Any.
+                if (
+                    isParamSpec(srcType) &&
+                    isFunction(destType) &&
+                    FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+                    destType.details.parameters.length <= 2
+                ) {
+                    return true;
+                }
+
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                }
+                return false;
             }
         }
 

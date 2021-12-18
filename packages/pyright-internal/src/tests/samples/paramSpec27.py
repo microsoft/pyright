@@ -1,7 +1,7 @@
 # This sample tests the case where an ellipsis is used to specialize
 # a generic class parameterized by a ParamSpec.
 
-from typing import Callable, Protocol
+from typing import Callable, Generic, Protocol
 from typing_extensions import Concatenate, ParamSpec, TypeAlias
 
 P = ParamSpec("P")
@@ -39,3 +39,19 @@ concat_handler1: ConcatHandler[...] = func1
 
 # This should generate an error because the first param of func2 is not int.
 concat_handler2: ConcatHandler[...] = func2
+
+
+class Command(Generic[P]):
+    def __init__(self, handler: Handler[P]) -> None:
+        self.handler: Handler[P] = handler
+
+
+commands: list[Command[...]] = []
+
+
+def do_something(int_handler: Handler[int], var_args_handler: Handler[P], /) -> None:
+    int_command = Command(int_handler)
+    commands.append(int_command)
+
+    var_args_command = Command(var_args_handler)
+    commands.append(var_args_command)
