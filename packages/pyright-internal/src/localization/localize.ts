@@ -1030,6 +1030,10 @@ export namespace Localizer {
             );
         export const protocolMemberMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.protocolMemberMissing'));
+        export const protocolSourceIsNotConcrete = () =>
+            new ParameterizedString<{ sourceType: string; destType: string }>(
+                getRawString('DiagnosticAddendum.protocolSourceIsNotConcrete')
+            );
         export const readOnlyAttribute = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.readOnlyAttribute'));
         export const seeDeclaration = () => getRawString('DiagnosticAddendum.seeDeclaration');

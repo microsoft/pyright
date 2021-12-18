@@ -19650,6 +19650,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isInstantiableClass(destType)) {
             const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
             if (isInstantiableClass(concreteSrcType)) {
+                // PEP 544 says that if the dest type is a Type[Proto] class,
+                // the source must be a "concrete" (non-protocol) class.
+                if (ClassType.isProtocolClass(destType)) {
+                    if (ClassType.isProtocolClass(concreteSrcType)) {
+                        if (diag) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.protocolSourceIsNotConcrete().format({
+                                    sourceType: printType(convertToInstance(srcType)),
+                                    destType: printType(destType),
+                                })
+                            );
+                        }
+                        return false;
+                    }
+                }
+
                 if (
                     canAssignClass(
                         destType,
