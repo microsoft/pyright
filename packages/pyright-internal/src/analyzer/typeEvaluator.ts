@@ -10709,10 +10709,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let addPositionalOnly = true;
 
         const paramAnnotationOptions: AnnotationTypeOptions = {
-            associateTypeVarsWithScope: true,
             allowParamSpec: true,
             allowTypeVarTuple: true,
         };
+
+        if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
+            paramAnnotationOptions.associateTypeVarsWithScope = true;
+        }
 
         node.parameters.forEach((param, paramIndex) => {
             const paramType = getTypeOfAnnotation(param.typeAnnotation, paramAnnotationOptions);
