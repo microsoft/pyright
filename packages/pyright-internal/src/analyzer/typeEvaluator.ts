@@ -4709,7 +4709,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             (flags & (MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride)) ===
             0
         ) {
-            const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage);
+            const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName);
 
             if (generalAttrType) {
                 const descriptorResult = applyDescriptorAccessMethod(
@@ -5115,12 +5115,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function applyAttributeAccessOverride(
         classType: ClassType,
         errorNode: ExpressionNode,
-        usage: EvaluatorUsage
+        usage: EvaluatorUsage,
+        memberName: string
     ): Type | undefined {
         if (usage.method === 'get') {
             // See if the class has a "__getattribute__" or "__getattr__" method.
             // If so, arbitrary members are supported.
-            const getAttribType = getTypeFromClassMember(
+            let getAttrType = getTypeFromClassMember(
                 errorNode,
                 classType,
                 '__getattribute__',
@@ -5129,18 +5130,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 MemberAccessFlags.SkipObjectBaseClass
             )?.type;
 
-            if (getAttribType && isFunction(getAttribType)) {
-                return getFunctionEffectiveReturnType(getAttribType);
+            if (!getAttrType) {
+                getAttrType = getTypeFromClassMember(
+                    errorNode,
+                    classType,
+                    '__getattr__',
+                    { method: 'get' },
+                    /* diag */ undefined,
+                    MemberAccessFlags.SkipObjectBaseClass
+                )?.type;
             }
 
-            const getAttrType = getTypeFromClassMember(
-                errorNode,
-                classType,
-                '__getattr__',
-                { method: 'get' },
-                /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass
-            )?.type;
+            // If it's an overload, it might be based on the member name. Create
+            // a literal str type based on the member name and find the best overload.
+            if (getAttrType && isOverloadedFunction(getAttrType)) {
+                let nameLiteralType: Type = AnyType.create();
+                if (strClassType && isInstantiableClass(strClassType)) {
+                    nameLiteralType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClassType), memberName);
+                }
+
+                getAttrType = getBestOverloadForArguments(errorNode, getAttrType, [
+                    {
+                        argumentCategory: ArgumentCategory.Simple,
+                        type: AnyType.create(),
+                    },
+                    {
+                        argumentCategory: ArgumentCategory.Simple,
+                        type: nameLiteralType,
+                    },
+                ]);
+            }
+
             if (getAttrType && isFunction(getAttrType)) {
                 return getFunctionEffectiveReturnType(getAttrType);
             }
