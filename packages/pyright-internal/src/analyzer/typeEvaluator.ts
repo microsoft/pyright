@@ -18751,6 +18751,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // If we're attempting to assign `type` to Type[T], transform `type` into `Type[Any]`.
+        if (
+            TypeBase.isInstantiable(destType) &&
+            isClassInstance(srcType) &&
+            ClassType.isBuiltIn(srcType, 'type') &&
+            !srcType.typeArguments
+        ) {
+            srcType = AnyType.create();
+        }
+
         const curEntry = typeVarMap.getTypeVar(destType);
         const curNarrowTypeBound = curEntry?.narrowBound;
         const curWideTypeBound = curEntry?.wideBound ?? destType.details.boundType;
