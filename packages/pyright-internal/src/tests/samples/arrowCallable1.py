@@ -92,11 +92,11 @@ F2 = (*...) -> int
 # This should generate an error because ** can't be used with ellipsis.
 F3 = (**...) -> int
 
-# This should generate an error because ellipsis must be the last parameter.
+# This should generate an error because ellipsis must be the only parameter.
 F4 = (..., str) -> int
 
+# This should generate an error because ellipsis must be the only parameter.
 F5 = (int, str, ...) -> int
-t_f5: Literal['(int, str, ...) -> int'] = reveal_type(F5)
 
 
 G1 = (int, *Ts, str) -> int

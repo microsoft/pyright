@@ -10730,7 +10730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const paramType = getTypeOfAnnotation(param.typeAnnotation, paramAnnotationOptions);
 
             if (isEllipsisType(paramType)) {
-                if (param.category !== ParameterCategory.Simple || paramIndex !== node.parameters.length - 1) {
+                if (param.category !== ParameterCategory.Simple || paramIndex !== 0 || node.parameters.length > 1) {
                     addError(Localizer.Diagnostic.ellipsisContext(), param.typeAnnotation);
                     FunctionType.addParameter(functionType, {
                         category: ParameterCategory.Simple,

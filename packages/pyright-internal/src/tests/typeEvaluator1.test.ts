@@ -1128,7 +1128,7 @@ test('ArrowCallable1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['arrowCallable1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 11);
 });
 
 test('ArrowCallable2', () => {
