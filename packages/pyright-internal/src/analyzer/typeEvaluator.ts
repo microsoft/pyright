@@ -10701,7 +10701,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let returnType = getTypeOfAnnotation(node.returnTypeAnnotation, returnAnnotationOptions);
         if (node.isAsync) {
             functionType.details.flags |= FunctionTypeFlags.Async;
-            returnType = createAwaitableReturnType(node, returnType, /* isGenerator */ false);
+            const awaitableType = getTypingType(node, 'Awaitable');
+            if (awaitableType && isInstantiableClass(awaitableType)) {
+                returnType = ClassType.cloneForSpecialization(
+                    ClassType.cloneAsInstance(awaitableType),
+                    [returnType],
+                    /* isTypeArgumentExplicit */ true
+                );
+            } else {
+                returnType = UnknownType.create();
+            }
         }
 
         functionType.details.declaredReturnType = returnType;

@@ -15,9 +15,9 @@ def func0(
     ...
 t_func0: Literal['(a: (int, str) -> float, b: (int | str) -> (int | str), c: (...) -> ((complex, str) -> int | None)) -> ((int, str) -> None)'] = reveal_type(func0)
 
-def func1() -> (int, str) -> bool:
+def func1() -> async (int, str) -> bool:
     ...
-t_func1: Literal['() -> ((int, str) -> bool)'] = reveal_type(func1)
+t_func1: Literal['() -> ((int, str) -> Awaitable[bool])'] = reveal_type(func1)
 
 def func2() -> ((int, str) -> bool):
     ...
