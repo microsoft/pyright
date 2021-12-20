@@ -130,6 +130,7 @@ export function createTypeEvaluatorWithTracker(
         getTypeAnnotationForParameter: (n, p) =>
             run('getTypeAnnotationForParameter', () => typeEvaluator.getTypeAnnotationForParameter(n, p), n),
         getAbstractMethods: (c) => run('getAbstractMethods', () => typeEvaluator.getAbstractMethods(c), c),
+        narrowConstrainedTypeVar: typeEvaluator.narrowConstrainedTypeVar,
         canAssignType: (d, s, a, m, f) => run('canAssignType', () => typeEvaluator.canAssignType(d, s, a, m, f), d),
         canOverrideMethod: (b, o, d, e) =>
             run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d, e), o),

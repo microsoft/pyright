@@ -45,7 +45,7 @@ import {
     SpeculativeTypeTracker,
     TypeCache,
 } from './typeCache';
-import { TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
@@ -58,9 +58,11 @@ import {
     isNever,
     isOverloadedFunction,
     isTypeSame,
+    isTypeVar,
     ModuleType,
     removeUnknownFromUnion,
     Type,
+    TypeVarType,
     UnboundType,
     UnknownType,
 } from './types';
@@ -96,6 +98,7 @@ export interface CodeFlowAnalyzer {
 export interface CodeFlowEngine {
     createCodeFlowAnalyzer: () => CodeFlowAnalyzer;
     isFlowNodeReachable: (flowNode: FlowNode, sourceFlowNode?: FlowNode) => boolean;
+    narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
 }
 
 // Maximum number of times a loop flow node will be evaluated
@@ -1084,6 +1087,170 @@ export function getCodeFlowEngine(
         }
     }
 
+    // Determines whether the specified typeVar, which is assumed to be constrained,
+    // can be narrowed to one of its constrained types based on isinstance type
+    // guard checks.
+    function narrowConstrainedTypeVar(flowNode: FlowNode, typeVar: TypeVarType): ClassType | undefined {
+        assert(!typeVar.details.isParamSpec);
+        assert(!typeVar.details.isVariadic);
+        assert(!typeVar.details.boundType);
+        assert(typeVar.details.constraints.length > 0);
+
+        const visitedFlowNodeMap = new Set<number>();
+        const startingConstraints: ClassType[] = [];
+
+        for (const constraint of typeVar.details.constraints) {
+            if (isClassInstance(constraint)) {
+                startingConstraints.push(constraint);
+            } else {
+                // If one or more constraints are Unknown, Any, union types, etc.,
+                // we can't narrow them.
+                return undefined;
+            }
+        }
+
+        function narrowConstrainedTypeVarRecursive(flowNode: FlowNode, typeVar: TypeVarType): ClassType[] {
+            let curFlowNode = flowNode;
+
+            while (true) {
+                if (visitedFlowNodeMap.has(curFlowNode.id)) {
+                    return startingConstraints;
+                }
+
+                // Note that we've been here before.
+                visitedFlowNodeMap.add(curFlowNode.id);
+
+                if (curFlowNode.flags & (FlowFlags.Unreachable | FlowFlags.Start)) {
+                    return startingConstraints;
+                }
+
+                if (
+                    curFlowNode.flags &
+                    (FlowFlags.VariableAnnotation |
+                        FlowFlags.Assignment |
+                        FlowFlags.AssignmentAlias |
+                        FlowFlags.WildcardImport |
+                        FlowFlags.TrueNeverCondition |
+                        FlowFlags.FalseNeverCondition |
+                        FlowFlags.NarrowForPattern |
+                        FlowFlags.ExhaustedMatch |
+                        FlowFlags.Call |
+                        FlowFlags.PreFinallyGate)
+                ) {
+                    const typedFlowNode = curFlowNode as
+                        | FlowVariableAnnotation
+                        | FlowAssignment
+                        | FlowAssignmentAlias
+                        | FlowWildcardImport
+                        | FlowExhaustedMatch
+                        | FlowPostFinally
+                        | FlowPreFinallyGate
+                        | FlowCall;
+                    curFlowNode = typedFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                    const conditionFlowNode = curFlowNode as FlowCondition;
+                    const testExpression = conditionFlowNode.expression;
+                    const isPositiveTest = (curFlowNode.flags & FlowFlags.TrueCondition) !== 0;
+
+                    if (
+                        testExpression.nodeType === ParseNodeType.Call &&
+                        testExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                        testExpression.leftExpression.value === 'isinstance' &&
+                        testExpression.arguments.length === 2
+                    ) {
+                        const arg0Expr = testExpression.arguments[0].valueExpression;
+
+                        const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
+
+                        if (isCompatibleWithConstrainedTypeVar(arg0Type, typeVar)) {
+                            const priorRemainingConstraints = narrowConstrainedTypeVarRecursive(
+                                conditionFlowNode.antecedent,
+                                typeVar
+                            );
+
+                            const arg1Expr = testExpression.arguments[1].valueExpression;
+                            const arg1Type = evaluator.getTypeOfExpression(
+                                arg1Expr,
+                                undefined,
+                                EvaluatorFlags.EvaluateStringLiteralAsType |
+                                    EvaluatorFlags.ParamSpecDisallowed |
+                                    EvaluatorFlags.TypeVarTupleDisallowed
+                            ).type;
+
+                            if (isInstantiableClass(arg1Type)) {
+                                return priorRemainingConstraints.filter((subtype) => {
+                                    if (ClassType.isSameGenericClass(subtype, arg1Type)) {
+                                        return isPositiveTest;
+                                    } else {
+                                        return !isPositiveTest;
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    curFlowNode = conditionFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                    const labelNode = curFlowNode as FlowLabel;
+                    const newConstraints: ClassType[] = [];
+
+                    for (const antecedent of labelNode.antecedents) {
+                        const constraintsToAdd = narrowConstrainedTypeVarRecursive(antecedent, typeVar);
+
+                        for (const constraint of constraintsToAdd) {
+                            if (!newConstraints.some((t) => isTypeSame(t, constraint))) {
+                                newConstraints.push(constraint);
+                            }
+                        }
+                    }
+
+                    return newConstraints;
+                }
+
+                // We shouldn't get here.
+                fail('Unexpected flow node flags');
+                return startingConstraints;
+            }
+        }
+
+        const narrowedConstrainedType = narrowConstrainedTypeVarRecursive(flowNode, typeVar);
+
+        // Have we narrowed the typeVar to a single constraint?
+        return narrowedConstrainedType.length === 1 ? narrowedConstrainedType[0] : undefined;
+    }
+
+    // Determines whether a specified type is the same as a constrained
+    // TypeVar or is conditioned on that same TypeVar or is some union of
+    // the above.
+    function isCompatibleWithConstrainedTypeVar(type: Type, typeVar: TypeVarType) {
+        let isCompatible = true;
+        doForEachSubtype(type, (subtype) => {
+            if (isTypeVar(subtype)) {
+                if (!isTypeSame(subtype, typeVar)) {
+                    isCompatible = false;
+                }
+            } else if (subtype.condition) {
+                if (
+                    !subtype.condition.some(
+                        (condition) => condition.isConstrainedTypeVar && condition.typeVarName === typeVar.nameWithScope
+                    )
+                ) {
+                    isCompatible = false;
+                }
+            } else {
+                isCompatible = false;
+            }
+        });
+
+        return isCompatible;
+    }
+
     // Performs a cursory analysis to determine whether a call never returns
     // without fully evaluating its type. This is done during code flow,
     // so it can't rely on full type analysis. It makes some simplifying
@@ -1367,5 +1534,6 @@ export function getCodeFlowEngine(
     return {
         createCodeFlowAnalyzer,
         isFlowNodeReachable,
+        narrowConstrainedTypeVar,
     };
 }

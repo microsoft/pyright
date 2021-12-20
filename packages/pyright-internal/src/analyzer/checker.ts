@@ -134,6 +134,7 @@ import {
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
     getGeneratorYieldType,
+    getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     isEllipsisType,
     isLiteralType,
@@ -777,9 +778,10 @@ export class Checker extends ParseTreeWalker {
                     );
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
+                    let returnTypeMatches = false;
 
                     if (
-                        !this._evaluator.canAssignType(
+                        this._evaluator.canAssignType(
                             declaredReturnType,
                             returnType,
                             diagAddendum,
@@ -787,6 +789,47 @@ export class Checker extends ParseTreeWalker {
                             CanAssignFlags.AllowBoolTypeGuard
                         )
                     ) {
+                        returnTypeMatches = true;
+                    } else {
+                        // See if the declared return type includes one or more constrained TypeVars. If so,
+                        // try to narrow these TypeVars to a single type.
+                        const uniqueTypeVars = getTypeVarArgumentsRecursive(declaredReturnType);
+
+                        if (
+                            uniqueTypeVars &&
+                            uniqueTypeVars.some((typeVar) => typeVar.details.constraints.length > 0)
+                        ) {
+                            const typeVarMap = new TypeVarMap();
+
+                            for (const typeVar of uniqueTypeVars) {
+                                if (typeVar.details.constraints.length > 0) {
+                                    const narrowedType = this._evaluator.narrowConstrainedTypeVar(node, typeVar);
+                                    if (narrowedType) {
+                                        typeVarMap.setTypeVarType(typeVar, narrowedType);
+                                        typeVarMap.addSolveForScope(getTypeVarScopeId(typeVar));
+                                    }
+                                }
+                            }
+
+                            if (!typeVarMap.isEmpty()) {
+                                const adjustedReturnType = applySolvedTypeVars(declaredReturnType, typeVarMap);
+
+                                if (
+                                    this._evaluator.canAssignType(
+                                        adjustedReturnType,
+                                        returnType,
+                                        diagAddendum,
+                                        /* typeVarMap */ undefined,
+                                        CanAssignFlags.AllowBoolTypeGuard
+                                    )
+                                ) {
+                                    returnTypeMatches = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!returnTypeMatches) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,

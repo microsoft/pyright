@@ -22123,6 +22123,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
+    // Given a code flow node and a constrained TypeVar, determines whether that type
+    // var can be "narrowed" to a single one of its constraints based on isinstance
+    // checks within the code flow.
+    function narrowConstrainedTypeVar(node: ParseNode, typeVar: TypeVarType): Type | undefined {
+        const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+
+        if (!flowNode) {
+            return undefined;
+        }
+
+        return codeFlowEngine.narrowConstrainedTypeVar(flowNode, typeVar);
+    }
+
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
         getType,
@@ -22177,6 +22190,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getCallSignatureInfo,
         getTypeAnnotationForParameter,
         getAbstractMethods,
+        narrowConstrainedTypeVar,
         canAssignType,
         canOverrideMethod,
         canAssignProtocolClassToSelf,

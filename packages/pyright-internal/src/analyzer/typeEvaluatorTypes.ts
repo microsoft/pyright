@@ -346,6 +346,7 @@ export interface TypeEvaluator {
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getTypeAnnotationForParameter: (node: FunctionNode, paramIndex: number) => ExpressionNode | undefined;
     getAbstractMethods: (classType: ClassType) => AbstractMethod[];
+    narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
 
     canAssignType: (
         destType: Type,
