@@ -5,7 +5,7 @@ import re
 def foo1(x: float):
     ...
 
-p =3
+p = 3
 
 # This should generate an error.
 def foo2(answer = p := 42):  # INVALID

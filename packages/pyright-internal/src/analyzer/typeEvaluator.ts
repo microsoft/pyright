@@ -3574,13 +3574,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // but was reconstituted in such a way that we lost the
                         // typeAliasInfo. Avoid the false positive error by suppressing
                         // the error when it looks like a plausible type alias type.
-                        if (!TypeBase.isInstantiable(type)) {
+                        if (!TypeBase.isInstantiable(type) || (flags & EvaluatorFlags.DoNotSpecialize) !== 0) {
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 Localizer.Diagnostic.typeAnnotationVariable(),
                                 node
                             );
+                            type = UnknownType.create();
                         }
                     }
                 }
