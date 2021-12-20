@@ -19,3 +19,13 @@ class A(Generic[T]):
         a = A(t[0])
         t3: Literal["A[T@A]"] = reveal_type(a)
         return a
+
+
+class B(Generic[T]):
+    def __init__(self, thing: T):
+        pass
+
+    @staticmethod
+    def method1(val: T) -> B[T]:
+        # This should generate an error.
+        return B(0)

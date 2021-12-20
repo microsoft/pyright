@@ -7392,12 +7392,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const sameClassTypeVarMap = buildTypeVarMapFromSpecializedClass(expectedType);
             sameClassTypeVarMap.getTypeVars().forEach((entry) => {
                 const typeVarType = sameClassTypeVarMap.getTypeVarType(entry.typeVar);
-                typeVarMap.setTypeVarType(
-                    entry.typeVar,
-                    entry.typeVar.details.variance === Variance.Covariant ? undefined : typeVarType,
-                    entry.typeVar.details.variance === Variance.Contravariant ? undefined : typeVarType,
-                    entry.retainLiteral
-                );
+
+                if (typeVarType) {
+                    // Skip this if the type argument is a TypeVar defined by the class scope because
+                    // we're potentially solving for these TypeVars.
+                    if (!isTypeVar(typeVarType) || typeVarType.scopeId !== type.details.typeVarScopeId) {
+                        typeVarMap.setTypeVarType(
+                            entry.typeVar,
+                            entry.typeVar.details.variance === Variance.Covariant ? undefined : typeVarType,
+                            entry.typeVar.details.variance === Variance.Contravariant ? undefined : typeVarType,
+                            entry.retainLiteral
+                        );
+                    }
+                }
             });
             return true;
         }
