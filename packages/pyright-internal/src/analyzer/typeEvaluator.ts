@@ -7005,6 +7005,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let returnType: Type | undefined;
         let reportedErrors = false;
         let isTypeIncomplete = false;
+        let metaclassCallMethodInfo: ClassMember | undefined;
 
         // Create a helper function that determines whether we should skip argument
         // validation for either __init__ or __new__. This is required for certain
@@ -7132,7 +7133,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // See if there is a custom metaclass that defines a __call__ method. If so,
             // we'll assume that the __new__ method on the class is not used.
             const metaclass = type.details.effectiveMetaclass;
-            let metaclassCallMethodInfo: ClassMember | undefined;
             if (metaclass && isInstantiableClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
                 metaclassCallMethodInfo = lookUpClassMember(
                     metaclass,
@@ -7163,6 +7163,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     MemberAccessFlags.TreatConstructorAsClassMethod,
                 type
             );
+
             if (
                 !metaclassCallMethodInfo &&
                 constructorMethodInfo &&
@@ -7261,13 +7262,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!validatedTypes && argList.length > 0) {
             // Suppress this error if the class was instantiated from a custom
-            // metaclass because it's likely that it's a false positive.
+            // metaclass because it's likely that it's a false positive. Also
+            // suppress the error if the class's metaclass has a __call__ method.
             const isCustomMetaclass =
                 !!type.details.effectiveMetaclass &&
                 isInstantiableClass(type.details.effectiveMetaclass) &&
                 !ClassType.isBuiltIn(type.details.effectiveMetaclass);
 
-            if (!isCustomMetaclass) {
+            if (!isCustomMetaclass && !metaclassCallMethodInfo) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
