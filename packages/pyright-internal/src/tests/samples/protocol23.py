@@ -32,3 +32,10 @@ val1().meth()
 
 # This should generate an error because Proto is a protocol class.
 val1 = Proto
+
+
+def func2() -> Type[Proto]:
+    ...
+
+
+val1 = func2()
