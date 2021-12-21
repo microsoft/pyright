@@ -67,6 +67,7 @@ import {
     UnknownType,
 } from './types';
 import {
+    ClassMemberLookupFlags,
     convertToInstance,
     doForEachSubtype,
     isNoReturnType,
@@ -1278,6 +1279,54 @@ export function getCodeFlowEngine(
                 // will be inferred "no return" types, so we can restrict
                 // our check to functions.
                 let functionType: FunctionType | undefined;
+                if (isInstantiableClass(callSubtype)) {
+                    let constructorMember = lookUpClassMember(
+                        callSubtype,
+                        '__init__',
+                        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                    );
+
+                    if (constructorMember === undefined) {
+                        constructorMember = lookUpClassMember(
+                            callSubtype,
+                            '__new__',
+                            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                        );
+                    }
+
+                    if (constructorMember) {
+                        const constructorType = evaluator.getTypeOfMember(constructorMember);
+                        if (constructorType) {
+                            if (isFunction(constructorType) || isOverloadedFunction(constructorType)) {
+                                const boundConstructorType = evaluator.bindFunctionToClassOrObject(
+                                    undefined,
+                                    constructorType
+                                );
+                                if (boundConstructorType) {
+                                    callSubtype = boundConstructorType;
+                                }
+                            }
+                        }
+                    }
+                } else if (isClassInstance(callSubtype)) {
+                    const callMember = lookUpClassMember(
+                        callSubtype,
+                        '__call__',
+                        ClassMemberLookupFlags.SkipInstanceVariables
+                    );
+                    if (callMember) {
+                        const callMemberType = evaluator.getTypeOfMember(callMember);
+                        if (callMemberType) {
+                            if (isFunction(callMemberType) || isOverloadedFunction(callMemberType)) {
+                                const boundCallType = evaluator.bindFunctionToClassOrObject(undefined, callMemberType);
+                                if (boundCallType) {
+                                    callSubtype = boundCallType;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (isFunction(callSubtype)) {
                     functionType = callSubtype;
                 } else if (isOverloadedFunction(callSubtype)) {
@@ -1504,7 +1553,7 @@ export function getCodeFlowEngine(
                     symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
                 }
 
-                return symbol ? evaluator.getDeclaredTypeOfSymbol(symbol) : undefined;
+                return symbol ? evaluator.getEffectiveTypeOfSymbol(symbol) : undefined;
             });
 
             if (!isNever(declaredTypeOfSymbol)) {
