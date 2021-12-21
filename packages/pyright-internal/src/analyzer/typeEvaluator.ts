@@ -15897,7 +15897,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             curNode = curNode.parent;
         }
 
-        fail('Unexpected assignment target');
+        fail('Unexpected statement');
         return undefined;
     }
 
