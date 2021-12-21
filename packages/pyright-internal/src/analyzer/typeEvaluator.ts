@@ -2833,16 +2833,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
             targetType = removeNoReturnFromUnion(targetType);
 
-            // If the target uses an unpack operator, wrap the target type in a list.
-            if (index === unpackIndex) {
-                const listType = getBuiltInType(expr, 'list');
-                if (isInstantiableClass(listType)) {
-                    targetType = ClassType.cloneAsInstance(
-                        ClassType.cloneForSpecialization(listType, [targetType], /* isTypeArgumentExplicit */ true)
-                    );
-                }
-            }
-
             assignTypeToExpression(expr, targetType, isTypeIncomplete, srcExpr, /* ignoreEmptyContainers */ true);
         });
 
@@ -3198,7 +3188,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParseNodeType.Unpack: {
                 if (target.expression.nodeType === ParseNodeType.Name) {
-                    assignTypeToNameNode(target.expression, type, /* isIncomplete */ false, srcExpr);
+                    assignTypeToNameNode(
+                        target.expression,
+                        getBuiltInObject(target.expression, 'list', [type]),
+                        /* isIncomplete */ false,
+                        srcExpr
+                    );
                 }
                 break;
             }

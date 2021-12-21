@@ -976,7 +976,7 @@ test('Tuples5', () => {
 test('Tuples6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples6.py']);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('Tuples7', () => {
