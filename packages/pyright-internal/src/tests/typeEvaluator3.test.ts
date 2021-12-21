@@ -546,6 +546,12 @@ test('Enums7', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Enums8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums8.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('TypeGuard1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard1.py']);
 

@@ -291,6 +291,9 @@ const enum MemberAccessFlags {
 
     // Do not include the class itself, only base classes.
     SkipOriginalClass = 1 << 7,
+
+    // Do not include the "type" base class in the search.
+    SkipTypeBaseClass = 1 << 8,
 }
 
 interface EffectiveTypeCacheEntry {
@@ -4558,6 +4561,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (flags & MemberAccessFlags.SkipObjectBaseClass) {
             classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
         }
+        if (flags & MemberAccessFlags.SkipTypeBaseClass) {
+            classLookupFlags |= ClassMemberLookupFlags.SkipTypeBaseClass;
+        }
         if (flags & MemberAccessFlags.SkipOriginalClass) {
             classLookupFlags |= ClassMemberLookupFlags.SkipOriginalClass;
         }
@@ -7005,7 +7011,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let returnType: Type | undefined;
         let reportedErrors = false;
         let isTypeIncomplete = false;
-        let metaclassCallMethodInfo: ClassMember | undefined;
+        let usedMetaclassCallMethod = false;
 
         // Create a helper function that determines whether we should skip argument
         // validation for either __init__ or __new__. This is required for certain
@@ -7130,123 +7136,113 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Don't report errors for __new__ if __init__ already generated errors. They're
         // probably going to be entirely redundant anyway.
         if (!reportedErrors) {
-            // See if there is a custom metaclass that defines a __call__ method. If so,
-            // we'll assume that the __new__ method on the class is not used.
             const metaclass = type.details.effectiveMetaclass;
-            if (metaclass && isInstantiableClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
-                metaclassCallMethodInfo = lookUpClassMember(
+            let constructorMethodInfo: ClassMemberLookup | undefined;
+
+            // See if there's a custom `__call__` method on the metaclass. If so, we'll
+            // use that rather than the `__new__` method on the class.
+            if (metaclass && isInstantiableClass(metaclass) && !ClassType.isSameGenericClass(metaclass, type)) {
+                constructorMethodInfo = getTypeFromClassMemberName(
+                    errorNode,
                     metaclass,
                     '__call__',
-                    ClassMemberLookupFlags.DeclaredTypesOnly |
-                        ClassMemberLookupFlags.SkipObjectBaseClass |
-                        ClassMemberLookupFlags.SkipInstanceVariables
+                    { method: 'get' },
+                    /* diag */ undefined,
+                    MemberAccessFlags.ConsiderMetaclassOnly | MemberAccessFlags.SkipTypeBaseClass,
+                    type
                 );
 
-                // We're not interested in the __call__ method on the 'type' class.
-                if (
-                    metaclassCallMethodInfo &&
-                    isInstantiableClass(metaclassCallMethodInfo.classType) &&
-                    ClassType.isBuiltIn(metaclassCallMethodInfo.classType, 'type')
-                ) {
-                    metaclassCallMethodInfo = undefined;
+                if (constructorMethodInfo) {
+                    usedMetaclassCallMethod = true;
                 }
             }
 
-            const constructorMethodInfo = getTypeFromClassMemberName(
-                errorNode,
-                type,
-                '__new__',
-                { method: 'get' },
-                /* diag */ undefined,
-                MemberAccessFlags.AccessClassMembersOnly |
-                    MemberAccessFlags.SkipObjectBaseClass |
-                    MemberAccessFlags.TreatConstructorAsClassMethod,
-                type
-            );
+            if (!constructorMethodInfo) {
+                constructorMethodInfo = getTypeFromClassMemberName(
+                    errorNode,
+                    type,
+                    '__new__',
+                    { method: 'get' },
+                    /* diag */ undefined,
+                    MemberAccessFlags.AccessClassMembersOnly |
+                        MemberAccessFlags.SkipObjectBaseClass |
+                        MemberAccessFlags.TreatConstructorAsClassMethod,
+                    type
+                );
+            }
 
-            if (
-                !metaclassCallMethodInfo &&
-                constructorMethodInfo &&
-                !skipConstructorCheck(constructorMethodInfo.type)
-            ) {
-                const constructorMethodType = constructorMethodInfo.type;
+            if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
                 const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
 
                 if (type.typeAliasInfo) {
                     typeVarMap.addSolveForScope(type.typeAliasInfo.typeVarScopeId);
                 }
 
-                typeVarMap.addSolveForScope(getTypeVarScopeId(constructorMethodType));
+                typeVarMap.addSolveForScope(getTypeVarScopeId(constructorMethodInfo.type));
 
-                if (constructorMethodType) {
-                    // Skip the unknown argument check if we've already checked for __init__.
-                    const callResult = validateCallArguments(
-                        errorNode,
-                        argList,
-                        constructorMethodType,
-                        typeVarMap,
-                        skipUnknownArgCheck
-                    );
+                // Skip the unknown argument check if we've already checked for __init__.
+                const callResult = validateCallArguments(
+                    errorNode,
+                    argList,
+                    constructorMethodInfo.type,
+                    typeVarMap,
+                    skipUnknownArgCheck
+                );
 
-                    if (callResult.argumentErrors) {
-                        reportedErrors = true;
-                    } else {
-                        let newReturnType = callResult.returnType;
+                if (callResult.argumentErrors) {
+                    reportedErrors = true;
+                } else {
+                    let newReturnType = callResult.returnType;
 
-                        if (callResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
-                        }
+                    if (callResult.isTypeIncomplete) {
+                        isTypeIncomplete = true;
+                    }
 
-                        // If the constructor returned an object whose type matches the class of
-                        // the original type being constructed, use the return type in case it was
-                        // specialized. If it doesn't match, we'll fall back on the assumption that
-                        // the constructed type is an instance of the class type. We need to do this
-                        // in cases where we're inferring the return type based on a call to
-                        // super().__new__().
-                        if (newReturnType) {
-                            if (isClassInstance(newReturnType) && ClassType.isSameGenericClass(newReturnType, type)) {
-                                // If the specialized return type derived from the __init__
-                                // method is "better" than the return type provided by the
-                                // __new__ method (where "better" means that the type arguments
-                                // are all known), stick with the __init__ result.
+                    // If the constructor returned an object whose type matches the class of
+                    // the original type being constructed, use the return type in case it was
+                    // specialized. If it doesn't match, we'll fall back on the assumption that
+                    // the constructed type is an instance of the class type. We need to do this
+                    // in cases where we're inferring the return type based on a call to
+                    // super().__new__().
+                    if (newReturnType) {
+                        if (isClassInstance(newReturnType) && ClassType.isSameGenericClass(newReturnType, type)) {
+                            // If the specialized return type derived from the __init__
+                            // method is "better" than the return type provided by the
+                            // __new__ method (where "better" means that the type arguments
+                            // are all known), stick with the __init__ result.
+                            if (
+                                (!isPartlyUnknown(newReturnType) && !requiresSpecialization(newReturnType)) ||
+                                returnType === undefined
+                            ) {
+                                // Special-case the 'tuple' type specialization to use
+                                // the homogenous arbitrary-length form.
                                 if (
-                                    (!isPartlyUnknown(newReturnType) && !requiresSpecialization(newReturnType)) ||
-                                    returnType === undefined
+                                    isClassInstance(newReturnType) &&
+                                    ClassType.isTupleClass(newReturnType) &&
+                                    !newReturnType.tupleTypeArguments &&
+                                    newReturnType.typeArguments &&
+                                    newReturnType.typeArguments.length === 1
                                 ) {
-                                    // Special-case the 'tuple' type specialization to use
-                                    // the homogenous arbitrary-length form.
-                                    if (
-                                        isClassInstance(newReturnType) &&
-                                        ClassType.isTupleClass(newReturnType) &&
-                                        !newReturnType.tupleTypeArguments &&
-                                        newReturnType.typeArguments &&
-                                        newReturnType.typeArguments.length === 1
-                                    ) {
-                                        newReturnType = specializeTupleClass(newReturnType, [
-                                            newReturnType.typeArguments[0],
-                                            AnyType.create(/* isEllipsis */ true),
-                                        ]);
-                                    }
-
-                                    returnType = newReturnType;
+                                    newReturnType = specializeTupleClass(newReturnType, [
+                                        newReturnType.typeArguments[0],
+                                        AnyType.create(/* isEllipsis */ true),
+                                    ]);
                                 }
-                            } else if (!returnType && !isUnknown(newReturnType)) {
+
                                 returnType = newReturnType;
                             }
+                        } else if (!returnType && !isUnknown(newReturnType)) {
+                            returnType = newReturnType;
                         }
                     }
-
-                    if (!returnType) {
-                        returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
-                    } else if (
-                        isClassInstance(returnType) &&
-                        isTupleClass(returnType) &&
-                        !returnType.tupleTypeArguments
-                    ) {
-                        returnType = applyExpectedTypeForTupleConstructor(returnType, expectedType);
-                    }
-                    validatedTypes = true;
                 }
+
+                if (!returnType) {
+                    returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+                } else if (isClassInstance(returnType) && isTupleClass(returnType) && !returnType.tupleTypeArguments) {
+                    returnType = applyExpectedTypeForTupleConstructor(returnType, expectedType);
+                }
+                validatedTypes = true;
             }
         }
 
@@ -7269,7 +7265,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isInstantiableClass(type.details.effectiveMetaclass) &&
                 !ClassType.isBuiltIn(type.details.effectiveMetaclass);
 
-            if (!isCustomMetaclass && !metaclassCallMethodInfo) {
+            if (!isCustomMetaclass && !usedMetaclassCallMethod) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,

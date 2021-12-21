@@ -96,6 +96,9 @@ export const enum ClassMemberLookupFlags {
     // an inferred type associated with it. If this flag is set,
     // the search looks only for symbols with declared types.
     DeclaredTypesOnly = 1 << 4,
+
+    // Skip the 'type' base class in particular.
+    SkipTypeBaseClass = 1 << 5,
 }
 
 export const enum ClassIteratorFlags {
@@ -113,6 +116,9 @@ export const enum ClassIteratorFlags {
 
     // Skip the 'object' base class in particular.
     SkipObjectBaseClass = 1 << 2,
+
+    // Skip the 'type' base class in particular.
+    SkipTypeBaseClass = 1 << 3,
 }
 
 export const enum CanAssignFlags {
@@ -779,6 +785,9 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
         if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
             classFlags = classFlags | ClassIteratorFlags.SkipObjectBaseClass;
         }
+        if (flags & ClassMemberLookupFlags.SkipTypeBaseClass) {
+            classFlags = classFlags | ClassIteratorFlags.SkipTypeBaseClass;
+        }
 
         const classItr = getClassIterator(classType, classFlags);
 
@@ -883,7 +892,16 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
             if (flags & ClassIteratorFlags.SkipObjectBaseClass) {
                 if (isInstantiableClass(specializedMroClass)) {
                     if (ClassType.isBuiltIn(specializedMroClass, 'object')) {
-                        continue;
+                        break;
+                    }
+                }
+            }
+
+            // Should we ignore members on the 'type' base class?
+            if (flags & ClassIteratorFlags.SkipTypeBaseClass) {
+                if (isInstantiableClass(specializedMroClass)) {
+                    if (ClassType.isBuiltIn(specializedMroClass, 'type')) {
+                        break;
                     }
                 }
             }
