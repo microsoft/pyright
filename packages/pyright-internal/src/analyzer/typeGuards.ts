@@ -446,9 +446,13 @@ export function getTypeNarrowingCallback(
         };
     }
 
-    // Is this a reference to a local variable that was assigned a value
-    // that can inform type narrowing of the reference expression?
-    if (testExpression.nodeType === ParseNodeType.Name && reference.nodeType === ParseNodeType.Name) {
+    // Is this a reference to an aliased conditional expression (a local variable
+    // that was assigned a value that can inform type narrowing of the reference expression)?
+    if (
+        testExpression.nodeType === ParseNodeType.Name &&
+        reference.nodeType === ParseNodeType.Name &&
+        testExpression !== reference
+    ) {
         // Make sure the reference expression is a constant parameter or variable.
         // If it is modified somewhere within the scope, it's not safe to apply
         // this form of type narrowing.
