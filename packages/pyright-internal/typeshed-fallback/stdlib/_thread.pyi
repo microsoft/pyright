@@ -1,4 +1,5 @@
 import sys
+from _typeshed import structseq
 from threading import Thread
 from types import TracebackType
 from typing import Any, Callable, NoReturn, Optional, Tuple, Type
@@ -32,7 +33,9 @@ TIMEOUT_MAX: float
 if sys.version_info >= (3, 8):
     def get_native_id() -> int: ...  # only available on some platforms
     @final
-    class _ExceptHookArgs(Tuple[Type[BaseException], Optional[BaseException], Optional[TracebackType], Optional[Thread]]):
+    class _ExceptHookArgs(
+        structseq[Any], Tuple[Type[BaseException], Optional[BaseException], Optional[TracebackType], Optional[Thread]]
+    ):
         @property
         def exc_type(self) -> Type[BaseException]: ...
         @property

@@ -11,11 +11,12 @@ from typing import (
     Generic,
     Iterator,
     Optional,
+    Protocol,
     Type,
     TypeVar,
     overload,
 )
-from typing_extensions import ParamSpec, Protocol
+from typing_extensions import ParamSpec
 
 AbstractContextManager = ContextManager
 if sys.version_info >= (3, 7):
@@ -32,14 +33,25 @@ _P = ParamSpec("_P")
 _ExitFunc = Callable[[Optional[Type[BaseException]], Optional[BaseException], Optional[TracebackType]], bool]
 _CM_EF = TypeVar("_CM_EF", AbstractContextManager[Any], _ExitFunc)
 
-class _GeneratorContextManager(AbstractContextManager[_T_co]):
+class ContextDecorator:
     def __call__(self, func: _F) -> _F: ...
+
+class _GeneratorContextManager(AbstractContextManager[_T_co], ContextDecorator): ...
 
 # type ignore to deal with incomplete ParamSpec support in mypy
 def contextmanager(func: Callable[_P, Iterator[_T]]) -> Callable[_P, _GeneratorContextManager[_T]]: ...  # type: ignore[misc]
 
+if sys.version_info >= (3, 10):
+    _AF = TypeVar("_AF", bound=Callable[..., Awaitable[Any]])
+    class AsyncContextDecorator:
+        def __call__(self, func: _AF) -> _AF: ...
+    class _AsyncGeneratorContextManager(AbstractAsyncContextManager[_T_co], AsyncContextDecorator): ...
+
+elif sys.version_info >= (3, 7):
+    class _AsyncGeneratorContextManager(AbstractAsyncContextManager[_T_co]): ...
+
 if sys.version_info >= (3, 7):
-    def asynccontextmanager(func: Callable[_P, AsyncIterator[_T]]) -> Callable[_P, AbstractAsyncContextManager[_T]]: ...  # type: ignore[misc]
+    def asynccontextmanager(func: Callable[_P, AsyncIterator[_T]]) -> Callable[_P, _AsyncGeneratorContextManager[_T]]: ...  # type: ignore[misc]
 
 class _SupportsClose(Protocol):
     def close(self) -> object: ...
@@ -55,9 +67,6 @@ if sys.version_info >= (3, 10):
     _SupportsAcloseT = TypeVar("_SupportsAcloseT", bound=_SupportsAclose)
     class aclosing(AbstractAsyncContextManager[_SupportsAcloseT]):
         def __init__(self, thing: _SupportsAcloseT) -> None: ...
-    _AF = TypeVar("_AF", bound=Callable[..., Awaitable[Any]])
-    class AsyncContextDecorator:
-        def __call__(self, func: _AF) -> _AF: ...
 
 class suppress(AbstractContextManager[None]):
     def __init__(self, *exceptions: Type[BaseException]) -> None: ...
@@ -70,9 +79,6 @@ class redirect_stdout(AbstractContextManager[_T_io]):
 
 class redirect_stderr(AbstractContextManager[_T_io]):
     def __init__(self, new_target: _T_io) -> None: ...
-
-class ContextDecorator:
-    def __call__(self, func: _F) -> _F: ...
 
 class ExitStack(AbstractContextManager[ExitStack]):
     def __init__(self) -> None: ...

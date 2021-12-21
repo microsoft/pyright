@@ -1,6 +1,6 @@
 import sys
 import threading
-from _typeshed import StrPath, SupportsWrite
+from _typeshed import Self, StrPath, SupportsWrite
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from io import TextIOWrapper
 from string import Template
@@ -59,7 +59,7 @@ class Logger(Filterer):
     def setLevel(self, level: _Level) -> None: ...
     def isEnabledFor(self, level: int) -> bool: ...
     def getEffectiveLevel(self) -> int: ...
-    def getChild(self, suffix: str) -> Logger: ...
+    def getChild(self: Self, suffix: str) -> Self: ...  # see python/typing#980
     if sys.version_info >= (3, 8):
         def debug(
             self,
@@ -244,14 +244,14 @@ class Logger(Filterer):
     def hasHandlers(self) -> bool: ...
     def callHandlers(self, record: LogRecord) -> None: ...  # undocumented
 
-CRITICAL: int
-FATAL: int
-ERROR: int
-WARNING: int
-WARN: int
-INFO: int
-DEBUG: int
-NOTSET: int
+CRITICAL: Literal[50]
+FATAL: Literal[50]
+ERROR: Literal[40]
+WARNING: Literal[30]
+WARN: Literal[30]
+INFO: Literal[20]
+DEBUG: Literal[10]
+NOTSET: Literal[0]
 
 class Handler(Filterer):
     level: int  # undocumented

@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..span import SpanContext
+from .context import SpanContext
 from .propagator import Propagator
 
 prefix_tracer_state: str

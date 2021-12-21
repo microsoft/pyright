@@ -1,6 +1,5 @@
 from types import TracebackType
-from typing import Any, ClassVar, Type
-from typing_extensions import Protocol
+from typing import Any, ClassVar, Protocol, Type
 
 from redis.client import Redis
 

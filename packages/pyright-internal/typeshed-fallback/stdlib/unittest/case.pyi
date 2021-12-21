@@ -10,10 +10,12 @@ from typing import (
     Any,
     AnyStr,
     Callable,
+    ClassVar,
     Container,
     Generic,
     Iterable,
     Mapping,
+    NamedTuple,
     NoReturn,
     Pattern,
     Sequence,
@@ -22,7 +24,6 @@ from typing import (
     TypeVar,
     overload,
 )
-from unittest._log import _AssertLogsContext, _LoggingWatcher
 from warnings import WarningMessage
 
 if sys.version_info >= (3, 9):
@@ -30,6 +31,31 @@ if sys.version_info >= (3, 9):
 
 _E = TypeVar("_E", bound=BaseException)
 _FT = TypeVar("_FT", bound=Callable[..., Any])
+
+class _BaseTestCaseContext:
+    def __init__(self, test_case: TestCase) -> None: ...
+
+if sys.version_info >= (3, 9):
+    from unittest._log import _AssertLogsContext, _LoggingWatcher
+else:
+    # Unused dummy for _AssertLogsContext. Starting with Python 3.10,
+    # this is generic over the logging watcher, but in lower versions
+    # the watcher is hard-coded.
+    _L = TypeVar("_L")
+    class _LoggingWatcher(NamedTuple):
+        records: list[logging.LogRecord]
+        output: list[str]
+    class _AssertLogsContext(_BaseTestCaseContext, Generic[_L]):
+        LOGGING_FORMAT: ClassVar[str]
+        test_case: TestCase
+        logger_name: str
+        level: int
+        msg: None
+        def __init__(self, test_case: TestCase, logger_name: str, level: int) -> None: ...
+        def __enter__(self) -> _LoggingWatcher: ...
+        def __exit__(
+            self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+        ) -> bool | None: ...
 
 if sys.version_info >= (3, 8):
     def addModuleCleanup(__function: Callable[..., Any], *args: Any, **kwargs: Any) -> None: ...

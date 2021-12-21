@@ -1,8 +1,8 @@
 import ast
-from typing import Any, Generator, Type
+from typing import Any, ClassVar, Generator, Type
 
 class Plugin:
-    name: str
-    version: str
+    name: ClassVar[str]
+    version: ClassVar[str]
     def __init__(self, tree: ast.AST) -> None: ...
     def run(self) -> Generator[tuple[int, int, str, Type[Any]], None, None]: ...

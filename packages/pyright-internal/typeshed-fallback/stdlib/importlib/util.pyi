@@ -1,5 +1,6 @@
 import importlib.abc
 import importlib.machinery
+import sys
 import types
 from _typeshed import StrOrBytesPath
 from typing import Any, Callable
@@ -36,3 +37,6 @@ class LazyLoader(importlib.abc.Loader):
     def factory(cls, loader: importlib.abc.Loader) -> Callable[..., LazyLoader]: ...
     def create_module(self, spec: importlib.machinery.ModuleSpec) -> types.ModuleType | None: ...
     def exec_module(self, module: types.ModuleType) -> None: ...
+
+if sys.version_info >= (3, 7):
+    def source_hash(source_bytes: bytes) -> int: ...

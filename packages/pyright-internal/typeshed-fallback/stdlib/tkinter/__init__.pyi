@@ -111,6 +111,7 @@ _TakeFocusValue = Union[int, Literal[""], Callable[[str], Optional[bool]]]  # -t
 class EventType(str, Enum):
     Activate: str
     ButtonPress: str
+    Button = ButtonPress
     ButtonRelease: str
     Circulate: str
     CirculateRequest: str
@@ -128,6 +129,7 @@ class EventType(str, Enum):
     GraphicsExpose: str
     Gravity: str
     KeyPress: str
+    Key = KeyPress
     KeyRelease: str
     Keymap: str
     Leave: str
@@ -740,14 +742,6 @@ class Pack:
     pack = pack_configure
     forget = pack_forget
     propagate = Misc.pack_propagate
-    # commented out to avoid mypy getting confused with multiple
-    # inheritance and how things get overridden with different things
-    # info = pack_info
-    # pack_propagate = Misc.pack_propagate
-    # configure = pack_configure
-    # config = pack_configure
-    # slaves = Misc.pack_slaves
-    # pack_slaves = Misc.pack_slaves
 
 class _PlaceInfo(_InMiscNonTotal):  # empty dict if widget hasn't been placed
     anchor: _Anchor
@@ -784,13 +778,6 @@ class Place:
     def place_info(self) -> _PlaceInfo: ...
     place = place_configure
     info = place_info
-    # commented out to avoid mypy getting confused with multiple
-    # inheritance and how things get overridden with different things
-    # config = place_configure
-    # configure = place_configure
-    # forget = place_forget
-    # slaves = Misc.place_slaves
-    # place_slaves = Misc.place_slaves
 
 class _GridInfo(_InMiscNonTotal):  # empty dict if widget hasn't been gridded
     column: int
@@ -826,24 +813,6 @@ class Grid:
     grid = grid_configure
     location = Misc.grid_location
     size = Misc.grid_size
-    # commented out to avoid mypy getting confused with multiple
-    # inheritance and how things get overridden with different things
-    # bbox = Misc.grid_bbox
-    # grid_bbox = Misc.grid_bbox
-    # forget = grid_forget
-    # info = grid_info
-    # grid_location = Misc.grid_location
-    # grid_propagate = Misc.grid_propagate
-    # grid_size = Misc.grid_size
-    # rowconfigure = Misc.grid_rowconfigure
-    # grid_rowconfigure = Misc.grid_rowconfigure
-    # grid_columnconfigure = Misc.grid_columnconfigure
-    # columnconfigure = Misc.grid_columnconfigure
-    # config = grid_configure
-    # configure = grid_configure
-    # propagate = Misc.grid_propagate
-    # slaves = Misc.grid_slaves
-    # grid_slaves = Misc.grid_slaves
 
 class BaseWidget(Misc):
     master: Misc

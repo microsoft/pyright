@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..span import SpanContext
+from .context import SpanContext
 
 class Propagator:
     def inject(self, span_context: SpanContext, carrier: dict[Any, Any]) -> None: ...

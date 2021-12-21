@@ -1,6 +1,6 @@
 import sys
 import types
-from _typeshed import SupportsItems, SupportsLessThan
+from _typeshed import SupportsAllComparisons, SupportsItems
 from typing import Any, Callable, Generic, Hashable, Iterable, NamedTuple, Sequence, Sized, Tuple, Type, TypeVar, overload
 from typing_extensions import final
 
@@ -45,7 +45,7 @@ WRAPPER_UPDATES: Sequence[str]
 def update_wrapper(wrapper: _T, wrapped: _AnyCallable, assigned: Sequence[str] = ..., updated: Sequence[str] = ...) -> _T: ...
 def wraps(wrapped: _AnyCallable, assigned: Sequence[str] = ..., updated: Sequence[str] = ...) -> Callable[[_T], _T]: ...
 def total_ordering(cls: Type[_T]) -> Type[_T]: ...
-def cmp_to_key(mycmp: Callable[[_T, _T], int]) -> Callable[[_T], SupportsLessThan]: ...
+def cmp_to_key(mycmp: Callable[[_T, _T], int]) -> Callable[[_T], SupportsAllComparisons]: ...
 
 class partial(Generic[_T]):
     func: Callable[..., _T]

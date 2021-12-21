@@ -37,7 +37,7 @@ class InvalidHostKey(Exception):
 
 class HostKeyEntry:
     valid: bool
-    hostnames: str
+    hostnames: list[str]
     key: PKey
     def __init__(self, hostnames: list[str] | None = ..., key: PKey | None = ...) -> None: ...
     @classmethod
