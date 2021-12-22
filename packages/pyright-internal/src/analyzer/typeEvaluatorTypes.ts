@@ -245,6 +245,12 @@ export interface ExpectedTypeResult {
     node: ParseNode;
 }
 
+export interface ConstructorResult {
+    returnType: Type;
+    argumentErrors: boolean;
+    isTypeIncomplete: boolean;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -289,6 +295,7 @@ export interface TypeEvaluator {
     getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getTypeFromIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
+    getTypeForArgument: (arg: FunctionArgument) => TypeArgumentResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
     makeTopLevelTypeVarsConcrete: (type: Type) => Type;
@@ -371,6 +378,7 @@ export interface TypeEvaluator {
     ) => void;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
+    inferReturnTypeIfNecessary: (type: Type) => void;
 
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;

@@ -1142,3 +1142,9 @@ test('ArrowCallable2', () => {
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['arrowCallable2.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 0);
 });
+
+test('Partial1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial1.py']);
+
+    TestUtils.validateResults(analysisResults, 17);
+});

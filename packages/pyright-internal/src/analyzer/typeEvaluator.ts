@@ -81,6 +81,7 @@ import {
     FlowNode,
     isCodeFlowSupportedForReference,
 } from './codeFlowTypes';
+import { applyConstructorTransform } from './constructorTransform';
 import {
     applyDataClassDecorator,
     applyDataClassDefaultBehaviors,
@@ -6345,7 +6346,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             AnalyzerNodeInfo.getFileInfo(node).isTypingStubFile;
 
         if (!isCyclicalTypeVarCall) {
-            argList.forEach((arg, index) => {
+            argList.forEach((arg) => {
                 if (arg.node!.valueExpression.nodeType !== ParseNodeType.StringList) {
                     getTypeForArgument(arg);
                 }
@@ -7292,7 +7293,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
         }
 
-        return { argumentErrors: reportedErrors, returnType, isTypeIncomplete };
+        if (!reportedErrors) {
+            const transformed = applyConstructorTransform(evaluatorInterface, errorNode, argList, type, {
+                argumentErrors: reportedErrors,
+                returnType,
+                isTypeIncomplete,
+            });
+
+            returnType = transformed.returnType;
+
+            if (transformed.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+
+            if (transformed.argumentErrors) {
+                reportedErrors = true;
+            }
+        }
+
+        const result: CallResult = { argumentErrors: reportedErrors, returnType, isTypeIncomplete };
+
+        return result;
     }
 
     function applyExpectedSubtypeForConstructor(
@@ -22177,6 +22198,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeFromIterable,
         getTypeFromIterator,
         getGetterTypeFromProperty,
+        getTypeForArgument,
         markNamesAccessed,
         getScopeIdForNode,
         makeTopLevelTypeVarsConcrete,
@@ -22207,6 +22229,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         assignTypeToExpression,
         getBuiltInObject,
         getTypingType,
+        inferReturnTypeIfNecessary,
         addError,
         addWarning,
         addInformation,

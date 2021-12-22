@@ -598,6 +598,15 @@ export namespace ClassType {
         return newClassType;
     }
 
+    export function cloneForSymbolTableUpdate(classType: ClassType) {
+        const newClassType = { ...classType };
+        newClassType.details = { ...newClassType.details };
+        newClassType.details.fields = new Map(newClassType.details.fields);
+        newClassType.details.mro = [...newClassType.details.mro];
+        newClassType.details.mro[0] = cloneAsInstantiable(newClassType);
+        return newClassType;
+    }
+
     export function isLiteralValueSame(type1: ClassType, type2: ClassType) {
         if (type1.literalValue === undefined) {
             return type2.literalValue === undefined;

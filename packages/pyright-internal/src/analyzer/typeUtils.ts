@@ -187,6 +187,7 @@ export interface ParameterListDetails {
     kwargsIndex?: number;
     firstPositionOrKeywordIndex: number;
     positionOnlyParamCount: number;
+    positionParamCount: number;
     firstKeywordOnlyIndex?: number;
     params: ParameterDetails[];
 }
@@ -194,6 +195,7 @@ export interface ParameterListDetails {
 export function getParameterListDetails(type: FunctionType): ParameterListDetails {
     const result: ParameterListDetails = {
         firstPositionOrKeywordIndex: 0,
+        positionParamCount: 0,
         positionOnlyParamCount: 0,
         params: [],
     };
@@ -233,6 +235,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         }
 
         result.positionOnlyParamCount++;
+        result.positionParamCount++;
     }
 
     let sawKeywordOnlySeparator = false;
@@ -262,6 +265,8 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         if (param.category === ParameterCategory.Simple) {
             if (isVariadicTypeVar(param.type)) {
                 result.variadicParamIndex = index;
+            } else if (param.name && !sawKeywordOnlySeparator) {
+                result.positionParamCount++;
             }
         }
 

@@ -99,6 +99,7 @@ export function createTypeEvaluatorWithTracker(
             run('getTypeFromIterator', () => typeEvaluator.getTypeFromIterator(t, a, e), t),
         getGetterTypeFromProperty: (p, i) =>
             run('getGetterTypeFromProperty', () => typeEvaluator.getGetterTypeFromProperty(p, i), p),
+        getTypeForArgument: typeEvaluator.getTypeForArgument,
         markNamesAccessed: (n, a) => run('markNamesAccessed', () => typeEvaluator.markNamesAccessed(n, a), n),
         getScopeIdForNode: typeEvaluator.getScopeIdForNode,
         makeTopLevelTypeVarsConcrete: (t) =>
@@ -139,6 +140,7 @@ export function createTypeEvaluatorWithTracker(
         assignTypeToExpression: typeEvaluator.assignTypeToExpression,
         getBuiltInObject: typeEvaluator.getBuiltInObject,
         getTypingType: typeEvaluator.getTypingType,
+        inferReturnTypeIfNecessary: typeEvaluator.inferReturnTypeIfNecessary,
         addError: (m, n) => run('addError', () => typeEvaluator.addError(m, n), n),
         addWarning: (m, n) => run('addWarning', () => typeEvaluator.addWarning(m, n), n),
         addInformation: (m, n) => run('addInformation', () => typeEvaluator.addInformation(m, n), n),
