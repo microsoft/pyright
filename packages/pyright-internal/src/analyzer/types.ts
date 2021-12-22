@@ -1427,7 +1427,7 @@ export interface OverloadedFunctionType extends TypeBase {
 }
 
 export namespace OverloadedFunctionType {
-    export function create(overloads: FunctionType[] = []) {
+    export function create(overloads: FunctionType[]) {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
             overloads,

@@ -21921,7 +21921,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
         } else if (isOverloadedFunction(memberType)) {
-            const newOverloadType = OverloadedFunctionType.create();
+            const newOverloadType = OverloadedFunctionType.create([]);
             memberType.overloads.forEach((overload) => {
                 if (FunctionType.isOverloaded(overload)) {
                     const boundMethod = bindFunctionToClassOrObject(
