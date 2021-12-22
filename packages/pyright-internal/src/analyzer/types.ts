@@ -1018,6 +1018,9 @@ export interface FunctionType extends TypeBase {
     // the class or object to which the function was bound.
     boundToType?: ClassType | undefined;
 
+    // The flags for the function prior to binding
+    preBoundFlags?: FunctionTypeFlags;
+
     // The type var scope for the class that the function was bound to
     boundTypeVarScopeId?: TypeVarScopeId | undefined;
 }
@@ -1090,6 +1093,8 @@ export namespace FunctionType {
         );
 
         newFunction.details = { ...type.details };
+        newFunction.boundToType = boundToType;
+        newFunction.preBoundFlags = newFunction.details.flags;
 
         if (stripFirstParam) {
             if (
@@ -1105,8 +1110,6 @@ export namespace FunctionType {
             } else {
                 stripFirstParam = false;
             }
-
-            newFunction.boundToType = boundToType;
 
             // If we strip off the first parameter, this is no longer an
             // instance method or class method.

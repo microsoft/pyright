@@ -4428,7 +4428,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // The "__self__" member is not currently defined in the "function"
                     // class, so we'll special-case it here.
                     const functionType = isFunction(baseType) ? baseType : baseType.overloads[0];
-                    type = functionType.boundToType;
+                    if (
+                        functionType.preBoundFlags !== undefined &&
+                        (functionType.preBoundFlags & FunctionTypeFlags.StaticMethod) === 0
+                    ) {
+                        type = functionType.boundToType;
+                    }
                 } else {
                     if (!functionObj) {
                         type = AnyType.create();
@@ -8776,11 +8781,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const typeCondition = getTypeCondition(type);
 
-        // If the function was bound to a class or object, it's possible that
-        // some of that class's type variables have not yet been solved. Add
-        // that class's TypeVar scope ID.
         if (type.boundTypeVarScopeId) {
-            typeVarMap.addSolveForScope(type.boundTypeVarScopeId);
+            // If the function was bound to a class or object and was a constructor, a
+            // static method or a class method, it's possible that some of that class's
+            // type variables have not yet been solved. Add that class's TypeVar scope ID.
+            if (type.preBoundFlags !== undefined && type.boundToType && requiresSpecialization(type.boundToType)) {
+                if (
+                    type.preBoundFlags &
+                    (FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ClassMethod | FunctionTypeFlags.StaticMethod)
+                ) {
+                    typeVarMap.addSolveForScope(type.boundTypeVarScopeId);
+                }
+            }
 
             // Some typeshed stubs use specialized type annotations in the "self" parameter
             // of an overloaded __init__ method to specify which specialized type should
@@ -19034,7 +19046,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         makeTopLevelTypeVarsConcrete(adjSrcType),
                         diagAddendum,
                         /* typeVarMap */ undefined,
-                        /* flags */ undefined,
+                        flags & CanAssignFlags.IgnoreTypeVarScope,
                         recursionCount + 1
                     )
                 ) {
@@ -19046,7 +19058,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         curWideTypeBound,
                         diagAddendum,
                         /* typeVarMap */ undefined,
-                        /* flags */ undefined,
+                        flags & CanAssignFlags.IgnoreTypeVarScope,
                         recursionCount + 1
                     )
                 ) {
@@ -19071,7 +19083,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         curNarrowTypeBound,
                         /* diag */ undefined,
                         /* typeVarMap */ undefined,
-                        /* flags */ undefined,
+                        flags & CanAssignFlags.IgnoreTypeVarScope,
                         recursionCount + 1
                     )
                 ) {
@@ -19113,7 +19125,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             curNarrowTypeBound,
                             /* diag */ undefined,
                             typeVarMap,
-                            /* flags */ undefined,
+                            flags & CanAssignFlags.IgnoreTypeVarScope,
                             recursionCount + 1
                         )
                     ) {
@@ -19154,7 +19166,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             curNarrowTypeBound,
                             /* diag */ undefined,
                             typeVarMap,
-                            /* flags */ undefined,
+                            flags & CanAssignFlags.IgnoreTypeVarScope,
                             recursionCount + 1
                         )
                     ) {
@@ -19213,7 +19225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             newNarrowTypeBound,
                             /* diag */ undefined,
                             typeVarMap,
-                            /* flags */ undefined,
+                            flags & CanAssignFlags.IgnoreTypeVarScope,
                             recursionCount + 1
                         )
                     ) {
@@ -19248,7 +19260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     makeTopLevelTypeVarsConcrete(updatedType),
                     diag?.createAddendum(),
                     typeVarMap,
-                    /* flags */ undefined,
+                    flags & CanAssignFlags.IgnoreTypeVarScope,
                     recursionCount + 1
                 )
             ) {
