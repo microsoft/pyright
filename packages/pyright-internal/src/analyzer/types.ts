@@ -1251,14 +1251,7 @@ export namespace FunctionType {
     }
 
     export function cloneForParamSpecApplication(type: FunctionType, paramTypes: ParamSpecValue) {
-        const newFunction = create(
-            type.details.name,
-            type.details.fullName,
-            type.details.moduleName,
-            type.details.flags,
-            type.flags,
-            type.details.docString
-        );
+        const newFunction = { ...type };
 
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
