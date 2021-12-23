@@ -2251,7 +2251,7 @@ class TypeVarTransformer {
                 specializationNeeded = true;
                 return convertParamSpecValueToType(paramSpecValue);
             } else {
-                return UnknownType.create();
+                return paramSpec;
             }
         };
 
