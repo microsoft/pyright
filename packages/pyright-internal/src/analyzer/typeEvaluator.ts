@@ -19491,14 +19491,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destType.details.boundType
             ) {
                 if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 && typeVarMap) {
-                    canAssignTypeToTypeVar(
-                        destType,
-                        srcType,
-                        diag,
-                        typeVarMap,
-                        originalFlags,
-                        recursionCount + 1
-                    );
+                    canAssignTypeToTypeVar(destType, srcType, diag, typeVarMap, originalFlags, recursionCount + 1);
                 }
                 return true;
             }
