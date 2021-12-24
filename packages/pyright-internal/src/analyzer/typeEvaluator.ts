@@ -19481,6 +19481,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
+            // Handle the special case where both types are Self types. We'll allow
+            // them to be treated as equivalent to handle certain common idioms.
+            if (
+                isTypeVar(srcType) &&
+                srcType.details.isSynthesizedSelf &&
+                srcType.details.boundType &&
+                destType.details.isSynthesizedSelf &&
+                destType.details.boundType
+            ) {
+                if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 && typeVarMap) {
+                    canAssignTypeToTypeVar(
+                        destType,
+                        srcType,
+                        diag,
+                        typeVarMap,
+                        originalFlags,
+                        recursionCount + 1
+                    );
+                }
+                return true;
+            }
+
             // If the dest is a variadic type variable, and the source is a tuple
             // with a single entry that is the same variadic type variable, it's a match.
             if (
