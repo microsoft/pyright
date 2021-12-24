@@ -16731,7 +16731,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const argNode = node.parent;
             const paramName = node.value;
             if (argNode.parent && argNode.parent.nodeType === ParseNodeType.Call) {
-                const baseType = getTypeOfExpression(argNode.parent.leftExpression).type;
+                const baseType = getTypeOfExpression(
+                    argNode.parent.leftExpression,
+                    /* expectedType */ undefined,
+                    EvaluatorFlags.DoNotSpecialize
+                ).type;
 
                 if (baseType) {
                     if (isFunction(baseType) && baseType.details.declaration) {
