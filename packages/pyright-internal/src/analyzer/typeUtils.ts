@@ -1180,12 +1180,14 @@ export function buildTypeVarMap(
                         typeVarMap.setParamSpec(typeParam, {
                             parameters: paramSpecEntries,
                             flags: typeArgType.details.flags,
+                            docString: typeArgType.details.docString,
                             paramSpec: typeArgType.details.paramSpec,
                         });
                     } else if (isParamSpec(typeArgType)) {
                         typeVarMap.setParamSpec(typeParam, {
                             flags: FunctionTypeFlags.None,
                             parameters: [],
+                            docString: undefined,
                             paramSpec: typeArgType,
                         });
                     }
@@ -2075,6 +2077,7 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Typ
         });
 
         functionType.details.paramSpec = paramSpecEntry.paramSpec;
+        functionType.details.docString = paramSpecEntry.docString;
 
         return functionType;
     }

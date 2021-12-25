@@ -1037,7 +1037,8 @@ export interface FunctionType extends TypeBase {
 export interface ParamSpecValue {
     flags: FunctionTypeFlags;
     parameters: ParamSpecEntry[];
-    paramSpec?: TypeVarType;
+    docString: string | undefined;
+    paramSpec: TypeVarType | undefined;
 }
 
 export namespace FunctionType {
@@ -1190,7 +1191,7 @@ export namespace FunctionType {
     }
 
     // Creates a new function based on the parameters of another function.
-    export function cloneForParamSpec(type: FunctionType, paramTypes: ParamSpecValue | undefined) {
+    export function cloneForParamSpec(type: FunctionType, paramSpecValue: ParamSpecValue | undefined) {
         const newFunction = create(
             type.details.name,
             type.details.fullName,
@@ -1209,10 +1210,10 @@ export namespace FunctionType {
         // since we're replacing it.
         delete newFunction.details.paramSpec;
 
-        if (paramTypes) {
+        if (paramSpecValue) {
             newFunction.details.parameters = [
                 ...type.details.parameters,
-                ...paramTypes.parameters.map((specEntry) => {
+                ...paramSpecValue.parameters.map((specEntry) => {
                     return {
                         category: specEntry.category,
                         name: specEntry.name,
@@ -1224,8 +1225,12 @@ export namespace FunctionType {
                 }),
             ];
 
+            if (!newFunction.details.docString) {
+                newFunction.details.docString = paramSpecValue.docString;
+            }
+
             newFunction.details.flags =
-                (paramTypes.flags &
+                (paramSpecValue.flags &
                     (FunctionTypeFlags.ClassMethod |
                         FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
@@ -1239,18 +1244,18 @@ export namespace FunctionType {
 
             // Update the specialized parameter types as well.
             if (newFunction.specializedTypes) {
-                paramTypes.parameters.forEach((paramInfo) => {
+                paramSpecValue.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
                 });
             }
 
-            newFunction.details.paramSpec = paramTypes.paramSpec;
+            newFunction.details.paramSpec = paramSpecValue.paramSpec;
         }
 
         return newFunction;
     }
 
-    export function cloneForParamSpecApplication(type: FunctionType, paramTypes: ParamSpecValue) {
+    export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: ParamSpecValue) {
         const newFunction = { ...type };
 
         // Make a shallow clone of the details.
@@ -1262,7 +1267,7 @@ export namespace FunctionType {
             newFunction.details.parameters.length - 2
         );
 
-        paramTypes.parameters.forEach((specEntry) => {
+        paramSpecValue.parameters.forEach((specEntry) => {
             newFunction.details.parameters.push({
                 category: specEntry.category,
                 name: specEntry.name,
@@ -1273,7 +1278,10 @@ export namespace FunctionType {
             });
         });
 
-        newFunction.details.paramSpec = paramTypes.paramSpec;
+        newFunction.details.paramSpec = paramSpecValue.paramSpec;
+        if (!newFunction.details.docString) {
+            newFunction.details.docString = paramSpecValue.docString;
+        }
 
         return newFunction;
     }

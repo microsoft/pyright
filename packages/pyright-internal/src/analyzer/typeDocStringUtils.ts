@@ -100,7 +100,7 @@ export function getFunctionDocStringInherited(
         }
     }
 
-    return docString;
+    return docString || type.details.docString;
 }
 
 export function getOverloadedFunctionDocStringsInherited(

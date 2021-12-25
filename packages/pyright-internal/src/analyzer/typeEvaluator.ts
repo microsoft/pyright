@@ -19342,6 +19342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarMap.setParamSpec(destType, {
                         flags: FunctionTypeFlags.None,
                         parameters: [],
+                        docString: undefined,
                         paramSpec: srcType,
                     });
                 }
@@ -19389,6 +19390,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarMap.setParamSpec(destType, {
                         parameters,
                         flags: srcType.details.flags,
+                        docString: srcType.details.docString,
                         paramSpec: undefined,
                     });
                 }
@@ -21388,6 +21390,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 effectiveDestType.details.parameters.filter((p) => p.name).length,
                                 effectiveSrcType.details.parameters.length
                             ),
+                        docString: effectiveSrcType.details.docString,
                         flags: effectiveSrcType.details.flags,
                         paramSpec: effectiveSrcType.details.paramSpec
                             ? (convertToInstance(effectiveSrcType.details.paramSpec) as TypeVarType)
