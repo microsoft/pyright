@@ -1499,10 +1499,12 @@ export class Parser {
 
             // See if this is a Python 3.11 exception group.
             const possibleStarToken = this._peekToken();
+            let isExceptGroup = false;
             if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
                 if (this._getLanguageVersion() < PythonVersion.V3_11 && !this._parseOptions.isStubFile) {
                     this._addError(Localizer.Diagnostic.exceptionGroupIncompatible(), possibleStarToken);
                 }
+                isExceptGroup = true;
             }
 
             let typeExpr: ExpressionNode | undefined;
@@ -1539,7 +1541,7 @@ export class Parser {
             }
 
             const exceptSuite = this._parseSuite(this._isInFunction);
-            const exceptNode = ExceptNode.create(exceptToken, exceptSuite);
+            const exceptNode = ExceptNode.create(exceptToken, exceptSuite, isExceptGroup);
             if (typeExpr) {
                 exceptNode.typeExpression = typeExpr;
                 exceptNode.typeExpression.parent = exceptNode;

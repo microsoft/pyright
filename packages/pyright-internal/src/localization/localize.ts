@@ -851,6 +851,7 @@ export namespace Localizer {
         export const unpackNotAllowed = () => getRawString('Diagnostic.unpackNotAllowed');
         export const unpackTuplesIllegal = () => getRawString('Diagnostic.unpackTuplesIllegal');
         export const unreachableCode = () => getRawString('Diagnostic.unreachableCode');
+        export const unreachableExcept = () => getRawString('Diagnostic.unreachableExcept');
         export const unsupportedDunderAllOperation = () => getRawString('Diagnostic.unsupportedDunderAllOperation');
         export const unusedCallResult = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unusedCallResult'));
@@ -1121,6 +1122,10 @@ export namespace Localizer {
         export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
         export const typeVarsMissing = () =>
             new ParameterizedString<{ names: string }>(getRawString('DiagnosticAddendum.typeVarsMissing'));
+        export const unreachableExcept = () =>
+            new ParameterizedString<{ exceptionType: string; parentType: string }>(
+                getRawString('DiagnosticAddendum.unreachableExcept')
+            );
         export const useDictInstead = () => getRawString('DiagnosticAddendum.useDictInstead');
         export const useListInstead = () => getRawString('DiagnosticAddendum.useListInstead');
         export const useTupleInstead = () => getRawString('DiagnosticAddendum.useTupleInstead');

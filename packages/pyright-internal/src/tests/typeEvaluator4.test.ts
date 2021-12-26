@@ -1005,3 +1005,11 @@ test('TryExcept7', () => {
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 0);
 });
+
+test('TryExcept8', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tryExcept8.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 3);
+});

@@ -17,11 +17,11 @@ def func1():
 def func2(x, y) -> bool:
     try:
         z = x / y
-    except Exception as e:
-        t1: Literal["Exception"] = reveal_type(e)
-        return False
     except (RuntimeError, NameError) as e:
         t2: Literal["RuntimeError | NameError"] = reveal_type(e)
+        return False
+    except Exception as e:
+        t1: Literal["Exception"] = reveal_type(e)
         return False
     except:
         raise Exception()

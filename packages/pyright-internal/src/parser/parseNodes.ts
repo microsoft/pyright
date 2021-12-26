@@ -377,16 +377,18 @@ export interface ExceptNode extends ParseNodeBase {
     typeExpression?: ExpressionNode | undefined;
     name?: NameNode | undefined;
     exceptSuite: SuiteNode;
+    isExceptGroup: boolean;
 }
 
 export namespace ExceptNode {
-    export function create(exceptToken: Token, exceptSuite: SuiteNode) {
+    export function create(exceptToken: Token, exceptSuite: SuiteNode, isExceptGroup: boolean) {
         const node: ExceptNode = {
             start: exceptToken.start,
             length: exceptToken.length,
             nodeType: ParseNodeType.Except,
             id: _nextNodeId++,
             exceptSuite,
+            isExceptGroup,
         };
 
         exceptSuite.parent = node;

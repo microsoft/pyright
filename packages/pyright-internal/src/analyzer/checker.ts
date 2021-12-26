@@ -66,6 +66,7 @@ import {
     StringNode,
     SuiteNode,
     TernaryNode,
+    TryNode,
     TupleNode,
     TypeAnnotationNode,
     UnaryOperationNode,
@@ -1263,6 +1264,11 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._evaluator.evaluateTypesForStatement(node.pattern);
+        return true;
+    }
+
+    override visitTry(node: TryNode): boolean {
+        this._reportUnusedExceptStatements(node);
         return true;
     }
 
@@ -4192,6 +4198,93 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         }
+    }
+
+    // Determines whether any of the except statements are unreachable because
+    // they are redundant.
+    private _reportUnusedExceptStatements(node: TryNode) {
+        let sawUnknownOrAny = false;
+        const exceptionTypesSoFar: ClassType[] = [];
+
+        node.exceptClauses.forEach((except) => {
+            if (sawUnknownOrAny || except.isExceptGroup || !except.typeExpression) {
+                return;
+            }
+
+            const exceptionType = this._evaluator.getType(except.typeExpression);
+            if (!exceptionType || isAnyOrUnknown(exceptionType)) {
+                sawUnknownOrAny = true;
+                return;
+            }
+
+            const typesForThisExcept: ClassType[] = [];
+
+            if (isInstantiableClass(exceptionType)) {
+                // If the exception type is a variable whose type could represent
+                // subclasses, the actual exception type is statically unknown.
+                if (exceptionType.includeSubclasses) {
+                    sawUnknownOrAny = true;
+                }
+
+                typesForThisExcept.push(exceptionType);
+            } else if (isClassInstance(exceptionType)) {
+                const iterableType =
+                    this._evaluator.getTypeFromIterator(
+                        exceptionType,
+                        /* isAsync */ false,
+                        /* errorNode */ undefined
+                    ) || UnknownType.create();
+
+                doForEachSubtype(iterableType, (subtype) => {
+                    if (isAnyOrUnknown(subtype)) {
+                        sawUnknownOrAny = true;
+                    }
+
+                    if (isInstantiableClass(subtype)) {
+                        // If the exception type is a variable whose type could represent
+                        // subclasses, the actual exception type is statically unknown.
+                        if (subtype.includeSubclasses) {
+                            sawUnknownOrAny = true;
+                        }
+                        typesForThisExcept.push(subtype);
+                    }
+                });
+            }
+
+            if (exceptionTypesSoFar.length > 0) {
+                const diagAddendum = new DiagnosticAddendum();
+                let overriddenExceptionCount = 0;
+
+                typesForThisExcept.forEach((thisExceptType) => {
+                    const subtype = exceptionTypesSoFar.find((previousExceptType) => {
+                        return derivesFromClassRecursive(thisExceptType, previousExceptType, /* ignoreUnknown */ true);
+                    });
+
+                    if (subtype) {
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.unreachableExcept().format({
+                                exceptionType: this._evaluator.printType(convertToInstance(thisExceptType)),
+                                parentType: this._evaluator.printType(convertToInstance(subtype)),
+                            })
+                        );
+                        overriddenExceptionCount++;
+                    }
+                });
+
+                // Were all of the exception types overridden?
+                if (typesForThisExcept.length === overriddenExceptionCount) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.unreachableExcept() + diagAddendum.getString(),
+                        except.typeExpression
+                    );
+                    this._evaluator.addUnusedCode(except, except.exceptSuite);
+                }
+            }
+
+            exceptionTypesSoFar.push(...typesForThisExcept);
+        });
     }
 
     private _reportDuplicateImports() {
