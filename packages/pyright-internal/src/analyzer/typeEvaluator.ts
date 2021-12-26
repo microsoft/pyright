@@ -13581,7 +13581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Update the decorated class type.
         writeTypeCache(node, decoratedType, /* isIncomplete */ false);
 
-        // Validate __init_subclass__ call.
+        // Validate __init_subclass__ call or metaclass keyword arguments.
         validateInitSubclassArgs(node, classType, initSubclassArgs);
 
         // Stash away a reference to the UnionType class if we encounter it.
@@ -13712,6 +13712,90 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* skipUnknownArgCheck */ false,
                     NoneType.createInstance()
                 );
+            }
+        } else if (classType.details.effectiveMetaclass && isClass(classType.details.effectiveMetaclass)) {
+            // See if the metaclass has a `__new__` method that accepts keyword parameters.
+            const newMethodMember = lookUpClassMember(
+                classType.details.effectiveMetaclass,
+                '__new__',
+                ClassMemberLookupFlags.SkipTypeBaseClass
+            );
+
+            if (newMethodMember) {
+                const newMethodType = getTypeOfMember(newMethodMember);
+                if (isFunction(newMethodType)) {
+                    const paramListDetails = getParameterListDetails(newMethodType);
+
+                    if (paramListDetails.firstKeywordOnlyIndex !== undefined) {
+                        // Build a map of the keyword-only parameters.
+                        const paramMap = new Map<string, number>();
+                        for (let i = paramListDetails.firstKeywordOnlyIndex; i < paramListDetails.params.length; i++) {
+                            const paramInfo = paramListDetails.params[i];
+                            if (paramInfo.param.category === ParameterCategory.Simple && paramInfo.param.name) {
+                                paramMap.set(paramInfo.param.name, i);
+                            }
+                        }
+
+                        argList.forEach((arg) => {
+                            if (arg.argumentCategory === ArgumentCategory.Simple && arg.name) {
+                                const paramIndex = paramMap.get(arg.name.value) ?? paramListDetails.kwargsIndex;
+
+                                if (paramIndex !== undefined) {
+                                    const paramInfo = paramListDetails.params[paramIndex];
+                                    const argParam: ValidateArgTypeParams = {
+                                        paramCategory: paramInfo.param.category,
+                                        paramType: FunctionType.getEffectiveParameterType(
+                                            newMethodType,
+                                            paramInfo.index
+                                        ),
+                                        requiresTypeVarMatching: false,
+                                        argument: arg,
+                                        errorNode: arg.valueExpression ?? errorNode,
+                                    };
+
+                                    validateArgType(
+                                        argParam,
+                                        new TypeVarMap(),
+                                        newMethodType.details.name,
+                                        /* skipUnknownCheck */ true,
+                                        /* skipOverloadArg */ true,
+                                        /* conditionFilter */ undefined
+                                    );
+                                    paramMap.delete(arg.name.value);
+                                } else {
+                                    addDiagnostic(
+                                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
+                                        arg.name ?? errorNode
+                                    );
+                                }
+                            }
+                        });
+
+                        // See if we have any remaining unmatched parameters without
+                        // default values.
+                        const unassignedParams: string[] = [];
+                        paramMap.forEach((index, paramName) => {
+                            const paramInfo = paramListDetails.params[index];
+                            if (!paramInfo.param.hasDefault) {
+                                unassignedParams.push(paramName);
+                            }
+                        });
+
+                        if (unassignedParams.length > 0) {
+                            const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
+                            addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                unassignedParams.length === 1
+                                    ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
+                                    : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
+                                errorNode
+                            );
+                        }
+                    }
+                }
             }
         }
 
