@@ -15816,6 +15816,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
+        // A class argument must be evaluated in the context of the class declaration.
+        if (parent.nodeType === ParseNodeType.Argument && parent.parent?.nodeType === ParseNodeType.Class) {
+            getTypeOfClass(parent.parent);
+            return;
+        }
+
         if (parent.nodeType === ParseNodeType.Return && parent.returnExpression) {
             const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
             const declaredReturnType = enclosingFunctionNode
