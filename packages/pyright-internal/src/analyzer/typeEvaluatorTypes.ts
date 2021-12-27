@@ -228,6 +228,7 @@ export interface ValidateArgTypeParams {
     errorNode: ExpressionNode;
     paramName?: string | undefined;
     mapsToVarArgList?: boolean | undefined;
+    expectingType?: boolean;
 }
 
 export interface AnnotationTypeOptions {
@@ -405,6 +406,7 @@ export interface TypeEvaluator {
 
     getTypeCacheSize: () => number;
     useSpeculativeMode: <T>(speculativeNode: ParseNode, callback: () => T) => T;
+    setTypeForNode: (node: ParseNode, type?: Type, flags?: EvaluatorFlags) => void;
 
     checkForCancellation: () => void;
 }

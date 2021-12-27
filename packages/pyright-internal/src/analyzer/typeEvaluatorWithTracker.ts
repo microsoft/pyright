@@ -153,6 +153,7 @@ export function createTypeEvaluatorWithTracker(
         printFunctionParts: (t) => run('printFunctionParts', () => typeEvaluator.printFunctionParts(t), t),
         getTypeCacheSize: typeEvaluator.getTypeCacheSize,
         useSpeculativeMode: typeEvaluator.useSpeculativeMode,
+        setTypeForNode: typeEvaluator.setTypeForNode,
         checkForCancellation: typeEvaluator.checkForCancellation,
     };
 

@@ -148,7 +148,12 @@ export function getTypeNarrowingCallback(
 
             // Look for "type(X) is Y" or "type(X) is not Y".
             if (isOrIsNotOperator && testExpression.leftExpression.nodeType === ParseNodeType.Call) {
-                const callType = evaluator.getTypeOfExpression(testExpression.leftExpression.leftExpression).type;
+                const callType = evaluator.getTypeOfExpression(
+                    testExpression.leftExpression.leftExpression,
+                    /* expectedType */ undefined,
+                    EvaluatorFlags.DoNotSpecialize
+                ).type;
+
                 if (
                     isInstantiableClass(callType) &&
                     ClassType.isBuiltIn(callType, 'type') &&
@@ -403,7 +408,11 @@ export function getTypeNarrowingCallback(
         if (testExpression.arguments.length >= 1) {
             const arg0Expr = testExpression.arguments[0].valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                const functionType = evaluator.getTypeOfExpression(testExpression.leftExpression).type;
+                const functionType = evaluator.getTypeOfExpression(
+                    testExpression.leftExpression,
+                    /* expectedType */ undefined,
+                    EvaluatorFlags.DoNotSpecialize
+                ).type;
 
                 // Does this look like it's a custom type guard function?
                 if (

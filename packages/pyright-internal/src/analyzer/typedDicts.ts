@@ -152,6 +152,7 @@ export function createTypedDictType(
                     node: entry.keyExpression,
                     path: fileInfo.filePath,
                     typeAnnotationNode: entry.valueExpression,
+                    isRuntimeTypeExpression: true,
                     range: convertOffsetsToRange(
                         entry.keyExpression.start,
                         TextRange.getEnd(entry.keyExpression),
@@ -163,6 +164,10 @@ export function createTypedDictType(
 
                 classFields.set(entryName, newSymbol);
             });
+
+            // Set the type in the type cache for the dict node so it doesn't
+            // get evaluated again.
+            evaluator.setTypeForNode(entryDict);
         } else if (entriesArg.name) {
             for (let i = 1; i < argList.length; i++) {
                 const entry = argList[i];
@@ -189,6 +194,7 @@ export function createTypedDictType(
                     node: entry.name,
                     path: fileInfo.filePath,
                     typeAnnotationNode: entry.valueExpression,
+                    isRuntimeTypeExpression: true,
                     range: convertOffsetsToRange(
                         entry.name.start,
                         TextRange.getEnd(entry.valueExpression),

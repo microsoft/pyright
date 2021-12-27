@@ -216,7 +216,7 @@ test('UnnecessaryIsSubclass1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('UnnecessaryCast', () => {
+test('UnnecessaryCast1', () => {
     const configOptions = new ConfigOptions('.');
 
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryCast1.py'], configOptions);

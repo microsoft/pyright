@@ -112,6 +112,9 @@ export interface VariableDeclaration extends DeclarationBase {
     // constant in that reassignment is not permitted)?
     isFinal?: boolean;
 
+    // Is the declaration a "ClassVar"?
+    isClassVar?: boolean;
+
     // Is the declaration annotated with "Required"?
     isRequired?: boolean;
 
@@ -120,6 +123,11 @@ export interface VariableDeclaration extends DeclarationBase {
 
     // Is the declaration an entry in __slots__?
     isDefinedBySlots?: boolean;
+
+    // Is the declaration using a runtime-evaluated type expression
+    // rather than an annotation? This is used for TypedDicts, NamedTuples,
+    // and other complex (more dynamic) class definitions with typed variables.
+    isRuntimeTypeExpression?: boolean;
 
     // Points to the "TypeAlias" annotation described in PEP 613.
     typeAliasAnnotation?: ExpressionNode | undefined;

@@ -27,7 +27,7 @@ import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
-import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { EvaluatorFlags, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -147,7 +147,11 @@ export function synthesizeDataClassMethods(
                     // If the RHS of the assignment is assigning a field instance where the
                     // "init" parameter is set to false, do not include it in the init method.
                     if (statement.rightExpression.nodeType === ParseNodeType.Call) {
-                        const callType = evaluator.getTypeOfExpression(statement.rightExpression.leftExpression).type;
+                        const callType = evaluator.getTypeOfExpression(
+                            statement.rightExpression.leftExpression,
+                            /* expectedType */ undefined,
+                            EvaluatorFlags.DoNotSpecialize
+                        ).type;
                         if (
                             isDataclassFieldConstructor(
                                 callType,

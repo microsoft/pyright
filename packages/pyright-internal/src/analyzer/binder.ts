@@ -3313,8 +3313,10 @@ export class Binder extends ParseTreeWalker {
                     const isExplicitTypeAlias = this._isAnnotationTypeAlias(typeAnnotation);
 
                     let typeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
+                    let innerTypeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
                     if (isExplicitTypeAlias) {
                         typeAnnotationNode = undefined;
+                        innerTypeAnnotationNode = undefined;
 
                         // Type aliases are allowed only in the global or class scope.
                         if (
@@ -3325,14 +3327,21 @@ export class Binder extends ParseTreeWalker {
                             this._addError(Localizer.Diagnostic.typeAliasNotInModuleOrClass(), typeAnnotation);
                         }
                     } else if (finalInfo.isFinal) {
-                        typeAnnotationNode = finalInfo.finalTypeNode;
+                        innerTypeAnnotationNode = finalInfo.finalTypeNode;
+                        if (!finalInfo.finalTypeNode) {
+                            typeAnnotationNode = undefined;
+                        }
                     }
 
                     // Is this annotation indicating that the variable is a "ClassVar"?
                     let classVarInfo = this._isAnnotationClassVar(typeAnnotation);
 
                     if (classVarInfo.isClassVar) {
-                        typeAnnotationNode = classVarInfo.classVarTypeNode;
+                        innerTypeAnnotationNode = classVarInfo.classVarTypeNode;
+
+                        if (!classVarInfo.classVarTypeNode) {
+                            typeAnnotationNode = undefined;
+                        }
                     }
 
                     // PEP 591 indicates that a Final variable initialized within a class
@@ -3358,8 +3367,9 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
-                        isRequired: this._isRequiredAnnotation(typeAnnotationNode),
-                        isNotRequired: this._isNotRequiredAnnotation(typeAnnotationNode),
+                        isClassVar: classVarInfo.isClassVar,
+                        isRequired: this._isRequiredAnnotation(innerTypeAnnotationNode),
+                        isNotRequired: this._isNotRequiredAnnotation(innerTypeAnnotationNode),
                         typeAliasAnnotation: isExplicitTypeAlias ? typeAnnotation : undefined,
                         typeAliasName: isExplicitTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
@@ -3424,7 +3434,7 @@ export class Binder extends ParseTreeWalker {
                         isDefinedByMemberAccess: true,
                         isFinal: finalInfo.isFinal,
                         path: this._fileInfo.filePath,
-                        typeAnnotationNode: finalInfo.isFinal ? finalInfo.finalTypeNode : typeAnnotation,
+                        typeAnnotationNode: finalInfo.isFinal && !finalInfo.finalTypeNode ? undefined : typeAnnotation,
                         range: convertOffsetsToRange(
                             target.memberName.start,
                             target.memberName.start + target.memberName.length,

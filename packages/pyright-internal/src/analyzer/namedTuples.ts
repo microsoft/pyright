@@ -180,6 +180,7 @@ export function createNamedTupleType(
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
                             node: stringNode as StringListNode,
+                            isRuntimeTypeExpression: true,
                             path: fileInfo.filePath,
                             range: convertOffsetsToRange(
                                 stringNode.start,
@@ -275,6 +276,10 @@ export function createNamedTupleType(
                     }
                     classFields.set(entryName, newSymbol);
                 });
+
+                // Set the type in the type cache for the dict node so it
+                // doesn't get evaluated again.
+                evaluator.setTypeForNode(entryList);
             } else {
                 // A dynamic expression was used, so we can't evaluate
                 // the named tuple statically.

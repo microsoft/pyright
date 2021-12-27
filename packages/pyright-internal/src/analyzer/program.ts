@@ -745,6 +745,7 @@ export class Program {
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
                 analyzeUnannotatedFunctions: this._configOptions.analyzeUnannotatedFunctions,
                 evaluateUnknownImportsAsAny: !!this._configOptions.evaluateUnknownImportsAsAny,
+                verifyTypeCacheEvaluatorFlags: !!this._configOptions.internalTestMode,
             },
             this._logTracker,
             this._configOptions.logTypeEvaluationTime
