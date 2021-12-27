@@ -536,6 +536,12 @@ test('DataClass18', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('DataClassPostInit1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataClassPostInit1.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('InitVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initVar1.py']);
 

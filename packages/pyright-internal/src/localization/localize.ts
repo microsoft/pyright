@@ -285,6 +285,10 @@ export namespace Localizer {
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
+        export const dataClassPostInitParamCount = () =>
+            new ParameterizedString<{ expected: number }>(getRawString('Diagnostic.dataClassPostInitParamCount'));
+        export const dataClassPostInitType = () =>
+            new ParameterizedString<{ fieldName: string }>(getRawString('Diagnostic.dataClassPostInitType'));
         export const dataClassSlotsOverwrite = () => getRawString('Diagnostic.dataClassSlotsOverwrite');
         export const declaredReturnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(
@@ -905,8 +909,9 @@ export namespace Localizer {
             );
         export const classPatternTypeAlias = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.classPatternTypeAlias'));
-        export const dataclassFrozen = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataclassFrozen'));
+        export const dataClassFrozen = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
+        export const dataClassFieldLocation = () => getRawString('DiagnosticAddendum.dataClassFieldLocation');
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');
         export const functionParamDefaultMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.functionParamDefaultMissing'));

@@ -135,6 +135,7 @@ import {
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
     getGeneratorYieldType,
+    getParameterListDetails,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     isEllipsisType,
@@ -324,6 +325,8 @@ export class Checker extends ParseTreeWalker {
             this._validateInstanceVariableInitialization(classTypeResult.classType);
 
             this._validateFinalClassNotAbstract(classTypeResult.classType, node);
+
+            this._validateDataClassPostInit(classTypeResult.classType, node);
 
             this._reportDuplicateEnumMembers(classTypeResult.classType);
 
@@ -3224,6 +3227,110 @@ export class Checker extends ParseTreeWalker {
             if (decls.length >= 2 && decls[0].type === DeclarationType.Variable) {
                 this._evaluator.addError(Localizer.Diagnostic.duplicateEnumMember().format({ name }), decls[1].node);
             }
+        });
+    }
+
+    // If a class is a dataclass with a `__post_init__` method, verify that its
+    // signature is correct.
+    private _validateDataClassPostInit(classType: ClassType, errorNode: ClassNode) {
+        if (!ClassType.isDataClass(classType)) {
+            return;
+        }
+
+        const postInitMember = lookUpClassMember(
+            classType,
+            '__post_init__',
+            ClassMemberLookupFlags.SkipBaseClasses | ClassMemberLookupFlags.DeclaredTypesOnly
+        );
+
+        // If there's no __post_init__ method, there's nothing to check.
+        if (!postInitMember) {
+            return;
+        }
+
+        // Collect the list of init-only variables in the order they were declared.
+        const initOnlySymbolMap = new Map<string, Symbol>();
+        classType.details.fields.forEach((symbol, name) => {
+            if (symbol.isInitVar()) {
+                initOnlySymbolMap.set(name, symbol);
+            }
+        });
+
+        const postInitType = this._evaluator.getTypeOfMember(postInitMember);
+        if (
+            !isFunction(postInitType) ||
+            !FunctionType.isInstanceMethod(postInitType) ||
+            !postInitType.details.declaration
+        ) {
+            return;
+        }
+
+        const paramListDetails = getParameterListDetails(postInitType);
+        // If there is an *args or **kwargs parameter or a keyword-only separator,
+        // don't bother checking.
+        if (
+            paramListDetails.argsIndex !== undefined ||
+            paramListDetails.kwargsIndex !== undefined ||
+            paramListDetails.firstKeywordOnlyIndex !== undefined
+        ) {
+            return;
+        }
+
+        // Verify that the parameter count matches.
+        const nonDefaultParams = paramListDetails.params.filter((paramInfo) => !paramInfo.param.hasDefault);
+
+        // We expect to see one param for "self" plus one for each of the InitVars.
+        const expectedParamCount = initOnlySymbolMap.size + 1;
+
+        if (expectedParamCount < nonDefaultParams.length || expectedParamCount > paramListDetails.params.length) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.dataClassPostInitParamCount().format({ expected: initOnlySymbolMap.size }),
+                postInitType.details.declaration.node.name
+            );
+        }
+
+        // Verify that the parameter types match.
+        let paramIndex = 1;
+
+        initOnlySymbolMap.forEach((symbol, fieldName) => {
+            if (paramIndex >= paramListDetails.params.length) {
+                return;
+            }
+
+            const param = paramListDetails.params[paramIndex].param;
+
+            if (param.hasDeclaredType && param.typeAnnotation) {
+                const fieldType = this._evaluator.getDeclaredTypeOfSymbol(symbol);
+                const paramType = FunctionType.getEffectiveParameterType(
+                    postInitType,
+                    paramListDetails.params[paramIndex].index
+                );
+                const canAssignDiag = new DiagnosticAddendum();
+
+                if (fieldType && !this._evaluator.canAssignType(paramType, fieldType, canAssignDiag)) {
+                    const diagnostic = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.dataClassPostInitType().format({ fieldName }) + canAssignDiag.getString(),
+                        param.typeAnnotation
+                    );
+
+                    if (diagnostic) {
+                        const fieldDecls = symbol.getTypedDeclarations();
+                        if (fieldDecls.length > 0) {
+                            diagnostic.addRelatedInfo(
+                                Localizer.DiagnosticAddendum.dataClassFieldLocation(),
+                                fieldDecls[0].path,
+                                fieldDecls[0].range
+                            );
+                        }
+                    }
+                }
+            }
+
+            paramIndex++;
         });
     }
 

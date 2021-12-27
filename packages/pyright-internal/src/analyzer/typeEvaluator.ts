@@ -4693,7 +4693,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     if (diag) {
                         diag.addMessage(
-                            Localizer.DiagnosticAddendum.dataclassFrozen().format({
+                            Localizer.DiagnosticAddendum.dataClassFrozen().format({
                                 name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
                             })
                         );
