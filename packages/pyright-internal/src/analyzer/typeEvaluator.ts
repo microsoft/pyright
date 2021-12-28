@@ -12983,7 +12983,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (node.rightExpression.nodeType === ParseNodeType.Name) {
-                    // Don't specialize a generic class on assignment (e.g. "x = list") because 
+                    // Don't specialize a generic class on assignment (e.g. "x = list") because
                     // we may want to later specialize it (e.g. "x[int]").
                     flags |= EvaluatorFlags.DoNotSpecialize;
                 }
