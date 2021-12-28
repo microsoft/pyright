@@ -16,7 +16,7 @@ import { Localizer } from '../localization/localize';
 import { ArgumentCategory, ExpressionNode } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { Symbol, SymbolFlags } from './symbol';
-import { ConstructorResult, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, FunctionParameter, FunctionType, isClassInstance, isFunction, isTypeSame } from './types';
 import {
     applySolvedTypeVars,
@@ -33,8 +33,8 @@ export function applyConstructorTransform(
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
     classType: ClassType,
-    result: ConstructorResult
-): ConstructorResult {
+    result: FunctionResult
+): FunctionResult {
     if (classType.details.fullName === 'functools.partial') {
         return applyPartialTransform(evaluator, errorNode, argList, result);
     }
@@ -48,8 +48,8 @@ function applyPartialTransform(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
-    result: ConstructorResult
-): ConstructorResult {
+    result: FunctionResult
+): FunctionResult {
     // We assume that the normal return result is a functools.partial class instance.
     if (!isClassInstance(result.returnType) || result.returnType.details.fullName !== 'functools.partial') {
         return result;

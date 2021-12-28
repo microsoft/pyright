@@ -105,6 +105,7 @@ import {
     isFinalVariableDeclaration,
     isPossibleTypeAliasDeclaration,
 } from './declarationUtils';
+import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, narrowTypeBasedOnPattern } from './patternMatching';
@@ -7696,14 +7697,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             expectedType
                         );
 
+                        if (functionResult.isTypeIncomplete) {
+                            isTypeIncomplete = true;
+                        }
+
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
                         } else {
                             specializedInitSelfType = functionResult.specializedInitSelfType;
-                        }
 
-                        if (functionResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
+                            // Call the function transform logic to handle special-cased functions.
+                            const transformed = applyFunctionTransform(
+                                evaluatorInterface,
+                                errorNode,
+                                argList,
+                                expandedSubtype,
+                                {
+                                    argumentErrors: functionResult.argumentErrors,
+                                    returnType: functionResult.returnType ?? UnknownType.create(),
+                                    isTypeIncomplete,
+                                }
+                            );
+
+                            functionResult.returnType = transformed.returnType;
+                            if (transformed.isTypeIncomplete) {
+                                isTypeIncomplete = true;
+                            }
+                            if (transformed.argumentErrors) {
+                                argumentErrors = true;
+                            }
                         }
 
                         // Handle the NewType specially, replacing the normal return type.
@@ -7758,14 +7780,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             expectedType
                         );
 
+                        if (functionResult.isTypeIncomplete) {
+                            isTypeIncomplete = true;
+                        }
+
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
                         } else {
                             specializedInitSelfType = functionResult.specializedInitSelfType;
-                        }
 
-                        if (functionResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
+                            // Call the function transform logic to handle special-cased functions.
+                            const transformed = applyFunctionTransform(
+                                evaluatorInterface,
+                                errorNode,
+                                argList,
+                                expandedSubtype,
+                                {
+                                    argumentErrors: functionResult.argumentErrors,
+                                    returnType: functionResult.returnType ?? UnknownType.create(),
+                                    isTypeIncomplete,
+                                }
+                            );
+
+                            functionResult.returnType = transformed.returnType;
+                            if (transformed.isTypeIncomplete) {
+                                isTypeIncomplete = true;
+                            }
+                            if (transformed.argumentErrors) {
+                                argumentErrors = true;
+                            }
                         }
 
                         return functionResult.returnType || UnknownType.create();

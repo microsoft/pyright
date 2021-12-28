@@ -253,7 +253,7 @@ export interface ExpectedTypeResult {
     node: ParseNode;
 }
 
-export interface ConstructorResult {
+export interface FunctionResult {
     returnType: Type;
     argumentErrors: boolean;
     isTypeIncomplete: boolean;

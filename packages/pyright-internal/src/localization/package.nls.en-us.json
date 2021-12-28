@@ -348,6 +348,7 @@
         "symbolIsUndefined": "\"{name}\" is not defined",
         "symbolIsPossiblyUnbound": "\"{name}\" is possibly unbound",
         "symbolOverridden": "\"{name}\" overrides symbol of same name in class \"{className}\"",
+        "totalOrderingMissingMethod": "Class must define one of \"__lt__\", \"__le__\", \"__gt__\", or \"__ge__\" to use total_ordering",
         "trailingCommaInFromImport": "Trailing comma not allowed without surrounding parentheses",
         "tryWithoutExcept": "Try statement must have at least one except or finally clause",
         "tupleAssignmentMismatch": "Expression with type \"{type}\" cannot be assigned to target tuple",
