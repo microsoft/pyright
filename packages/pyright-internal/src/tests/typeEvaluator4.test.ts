@@ -32,6 +32,15 @@ test('Required2', () => {
     TestUtils.validateResults(analysisResults, 7);
 });
 
+test('Required3', () => {
+    // Analyze with Python 3.10 settings.
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Metaclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
     TestUtils.validateResults(analysisResults, 0);

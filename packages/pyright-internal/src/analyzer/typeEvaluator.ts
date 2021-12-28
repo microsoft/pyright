@@ -5368,6 +5368,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             indexTypeResult.isIncomplete = true;
         }
 
+        // Handle "Required" and "NotRequired" specially.
+        if ((flags & EvaluatorFlags.RequiredAllowed) !== 0) {
+            if (isInstantiableClass(baseTypeResult.type)) {
+                if (ClassType.isBuiltIn(baseTypeResult.type, 'Required')) {
+                    indexTypeResult.isRequired = true;
+                } else if (ClassType.isBuiltIn(baseTypeResult.type, 'NotRequired')) {
+                    indexTypeResult.isNotRequired = true;
+                }
+            }
+        }
+
         return indexTypeResult;
     }
 
@@ -6059,7 +6070,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             adjFlags &= ~(
                 EvaluatorFlags.DoNotSpecialize |
                 EvaluatorFlags.ParamSpecDisallowed |
-                EvaluatorFlags.TypeVarTupleDisallowed
+                EvaluatorFlags.TypeVarTupleDisallowed |
+                EvaluatorFlags.RequiredAllowed
             );
             adjFlags |= EvaluatorFlags.ClassVarDisallowed;
         }
@@ -12370,6 +12382,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        if ((flags & EvaluatorFlags.RequiredAllowed) !== 0) {
+            isUsageLegal = true;
+        }
+
         if (!isUsageLegal) {
             addError(
                 isRequired
@@ -16695,7 +16711,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getTypeForExpressionExpectingType(arg.valueExpression!);
     }
 
-    function getTypeForExpressionExpectingType(node: ExpressionNode, allowFinal = false): TypeResult {
+    function getTypeForExpressionExpectingType(
+        node: ExpressionNode,
+        allowFinal = false,
+        allowRequired = false
+    ): TypeResult {
         let flags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.EvaluateStringLiteralAsType |
@@ -16710,6 +16730,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!allowFinal) {
             flags |= EvaluatorFlags.FinalDisallowed;
+        }
+
+        if (allowRequired) {
+            flags |= EvaluatorFlags.RequiredAllowed;
         }
 
         return getTypeOfExpression(node, undefined, flags);
@@ -17181,7 +17205,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (declaration.isRuntimeTypeExpression) {
                         declaredType = convertToInstance(
-                            getTypeForExpressionExpectingType(typeAnnotationNode, /* allowFinal */ true).type
+                            getTypeForExpressionExpectingType(
+                                typeAnnotationNode,
+                                /* allowFinal */ true,
+                                /* allowRequired */ true
+                            ).type
                         );
                     } else {
                         const declNode =

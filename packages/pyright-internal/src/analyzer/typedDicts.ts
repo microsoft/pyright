@@ -144,7 +144,11 @@ export function createTypedDictType(
                 entryMap.set(entryName, true);
 
                 // Cache the annotation type.
-                evaluator.getTypeForExpressionExpectingType(entry.valueExpression, /* allowFinal */ true);
+                const annotatedType = evaluator.getTypeForExpressionExpectingType(
+                    entry.valueExpression,
+                    /* allowFinal */ true,
+                    /* allowRequired */ true
+                );
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const declaration: VariableDeclaration = {
@@ -152,6 +156,8 @@ export function createTypedDictType(
                     node: entry.keyExpression,
                     path: fileInfo.filePath,
                     typeAnnotationNode: entry.valueExpression,
+                    isRequired: annotatedType.isRequired,
+                    isNotRequired: annotatedType.isNotRequired,
                     isRuntimeTypeExpression: true,
                     range: convertOffsetsToRange(
                         entry.keyExpression.start,
@@ -185,7 +191,11 @@ export function createTypedDictType(
 
                 // Evaluate the type with specific evaluation flags. The
                 // type will be cached for later.
-                evaluator.getTypeForExpressionExpectingType(entry.valueExpression, /* allowFinal */ true);
+                const annotatedType = evaluator.getTypeForExpressionExpectingType(
+                    entry.valueExpression,
+                    /* allowFinal */ true,
+                    /* allowRequired */ true
+                );
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
@@ -194,6 +204,8 @@ export function createTypedDictType(
                     node: entry.name,
                     path: fileInfo.filePath,
                     typeAnnotationNode: entry.valueExpression,
+                    isRequired: annotatedType.isRequired,
+                    isNotRequired: annotatedType.isNotRequired,
                     isRuntimeTypeExpression: true,
                     range: convertOffsetsToRange(
                         entry.name.start,

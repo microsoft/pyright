@@ -117,6 +117,9 @@ export const enum EvaluatorFlags {
     // The node is not parsed by the interpreter because it is within
     // a comment or a string literal.
     NotParsedByInterpreter = 1 << 19,
+
+    // Required and NotRequired are allowed in this context.
+    RequiredAllowed = 1 << 20,
 }
 
 export interface TypeArgumentResult {
@@ -153,6 +156,10 @@ export interface TypeResult {
     // Is member a descriptor object that is asymmetric with respect
     // to __get__ and __set__ types?
     isAsymmetricDescriptor?: boolean;
+
+    // Is the type wrapped in a "Required" or "NotRequired" class?
+    isRequired?: boolean;
+    isNotRequired?: boolean;
 }
 
 export interface EvaluatorUsage {
@@ -260,7 +267,11 @@ export interface TypeEvaluator {
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
-    getTypeForExpressionExpectingType: (node: ExpressionNode, allowFinal: boolean) => TypeResult;
+    getTypeForExpressionExpectingType: (
+        node: ExpressionNode,
+        allowFinal?: boolean,
+        allowRequired?: boolean
+    ) => TypeResult;
     evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
     evaluateTypesForMatchNode: (node: MatchNode) => void;
