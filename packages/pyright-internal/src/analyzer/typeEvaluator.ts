@@ -6099,7 +6099,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeArgs.push(getTypeArgTypeResult(item, index));
             });
 
-            // Mark the node's type so it isn't reevaluated later.
+            // Set the node's type so it isn't reevaluated later.
             setTypeForNode(node.items[0].valueExpression);
         } else {
             node.items.forEach((arg, index) => {
@@ -6153,7 +6153,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node,
             };
 
-            writeTypeCache(node, UnknownType.create(), adjustedFlags, /* isIncomplete */ false);
+            // Set the node's type so it isn't reevaluated later.
+            setTypeForNode(node);
         } else {
             typeResult = getTypeOfExpression(node, /* expectedType */ undefined, adjustedFlags);
 
@@ -12974,10 +12975,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!rightHandType) {
                 // Determine whether there is a declared type.
                 const declaredType = getDeclaredTypeForExpression(node.leftExpression, { method: 'set' });
+
                 let flags: EvaluatorFlags = EvaluatorFlags.None;
                 if (fileInfo.isStubFile) {
                     // An assignment of ellipsis means "Any" within a type stub file.
                     flags |= EvaluatorFlags.ConvertEllipsisToUnknown;
+                }
+
+                if (node.rightExpression.nodeType === ParseNodeType.Name) {
+                    // Don't specialize a generic class on assignment (e.g. "x = list") because 
+                    // we may want to later specialize it (e.g. "x[int]").
+                    flags |= EvaluatorFlags.DoNotSpecialize;
                 }
 
                 let typeAliasNameNode: NameNode | undefined;
@@ -12989,6 +12997,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed;
+                    flags &= ~EvaluatorFlags.DoNotSpecialize;
 
                     typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
                 } else if (node.leftExpression.nodeType === ParseNodeType.Name) {

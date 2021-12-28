@@ -372,6 +372,12 @@ test('TypeAlias10', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('TypeAlias11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('RecursiveTypeAlias1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias1.py']);
 
