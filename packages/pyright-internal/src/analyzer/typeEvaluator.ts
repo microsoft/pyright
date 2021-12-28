@@ -19776,6 +19776,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
+        // If we're in "overload overlap" mode, convert top-level type variables
+        // to their concrete forms in the source.
+        if ((flags & CanAssignFlags.OverloadOverlapCheck) !== 0) {
+            srcType = makeTopLevelTypeVarsConcrete(srcType);
+        }
+
         // Strip a few of the flags we don't want to propagate to other calls.
         const originalFlags = flags;
         flags &= ~(CanAssignFlags.AllowBoolTypeGuard | CanAssignFlags.AllowTypeVarNarrowing);
@@ -19853,7 +19859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return false;
                     }
 
-                    if (isAnyOrUnknown(srcType) && (flags & CanAssignFlags.DisallowAssignFromAny) !== 0) {
+                    if (isAnyOrUnknown(srcType) && (flags & CanAssignFlags.OverloadOverlapCheck) !== 0) {
                         return false;
                     }
 
@@ -19956,7 +19962,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
                 setTypeArgumentsRecursive(destType, typeVarSubstitution, typeVarMap);
             }
-            if ((flags & CanAssignFlags.DisallowAssignFromAny) === 0) {
+            if ((flags & CanAssignFlags.OverloadOverlapCheck) === 0) {
                 return true;
             }
         }
@@ -20257,7 +20263,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             } else if (isAnyOrUnknown(concreteSrcType)) {
-                return (flags & CanAssignFlags.DisallowAssignFromAny) === 0;
+                return (flags & CanAssignFlags.OverloadOverlapCheck) === 0;
             } else if (isUnion(concreteSrcType)) {
                 return canAssignType(destType, concreteSrcType, diag, typeVarMap, flags, recursionCount + 1);
             }
@@ -20334,7 +20340,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (isFunction(concreteSrcType)) {
                 srcFunction = concreteSrcType;
             } else if (isAnyOrUnknown(concreteSrcType)) {
-                return (flags & CanAssignFlags.DisallowAssignFromAny) === 0;
+                return (flags & CanAssignFlags.OverloadOverlapCheck) === 0;
             }
 
             if (srcFunction) {

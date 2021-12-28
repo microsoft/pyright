@@ -1671,7 +1671,7 @@ export class Checker extends ParseTreeWalker {
             /* typeVarMap */ undefined,
             CanAssignFlags.SkipSolveTypeVars |
                 CanAssignFlags.SkipFunctionReturnTypeCheck |
-                CanAssignFlags.DisallowAssignFromAny
+                CanAssignFlags.OverloadOverlapCheck
         );
     }
 

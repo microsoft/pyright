@@ -143,8 +143,10 @@ export const enum CanAssignFlags {
     SkipSolveTypeVars = 1 << 3,
 
     // If the dest is not Any but the src is Any, treat it
-    // as incompatible.
-    DisallowAssignFromAny = 1 << 4,
+    // as incompatible. Also, treat all source TypeVars as their
+    // concrete counterparts. This option is used for validating
+    // whether overload signatures overlap.
+    OverloadOverlapCheck = 1 << 4,
 
     // For function types, skip the return type check.
     SkipFunctionReturnTypeCheck = 1 << 5,

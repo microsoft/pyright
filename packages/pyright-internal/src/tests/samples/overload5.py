@@ -4,6 +4,7 @@
 from typing import (
     Any,
     Generic,
+    List,
     Literal,
     Optional,
     Tuple,
@@ -46,13 +47,13 @@ def func1(*args: Any, **kwargs: Any) -> Any:
 
 @overload
 def func2(a: int, b: Any) -> int:
-    """ Overload """
+    """Overload"""
 
 
 # This should generate an error because the overload is obscured.
 @overload
 def func2(a: int, b: int) -> int:
-    """ Overload """
+    """Overload"""
 
 
 def func2(*args: Any, **kwargs: Any) -> Any:
@@ -232,4 +233,32 @@ def func15(**kwargs: Any) -> str:
 
 
 def func15(*args: Any, **kwargs: Any) -> Any:
+    pass
+
+
+@overload
+def func16(var: None) -> List[Any]:
+    ...
+
+
+@overload
+def func16(var: _T1) -> List[_T1]:
+    ...
+
+
+def func16(var: _T1) -> List[_T1] | List[Any]:
+    ...
+
+
+@overload
+def func17(a: int, b: List[int]) -> int:
+    ...
+
+
+@overload
+def func17(a: int, b: List[_T1]) -> _T1:
+    ...
+
+
+def func17(*args: Any, **kwargs: Any) -> Any:
     pass
