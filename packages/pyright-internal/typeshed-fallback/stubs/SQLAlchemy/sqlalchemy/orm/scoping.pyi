@@ -70,6 +70,7 @@ class scoped_session(ScopedSessionMixin):
         populate_existing: bool = ...,
         with_for_update: Any | None = ...,
         identity_token: Any | None = ...,
+        execution_options: Any | None = ...,
     ): ...
     def get_bind(
         self,

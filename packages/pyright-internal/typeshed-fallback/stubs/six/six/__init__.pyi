@@ -1,10 +1,12 @@
 from __future__ import print_function
 
+import builtins
 import types
 import unittest
 from builtins import next as next
 from collections.abc import Callable, ItemsView, Iterable, Iterator as _Iterator, KeysView, Mapping, ValuesView
 from functools import wraps as wraps
+from importlib.util import spec_from_loader as spec_from_loader
 from io import BytesIO as BytesIO, StringIO as StringIO
 from typing import Any, AnyStr, NoReturn, Pattern, Tuple, Type, TypeVar, overload
 from typing_extensions import Literal
@@ -30,9 +32,12 @@ binary_type = bytes
 
 MAXSIZE: int
 
-def callable(obj: object) -> bool: ...
+callable = builtins.callable
+
 def get_unbound_function(unbound: types.FunctionType) -> types.FunctionType: ...
-def create_bound_method(func: types.FunctionType, obj: object) -> types.MethodType: ...
+
+create_bound_method = types.MethodType
+
 def create_unbound_method(func: types.FunctionType, cls: type) -> types.FunctionType: ...
 
 Iterator = object
@@ -87,7 +92,7 @@ def python_2_unicode_compatible(klass: _T) -> _T: ...
 class _LazyDescr:
     name: str
     def __init__(self, name: str) -> None: ...
-    def __get__(self, obj: object | None, type: Type[Any] | None = ...) -> Any: ...
+    def __get__(self, obj: object | None, tp: object) -> Any: ...
 
 class MovedModule(_LazyDescr):
     mod: str

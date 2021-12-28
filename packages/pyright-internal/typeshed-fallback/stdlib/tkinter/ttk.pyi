@@ -541,7 +541,7 @@ class Panedwindow(Widget, tkinter.PanedWindow):
         # width and height for tkinter.ttk.Panedwindow are int but for tkinter.PanedWindow they are screen units
         height: int = ...,
         name: str = ...,
-        orient: Literal["vertical", "horizontal"] = ...,
+        orient: Literal["vertical", "horizontal"] = ...,  # can't be changed with configure()
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
         width: int = ...,

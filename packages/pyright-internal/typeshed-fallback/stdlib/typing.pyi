@@ -1,5 +1,6 @@
 import collections  # Needed by aliases like DefaultDict, see mypy issue 2986
 import sys
+from _typeshed import SupportsKeysAndGetItem
 from abc import ABCMeta, abstractmethod
 from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, MethodType, ModuleType, TracebackType
 from typing_extensions import Literal as _Literal, ParamSpec as _ParamSpec, final as _final
@@ -488,7 +489,7 @@ class MutableMapping(Mapping[_KT, _VT], Generic[_KT, _VT]):
     # known to be a Mapping with unknown type parameters, which is closer
     # to the behavior we want. See mypy issue  #1430.
     @overload
-    def update(self, __m: Mapping[_KT, _VT], **kwargs: _VT) -> None: ...
+    def update(self, __m: SupportsKeysAndGetItem[_KT, _VT], **kwargs: _VT) -> None: ...
     @overload
     def update(self, __m: Iterable[tuple[_KT, _VT]], **kwargs: _VT) -> None: ...
     @overload

@@ -4,10 +4,12 @@ from types import TracebackType
 from typing import (
     IO,
     Any,
+    AsyncGenerator,
     AsyncIterator,
     Awaitable,
     Callable,
     ContextManager,
+    Generator,
     Generic,
     Iterator,
     Optional,
@@ -36,22 +38,41 @@ _CM_EF = TypeVar("_CM_EF", AbstractContextManager[Any], _ExitFunc)
 class ContextDecorator:
     def __call__(self, func: _F) -> _F: ...
 
-class _GeneratorContextManager(AbstractContextManager[_T_co], ContextDecorator): ...
+class _GeneratorContextManager(AbstractContextManager[_T_co], ContextDecorator, Generic[_T_co]):
+    # In Python <= 3.6, __init__ and all instance attributes are defined directly on this class.
+    # In Python >= 3.7, __init__ and all instance attributes are inherited from _GeneratorContextManagerBase
+    # _GeneratorContextManagerBase is more trouble than it's worth to include in the stub; see #6676
+    def __init__(self, func: Callable[..., Iterator[_T_co]], args: tuple[Any, ...], kwds: dict[str, Any]) -> None: ...
+    gen: Generator[_T_co, Any, Any]
+    func: Callable[..., Generator[_T_co, Any, Any]]
+    args: tuple[Any, ...]
+    kwds: dict[str, Any]
 
-# type ignore to deal with incomplete ParamSpec support in mypy
-def contextmanager(func: Callable[_P, Iterator[_T]]) -> Callable[_P, _GeneratorContextManager[_T]]: ...  # type: ignore[misc]
+def contextmanager(func: Callable[_P, Iterator[_T_co]]) -> Callable[_P, _GeneratorContextManager[_T_co]]: ...
 
 if sys.version_info >= (3, 10):
     _AF = TypeVar("_AF", bound=Callable[..., Awaitable[Any]])
     class AsyncContextDecorator:
         def __call__(self, func: _AF) -> _AF: ...
-    class _AsyncGeneratorContextManager(AbstractAsyncContextManager[_T_co], AsyncContextDecorator): ...
+    class _AsyncGeneratorContextManager(AbstractAsyncContextManager[_T_co], AsyncContextDecorator, Generic[_T_co]):
+        # __init__ and these attributes are actually defined in the base class _GeneratorContextManagerBase,
+        # which is more trouble than it's worth to include in the stub (see #6676)
+        def __init__(self, func: Callable[..., AsyncIterator[_T_co]], args: tuple[Any, ...], kwds: dict[str, Any]) -> None: ...
+        gen: AsyncGenerator[_T_co, Any]
+        func: Callable[..., AsyncGenerator[_T_co, Any]]
+        args: tuple[Any, ...]
+        kwds: dict[str, Any]
 
 elif sys.version_info >= (3, 7):
-    class _AsyncGeneratorContextManager(AbstractAsyncContextManager[_T_co]): ...
+    class _AsyncGeneratorContextManager(AbstractAsyncContextManager[_T_co], Generic[_T_co]):
+        def __init__(self, func: Callable[..., AsyncIterator[_T_co]], args: tuple[Any, ...], kwds: dict[str, Any]) -> None: ...
+        gen: AsyncGenerator[_T_co, Any]
+        func: Callable[..., AsyncGenerator[_T_co, Any]]
+        args: tuple[Any, ...]
+        kwds: dict[str, Any]
 
 if sys.version_info >= (3, 7):
-    def asynccontextmanager(func: Callable[_P, AsyncIterator[_T]]) -> Callable[_P, _AsyncGeneratorContextManager[_T]]: ...  # type: ignore[misc]
+    def asynccontextmanager(func: Callable[_P, AsyncIterator[_T_co]]) -> Callable[_P, _AsyncGeneratorContextManager[_T_co]]: ...
 
 class _SupportsClose(Protocol):
     def close(self) -> object: ...

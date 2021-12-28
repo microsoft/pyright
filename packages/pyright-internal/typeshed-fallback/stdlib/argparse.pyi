@@ -66,7 +66,7 @@ class _ActionsContainer:
         nargs: int | str = ...,
         const: Any = ...,
         default: Any = ...,
-        type: Callable[[str], _T] | Callable[[str], _T] | FileType = ...,
+        type: Callable[[str], _T] | FileType = ...,
         choices: Iterable[_T] | None = ...,
         required: bool = ...,
         help: str | None = ...,

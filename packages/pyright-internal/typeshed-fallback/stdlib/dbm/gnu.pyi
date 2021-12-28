@@ -6,6 +6,8 @@ _T = TypeVar("_T")
 _KeyType = Union[str, bytes]
 _ValueType = Union[str, bytes]
 
+open_flags: str
+
 class error(OSError): ...
 
 # Actual typename gdbm, not exposed by the implementation

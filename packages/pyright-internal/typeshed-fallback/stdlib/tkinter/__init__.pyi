@@ -2,7 +2,7 @@ import _tkinter
 import sys
 from _typeshed import StrOrBytesPath
 from enum import Enum
-from tkinter.constants import *  # comment this out to find undefined identifier names with flake8
+from tkinter.constants import *
 from tkinter.font import _FontDescription
 from types import TracebackType
 from typing import Any, Callable, Generic, List, Mapping, Optional, Protocol, Sequence, Tuple, Type, TypeVar, Union, overload
@@ -24,69 +24,21 @@ EXCEPTION = _tkinter.EXCEPTION
 #   - Misc: any widget (don't use BaseWidget because Tk doesn't inherit from BaseWidget)
 #   - Widget: anything that is meant to be put into another widget with e.g. pack or grid
 #
-# Instructions for figuring out the correct type of each widget option:
-#  - See discussion on #4363.
+# Don't trust tkinter's docstrings, because they have been created by copy/pasting from
+# Tk's manual pages more than 10 years ago. Use the latest manual pages instead:
 #
-#  - Find the option from the manual page of the widget. Usually the manual
-#    page of a non-ttk widget has the same name as the tkinter class, in the
-#    3tk section:
+#    $ sudo apt install tk-doc tcl-doc
+#    $ man 3tk label        # tkinter.Label
+#    $ man 3tk ttk_label    # tkinter.ttk.Label
+#    $ man 3tcl after       # tkinter.Misc.after
 #
-#        $ sudo apt install tk-doc
-#        $ man 3tk label
-#
-#    Ttk manual pages tend to have ttk_ prefixed names:
-#
-#        $ man 3tk ttk_label
-#
-#    Non-GUI things like the .after() method are often in the 3tcl section:
-#
-#        $ sudo apt install tcl-doc
-#        $ man 3tcl after
-#
-#    If you don't have man or apt, you can read these manual pages online:
-#
-#        https://www.tcl.tk/doc/
-#
-#    Every option has '-' in front of its name in the manual page (and in Tcl).
-#    For example, there's an option named '-text' in the label manual page.
-#
-#  - Tkinter has some options documented in docstrings, but don't rely on them.
-#    They aren't updated when a new version of Tk comes out, so the latest Tk
-#    manual pages (see above) are much more likely to actually contain all
-#    possible options.
-#
-#    Also, reading tkinter's source code typically won't help much because it
-#    uses a lot of **kwargs and duck typing. Typically every argument goes into
-#    self.tk.call, which is _tkinter.TkappType.call, and the return value is
-#    whatever that returns. The type of that depends on how the Tcl interpreter
-#    represents the return value of the executed Tcl code.
-#
-#  - If you think that int is an appropriate type for something, then you may
-#    actually want _ScreenUnits instead.
-#
-#  - If you think that Callable[something] is an appropriate type for
-#    something, then you may actually want Callable[something] | str,
-#    because it's often possible to specify a string of Tcl code.
-#
-#  - If you think the correct type is Iterable[Foo] or Sequence[Foo], it is
-#    probably list[Foo] | tuple[Foo, ...], disallowing other sequences such
-#    as deques:
-#
-#        >>> tkinter.Label(font=('Helvetica', 12, collections.deque(['bold'])))
-#        Traceback (most recent call last):
-#          ...
-#        _tkinter.TclError: unknown font style "deque(['bold'])"
-#
-#  - Some options can be set only in __init__, but all options are available
-#    when getting their values with configure's return value or cget.
-#
-#  - Asks other tkinter users if you haven't worked much with tkinter.
+# You can also read the manual pages online: https://www.tcl.tk/doc/
 
 # Some widgets have an option named -compound that accepts different values
 # than the _Compound defined here. Many other options have similar things.
 _Anchor = Literal["nw", "n", "ne", "w", "center", "e", "sw", "s", "se"]  # manual page: Tk_GetAnchor
 _Bitmap = str  # manual page: Tk_GetBitmap
-_ButtonCommand = Union[str, Callable[[], Any]]  # return value is returned from Button.invoke()
+_ButtonCommand = Union[str, Callable[[], Any]]  # accepts string of tcl code, return value is returned from Button.invoke()
 _CanvasItemId = int
 _Color = str  # typically '#rrggbb', '#rgb' or color names.
 _Compound = Literal["top", "left", "center", "right", "bottom", "none"]  # -compound in manual page named 'options'
@@ -104,7 +56,7 @@ _Padding = Union[
     Tuple[_ScreenUnits, _ScreenUnits, _ScreenUnits, _ScreenUnits],
 ]
 _Relief = Literal["raised", "sunken", "flat", "ridge", "solid", "groove"]  # manual page: Tk_GetRelief
-_ScreenUnits = Union[str, float]  # manual page: Tk_GetPixels
+_ScreenUnits = Union[str, float]  # Often the right type instead of int. Manual page: Tk_GetPixels
 _XYScrollCommand = Union[str, Callable[[float, float], Any]]  # -xscrollcommand and -yscrollcommand in 'options' manual page
 _TakeFocusValue = Union[int, Literal[""], Callable[[str], Optional[bool]]]  # -takefocus in manual page named 'options'
 
@@ -1102,9 +1054,7 @@ class Canvas(Widget, XView, YView):
     ) -> Tuple[_CanvasItemId, ...]: ...
     def find_overlapping(self, x1: _ScreenUnits, y1: _ScreenUnits, x2: _ScreenUnits, y2: float) -> Tuple[_CanvasItemId, ...]: ...
     def find_withtag(self, tagOrId: str | _CanvasItemId) -> Tuple[_CanvasItemId, ...]: ...
-    # Canvas.bbox() args are `str | _CanvasItemId`, but mypy rejects that
-    # description because it's incompatible with Misc.bbox(), an alias for
-    # Misc.grid_bbox(). Yes it is, but there's not much we can do about it.
+    # Incompatible with Misc.bbox(), tkinter violates LSP
     def bbox(self, *args: str | _CanvasItemId) -> tuple[int, int, int, int]: ...  # type: ignore[override]
     @overload
     def tag_bind(
@@ -1730,9 +1680,9 @@ class Frame(Widget):
         bg: _Color = ...,
         border: _ScreenUnits = ...,
         borderwidth: _ScreenUnits = ...,
-        class_: str = ...,
-        colormap: Literal["new", ""] | Misc = ...,
-        container: bool = ...,
+        class_: str = ...,  # can't be changed with configure()
+        colormap: Literal["new", ""] | Misc = ...,  # can't be changed with configure()
+        container: bool = ...,  # can't be changed with configure()
         cursor: _Cursor = ...,
         height: _ScreenUnits = ...,
         highlightbackground: _Color = ...,
@@ -1743,7 +1693,7 @@ class Frame(Widget):
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
         takefocus: _TakeFocusValue = ...,
-        visual: str | tuple[str, int] = ...,
+        visual: str | tuple[str, int] = ...,  # can't be changed with configure()
         width: _ScreenUnits = ...,
     ) -> None: ...
     @overload
@@ -3190,9 +3140,9 @@ class LabelFrame(Widget):
         bg: _Color = ...,
         border: _ScreenUnits = ...,
         borderwidth: _ScreenUnits = ...,
-        class_: str = ...,
-        colormap: Literal["new", ""] | Misc = ...,
-        container: bool = ...,  # undocumented
+        class_: str = ...,  # can't be changed with configure()
+        colormap: Literal["new", ""] | Misc = ...,  # can't be changed with configure()
+        container: bool = ...,  # undocumented, can't be changed with configure()
         cursor: _Cursor = ...,
         fg: _Color = ...,
         font: _FontDescription = ...,
@@ -3210,7 +3160,7 @@ class LabelFrame(Widget):
         relief: _Relief = ...,
         takefocus: _TakeFocusValue = ...,
         text: float | str = ...,
-        visual: str | tuple[str, int] = ...,
+        visual: str | tuple[str, int] = ...,  # can't be changed with configure()
         width: _ScreenUnits = ...,
     ) -> None: ...
     @overload

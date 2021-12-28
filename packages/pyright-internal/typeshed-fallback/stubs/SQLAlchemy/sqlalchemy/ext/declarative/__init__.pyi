@@ -1,4 +1,11 @@
-from ...orm.decl_api import DeclarativeMeta as DeclarativeMeta, declared_attr as declared_attr
+from ...orm.decl_api import (
+    DeclarativeMeta as DeclarativeMeta,
+    as_declarative as as_declarative,
+    declarative_base as declarative_base,
+    declared_attr as declared_attr,
+    has_inherited_table as has_inherited_table,
+    synonym_for as synonym_for,
+)
 from .extensions import (
     AbstractConcreteBase as AbstractConcreteBase,
     ConcreteBase as ConcreteBase,
@@ -18,8 +25,3 @@ __all__ = [
     "DeclarativeMeta",
     "DeferredReflection",
 ]
-
-def declarative_base(*arg, **kw): ...
-def as_declarative(*arg, **kw): ...
-def has_inherited_table(*arg, **kw): ...
-def synonym_for(*arg, **kw): ...

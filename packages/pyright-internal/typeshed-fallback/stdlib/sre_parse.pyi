@@ -1,4 +1,5 @@
 import sys
+from sre_constants import *
 from sre_constants import _NamedIntConstant as _NIC, error as _Error
 from typing import Any, Iterable, List, Match, Optional, Pattern as _Pattern, Tuple, Union, overload
 
@@ -12,6 +13,8 @@ WHITESPACE: frozenset[str]
 ESCAPES: dict[str, tuple[_NIC, int]]
 CATEGORIES: dict[str, tuple[_NIC, _NIC] | tuple[_NIC, list[tuple[_NIC, _NIC]]]]
 FLAGS: dict[str, int]
+if sys.version_info >= (3, 7):
+    TYPE_FLAGS: int
 GLOBAL_FLAGS: int
 
 class Verbose(Exception): ...

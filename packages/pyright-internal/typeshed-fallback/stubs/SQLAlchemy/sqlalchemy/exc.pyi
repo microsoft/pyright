@@ -1,11 +1,11 @@
-from typing import Any
+from typing import Any, ClassVar
 
 class HasDescriptionCode:
-    code: Any
-    def __init__(self, *arg, **kw) -> None: ...
+    code: str | None
+    def __init__(self, *arg: Any, code: str | None = ..., **kw: Any) -> None: ...
 
 class SQLAlchemyError(HasDescriptionCode, Exception):
-    def __unicode__(self): ...
+    def __unicode__(self) -> str: ...
 
 class ArgumentError(SQLAlchemyError): ...
 
@@ -30,8 +30,8 @@ class UnsupportedCompilationError(CompileError):
     code: str
     compiler: Any
     element_type: Any
-    message: Any
-    def __init__(self, compiler, element_type, message: Any | None = ...) -> None: ...
+    message: str | None
+    def __init__(self, compiler, element_type, message: str | None = ...) -> None: ...
     def __reduce__(self): ...
 
 class IdentifierError(SQLAlchemyError): ...
@@ -114,41 +114,26 @@ class DBAPIError(StatementError):
         ismulti: Any | None = ...,
     ) -> None: ...
 
-class InterfaceError(DBAPIError):
-    code: str
-
-class DatabaseError(DBAPIError):
-    code: str
-
-class DataError(DatabaseError):
-    code: str
-
-class OperationalError(DatabaseError):
-    code: str
-
-class IntegrityError(DatabaseError):
-    code: str
-
-class InternalError(DatabaseError):
-    code: str
-
-class ProgrammingError(DatabaseError):
-    code: str
-
-class NotSupportedError(DatabaseError):
-    code: str
+class InterfaceError(DBAPIError): ...
+class DatabaseError(DBAPIError): ...
+class DataError(DatabaseError): ...
+class OperationalError(DatabaseError): ...
+class IntegrityError(DatabaseError): ...
+class InternalError(DatabaseError): ...
+class ProgrammingError(DatabaseError): ...
+class NotSupportedError(DatabaseError): ...
 
 class SADeprecationWarning(HasDescriptionCode, DeprecationWarning):
-    deprecated_since: Any
+    deprecated_since: ClassVar[str | None]
 
 class Base20DeprecationWarning(SADeprecationWarning):
-    deprecated_since: str
+    deprecated_since: ClassVar[str]
 
 class LegacyAPIWarning(Base20DeprecationWarning): ...
 class RemovedIn20Warning(Base20DeprecationWarning): ...
 class MovedIn20Warning(RemovedIn20Warning): ...
 
 class SAPendingDeprecationWarning(PendingDeprecationWarning):
-    deprecated_since: Any
+    deprecated_since: ClassVar[str | None]
 
 class SAWarning(HasDescriptionCode, RuntimeWarning): ...

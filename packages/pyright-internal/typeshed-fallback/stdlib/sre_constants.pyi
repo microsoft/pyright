@@ -1,6 +1,8 @@
 import sys
 from typing import Any
 
+MAXGROUPS: int
+
 MAGIC: int
 
 class error(Exception):
@@ -20,6 +22,9 @@ OPCODES: list[_NamedIntConstant]
 ATCODES: list[_NamedIntConstant]
 CHCODES: list[_NamedIntConstant]
 OP_IGNORE: dict[_NamedIntConstant, _NamedIntConstant]
+if sys.version_info >= (3, 7):
+    OP_LOCALE_IGNORE: dict[_NamedIntConstant, _NamedIntConstant]
+    OP_UNICODE_IGNORE: dict[_NamedIntConstant, _NamedIntConstant]
 AT_MULTILINE: dict[_NamedIntConstant, _NamedIntConstant]
 AT_LOCALE: dict[_NamedIntConstant, _NamedIntConstant]
 AT_UNICODE: dict[_NamedIntConstant, _NamedIntConstant]

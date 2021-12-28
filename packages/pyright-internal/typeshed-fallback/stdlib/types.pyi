@@ -407,10 +407,11 @@ _R = TypeVar("_R")
 _P = ParamSpec("_P")
 
 # it's not really an Awaitable, but can be used in an await expression. Real type: Generator & Awaitable
+# The type: ignore is due to overlapping overloads, not the use of ParamSpec
 @overload
 def coroutine(func: Callable[_P, Generator[_R, Any, Any]]) -> Callable[_P, Awaitable[_R]]: ...  # type: ignore[misc]
 @overload
-def coroutine(func: _Fn) -> _Fn: ...  # type: ignore[misc]
+def coroutine(func: _Fn) -> _Fn: ...
 
 if sys.version_info >= (3, 8):
     CellType = _Cell

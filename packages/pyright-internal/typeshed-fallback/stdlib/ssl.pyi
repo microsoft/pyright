@@ -220,7 +220,7 @@ if sys.version_info >= (3, 7):
     HAS_TLSv1: bool
     HAS_TLSv1_1: bool
     HAS_TLSv1_2: bool
-    HAS_TLSv1_3: bool
+HAS_TLSv1_3: bool
 HAS_ALPN: bool
 HAS_ECDH: bool
 HAS_SNI: bool

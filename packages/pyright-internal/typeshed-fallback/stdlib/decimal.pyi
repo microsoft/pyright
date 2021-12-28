@@ -1,4 +1,5 @@
 import numbers
+import sys
 from types import TracebackType
 from typing import Any, Container, NamedTuple, Sequence, Tuple, Type, TypeVar, Union, overload
 
@@ -21,6 +22,8 @@ ROUND_UP: str
 ROUND_HALF_DOWN: str
 ROUND_05UP: str
 
+if sys.version_info >= (3, 7):
+    HAVE_CONTEXTVAR: bool
 HAVE_THREADS: bool
 MAX_EMAX: int
 MAX_PREC: int

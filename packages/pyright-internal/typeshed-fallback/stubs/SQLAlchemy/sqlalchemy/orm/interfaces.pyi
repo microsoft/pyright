@@ -17,7 +17,7 @@ from .base import (
     _MappedAttribute as _MappedAttribute,
 )
 
-__all__ = [
+__all__ = (
     "EXT_CONTINUE",
     "EXT_STOP",
     "EXT_SKIP",
@@ -31,7 +31,7 @@ __all__ = [
     "MapperProperty",
     "PropComparator",
     "StrategizedProperty",
-]
+)
 
 class ORMStatementRole(roles.StatementRole): ...
 class ORMColumnsClauseRole(roles.ColumnsClauseRole): ...

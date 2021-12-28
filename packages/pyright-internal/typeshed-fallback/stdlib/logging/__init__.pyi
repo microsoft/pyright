@@ -336,6 +336,7 @@ class LogRecord:
     lineno: int
     module: str
     msecs: float
+    # Only created when logging.Formatter.format is called. See #6132.
     message: str
     msg: str
     name: str

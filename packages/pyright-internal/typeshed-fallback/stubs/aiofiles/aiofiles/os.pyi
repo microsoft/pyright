@@ -15,14 +15,14 @@ async def rmdir(path: StrOrBytesPath, *, dir_fd: int | None = ...) -> None: ...
 
 if sys.platform != "win32":
     @overload
-    async def sendfile(__out_fd: int, __in_fd: int, offset: int | None, count: int) -> int: ...
+    async def sendfile(out_fd: int, in_fd: int, offset: int | None, count: int) -> int: ...
     @overload
     async def sendfile(
-        __out_fd: int,
-        __in_fd: int,
+        out_fd: int,
+        in_fd: int,
         offset: int,
         count: int,
         headers: Sequence[bytes] = ...,
         trailers: Sequence[bytes] = ...,
         flags: int = ...,
-    ) -> int: ...
+    ) -> int: ...  # FreeBSD and Mac OS X only
