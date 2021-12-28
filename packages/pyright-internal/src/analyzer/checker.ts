@@ -149,6 +149,7 @@ import {
     lookUpClassMember,
     mapSubtypes,
     partiallySpecializeType,
+    removeNoReturnFromUnion,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
@@ -1693,15 +1694,20 @@ export class Checker extends ParseTreeWalker {
         );
 
         // Now check the return types.
-        const overloadReturnType =
-            overload.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(overload);
-        const implementationReturnType = applySolvedTypeVars(
-            implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
-            typeVarMap
+        const overloadReturnType = removeNoReturnFromUnion(
+            overload.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(overload)
+        );
+        const implementationReturnType = removeNoReturnFromUnion(
+            applySolvedTypeVars(
+                implementation.details.declaredReturnType ||
+                    this._evaluator.getFunctionInferredReturnType(implementation),
+                typeVarMap
+            )
         );
 
         const returnDiag = new DiagnosticAddendum();
         if (
+            !isNoReturnType(overloadReturnType) &&
             !this._evaluator.canAssignType(
                 implementationReturnType,
                 overloadReturnType,

@@ -9,6 +9,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    NoReturn,
     Optional,
     Tuple,
     Type,
@@ -265,4 +266,18 @@ def func12(
     /,
     default_value: _T9 = None,
 ) -> Iterable[_T8 | _T9]:
+    ...
+
+
+@overload
+def func13(x: int) -> NoReturn:
+    ...
+
+
+@overload
+def func13(x: str) -> str | NoReturn:
+    ...
+
+
+def func13(x: int | str) -> str:
     ...
