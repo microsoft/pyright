@@ -11,6 +11,7 @@
 
 import { assert } from '../common/debug';
 import {
+    AnyType,
     ClassType,
     maxTypeRecursionCount,
     ParamSpecValue,
@@ -140,7 +141,7 @@ export class TypeVarMap {
             // The more complex, the lower the score. In the spirit of Occam's
             // Razor, we always want to favor simple answers.
             const typeVarType = this.getTypeVarType(value.typeVar)!;
-            score += this._getSimplicityScoreForType(typeVarType);
+            score += 1.0 - this._getComplexityScoreForType(typeVarType);
         });
 
         score += this._paramSpecMap.size;
@@ -252,52 +253,47 @@ export class TypeVarMap {
         return TypeVarType.getNameWithScope(reference);
     }
 
-    // Returns a "score" for a type that captures the relative simplicity
+    // Returns a "score" for a type that captures the relative complexity
     // of the type. Scores should all be between 0 and 1 where 0 means
-    // very complex and 1 means simple. This is a heuristic, so there's
+    // very simple and 1 means complex. This is a heuristic, so there's
     // often no objectively correct answer.
-    private _getSimplicityScoreForType(type: Type, recursionCount = 0): number {
+    private _getComplexityScoreForType(type: Type, recursionCount = 0): number {
         if (recursionCount > maxTypeRecursionCount) {
-            return 0;
+            return 1;
         }
 
         switch (type.category) {
+            case TypeCategory.Unknown:
+            case TypeCategory.Any:
+            case TypeCategory.None:
             case TypeCategory.Function:
-            case TypeCategory.OverloadedFunction: {
-                // For now, return a constant for functions. We may want
-                // to make this heuristic in the future.
+            case TypeCategory.OverloadedFunction:
+            case TypeCategory.TypeVar: {
                 return 0.5;
             }
 
-            case TypeCategory.TypeVar: {
-                // A bare TypeVar is less desirable (and therefore considered
-                // more complex) than a concrete type.
-                return 1;
-            }
+            case TypeCategory.Unbound:
+            case TypeCategory.Never:
+                return 1.0;
 
             case TypeCategory.Union: {
-                let minScore = 1;
+                let maxScore = 0;
 
                 // If this union has a very large number of subtypes, don't bother
                 // accurately computing the score. Assume a fixed value.
                 if (type.subtypes.length < 16) {
                     doForEachSubtype(type, (subtype) => {
-                        const subtypeScore = this._getSimplicityScoreForType(subtype, recursionCount + 1);
-                        if (subtypeScore < minScore) {
-                            minScore = subtypeScore;
-                        }
+                        const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
+                        maxScore = Math.max(maxScore, subtypeScore);
                     });
                 }
 
-                // Assume that a union is more complex than a non-union,
-                // and return half of the minimum score of the subtypes.
-                return minScore / 2;
+                // Assume that a union is more complex than a non-union.
+                return 0.75 + maxScore / 4;
             }
 
             case TypeCategory.Class: {
-                // Score a class as 0.5 plus half of the average simplicity
-                // score of its type arguments.
-                return this._getSimplicityScoreForClass(type, recursionCount + 1);
+                return this._getComplexityScoreForClass(type, recursionCount + 1);
             }
         }
 
@@ -305,29 +301,28 @@ export class TypeVarMap {
         return 0;
     }
 
-    private _getSimplicityScoreForClass(classType: ClassType, recursionCount: number): number {
+    private _getComplexityScoreForClass(classType: ClassType, recursionCount: number): number {
         let typeArgScoreSum = 0;
         let typeArgCount = 0;
-        let simplicityScore = 0.5;
 
         if (classType.tupleTypeArguments) {
             classType.tupleTypeArguments.forEach((type) => {
-                typeArgScoreSum += this._getSimplicityScoreForType(type, recursionCount + 1);
+                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
                 typeArgCount++;
             });
-
-            simplicityScore += (typeArgScoreSum / typeArgCount) * 0.45;
         } else if (classType.typeArguments) {
             classType.typeArguments.forEach((type) => {
-                typeArgScoreSum += this._getSimplicityScoreForType(type, recursionCount + 1);
+                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
                 typeArgCount++;
             });
-
-            simplicityScore += (typeArgScoreSum / typeArgCount) * 0.45;
-        } else {
-            simplicityScore += 0.5;
+        } else if (classType.details.typeParameters) {
+            classType.details.typeParameters.forEach((type) => {
+                typeArgScoreSum += this._getComplexityScoreForType(AnyType.create(), recursionCount + 1);
+                typeArgCount++;
+            });
         }
 
-        return simplicityScore;
+        const averageTypeArgComplexity = typeArgCount > 0 ? typeArgScoreSum / typeArgCount : 0;
+        return 0.5 + averageTypeArgComplexity * 0.25;
     }
 }

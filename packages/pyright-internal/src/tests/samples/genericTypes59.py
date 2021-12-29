@@ -3,7 +3,7 @@
 # according to PEP 484, but pyright has code in place to find the
 # "least complex" answer.
 
-from typing import Generic, List, Literal, TypeVar, Union
+from typing import Any, Generic, List, Literal, TypeVar, Union
 
 T1 = TypeVar("T1")
 
@@ -51,3 +51,21 @@ def func2b(value: List[Union[int, List[float]]]):
 def func3b(value: List[Union[str, List[float]]]):
     # This should generate an error
     func1b(value)
+
+
+def ensure_list(value: Union[T1, List[T1]]) -> List[T1]:
+    ...
+
+
+def func4(
+    v1: list, v2: List[Any], v3: List[None], v4: Any, v5: int, v6: T1, v7: List[T1]
+) -> T1:
+    t1: Literal["List[Unknown]"] = reveal_type(ensure_list(v1))
+    t2: Literal["List[Any]"] = reveal_type(ensure_list(v2))
+    t3: Literal["List[None]"] = reveal_type(ensure_list(v3))
+    t4: Literal["List[Any]"] = reveal_type(ensure_list(v4))
+    t5: Literal["List[int]"] = reveal_type(ensure_list(v5))
+    t6: Literal["List[T1@func4]"] = reveal_type(ensure_list(v6))
+    t7: Literal["List[T1@func4]"] = reveal_type(ensure_list(v7))
+
+    return v6
