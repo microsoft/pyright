@@ -3931,8 +3931,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // not change each time the file is parsed (unless, of course, the
     // file contents change).
     function getScopeIdForNode(node: ParseNode): string {
+        let name = '';
+        if (node.nodeType === ParseNodeType.Class) {
+            name = node.name.value;
+        } else if (node.nodeType === ParseNodeType.Function) {
+            name = node.name.value;
+        }
+
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        return `${fileInfo.filePath}.${node.start.toString()}`;
+        return `${fileInfo.filePath}.${node.start.toString()}-${name}`;
     }
 
     // Walks up the parse tree and finds all scopes that can provide
