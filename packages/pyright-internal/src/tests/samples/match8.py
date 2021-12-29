@@ -1,3 +1,6 @@
+# This sample tests keyword-only class pattern matching for
+# dataclasses.
+
 from dataclasses import dataclass, field
 from typing import Literal
 

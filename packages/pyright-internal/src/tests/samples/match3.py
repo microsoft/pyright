@@ -291,3 +291,24 @@ def func11(subj: Any):
         case Child2() as b1:
             t_b1: Literal['Child2[Unknown, Unknown]'] = reveal_type(b1)
             t_b: Literal['Child2[Unknown, Unknown]'] = reveal_type(subj)
+
+
+def func12(subj: int, flt_cls: type[float], union_val: float | int):
+    match subj:
+        # This should generate an error because int doesn't accept two arguments.
+        case int(1, 2):
+            pass
+
+    match subj:
+        # This should generate an error because float doesn't accept keyword arguments.
+        case float(x=1):
+            pass
+
+    match subj:
+        # This should generate an error because flt_cls is not a class.
+        case flt_cls():
+            pass
+
+        # This should generate an error because it is a union.
+        case union_val():
+            pass

@@ -39,7 +39,6 @@ import {
     isInstantiableClass,
     isNever,
     isSameWithoutLiteralValue,
-    isUnion,
     isUnknown,
     NeverType,
     Type,
@@ -484,25 +483,6 @@ function narrowTypeBasedOnClassPattern(
             pattern.className
         );
         return NeverType.create();
-    }
-
-    // Check for certain uses of type aliases that generate runtime exceptions.
-    if (exprType.typeAliasInfo) {
-        if (isUnion(exprType)) {
-            evaluator.addDiagnostic(
-                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
-                pattern.className
-            );
-        } else if (isInstantiableClass(exprType) && exprType.typeArguments && exprType.isTypeArgumentExplicit) {
-            evaluator.addDiagnostic(
-                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.DiagnosticAddendum.classPatternTypeAlias().format({ type: evaluator.printType(exprType) }),
-                pattern.className
-            );
-        }
     }
 
     return evaluator.mapSubtypesExpandTypeVars(
@@ -1192,4 +1172,59 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
     }
 
     return UnknownType.create();
+}
+
+export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternClassNode) {
+    const exprType = evaluator.getTypeOfExpression(
+        pattern.className,
+        /* expectedType */ undefined,
+        EvaluatorFlags.DoNotSpecialize
+    ).type;
+
+    if (isAnyOrUnknown(exprType)) {
+        return;
+    }
+
+    // Check for certain uses of type aliases that generate runtime exceptions.
+    if (
+        exprType.typeAliasInfo &&
+        isInstantiableClass(exprType) &&
+        exprType.typeArguments &&
+        exprType.isTypeArgumentExplicit
+    ) {
+        evaluator.addDiagnostic(
+            getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.classPatternTypeAlias().format({ type: evaluator.printType(exprType) }),
+            pattern.className
+        );
+    } else if (!isInstantiableClass(exprType) || exprType.includeSubclasses) {
+        evaluator.addDiagnostic(
+            getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
+            pattern.className
+        );
+    } else {
+        const isBuiltIn = classPatternSpecialCases.some((className) => exprType.details.fullName === className);
+
+        // If it's a special-case builtin class, only one positional argument is allowed.
+        if (isBuiltIn) {
+            if (pattern.arguments.length > 1) {
+                evaluator.addDiagnostic(
+                    getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.classPatternBuiltInArgCount(),
+                    pattern.arguments[1]
+                );
+            } else if (pattern.arguments.length === 1 && pattern.arguments[0].name) {
+                evaluator.addDiagnostic(
+                    getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.classPatternBuiltInArgPositional(),
+                    pattern.arguments[0].name
+                );
+            }
+        }
+    }
 }

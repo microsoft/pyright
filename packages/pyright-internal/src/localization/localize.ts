@@ -253,6 +253,11 @@ export namespace Localizer {
         export const classMethodClsParam = () => getRawString('Diagnostic.classMethodClsParam');
         export const classNotRuntimeSubscriptable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classNotRuntimeSubscriptable'));
+        export const classPatternBuiltInArgCount = () => getRawString('Diagnostic.classPatternBuiltInArgCount');
+        export const classPatternBuiltInArgPositional = () =>
+            getRawString('Diagnostic.classPatternBuiltInArgPositional');
+        export const classPatternTypeAlias = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classPatternTypeAlias'));
         export const classVarNotAllowed = () => getRawString('Diagnostic.classVarNotAllowed');
         export const classVarFirstArgMissing = () => getRawString('Diagnostic.classVarFirstArgMissing');
         export const classVarOverridesInstanceVar = () =>
@@ -908,8 +913,6 @@ export namespace Localizer {
             new ParameterizedString<{ baseClass: string; type: string }>(
                 getRawString('DiagnosticAddendum.baseClassProvidesType')
             );
-        export const classPatternTypeAlias = () =>
-            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.classPatternTypeAlias'));
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
         export const dataClassFieldLocation = () => getRawString('DiagnosticAddendum.dataClassFieldLocation');

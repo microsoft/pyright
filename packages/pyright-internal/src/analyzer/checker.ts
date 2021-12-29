@@ -56,6 +56,7 @@ import {
     ParameterCategory,
     ParseNode,
     ParseNodeType,
+    PatternClassNode,
     RaiseNode,
     ReturnNode,
     SetNode,
@@ -86,6 +87,7 @@ import { ImportType } from './importResult';
 import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
+import { validateClassPattern } from './patternMatching';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
@@ -1268,6 +1270,11 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._evaluator.evaluateTypesForStatement(node.pattern);
+        return true;
+    }
+
+    override visitPatternClass(node: PatternClassNode): boolean {
+        validateClassPattern(this._evaluator, node);
         return true;
     }
 
