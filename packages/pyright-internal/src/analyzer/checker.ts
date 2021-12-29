@@ -2565,16 +2565,18 @@ export class Checker extends ParseTreeWalker {
         doForEachSubtype(arg1Type, (arg1Subtype) => {
             if (isClass(arg1Subtype)) {
                 if (TypeBase.isInstantiable(arg1Subtype)) {
-                    classTypeList.push(arg1Subtype);
-                    if (
-                        ClassType.isBuiltIn(arg1Subtype) &&
-                        nonstandardClassTypes.some((name) => name === arg1Subtype.details.name)
-                    ) {
-                        isValidType = false;
-                    }
+                    if (arg1Subtype.literalValue === undefined) {
+                        classTypeList.push(arg1Subtype);
+                        if (
+                            ClassType.isBuiltIn(arg1Subtype) &&
+                            nonstandardClassTypes.some((name) => name === arg1Subtype.details.name)
+                        ) {
+                            isValidType = false;
+                        }
 
-                    if (arg1Subtype.includeSubclasses) {
-                        arg1IncludesSubclasses = true;
+                        if (arg1Subtype.includeSubclasses) {
+                            arg1IncludesSubclasses = true;
+                        }
                     }
                 } else {
                     // The isinstance and issubclass call supports a variation where the second
