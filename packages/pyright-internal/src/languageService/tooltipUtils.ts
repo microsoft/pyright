@@ -86,11 +86,9 @@ export function getDocumentationPartsForTypeAndDecl(
             return [doc];
         }
     } else if (isFunction(type)) {
-        if (resolvedDecl?.type === DeclarationType.Function || resolvedDecl?.type === DeclarationType.Class) {
-            const doc = getFunctionDocStringFromType(type, sourceMapper, evaluator);
-            if (doc) {
-                return [doc];
-            }
+        const doc = getFunctionDocStringFromType(type, sourceMapper, evaluator);
+        if (doc) {
+            return [doc];
         }
     } else if (isOverloadedFunction(type)) {
         const enclosingClass = resolvedDecl ? ParseTreeUtils.getEnclosingClass(resolvedDecl.node) : undefined;
