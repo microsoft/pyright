@@ -20188,7 +20188,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Is the dest a "type" object? Assume that all instantiable
                 // types are assignable to "type".
                 if (TypeBase.isInstantiable(srcType)) {
-                    return true;
+                    const isLiteral = isClass(srcType) && srcType.literalValue !== undefined;
+                    return !isLiteral;
                 }
             } else if (ClassType.isBuiltIn(destType, 'TypeGuard')) {
                 // All the source to be a "bool".
