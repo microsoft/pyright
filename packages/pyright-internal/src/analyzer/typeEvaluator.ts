@@ -9184,8 +9184,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedReturnType.typeArguments.length > 0
         ) {
             if (boolClassType && isInstantiableClass(boolClassType)) {
+                const positiveType = specializedReturnType.typeArguments[0];
+                const negativeType =
+                    specializedReturnType.typeArguments.length > 1 ? specializedReturnType.typeArguments[1] : undefined;
+
                 specializedReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForTypeGuard(boolClassType, specializedReturnType.typeArguments[0])
+                    ClassType.cloneForTypeGuard(boolClassType, positiveType, negativeType)
                 );
             }
         }
@@ -12295,21 +12299,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
     function createTypeGuardType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
-        if (!typeArgs || typeArgs.length !== 1) {
+        if (!typeArgs || typeArgs.length < 1 || typeArgs.length > 2) {
             addError(Localizer.Diagnostic.typeGuardArgCount(), errorNode);
+            return UnknownType.create();
         }
 
-        let typeArg: Type;
-        if (typeArgs && typeArgs.length > 0) {
-            typeArg = typeArgs[0].type;
-            if (!validateTypeArg(typeArgs[0])) {
-                typeArg = UnknownType.create();
-            }
-        } else {
-            typeArg = UnknownType.create();
-        }
+        const convertedTypeArgs = typeArgs.map((typeArg) => {
+            return convertToInstance(validateTypeArg(typeArg) ? typeArg.type : UnknownType.create());
+        });
 
-        return ClassType.cloneForSpecialization(classType, [convertToInstance(typeArg)], !!typeArgs);
+        return ClassType.cloneForSpecialization(classType, convertedTypeArgs, /* isTypeArgumentExplicit */ true);
     }
 
     function createSelfType(classType: ClassType, errorNode: ParseNode, typeArgs: TypeResult[] | undefined) {

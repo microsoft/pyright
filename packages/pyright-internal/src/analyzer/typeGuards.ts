@@ -423,14 +423,15 @@ export function getTypeNarrowingCallback(
                 ) {
                     // Evaluate the type guard call expression.
                     const functionReturnType = evaluator.getTypeOfExpression(testExpression).type;
-                    if (
-                        isClassInstance(functionReturnType) &&
-                        ClassType.isBuiltIn(functionReturnType, 'bool') &&
-                        functionReturnType.typeGuardType
-                    ) {
-                        return (type: Type) => {
-                            return isPositiveTest ? functionReturnType.typeGuardType : type;
-                        };
+                    if (isClassInstance(functionReturnType) && ClassType.isBuiltIn(functionReturnType, 'bool')) {
+                        const typeForTest = isPositiveTest
+                            ? functionReturnType.positiveTypeGuardType
+                            : functionReturnType.negativeTypeGuardType;
+                        if (typeForTest) {
+                            return (type: Type) => {
+                                return typeForTest;
+                            };
+                        }
                     }
                 }
             }

@@ -41,9 +41,13 @@ def bad1(a: int) -> TypeGuard:
     return True
 
 
+def good2(a: int) -> TypeGuard[str, int]:
+    return True
+
+
 # This should generate an error because TypeGuard
 # has too many type arguments.
-def bad2(a: int) -> TypeGuard[str, int]:
+def bad2(a: int) -> TypeGuard[str, int, int]:
     return True
 
 
