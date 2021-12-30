@@ -45,6 +45,7 @@ import {
     isOverloadedFunction,
     isTypeSame,
     isTypeVar,
+    NeverType,
     NoneType,
     OverloadedFunctionType,
     Type,
@@ -67,6 +68,7 @@ import {
     getTypeVarScopeId,
     isLiteralType,
     isLiteralTypeOrUnion,
+    isNoReturnType,
     isOpenEndedTupleClass,
     isTupleClass,
     lookUpClassMember,
@@ -429,6 +431,9 @@ export function getTypeNarrowingCallback(
                             : functionReturnType.negativeTypeGuardType;
                         if (typeForTest) {
                             return (type: Type) => {
+                                if (!isPositiveTest && isNoReturnType(typeForTest)) {
+                                    return NeverType.create();
+                                }
                                 return typeForTest;
                             };
                         }

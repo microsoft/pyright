@@ -2868,6 +2868,37 @@ export class Binder extends ParseTreeWalker {
             };
 
             this._currentFlowNode = flowNode;
+
+            // See if this might be a call to a TypeGuard function.
+            // If so, add the expression in the first argument as
+            // as narrowable expression.
+
+            // Special-case "reveal_type" calls because we know they're not TypeGuard
+            // functions, and we don't want their presence to alter the evaluation ordering.
+            const isRevealTypeCall =
+                node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'reveal_type';
+
+            if (
+                !isRevealTypeCall &&
+                node.arguments.length > 0 &&
+                node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
+                !node.arguments[0].name
+            ) {
+                const argExpression = node.arguments[0].valueExpression;
+                if (
+                    argExpression.nodeType === ParseNodeType.Name ||
+                    argExpression.nodeType === ParseNodeType.MemberAccess ||
+                    argExpression.nodeType === ParseNodeType.Index
+                ) {
+                    const expressionList: CodeFlowReferenceExpressionNode[] = [];
+
+                    if (this._isNarrowingExpression(argExpression, expressionList) && expressionList.length === 1) {
+                        const referenceKey = createKeyForReference(expressionList[0]);
+                        this._currentScopeCodeFlowExpressions!.add(referenceKey);
+                        flowNode.typeGuardArgExpression = expressionList[0];
+                    }
+                }
+            }
         }
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
