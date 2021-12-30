@@ -13,7 +13,7 @@
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
-import { ArgumentCategory, ExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
@@ -169,7 +169,7 @@ function applyPartialTransform(
                 }
 
                 // Mark the parameter as assigned.
-                paramMap.set(paramName, true);
+                paramMap.set(paramName, false);
             }
         } else {
             const matchingParam = paramListDetails.params.find(
@@ -214,7 +214,7 @@ function applyPartialTransform(
                 const paramName = matchingParam.param.name!;
                 const paramType = FunctionType.getEffectiveParameterType(origFunctionType, matchingParam.index);
 
-                if (paramMap.get(paramName)) {
+                if (paramMap.has(paramName)) {
                     evaluator.addDiagnostic(
                         getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -254,15 +254,31 @@ function applyPartialTransform(
 
     // Create a new parameter list that omits parameters that have been
     // populated already.
-    const newParamList: FunctionParameter[] = specializedFunctionType.details.parameters
-        .map((param, index) => {
-            const specializedParam: FunctionParameter = { ...param };
-            specializedParam.type = FunctionType.getEffectiveParameterType(specializedFunctionType, index);
-            return specializedParam;
-        })
-        .filter((param) => {
-            return !param.name || !paramMap.get(param.name);
-        });
+    const updatedParamList: FunctionParameter[] = specializedFunctionType.details.parameters.map((param, index) => {
+        const specializedParam: FunctionParameter = { ...param };
+        specializedParam.type = FunctionType.getEffectiveParameterType(specializedFunctionType, index);
+
+        // If it's a keyword parameter that has been assigned a value through
+        // the "partial" mechanism, mark it has having a default value.
+        if (param.name && paramMap.get(param.name)) {
+            specializedParam.hasDefault = true;
+        }
+        return specializedParam;
+    });
+    const unassignedParamList = updatedParamList.filter((param) => {
+        if (param.category === ParameterCategory.VarArgDictionary) {
+            return false;
+        }
+        return !param.name || !paramMap.has(param.name);
+    });
+    const assignedKeywordParamList = updatedParamList.filter((param) => {
+        return param.name && paramMap.get(param.name);
+    });
+    const kwargsParam = updatedParamList.filter((param) => {
+        return param.category === ParameterCategory.VarArgDictionary;
+    });
+
+    const newParamList = [...unassignedParamList, ...assignedKeywordParamList, ...kwargsParam];
 
     // Create a new __call__ method that uses the remaining parameters.
     const newCallMemberType = FunctionType.createInstance(
