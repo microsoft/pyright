@@ -1135,8 +1135,9 @@ export function getCodeFlowEngine(
                         FlowFlags.FalseNeverCondition |
                         FlowFlags.NarrowForPattern |
                         FlowFlags.ExhaustedMatch |
-                        FlowFlags.Call |
-                        FlowFlags.PreFinallyGate)
+                        FlowFlags.PostFinally |
+                        FlowFlags.PreFinallyGate |
+                        FlowFlags.Call)
                 ) {
                     const typedFlowNode = curFlowNode as
                         | FlowVariableAnnotation
@@ -1144,6 +1145,7 @@ export function getCodeFlowEngine(
                         | FlowAssignmentAlias
                         | FlowWildcardImport
                         | FlowExhaustedMatch
+                        | FlowNarrowForPattern
                         | FlowPostFinally
                         | FlowPreFinallyGate
                         | FlowCall;
