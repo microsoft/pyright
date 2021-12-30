@@ -556,12 +556,15 @@ function narrowTypeBasedOnClassPattern(
 
                         let isMatchValid = true;
                         pattern.arguments.forEach((arg, index) => {
+                            // Narrow the arg pattern. It's possible that the actual type of the object
+                            // being matched is a subtype of the resultType, so it might contain additional
+                            // attributes that we don't know about.
                             const narrowedArgType = narrowTypeOfClassPatternArgument(
                                 evaluator,
                                 arg,
                                 index,
                                 positionalArgNames,
-                                expandedSubtype
+                                resultType
                             );
 
                             if (isNever(narrowedArgType)) {
@@ -583,28 +586,39 @@ function narrowTypeBasedOnClassPattern(
     );
 }
 
+// Narrows the pattern provided for a class pattern argument.
 function narrowTypeOfClassPatternArgument(
     evaluator: TypeEvaluator,
     arg: PatternClassArgumentNode,
     argIndex: number,
     positionalArgNames: string[],
-    classType: ClassType
+    matchType: Type
 ) {
     let argName: string | undefined;
+
     if (arg.name) {
         argName = arg.name.value;
     } else if (argIndex < positionalArgNames.length) {
         argName = positionalArgNames[argIndex];
     }
 
+    if (isAnyOrUnknown(matchType)) {
+        return matchType;
+    }
+
+    if (!isClass(matchType)) {
+        return UnknownType.create();
+    }
+
     const useSelfForPattern =
-        classPatternSpecialCases.some((className) => classType.details.fullName === className) &&
+        isClass(matchType) &&
+        classPatternSpecialCases.some((className) => matchType.details.fullName === className) &&
         argIndex === 0 &&
         !arg.name;
 
     let argType: Type | undefined;
     if (useSelfForPattern) {
-        argType = ClassType.cloneAsInstance(classType);
+        argType = ClassType.cloneAsInstance(matchType);
     } else {
         if (argName) {
             argType = evaluator.useSpeculativeMode(arg, () =>
@@ -612,13 +626,20 @@ function narrowTypeOfClassPatternArgument(
                 // not technically an ExpressionNode, but it is OK to use it in this context.
                 evaluator.getTypeFromObjectMember(
                     arg as any as ExpressionNode,
-                    ClassType.cloneAsInstance(classType),
+                    ClassType.cloneAsInstance(matchType),
                     argName!
                 )
             )?.type;
         }
 
         if (!argType) {
+            // If the class type in question is "final", we know that no additional
+            // attributes can be added by subtypes, so it's safe to eliminate this
+            // type entirely.
+            if (ClassType.isFinal(matchType)) {
+                return NeverType.create();
+            }
+
             argType = UnknownType.create();
         }
     }
