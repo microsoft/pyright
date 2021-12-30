@@ -20394,13 +20394,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (srcFunction) {
-                if (typeVarMap) {
-                    const scopeId = getTypeVarScopeId(destType);
-                    if (scopeId !== WildcardTypeVarScopeId) {
-                        typeVarMap.addSolveForScope(scopeId);
-                    }
-                }
-
                 if (
                     canAssignFunction(
                         destType,
