@@ -291,7 +291,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             for (const aliasDecl of decls.filter((d) => isAliasDeclaration(d) && !d.loadSymbolsFromPath)) {
                 const node = (aliasDecl as AliasDeclaration).node;
                 if (node.nodeType === ParseNodeType.ImportFromAs) {
-                    // from ... import X case, decl in the submodulefallback has the path.
+                    // from ... import X case, decl in the submodule fallback has the path.
                     continue;
                 }
 

@@ -205,6 +205,10 @@ export class Binder extends ParseTreeWalker {
     // List of string nodes associated with the "__all__" symbol.
     private _dunderAllStringNodes: StringNode[] = [];
 
+    // One or more statements are manipulating __all__ in a manner that a
+    // static analyzer doesn't understand.
+    private _usesUnsupportedDunderAllForm = false;
+
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
         flags: FlowFlags.Unreachable,
@@ -293,6 +297,7 @@ export class Binder extends ParseTreeWalker {
             AnalyzerNodeInfo.setDunderAllInfo(node, {
                 names: this._dunderAllNames,
                 stringNodes: this._dunderAllStringNodes,
+                usesUnsupportedDunderAllForm: this._usesUnsupportedDunderAllForm,
             });
         } else {
             AnalyzerNodeInfo.setDunderAllInfo(node, undefined);
@@ -691,6 +696,8 @@ export class Binder extends ParseTreeWalker {
             }
 
             if (emitDunderAllWarning) {
+                this._usesUnsupportedDunderAllForm = true;
+
                 this._addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                     DiagnosticRule.reportUnsupportedDunderAll,
@@ -779,6 +786,8 @@ export class Binder extends ParseTreeWalker {
                 }
 
                 if (emitDunderAllWarning) {
+                    this._usesUnsupportedDunderAllForm = true;
+
                     this._addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                         DiagnosticRule.reportUnsupportedDunderAll,
@@ -932,6 +941,8 @@ export class Binder extends ParseTreeWalker {
             }
 
             if (emitDunderAllWarning) {
+                this._usesUnsupportedDunderAllForm = true;
+
                 this._addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                     DiagnosticRule.reportUnsupportedDunderAll,
@@ -2320,13 +2331,17 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
+        const namesToImport: string[] = [];
+
         // If a dunder all symbol is defined, it takes precedence.
         if (lookupInfo.dunderAllNames) {
-            return lookupInfo.dunderAllNames;
+            if (!lookupInfo.usesUnsupportedDunderAllForm) {
+                return lookupInfo.dunderAllNames;
+            }
+
+            namesToImport.push(...lookupInfo.dunderAllNames);
         }
 
-        // Import all names that don't begin with an underscore.
-        const namesToImport: string[] = [];
         lookupInfo.symbolTable.forEach((symbol, name) => {
             if (!symbol.isExternallyHidden()) {
                 namesToImport!.push(name);

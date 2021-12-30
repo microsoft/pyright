@@ -830,9 +830,12 @@ export class Program {
         const parseResults = sourceFileInfo.sourceFile.getParseResults();
         const moduleNode = parseResults!.parseTree;
 
+        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree);
+
         return {
             symbolTable,
-            dunderAllNames: AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree)?.names,
+            dunderAllNames: dunderAllInfo?.names,
+            usesUnsupportedDunderAllForm: dunderAllInfo?.usesUnsupportedDunderAllForm ?? false,
             get docString() {
                 return getDocString(moduleNode.statements);
             },

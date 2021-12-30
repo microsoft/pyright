@@ -30,6 +30,7 @@ import { Scope } from './scope';
 export interface DunderAllInfo {
     names: string[];
     stringNodes: StringNode[];
+    usesUnsupportedDunderAllForm: boolean;
 }
 
 interface AnalyzerNodeInfo {

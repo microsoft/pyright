@@ -21,6 +21,7 @@ export type ImportLookup = (filePath: string) => ImportLookupResult | undefined;
 export interface ImportLookupResult {
     symbolTable: SymbolTable;
     dunderAllNames: string[] | undefined;
+    usesUnsupportedDunderAllForm: boolean;
     docString: string | undefined;
 }
 
