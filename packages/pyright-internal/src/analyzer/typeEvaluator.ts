@@ -12131,8 +12131,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Creates an Optional[X] type.
-    function createOptionalType(errorNode: ParseNode, typeArgs?: TypeResult[]): Type {
-        if (!typeArgs || typeArgs.length !== 1) {
+    function createOptionalType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
+    ): Type {
+        if (!typeArgs) {
+            // If no type arguments are provided, the resulting type
+            // depends on whether we're evaluating a type annotation or
+            // we're in some other context.
+            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                addError(Localizer.Diagnostic.optionalExtraArgs(), errorNode);
+                return UnknownType.create();
+            }
+
+            return classType;
+        }
+
+        if (typeArgs.length > 1) {
             addError(Localizer.Diagnostic.optionalExtraArgs(), errorNode);
             return UnknownType.create();
         }
@@ -16397,7 +16414,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Optional': {
-                    return createOptionalType(errorNode, typeArgs);
+                    return createOptionalType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Type': {
