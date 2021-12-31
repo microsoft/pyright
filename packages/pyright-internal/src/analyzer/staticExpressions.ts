@@ -20,6 +20,10 @@ export function evaluateStaticBoolExpression(
     typingImportAliases?: string[],
     sysImportAliases?: string[]
 ): boolean | undefined {
+    if (node.nodeType === ParseNodeType.AssignmentExpression) {
+        return evaluateStaticBoolExpression(node.rightExpression, execEnv, typingImportAliases, sysImportAliases);
+    }
+
     if (node.nodeType === ParseNodeType.UnaryOperation) {
         if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
             const value = evaluateStaticBoolLikeExpression(

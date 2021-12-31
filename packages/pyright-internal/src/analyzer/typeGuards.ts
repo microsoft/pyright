@@ -92,11 +92,10 @@ export function getTypeNarrowingCallback(
     isPositiveTest: boolean
 ): TypeNarrowingCallback | undefined {
     if (testExpression.nodeType === ParseNodeType.AssignmentExpression) {
-        if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
-            testExpression = testExpression.rightExpression;
-        } else if (ParseTreeUtils.isMatchingExpression(reference, testExpression.name)) {
-            testExpression = testExpression.name;
-        }
+        return (
+            getTypeNarrowingCallback(evaluator, reference, testExpression.rightExpression, isPositiveTest) ??
+            getTypeNarrowingCallback(evaluator, reference, testExpression.name, isPositiveTest)
+        );
     }
 
     if (testExpression.nodeType === ParseNodeType.BinaryOperation) {

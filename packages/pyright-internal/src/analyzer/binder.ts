@@ -2653,6 +2653,12 @@ export class Binder extends ParseTreeWalker {
 
             case ParseNodeType.AssignmentExpression: {
                 expressionList.push(expression.name);
+                this._isNarrowingExpression(
+                    expression.rightExpression,
+                    expressionList,
+                    filterForNeverNarrowing,
+                    /* isComplexExpression */ true
+                );
                 return true;
             }
 

@@ -116,3 +116,21 @@ def func8(val: Optional[str] = None):
         val = get_string()
 
     t1: Literal["str | None"] = reveal_type(val)
+
+
+def func9(var: Optional[str] = None):
+    if var_not_None := not (var is None):
+        t1: Literal["str"] = reveal_type(var)
+
+    t2: Literal["str | None"] = reveal_type(var)
+
+    if var_not_None:
+        t3: Literal["str"] = reveal_type(var)
+
+    if 1 > 1 + 2:
+        var = None
+    else:
+        var = "" + ""
+
+    if var_not_None:
+        t4: Literal["str | None"] = reveal_type(var)
