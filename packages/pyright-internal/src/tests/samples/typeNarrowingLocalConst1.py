@@ -1,5 +1,6 @@
 # This sample tests the case where a local (constant) variable that
 # is assigned a narrowing expression can be used in a type guard condition.
+# These are sometimes referred to as "aliased conditional expressions".
 
 
 from typing import Literal, Optional, Union
@@ -83,3 +84,35 @@ def func6(x: Union[A, B]) -> None:
 
         if random.random() < 0.5:
             x = B()
+
+
+def get_string() -> str:
+    ...
+
+
+def get_optional_string() -> Optional[str]:
+    ...
+
+
+def func7(val: Optional[str] = None):
+    val = get_optional_string()
+
+    val_is_none = val is None
+
+    if val_is_none:
+        val = get_string()
+
+    t1: Literal["str"] = reveal_type(val)
+
+
+def func8(val: Optional[str] = None):
+    val = get_optional_string()
+
+    val_is_none = val is None
+
+    val = get_optional_string()
+
+    if val_is_none:
+        val = get_string()
+
+    t1: Literal["str | None"] = reveal_type(val)
