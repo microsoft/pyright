@@ -453,7 +453,7 @@ export function synthesizeDataClassMethods(
     const synthesizeHashNone =
         !ClassType.isSkipSynthesizedDataClassEq(classType) && !ClassType.isFrozenDataClass(classType);
 
-    if (!skipSynthesizeHash) {
+    if (skipSynthesizeHash) {
         synthesizeHashFunction = false;
     }
 
