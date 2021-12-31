@@ -327,6 +327,16 @@ test('DuplicateDeclaration2', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Strings1', () => {
+    const configOptions = new ConfigOptions('.');
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['strings1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportImplicitStringConcatenation = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['strings1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
+});
+
 // For now, this functionality is disabled.
 
 // test('Deprecated1', () => {

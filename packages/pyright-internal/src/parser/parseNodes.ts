@@ -1425,6 +1425,9 @@ export interface StringListNode extends ParseNodeBase {
     // a type annotation, they are further parsed
     // into an expression.
     typeAnnotation?: ExpressionNode;
+
+    // Indicates that the string list is enclosed in parens.
+    isParenthesized?: boolean;
 }
 
 export namespace StringListNode {

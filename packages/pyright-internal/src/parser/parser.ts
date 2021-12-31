@@ -3511,6 +3511,10 @@ export class Parser {
                 possibleTupleNode.parenthesized = true;
             }
 
+            if (possibleTupleNode.nodeType === ParseNodeType.StringList) {
+                possibleTupleNode.isParenthesized = true;
+            }
+
             return possibleTupleNode;
         } else if (nextToken.type === TokenType.OpenBracket) {
             const listNode = this._parseListAtom();

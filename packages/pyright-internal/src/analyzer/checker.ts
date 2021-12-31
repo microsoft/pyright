@@ -1140,7 +1140,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.getType(node);
         }
 
-        if (node.strings.length > 1) {
+        if (node.strings.length > 1 && !node.isParenthesized) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
                 this._fileInfo.diagnosticRuleSet.reportImplicitStringConcatenation,
