@@ -21944,6 +21944,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (result) {
                             assignedSubtype = ClassType.cloneAsInstance(result);
                         }
+                    } else if (!isTypeVar(declaredSubtype) && isTypeVar(assignedSubtype)) {
+                        // If the source is an unsolved TypeVar but the declared type is concrete,
+                        // use the concrete type.
+                        return declaredType;
                     } else if (isAnyOrUnknown(assignedSubtype)) {
                         // Any or Unknown do not narrow because they're assignable to all types.
                         return declaredType;
