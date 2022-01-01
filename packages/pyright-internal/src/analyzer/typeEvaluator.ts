@@ -334,6 +334,13 @@ interface ClassMemberLookup {
     // True if class member, false otherwise.
     isClassMember: boolean;
 
+    // The class that declares the accessed member.
+    classType?: ClassType | UnknownType;
+
+    // True if the member is explicitly declared as ClassVar
+    // within a Protocol.
+    isClassVar: boolean;
+
     // Is member a descriptor object that is asymmetric with respect
     // to __get__ and __set__ types?
     isAsymmetricDescriptor: boolean;
@@ -1620,6 +1627,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
+        // If this is a protocol class X and we're accessing a non ClassVar,
+        // emit an error.
+        if (
+            memberInfo &&
+            !memberInfo.isClassVar &&
+            memberInfo.classType &&
+            isClass(memberInfo.classType) &&
+            ClassType.isProtocolClass(memberInfo.classType)
+        ) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.protocolMemberNotClassVar().format({
+                    memberName,
+                    className: memberInfo.classType.details.name,
+                }),
+                errorNode
+            );
+        }
+
         // If it wasn't found on the class, see if it's part of the metaclass.
         if (!memberInfo) {
             const metaclass = classType.details.effectiveMetaclass;
@@ -1644,6 +1671,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isAsymmetricDescriptor: memberInfo.isAsymmetricDescriptor,
             };
         }
+
         return undefined;
     }
 
@@ -4775,6 +4803,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type,
                 isTypeIncomplete,
                 isClassMember: !memberInfo.isInstanceMember,
+                isClassVar: memberInfo.isClassVar,
+                classType: memberInfo.classType,
                 isAsymmetricDescriptor: descriptorResult.isAsymmetricDescriptor,
             };
         }
@@ -4810,6 +4840,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type: descriptorResult.type,
                     isTypeIncomplete: false,
                     isClassMember: false,
+                    isClassVar: false,
                     isAsymmetricDescriptor: descriptorResult.isAsymmetricDescriptor,
                 };
             }
@@ -4818,6 +4849,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (diag) {
             diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
         }
+
         return undefined;
     }
 

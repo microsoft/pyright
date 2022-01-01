@@ -68,6 +68,9 @@ export interface ClassMember {
     // True if instance member, false if class member
     isInstanceMember: boolean;
 
+    // True if explicitly declared as "ClassVar"
+    isClassVar: boolean;
+
     // True if member has declared type, false if inferred
     isTypeDeclared: boolean;
 }
@@ -806,6 +809,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                     const cm: ClassMember = {
                         symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
                         isInstanceMember: false,
+                        isClassVar: true,
                         classType: UnknownType.create(),
                         isTypeDeclared: false,
                     };
@@ -829,6 +833,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                         const cm: ClassMember = {
                             symbol,
                             isInstanceMember: true,
+                            isClassVar: symbol.isClassVar(),
                             classType: specializedMroClass,
                             isTypeDeclared: hasDeclaredType,
                         };
@@ -859,6 +864,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                     const cm: ClassMember = {
                         symbol,
                         isInstanceMember,
+                        isClassVar: symbol.isClassVar(),
                         classType: specializedMroClass,
                         isTypeDeclared: hasDeclaredType,
                     };
@@ -872,6 +878,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
         const cm: ClassMember = {
             symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
             isInstanceMember: false,
+            isClassVar: true,
             classType: UnknownType.create(),
             isTypeDeclared: false,
         };
@@ -944,6 +951,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                     classType: mroClass,
                     symbol,
                     isInstanceMember: symbol.isInstanceMember(),
+                    isClassVar: symbol.isClassVar(),
                     isTypeDeclared: true,
                 });
             }
