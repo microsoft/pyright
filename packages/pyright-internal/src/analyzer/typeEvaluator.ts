@@ -243,6 +243,7 @@ import {
     partiallySpecializeType,
     populateTypeVarMapForSelfType,
     removeNoReturnFromUnion,
+    removeParamSpecVariadicsFromFunction,
     removeParamSpecVariadicsFromSignature,
     requiresSpecialization,
     requiresTypeArguments,
@@ -21240,6 +21241,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const checkReturnType = (flags & CanAssignFlags.SkipFunctionReturnTypeCheck) === 0;
         flags &= ~CanAssignFlags.SkipFunctionReturnTypeCheck;
 
+        destType = removeParamSpecVariadicsFromFunction(destType);
+        srcType = removeParamSpecVariadicsFromFunction(srcType);
+
         const destParamDetails = getParameterListDetails(destType);
         const srcParamDetails = getParameterListDetails(srcType);
         adjustSourceParamDetailsForDestVariadic(srcType, srcParamDetails, destParamDetails);
@@ -21745,6 +21749,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         })
                     );
                 }
+                canAssign = false;
+            }
+        }
+
+        // If the source and the dest are using the same ParamSpec, any additional
+        // concatenated parameters must match.
+        if (
+            isParamSpecInvolved &&
+            srcType.details.paramSpec?.nameWithScope === destType.details.paramSpec?.nameWithScope
+        ) {
+            if (srcType.details.parameters.length !== destType.details.parameters.length) {
                 canAssign = false;
             }
         }

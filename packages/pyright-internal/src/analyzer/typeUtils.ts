@@ -1714,14 +1714,14 @@ export function specializeTupleClass(
 // it removes these parameters from the function.
 export function removeParamSpecVariadicsFromSignature(type: FunctionType | OverloadedFunctionType) {
     if (isFunction(type)) {
-        return _removeParamSpecVariadicsFromFunction(type);
+        return removeParamSpecVariadicsFromFunction(type);
     }
 
     const newOverloads: FunctionType[] = [];
     let newTypeNeeded = false;
 
     for (const overload of type.overloads) {
-        const newOverload = _removeParamSpecVariadicsFromFunction(overload);
+        const newOverload = removeParamSpecVariadicsFromFunction(overload);
         newOverloads.push(newOverload);
         if (newOverload !== overload) {
             newTypeNeeded = true;
@@ -1731,7 +1731,7 @@ export function removeParamSpecVariadicsFromSignature(type: FunctionType | Overl
     return newTypeNeeded ? OverloadedFunctionType.create(newOverloads) : type;
 }
 
-function _removeParamSpecVariadicsFromFunction(type: FunctionType): FunctionType {
+export function removeParamSpecVariadicsFromFunction(type: FunctionType): FunctionType {
     const paramCount = type.details.parameters.length;
     if (paramCount < 2) {
         return type;
