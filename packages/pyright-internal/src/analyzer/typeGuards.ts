@@ -44,6 +44,7 @@ import {
     isNoneInstance,
     isNoneTypeClass,
     isOverloadedFunction,
+    isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
     NeverType,
@@ -75,6 +76,7 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
+    stripLiteralValue,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
@@ -1117,22 +1119,34 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
         return referenceType;
     }
 
-    const typeArg = containerType.typeArguments[0];
+    let elementType = containerType.typeArguments[0];
+    if (isTupleClass(containerType) && !isOpenEndedTupleClass(containerType) && containerType.tupleTypeArguments) {
+        elementType = combineTypes(containerType.tupleTypeArguments);
+    }
+
     let canNarrow = true;
+    const elementTypeWithoutLiteral = stripLiteralValue(elementType);
 
-    const narrowedType = mapSubtypes(referenceType, (subtype) => {
-        if (isAnyOrUnknown(subtype)) {
+    const narrowedType = mapSubtypes(referenceType, (referenceSubtype) => {
+        if (isAnyOrUnknown(referenceSubtype)) {
             canNarrow = false;
-            return subtype;
+            return referenceSubtype;
         }
 
-        if (!evaluator.canAssignType(typeArg, subtype)) {
-            // If the reference type isn't assignable to the element type, we will
-            // assume that the __contains__ method will return false.
-            return undefined;
+        if (evaluator.canAssignType(elementType, referenceSubtype)) {
+            return referenceSubtype;
         }
 
-        return subtype;
+        if (evaluator.canAssignType(elementTypeWithoutLiteral, referenceSubtype)) {
+            return mapSubtypes(elementType, (elementSubtype) => {
+                if (isClassInstance(elementSubtype) && isSameWithoutLiteralValue(referenceSubtype, elementSubtype)) {
+                    return elementSubtype;
+                }
+                return undefined;
+            });
+        }
+
+        return undefined;
     });
 
     return canNarrow ? narrowedType : referenceType;
