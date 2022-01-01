@@ -297,6 +297,33 @@ export function getTypeNarrowingCallback(
                     }
                 }
             }
+
+            // Look for len(x) == <literal> or len(x) != <literal>
+            if (
+                equalsOrNotEqualsOperator &&
+                testExpression.leftExpression.nodeType === ParseNodeType.Call &&
+                testExpression.leftExpression.arguments.length === 1 &&
+                testExpression.rightExpression.nodeType === ParseNodeType.Number &&
+                testExpression.rightExpression.isInteger
+            ) {
+                const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
+
+                if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+                    const callType = evaluator.getTypeOfExpression(
+                        testExpression.leftExpression.leftExpression,
+                        /* expectedType */ undefined,
+                        EvaluatorFlags.DoNotSpecialize
+                    ).type;
+
+                    if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
+                        const tupleLength = testExpression.rightExpression.value;
+
+                        return (type: Type) => {
+                            return narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest);
+                        };
+                    }
+                }
+            }
         }
 
         if (testExpression.operator === OperatorType.In) {
@@ -1099,6 +1126,31 @@ function narrowTypeForIsInstance(
     }
 
     return filteredType;
+}
+
+// Attempts to narrow a union of tuples based on their known length.
+function narrowTypeForTupleLength(
+    evaluator: TypeEvaluator,
+    referenceType: Type,
+    lengthValue: number,
+    isPositiveTest: boolean
+) {
+    return mapSubtypes(referenceType, (subtype) => {
+        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+        // If it's not a tuple, we can't narrow it.
+        if (
+            !isClassInstance(concreteSubtype) ||
+            !isTupleClass(concreteSubtype) ||
+            isOpenEndedTupleClass(concreteSubtype) ||
+            !concreteSubtype.tupleTypeArguments
+        ) {
+            return subtype;
+        }
+
+        const tupleLengthMatches = concreteSubtype.tupleTypeArguments.length === lengthValue;
+        return tupleLengthMatches === isPositiveTest ? subtype : undefined;
+    });
 }
 
 // Attempts to narrow a type (make it more constrained) based on an "in" or
