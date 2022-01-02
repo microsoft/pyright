@@ -18067,6 +18067,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
+    // If treatSourceAsInstantiable is true, we're comparing the class object against the
+    // protocol. If it's false, we're comparing the class instance against the protocol.
     function canAssignClassToProtocol(
         destType: ClassType,
         srcType: ClassType,
@@ -18127,6 +18129,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
                 let isMemberFromMetaclass = false;
                 let srcMemberInfo: ClassMember | undefined;
+
+                // Special-case the `__class_getitem__` for normal protocol comparison.
+                // This is a convention agreed upon by typeshed maintainers.
+                if (!treatSourceAsInstantiable && name === '__class_getitem__') {
+                    return;
+                }
+
+                // Special-case the `__slots__` entry for all protocol comparisons.
+                // This is a convention agreed upon by typeshed maintainers.
+                if (name === '__slots__') {
+                    return;
+                }
 
                 // Look in the metaclass first if we're treating the source as an instantiable class.
                 if (
