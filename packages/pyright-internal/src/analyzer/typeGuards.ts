@@ -71,8 +71,8 @@ import {
     isLiteralType,
     isLiteralTypeOrUnion,
     isNoReturnType,
-    isOpenEndedTupleClass,
     isTupleClass,
+    isUnboundedTupleClass,
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
@@ -632,7 +632,7 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
         if (
             !isClassInstance(subtype) ||
             !isTupleClass(subtype) ||
-            isOpenEndedTupleClass(subtype) ||
+            isUnboundedTupleClass(subtype) ||
             !subtype.tupleTypeArguments
         ) {
             return subtype;
@@ -731,7 +731,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
         if (isClass(subtype) && TypeBase.isInstance(subtype) && isTupleClass(subtype)) {
             if (subtype.tupleTypeArguments) {
                 addClassTypesToList(
-                    isOpenEndedTupleClass(subtype) ? [subtype.tupleTypeArguments[0]] : subtype.tupleTypeArguments
+                    isUnboundedTupleClass(subtype) ? [subtype.tupleTypeArguments[0]] : subtype.tupleTypeArguments
                 );
             }
         } else {
@@ -1142,7 +1142,7 @@ function narrowTypeForTupleLength(
         if (
             !isClassInstance(concreteSubtype) ||
             !isTupleClass(concreteSubtype) ||
-            isOpenEndedTupleClass(concreteSubtype) ||
+            isUnboundedTupleClass(concreteSubtype) ||
             !concreteSubtype.tupleTypeArguments
         ) {
             return subtype;
@@ -1172,7 +1172,7 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
     }
 
     let elementType = containerType.typeArguments[0];
-    if (isTupleClass(containerType) && !isOpenEndedTupleClass(containerType) && containerType.tupleTypeArguments) {
+    if (isTupleClass(containerType) && !isUnboundedTupleClass(containerType) && containerType.tupleTypeArguments) {
         elementType = combineTypes(containerType.tupleTypeArguments);
     }
 
@@ -1309,7 +1309,7 @@ function narrowTypeForDiscriminatedTupleComparison(
     let canNarrow = true;
 
     const narrowedType = mapSubtypes(referenceType, (subtype) => {
-        if (isClassInstance(subtype) && ClassType.isTupleClass(subtype) && !isOpenEndedTupleClass(subtype)) {
+        if (isClassInstance(subtype) && ClassType.isTupleClass(subtype) && !isUnboundedTupleClass(subtype)) {
             const indexValue = indexLiteralType.literalValue as number;
             if (subtype.tupleTypeArguments && indexValue >= 0 && indexValue < subtype.tupleTypeArguments.length) {
                 const tupleEntryType = subtype.tupleTypeArguments[indexValue];

@@ -664,7 +664,7 @@ export function isTupleClass(type: ClassType) {
 // Indicates whether the type is a tuple class of
 // the form tuple[x, ...] where the number of elements
 // in the tuple is unknown.
-export function isOpenEndedTupleClass(type: ClassType) {
+export function isUnboundedTupleClass(type: ClassType) {
     return (
         type.tupleTypeArguments && type.tupleTypeArguments.length === 2 && isEllipsisType(type.tupleTypeArguments[1])
     );
@@ -1623,7 +1623,7 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
     doForEachSubtype(type, (subtype) => {
         if (isClassInstance(subtype)) {
             let tupleClass: ClassType | undefined;
-            if (isClass(subtype) && isTupleClass(subtype) && !isOpenEndedTupleClass(subtype)) {
+            if (isClass(subtype) && isTupleClass(subtype) && !isUnboundedTupleClass(subtype)) {
                 tupleClass = subtype;
             }
 
@@ -1631,7 +1631,7 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
                 // Look in the mro list to see if this subtype derives from a
                 // tuple with a known size. This includes named tuples.
                 tupleClass = subtype.details.mro.find(
-                    (mroClass) => isClass(mroClass) && isTupleClass(mroClass) && !isOpenEndedTupleClass(mroClass)
+                    (mroClass) => isClass(mroClass) && isTupleClass(mroClass) && !isUnboundedTupleClass(mroClass)
                 ) as ClassType | undefined;
             }
 

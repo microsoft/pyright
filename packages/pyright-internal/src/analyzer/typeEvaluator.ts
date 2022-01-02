@@ -227,13 +227,13 @@ import {
     isLiteralType,
     isLiteralTypeOrUnion,
     isNoReturnType,
-    isOpenEndedTupleClass,
     isOptionalType,
     isPartlyUnknown,
     isProperty,
     isTupleClass,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
+    isUnboundedTupleClass,
     isUnionableType,
     lookUpClassMember,
     lookUpObjectMember,
@@ -1398,7 +1398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Handle tuples specially.
                 if (isTupleClass(type) && type.tupleTypeArguments) {
-                    return isOpenEndedTupleClass(type) || type.tupleTypeArguments.length === 0;
+                    return isUnboundedTupleClass(type) || type.tupleTypeArguments.length === 0;
                 }
 
                 // Check for Literal[False] and Literal[True].
@@ -2841,7 +2841,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const sourceEntryCount = sourceEntryTypes.length;
 
                 // Is this a homogenous tuple of indeterminate length?
-                if (isOpenEndedTupleClass(tupleType)) {
+                if (isUnboundedTupleClass(tupleType)) {
                     for (let index = 0; index < target.expressions.length; index++) {
                         targetTypes[index].push(addConditionToType(sourceEntryTypes[0], getTypeCondition(subtype)));
                     }
@@ -5912,7 +5912,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const tupleType = getSpecializedTupleType(baseType);
 
                 if (tupleType && tupleType.tupleTypeArguments) {
-                    if (isOpenEndedTupleClass(tupleType)) {
+                    if (isUnboundedTupleClass(tupleType)) {
                         return { node, type: tupleType.tupleTypeArguments[0] };
                     } else if (indexValue >= 0 && indexValue < tupleType.tupleTypeArguments.length) {
                         return { node, type: tupleType.tupleTypeArguments[indexValue] };
@@ -5925,7 +5925,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType, 'slice')) {
                 const tupleType = getSpecializedTupleType(baseType);
-                if (tupleType && tupleType.tupleTypeArguments && !isOpenEndedTupleClass(tupleType)) {
+                if (tupleType && tupleType.tupleTypeArguments && !isUnboundedTupleClass(tupleType)) {
                     if (index0Expr.nodeType === ParseNodeType.Slice && !index0Expr.stepValue) {
                         // Create a local helper function to evaluate the slice parameters.
                         const getSliceParameter = (expression: ExpressionNode | undefined, defaultValue: number) => {
@@ -6279,7 +6279,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Is this a homogeneous tuple of indeterminate length? If so,
             // match the number of expected types to the number of entries
             // in the tuple expression.
-            if (isOpenEndedTupleClass(expectedType)) {
+            if (isUnboundedTupleClass(expectedType)) {
                 const homogenousType = transformPossibleRecursiveTypeAlias(expectedType.tupleTypeArguments[0]);
                 for (let i = 0; i < node.expressions.length; i++) {
                     expectedTypes.push(homogenousType);
@@ -6361,7 +6361,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // If the Tuple wasn't specialized or has a "..." type parameter, we can't
                     // make any determination about its contents.
-                    if (!typeArgs || isOpenEndedTupleClass(typeResult.unpackedType)) {
+                    if (!typeArgs || isUnboundedTupleClass(typeResult.unpackedType)) {
                         entryTypes.push(typeResult.type);
                         isOpenEnded = true;
                     } else {
@@ -10704,11 +10704,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 isClassInstance(leftSubtypeExpanded) &&
                                 isTupleClass(leftSubtypeExpanded) &&
                                 leftSubtypeExpanded.tupleTypeArguments &&
-                                !isOpenEndedTupleClass(leftSubtypeExpanded) &&
+                                !isUnboundedTupleClass(leftSubtypeExpanded) &&
                                 isClassInstance(rightSubtypeExpanded) &&
                                 isTupleClass(rightSubtypeExpanded) &&
                                 rightSubtypeExpanded.tupleTypeArguments &&
-                                !isOpenEndedTupleClass(rightSubtypeExpanded) &&
+                                !isUnboundedTupleClass(rightSubtypeExpanded) &&
                                 tupleClassType &&
                                 isInstantiableClass(tupleClassType)
                             ) {

@@ -39,8 +39,8 @@ import {
 import {
     computeMroLinearization,
     convertToInstance,
-    isOpenEndedTupleClass,
     isTupleClass,
+    isUnboundedTupleClass,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
@@ -77,7 +77,7 @@ export function createNamedTupleType(
         if (
             isClassInstance(defaultsArgType) &&
             isTupleClass(defaultsArgType) &&
-            !isOpenEndedTupleClass(defaultsArgType) &&
+            !isUnboundedTupleClass(defaultsArgType) &&
             defaultsArgType.tupleTypeArguments
         ) {
             defaultArgCount = defaultsArgType.tupleTypeArguments.length;

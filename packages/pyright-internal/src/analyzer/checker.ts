@@ -144,10 +144,10 @@ import {
     isLiteralType,
     isLiteralTypeOrUnion,
     isNoReturnType,
-    isOpenEndedTupleClass,
     isPartlyUnknown,
     isProperty,
     isTupleClass,
+    isUnboundedTupleClass,
     lookUpClassMember,
     mapSubtypes,
     partiallySpecializeType,
@@ -969,7 +969,7 @@ export class Checker extends ParseTreeWalker {
         if (type && isClassInstance(type)) {
             if (isTupleClass(type) && type.tupleTypeArguments) {
                 if (type.tupleTypeArguments.length > 0) {
-                    if (!isOpenEndedTupleClass(type)) {
+                    if (!isUnboundedTupleClass(type)) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             this._fileInfo.diagnosticRuleSet.reportAssertAlwaysTrue,
@@ -1010,7 +1010,7 @@ export class Checker extends ParseTreeWalker {
         // If the index is a literal integer, see if this is a tuple with
         // a known length and the integer value exceeds the length.
         const baseType = this._evaluator.getType(node.baseExpression);
-        if (baseType && isClassInstance(baseType) && baseType.tupleTypeArguments && !isOpenEndedTupleClass(baseType)) {
+        if (baseType && isClassInstance(baseType) && baseType.tupleTypeArguments && !isUnboundedTupleClass(baseType)) {
             const tupleLength = baseType.tupleTypeArguments.length;
 
             if (

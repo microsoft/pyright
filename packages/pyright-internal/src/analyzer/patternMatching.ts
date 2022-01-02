@@ -53,8 +53,8 @@ import {
     getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
-    isOpenEndedTupleClass,
     isTupleClass,
+    isUnboundedTupleClass,
     lookUpClassMember,
     mapSubtypes,
     partiallySpecializeType,
@@ -181,7 +181,7 @@ function narrowTypeBasedOnSequencePattern(
                 if (
                     isClassInstance(narrowedEntryType) &&
                     narrowedEntryType.tupleTypeArguments &&
-                    !isOpenEndedTupleClass(narrowedEntryType) &&
+                    !isUnboundedTupleClass(narrowedEntryType) &&
                     narrowedEntryType.tupleTypeArguments
                 ) {
                     narrowedEntryTypes.push(...narrowedEntryType.tupleTypeArguments);
@@ -356,7 +356,7 @@ function getPositionalMatchArgNames(evaluator: TypeEvaluator, type: ClassType): 
         if (
             isClassInstance(matchArgsType) &&
             isTupleClass(matchArgsType) &&
-            !isOpenEndedTupleClass(matchArgsType) &&
+            !isUnboundedTupleClass(matchArgsType) &&
             matchArgsType.tupleTypeArguments
         ) {
             const tupleArgs = matchArgsType.tupleTypeArguments;
@@ -848,7 +848,7 @@ function getSequencePatternInfo(
 
                 if (isTupleClass(specializedSequence)) {
                     if (specializedSequence.tupleTypeArguments) {
-                        if (isOpenEndedTupleClass(specializedSequence)) {
+                        if (isUnboundedTupleClass(specializedSequence)) {
                             sequenceInfo.push({
                                 subtype,
                                 entryTypes: [specializedSequence.tupleTypeArguments[0]],
