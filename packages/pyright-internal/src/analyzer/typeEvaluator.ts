@@ -9069,12 +9069,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarMap);
                 }
 
+                let effectiveFlags = CanAssignFlags.AllowTypeVarNarrowing;
+                if (containsLiteralType(effectiveExpectedType, /* includeTypeArgs */ true)) {
+                    effectiveFlags |= CanAssignFlags.RetainLiteralsForTypeVar;
+                }
+
                 canAssignType(
                     effectiveReturnType,
                     effectiveExpectedType,
                     /* diag */ undefined,
                     typeVarMap,
-                    CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar
+                    effectiveFlags
                 );
             }
         }

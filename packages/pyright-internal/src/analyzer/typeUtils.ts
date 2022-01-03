@@ -639,6 +639,24 @@ export function containsLiteralType(type: Type, includeTypeArgs = false, recursi
         return type.subtypes.some((subtype) => containsLiteralType(subtype, includeTypeArgs, recursionCount + 1));
     }
 
+    if (isOverloadedFunction(type)) {
+        return type.overloads.some((overload) => containsLiteralType(overload, includeTypeArgs, recursionCount + 1));
+    }
+
+    if (isFunction(type)) {
+        const returnType = FunctionType.getSpecializedReturnType(type);
+        if (returnType && containsLiteralType(returnType, includeTypeArgs, recursionCount + 1)) {
+            return true;
+        }
+
+        for (let i = 0; i < type.details.parameters.length; i++) {
+            const paramType = FunctionType.getEffectiveParameterType(type, i);
+            if (containsLiteralType(paramType, includeTypeArgs, recursionCount + 1)) {
+                return true;
+            }
+        }
+    }
+
     return false;
 }
 

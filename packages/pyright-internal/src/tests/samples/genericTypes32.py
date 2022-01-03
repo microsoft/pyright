@@ -4,14 +4,22 @@
 # We need to validate that the type inference for lists
 # is not over-narrowing when matching these literals.
 
-from typing import List, Tuple, TypeVar
+from typing import Callable, List, Tuple, TypeVar
 
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
-def extend_if(xs: List[T], ys: List[Tuple[T, bool]]) -> List[T]:
+def extend_if(xs: List[_T], ys: List[Tuple[_T, bool]]) -> List[_T]:
     raise NotImplementedError()
 
 
 extend_if(["foo"], [("bar", True), ("baz", True)])
+
+
+def Return(value: _T) -> Callable[[_T], None]:
+    ...
+
+
+def func1() -> Callable[[bool], None]:
+    return Return(True)
