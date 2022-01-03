@@ -46,6 +46,7 @@ import {
     ParamSpecValue,
     removeFromUnion,
     SpecializedFunctionTypes,
+    TupleTypeArgument,
     Type,
     TypeBase,
     TypeCategory,
@@ -628,7 +629,7 @@ export function containsLiteralType(type: Type, includeTypeArgs = false, recursi
     }
 
     if (includeTypeArgs && isClass(type)) {
-        const typeArgs = type.tupleTypeArguments || type.typeArguments;
+        const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
         if (typeArgs) {
             return typeArgs.some((typeArg) => containsLiteralType(typeArg, includeTypeArgs, recursionCount + 1));
         }
@@ -665,9 +666,7 @@ export function isTupleClass(type: ClassType) {
 // the form tuple[x, ...] where the number of elements
 // in the tuple is unknown.
 export function isUnboundedTupleClass(type: ClassType) {
-    return (
-        type.tupleTypeArguments && type.tupleTypeArguments.length === 2 && isEllipsisType(type.tupleTypeArguments[1])
-    );
+    return type.tupleTypeArguments && type.tupleTypeArguments.some((t) => t.isUnbounded);
 }
 
 // Partially specializes a type within the context of a specified
@@ -1092,7 +1091,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
             }
             if (destType.tupleTypeArguments) {
                 destType.tupleTypeArguments.forEach((typeArg) => {
-                    setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
+                    setTypeArgumentsRecursive(typeArg.type, srcType, typeVarMap, recursionCount + 1);
                 });
             }
             break;
@@ -1546,7 +1545,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
         }
 
         if (!allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
-            const typeArgs = type.tupleTypeArguments || type.typeArguments;
+            const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
             if (typeArgs) {
                 for (const argType of typeArgs) {
                     if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
@@ -1613,7 +1612,7 @@ export function explodeGenericClass(classType: ClassType) {
 // If the type is a union of same-sized tuples, these are combined into
 // a single tuple with that size. Otherwise, returns undefined.
 export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) {
-    if (!tupleType || !isInstantiableClass(tupleType)) {
+    if (!tupleType || !isInstantiableClass(tupleType) || isUnboundedTupleClass(tupleType)) {
         return undefined;
     }
 
@@ -1639,13 +1638,13 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
                 if (tupleEntries) {
                     if (tupleEntries.length === tupleClass.tupleTypeArguments.length) {
                         tupleClass.tupleTypeArguments.forEach((entry, index) => {
-                            tupleEntries![index].push(entry);
+                            tupleEntries![index].push(entry.type);
                         });
                     } else {
                         isValid = false;
                     }
                 } else {
-                    tupleEntries = tupleClass.tupleTypeArguments.map((entry) => [entry]);
+                    tupleEntries = tupleClass.tupleTypeArguments.map((entry) => [entry.type]);
                 }
             } else {
                 isValid = false;
@@ -1662,7 +1661,9 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
     return convertToInstance(
         specializeTupleClass(
             tupleType,
-            tupleEntries.map((entry) => combineTypes(entry))
+            tupleEntries.map((entry) => {
+                return { type: combineTypes(entry), isUnbounded: false };
+            })
         )
     );
 }
@@ -1673,17 +1674,12 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
 // computing the effective type args.
 export function specializeTupleClass(
     classType: ClassType,
-    typeArgs: Type[],
+    typeArgs: TupleTypeArgument[],
     isTypeArgumentExplicit = true,
     stripLiterals = true,
     isForUnpackedVariadicTypeVar = false
 ): ClassType {
-    let combinedTupleType: Type = AnyType.create(/* isEllipsis */ false);
-    if (typeArgs.length === 2 && isEllipsisType(typeArgs[1])) {
-        combinedTupleType = typeArgs[0];
-    } else {
-        combinedTupleType = combineTypes(typeArgs);
-    }
+    let combinedTupleType = combineTypes(typeArgs.map((t) => t.type));
 
     if (stripLiterals) {
         combinedTupleType = stripLiteralValue(combinedTupleType);
@@ -1760,7 +1756,7 @@ function _expandVariadicUnpackedUnion(type: Type) {
         type.tupleTypeArguments &&
         type.isTupleForUnpackedVariadicTypeVar
     ) {
-        return combineTypes(type.tupleTypeArguments);
+        return combineTypes(type.tupleTypeArguments.map((t) => t.type));
     }
 
     return type;
@@ -2231,7 +2227,7 @@ class TypeVarTransformer {
         return typeVar;
     }
 
-    transformVariadicTypeVar(paramSpec: TypeVarType): Type[] | undefined {
+    transformVariadicTypeVar(paramSpec: TypeVarType): TupleTypeArgument[] | undefined {
         return undefined;
     }
 
@@ -2254,7 +2250,7 @@ class TypeVarTransformer {
         }
 
         let newTypeArgs: Type[] = [];
-        let newVariadicTypeArgs: Type[] | undefined;
+        let newVariadicTypeArgs: TupleTypeArgument[] | undefined;
         let specializationNeeded = false;
         const typeParams = ClassType.getTypeParameters(classType);
 
@@ -2345,21 +2341,21 @@ class TypeVarTransformer {
             if (classType.tupleTypeArguments) {
                 newVariadicTypeArgs = [];
                 classType.tupleTypeArguments.forEach((oldTypeArgType) => {
-                    const newTypeArgType = this.apply(oldTypeArgType, recursionSet, recursionLevel + 1);
+                    const newTypeArgType = this.apply(oldTypeArgType.type, recursionSet, recursionLevel + 1);
 
-                    if (newTypeArgType !== oldTypeArgType) {
+                    if (newTypeArgType !== oldTypeArgType.type) {
                         specializationNeeded = true;
                     }
 
                     if (
-                        isVariadicTypeVar(oldTypeArgType) &&
+                        isVariadicTypeVar(oldTypeArgType.type) &&
                         isClassInstance(newTypeArgType) &&
                         isTupleClass(newTypeArgType) &&
                         newTypeArgType.tupleTypeArguments
                     ) {
                         newVariadicTypeArgs!.push(...newTypeArgType.tupleTypeArguments);
                     } else {
-                        newVariadicTypeArgs!.push(newTypeArgType);
+                        newVariadicTypeArgs!.push({ type: newTypeArgType, isUnbounded: oldTypeArgType.isUnbounded });
                     }
                 });
             } else if (typeParams.length > 0) {
@@ -2445,7 +2441,7 @@ class TypeVarTransformer {
         }
 
         let variadicParamIndex: number | undefined;
-        let variadicTypesToUnpack: Type[] | undefined;
+        let variadicTypesToUnpack: TupleTypeArgument[] | undefined;
 
         for (let i = 0; i < functionType.details.parameters.length; i++) {
             const paramType = FunctionType.getEffectiveParameterType(functionType, i);
@@ -2504,7 +2500,7 @@ class TypeVarTransformer {
                         category: ParameterCategory.Simple,
                         name: `__p${newFunctionType.details.parameters.length}`,
                         isNameSynthesized: true,
-                        type: unpackedType,
+                        type: unpackedType.type,
                         hasDeclaredType: true,
                     });
                 });

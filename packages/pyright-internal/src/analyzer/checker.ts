@@ -2507,7 +2507,7 @@ export class Checker extends ParseTreeWalker {
             if (isClassInstance(arg1Subtype) && ClassType.isTupleClass(arg1Subtype) && arg1Subtype.tupleTypeArguments) {
                 if (
                     arg1Subtype.tupleTypeArguments.some(
-                        (typeArg) => !this._isTypeSupportedTypeForIsInstance(typeArg, isInstanceCheck)
+                        (typeArg) => !this._isTypeSupportedTypeForIsInstance(typeArg.type, isInstanceCheck)
                     )
                 ) {
                     isValidType = false;
@@ -2584,10 +2584,10 @@ export class Checker extends ParseTreeWalker {
                     if (isTupleClass(arg1Subtype)) {
                         if (arg1Subtype.tupleTypeArguments) {
                             arg1Subtype.tupleTypeArguments.forEach((typeArg) => {
-                                if (isInstantiableClass(typeArg)) {
-                                    classTypeList.push(typeArg);
+                                if (isInstantiableClass(typeArg.type)) {
+                                    classTypeList.push(typeArg.type);
 
-                                    if (typeArg.includeSubclasses) {
+                                    if (typeArg.type.includeSubclasses) {
                                         arg1IncludesSubclasses = true;
                                     }
                                 } else {

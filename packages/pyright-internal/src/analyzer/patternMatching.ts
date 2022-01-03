@@ -184,7 +184,7 @@ function narrowTypeBasedOnSequencePattern(
                     !isUnboundedTupleClass(narrowedEntryType) &&
                     narrowedEntryType.tupleTypeArguments
                 ) {
-                    narrowedEntryTypes.push(...narrowedEntryType.tupleTypeArguments);
+                    narrowedEntryTypes.push(...narrowedEntryType.tupleTypeArguments.map((t) => t.type));
                 } else {
                     narrowedEntryTypes.push(narrowedEntryType);
                     canNarrowTuple = false;
@@ -205,7 +205,14 @@ function narrowTypeBasedOnSequencePattern(
             if (canNarrowTuple) {
                 const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    entry.subtype = ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, narrowedEntryTypes));
+                    entry.subtype = ClassType.cloneAsInstance(
+                        specializeTupleClass(
+                            tupleClassType,
+                            narrowedEntryTypes.map((t) => {
+                                return { type: t, isUnbounded: false };
+                            })
+                        )
+                    );
                 }
             }
 
@@ -363,12 +370,12 @@ function getPositionalMatchArgNames(evaluator: TypeEvaluator, type: ClassType): 
 
             // Are all the args string literals?
             if (
-                !tupleArgs.some(
-                    (argType) =>
-                        !isClassInstance(argType) || !ClassType.isBuiltIn(argType, 'str') || !isLiteralType(argType)
+                tupleArgs.every(
+                    (arg) =>
+                        isClassInstance(arg.type) && ClassType.isBuiltIn(arg.type, 'str') && isLiteralType(arg.type)
                 )
             ) {
-                return tupleArgs.map((argType) => (argType as ClassType).literalValue as string);
+                return tupleArgs.map((arg) => (arg.type as ClassType).literalValue as string);
             }
         }
     }
@@ -851,7 +858,7 @@ function getSequencePatternInfo(
                         if (isUnboundedTupleClass(specializedSequence)) {
                             sequenceInfo.push({
                                 subtype,
-                                entryTypes: [specializedSequence.tupleTypeArguments[0]],
+                                entryTypes: [combineTypes(specializedSequence.tupleTypeArguments.map((t) => t.type))],
                                 isIndeterminateLength: true,
                                 isTuple: true,
                             });
@@ -863,7 +870,7 @@ function getSequencePatternInfo(
                             ) {
                                 sequenceInfo.push({
                                     subtype,
-                                    entryTypes: specializedSequence.tupleTypeArguments,
+                                    entryTypes: specializedSequence.tupleTypeArguments.map((t) => t.type),
                                     isIndeterminateLength: false,
                                     isTuple: true,
                                 });

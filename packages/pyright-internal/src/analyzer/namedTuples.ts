@@ -33,6 +33,7 @@ import {
     isClassInstance,
     isInstantiableClass,
     NoneType,
+    TupleTypeArgument,
     Type,
     UnknownType,
 } from './types';
@@ -354,8 +355,8 @@ export function createNamedTupleType(
         tupleClassType &&
         isInstantiableClass(tupleClassType)
     ) {
-        const literalTypes = matchArgsNames.map((name) => {
-            return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, name));
+        const literalTypes: TupleTypeArgument[] = matchArgsNames.map((name) => {
+            return { type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, name)), isUnbounded: false };
         });
         const matchArgsType = ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, literalTypes));
         classFields.set('__match_args__', Symbol.createWithType(SymbolFlags.ClassMember, matchArgsType));
@@ -384,7 +385,13 @@ export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[]
         return;
     }
 
-    const updatedTupleClass = specializeTupleClass(typedTupleClass, typeArgs, isTypeArgumentExplicit);
+    const updatedTupleClass = specializeTupleClass(
+        typedTupleClass,
+        typeArgs.map((t) => {
+            return { type: t, isUnbounded: false };
+        }),
+        isTypeArgumentExplicit
+    );
 
     // Create a copy of the NamedTuple class that overrides the normal MRO
     // entries with a version of Tuple that is specialized appropriately.

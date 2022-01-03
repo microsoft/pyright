@@ -43,6 +43,7 @@ import {
     isInstantiableClass,
     isOverloadedFunction,
     NoneType,
+    TupleTypeArgument,
     Type,
     UnknownType,
 } from './types';
@@ -416,8 +417,8 @@ export function synthesizeDataClassMethods(
                 matchArgsNames.push(entry.name);
             }
         });
-        const literalTypes = matchArgsNames.map((name) => {
-            return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, name));
+        const literalTypes: TupleTypeArgument[] = matchArgsNames.map((name) => {
+            return { type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, name)), isUnbounded: false };
         });
         const matchArgsType = ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, literalTypes));
         symbolTable.set('__match_args__', Symbol.createWithType(SymbolFlags.ClassMember, matchArgsType));
@@ -630,7 +631,10 @@ export function validateDataClassTransformDecorator(
                     !ClassType.isBuiltIn(valueType, 'tuple') ||
                     !valueType.tupleTypeArguments ||
                     valueType.tupleTypeArguments.some(
-                        (entry) => !isInstantiableClass(entry) && !isFunction(entry) && !isOverloadedFunction(entry)
+                        (entry) =>
+                            !isInstantiableClass(entry.type) &&
+                            !isFunction(entry.type) &&
+                            !isOverloadedFunction(entry.type)
                     )
                 ) {
                     // TODO - emit diagnostic
@@ -641,10 +645,10 @@ export function validateDataClassTransformDecorator(
                     behaviors.fieldDescriptorNames = [];
                 }
                 valueType.tupleTypeArguments.forEach((arg) => {
-                    if (isInstantiableClass(arg) || isFunction(arg)) {
-                        behaviors.fieldDescriptorNames.push(arg.details.fullName);
-                    } else if (isOverloadedFunction(arg)) {
-                        behaviors.fieldDescriptorNames.push(arg.overloads[0].details.fullName);
+                    if (isInstantiableClass(arg.type) || isFunction(arg.type)) {
+                        behaviors.fieldDescriptorNames.push(arg.type.details.fullName);
+                    } else if (isOverloadedFunction(arg.type)) {
+                        behaviors.fieldDescriptorNames.push(arg.type.overloads[0].details.fullName);
                     }
                 });
                 break;

@@ -15,6 +15,7 @@ import {
     ClassType,
     maxTypeRecursionCount,
     ParamSpecValue,
+    TupleTypeArgument,
     Type,
     TypeCategory,
     TypeVarScopeId,
@@ -41,7 +42,7 @@ export interface ParamSpecMapEntry {
 
 export interface VariadicTypeVarMapEntry {
     typeVar: TypeVarType;
-    types: Type[];
+    types: TupleTypeArgument[];
 }
 
 export class TypeVarMap {
@@ -173,11 +174,11 @@ export class TypeVarMap {
         this._typeVarMap.set(key, { typeVar: reference, narrowBound, wideBound, retainLiteral });
     }
 
-    getVariadicTypeVar(reference: TypeVarType): Type[] | undefined {
+    getVariadicTypeVar(reference: TypeVarType): TupleTypeArgument[] | undefined {
         return this._variadicTypeVarMap?.get(this._getKey(reference))?.types;
     }
 
-    setVariadicTypeVar(reference: TypeVarType, types: Type[]) {
+    setVariadicTypeVar(reference: TypeVarType, types: TupleTypeArgument[]) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
 
@@ -306,8 +307,8 @@ export class TypeVarMap {
         let typeArgCount = 0;
 
         if (classType.tupleTypeArguments) {
-            classType.tupleTypeArguments.forEach((type) => {
-                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
+            classType.tupleTypeArguments.forEach((typeArg) => {
+                typeArgScoreSum += this._getComplexityScoreForType(typeArg.type, recursionCount + 1);
                 typeArgCount++;
             });
         } else if (classType.typeArguments) {

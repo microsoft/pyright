@@ -413,6 +413,14 @@ interface ClassDetails {
     metaclassDataClassTransform?: DataClassBehaviors | undefined;
 }
 
+export interface TupleTypeArgument {
+    type: Type;
+
+    // Does the type argument represent a single value or
+    // an "unbounded" (zero or more) arguments?
+    isUnbounded: boolean;
+}
+
 export interface ClassType extends TypeBase {
     category: TypeCategory.Class;
 
@@ -437,10 +445,11 @@ export interface ClassType extends TypeBase {
     isEmptyContainer?: boolean | undefined;
 
     // For tuples, the class definition calls for a single type parameter but
-    // the spec allows the programmer to provide variadic type arguments.
-    // To make these compatible, we need to derive a single typeArgument value
-    // based on the variadic arguments.
-    tupleTypeArguments?: Type[] | undefined;
+    // the spec allows the programmer to provide an arbitrary number of
+    // type arguments. This field holds the individual type arguments
+    // while the "typeArguments" field holds the derived non-variadic
+    // type argument, which is the union of the tuple type arguments.
+    tupleTypeArguments?: TupleTypeArgument[] | undefined;
 
     // We sometimes package multiple types into a tuple internally
     // for matching against a variadic type variable. We need to be
@@ -540,7 +549,7 @@ export namespace ClassType {
         typeArguments: Type[] | undefined,
         isTypeArgumentExplicit: boolean,
         includeSubclasses = false,
-        tupleTypeArguments?: Type[],
+        tupleTypeArguments?: TupleTypeArgument[],
         isEmptyContainer?: boolean
     ): ClassType {
         const newClassType = { ...classType };
@@ -555,7 +564,9 @@ export namespace ClassType {
             newClassType.includeSubclasses = true;
         }
         newClassType.tupleTypeArguments = tupleTypeArguments
-            ? tupleTypeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
+            ? tupleTypeArguments.map((t) =>
+                  isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded } : t
+              )
             : undefined;
 
         if (isEmptyContainer !== undefined) {
@@ -2076,13 +2087,17 @@ export function isTypeSame(
                     for (let i = 0; i < type1TupleTypeArgs.length; i++) {
                         if (
                             !isTypeSame(
-                                type1TupleTypeArgs[i],
-                                type2TupleTypeArgs[i],
+                                type1TupleTypeArgs[i].type,
+                                type2TupleTypeArgs[i].type,
                                 ignorePseudoGeneric,
                                 /* ignoreTypeFlags */ false,
                                 recursionCount + 1
                             )
                         ) {
+                            return false;
+                        }
+
+                        if (type1TupleTypeArgs[i].isUnbounded !== type2TupleTypeArgs[i].isUnbounded) {
                             return false;
                         }
                     }

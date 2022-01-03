@@ -643,7 +643,7 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
             return subtype;
         }
 
-        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(subtype.tupleTypeArguments[indexValue]);
+        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(subtype.tupleTypeArguments[indexValue].type);
 
         if (isPositiveTest) {
             if (!evaluator.canAssignType(typeOfEntry, NoneType.createInstance())) {
@@ -730,9 +730,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
     doForEachSubtype(argType, (subtype) => {
         if (isClass(subtype) && TypeBase.isInstance(subtype) && isTupleClass(subtype)) {
             if (subtype.tupleTypeArguments) {
-                addClassTypesToList(
-                    isUnboundedTupleClass(subtype) ? [subtype.tupleTypeArguments[0]] : subtype.tupleTypeArguments
-                );
+                addClassTypesToList(subtype.tupleTypeArguments.map((t) => t.type));
             }
         } else {
             addClassTypesToList([subtype]);
@@ -1172,8 +1170,8 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
     }
 
     let elementType = containerType.typeArguments[0];
-    if (isTupleClass(containerType) && !isUnboundedTupleClass(containerType) && containerType.tupleTypeArguments) {
-        elementType = combineTypes(containerType.tupleTypeArguments);
+    if (isTupleClass(containerType) && containerType.tupleTypeArguments) {
+        elementType = combineTypes(containerType.tupleTypeArguments.map((t) => t.type));
     }
 
     let canNarrow = true;
@@ -1312,7 +1310,7 @@ function narrowTypeForDiscriminatedTupleComparison(
         if (isClassInstance(subtype) && ClassType.isTupleClass(subtype) && !isUnboundedTupleClass(subtype)) {
             const indexValue = indexLiteralType.literalValue as number;
             if (subtype.tupleTypeArguments && indexValue >= 0 && indexValue < subtype.tupleTypeArguments.length) {
-                const tupleEntryType = subtype.tupleTypeArguments[indexValue];
+                const tupleEntryType = subtype.tupleTypeArguments[indexValue]?.type;
                 if (tupleEntryType && isLiteralTypeOrUnion(tupleEntryType)) {
                     if (isPositiveTest) {
                         return evaluator.canAssignType(tupleEntryType, literalType) ? subtype : undefined;
