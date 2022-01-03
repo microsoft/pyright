@@ -609,7 +609,7 @@ test('ProtocolModule2', () => {
 test('VariadicTypeVar1', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 12);
 });
@@ -617,7 +617,7 @@ test('VariadicTypeVar1', () => {
 test('VariadicTypeVar2', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 13);
 });
@@ -625,7 +625,7 @@ test('VariadicTypeVar2', () => {
 test('VariadicTypeVar3', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 7);
 });
@@ -633,7 +633,7 @@ test('VariadicTypeVar3', () => {
 test('VariadicTypeVar4', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar4.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
 });
@@ -641,7 +641,7 @@ test('VariadicTypeVar4', () => {
 test('VariadicTypeVar5', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 13);
 });
@@ -649,7 +649,7 @@ test('VariadicTypeVar5', () => {
 test('VariadicTypeVar6', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar6.py'], configOptions);
     TestUtils.validateResults(analysisResults, 8);
 });
@@ -657,7 +657,7 @@ test('VariadicTypeVar6', () => {
 test('VariadicTypeVar7', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar7.py'], configOptions);
     TestUtils.validateResults(analysisResults, 6);
 });
@@ -665,7 +665,7 @@ test('VariadicTypeVar7', () => {
 test('VariadicTypeVar8', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar8.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
 });
@@ -673,9 +673,17 @@ test('VariadicTypeVar8', () => {
 test('VariadicTypeVar9', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar9.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('VariadicTypeVar10', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar10.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Match1', () => {

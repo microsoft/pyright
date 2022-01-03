@@ -1172,3 +1172,9 @@ test('TotalOrdering1', () => {
 
     TestUtils.validateResults(analysisResults, 1);
 });
+
+test('TupleUnpack1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack1.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});

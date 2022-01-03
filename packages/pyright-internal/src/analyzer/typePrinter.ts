@@ -541,7 +541,17 @@ export function printObjectTypeForClass(
                                         isAllAny = false;
                                     }
 
-                                    return printType(typeArg.type, printTypeFlags, returnTypeCallback, recursionTypes);
+                                    const typeArgText = printType(
+                                        typeArg.type,
+                                        printTypeFlags,
+                                        returnTypeCallback,
+                                        recursionTypes
+                                    );
+                                    if (typeArg.isUnbounded) {
+                                        return `*tuple[${typeArgText}, ...]`;
+                                    }
+
+                                    return typeArgText;
                                 })
                             );
                         }
@@ -568,6 +578,10 @@ export function printObjectTypeForClass(
                         }
                     }
                 });
+
+                if (type.isUnpackedTuple) {
+                    objName = '*' + objName;
+                }
 
                 if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 || !isAllAny) {
                     objName += '[' + typeArgStrings.join(', ') + ']';
@@ -631,7 +645,9 @@ export function printFunctionParts(
 
         let paramString = '';
         if (param.category === ParameterCategory.VarArgList) {
-            paramString += '*';
+            if (!param.name || !param.isNameSynthesized) {
+                paramString += '*';
+            }
         } else if (param.category === ParameterCategory.VarArgDictionary) {
             paramString += '**';
         }

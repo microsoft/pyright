@@ -171,6 +171,8 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    isUnpacked,
+    isUnpackedTuple,
     isVariadicTypeVar,
     LiteralValue,
     maxTypeRecursionCount,
@@ -298,6 +300,14 @@ const enum MemberAccessFlags {
 
     // Do not include the "type" base class in the search.
     SkipTypeBaseClass = 1 << 8,
+}
+
+interface ValidateTypeArgsOptions {
+    allowEmptyTuple?: boolean;
+    allowVariadicTypeVar?: boolean;
+    allowParamSpec?: boolean;
+    allowTypeArgList?: boolean;
+    allowUnpackedTuples?: boolean;
 }
 
 interface EffectiveTypeCacheEntry {
@@ -2970,6 +2980,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
+            if (isVariadicTypeVar(subtype)) {
+                if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                    return convertToInstance(
+                        specializeTupleClass(
+                            tupleClassType,
+                            [],
+                            /* isTypeArgumentExplicit */ true,
+                            /* stripLiterals */ true,
+                            /* isUnpackedTuple */ true
+                        )
+                    );
+                }
+            }
+
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
                     const boundType = TypeBase.isInstantiable(subtype)
@@ -5426,52 +5450,80 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function adjustTypeArgumentsForVariadicTypeVar(
         typeArgs: TypeResult[],
-        typeParameters: TypeVarType[]
+        typeParameters: TypeVarType[],
+        errorNode: ExpressionNode
     ): TypeResult[] {
         const variadicIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
 
         // Do we need to adjust the type arguments to map to a variadic type
         // param at the end of the list?
-        if (variadicIndex >= 0 && variadicIndex < typeArgs.length) {
+        if (variadicIndex >= 0) {
             if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                const variadicTypeResults = typeArgs.slice(
-                    variadicIndex,
-                    variadicIndex + 1 + typeArgs.length - typeParameters.length
-                );
-
-                // If the type args consist of a lone variadic type variable, don't wrap it in a tuple.
-                if (variadicTypeResults.length === 1 && isVariadicTypeVar(variadicTypeResults[0].type)) {
-                    validateVariadicTypeVarIsUnpacked(variadicTypeResults[0].type, variadicTypeResults[0].node);
-                } else {
-                    variadicTypeResults.forEach((arg, index) => {
-                        validateTypeArg(arg, /* allowEmptyTuple */ index === 0, /* allowVariadicTypeVar */ true);
-                    });
-
-                    const variadicTypes: TupleTypeArgument[] =
-                        variadicTypeResults.length === 1 && variadicTypeResults[0].isEmptyTupleShorthand
-                            ? []
-                            : variadicTypeResults.map((typeResult) => {
-                                  return {
-                                      type: convertToInstance(typeResult.type),
-                                      isUnbounded: false,
-                                  };
-                              });
-
-                    const tupleObject = convertToInstance(
-                        specializeTupleClass(
-                            tupleClassType,
-                            variadicTypes,
-                            /* isTypeArgumentExplicit */ true,
-                            /* stripLiterals */ true,
-                            /* isForUnpackedVariadicTypeVar */ true
-                        )
+                if (variadicIndex < typeArgs.length) {
+                    const variadicTypeResults = typeArgs.slice(
+                        variadicIndex,
+                        variadicIndex + 1 + typeArgs.length - typeParameters.length
                     );
 
-                    typeArgs = [
-                        ...typeArgs.slice(0, variadicIndex),
-                        { node: typeArgs[variadicIndex].node, type: tupleObject },
-                        ...typeArgs.slice(variadicIndex + 1 + typeArgs.length - typeParameters.length, typeArgs.length),
-                    ];
+                    // If the type args consist of a lone variadic type variable, don't wrap it in a tuple.
+                    if (variadicTypeResults.length === 1 && isVariadicTypeVar(variadicTypeResults[0].type)) {
+                        validateVariadicTypeVarIsUnpacked(variadicTypeResults[0].type, variadicTypeResults[0].node);
+                    } else {
+                        variadicTypeResults.forEach((arg, index) => {
+                            validateTypeArg(arg, {
+                                allowEmptyTuple: index === 0,
+                                allowVariadicTypeVar: true,
+                                allowUnpackedTuples: true,
+                            });
+                        });
+
+                        const variadicTypes: TupleTypeArgument[] = [];
+                        if (variadicTypeResults.length !== 1 || !variadicTypeResults[0].isEmptyTupleShorthand) {
+                            variadicTypeResults.forEach((typeResult) => {
+                                if (isUnpackedTuple(typeResult.type) && typeResult.type.tupleTypeArguments) {
+                                    variadicTypes.push(...typeResult.type.tupleTypeArguments);
+                                } else {
+                                    variadicTypes.push({
+                                        type: convertToInstance(typeResult.type),
+                                        isUnbounded: false,
+                                    });
+                                }
+                            });
+                        }
+
+                        const tupleObject = convertToInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                variadicTypes,
+                                /* isTypeArgumentExplicit */ true,
+                                /* stripLiterals */ true,
+                                /* isUnpackedTuple */ true
+                            )
+                        );
+
+                        typeArgs = [
+                            ...typeArgs.slice(0, variadicIndex),
+                            { node: typeArgs[variadicIndex].node, type: tupleObject },
+                            ...typeArgs.slice(
+                                variadicIndex + 1 + typeArgs.length - typeParameters.length,
+                                typeArgs.length
+                            ),
+                        ];
+                    }
+                } else {
+                    // Add an empty tuple that maps to the TypeVarTuple type parameter.
+                    typeArgs.push({
+                        node: errorNode,
+                        type: convertToInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                [],
+                                /* isTypeArgumentExplicit */ true,
+                                /* stripLiterals */ true,
+                                /* isUnpackedTuple */ true
+                            )
+                        ),
+                    });
                 }
             }
         }
@@ -5520,7 +5572,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const typeParameters = baseType.typeAliasInfo.typeParameters;
-        let typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters);
+        let typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters, node);
 
         // PEP 612 says that if the class has only one type parameter consisting
         // of a ParamSpec, the list of arguments does not need to be enclosed in
@@ -5762,7 +5814,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!isAnnotatedClass) {
                         typeArgs = adjustTypeArgumentsForVariadicTypeVar(
                             typeArgs,
-                            concreteSubtype.details.typeParameters
+                            concreteSubtype.details.typeParameters,
+                            node
                         );
                     }
 
@@ -6168,9 +6221,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !typeResult.type.isVariadicUnpacked
                     ) {
                         typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
-                    } else {
-                        addError(Localizer.Diagnostic.unpackedArgInTypeArgument(), arg.valueExpression);
-                        typeResult.type = UnknownType.create();
                     }
                 }
 
@@ -6351,24 +6401,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const entryTypes: TupleTypeArgument[] = [];
 
         for (const typeResult of entryTypeResults) {
+            let possibleUnpackedTuple: Type | undefined;
             if (typeResult.unpackedType) {
-                // Is this an unpacked tuple? If so, we can append the individual
-                // unpacked entries onto the new tuple. If it's not an upacked tuple
-                // but some other iterator (e.g. a List), we won't know the number of
-                // items, so we'll need to leave the Tuple open-ended.
-                if (isClassInstance(typeResult.unpackedType) && isTupleClass(typeResult.unpackedType)) {
-                    const typeArgs = typeResult.unpackedType.tupleTypeArguments;
+                possibleUnpackedTuple = typeResult.unpackedType;
+            } else if (isUnpacked(typeResult.type)) {
+                possibleUnpackedTuple = typeResult.type;
+            }
 
-                    if (!typeArgs) {
-                        entryTypes.push({ type: UnknownType.create(), isUnbounded: true });
-                    } else {
-                        entryTypes.push(...typeArgs);
-                    }
+            // Is this an unpacked tuple? If so, we can append the individual
+            // unpacked entries onto the new tuple. If it's not an upacked tuple
+            // but some other iterator (e.g. a List), we won't know the number of
+            // items, so we'll need to leave the Tuple open-ended.
+            if (
+                possibleUnpackedTuple &&
+                isClassInstance(possibleUnpackedTuple) &&
+                possibleUnpackedTuple.tupleTypeArguments
+            ) {
+                const typeArgs = possibleUnpackedTuple.tupleTypeArguments;
+
+                if (!typeArgs) {
+                    entryTypes.push({ type: UnknownType.create(), isUnbounded: true });
                 } else {
-                    entryTypes.push({ type: typeResult.type, isUnbounded: true });
+                    entryTypes.push(...typeArgs);
                 }
             } else {
-                entryTypes.push({ type: typeResult.type, isUnbounded: false });
+                entryTypes.push({ type: typeResult.type, isUnbounded: !!typeResult.unpackedType });
             }
         }
 
@@ -8171,58 +8228,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: FunctionType,
         overloadIndex: number
     ): MatchArgsToParamsResult {
+        const paramDetails = getParameterListDetails(type);
         let argIndex = 0;
-        const typeParams = type.details.parameters;
         let matchedUnpackedListOfUnknownLength = false;
-
-        // The last parameter might be a var arg dictionary. If so, strip it off.
-        const varArgDictParam = typeParams.find((param) => param.category === ParameterCategory.VarArgDictionary);
         let reportedArgError = false;
         let isTypeIncomplete = false;
 
-        // Is there a positional-only "/" parameter? If so, it separates the
-        // positional-only from positional or keyword parameters.
-        let positionalOnlyIndex = typeParams.findIndex(
-            (param) => param.category === ParameterCategory.Simple && !param.name
-        );
-
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
-        typeParams.forEach((param, index) => {
+        paramDetails.params.forEach((paramInfo, index) => {
+            const param = paramInfo.param;
             if (param.name && param.category === ParameterCategory.Simple) {
                 paramMap.set(param.name, {
                     argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
                     argsReceived: 0,
-                    isPositionalOnly: positionalOnlyIndex >= 0 && index < positionalOnlyIndex,
+                    isPositionalOnly: paramInfo.source === ParameterSource.PositionOnly,
                 });
             }
         });
 
-        // Is there a bare (nameless) "*" parameter? If so, it signifies the end
-        // of the positional parameter list.
-        let positionParamLimitIndex = typeParams.findIndex(
-            (param) => param.category === ParameterCategory.VarArgList && !param.name
-        );
+        let positionalOnlyLimitIndex = paramDetails.positionOnlyParamCount;
+        let positionParamLimitIndex = paramDetails.firstKeywordOnlyIndex ?? paramDetails.params.length;
 
-        const varArgListParamIndex = typeParams.findIndex((param) => param.category === ParameterCategory.VarArgList);
-        const varArgDictParamIndex = typeParams.findIndex(
-            (param) => param.category === ParameterCategory.VarArgDictionary
-        );
-
-        // Is there a var-arg (named "*") parameter? If so, it is the last of
-        // the positional parameters.
-        if (positionParamLimitIndex < 0) {
-            positionParamLimitIndex = varArgListParamIndex;
-            if (positionParamLimitIndex >= 0) {
-                positionParamLimitIndex++;
-            }
-        }
-
-        // Is there a keyword var-arg ("**") parameter? If so, it's not included
-        // in the list of positional parameters.
-        if (positionParamLimitIndex < 0) {
-            positionParamLimitIndex = varArgDictParamIndex;
-        }
+        const varArgListParamIndex = paramDetails.argsIndex;
+        const varArgDictParamIndex = paramDetails.kwargsIndex;
 
         // Is this an function that uses the *args and **kwargs
         // from a param spec? If so, we need to treat all positional parameters
@@ -8231,9 +8260,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let paramSpecTarget: TypeVarType | undefined;
         let hasParamSpecArgsKwargs = false;
 
-        if (varArgListParamIndex >= 0 && varArgDictParamIndex >= 0) {
-            const varArgListParam = typeParams[varArgListParamIndex];
-            const varArgDictParam = typeParams[varArgDictParamIndex];
+        if (varArgListParamIndex !== undefined && varArgDictParamIndex !== undefined) {
+            const varArgListParam = paramDetails.params[varArgListParamIndex].param;
+            const varArgDictParam = paramDetails.params[varArgDictParamIndex].param;
+
             if (
                 isParamSpec(varArgListParam.type) &&
                 varArgListParam.type.paramSpecAccess === 'args' &&
@@ -8250,7 +8280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, undefined);
                 } else {
-                    positionalOnlyIndex = varArgListParamIndex;
+                    positionalOnlyLimitIndex = varArgListParamIndex;
                 }
             }
         }
@@ -8260,16 +8290,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // the number of positional parameters.
         argList.forEach((arg) => {
             if (arg.name) {
-                const namedParamIndex = typeParams.findIndex(
-                    (param) => param.name === arg.name!.value && param.category === ParameterCategory.Simple
+                const keywordParamIndex = paramDetails.params.findIndex(
+                    (paramInfo) =>
+                        paramInfo.param.name === arg.name!.value &&
+                        paramInfo.param.category === ParameterCategory.Simple
                 );
 
                 // Is this a parameter that can be interpreted as either a keyword or a positional?
                 // If so, we'll treat it as a keyword parameter in this case because it's being
                 // targeted by a keyword argument.
-                if (namedParamIndex >= 0 && namedParamIndex > positionalOnlyIndex) {
-                    if (positionParamLimitIndex < 0 || namedParamIndex < positionParamLimitIndex) {
-                        positionParamLimitIndex = namedParamIndex;
+                if (keywordParamIndex >= 0 && keywordParamIndex >= positionalOnlyLimitIndex) {
+                    if (positionParamLimitIndex < 0 || keywordParamIndex < positionParamLimitIndex) {
+                        positionParamLimitIndex = keywordParamIndex;
                     }
                 }
             }
@@ -8277,11 +8309,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If we didn't see any special cases, then all parameters are positional.
         if (positionParamLimitIndex < 0) {
-            positionParamLimitIndex = typeParams.length;
+            positionParamLimitIndex = paramDetails.params.length;
         }
 
         // Determine how many positional args are being passed before
-        // we see a named arg.
+        // we see a keyword arg.
         let positionalArgCount = argList.findIndex(
             (arg) => arg.argumentCategory === ArgumentCategory.UnpackedDictionary || arg.name !== undefined
         );
@@ -8304,15 +8336,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Map the positional args to parameters.
         let paramIndex = 0;
         let unpackedArgIndex = 0;
-        let unpackedParamIndex = 0;
 
         while (argIndex < positionalArgCount) {
-            if (paramIndex === positionalOnlyIndex) {
-                paramIndex++;
-                continue;
-            }
-
-            if (argIndex < positionalOnlyIndex && argList[argIndex].name) {
+            if (argIndex < positionalOnlyLimitIndex && argList[argIndex].name) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(argList[argIndex].name!);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -8340,14 +8366,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 break;
             }
 
-            const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
+            const paramType = paramDetails.params[paramIndex].type;
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 if (!argList[argIndex].valueExpression) {
                     break;
                 }
 
                 const isParamVariadic =
-                    typeParams[paramIndex].category === ParameterCategory.VarArgList && isVariadicTypeVar(paramType);
+                    paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList &&
+                    isVariadicTypeVar(paramType);
                 let isArgCompatibleWithVariadic = false;
                 const argTypeResult = getTypeForArgument(argList[argIndex]);
                 const argType = argTypeResult.type;
@@ -8376,6 +8403,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // specified types rather than using the more generic iterator
                 // type which will be a union of all element types.
                 const combinedTupleType = combineSameSizedTuples(makeTopLevelTypeVarsConcrete(argType), tupleClassType);
+
                 if (
                     !isParamVariadic &&
                     combinedTupleType &&
@@ -8410,7 +8438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         getTypeFromIterator(argType, /* isAsync */ false, argList[argIndex].valueExpression!) ||
                         UnknownType.create();
 
-                    if (typeParams[paramIndex].category !== ParameterCategory.VarArgList) {
+                    if (paramDetails.params[paramIndex].param.category !== ParameterCategory.VarArgList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
                 }
@@ -8425,7 +8453,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isTypeIncomplete = true;
                 }
 
-                const paramName = typeParams[paramIndex].name;
+                const paramName = paramDetails.params[paramIndex].param.name;
 
                 // It's not allowed to use unpacked arguments with a variadic *args
                 // parameter unless the argument is a variadic arg as well.
@@ -8444,102 +8472,101 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (funcArg) {
                         validateArgTypeParams.push({
-                            paramCategory: typeParams[paramIndex].category,
+                            paramCategory: paramDetails.params[paramIndex].param.category,
                             paramType,
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: funcArg,
                             errorNode: argList[argIndex].valueExpression || errorNode,
-                            paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
+                            paramName: paramDetails.params[paramIndex].param.isNameSynthesized ? undefined : paramName,
                         });
                     }
                 }
 
-                trySetActive(argList[argIndex], typeParams[paramIndex]);
+                trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
                 // Note that the parameter has received an argument.
                 if (
                     paramName &&
-                    typeParams[paramIndex].category === ParameterCategory.Simple &&
+                    paramDetails.params[paramIndex].param.category === ParameterCategory.Simple &&
                     paramMap.has(paramName)
                 ) {
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
-                if (advanceToNextArg || typeParams[paramIndex].category === ParameterCategory.VarArgList) {
+                if (
+                    advanceToNextArg ||
+                    paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList
+                ) {
                     argIndex++;
                 }
 
-                if (typeParams[paramIndex].category !== ParameterCategory.VarArgList) {
+                if (paramDetails.params[paramIndex].param.category !== ParameterCategory.VarArgList) {
                     paramIndex++;
                 }
-            } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
-                trySetActive(argList[argIndex], typeParams[paramIndex]);
+            } else if (paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList) {
+                trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
                 if (paramSpecArgList) {
                     paramSpecArgList.push(argList[argIndex]);
+                    argIndex++;
                 } else {
-                    let paramCategory = typeParams[paramIndex].category;
+                    let paramCategory = paramDetails.params[paramIndex].param.category;
                     let effectiveParamType = paramType;
-                    const paramName = typeParams[paramIndex].name;
+                    const paramName = paramDetails.params[paramIndex].param.name;
 
-                    // Handle the case where the target parameter is a variadic type variable
-                    // that has been specialized with a tuple of types.
-                    if (
-                        isVariadicTypeVar(typeParams[paramIndex].type) &&
-                        isClassInstance(paramType) &&
-                        isTupleClass(paramType) &&
-                        paramType.tupleTypeArguments &&
-                        unpackedParamIndex < paramType.tupleTypeArguments.length
-                    ) {
-                        effectiveParamType = paramType.tupleTypeArguments[unpackedParamIndex].type;
-                        paramCategory = isVariadicTypeVar(effectiveParamType)
-                            ? ParameterCategory.VarArgList
-                            : ParameterCategory.Simple;
+                    if (isUnpackedTuple(paramType) && paramType.tupleTypeArguments) {
+                        effectiveParamType = paramType.tupleTypeArguments[0].type;
+                    }
 
-                        unpackedParamIndex++;
-                        const paramsToFillCount = positionalArgCount - argIndex - 1;
-                        const argsRemainingCount = paramType.tupleTypeArguments.length - unpackedParamIndex;
+                    paramCategory = isVariadicTypeVar(effectiveParamType)
+                        ? ParameterCategory.VarArgList
+                        : ParameterCategory.Simple;
 
-                        if (unpackedParamIndex >= paramType.tupleTypeArguments.length) {
-                            paramIndex++;
-                        } else if (argsRemainingCount > 0 && paramsToFillCount <= 0) {
+                    const remainingArgCount = positionalArgCount - argIndex;
+                    const remainingParamCount = positionParamLimitIndex - paramIndex - 1;
+
+                    if (remainingArgCount <= remainingParamCount) {
+                        if (remainingArgCount < remainingParamCount) {
                             // Have we run out of arguments and still have parameters left to fill?
                             addDiagnostic(
                                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                argsRemainingCount === 1
+                                remainingArgCount === 1
                                     ? Localizer.Diagnostic.argMorePositionalExpectedOne()
                                     : Localizer.Diagnostic.argMorePositionalExpectedCount().format({
-                                          expected: argsRemainingCount,
+                                          expected: remainingArgCount,
                                       }),
                                 argList[argIndex].valueExpression || errorNode
                             );
                             reportedArgError = true;
                         }
-                    }
 
-                    validateArgTypeParams.push({
-                        paramCategory,
-                        paramType: effectiveParamType,
-                        requiresTypeVarMatching: requiresSpecialization(paramType),
-                        argument: argList[argIndex],
-                        errorNode: argList[argIndex].valueExpression || errorNode,
-                        paramName,
-                        mapsToVarArgList: true,
-                    });
+                        paramIndex++;
+                    } else {
+                        validateArgTypeParams.push({
+                            paramCategory,
+                            paramType: effectiveParamType,
+                            requiresTypeVarMatching: requiresSpecialization(paramType),
+                            argument: argList[argIndex],
+                            errorNode: argList[argIndex].valueExpression || errorNode,
+                            paramName,
+                            mapsToVarArgList: true,
+                        });
+
+                        argIndex++;
+                    }
                 }
-                argIndex++;
             } else {
-                const paramName = typeParams[paramIndex].name;
+                const paramName = paramDetails.params[paramIndex].param.name;
                 validateArgTypeParams.push({
-                    paramCategory: typeParams[paramIndex].category,
+                    paramCategory: paramDetails.params[paramIndex].param.category,
                     paramType,
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
-                    paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
+                    paramName: paramDetails.params[paramIndex].param.isNameSynthesized ? undefined : paramName,
                 });
-                trySetActive(argList[argIndex], typeParams[paramIndex]);
+                trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
                 // Note that the parameter has received an argument.
                 if (paramName && paramMap.has(paramName)) {
@@ -8554,15 +8581,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Check if there weren't enough positional arguments to populate all of
         // the positional-only parameters.
         if (
-            positionalOnlyIndex >= 0 &&
-            paramIndex < positionalOnlyIndex &&
+            positionalOnlyLimitIndex >= 0 &&
+            paramIndex < positionalOnlyLimitIndex &&
             (!foundUnpackedListArg || hasParamSpecArgsKwargs)
         ) {
-            const firstParamWithDefault = typeParams.findIndex((param) => param.hasDefault);
+            const firstParamWithDefault = paramDetails.params.findIndex((paramInfo) => paramInfo.param.hasDefault);
             const positionOnlyWithoutDefaultsCount =
-                firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyIndex
+                firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyLimitIndex
                     ? firstParamWithDefault
-                    : positionalOnlyIndex;
+                    : positionalOnlyLimitIndex;
             const argsRemainingCount = positionOnlyWithoutDefaultsCount - positionalArgCount;
             if (argsRemainingCount > 0) {
                 addDiagnostic(
@@ -8605,9 +8632,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 } else {
                                     paramEntry.argsReceived++;
 
-                                    const paramInfoIndex = typeParams.findIndex((param) => param.name === name);
+                                    const paramInfoIndex = paramDetails.params.findIndex(
+                                        (paramInfo) => paramInfo.param.name === name
+                                    );
                                     assert(paramInfoIndex >= 0);
-                                    const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
+                                    const paramType = paramDetails.params[paramInfoIndex].type;
 
                                     validateArgTypeParams.push({
                                         paramCategory: ParameterCategory.Simple,
@@ -8621,13 +8650,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         paramName: name,
                                     });
                                 }
-                            } else if (varArgDictParam) {
-                                assert(varArgDictParamIndex >= 0);
-                                const paramType = FunctionType.getEffectiveParameterType(type, varArgDictParamIndex);
+                            } else if (paramDetails.kwargsIndex !== undefined) {
+                                const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
                                     paramCategory: ParameterCategory.VarArgDictionary,
                                     paramType,
-                                    requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
+                                    requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: {
                                         argumentCategory: ArgumentCategory.Simple,
                                         type: entry.valueType,
@@ -8734,9 +8762,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             } else {
                                 paramEntry.argsReceived++;
 
-                                const paramInfoIndex = typeParams.findIndex((param) => param.name === paramNameValue);
+                                const paramInfoIndex = paramDetails.params.findIndex(
+                                    (paramInfo) => paramInfo.param.name === paramNameValue
+                                );
                                 assert(paramInfoIndex >= 0);
-                                const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
+                                const paramType = paramDetails.params[paramInfoIndex].type;
 
                                 validateArgTypeParams.push({
                                     paramCategory: ParameterCategory.Simple,
@@ -8746,18 +8776,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: paramNameValue,
                                 });
-                                trySetActive(argList[argIndex], typeParams[paramInfoIndex]);
+                                trySetActive(argList[argIndex], paramDetails.params[paramInfoIndex].param);
                             }
-                        } else if (varArgDictParam) {
-                            assert(varArgDictParamIndex >= 0);
+                        } else if (paramDetails.kwargsIndex !== undefined) {
                             if (paramSpecArgList) {
                                 paramSpecArgList.push(argList[argIndex]);
                             } else {
-                                const paramType = FunctionType.getEffectiveParameterType(type, varArgDictParamIndex);
+                                const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
                                     paramCategory: ParameterCategory.VarArgDictionary,
                                     paramType,
-                                    requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
+                                    requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: paramNameValue,
@@ -8770,7 +8799,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     isPositionalOnly: false,
                                 });
                             }
-                            trySetActive(argList[argIndex], varArgDictParam);
+                            trySetActive(argList[argIndex], paramDetails.params[paramDetails.kwargsIndex].param);
                         } else {
                             addDiagnostic(
                                 AnalyzerNodeInfo.getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -8801,25 +8830,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If there are keyword-only parameters that haven't been matched but we
             // have an unpacked dictionary arg, assume that it applies to them.
-            if (unpackedDictionaryArgType && (!foundUnpackedListArg || varArgListParamIndex >= 0)) {
+            if (unpackedDictionaryArgType && (!foundUnpackedListArg || paramDetails.argsIndex !== undefined)) {
                 // Don't consider any position-only parameters, since they cannot be matched to
                 // **kwargs arguments. Consider parameters that are either positional or keyword
                 // if there is no *args argument.
-                const firstKeywordArgIndex = foundUnpackedListArg
-                    ? varArgListParamIndex + 1
-                    : positionalOnlyIndex >= 0
-                    ? positionalOnlyIndex + 1
-                    : 0;
-                typeParams.forEach((param, paramIndex) => {
+                paramDetails.params.forEach((paramInfo, paramIndex) => {
+                    const param = paramInfo.param;
                     if (
-                        paramIndex >= firstKeywordArgIndex &&
+                        paramIndex >= paramDetails.firstPositionOrKeywordIndex &&
                         param.category === ParameterCategory.Simple &&
                         param.name &&
                         !param.hasDefault &&
                         paramMap.has(param.name) &&
                         paramMap.get(param.name)!.argsReceived === 0
                     ) {
-                        const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
+                        const paramType = paramDetails.params[paramIndex].type;
                         validateArgTypeParams.push({
                             paramCategory: ParameterCategory.Simple,
                             paramType,
@@ -8828,7 +8853,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 argumentCategory: ArgumentCategory.Simple,
                                 type: unpackedDictionaryArgType!,
                             },
-                            errorNode: errorNode,
+                            errorNode:
+                                argList.find((arg) => arg.argumentCategory === ArgumentCategory.UnpackedDictionary)
+                                    ?.valueExpression ?? errorNode,
                             paramName: param.isNameSynthesized ? undefined : param.name,
                         });
 
@@ -8865,7 +8892,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // def foo(v1: _T = 'default')
                 // and _T is a TypeVar, we need to match the TypeVar to the default
                 // value's type if it's not provided by the caller.
-                typeParams.forEach((param, index) => {
+                paramDetails.params.forEach((paramInfo, index) => {
+                    const param = paramInfo.param;
                     if (param.category === ParameterCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name)!;
                         if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
@@ -8899,8 +8927,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If there are arguments that map to a variadic *args parameter, see
             // if the type of that *args parameter is a variadic type variable. If so,
             // we'll preprocess those arguments and combine them into a tuple.
-            if (varArgListParamIndex >= 0 && typeParams[varArgListParamIndex].hasDeclaredType) {
-                const paramType = FunctionType.getEffectiveParameterType(type, varArgListParamIndex);
+            if (
+                paramDetails.argsIndex !== undefined &&
+                paramDetails.params[paramDetails.argsIndex].param.hasDeclaredType
+            ) {
+                const paramType = paramDetails.params[paramDetails.argsIndex].type;
                 const variadicArgs = validateArgTypeParams.filter((argParam) => argParam.mapsToVarArgList);
 
                 if (isTypeVar(paramType) && paramType.details.isVariadic) {
@@ -8917,7 +8948,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 tupleTypeArgs,
                                 /* isTypeArgumentExplicit */ true,
                                 /* stripLiterals */ true,
-                                /* isForUnpackedVariadicTypeVar */ true
+                                /* isUnpackedTuple */ true
                             )
                         );
 
@@ -8927,7 +8958,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             requiresTypeVarMatching: true,
                             argument: { argumentCategory: ArgumentCategory.Simple, type: specializedTuple },
                             errorNode,
-                            paramName: typeParams[varArgListParamIndex].name,
+                            paramName: paramDetails.params[paramDetails.argsIndex].param.name,
                             mapsToVarArgList: true,
                         };
 
@@ -9218,6 +9249,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ),
             typeCondition
         );
+
+        // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
+        if (isUnpackedTuple(specializedReturnType)) {
+            specializedReturnType = ClassType.cloneForUnpackedTuple(specializedReturnType, /* isUnpackedTuple */ false);
+        }
 
         // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
         // object with a type argument that reflects the narrowed type.
@@ -12002,15 +12038,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Verifies that a type argument's type is not disallowed.
-    function validateTypeArg(
-        argResult: TypeResult,
-        allowEmptyTuple = false,
-        allowVariadicTypeVar = false,
-        allowParamSpec = false,
-        allowTypeArgList = false
-    ): boolean {
+    function validateTypeArg(argResult: TypeResult, options?: ValidateTypeArgsOptions): boolean {
         if (argResult.typeList) {
-            if (!allowTypeArgList) {
+            if (!options?.allowTypeArgList) {
                 addError(Localizer.Diagnostic.typeArgListNotAllowed(), argResult.node);
                 return false;
             } else {
@@ -12021,7 +12051,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isEllipsisType(argResult.type)) {
-            if (!allowTypeArgList) {
+            if (!options?.allowTypeArgList) {
                 addError(Localizer.Diagnostic.ellipsisContext(), argResult.node);
                 return false;
             }
@@ -12033,14 +12063,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isParamSpec(argResult.type)) {
-            if (!allowParamSpec) {
+            if (!options?.allowParamSpec) {
                 addError(Localizer.Diagnostic.paramSpecContext(), argResult.node);
                 return false;
             }
         }
 
         if (isVariadicTypeVar(argResult.type) && !argResult.type.isVariadicInUnion) {
-            if (!allowVariadicTypeVar) {
+            if (!options?.allowVariadicTypeVar) {
                 addError(Localizer.Diagnostic.typeVarTupleContext(), argResult.node);
                 return false;
             } else {
@@ -12048,9 +12078,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (!allowEmptyTuple && argResult.isEmptyTupleShorthand) {
+        if (!options?.allowEmptyTuple && argResult.isEmptyTupleShorthand) {
             addError(Localizer.Diagnostic.zeroLengthTupleNotAllowed(), argResult.node);
             return false;
+        }
+
+        if (isUnpackedTuple(argResult.type)) {
+            if (!options?.allowUnpackedTuples) {
+                addError(Localizer.Diagnostic.unpackedArgInTypeArgument(), argResult.node);
+                return false;
+            }
         }
 
         return true;
@@ -12079,8 +12116,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (typeArgs && typeArgs.length > 0) {
             if (typeArgs[0].typeList) {
                 const typeList = typeArgs[0].typeList;
-                let sawVariadic = false;
-                let reportedVariadicError = false;
+                let sawUnpacked = false;
+                let reportedUnpackedError = false;
+                const noteSawUnpacked = (entry: TypeResult) => {
+                    // Make sure we have at most one unpacked variadic type variable.
+                    if (sawUnpacked) {
+                        if (!reportedUnpackedError) {
+                            addError(Localizer.Diagnostic.variadicTypeArgsTooMany(), entry.node);
+                            reportedUnpackedError = true;
+                        }
+                    }
+                    sawUnpacked = true;
+                };
 
                 typeList.forEach((entry, index) => {
                     let entryType = entry.type;
@@ -12088,17 +12135,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const paramName = `__p${index.toString()}`;
 
                     if (isVariadicTypeVar(entryType)) {
-                        // Make sure we have at most one unpacked variadic type variable.
-                        if (sawVariadic) {
-                            if (!reportedVariadicError) {
-                                addError(Localizer.Diagnostic.variadicTypeArgsTooMany(), entry.node);
-                                reportedVariadicError = true;
-                            }
-                        }
-                        sawVariadic = true;
                         validateVariadicTypeVarIsUnpacked(entryType, entry.node);
-                        paramCategory = ParameterCategory.Simple;
-                    } else if (!validateTypeArg(entry)) {
+                        paramCategory = ParameterCategory.VarArgList;
+                        noteSawUnpacked(entry);
+                    } else if (validateTypeArg(entry, { allowUnpackedTuples: true })) {
+                        if (isUnpackedTuple(entryType)) {
+                            paramCategory = ParameterCategory.VarArgList;
+                            noteSawUnpacked(entry);
+                        }
+                    } else {
                         entryType = UnknownType.create();
                     }
 
@@ -12510,7 +12555,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeArgType;
     }
 
-    function createUnpackType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
+    function createUnpackType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
         if (!typeArgs || typeArgs.length !== 1) {
             addError(Localizer.Diagnostic.unpackArgCount(), errorNode);
             return UnknownType.create();
@@ -12519,6 +12564,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeArgType = typeArgs[0].type;
         if (isUnion(typeArgType) && typeArgType.subtypes.length === 1) {
             typeArgType = typeArgType.subtypes[0];
+        }
+
+        if (isInstantiableClass(typeArgType) && !typeArgType.includeSubclasses && isTupleClass(typeArgType)) {
+            return ClassType.cloneForUnpackedTuple(typeArgType);
         }
 
         if (!isVariadicTypeVar(typeArgType) || typeArgType.isVariadicUnpacked) {
@@ -12609,8 +12658,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isTupleTypeParam && typeArgs.length === 1 && typeArgs[0].isEmptyTupleShorthand) {
                 typeArgs = [];
             } else {
-                let sawVariadic = false;
-                let reportedVariadicError = false;
+                let sawUnpacked = false;
+                const noteSawUnpacked = (typeArg: TypeResult) => {
+                    if (sawUnpacked) {
+                        if (!reportedUnpackedError) {
+                            addError(Localizer.Diagnostic.variadicTypeArgsTooMany(), typeArg.node);
+                            reportedUnpackedError = true;
+                        }
+                    }
+                    sawUnpacked = true;
+                };
+                let reportedUnpackedError = false;
 
                 // Verify that we didn't receive any inappropriate types.
                 typeArgs.forEach((typeArg, index) => {
@@ -12631,15 +12689,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else if (isParamSpec(typeArg.type) && allowParamSpec) {
                         // Nothing to do - this is allowed.
                     } else if (isVariadicTypeVar(typeArg.type) && paramLimit === undefined) {
-                        // Make sure we have at most one unpacked variadic type variable.
-                        if (sawVariadic) {
-                            if (!reportedVariadicError) {
-                                addError(Localizer.Diagnostic.variadicTypeArgsTooMany(), typeArg.node);
-                                reportedVariadicError = true;
-                            }
-                        }
+                        noteSawUnpacked(typeArg);
                         validateVariadicTypeVarIsUnpacked(typeArg.type, typeArg.node);
-                        sawVariadic = true;
+                    } else if (paramLimit === undefined && isUnpacked(typeArg.type)) {
+                        noteSawUnpacked(typeArg);
+                        validateTypeArg(typeArg, { allowUnpackedTuples: true });
                     } else {
                         validateTypeArg(typeArg);
                     }
@@ -12677,14 +12731,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If no type args are provided and it's a tuple, default to [Unknown, ...].
             if (!typeArgs) {
                 tupleTypeArgTypes.push({ type: UnknownType.create(), isUnbounded: true });
-            } else if (typeArgs.length === 2 && isEllipsisType(typeArgs[1].type)) {
-                tupleTypeArgTypes.push({ type: typeArgTypes[0], isUnbounded: true });
             } else {
-                tupleTypeArgTypes.push(
-                    ...typeArgTypes.map((type) => {
-                        return { type, isUnbounded: false };
-                    })
-                );
+                typeArgs.forEach((typeArg, index) => {
+                    if (index === 1 && isEllipsisType(typeArgTypes[index])) {
+                        if (tupleTypeArgTypes.length === 1 && !tupleTypeArgTypes[0].isUnbounded) {
+                            tupleTypeArgTypes[0] = { type: tupleTypeArgTypes[0].type, isUnbounded: true };
+                        } else {
+                            addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
+                        }
+                    } else if (isUnpackedTuple(typeArg.type) && typeArg.type.tupleTypeArguments) {
+                        tupleTypeArgTypes.push(...typeArg.type.tupleTypeArguments);
+                    } else {
+                        tupleTypeArgTypes.push({ type: typeArgTypes[index], isUnbounded: false });
+                    }
+                });
             }
 
             returnType = specializeTupleClass(
@@ -12728,27 +12788,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         for (const typeArg of typeArgs) {
             let typeArgType = typeArg.type;
 
-            if (!validateTypeArg(typeArg, /* allowEmptyTuple */ false, /* allowVariadicTypeVar */ true)) {
+            if (!validateTypeArg(typeArg, { allowVariadicTypeVar: true, allowUnpackedTuples: true })) {
                 typeArgType = UnknownType.create();
             } else if (!TypeBase.isInstantiable(typeArgType)) {
                 addExpectedClassDiagnostic(typeArgType, typeArg.node);
                 typeArgType = UnknownType.create();
             }
 
-            // If this is an unpacked TypeVar, note that it is in a union so we can differentiate
-            // between Unpack[Vs] and Union[Unpack[Vs]].
-            if (isTypeVar(typeArgType) && isVariadicTypeVar(typeArgType) && typeArgType.isVariadicUnpacked) {
-                typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
-            }
+            // If this is an unpacked tuple, explode out the individual items.
+            if (isUnpackedTuple(typeArg.type) && typeArg.type.tupleTypeArguments) {
+                typeArg.type.tupleTypeArguments.forEach((tupleTypeArg) => {
+                    types.push(convertToInstantiable(tupleTypeArg.type));
+                });
+            } else {
+                // If this is an unpacked TypeVar, note that it is in a union so we can differentiate
+                // between Unpack[Vs] and Union[Unpack[Vs]].
+                if (isTypeVar(typeArgType) && isVariadicTypeVar(typeArgType) && typeArgType.isVariadicUnpacked) {
+                    typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
+                }
 
-            types.push(typeArgType);
+                types.push(typeArgType);
+            }
         }
 
         // Validate that we received at least two type arguments. One type argument
-        // is allowed if it's a variadic type var or None (since the latter is used
-        // to define NoReturn in typeshed stubs).
+        // is allowed if it's an unpacked variadic type var or tuple. None is also allowed
+        // since it is used to define NoReturn in typeshed stubs).
         if (types.length === 1) {
-            if (!isVariadicTypeVar(types[0]) && !isNoneInstance(types[0])) {
+            if (!isVariadicTypeVar(types[0]) && !isUnpacked(types[0]) && !isNoneInstance(types[0])) {
                 addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
             }
         }
@@ -13940,6 +14007,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return inputClassType;
             } else if (decoratorType.details.builtInName === 'runtime_checkable') {
                 originalClassType.details.flags |= ClassTypeFlags.RuntimeCheckable;
+
+                // Don't call getTypeFromDecorator for runtime_checkable. It appears
+                // frequently in stubs, and it's a waste of time to validate its
+                // parameters.
+                return inputClassType;
             }
 
             // Is this a dataclass decorator?
@@ -14534,14 +14606,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return type;
                 }
 
+                if (isUnpackedTuple(type)) {
+                    return ClassType.cloneForUnpackedTuple(type, /* isUnpackedTuple */ false);
+                }
+
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
                     return ClassType.cloneAsInstance(
                         specializeTupleClass(
                             tupleClassType,
                             [{ type, isUnbounded: !isVariadicTypeVar(type) }],
                             /* isTypeArgumentExplicit */ true,
-                            /* stripLiterals */ true,
-                            isVariadicTypeVar(type) && type.isVariadicUnpacked
+                            /* stripLiterals */ true
                         )
                     );
                 }
@@ -16165,12 +16240,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 disallowRecursiveTypeAlias: true,
             });
 
-            writeTypeCache(
-                node.name!,
-                transformVariadicParamType(node, node.category, adjustParameterAnnotatedType(param, annotatedType)),
-                EvaluatorFlags.None,
-                /* isIncomplete */ false
+            const adjType = transformVariadicParamType(
+                node,
+                node.category,
+                adjustParameterAnnotatedType(param, annotatedType)
             );
+
+            writeTypeCache(node.name!, adjType, EvaluatorFlags.None, /* isIncomplete */ false);
             return;
         }
 
@@ -16520,7 +16596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Unpack': {
-                    return createUnpackType(errorNode, typeArgs);
+                    return createUnpackType(errorNode, classType, typeArgs);
                 }
 
                 case 'Required':
@@ -16653,13 +16729,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeParam = index < typeParameters.length ? typeParameters[index] : undefined;
                 const isParamSpecTarget = typeParam?.details.isParamSpec;
 
-                validateTypeArg(
-                    typeArg,
-                    /* allowEmptyTuple */ false,
-                    /* allowVariadicTypeVar */ false,
-                    /* allowParamSpec */ true,
-                    /* allowTypeArgList */ isParamSpecTarget
-                );
+                validateTypeArg(typeArg, {
+                    allowParamSpec: true,
+                    allowTypeArgList: isParamSpecTarget,
+                });
             });
         }
 
@@ -18808,6 +18881,133 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return false;
     }
 
+    function canAssignTupleTypeArgs(
+        destType: ClassType,
+        srcType: ClassType,
+        diag: DiagnosticAddendum | undefined,
+        typeVarMap: TypeVarMap | undefined,
+        flags: CanAssignFlags,
+        recursionCount: number
+    ) {
+        const destTypeArgs = [...destType.tupleTypeArguments!] ?? [];
+        const srcTypeArgs = [...srcType.tupleTypeArguments!] ?? [];
+
+        const destVariadicIndex = destTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
+        const destUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded);
+        const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
+
+        // If the source is unbounded, expand the unbounded argument to try
+        // to make the source and dest arg counts match.
+        if (srcUnboundedIndex >= 0) {
+            const requiredSrcArgCount =
+                destVariadicIndex >= 0 || destUnboundedIndex >= 0 ? destTypeArgs.length - 1 : destTypeArgs.length;
+
+            while (srcTypeArgs.length < requiredSrcArgCount) {
+                srcTypeArgs.splice(srcUnboundedIndex, 0, srcTypeArgs[srcUnboundedIndex]);
+            }
+        }
+
+        if (destVariadicIndex >= 0 && srcUnboundedIndex >= 0) {
+            if (diag) {
+                diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+            }
+            return false;
+        }
+
+        // If the dest is unbounded or contains a variadic, determine which
+        // source args map to the unbounded or variadic arg.
+        if (destUnboundedIndex >= 0 || destVariadicIndex >= 0) {
+            // If there's a variadic within the destination, package up the corresponding
+            // source arguments into a tuple.
+            const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
+            if (srcArgsToCapture >= 0) {
+                if (destVariadicIndex >= 0) {
+                    if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                        const removedArgs = srcTypeArgs.splice(destVariadicIndex, srcArgsToCapture);
+
+                        // Package up the remaining type arguments into a tuple object.
+                        const variadicTuple = convertToInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                removedArgs.map((typeArg) => {
+                                    return { type: stripLiteralValue(typeArg.type), isUnbounded: false };
+                                }),
+                                /* isTypeArgumentExplicit */ true,
+                                /* stripLiterals */ true,
+                                /* isUnpackedTuple */ true
+                            )
+                        );
+                        srcTypeArgs.splice(destVariadicIndex, 0, {
+                            type: variadicTuple,
+                            isUnbounded: false,
+                        });
+                    }
+                } else {
+                    const removedArgs = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture);
+                    srcTypeArgs.splice(destUnboundedIndex, 0, {
+                        type: combineTypes(removedArgs.map((t) => t.type)),
+                        isUnbounded: false,
+                    });
+                }
+            }
+        }
+
+        if (srcTypeArgs.length === destTypeArgs.length) {
+            for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
+                const entryDiag = diag?.createAddendum();
+
+                if (
+                    !canAssignType(
+                        destTypeArgs[argIndex].type,
+                        srcTypeArgs[argIndex].type,
+                        entryDiag?.createAddendum(),
+                        typeVarMap,
+                        flags | CanAssignFlags.RetainLiteralsForTypeVar,
+                        recursionCount + 1
+                    )
+                ) {
+                    if (entryDiag) {
+                        entryDiag.addMessage(
+                            Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({
+                                entry: argIndex + 1,
+                            })
+                        );
+                    }
+                    return false;
+                }
+            }
+        } else {
+            if (srcUnboundedIndex >= 0) {
+                // PEP 646 allows an indeterminate tuple type to be assigned to
+                // a determinate tuple type if it's associated with a TypeVarTuple.
+                if (!destType.isUnpackedTuple) {
+                    if (diag) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
+                                expected: destTypeArgs.length,
+                            })
+                        );
+                    }
+
+                    return false;
+                }
+            } else {
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
+                            expected: destTypeArgs.length,
+                            received: srcTypeArgs.length,
+                        })
+                    );
+                }
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // Determines whether the specified type can be assigned to the
     // specified inheritance chain, taking into account its type arguments.
     function canAssignClassWithTypeArgs(
@@ -18850,123 +19050,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Handle built-in types that support arbitrary numbers
             // of type parameters like Tuple.
-            if (ancestorIndex === 0) {
-                if (destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
-                    const destTypeArgs = destType.tupleTypeArguments.map((t) => t.type);
-                    const isDestHomogenousType = destType.tupleTypeArguments.some((t) => t.isUnbounded);
-                    const isDestVariadic = destTypeArgs.some((t) => isVariadicTypeVar(t));
-
-                    const srcTypeArgs = curSrcType.tupleTypeArguments.map((t) => t.type);
-                    const isSrcHomogeneousType = srcType.tupleTypeArguments?.some((t) => t.isUnbounded);
-
-                    if (isDestVariadic && isSrcHomogeneousType) {
-                        if (diag) {
-                            diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
-                        }
-                        return false;
-                    }
-
-                    if (
-                        (srcTypeArgs.length === destTypeArgs.length && !isSrcHomogeneousType) ||
-                        isDestHomogenousType ||
-                        isDestVariadic
-                    ) {
-                        const maxArgCount = Math.max(destTypeArgs.length, srcTypeArgs.length);
-                        for (let argIndex = 0; argIndex < maxArgCount; argIndex++) {
-                            let srcTypeArgType: Type;
-                            let destTypeArgType: Type;
-                            let isSourceTypeMissing = false;
-
-                            if (isSrcHomogeneousType) {
-                                srcTypeArgType = srcTypeArgs[0];
-                            } else if (argIndex < srcTypeArgs.length) {
-                                srcTypeArgType = srcTypeArgs[argIndex];
-                            } else {
-                                srcTypeArgType = AnyType.create();
-                                if (destType.isTypeArgumentExplicit) {
-                                    if (isDestVariadic && argIndex < destTypeArgs.length - 1 && !isDestHomogenousType) {
-                                        isSourceTypeMissing = true;
-                                    }
-                                }
-                            }
-
-                            let movePastSourceArgs = false;
-                            if (isDestVariadic && argIndex >= destTypeArgs.length - 1) {
-                                destTypeArgType = destTypeArgs[destTypeArgs.length - 1];
-                                if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                                    // Package up the remaining type arguments into a tuple object.
-                                    const remainingSrcTypeArgs = srcTypeArgs.slice(argIndex);
-                                    srcTypeArgType = convertToInstance(
-                                        specializeTupleClass(
-                                            tupleClassType,
-                                            remainingSrcTypeArgs.map((type) => {
-                                                return { type: stripLiteralValue(type), isUnbounded: false };
-                                            }),
-                                            /* isTypeArgumentExplicit */ true,
-                                            /* stripLiterals */ true,
-                                            /* isForUnpackedVariadicTypeVar */ true
-                                        )
-                                    );
-                                    movePastSourceArgs = true;
-                                }
-                            } else if (isDestHomogenousType) {
-                                destTypeArgType = destTypeArgs[0];
-                            } else {
-                                destTypeArgType =
-                                    argIndex < destTypeArgs.length ? destTypeArgs[argIndex] : AnyType.create();
-                            }
-
-                            const entryDiag = diag?.createAddendum();
-
-                            if (
-                                isSourceTypeMissing ||
-                                !canAssignType(
-                                    destTypeArgType,
-                                    srcTypeArgType,
-                                    entryDiag?.createAddendum(),
-                                    curTypeVarMap,
-                                    flags | CanAssignFlags.RetainLiteralsForTypeVar,
-                                    recursionCount + 1
-                                )
-                            ) {
-                                if (entryDiag) {
-                                    entryDiag.addMessage(
-                                        Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({
-                                            entry: argIndex + 1,
-                                        })
-                                    );
-                                }
-                                return false;
-                            }
-
-                            if (movePastSourceArgs) {
-                                argIndex = srcTypeArgs.length;
-                            }
-                        }
-                    } else {
-                        if (isSrcHomogeneousType) {
-                            if (diag) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
-                                        expected: destTypeArgs.length,
-                                    })
-                                );
-                            }
-                        } else {
-                            if (diag) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
-                                        expected: destTypeArgs.length,
-                                        received: srcTypeArgs.length,
-                                    })
-                                );
-                            }
-                        }
-                        return false;
-                    }
-
-                    return true;
-                }
+            if (ancestorIndex === 0 && destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
+                return canAssignTupleTypeArgs(destType, curSrcType, diag, curTypeVarMap, flags, recursionCount);
             }
 
             // If there are no type parameters on this class, we're done.
@@ -19016,14 +19101,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
                 typeVarMap.setTypeVarType(destType.details.typeParameters[i], undefined, typeArgType);
-            }
-
-            if (
-                ClassType.isTupleClass(curSrcType) &&
-                curSrcType.tupleTypeArguments &&
-                destType.details.typeParameters.length >= 1
-            ) {
-                typeVarMap.setVariadicTypeVar(destType.details.typeParameters[0], curSrcType.tupleTypeArguments);
             }
         }
 
@@ -19218,10 +19295,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (destType.details.isVariadic) {
-            const isVariadicTuple =
-                isClassInstance(srcType) && isTupleClass(srcType) && !!srcType.isTupleForUnpackedVariadicTypeVar;
-
-            if (!isVariadicTypeVar(srcType) && !isVariadicTuple) {
+            if (!isUnpacked(srcType)) {
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
                     // Package up the type into a tuple.
                     srcType = convertToInstance(
@@ -19230,7 +19304,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             [{ type: srcType, isUnbounded: false }],
                             /* isTypeArgumentExplicit */ true,
                             /* stripLiterals */ true,
-                            /* isForUnpackedVariadicTypeVar */ true
+                            /* isUnpackedTuple */ true
                         )
                     );
                 } else {
@@ -21094,6 +21168,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
+        if (isVariadicTypeVar(destType) && !isUnpacked(srcType)) {
+            return false;
+        }
+
         let specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
 
         // If the destination includes type variables that still need to be solved,
@@ -21156,13 +21234,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         srcDetails: ParameterListDetails,
         destDetails: ParameterListDetails
     ) {
-        // If there is no unpacked variadic parameter in the dest, we have nothing to do.
-        if (destDetails.variadicParamIndex === undefined) {
+        // If there is no *args parameter in the dest, we have nothing to do.
+        if (destDetails.argsIndex === undefined) {
             return;
         }
 
         // If the source doesn't have enough positional parameters, we have nothing to do.
-        if (srcDetails.params.length < destDetails.variadicParamIndex) {
+        if (srcDetails.params.length < destDetails.argsIndex) {
             return;
         }
 
@@ -21173,25 +21251,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let srcLastToPackIndex = srcDetails.params.findIndex(
-            (p, i) => i >= destDetails.variadicParamIndex! && p.source === ParameterSource.KeywordOnly
+            (p, i) => i >= destDetails.argsIndex! && p.source === ParameterSource.KeywordOnly
         );
         if (srcLastToPackIndex < 0) {
             srcLastToPackIndex = srcDetails.params.length;
         }
 
         let destFirstNonPositional = destDetails.params.length;
-        if (destDetails.kwargsIndex !== undefined && destDetails.kwargsIndex > destDetails.variadicParamIndex) {
+        if (destDetails.kwargsIndex !== undefined && destDetails.kwargsIndex > destDetails.argsIndex) {
             destFirstNonPositional = destDetails.kwargsIndex;
         }
 
-        const suffixLength = destFirstNonPositional - destDetails.variadicParamIndex - 1;
-        const srcPositionalsToPack = srcDetails.params.slice(
-            destDetails.variadicParamIndex,
-            srcLastToPackIndex - suffixLength
-        );
+        const suffixLength = destFirstNonPositional - destDetails.argsIndex - 1;
+        const srcPositionalsToPack = srcDetails.params.slice(destDetails.argsIndex, srcLastToPackIndex - suffixLength);
         const srcTupleTypes: TupleTypeArgument[] = srcPositionalsToPack.map((entry) => {
             return {
-                type: FunctionType.getEffectiveParameterType(srcType, entry.index),
+                type: entry.type,
                 isUnbounded: entry.param.category === ParameterCategory.VarArgList,
             };
         });
@@ -21205,7 +21280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcTupleTypes,
                         /* isTypeArgumentExplicit */ true,
                         /* stripLiterals */ true,
-                        /* isForUnpackedVariadicTypeVar */ true
+                        /* isUnpackedTuple */ true
                     )
                 );
             } else {
@@ -21216,20 +21291,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // dest parameter and replace it with a single parameter that is typed as a
             // tuple containing the individual types of the replaced parameters.
             srcDetails.params = [
-                ...srcDetails.params.slice(0, destDetails.variadicParamIndex),
+                ...srcDetails.params.slice(0, destDetails.argsIndex),
                 {
                     param: {
-                        category: ParameterCategory.Simple,
+                        category: ParameterCategory.VarArgList,
                         name: '_arg_combined',
                         isNameSynthesized: true,
                         hasDeclaredType: true,
                         type: srcPositionalsType,
                     },
+                    type: srcPositionalsType,
                     index: -1,
                     source: ParameterSource.PositionOrKeyword,
                 },
                 ...srcDetails.params.slice(
-                    destDetails.variadicParamIndex + srcPositionalsToPack.length,
+                    destDetails.argsIndex + srcPositionalsToPack.length,
                     srcDetails.params.length
                 ),
             ];
@@ -21269,10 +21345,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ? !!srcType.details.paramSpec
                 : !!destType.details.paramSpec;
 
-        const destPositionalCount =
-            destParamDetails.argsIndex ?? destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
-        const srcPositionalCount =
-            srcParamDetails.argsIndex ?? srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
+        const destPositionalCount = destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
+        const srcPositionalCount = srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
         const positionalsToMatch = Math.min(destPositionalCount, srcPositionalCount);
 
         // Match positional parameters.
@@ -21282,17 +21356,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Find the original index of this source param. If we synthesized it above (for
             // a variadic parameter), it may not be found.
-            const srcParamType =
-                srcParam.index >= 0
-                    ? FunctionType.getEffectiveParameterType(srcType, srcParam.index)
-                    : srcParam.param.type;
-            const destParamType = FunctionType.getEffectiveParameterType(destType, destParam.index);
+            const srcParamType = srcParam.type;
+            const destParamType = destParam.type;
 
             const destParamName = destParam.param.name ?? '';
             const srcParamName = srcParam.param.name ?? '';
             if (destParamName && !isPrivateOrProtectedName(destParamName) && !isPrivateOrProtectedName(srcParamName)) {
                 const isDestPositionalOnly = destParam.source === ParameterSource.PositionOnly;
-                if (!isDestPositionalOnly && destParamName !== srcParamName) {
+                if (
+                    !isDestPositionalOnly &&
+                    destParam.param.category !== ParameterCategory.VarArgList &&
+                    srcParam.param.category !== ParameterCategory.VarArgList &&
+                    destParamName !== srcParamName
+                ) {
                     if (diag) {
                         diag.createAddendum().addMessage(
                             Localizer.DiagnosticAddendum.functionParamName().format({
@@ -21370,75 +21446,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             canAssign = false;
         }
 
-        if (destParamDetails.variadicArgsIndex !== undefined) {
-            // Package up the remaining source positional parameters
-            // and assign them to the variadic.
-            const remainingSrcPositionals: TupleTypeArgument[] = [];
-            if (destPositionalCount < srcPositionalCount) {
-                remainingSrcPositionals.push(
-                    ...srcParamDetails.params.slice(destPositionalCount, srcPositionalCount).map((param) => {
-                        return {
-                            type: param.param.type,
-                            isUnbounded: param.param.category === ParameterCategory.VarArgList,
-                        };
-                    })
-                );
-            }
-
-            let isSourceNonVariadicArgs = false;
-            if (srcParamDetails.argsIndex !== undefined) {
-                const srcArgsType = FunctionType.getEffectiveParameterType(
-                    srcType,
-                    srcParamDetails.params[srcParamDetails.argsIndex].index
-                );
-                if (isVariadicTypeVar(srcArgsType)) {
-                    remainingSrcPositionals.push({
-                        type: srcArgsType,
-                        isUnbounded:
-                            srcParamDetails.params[srcParamDetails.argsIndex].param.category ===
-                            ParameterCategory.VarArgList,
-                    });
-                } else {
-                    isSourceNonVariadicArgs = true;
-                }
-            }
-
-            let srcPositionalsType: Type;
-            if (remainingSrcPositionals.length === 1 && isVariadicTypeVar(remainingSrcPositionals[0].type)) {
-                // Handle the special case where we're assigning a variadic type
-                // variable to a variadic type variable.
-                srcPositionalsType = remainingSrcPositionals[0].type;
-            } else {
-                if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    srcPositionalsType = convertToInstance(
-                        specializeTupleClass(
-                            tupleClassType,
-                            remainingSrcPositionals,
-                            /* isTypeArgumentExplicit */ true,
-                            /* stripLiterals */ true,
-                            /* isForUnpackedVariadicTypeVar */ true
-                        )
-                    );
-                } else {
-                    srcPositionalsType = UnknownType.create();
-                }
-            }
-
-            if (isSourceNonVariadicArgs) {
-                if (diag) {
-                    diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.argsParamWithVariadic().format({
-                            paramName: srcParamDetails.params[srcParamDetails.argsIndex!].param.name!,
-                        })
-                    );
-                }
-                canAssign = false;
-            } else if (destParamDetails.argsIndex !== undefined) {
-                const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
+        if (destParamDetails.argsIndex !== undefined) {
+            const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
+            if (destParamDetails.argsIndex < srcParamDetails.params.length) {
                 if (
                     !canAssignFunctionParameter(
-                        FunctionType.getEffectiveParameterType(destType, destArgsIndex),
-                        srcPositionalsType,
+                        destParamDetails.params[destParamDetails.argsIndex].type,
+                        srcParamDetails.params[destParamDetails.argsIndex].type,
                         destArgsIndex,
                         diag?.createAddendum(),
                         typeVarMap,
@@ -21478,16 +21492,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     // Make sure the remaining positional arguments are of the
                     // correct type for the *args parameter.
-                    const destArgsType = FunctionType.getEffectiveParameterType(
-                        destType,
-                        destParamDetails.params[destParamDetails.argsIndex].index
-                    );
+                    const destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
                     if (!isAnyOrUnknown(destArgsType)) {
                         for (let paramIndex = destPositionalCount; paramIndex < srcPositionalCount; paramIndex++) {
-                            const srcParamType = FunctionType.getEffectiveParameterType(
-                                srcType,
-                                srcParamDetails.params[paramIndex].index
-                            );
+                            const srcParamType = srcParamDetails.params[paramIndex].type;
                             if (
                                 !canAssignFunctionParameter(
                                     destArgsType,
@@ -21510,15 +21518,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (srcParamDetails.argsIndex !== undefined) {
                 // Make sure the remaining dest parameters can be assigned to the source
                 // *args parameter type.
-                const srcArgsType = FunctionType.getEffectiveParameterType(
-                    srcType,
-                    srcParamDetails.params[srcParamDetails.argsIndex].index
-                );
+                const srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
                 for (let paramIndex = srcPositionalCount; paramIndex < destPositionalCount; paramIndex++) {
-                    const destParamType = FunctionType.getEffectiveParameterType(
-                        destType,
-                        destParamDetails.params[paramIndex].index
-                    );
+                    const destParamType = destParamDetails.params[paramIndex].type;
                     if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
                         if (diag) {
                             diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
@@ -21555,16 +21557,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If both src and dest have an "*args" parameter, make sure
         // their types are compatible.
         if (srcParamDetails.argsIndex !== undefined && destParamDetails.argsIndex !== undefined) {
-            const srcArgsIndex = srcParamDetails.params[srcParamDetails.argsIndex].index;
-            const srcArgsType = FunctionType.getEffectiveParameterType(srcType, srcArgsIndex);
-            const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
-            const destArgsType = FunctionType.getEffectiveParameterType(destType, destArgsIndex);
-
             if (
                 !canAssignFunctionParameter(
-                    destArgsType,
-                    srcArgsType,
-                    destArgsIndex,
+                    destParamDetails.params[destParamDetails.argsIndex].type,
+                    srcParamDetails.params[srcParamDetails.argsIndex].type,
+                    destParamDetails.params[destParamDetails.argsIndex].index,
                     diag?.createAddendum(),
                     typeVarMap,
                     srcTypeVarMap,
@@ -21582,7 +21579,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
             srcParamDetails.argsIndex === undefined &&
             destParamDetails.argsIndex !== undefined &&
-            destParamDetails.variadicArgsIndex === undefined &&
+            !destParamDetails.hasUnpackedVariadicTypeVar &&
             !isParamSpecInvolved
         ) {
             if (diag) {
@@ -21638,16 +21635,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     canAssign = false;
                                 } else if (destParamDetails.kwargsIndex !== undefined) {
                                     // Make sure we can assign the type to the Kwargs.
-                                    const destKwargsIndex = destParamDetails.params[destParamDetails.kwargsIndex].index;
-                                    const destKwargsType = FunctionType.getEffectiveParameterType(
-                                        destType,
-                                        destKwargsIndex
-                                    );
                                     if (
                                         !canAssignFunctionParameter(
-                                            destKwargsType,
+                                            destParamDetails.params[destParamDetails.kwargsIndex].type,
                                             srcParam.param.type,
-                                            destKwargsIndex,
+                                            destParamDetails.params[destParamDetails.kwargsIndex].index,
                                             diag?.createAddendum(),
                                             typeVarMap,
                                             srcTypeVarMap,
@@ -21706,13 +21698,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destParamMap.forEach((destParam, paramName) => {
                 if (srcParamDetails.kwargsIndex !== undefined && destParam.name) {
                     // Make sure the src kwargs type is compatible.
-                    const srcKwargsIndex = srcParamDetails.params[srcParamDetails.kwargsIndex].index;
-                    const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
-
                     if (
                         !canAssignFunctionParameter(
                             destParam.type,
-                            srcKwargsType,
+                            srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                             destType.details.parameters.findIndex((p) => p === destParam),
                             diag?.createAddendum(),
                             typeVarMap,
@@ -21736,17 +21725,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If both src and dest have a "*kwargs" parameter, make sure their types are compatible.
             if (srcParamDetails.kwargsIndex !== undefined && destParamDetails.kwargsIndex !== undefined) {
-                const srcKwargsIndex = srcParamDetails.params[srcParamDetails.kwargsIndex].index;
-                const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
-
-                const destKwargsIndex = destParamDetails.params[destParamDetails.kwargsIndex].index;
-                const destKwargsType = FunctionType.getEffectiveParameterType(destType, destKwargsIndex);
-
                 if (
                     !canAssignFunctionParameter(
-                        destKwargsType,
-                        srcKwargsType,
-                        destKwargsIndex,
+                        destParamDetails.params[destParamDetails.kwargsIndex].type,
+                        srcParamDetails.params[srcParamDetails.kwargsIndex].type,
+                        destParamDetails.params[destParamDetails.kwargsIndex].index,
                         diag?.createAddendum(),
                         typeVarMap,
                         srcTypeVarMap,

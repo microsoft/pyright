@@ -36,6 +36,7 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    isUnpackedTuple,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     ModuleType,
@@ -180,30 +181,41 @@ export enum ParameterSource {
     KeywordOnly,
 }
 
-export interface ParameterDetails {
+export interface VirtualParameterDetails {
     param: FunctionParameter;
+    type: Type;
     index: number;
     source: ParameterSource;
 }
 
 export interface ParameterListDetails {
-    variadicParamIndex?: number;
-    argsIndex?: number;
-    variadicArgsIndex?: number;
-    kwargsIndex?: number;
-    firstPositionOrKeywordIndex: number;
+    // Virtual parameter list that refers to original parameters
+    params: VirtualParameterDetails[];
+
+    // Counts of virtual parameters
     positionOnlyParamCount: number;
     positionParamCount: number;
+
+    // Indexes into virtual parameter list
+    kwargsIndex?: number;
+    argsIndex?: number;
     firstKeywordOnlyIndex?: number;
-    params: ParameterDetails[];
+    firstPositionOrKeywordIndex: number;
+
+    // Other information
+    hasUnpackedVariadicTypeVar: boolean;
 }
 
+// Examines the input parameters within a function signature and creates a
+// "virtual list" of parameters, stripping out any markers and expanding
+// any *args with unpacked tuples.
 export function getParameterListDetails(type: FunctionType): ParameterListDetails {
     const result: ParameterListDetails = {
         firstPositionOrKeywordIndex: 0,
         positionParamCount: 0,
         positionOnlyParamCount: 0,
         params: [],
+        hasUnpackedVariadicTypeVar: false,
     };
 
     let positionOnlyIndex = type.details.parameters.findIndex(
@@ -246,46 +258,89 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
     let sawKeywordOnlySeparator = false;
 
-    type.details.parameters.forEach((param, index) => {
-        if (param.category === ParameterCategory.VarArgList) {
-            if (!sawKeywordOnlySeparator) {
-                result.firstKeywordOnlyIndex = result.params.length;
-                sawKeywordOnlySeparator = true;
-            }
-
-            if (param.name && result.argsIndex === undefined) {
-                result.argsIndex = result.params.length;
-
-                if (isVariadicTypeVar(param.type)) {
-                    result.variadicArgsIndex = result.params.length;
-                }
-            }
-        }
-
-        if (param.category === ParameterCategory.VarArgDictionary) {
-            if (result.kwargsIndex === undefined) {
-                result.kwargsIndex = result.params.length;
-            }
-        }
-
-        if (param.category === ParameterCategory.Simple) {
-            if (isVariadicTypeVar(param.type)) {
-                result.variadicParamIndex = index;
-            } else if (param.name && !sawKeywordOnlySeparator) {
-                result.positionParamCount++;
-            }
-        }
-
+    const addVirtualParameter = (param: FunctionParameter, index: number, typeOverride?: Type) => {
         if (param.name) {
             result.params.push({
                 param,
                 index,
+                type: typeOverride ?? FunctionType.getEffectiveParameterType(type, index),
                 source: sawKeywordOnlySeparator
                     ? ParameterSource.KeywordOnly
                     : positionOnlyIndex >= 0 && index < positionOnlyIndex
                     ? ParameterSource.PositionOnly
                     : ParameterSource.PositionOrKeyword,
             });
+        }
+    };
+
+    type.details.parameters.forEach((param, index) => {
+        if (param.category === ParameterCategory.VarArgList) {
+            // If this is an unpacked tuple, expand the entries.
+            if (param.name && isUnpackedTuple(param.type) && param.type.tupleTypeArguments) {
+                param.type.tupleTypeArguments.forEach((tupleArg, index) => {
+                    const category =
+                        isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
+                            ? ParameterCategory.VarArgList
+                            : ParameterCategory.Simple;
+
+                    if (category === ParameterCategory.VarArgList) {
+                        result.argsIndex = result.params.length;
+                    }
+
+                    if (isVariadicTypeVar(param.type)) {
+                        result.hasUnpackedVariadicTypeVar = true;
+                    }
+
+                    addVirtualParameter(
+                        {
+                            category,
+                            name: `${param.name}[${index.toString()}]`,
+                            type: tupleArg.type,
+                            hasDeclaredType: true,
+                        },
+                        index,
+                        tupleArg.type
+                    );
+                });
+            } else {
+                if (param.name && result.argsIndex === undefined) {
+                    result.argsIndex = result.params.length;
+
+                    if (isVariadicTypeVar(param.type)) {
+                        result.hasUnpackedVariadicTypeVar = true;
+                    }
+                }
+
+                // Normally, a VarArgList parameter (either named or as an unnamed separator)
+                // would signify the start of keyword-only parameters. However, we can construct
+                // callable signatures that defy this rule by using Callable and TypeVarTuples
+                // or unpacked tuples.
+                if (!sawKeywordOnlySeparator && (positionOnlyIndex < 0 || index >= positionOnlyIndex)) {
+                    result.firstKeywordOnlyIndex = result.params.length;
+                    if (param.name) {
+                        result.firstKeywordOnlyIndex++;
+                    }
+                    sawKeywordOnlySeparator = true;
+                }
+
+                addVirtualParameter(param, index);
+            }
+        } else if (param.category === ParameterCategory.VarArgDictionary) {
+            sawKeywordOnlySeparator = true;
+            if (result.kwargsIndex === undefined) {
+                result.kwargsIndex = result.params.length;
+            }
+            if (result.firstKeywordOnlyIndex === undefined) {
+                result.firstKeywordOnlyIndex = result.params.length;
+            }
+
+            addVirtualParameter(param, index);
+        } else if (param.category === ParameterCategory.Simple) {
+            if (param.name && !sawKeywordOnlySeparator) {
+                result.positionParamCount++;
+            }
+
+            addVirtualParameter(param, index);
         }
     });
 
@@ -1695,7 +1750,7 @@ export function specializeTupleClass(
     typeArgs: TupleTypeArgument[],
     isTypeArgumentExplicit = true,
     stripLiterals = true,
-    isForUnpackedVariadicTypeVar = false
+    isUnpackedTuple = false
 ): ClassType {
     let combinedTupleType = combineTypes(typeArgs.map((t) => t.type));
 
@@ -1716,8 +1771,8 @@ export function specializeTupleClass(
         typeArgs
     );
 
-    if (isForUnpackedVariadicTypeVar) {
-        clonedClassType.isTupleForUnpackedVariadicTypeVar = true;
+    if (isUnpackedTuple) {
+        clonedClassType.isUnpackedTuple = true;
     }
 
     return clonedClassType;
@@ -1768,12 +1823,7 @@ export function removeParamSpecVariadicsFromFunction(type: FunctionType): Functi
 }
 
 function _expandVariadicUnpackedUnion(type: Type) {
-    if (
-        isClassInstance(type) &&
-        isTupleClass(type) &&
-        type.tupleTypeArguments &&
-        type.isTupleForUnpackedVariadicTypeVar
-    ) {
+    if (isClassInstance(type) && isTupleClass(type) && type.tupleTypeArguments && type.isUnpackedTuple) {
         return combineTypes(type.tupleTypeArguments.map((t) => t.type));
     }
 
@@ -2468,14 +2518,14 @@ class TypeVarTransformer {
             if (
                 variadicParamIndex === undefined &&
                 isVariadicTypeVar(paramType) &&
-                functionType.details.parameters[i].category === ParameterCategory.Simple
+                functionType.details.parameters[i].category === ParameterCategory.VarArgList
             ) {
                 variadicParamIndex = i;
 
                 if (
                     isClassInstance(specializedType) &&
                     isTupleClass(specializedType) &&
-                    specializedType.isTupleForUnpackedVariadicTypeVar
+                    specializedType.isUnpackedTuple
                 ) {
                     variadicTypesToUnpack = specializedType.tupleTypeArguments;
                 }
