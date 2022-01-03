@@ -11731,18 +11731,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Determine the minimum number of parameters that are required to
             // satisfy the lambda.
-            const lambdaParamCount = node.parameters.filter(
+            const minLambdaParamCount = node.parameters.filter(
                 (param) => param.category === ParameterCategory.Simple && param.defaultValue === undefined
+            ).length;
+            const maxLambdaParamCount = node.parameters.filter(
+                (param) => param.category === ParameterCategory.Simple
             ).length;
 
             // Remove any expected subtypes that don't satisfy the minimum
             // parameter count requirement.
             expectedFunctionTypes = expectedFunctionTypes.filter((functionType) => {
-                const functionParamCount = functionType.details.parameters.filter((param) => !!param.name).length;
+                const functionParamCount = functionType.details.parameters.filter(
+                    (param) => !!param.name && !param.hasDefault
+                ).length;
                 const hasVarArgs = functionType.details.parameters.some(
                     (param) => !!param.name && param.category !== ParameterCategory.Simple
                 );
-                return hasVarArgs || functionParamCount === lambdaParamCount;
+                return (
+                    hasVarArgs ||
+                    (functionParamCount >= minLambdaParamCount && functionParamCount <= maxLambdaParamCount)
+                );
             });
         }
 
