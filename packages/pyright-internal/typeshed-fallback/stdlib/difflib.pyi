@@ -70,7 +70,7 @@ def ndiff(
     a: Sequence[str], b: Sequence[str], linejunk: _JunkCallback | None = ..., charjunk: _JunkCallback | None = ...
 ) -> Iterator[str]: ...
 
-class HtmlDiff(object):
+class HtmlDiff:
     def __init__(
         self,
         tabsize: int = ...,

@@ -2,7 +2,7 @@ import importlib.abc
 import types
 import zipimport
 from abc import ABCMeta
-from typing import IO, Any, Callable, Generator, Iterable, Optional, Sequence, Tuple, TypeVar, Union, overload
+from typing import IO, Any, Callable, Generator, Iterable, Optional, Sequence, TypeVar, Union, overload
 
 LegacyVersion = Any  # from packaging.version
 Version = Any  # from packaging.version
@@ -70,14 +70,14 @@ class Requirement:
     unsafe_name: str
     project_name: str
     key: str
-    extras: Tuple[str, ...]
+    extras: tuple[str, ...]
     specs: list[tuple[str, str]]
     # TODO: change this to packaging.markers.Marker | None once we can import
     #       packaging.markers
     marker: Any | None
     @staticmethod
     def parse(s: str | Iterable[str]) -> Requirement: ...
-    def __contains__(self, item: Distribution | str | Tuple[str, ...]) -> bool: ...
+    def __contains__(self, item: Distribution | str | tuple[str, ...]) -> bool: ...
     def __eq__(self, other_requirement: Any) -> bool: ...
 
 def load_entry_point(dist: _EPDistType, group: str, name: str) -> Any: ...
@@ -90,15 +90,15 @@ def get_entry_map(dist: _EPDistType, group: str) -> dict[str, EntryPoint]: ...
 class EntryPoint:
     name: str
     module_name: str
-    attrs: Tuple[str, ...]
-    extras: Tuple[str, ...]
+    attrs: tuple[str, ...]
+    extras: tuple[str, ...]
     dist: Distribution | None
     def __init__(
         self,
         name: str,
         module_name: str,
-        attrs: Tuple[str, ...] = ...,
-        extras: Tuple[str, ...] = ...,
+        attrs: tuple[str, ...] = ...,
+        extras: tuple[str, ...] = ...,
         dist: Distribution | None = ...,
     ) -> None: ...
     @classmethod
@@ -123,7 +123,7 @@ class Distribution(IResourceProvider, IMetadataProvider):
     key: str
     extras: list[str]
     version: str
-    parsed_version: Tuple[str, ...]
+    parsed_version: tuple[str, ...]
     py_version: str
     platform: str | None
     precedence: int
@@ -145,7 +145,7 @@ class Distribution(IResourceProvider, IMetadataProvider):
     def from_filename(cls, filename: str, metadata: _MetadataType = ..., **kw: str | None | int) -> Distribution: ...
     def activate(self, path: list[str] | None = ...) -> None: ...
     def as_requirement(self) -> Requirement: ...
-    def requires(self, extras: Tuple[str, ...] = ...) -> list[Requirement]: ...
+    def requires(self, extras: tuple[str, ...] = ...) -> list[Requirement]: ...
     def clone(self, **kw: str | int | None) -> Requirement: ...
     def egg_name(self) -> str: ...
     def __cmp__(self, other: Any) -> bool: ...

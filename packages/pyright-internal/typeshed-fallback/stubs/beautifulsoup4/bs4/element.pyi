@@ -1,6 +1,6 @@
 from _typeshed import Self
 from collections.abc import Iterator
-from typing import Any, Callable, Generic, Iterable, List, Mapping, Pattern, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Callable, Generic, Iterable, Mapping, Pattern, Type, TypeVar, Union, overload
 
 from . import BeautifulSoup
 from .builder import TreeBuilder
@@ -53,7 +53,7 @@ class PageElement:
     previousSibling: PageElement | None
     @property
     def stripped_strings(self) -> Iterator[str]: ...
-    def get_text(self, separator: str = ..., strip: bool = ..., types: Tuple[Type[NavigableString], ...] = ...) -> str: ...
+    def get_text(self, separator: str = ..., strip: bool = ..., types: tuple[Type[NavigableString], ...] = ...) -> str: ...
     getText = get_text
     @property
     def text(self) -> str: ...
@@ -256,7 +256,7 @@ class Tag(PageElement):
         can_be_empty_element: bool | None = ...,
         cdata_list_attributes: list[str] | None = ...,
         preserve_whitespace_tags: list[str] | None = ...,
-        interesting_string_types: Type[NavigableString] | Tuple[Type[NavigableString], ...] | None = ...,
+        interesting_string_types: Type[NavigableString] | tuple[Type[NavigableString], ...] | None = ...,
     ) -> None: ...
     parserClass: Type[BeautifulSoup] | None
     def __copy__(self: Self) -> Self: ...
@@ -267,7 +267,7 @@ class Tag(PageElement):
     def string(self) -> str | None: ...
     @string.setter
     def string(self, string: str) -> None: ...
-    DEFAULT_INTERESTING_STRING_TYPES: Tuple[Type[NavigableString], ...]
+    DEFAULT_INTERESTING_STRING_TYPES: tuple[Type[NavigableString], ...]
     @property
     def strings(self) -> Iterable[str]: ...
     def decompose(self) -> None: ...
@@ -348,6 +348,6 @@ class SoupStrainer:
     searchTag = search_tag
     def search(self, markup: PageElement | Iterable[PageElement]): ...
 
-class ResultSet(List[_PageElementT], Generic[_PageElementT]):
+class ResultSet(list[_PageElementT], Generic[_PageElementT]):
     source: SoupStrainer
     def __init__(self, source: SoupStrainer, result: Iterable[_PageElementT] = ...) -> None: ...

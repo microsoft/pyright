@@ -19,7 +19,6 @@ from typing import (
     NoReturn,
     Pattern,
     Sequence,
-    Tuple,
     Type,
     TypeVar,
     overload,
@@ -102,8 +101,8 @@ class TestCase:
     def assertIsNotNone(self, obj: Any, msg: Any = ...) -> None: ...
     def assertIn(self, member: Any, container: Iterable[Any] | Container[Any], msg: Any = ...) -> None: ...
     def assertNotIn(self, member: Any, container: Iterable[Any] | Container[Any], msg: Any = ...) -> None: ...
-    def assertIsInstance(self, obj: Any, cls: type | Tuple[type, ...], msg: Any = ...) -> None: ...
-    def assertNotIsInstance(self, obj: Any, cls: type | Tuple[type, ...], msg: Any = ...) -> None: ...
+    def assertIsInstance(self, obj: Any, cls: type | tuple[type, ...], msg: Any = ...) -> None: ...
+    def assertNotIsInstance(self, obj: Any, cls: type | tuple[type, ...], msg: Any = ...) -> None: ...
     def assertGreater(self, a: Any, b: Any, msg: Any = ...) -> None: ...
     def assertGreaterEqual(self, a: Any, b: Any, msg: Any = ...) -> None: ...
     def assertLess(self, a: Any, b: Any, msg: Any = ...) -> None: ...
@@ -111,17 +110,17 @@ class TestCase:
     @overload
     def assertRaises(  # type: ignore[misc]
         self,
-        expected_exception: Type[BaseException] | Tuple[Type[BaseException], ...],
+        expected_exception: Type[BaseException] | tuple[Type[BaseException], ...],
         callable: Callable[..., Any],
         *args: Any,
         **kwargs: Any,
     ) -> None: ...
     @overload
-    def assertRaises(self, expected_exception: Type[_E] | Tuple[Type[_E], ...], msg: Any = ...) -> _AssertRaisesContext[_E]: ...
+    def assertRaises(self, expected_exception: Type[_E] | tuple[Type[_E], ...], msg: Any = ...) -> _AssertRaisesContext[_E]: ...
     @overload
     def assertRaisesRegex(  # type: ignore[misc]
         self,
-        expected_exception: Type[BaseException] | Tuple[Type[BaseException], ...],
+        expected_exception: Type[BaseException] | tuple[Type[BaseException], ...],
         expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
         callable: Callable[..., Any],
         *args: Any,
@@ -130,20 +129,20 @@ class TestCase:
     @overload
     def assertRaisesRegex(
         self,
-        expected_exception: Type[_E] | Tuple[Type[_E], ...],
+        expected_exception: Type[_E] | tuple[Type[_E], ...],
         expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
         msg: Any = ...,
     ) -> _AssertRaisesContext[_E]: ...
     @overload
     def assertWarns(  # type: ignore[misc]
-        self, expected_warning: Type[Warning] | Tuple[Type[Warning], ...], callable: Callable[..., Any], *args: Any, **kwargs: Any
+        self, expected_warning: Type[Warning] | tuple[Type[Warning], ...], callable: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> None: ...
     @overload
-    def assertWarns(self, expected_warning: Type[Warning] | Tuple[Type[Warning], ...], msg: Any = ...) -> _AssertWarnsContext: ...
+    def assertWarns(self, expected_warning: Type[Warning] | tuple[Type[Warning], ...], msg: Any = ...) -> _AssertWarnsContext: ...
     @overload
     def assertWarnsRegex(  # type: ignore[misc]
         self,
-        expected_warning: Type[Warning] | Tuple[Type[Warning], ...],
+        expected_warning: Type[Warning] | tuple[Type[Warning], ...],
         expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
         callable: Callable[..., Any],
         *args: Any,
@@ -152,7 +151,7 @@ class TestCase:
     @overload
     def assertWarnsRegex(
         self,
-        expected_warning: Type[Warning] | Tuple[Type[Warning], ...],
+        expected_warning: Type[Warning] | tuple[Type[Warning], ...],
         expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
         msg: Any = ...,
     ) -> _AssertWarnsContext: ...
@@ -200,7 +199,7 @@ class TestCase:
         self, seq1: Sequence[Any], seq2: Sequence[Any], msg: Any = ..., seq_type: Type[Sequence[Any]] | None = ...
     ) -> None: ...
     def assertListEqual(self, list1: list[Any], list2: list[Any], msg: Any = ...) -> None: ...
-    def assertTupleEqual(self, tuple1: Tuple[Any, ...], tuple2: Tuple[Any, ...], msg: Any = ...) -> None: ...
+    def assertTupleEqual(self, tuple1: tuple[Any, ...], tuple2: tuple[Any, ...], msg: Any = ...) -> None: ...
     def assertSetEqual(self, set1: AbstractSet[object], set2: AbstractSet[object], msg: Any = ...) -> None: ...
     def assertDictEqual(self, d1: Mapping[Any, object], d2: Mapping[Any, object], msg: Any = ...) -> None: ...
     def fail(self, msg: Any = ...) -> NoReturn: ...
@@ -231,13 +230,13 @@ class TestCase:
         @overload
         def failUnlessRaises(  # type: ignore[misc]
             self,
-            exception: Type[BaseException] | Tuple[Type[BaseException], ...],
+            exception: Type[BaseException] | tuple[Type[BaseException], ...],
             callable: Callable[..., Any] = ...,
             *args: Any,
             **kwargs: Any,
         ) -> None: ...
         @overload
-        def failUnlessRaises(self, exception: Type[_E] | Tuple[Type[_E], ...], msg: Any = ...) -> _AssertRaisesContext[_E]: ...
+        def failUnlessRaises(self, exception: Type[_E] | tuple[Type[_E], ...], msg: Any = ...) -> _AssertRaisesContext[_E]: ...
         def failUnlessAlmostEqual(self, first: float, second: float, places: int = ..., msg: Any = ...) -> None: ...
         def assertAlmostEquals(
             self, first: float, second: float, places: int = ..., msg: Any = ..., delta: float = ...
@@ -251,7 +250,7 @@ class TestCase:
         @overload
         def assertRaisesRegexp(  # type: ignore[misc]
             self,
-            exception: Type[BaseException] | Tuple[Type[BaseException], ...],
+            exception: Type[BaseException] | tuple[Type[BaseException], ...],
             expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
             callable: Callable[..., Any],
             *args: Any,
@@ -260,7 +259,7 @@ class TestCase:
         @overload
         def assertRaisesRegexp(
             self,
-            exception: Type[_E] | Tuple[Type[_E], ...],
+            exception: Type[_E] | tuple[Type[_E], ...],
             expected_regex: str | bytes | Pattern[str] | Pattern[bytes],
             msg: Any = ...,
         ) -> _AssertRaisesContext[_E]: ...

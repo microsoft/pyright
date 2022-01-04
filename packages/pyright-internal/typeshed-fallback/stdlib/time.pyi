@@ -1,10 +1,10 @@
 import sys
 from _typeshed import structseq
 from types import SimpleNamespace
-from typing import Any, Tuple, Union
+from typing import Any, Union
 from typing_extensions import final
 
-_TimeTuple = Tuple[int, int, int, int, int, int, int, int, int]
+_TimeTuple = tuple[int, int, int, int, int, int, int, int, int]
 
 altzone: int
 daylight: int

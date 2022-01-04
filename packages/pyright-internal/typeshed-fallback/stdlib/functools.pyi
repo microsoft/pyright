@@ -1,7 +1,7 @@
 import sys
 import types
 from _typeshed import SupportsAllComparisons, SupportsItems
-from typing import Any, Callable, Generic, Hashable, Iterable, NamedTuple, Sequence, Sized, Tuple, Type, TypeVar, overload
+from typing import Any, Callable, Generic, Hashable, Iterable, NamedTuple, Sequence, Sized, Type, TypeVar, overload
 from typing_extensions import final
 
 if sys.version_info >= (3, 9):
@@ -49,9 +49,9 @@ def cmp_to_key(mycmp: Callable[[_T, _T], int]) -> Callable[[_T], SupportsAllComp
 
 class partial(Generic[_T]):
     func: Callable[..., _T]
-    args: Tuple[Any, ...]
+    args: tuple[Any, ...]
     keywords: dict[str, Any]
-    def __init__(self, func: Callable[..., _T], *args: Any, **kwargs: Any) -> None: ...
+    def __new__(cls: Type[_S], __func: Callable[..., _T], *args: Any, **kwargs: Any) -> _S: ...
     def __call__(self, *args: Any, **kwargs: Any) -> _T: ...
     if sys.version_info >= (3, 9):
         def __class_getitem__(cls, item: Any) -> GenericAlias: ...
@@ -61,7 +61,7 @@ _Descriptor = Any
 
 class partialmethod(Generic[_T]):
     func: Callable[..., _T] | _Descriptor
-    args: Tuple[Any, ...]
+    args: tuple[Any, ...]
     keywords: dict[str, Any]
     @overload
     def __init__(self, __func: Callable[..., _T], *args: Any, **keywords: Any) -> None: ...
@@ -120,10 +120,10 @@ if sys.version_info >= (3, 9):
     def cache(__user_function: Callable[..., _T]) -> _lru_cache_wrapper[_T]: ...
 
 def _make_key(
-    args: Tuple[Hashable, ...],
+    args: tuple[Hashable, ...],
     kwds: SupportsItems[Any, Any],
     typed: bool,
-    kwd_mark: Tuple[object, ...] = ...,
+    kwd_mark: tuple[object, ...] = ...,
     fasttypes: set[type] = ...,
     tuple: type = ...,
     type: Any = ...,

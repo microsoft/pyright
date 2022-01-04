@@ -11,7 +11,6 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
-    Tuple,
     Type,
     TypeVar,
     Union as _UnionT,
@@ -29,7 +28,7 @@ RTLD_GLOBAL: int
 RTLD_LOCAL: int
 DEFAULT_MODE: int
 
-class CDLL(object):
+class CDLL:
     _func_flags_: ClassVar[int]
     _func_restype_: ClassVar[_CData]
     _name: str
@@ -98,8 +97,8 @@ class _CData(metaclass=_CDataMeta):
 class _CanCastTo(_CData): ...
 class _PointerLike(_CanCastTo): ...
 
-_ECT = Callable[[Optional[Type[_CData]], _FuncPointer, Tuple[_CData, ...]], _CData]
-_PF = _UnionT[Tuple[int], Tuple[int, str], Tuple[int, str, Any]]
+_ECT = Callable[[Optional[Type[_CData]], _FuncPointer, tuple[_CData, ...]], _CData]
+_PF = _UnionT[tuple[int], tuple[int, str], tuple[int, str, Any]]
 
 class _FuncPointer(_PointerLike, _CData):
     restype: Type[_CData] | Callable[[int], Any] | None
@@ -110,9 +109,9 @@ class _FuncPointer(_PointerLike, _CData):
     @overload
     def __init__(self, callable: Callable[..., Any]) -> None: ...
     @overload
-    def __init__(self, func_spec: tuple[str | int, CDLL], paramflags: Tuple[_PF, ...] = ...) -> None: ...
+    def __init__(self, func_spec: tuple[str | int, CDLL], paramflags: tuple[_PF, ...] = ...) -> None: ...
     @overload
-    def __init__(self, vtlb_index: int, name: str, paramflags: Tuple[_PF, ...] = ..., iid: pointer[c_int] = ...) -> None: ...
+    def __init__(self, vtlb_index: int, name: str, paramflags: tuple[_PF, ...] = ..., iid: pointer[c_int] = ...) -> None: ...
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
 class _NamedFuncPointer(_FuncPointer):

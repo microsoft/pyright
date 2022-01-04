@@ -1,8 +1,8 @@
 import argparse
 import ast
-from typing import Any, Generic, Iterable, Iterator, Tuple, Type, TypeVar
+from typing import Any, Generic, Iterable, Iterator, Type, TypeVar
 
-FLAKE8_ERROR = Tuple[int, int, str, Type[Any]]
+FLAKE8_ERROR = tuple[int, int, str, Type[Any]]
 TConfig = TypeVar("TConfig")  # noqa: Y001
 
 class Error:

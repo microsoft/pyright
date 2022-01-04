@@ -2,9 +2,9 @@ import asynchat
 import asyncore
 import socket
 from collections import defaultdict
-from typing import Any, Tuple, Type
+from typing import Any, Type
 
-_Address = Tuple[str, int]  # (host, port)
+_Address = tuple[str, int]  # (host, port)
 
 class SMTPChannel(asynchat.async_chat):
     COMMAND: int

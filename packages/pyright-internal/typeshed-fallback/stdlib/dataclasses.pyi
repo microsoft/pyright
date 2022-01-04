@@ -1,6 +1,6 @@
 import sys
 import types
-from typing import Any, Callable, Generic, Iterable, Mapping, Protocol, Tuple, Type, TypeVar, overload
+from typing import Any, Callable, Generic, Iterable, Mapping, Protocol, Type, TypeVar, overload
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -20,7 +20,7 @@ def asdict(obj: Any) -> dict[str, Any]: ...
 @overload
 def asdict(obj: Any, *, dict_factory: Callable[[list[tuple[str, Any]]], _T]) -> _T: ...
 @overload
-def astuple(obj: Any) -> Tuple[Any, ...]: ...
+def astuple(obj: Any) -> tuple[Any, ...]: ...
 @overload
 def astuple(obj: Any, *, tuple_factory: Callable[[list[Any]], _T]) -> _T: ...
 
@@ -172,7 +172,7 @@ else:
         metadata: Mapping[Any, Any] | None = ...,
     ) -> Any: ...
 
-def fields(class_or_instance: Any) -> Tuple[Field[Any], ...]: ...
+def fields(class_or_instance: Any) -> tuple[Field[Any], ...]: ...
 def is_dataclass(obj: Any) -> bool: ...
 
 class FrozenInstanceError(AttributeError): ...
@@ -191,7 +191,7 @@ if sys.version_info >= (3, 10):
         cls_name: str,
         fields: Iterable[str | tuple[str, type] | tuple[str, type, Field[Any]]],
         *,
-        bases: Tuple[type, ...] = ...,
+        bases: tuple[type, ...] = ...,
         namespace: dict[str, Any] | None = ...,
         init: bool = ...,
         repr: bool = ...,
@@ -209,7 +209,7 @@ else:
         cls_name: str,
         fields: Iterable[str | tuple[str, type] | tuple[str, type, Field[Any]]],
         *,
-        bases: Tuple[type, ...] = ...,
+        bases: tuple[type, ...] = ...,
         namespace: dict[str, Any] | None = ...,
         init: bool = ...,
         repr: bool = ...,

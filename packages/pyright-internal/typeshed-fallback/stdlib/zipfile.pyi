@@ -3,10 +3,10 @@ import sys
 from _typeshed import Self, StrPath
 from os import PathLike
 from types import TracebackType
-from typing import IO, Any, Callable, Iterable, Iterator, Protocol, Sequence, Tuple, Type, overload
+from typing import IO, Any, Callable, Iterable, Iterator, Protocol, Sequence, Type, overload
 from typing_extensions import Literal
 
-_DateTuple = Tuple[int, int, int, int, int, int]
+_DateTuple = tuple[int, int, int, int, int, int]
 _ReadWriteMode = Literal["r", "w"]
 _ReadWriteBinaryMode = Literal["r", "w", "rb", "wb"]
 _ZipFileMode = Literal["r", "w", "x", "a"]

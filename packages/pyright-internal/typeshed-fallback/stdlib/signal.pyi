@@ -2,7 +2,7 @@ import sys
 from _typeshed import structseq
 from enum import IntEnum
 from types import FrameType
-from typing import Any, Callable, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, Optional, Union
 from typing_extensions import final
 
 NSIG: int
@@ -132,7 +132,7 @@ else:
         SIGRTMAX: Signals
         SIGRTMIN: Signals
         @final
-        class struct_siginfo(structseq[int], Tuple[int, int, int, int, int, int, int]):
+        class struct_siginfo(structseq[int], tuple[int, int, int, int, int, int, int]):
             @property
             def si_signo(self) -> int: ...
             @property

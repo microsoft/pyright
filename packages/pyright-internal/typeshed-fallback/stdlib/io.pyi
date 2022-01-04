@@ -4,7 +4,7 @@ import sys
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
 from os import _Opener
 from types import TracebackType
-from typing import IO, Any, BinaryIO, Callable, Iterable, Iterator, TextIO, Tuple, Type
+from typing import IO, Any, BinaryIO, Callable, Iterable, Iterator, TextIO, Type
 
 DEFAULT_BUFFER_SIZE: int
 
@@ -119,7 +119,7 @@ class BufferedRWPair(BufferedIOBase):
 class TextIOBase(IOBase):
     encoding: str
     errors: str | None
-    newlines: str | Tuple[str, ...] | None
+    newlines: str | tuple[str, ...] | None
     def __iter__(self) -> Iterator[str]: ...  # type: ignore[override]
     def __next__(self) -> str: ...  # type: ignore[override]
     def detach(self) -> BinaryIO: ...
@@ -179,4 +179,4 @@ class IncrementalNewlineDecoder(codecs.IncrementalDecoder):
     def __init__(self, decoder: codecs.IncrementalDecoder | None, translate: bool, errors: str = ...) -> None: ...
     def decode(self, input: bytes | str, final: bool = ...) -> str: ...
     @property
-    def newlines(self) -> str | Tuple[str, ...] | None: ...
+    def newlines(self) -> str | tuple[str, ...] | None: ...

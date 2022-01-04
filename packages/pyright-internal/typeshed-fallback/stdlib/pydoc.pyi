@@ -1,10 +1,10 @@
 from _typeshed import SupportsWrite
 from reprlib import Repr
 from types import MethodType, ModuleType, TracebackType
-from typing import IO, Any, AnyStr, Callable, Container, Mapping, MutableMapping, NoReturn, Optional, Tuple, Type
+from typing import IO, Any, AnyStr, Callable, Container, Mapping, MutableMapping, NoReturn, Optional, Type
 
 # the return type of sys.exc_info(), used by ErrorDuringImport.__init__
-_Exc_Info = Tuple[Optional[Type[BaseException]], Optional[BaseException], Optional[TracebackType]]
+_Exc_Info = tuple[Optional[Type[BaseException]], Optional[BaseException], Optional[TracebackType]]
 
 __author__: str
 __date__: str
@@ -96,7 +96,7 @@ class HTMLDoc(Doc):
         methods: Mapping[str, str] = ...,
     ) -> str: ...
     def formattree(
-        self, tree: list[tuple[type, Tuple[type, ...]] | list[Any]], modname: str, parent: type | None = ...
+        self, tree: list[tuple[type, tuple[type, ...]] | list[Any]], modname: str, parent: type | None = ...
     ) -> str: ...
     def docmodule(self, object: object, name: str | None = ..., mod: str | None = ..., *ignored: Any) -> str: ...
     def docclass(
@@ -143,7 +143,7 @@ class TextDoc(Doc):
     def indent(self, text: str, prefix: str = ...) -> str: ...
     def section(self, title: str, contents: str) -> str: ...
     def formattree(
-        self, tree: list[tuple[type, Tuple[type, ...]] | list[Any]], modname: str, parent: type | None = ..., prefix: str = ...
+        self, tree: list[tuple[type, tuple[type, ...]] | list[Any]], modname: str, parent: type | None = ..., prefix: str = ...
     ) -> str: ...
     def docmodule(self, object: object, name: str | None = ..., mod: Any | None = ...) -> str: ...  # type: ignore[override]
     def docclass(self, object: object, name: str | None = ..., mod: str | None = ..., *ignored: Any) -> str: ...
@@ -187,7 +187,7 @@ _list = list  # "list" conflicts with method name
 class Helper:
     keywords: dict[str, str | tuple[str, str]]
     symbols: dict[str, str]
-    topics: dict[str, str | Tuple[str, ...]]
+    topics: dict[str, str | tuple[str, ...]]
     def __init__(self, input: IO[str] | None = ..., output: IO[str] | None = ...) -> None: ...
     input: IO[str]
     output: IO[str]

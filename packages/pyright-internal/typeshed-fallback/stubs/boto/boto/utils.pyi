@@ -3,7 +3,7 @@ import logging.handlers
 import subprocess
 import sys
 import time
-from typing import IO, Any, Callable, ContextManager, Dict, Iterable, Mapping, Sequence, Type, TypeVar
+from typing import IO, Any, Callable, ContextManager, Iterable, Mapping, Sequence, Type, TypeVar
 
 import boto.connection
 
@@ -50,7 +50,7 @@ def merge_meta(
 def get_aws_metadata(headers: Mapping[str, str], provider: _Provider | None = ...) -> Mapping[str, str]: ...
 def retry_url(url: str, retry_on_404: bool = ..., num_retries: int = ..., timeout: int | None = ...) -> str: ...
 
-class LazyLoadMetadata(Dict[_KT, _VT]):
+class LazyLoadMetadata(dict[_KT, _VT]):
     def __init__(self, url: str, num_retries: int, timeout: int | None = ...) -> None: ...
 
 def get_instance_metadata(
@@ -101,7 +101,7 @@ class AuthSMTPHandler(logging.handlers.SMTPHandler):
         self, mailhost: str, username: str, password: str, fromaddr: str, toaddrs: Sequence[str], subject: str
     ) -> None: ...
 
-class LRUCache(Dict[_KT, _VT]):
+class LRUCache(dict[_KT, _VT]):
     class _Item:
         previous: LRUCache._Item | None
         next: LRUCache._Item | None

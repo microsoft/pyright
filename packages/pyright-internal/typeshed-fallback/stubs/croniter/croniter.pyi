@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Iterator, Text, Tuple, Type, TypeVar, Union
+from typing import Any, Iterator, Text, Type, TypeVar, Union
 from typing_extensions import Literal
 
 _RetType = Union[Type[float], Type[datetime.datetime]]
@@ -12,7 +12,7 @@ class CroniterNotAlphaError(CroniterError): ...
 
 class croniter(Iterator[Any]):
     MONTHS_IN_YEAR: Literal[12]
-    RANGES: Tuple[tuple[int, int], ...]
+    RANGES: tuple[tuple[int, int], ...]
     DAYS: tuple[
         Literal[31],
         Literal[28],
@@ -27,9 +27,9 @@ class croniter(Iterator[Any]):
         Literal[30],
         Literal[31],
     ]
-    ALPHACONV: Tuple[dict[str, Any], ...]
-    LOWMAP: Tuple[dict[int, Any], ...]
-    LEN_MEANS_ALL: Tuple[int, ...]
+    ALPHACONV: tuple[dict[str, Any], ...]
+    LOWMAP: tuple[dict[int, Any], ...]
+    LEN_MEANS_ALL: tuple[int, ...]
     bad_length: str
     tzinfo: datetime.tzinfo | None
     cur: float

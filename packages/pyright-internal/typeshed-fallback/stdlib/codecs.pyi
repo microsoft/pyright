@@ -2,7 +2,7 @@ import sys
 import types
 from _typeshed import Self
 from abc import abstractmethod
-from typing import IO, Any, BinaryIO, Callable, Generator, Iterable, Iterator, Protocol, TextIO, Tuple, Type, TypeVar, overload
+from typing import IO, Any, BinaryIO, Callable, Generator, Iterable, Iterator, Protocol, TextIO, Type, TypeVar, overload
 from typing_extensions import Literal
 
 BOM32_BE: bytes
@@ -71,7 +71,7 @@ def lookup(__encoding: str) -> CodecInfo: ...
 def utf_16_be_decode(__data: bytes, __errors: str | None = ..., __final: bool = ...) -> tuple[str, int]: ...  # undocumented
 def utf_16_be_encode(__str: str, __errors: str | None = ...) -> tuple[bytes, int]: ...  # undocumented
 
-class CodecInfo(Tuple[_Encoder, _Decoder, _StreamReader, _StreamWriter]):
+class CodecInfo(tuple[_Encoder, _Decoder, _StreamReader, _StreamWriter]):
     @property
     def encode(self) -> _Encoder: ...
     @property

@@ -80,6 +80,15 @@ def open(
     errors: str | None = ...,
     newline: str | None = ...,
 ) -> TextIO: ...
+@overload
+def open(
+    filename: StrOrBytesPath | _ReadableFileobj | _WritableFileobj,
+    mode: str,
+    compresslevel: int = ...,
+    encoding: str | None = ...,
+    errors: str | None = ...,
+    newline: str | None = ...,
+) -> BZ2File | TextIO: ...
 
 class BZ2File(BaseStream, IO[bytes]):
     def __enter__(self: Self) -> Self: ...
@@ -119,13 +128,13 @@ class BZ2File(BaseStream, IO[bytes]):
     def writelines(self, seq: Iterable[ReadableBuffer]) -> None: ...
 
 @final
-class BZ2Compressor(object):
+class BZ2Compressor:
     def __init__(self, compresslevel: int = ...) -> None: ...
     def compress(self, __data: bytes) -> bytes: ...
     def flush(self) -> bytes: ...
 
 @final
-class BZ2Decompressor(object):
+class BZ2Decompressor:
     def decompress(self, data: bytes, max_length: int = ...) -> bytes: ...
     @property
     def eof(self) -> bool: ...

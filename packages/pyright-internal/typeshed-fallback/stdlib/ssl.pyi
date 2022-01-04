@@ -2,14 +2,14 @@ import enum
 import socket
 import sys
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
-from typing import Any, Callable, ClassVar, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, Union, overload
+from typing import Any, Callable, ClassVar, Iterable, NamedTuple, Optional, Type, Union, overload
 from typing_extensions import Literal, TypedDict
 
-_PCTRTT = Tuple[Tuple[str, str], ...]
-_PCTRTTT = Tuple[_PCTRTT, ...]
-_PeerCertRetDictType = Dict[str, Union[str, _PCTRTTT, _PCTRTT]]
+_PCTRTT = tuple[tuple[str, str], ...]
+_PCTRTTT = tuple[_PCTRTT, ...]
+_PeerCertRetDictType = dict[str, Union[str, _PCTRTTT, _PCTRTT]]
 _PeerCertRetType = Union[_PeerCertRetDictType, bytes, None]
-_EnumRetType = List[Tuple[bytes, str, Union[Set[str], bool]]]
+_EnumRetType = list[tuple[bytes, str, Union[set[str], bool]]]
 _PasswordType = Union[Callable[[], Union[str, bytes]], str, bytes]
 
 _SrvnmeCbType = Callable[[Union[SSLSocket, SSLObject], Optional[str], SSLSocket], Optional[int]]

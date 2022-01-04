@@ -1,7 +1,6 @@
 from collections.abc import Mapping
-from typing import Tuple
 
-class _TokenType(Tuple[str]):  # TODO: change to lower-case tuple once new mypy released
+class _TokenType(tuple[str]):
     parent: _TokenType | None
     def split(self) -> list[_TokenType]: ...
     subtypes: set[_TokenType]

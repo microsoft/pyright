@@ -574,7 +574,7 @@ class Match(Generic[AnyStr]):
     pos: int
     endpos: int
     lastindex: int | None
-    lastgroup: AnyStr | None
+    lastgroup: str | None
     string: AnyStr
 
     # The regular expression object whose match() or search() method produced
@@ -622,7 +622,7 @@ class Pattern(Generic[AnyStr]):
     def search(self, string: AnyStr, pos: int = ..., endpos: int = ...) -> Match[AnyStr] | None: ...
     def match(self, string: AnyStr, pos: int = ..., endpos: int = ...) -> Match[AnyStr] | None: ...
     def fullmatch(self, string: AnyStr, pos: int = ..., endpos: int = ...) -> Match[AnyStr] | None: ...
-    def split(self, string: AnyStr, maxsplit: int = ...) -> list[AnyStr]: ...
+    def split(self, string: AnyStr, maxsplit: int = ...) -> list[AnyStr | Any]: ...
     def findall(self, string: AnyStr, pos: int = ..., endpos: int = ...) -> list[Any]: ...
     def finditer(self, string: AnyStr, pos: int = ..., endpos: int = ...) -> Iterator[Match[AnyStr]]: ...
     @overload
@@ -682,7 +682,10 @@ def cast(typ: object, val: Any) -> Any: ...
 # Type constructors
 
 class NamedTuple(Tuple[Any, ...]):
-    _field_types: collections.OrderedDict[str, Type[Any]]
+    if sys.version_info < (3, 8):
+        _field_types: collections.OrderedDict[str, type]
+    elif sys.version_info < (3, 9):
+        _field_types: dict[str, type]
     _field_defaults: dict[str, Any]
     _fields: Tuple[str, ...]
     _source: str

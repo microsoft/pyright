@@ -1,26 +1,26 @@
 from tkinter import Canvas, Frame, PhotoImage
-from typing import Any, Callable, ClassVar, Dict, Sequence, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, ClassVar, Sequence, TypeVar, Union, overload
 
 # Note: '_Color' is the alias we use for arguments and _AnyColor is the
 # alias we use for return types. Really, these two aliases should be the
 # same, but as per the "no union returns" typeshed policy, we'll return
 # Any instead.
-_Color = Union[str, Tuple[float, float, float]]
+_Color = Union[str, tuple[float, float, float]]
 _AnyColor = Any
 
 # TODO: Replace this with a TypedDict once it becomes standardized.
-_PenState = Dict[str, Any]
+_PenState = dict[str, Any]
 
 _Speed = Union[str, float]
-_PolygonCoords = Sequence[Tuple[float, float]]
+_PolygonCoords = Sequence[tuple[float, float]]
 
 # TODO: Type this more accurately
 # Vec2D is actually a custom subclass of 'tuple'.
-Vec2D = Tuple[float, float]
+Vec2D = tuple[float, float]
 
 class ScrolledCanvas(Frame): ...
 
-class TurtleScreenBase(object):
+class TurtleScreenBase:
     cv: Canvas
     canvwidth: int
     canvheight: int
@@ -36,7 +36,7 @@ class TurtleScreenBase(object):
 class Terminator(Exception): ...
 class TurtleGraphicsError(Exception): ...
 
-class Shape(object):
+class Shape:
     def __init__(self, type_: str, data: _PolygonCoords | PhotoImage | None = ...) -> None: ...
     def addcomponent(self, poly: _PolygonCoords, fill: _Color, outline: _Color | None = ...) -> None: ...
 
@@ -94,7 +94,7 @@ class TurtleScreen(TurtleScreenBase):
     def onkeypress(self, fun: Callable[[], Any], key: str | None = ...) -> None: ...
     onkeyrelease = onkey
 
-class TNavigator(object):
+class TNavigator:
     START_ORIENTATION: dict[str, Vec2D]
     DEFAULT_MODE: str
     DEFAULT_ANGLEOFFSET: int
@@ -138,7 +138,7 @@ class TNavigator(object):
     setposition = goto
     seth = setheading
 
-class TPen(object):
+class TPen:
     def __init__(self, resizemode: str = ...) -> None: ...
     @overload
     def resizemode(self, rmode: None = ...) -> str: ...
@@ -251,7 +251,7 @@ class RawTurtle(TPen, TNavigator):
     # a compound stamp or not. So, as per the "no Union return" policy,
     # we return Any.
     def stamp(self) -> Any: ...
-    def clearstamp(self, stampid: int | Tuple[int, ...]) -> None: ...
+    def clearstamp(self, stampid: int | tuple[int, ...]) -> None: ...
     def clearstamps(self, n: int | None = ...) -> None: ...
     def filling(self) -> bool: ...
     def begin_fill(self) -> None: ...
@@ -516,7 +516,7 @@ def tilt(angle: float) -> None: ...
 # a compound stamp or not. So, as per the "no Union return" policy,
 # we return Any.
 def stamp() -> Any: ...
-def clearstamp(stampid: int | Tuple[int, ...]) -> None: ...
+def clearstamp(stampid: int | tuple[int, ...]) -> None: ...
 def clearstamps(n: int | None = ...) -> None: ...
 def filling() -> bool: ...
 def begin_fill() -> None: ...

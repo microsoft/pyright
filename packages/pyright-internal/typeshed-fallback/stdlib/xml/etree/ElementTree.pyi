@@ -4,7 +4,6 @@ from typing import (
     IO,
     Any,
     Callable,
-    Dict,
     Generator,
     ItemsView,
     Iterable,
@@ -257,7 +256,7 @@ def fromstringlist(sequence: Sequence[str | bytes], parser: XMLParser | None = .
 # TreeBuilder is called by client code (they could pass strs, bytes or whatever);
 # but we don't want to use a too-broad type, or it would be too hard to write
 # elementfactories.
-_ElementFactory = Callable[[Any, Dict[Any, Any]], Element]
+_ElementFactory = Callable[[Any, dict[Any, Any]], Element]
 
 class TreeBuilder:
     if sys.version_info >= (3, 8):

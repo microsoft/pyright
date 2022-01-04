@@ -2,7 +2,7 @@ from logging import Logger
 from socket import socket
 from threading import Condition, Event, Lock, Thread
 from types import ModuleType
-from typing import Any, Callable, Iterable, Protocol, Sequence, Tuple, Type
+from typing import Any, Callable, Iterable, Protocol, Sequence, Type
 
 from paramiko.auth_handler import AuthHandler, _InteractiveCallback
 from paramiko.channel import Channel
@@ -14,7 +14,7 @@ from paramiko.sftp_client import SFTPClient
 from paramiko.ssh_gss import _SSH_GSSAuth
 from paramiko.util import ClosingContextManager
 
-_Addr = Tuple[str, int]
+_Addr = tuple[str, int]
 
 class _KexEngine(Protocol):
     def start_kex(self) -> None: ...
@@ -67,7 +67,7 @@ class Transport(Thread, ClosingContextManager):
     server_key_dict: dict[str, PKey]
     server_accepts: list[Channel]
     server_accept_cv: Condition
-    subsystem_table: dict[str, tuple[Type[SubsystemHandler], Tuple[Any, ...], dict[str, Any]]]
+    subsystem_table: dict[str, tuple[Type[SubsystemHandler], tuple[Any, ...], dict[str, Any]]]
     sys: ModuleType
     def __init__(
         self,

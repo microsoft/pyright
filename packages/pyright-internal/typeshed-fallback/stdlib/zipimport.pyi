@@ -9,7 +9,7 @@ if sys.version_info >= (3, 7):
 
 class ZipImportError(ImportError): ...
 
-class zipimporter(object):
+class zipimporter:
     archive: str
     prefix: str
     def __init__(self, path: str | bytes | os.PathLike[Any]) -> None: ...

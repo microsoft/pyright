@@ -6,12 +6,12 @@ from io import TextIOWrapper
 from string import Template
 from time import struct_time
 from types import FrameType, TracebackType
-from typing import Any, ClassVar, Generic, Optional, Pattern, TextIO, Tuple, Type, TypeVar, Union, overload
+from typing import Any, ClassVar, Generic, Optional, Pattern, TextIO, Type, TypeVar, Union, overload
 from typing_extensions import Literal
 
-_SysExcInfoType = Union[Tuple[Type[BaseException], BaseException, Optional[TracebackType]], Tuple[None, None, None]]
+_SysExcInfoType = Union[tuple[Type[BaseException], BaseException, Optional[TracebackType]], tuple[None, None, None]]
 _ExcInfoType = Union[None, bool, _SysExcInfoType, BaseException]
-_ArgsType = Union[Tuple[object, ...], Mapping[str, object]]
+_ArgsType = Union[tuple[object, ...], Mapping[str, object]]
 _FilterType = Union[Filter, Callable[[LogRecord], int]]
 _Level = Union[int, str]
 _FormatStyle = Literal["%", "{", "$"]
@@ -27,14 +27,14 @@ def currentframe() -> FrameType: ...
 _levelToName: dict[int, str]
 _nameToLevel: dict[str, int]
 
-class Filterer(object):
+class Filterer:
     filters: list[Filter]
     def __init__(self) -> None: ...
     def addFilter(self, filter: _FilterType) -> None: ...
     def removeFilter(self, filter: _FilterType) -> None: ...
     def filter(self, record: LogRecord) -> bool: ...
 
-class Manager(object):  # undocumented
+class Manager:  # undocumented
     root: RootLogger
     disable: int
     emittedNoHandlerWarning: bool
@@ -749,7 +749,7 @@ class RootLogger(Logger):
 
 root: RootLogger
 
-class PercentStyle(object):  # undocumented
+class PercentStyle:  # undocumented
     default_format: str
     asctime_format: str
     asctime_search: str

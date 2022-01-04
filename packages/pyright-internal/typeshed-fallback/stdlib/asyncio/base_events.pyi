@@ -9,18 +9,18 @@ from asyncio.tasks import Task
 from asyncio.transports import BaseTransport
 from collections.abc import Iterable
 from socket import AddressFamily, SocketKind, _Address, _RetAddress, socket
-from typing import IO, Any, Awaitable, Callable, Dict, Generator, Sequence, Tuple, TypeVar, Union, overload
+from typing import IO, Any, Awaitable, Callable, Generator, Sequence, TypeVar, Union, overload
 from typing_extensions import Literal
 
 if sys.version_info >= (3, 7):
     from contextvars import Context
 
 _T = TypeVar("_T")
-_Context = Dict[str, Any]
+_Context = dict[str, Any]
 _ExceptionHandler = Callable[[AbstractEventLoop, _Context], Any]
 _ProtocolFactory = Callable[[], BaseProtocol]
 _SSLContext = Union[bool, None, ssl.SSLContext]
-_TransProtPair = Tuple[BaseTransport, BaseProtocol]
+_TransProtPair = tuple[BaseTransport, BaseProtocol]
 
 class Server(AbstractServer):
     if sys.version_info >= (3, 7):
@@ -37,7 +37,7 @@ class Server(AbstractServer):
         def __init__(self, loop: AbstractEventLoop, sockets: list[socket]) -> None: ...
     if sys.version_info >= (3, 8):
         @property
-        def sockets(self) -> Tuple[socket, ...]: ...
+        def sockets(self) -> tuple[socket, ...]: ...
     elif sys.version_info >= (3, 7):
         @property
         def sockets(self) -> list[socket]: ...

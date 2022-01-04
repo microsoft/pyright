@@ -22,7 +22,6 @@ from typing import (
     NewType as NewType,
     NoReturn as NoReturn,
     Text as Text,
-    Tuple,
     Type as Type,
     TypeVar,
     ValuesView,

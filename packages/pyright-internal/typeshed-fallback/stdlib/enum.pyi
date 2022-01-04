@@ -3,7 +3,7 @@ import types
 from abc import ABCMeta
 from builtins import property as _builtins_property
 from collections.abc import Iterable, Iterator, Mapping
-from typing import Any, Dict, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Type, TypeVar, Union, overload
 
 _T = TypeVar("_T")
 _S = TypeVar("_S", bound=Type[Enum])
@@ -21,7 +21,7 @@ _S = TypeVar("_S", bound=Type[Enum])
 # <enum 'Foo'>
 _EnumNames = Union[str, Iterable[str], Iterable[Iterable[Union[str, Any]]], Mapping[str, Any]]
 
-class _EnumDict(Dict[str, Any]):
+class _EnumDict(dict[str, Any]):
     def __init__(self) -> None: ...
 
 # Note: EnumMeta actually subclasses type directly, not ABCMeta.
@@ -34,7 +34,7 @@ class EnumMeta(ABCMeta):
         def __new__(
             metacls: Type[_T],
             cls: str,
-            bases: Tuple[type, ...],
+            bases: tuple[type, ...],
             classdict: _EnumDict,
             *,
             boundary: FlagBoundary | None = ...,
@@ -42,9 +42,9 @@ class EnumMeta(ABCMeta):
             **kwds: Any,
         ) -> _T: ...
     elif sys.version_info >= (3, 9):
-        def __new__(metacls: Type[_T], cls: str, bases: Tuple[type, ...], classdict: _EnumDict, **kwds: Any) -> _T: ...  # type: ignore
+        def __new__(metacls: Type[_T], cls: str, bases: tuple[type, ...], classdict: _EnumDict, **kwds: Any) -> _T: ...  # type: ignore
     else:
-        def __new__(metacls: Type[_T], cls: str, bases: Tuple[type, ...], classdict: _EnumDict) -> _T: ...  # type: ignore
+        def __new__(metacls: Type[_T], cls: str, bases: tuple[type, ...], classdict: _EnumDict) -> _T: ...  # type: ignore
     def __iter__(self: Type[_T]) -> Iterator[_T]: ...
     def __reversed__(self: Type[_T]) -> Iterator[_T]: ...
     def __contains__(self: Type[Any], member: object) -> bool: ...

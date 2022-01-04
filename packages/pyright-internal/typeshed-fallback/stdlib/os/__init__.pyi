@@ -24,13 +24,11 @@ from typing import (
     Generic,
     Iterable,
     Iterator,
-    List,
     Mapping,
     MutableMapping,
     NoReturn,
     Protocol,
     Sequence,
-    Tuple,
     TypeVar,
     Union,
     overload,
@@ -92,6 +90,9 @@ if sys.platform != "win32":
     P_PGID: int
     P_ALL: int
 
+    if sys.platform == "linux" and sys.version_info >= (3, 9):
+        P_PIDFD: int
+
     WEXITED: int
     WSTOPPED: int
     WNOWAIT: int
@@ -100,6 +101,10 @@ if sys.platform != "win32":
     CLD_DUMPED: int
     CLD_TRAPPED: int
     CLD_CONTINUED: int
+
+    if sys.version_info >= (3, 9):
+        CLD_KILLED: int
+        CLD_STOPPED: int
 
     # TODO: SCHED_RESET_ON_FORK not available on darwin?
     # TODO: SCHED_BATCH and SCHED_IDLE are linux only?
@@ -175,14 +180,14 @@ if sys.platform != "win32" and sys.platform != "darwin":
     ST_NODEV: int
     ST_NODIRATIME: int
     ST_NOEXEC: int
-    ST_NOSUID: int
-    ST_RDONLY: int
     ST_RELATIME: int
     ST_SYNCHRONOUS: int
     ST_WRITE: int
 
 if sys.platform != "win32":
     NGROUPS_MAX: int
+    ST_NOSUID: int
+    ST_RDONLY: int
 
 curdir: str
 pardir: str
@@ -284,7 +289,7 @@ TMP_MAX: int  # Undocumented, but used by tempfile
 
 # ----- os classes (structures) -----
 @final
-class stat_result(structseq[float], Tuple[int, int, int, int, int, int, int, float, float, float]):
+class stat_result(structseq[float], tuple[int, int, int, int, int, int, int, float, float, float]):
     # The constructor of this class takes an iterable of variable length (though it must be at least 10).
     #
     # However, this class behaves like a tuple of 10 elements,
@@ -383,7 +388,7 @@ class DirEntry(Generic[AnyStr]):
 
 if sys.version_info >= (3, 7):
     @final
-    class statvfs_result(structseq[int], Tuple[int, int, int, int, int, int, int, int, int, int, int]):
+    class statvfs_result(structseq[int], tuple[int, int, int, int, int, int, int, int, int, int, int]):
         @property
         def f_bsize(self) -> int: ...
         @property
@@ -409,7 +414,7 @@ if sys.version_info >= (3, 7):
 
 else:
     @final
-    class statvfs_result(structseq[int], Tuple[int, int, int, int, int, int, int, int, int, int]):
+    class statvfs_result(structseq[int], tuple[int, int, int, int, int, int, int, int, int, int]):
         @property
         def f_bsize(self) -> int: ...
         @property
@@ -447,7 +452,7 @@ def getppid() -> int: ...
 def strerror(__code: int) -> str: ...
 def umask(__mask: int) -> int: ...
 @final
-class uname_result(structseq[str], Tuple[str, str, str, str, str]):
+class uname_result(structseq[str], tuple[str, str, str, str, str]):
     @property
     def sysname(self) -> str: ...
     @property
@@ -623,6 +628,16 @@ if sys.platform != "win32":
         def posix_fadvise(fd: int, offset: int, length: int, advice: int) -> None: ...
     def pread(__fd: int, __length: int, __offset: int) -> bytes: ...
     def pwrite(__fd: int, __buffer: bytes, __offset: int) -> int: ...
+    if sys.platform != "darwin":
+        if sys.version_info >= (3, 10):
+            RWF_APPEND: int  # docs say available on 3.7+, stubtest says otherwise
+        if sys.version_info >= (3, 7):
+            def preadv(__fd: int, __buffers: Iterable[bytes], __offset: int, __flags: int = ...) -> int: ...
+            def pwritev(__fd: int, __buffers: Iterable[bytes], __offset: int, __flags: int = ...) -> int: ...
+            RWF_DSYNC: int
+            RWF_SYNC: int
+            RWF_HIPRI: int
+            RWF_NOWAIT: int
     @overload
     def sendfile(out_fd: int, in_fd: int, offset: int | None, count: int) -> int: ...
     @overload
@@ -639,7 +654,7 @@ if sys.platform != "win32":
     def writev(__fd: int, __buffers: Sequence[bytes]) -> int: ...
 
 @final
-class terminal_size(structseq[int], Tuple[int, int]):
+class terminal_size(structseq[int], tuple[int, int]):
     @property
     def columns(self) -> int: ...
     @property
@@ -813,14 +828,14 @@ def execlpe(file: StrOrBytesPath, __arg0: StrOrBytesPath, *args: Any) -> NoRetur
 # in practice, and doing so would explode the number of combinations in this already long union.
 # All these combinations are necessary due to list being invariant.
 _ExecVArgs = Union[
-    Tuple[StrOrBytesPath, ...],
-    List[bytes],
-    List[str],
-    List[PathLike[Any]],
-    List[Union[bytes, str]],
-    List[Union[bytes, PathLike[Any]]],
-    List[Union[str, PathLike[Any]]],
-    List[Union[bytes, str, PathLike[Any]]],
+    tuple[StrOrBytesPath, ...],
+    list[bytes],
+    list[str],
+    list[PathLike[Any]],
+    list[Union[bytes, str]],
+    list[Union[bytes, PathLike[Any]]],
+    list[Union[str, PathLike[Any]]],
+    list[Union[bytes, str, PathLike[Any]]],
 ]
 _ExecEnv = Union[Mapping[bytes, Union[bytes, str]], Mapping[str, Union[bytes, str]]]
 
@@ -858,7 +873,7 @@ else:
 
 def system(command: StrOrBytesPath) -> int: ...
 @final
-class times_result(structseq[float], Tuple[float, float, float, float, float]):
+class times_result(structseq[float], tuple[float, float, float, float, float]):
     @property
     def user(self) -> float: ...
     @property
@@ -884,7 +899,7 @@ else:
     def wait() -> tuple[int, int]: ...  # Unix only
     if sys.platform != "darwin":
         @final
-        class waitid_result(structseq[int], Tuple[int, int, int, int, int]):
+        class waitid_result(structseq[int], tuple[int, int, int, int, int]):
             @property
             def si_pid(self) -> int: ...
             @property
@@ -912,7 +927,7 @@ else:
             argv: _ExecVArgs,
             env: _ExecEnv,
             *,
-            file_actions: Sequence[Tuple[Any, ...]] | None = ...,
+            file_actions: Sequence[tuple[Any, ...]] | None = ...,
             setpgroup: int | None = ...,
             resetids: bool = ...,
             setsid: bool = ...,
@@ -925,7 +940,7 @@ else:
             argv: _ExecVArgs,
             env: _ExecEnv,
             *,
-            file_actions: Sequence[Tuple[Any, ...]] | None = ...,
+            file_actions: Sequence[tuple[Any, ...]] | None = ...,
             setpgroup: int | None = ...,
             resetids: bool = ...,
             setsid: bool = ...,
@@ -933,10 +948,13 @@ else:
             setsigdef: Iterable[int] = ...,
             scheduler: tuple[Any, sched_param] | None = ...,
         ) -> int: ...
+        POSIX_SPAWN_OPEN: int
+        POSIX_SPAWN_CLOSE: int
+        POSIX_SPAWN_DUP2: int
 
 if sys.platform != "win32":
     @final
-    class sched_param(structseq[int], Tuple[int]):
+    class sched_param(structseq[int], tuple[int]):
         def __new__(cls, sched_priority: int) -> sched_param: ...
         @property
         def sched_priority(self) -> int: ...

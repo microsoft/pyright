@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Iterator, List, Protocol, Type, Union
+from typing import Any, Iterable, Iterator, Protocol, Type, Union
 
 QUOTE_ALL: int
 QUOTE_MINIMAL: int
@@ -20,7 +20,7 @@ class Dialect:
 
 _DialectLike = Union[str, Dialect, Type[Dialect]]
 
-class _reader(Iterator[List[str]]):
+class _reader(Iterator[list[str]]):
     dialect: Dialect
     line_num: int
     def __next__(self) -> list[str]: ...

@@ -1,5 +1,5 @@
 from _typeshed import SupportsItems
-from typing import IO, Any, Callable, Iterable, List, Mapping, MutableMapping, Optional, Text, Tuple, TypeVar, Union
+from typing import IO, Any, Callable, Iterable, Mapping, MutableMapping, Optional, Text, TypeVar, Union
 
 from . import adapters, auth as _auth, compat, cookies, exceptions, hooks, models, status_codes, structures, utils
 from .models import Response
@@ -43,18 +43,18 @@ class SessionRedirectMixin:
     def rebuild_proxies(self, prepared_request, proxies): ...
     def should_strip_auth(self, old_url, new_url): ...
 
-_Data = Union[None, Text, bytes, Mapping[str, Any], Mapping[Text, Any], Iterable[Tuple[Text, Optional[Text]]], IO[Any]]
+_Data = Union[None, Text, bytes, Mapping[str, Any], Mapping[Text, Any], Iterable[tuple[Text, Optional[Text]]], IO[Any]]
 
 _Hook = Callable[[Response], Any]
-_Hooks = MutableMapping[Text, List[_Hook]]
+_Hooks = MutableMapping[Text, list[_Hook]]
 _HooksInput = MutableMapping[Text, Union[Iterable[_Hook], _Hook]]
 
 _ParamsMappingKeyType = Union[Text, bytes, int, float]
 _ParamsMappingValueType = Union[Text, bytes, int, float, Iterable[Union[Text, bytes, int, float]], None]
 _Params = Union[
     SupportsItems[_ParamsMappingKeyType, _ParamsMappingValueType],
-    Tuple[_ParamsMappingKeyType, _ParamsMappingValueType],
-    Iterable[Tuple[_ParamsMappingKeyType, _ParamsMappingValueType]],
+    tuple[_ParamsMappingKeyType, _ParamsMappingValueType],
+    Iterable[tuple[_ParamsMappingKeyType, _ParamsMappingValueType]],
     Union[Text, bytes],
 ]
 _TextMapping = MutableMapping[Text, Text]

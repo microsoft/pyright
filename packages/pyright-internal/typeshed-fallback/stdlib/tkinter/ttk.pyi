@@ -2,7 +2,7 @@ import _tkinter
 import sys
 import tkinter
 from tkinter.font import _FontDescription
-from typing import Any, Callable, Tuple, Union, overload
+from typing import Any, Callable, Union, overload
 from typing_extensions import Literal, TypedDict
 
 def tclobjs_to_py(adict): ...
@@ -24,7 +24,7 @@ class Style:
     def element_options(self, elementname): ...
     def theme_create(self, themename, parent: Any | None = ..., settings: Any | None = ...): ...
     def theme_settings(self, themename, settings): ...
-    def theme_names(self) -> Tuple[str, ...]: ...
+    def theme_names(self) -> tuple[str, ...]: ...
     @overload
     def theme_use(self, themename: str) -> None: ...
     @overload
@@ -234,7 +234,7 @@ class Combobox(Entry):
         textvariable: tkinter.Variable = ...,
         validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,  # undocumented
         validatecommand: tkinter._EntryValidateCommand = ...,  # undocumented
-        values: list[str] | Tuple[str, ...] = ...,
+        values: list[str] | tuple[str, ...] = ...,
         width: int = ...,
         xscrollcommand: tkinter._XYScrollCommand = ...,  # undocumented
     ) -> None: ...
@@ -259,7 +259,7 @@ class Combobox(Entry):
         textvariable: tkinter.Variable = ...,
         validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,
         validatecommand: tkinter._EntryValidateCommand = ...,
-        values: list[str] | Tuple[str, ...] = ...,
+        values: list[str] | tuple[str, ...] = ...,
         width: int = ...,
         xscrollcommand: tkinter._XYScrollCommand = ...,
     ) -> dict[str, tuple[str, str, str, Any, Any]] | None: ...
@@ -287,7 +287,7 @@ class Combobox(Entry):
         textvariable: tkinter.Variable = ...,
         validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,
         validatecommand: tkinter._EntryValidateCommand = ...,
-        values: list[str] | Tuple[str, ...] = ...,
+        values: list[str] | tuple[str, ...] = ...,
         width: int = ...,
         xscrollcommand: tkinter._XYScrollCommand = ...,
     ) -> dict[str, tuple[str, str, str, Any, Any]] | None: ...
@@ -828,7 +828,7 @@ if sys.version_info >= (3, 7):
             *,
             background: tkinter._Color = ...,  # undocumented
             class_: str = ...,
-            command: Callable[[], Any] | str | list[str] | Tuple[str, ...] = ...,
+            command: Callable[[], Any] | str | list[str] | tuple[str, ...] = ...,
             cursor: tkinter._Cursor = ...,
             exportselection: bool = ...,  # undocumented
             font: _FontDescription = ...,  # undocumented
@@ -847,7 +847,7 @@ if sys.version_info >= (3, 7):
             to: float = ...,
             validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,
             validatecommand: tkinter._EntryValidateCommand = ...,
-            values: list[str] | Tuple[str, ...] = ...,
+            values: list[str] | tuple[str, ...] = ...,
             width: int = ...,  # undocumented
             wrap: bool = ...,
             xscrollcommand: tkinter._XYScrollCommand = ...,
@@ -858,7 +858,7 @@ if sys.version_info >= (3, 7):
             cnf: dict[str, Any] | None = ...,
             *,
             background: tkinter._Color = ...,
-            command: Callable[[], Any] | str | list[str] | Tuple[str, ...] = ...,
+            command: Callable[[], Any] | str | list[str] | tuple[str, ...] = ...,
             cursor: tkinter._Cursor = ...,
             exportselection: bool = ...,
             font: _FontDescription = ...,
@@ -876,7 +876,7 @@ if sys.version_info >= (3, 7):
             to: float = ...,
             validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,
             validatecommand: tkinter._EntryValidateCommand = ...,
-            values: list[str] | Tuple[str, ...] = ...,
+            values: list[str] | tuple[str, ...] = ...,
             width: int = ...,
             wrap: bool = ...,
             xscrollcommand: tkinter._XYScrollCommand = ...,
@@ -922,9 +922,9 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         master: tkinter.Misc | None = ...,
         *,
         class_: str = ...,
-        columns: str | list[str] | Tuple[str, ...] = ...,
+        columns: str | list[str] | tuple[str, ...] = ...,
         cursor: tkinter._Cursor = ...,
-        displaycolumns: str | list[str] | Tuple[str, ...] | list[int] | Tuple[int, ...] | Literal["#all"] = ...,
+        displaycolumns: str | list[str] | tuple[str, ...] | list[int] | tuple[int, ...] | Literal["#all"] = ...,
         height: int = ...,
         name: str = ...,
         padding: tkinter._Padding = ...,
@@ -933,7 +933,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         #
         # 'tree headings' is same as ['tree', 'headings'], and I wouldn't be
         # surprised if someone is using it.
-        show: Literal["tree", "headings", "tree headings", ""] | list[str] | Tuple[str, ...] = ...,
+        show: Literal["tree", "headings", "tree headings", ""] | list[str] | tuple[str, ...] = ...,
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
         xscrollcommand: tkinter._XYScrollCommand = ...,
@@ -944,13 +944,13 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         self,
         cnf: dict[str, Any] | None = ...,
         *,
-        columns: str | list[str] | Tuple[str, ...] = ...,
+        columns: str | list[str] | tuple[str, ...] = ...,
         cursor: tkinter._Cursor = ...,
-        displaycolumns: str | list[str] | Tuple[str, ...] | list[int] | Tuple[int, ...] | Literal["#all"] = ...,
+        displaycolumns: str | list[str] | tuple[str, ...] | list[int] | tuple[int, ...] | Literal["#all"] = ...,
         height: int = ...,
         padding: tkinter._Padding = ...,
         selectmode: Literal["extended", "browse", "none"] = ...,
-        show: Literal["tree", "headings", "tree headings", ""] | list[str] | Tuple[str, ...] = ...,
+        show: Literal["tree", "headings", "tree headings", ""] | list[str] | tuple[str, ...] = ...,
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
         xscrollcommand: tkinter._XYScrollCommand = ...,
@@ -960,7 +960,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
     def configure(self, cnf: str) -> tuple[str, str, str, Any, Any]: ...
     config = configure
     def bbox(self, item, column: _TreeviewColumnId | None = ...) -> tuple[int, int, int, int] | Literal[""]: ...  # type: ignore[override]
-    def get_children(self, item: str | None = ...) -> Tuple[str, ...]: ...
+    def get_children(self, item: str | None = ...) -> tuple[str, ...]: ...
     def set_children(self, item: str, *newchildren: str) -> None: ...
     @overload
     def column(self, column: _TreeviewColumnId, option: Literal["width", "minwidth"]) -> int: ...
@@ -1027,20 +1027,20 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         id: str = ...,  # same as iid
         text: str = ...,
         image: tkinter._ImageSpec = ...,
-        values: list[Any] | Tuple[Any, ...] = ...,
+        values: list[Any] | tuple[Any, ...] = ...,
         open: bool = ...,
-        tags: str | list[str] | Tuple[str, ...] = ...,
+        tags: str | list[str] | tuple[str, ...] = ...,
     ) -> str: ...
     @overload
     def item(self, item: str, option: Literal["text"]) -> str: ...
     @overload
     def item(self, item: str, option: Literal["image"]) -> tuple[str] | Literal[""]: ...
     @overload
-    def item(self, item: str, option: Literal["values"]) -> Tuple[Any, ...] | Literal[""]: ...
+    def item(self, item: str, option: Literal["values"]) -> tuple[Any, ...] | Literal[""]: ...
     @overload
     def item(self, item: str, option: Literal["open"]) -> bool: ...  # actually 0 or 1
     @overload
-    def item(self, item: str, option: Literal["tags"]) -> Tuple[str, ...] | Literal[""]: ...
+    def item(self, item: str, option: Literal["tags"]) -> tuple[str, ...] | Literal[""]: ...
     @overload
     def item(self, item: str, option: str) -> Any: ...
     @overload
@@ -1051,9 +1051,9 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         *,
         text: str = ...,
         image: tkinter._ImageSpec = ...,
-        values: list[Any] | Tuple[Any, ...] | Literal[""] = ...,
+        values: list[Any] | tuple[Any, ...] | Literal[""] = ...,
         open: bool = ...,
-        tags: str | list[str] | Tuple[str, ...] = ...,
+        tags: str | list[str] | tuple[str, ...] = ...,
     ) -> _TreeviewItemDict | None: ...
     def move(self, item: str, parent: str, index: int) -> None: ...
     reattach = move
@@ -1062,13 +1062,13 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
     def prev(self, item: str) -> str: ...  # returning empty string means first item
     def see(self, item: str) -> None: ...
     if sys.version_info >= (3, 8):
-        def selection(self) -> Tuple[str, ...]: ...
+        def selection(self) -> tuple[str, ...]: ...
     else:
-        def selection(self, selop: Any | None = ..., items: Any | None = ...) -> Tuple[str, ...]: ...
-    def selection_set(self, items: str | list[str] | Tuple[str, ...]) -> None: ...
-    def selection_add(self, items: str | list[str] | Tuple[str, ...]) -> None: ...
-    def selection_remove(self, items: str | list[str] | Tuple[str, ...]) -> None: ...
-    def selection_toggle(self, items: str | list[str] | Tuple[str, ...]) -> None: ...
+        def selection(self, selop: Any | None = ..., items: Any | None = ...) -> tuple[str, ...]: ...
+    def selection_set(self, items: str | list[str] | tuple[str, ...]) -> None: ...
+    def selection_add(self, items: str | list[str] | tuple[str, ...]) -> None: ...
+    def selection_remove(self, items: str | list[str] | tuple[str, ...]) -> None: ...
+    def selection_toggle(self, items: str | list[str] | tuple[str, ...]) -> None: ...
     @overload
     def set(self, item: str, column: None = ..., value: None = ...) -> dict[str, Any]: ...
     @overload
@@ -1104,7 +1104,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         image: tkinter._ImageSpec = ...,
     ) -> _TreeviewTagDict | Any: ...  # can be None but annoying to check
     @overload
-    def tag_has(self, tagname: str, item: None = ...) -> Tuple[str, ...]: ...
+    def tag_has(self, tagname: str, item: None = ...) -> tuple[str, ...]: ...
     @overload
     def tag_has(self, tagname: str, item: str) -> bool: ...
 

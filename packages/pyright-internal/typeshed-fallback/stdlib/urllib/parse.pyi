@@ -1,5 +1,5 @@
 import sys
-from typing import Any, AnyStr, Callable, Generic, Mapping, NamedTuple, Sequence, Tuple, Union, overload
+from typing import Any, AnyStr, Callable, Generic, Mapping, NamedTuple, Sequence, Union, overload
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -35,7 +35,7 @@ class _NetlocResultMixinBase(Generic[AnyStr]):
 class _NetlocResultMixinStr(_NetlocResultMixinBase[str], _ResultMixinStr): ...
 class _NetlocResultMixinBytes(_NetlocResultMixinBase[bytes], _ResultMixinBytes): ...
 
-class _DefragResultBase(Tuple[Any, ...], Generic[AnyStr]):
+class _DefragResultBase(tuple[Any, ...], Generic[AnyStr]):
     url: AnyStr
     fragment: AnyStr
 

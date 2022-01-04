@@ -1,5 +1,5 @@
 import textwrap
-from typing import IO, Any, Callable, Generic, List, Text, Type, TypeVar, overload
+from typing import IO, Any, Callable, Generic, Text, Type, TypeVar, overload
 from typing_extensions import SupportsIndex
 
 _TB = TypeVar("_TB", bound="_BaseEntry")
@@ -23,7 +23,7 @@ def detect_encoding(file: bytes | Text, binary_mode: bool = ...) -> str: ...
 def escape(st: Text) -> Text: ...
 def unescape(st: Text) -> Text: ...
 
-class _BaseFile(List[_TB]):
+class _BaseFile(list[_TB]):
     fpath: Text
     wrapwidth: int
     encoding: Text

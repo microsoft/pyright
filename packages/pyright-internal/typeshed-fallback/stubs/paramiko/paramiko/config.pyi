@@ -1,4 +1,4 @@
-from typing import IO, Any, Dict, Iterable, Pattern
+from typing import IO, Any, Iterable, Pattern
 
 from paramiko.ssh_exception import ConfigParseError as ConfigParseError, CouldNotCanonicalize as CouldNotCanonicalize
 
@@ -25,7 +25,7 @@ class LazyFqdn:
     host: str | None
     def __init__(self, config: SSHConfigDict, host: str | None = ...) -> None: ...
 
-class SSHConfigDict(Dict[str, str]):
+class SSHConfigDict(dict[str, str]):
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     def as_bool(self, key: str) -> bool: ...
     def as_int(self, key: str) -> int: ...

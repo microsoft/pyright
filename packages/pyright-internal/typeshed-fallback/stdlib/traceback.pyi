@@ -1,9 +1,9 @@
 import sys
 from _typeshed import SupportsWrite
 from types import FrameType, TracebackType
-from typing import IO, Any, Generator, Iterable, Iterator, List, Mapping, Optional, Tuple, Type, overload
+from typing import IO, Any, Generator, Iterable, Iterator, Mapping, Optional, Type, overload
 
-_PT = Tuple[str, int, str, Optional[str]]
+_PT = tuple[str, int, str, Optional[str]]
 
 def print_tb(tb: TracebackType | None, limit: int | None = ..., file: IO[str] | None = ...) -> None: ...
 
@@ -146,7 +146,7 @@ class FrameSummary(Iterable[Any]):
     def __getitem__(self, i: int) -> Any: ...
     def __iter__(self) -> Iterator[Any]: ...
 
-class StackSummary(List[FrameSummary]):
+class StackSummary(list[FrameSummary]):
     @classmethod
     def extract(
         cls,

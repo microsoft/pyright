@@ -20,7 +20,7 @@ def func1(val1: Tuple[int, str, None], val2: Tuple[int, ...]):
     t5: Literal["tuple[int]"] = reveal_type(x5)
 
     x6 = val1[0:100]
-    t6: Literal["Tuple[int | str | None, ...]"] = reveal_type(x6)
+    t6: Literal["tuple[int | str | None, ...]"] = reveal_type(x6)
 
     x7 = val2[:2]
-    t7: Literal["Tuple[int, ...]"] = reveal_type(x7)
+    t7: Literal["tuple[int, ...]"] = reveal_type(x7)

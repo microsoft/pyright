@@ -4,20 +4,20 @@ from _typeshed import Self
 from abc import abstractmethod
 from collections.abc import Container, Iterable, Iterator, Sequence
 from logging import Logger
-from typing import Any, Callable, Generic, Protocol, Set, TypeVar, overload
-from typing_extensions import SupportsIndex
+from typing import Any, Callable, Generic, Protocol, TypeVar, overload
+from typing_extensions import Literal, SupportsIndex
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
 
-FIRST_COMPLETED: str
-FIRST_EXCEPTION: str
-ALL_COMPLETED: str
-PENDING: str
-RUNNING: str
-CANCELLED: str
-CANCELLED_AND_NOTIFIED: str
-FINISHED: str
+FIRST_COMPLETED: Literal["FIRST_COMPLETED"]
+FIRST_EXCEPTION: Literal["FIRST_EXCEPTION"]
+ALL_COMPLETED: Literal["ALL_COMPLETED"]
+PENDING: Literal["PENDING"]
+RUNNING: Literal["RUNNING"]
+CANCELLED: Literal["CANCELLED"]
+CANCELLED_AND_NOTIFIED: Literal["CANCELLED_AND_NOTIFIED"]
+FINISHED: Literal["FINISHED"]
 _FUTURE_STATES: list[str]
 _STATE_TO_DESCRIPTION_MAP: dict[str, str]
 LOGGER: Logger
@@ -76,7 +76,7 @@ class Executor:
 def as_completed(fs: Iterable[Future[_T]], timeout: float | None = ...) -> Iterator[Future[_T]]: ...
 
 # Ideally this would be a namedtuple, but mypy doesn't support generic tuple types. See #1976
-class DoneAndNotDoneFutures(Sequence[Set[Future[_T]]]):
+class DoneAndNotDoneFutures(Sequence[set[Future[_T]]]):
     done: set[Future[_T]]
     not_done: set[Future[_T]]
     def __new__(_cls, done: set[Future[_T]], not_done: set[Future[_T]]) -> DoneAndNotDoneFutures[_T]: ...

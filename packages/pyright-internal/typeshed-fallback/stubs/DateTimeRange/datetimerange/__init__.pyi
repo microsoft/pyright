@@ -3,7 +3,7 @@ from typing import Iterable
 
 from dateutil.relativedelta import relativedelta
 
-class DateTimeRange(object):
+class DateTimeRange:
     NOT_A_TIME_STR: str
     start_time_format: str
     end_time_format: str

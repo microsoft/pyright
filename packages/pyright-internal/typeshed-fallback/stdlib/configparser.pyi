@@ -1,14 +1,14 @@
 import sys
 from _typeshed import StrOrBytesPath, StrPath, SupportsWrite
 from collections.abc import Callable, ItemsView, Iterable, Iterator, Mapping, MutableMapping, Sequence
-from typing import Any, ClassVar, Dict, Optional, Pattern, Type, TypeVar, overload
+from typing import Any, ClassVar, Optional, Pattern, Type, TypeVar, overload
 from typing_extensions import Literal
 
 # Internal type aliases
 _section = Mapping[str, str]
 _parser = MutableMapping[str, _section]
 _converter = Callable[[str], Any]
-_converters = Dict[str, _converter]
+_converters = dict[str, _converter]
 _T = TypeVar("_T")
 
 if sys.version_info >= (3, 7):

@@ -13,4 +13,4 @@ def func1(a: Tuple[int, int, int], b: Tuple[str, str]):
 
 
 def func2(a: Tuple[int, int, int], b: Tuple[str, ...]):
-    t2: Literal["Tuple[int | str, ...]"] = reveal_type(a + b)
+    t2: Literal["tuple[int | str, ...]"] = reveal_type(a + b)
