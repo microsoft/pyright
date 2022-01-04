@@ -37,6 +37,7 @@ export interface AnalyzerFileInfo {
     diagnosticRuleSet: DiagnosticRuleSet;
     fileContents: string;
     lines: TextRangeCollection<TextRange>;
+    typingSymbolAliases: Map<string, string>;
     filePath: string;
     moduleName: string;
     isStubFile: boolean;

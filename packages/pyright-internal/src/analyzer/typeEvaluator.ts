@@ -22591,7 +22591,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             fileInfo.fileContents,
             valueOffset,
             textValue.length,
-            parseOptions
+            parseOptions,
+            /* parseTextMode */ undefined,
+            /* initialParenDepth */ undefined,
+            fileInfo.typingSymbolAliases
         );
 
         if (parseResults.parseTree) {

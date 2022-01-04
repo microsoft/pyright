@@ -163,6 +163,7 @@ export interface ParseResults {
     futureImports: Map<string, boolean>;
     tokenizerOutput: TokenizerOutput;
     containsWildcardImport: boolean;
+    typingSymbolAliases: Map<string, string>;
 }
 
 export interface ParseExpressionTextResults {
@@ -252,6 +253,7 @@ export class Parser {
             futureImports: this._futureImportMap,
             tokenizerOutput: this._tokenizerOutput!,
             containsWildcardImport: this._containsWildcardImport,
+            typingSymbolAliases: this._typingSymbolAliases,
         };
     }
 
@@ -261,10 +263,15 @@ export class Parser {
         textLength: number,
         parseOptions: ParseOptions,
         parseTextMode = ParseTextMode.Expression,
-        initialParenDepth = 0
+        initialParenDepth = 0,
+        typingSymbolAliases?: Map<string, string>
     ): ParseExpressionTextResults {
         const diagSink = new DiagnosticSink();
         this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink, initialParenDepth);
+
+        if (typingSymbolAliases) {
+            this._typingSymbolAliases = new Map<string, string>(typingSymbolAliases);
+        }
 
         let parseTree: ExpressionNode | undefined;
         if (parseTextMode === ParseTextMode.VariableAnnotation) {
@@ -4291,7 +4298,9 @@ export class Parser {
             stringToken.start,
             stringToken.length,
             this._parseOptions,
-            ParseTextMode.VariableAnnotation
+            ParseTextMode.VariableAnnotation,
+            /* initialParenDepth */ undefined,
+            this._typingSymbolAliases
         );
 
         parseResults.diagnostics.forEach((diag) => {
@@ -4314,7 +4323,9 @@ export class Parser {
             stringToken.start,
             stringToken.length,
             this._parseOptions,
-            ParseTextMode.FunctionAnnotation
+            ParseTextMode.FunctionAnnotation,
+            /* initialParenDepth */ undefined,
+            this._typingSymbolAliases
         );
 
         parseResults.diagnostics.forEach((diag) => {
@@ -4346,7 +4357,8 @@ export class Parser {
             segmentLength,
             this._parseOptions,
             ParseTextMode.Expression,
-            /* initialParenDepth */ 1
+            /* initialParenDepth */ 1,
+            this._typingSymbolAliases
         );
 
         parseResults.diagnostics.forEach((diag) => {
@@ -4555,7 +4567,8 @@ export class Parser {
                         unescapedString.length,
                         this._parseOptions,
                         ParseTextMode.VariableAnnotation,
-                        (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) !== 0 ? 1 : 0
+                        (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) !== 0 ? 1 : 0,
+                        this._typingSymbolAliases
                     );
 
                     parseResults.diagnostics.forEach((diag) => {

@@ -118,6 +118,7 @@ export function buildAnalyzerFileInfo(
         isTypingExtensionsStubFile: false,
         isBuiltInStubFile: false,
         accessedSymbolMap: new Map<number, true>(),
+        typingSymbolAliases: new Map<string, string>(),
     };
 
     return fileInfo;

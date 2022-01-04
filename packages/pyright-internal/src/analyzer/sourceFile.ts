@@ -650,6 +650,7 @@ export class SourceFile {
                         predominantSingleQuoteCharacter: "'",
                     },
                     containsWildcardImport: false,
+                    typingSymbolAliases: new Map<string, string>(),
                 };
                 this._imports = undefined;
                 this._builtinsImport = undefined;
@@ -1129,6 +1130,7 @@ export class SourceFile {
             diagnosticRuleSet: this._diagnosticRuleSet,
             fileContents,
             lines: this._parseResults!.tokenizerOutput.lines,
+            typingSymbolAliases: this._parseResults!.typingSymbolAliases,
             filePath: this._filePath,
             moduleName: this._moduleName,
             isStubFile: this._isStubFile,
