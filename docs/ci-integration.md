@@ -13,7 +13,8 @@ You can configure pyright to run as a git hook (e.g. prior to each check-in) by 
         language: node
         pass_filenames: false
         types: [python]
-        additional_dependencies: ['pyright@1.1.99']
+        # Replace the version below with the latest pyright version
+        additional_dependencies: ['pyright@1.1.XXX']
 ```
 
 ### Running Pyright from a CI script
