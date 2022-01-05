@@ -177,15 +177,11 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for "X is Y" or "X is not Y" where Y is a an enum or False or True.
+            // Look for "X is <literal>" or "X is not <literal>"
             if (isOrIsNotOperator) {
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
                     const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
-                    if (
-                        isClassInstance(rightType) &&
-                        (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
-                        rightType.literalValue !== undefined
-                    ) {
+                    if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
                         return (type: Type) => {
                             return narrowTypeForLiteralComparison(
                                 evaluator,
@@ -219,6 +215,7 @@ export function getTypeNarrowingCallback(
                     }
                 }
 
+                // Look for <literal> == X or <literal> != X
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
                     const leftType = evaluator.getTypeOfExpression(testExpression.leftExpression).type;
                     if (isClassInstance(leftType) && leftType.literalValue !== undefined) {
@@ -229,26 +226,6 @@ export function getTypeNarrowingCallback(
                                 leftType,
                                 adjIsPositiveTest,
                                 /* isIsOperator */ false
-                            );
-                        };
-                    }
-                }
-
-                // Look for X.Y == <literal> or X.Y != <literal>
-                if (
-                    testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
-                ) {
-                    const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
-                    const memberName = testExpression.leftExpression.memberName;
-                    if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
-                        return (type: Type) => {
-                            return narrowTypeForDiscriminatedFieldComparison(
-                                evaluator,
-                                type,
-                                memberName.value,
-                                rightType,
-                                adjIsPositiveTest
                             );
                         };
                     }
@@ -322,6 +299,26 @@ export function getTypeNarrowingCallback(
                             return narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest);
                         };
                     }
+                }
+            }
+
+            // Look for X.Y == <literal> or X.Y != <literal> or X.Y is <literal> or X.Y is not <literal>
+            if (
+                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
+            ) {
+                const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                const memberName = testExpression.leftExpression.memberName;
+                if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                    return (type: Type) => {
+                        return narrowTypeForDiscriminatedFieldComparison(
+                            evaluator,
+                            type,
+                            memberName.value,
+                            rightType,
+                            adjIsPositiveTest
+                        );
+                    };
                 }
             }
         }
@@ -1340,8 +1337,6 @@ function narrowTypeForDiscriminatedFieldComparison(
     literalType: ClassType,
     isPositiveTest: boolean
 ): Type {
-    let canNarrow = true;
-
     const narrowedType = mapSubtypes(referenceType, (subtype) => {
         let memberInfo: ClassMember | undefined;
         if (isClassInstance(subtype)) {
@@ -1362,11 +1357,10 @@ function narrowTypeForDiscriminatedFieldComparison(
             }
         }
 
-        canNarrow = false;
         return subtype;
     });
 
-    return canNarrow ? narrowedType : referenceType;
+    return narrowedType;
 }
 
 // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.

@@ -4,41 +4,30 @@
 from typing import Literal, Union
 
 
-def requires_a(p1: Literal["a"]):
-    pass
-
-
-def requires_bc(p1: Literal["b", "c"]):
-    pass
-
-
 def func_1(p1: Literal["a", "b", "c"]):
     if p1 != "b":
         if p1 == "c":
+            t1: Literal["Literal['c']"] = reveal_type(p1)
             pass
         else:
-            requires_a(p1)
+            t2: Literal["Literal['a']"] = reveal_type(p1)
 
     if p1 != "a":
-        requires_bc(p1)
+        t3: Literal["Literal['c', 'b']"] = reveal_type(p1)
     else:
-        requires_a(p1)
+        t4: Literal["Literal['a']"] = reveal_type(p1)
 
     if "a" != p1:
-        requires_bc(p1)
+        t5: Literal["Literal['c', 'b']"] = reveal_type(p1)
     else:
-        requires_a(p1)
-
-
-def requires_7(p1: Literal[7]):
-    pass
+        t6: Literal["Literal['a']"] = reveal_type(p1)
 
 
 def func2(p1: Literal[1, 4, 7]):
     if 4 == p1 or 1 == p1:
-        pass
+        t1: Literal["Literal[4, 1]"] = reveal_type(p1)
     else:
-        requires_7(p1)
+        t2: Literal["Literal[7]"] = reveal_type(p1)
 
 
 def func3(a: Union[int, None]):
