@@ -1164,9 +1164,6 @@ export function getCodeFlowEngine(
                     return startingConstraints;
                 }
 
-                // Note that we've been here before.
-                visitedFlowNodeMap.add(curFlowNode.id);
-
                 if (curFlowNode.flags & (FlowFlags.Unreachable | FlowFlags.Start)) {
                     return startingConstraints;
                 }
@@ -1215,10 +1212,13 @@ export function getCodeFlowEngine(
                         const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
 
                         if (isCompatibleWithConstrainedTypeVar(arg0Type, typeVar)) {
+                            // Prevent infinite recursion by noting that we've been here before.
+                            visitedFlowNodeMap.add(curFlowNode.id);
                             const priorRemainingConstraints = narrowConstrainedTypeVarRecursive(
                                 conditionFlowNode.antecedent,
                                 typeVar
                             );
+                            visitedFlowNodeMap.delete(curFlowNode.id);
 
                             const arg1Expr = testExpression.arguments[1].valueExpression;
                             const arg1Type = evaluator.getTypeOfExpression(
@@ -1249,6 +1249,8 @@ export function getCodeFlowEngine(
                     const labelNode = curFlowNode as FlowLabel;
                     const newConstraints: ClassType[] = [];
 
+                    // Prevent infinite recursion by noting that we've been here before.
+                    visitedFlowNodeMap.add(curFlowNode.id);
                     for (const antecedent of labelNode.antecedents) {
                         const constraintsToAdd = narrowConstrainedTypeVarRecursive(antecedent, typeVar);
 
@@ -1258,6 +1260,7 @@ export function getCodeFlowEngine(
                             }
                         }
                     }
+                    visitedFlowNodeMap.delete(curFlowNode.id);
 
                     return newConstraints;
                 }

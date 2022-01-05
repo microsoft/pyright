@@ -4,7 +4,7 @@
 # that is typed as that TypeVar, we know that the code path is taken only
 # in the case where constraint is satisfied.
 
-from typing import Generic, List, ParamSpec, TypeVar, Union
+from typing import AnyStr, Generic, List, Optional, ParamSpec, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 _T1 = TypeVar("_T1", str, int)
@@ -96,3 +96,12 @@ class Class1(Generic[_T1, _T2, _T3, _P, Unpack[_Ts]]):
                 return ""
 
         raise BaseException()
+
+
+def func3(s: AnyStr, y: Optional[AnyStr] = None) -> AnyStr:
+    if isinstance(s, str):
+        if y is None:
+            pass
+        return ""
+    else:
+        raise NotImplementedError
