@@ -685,12 +685,14 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
             // See if it's a match for object.
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-                return isPositiveTest ? NoneType.createInstance() : adjustedSubtype;
+                return isPositiveTest
+                    ? addConditionToType(NoneType.createInstance(), subtype.condition)
+                    : adjustedSubtype;
             }
 
             // See if it's a match for None.
             if (isNoneInstance(subtype) === isPositiveTest) {
-                return adjustedSubtype;
+                return subtype;
             }
 
             return undefined;
