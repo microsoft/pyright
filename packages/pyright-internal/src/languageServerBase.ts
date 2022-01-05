@@ -53,6 +53,7 @@ import {
     Location,
     MarkupKind,
     ParameterInformation,
+    PublishDiagnosticsParams,
     ReferenceParams,
     RemoteWindow,
     RenameParams,
@@ -90,6 +91,7 @@ import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/consol
 import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
+import { FileDiagnostics } from './common/diagnosticSink';
 import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/fileSystem';
 import { Host } from './common/host';
@@ -1214,6 +1216,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         };
     }
 
+    protected convertDiagnostics(fileDiagnostics: FileDiagnostics): PublishDiagnosticsParams[] {
+        return [
+            {
+                uri: convertPathToUri(this.fs, fileDiagnostics.filePath),
+                version: fileDiagnostics.version,
+                diagnostics: this._convertDiagnostics(fileDiagnostics.diagnostics),
+            },
+        ];
+    }
+
     protected onAnalysisCompletedHandler(results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
@@ -1221,12 +1233,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return;
             }
 
-            this._connection.sendDiagnostics({
-                uri: convertPathToUri(this.fs, fileDiag.filePath),
-                version: fileDiag.version,
-                diagnostics: this._convertDiagnostics(fileDiag.diagnostics),
-            });
-
+            this._sendDiagnostics(this.convertDiagnostics(fileDiag));
             (this.fs as PyrightFileSystem).pendingRequest(fileDiag.filePath, fileDiag.diagnostics.length > 0);
         });
 
@@ -1300,6 +1307,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             default:
                 return LogLevel.Info;
+        }
+    }
+
+    private _sendDiagnostics(params: PublishDiagnosticsParams[]) {
+        for (const param of params) {
+            this._connection.sendDiagnostics(param);
         }
     }
 

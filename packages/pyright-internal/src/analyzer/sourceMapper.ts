@@ -494,23 +494,15 @@ export class SourceMapper {
         result: ClassOrFunctionOrVariableDeclaration[],
         recursiveDeclCache: Set<string>
     ) {
-        const importResult = this._importResolver.resolveImport(originated, this._execEnv, {
-            leadingDots: 0,
-            nameParts: type.details.moduleName.split('.'),
-            importedSymbols: [],
-        });
+        const filePath = type.details.filePath;
+        const sourceFiles = this._getSourceFiles(filePath);
 
-        if (importResult.isImportFound && importResult.resolvedPaths.length > 0) {
-            const filePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-            const sourceFiles = this._getSourceFiles(filePath);
+        const fullClassName = type.details.fullName.substring(
+            type.details.moduleName.length + 1 /* +1 for trailing dot */
+        );
 
-            const fullClassName = type.details.fullName.substring(
-                type.details.moduleName.length + 1 /* +1 for trailing dot */
-            );
-
-            for (const sourceFile of sourceFiles) {
-                result.push(...this._findClassDeclarationsByName(sourceFile, fullClassName, recursiveDeclCache));
-            }
+        for (const sourceFile of sourceFiles) {
+            result.push(...this._findClassDeclarationsByName(sourceFile, fullClassName, recursiveDeclCache));
         }
     }
 
