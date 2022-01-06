@@ -45,11 +45,13 @@ Note that once a symbol’s type is declared, it cannot be redeclared to a diffe
 
 ## Type Inference
 
-Some languages require every symbol to be explicitly typed. Python allows a symbol to be bound to different values at runtime, so its type can change over time. A symbol’s type doesn’t need to declared statically.
+Some languages require every symbol to be explicitly typed. Python allows a symbol to be bound to different values at runtime, so its type can change over time. A symbol’s type doesn’t need to be declared statically.
 
 When Pyright encounters a symbol with no type declaration, it attempts to _infer_ the type based on the values assigned to it. As we will see below, type inference cannot always determine the correct (intended) type, so type annotations are still required in some cases. Furthermore, type inference can require significant computation, so it is much less efficient than when type annotations are provided.
 
-If a symbol’s type cannot be inferred, Pyright internally sets its type to “Unknown”, which is a special form of “Any”. The “Unknown” type allows Pyright to optionally warn when types are not declared and cannot be inferred, thus leaving potential “blind spots” in type checking. 
+## “Unknown” Type
+
+If a symbol’s type cannot be inferred, Pyright sets its type to “Unknown”, which is a special form of “Any”. The “Unknown” type allows Pyright to optionally warn when types are not declared and cannot be inferred, thus leaving potential “blind spots” in type checking. 
 
 ### Single-Assignment Type Inference
 
