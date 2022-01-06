@@ -56,7 +56,7 @@ class UserDict(MutableMapping[_KT, _VT], Generic[_KT, _VT]):
     def __contains__(self, key: object) -> bool: ...
     def copy(self: Self) -> Self: ...
     # `UserDict.fromkeys` has the same semantics as `dict.fromkeys`, so should be kept in line with `dict.fromkeys`.
-    # TODO: Much like `dict.fromkeys`, the true signature of `UserDict.fromkeys` is inexpressable in the current type system.
+    # TODO: Much like `dict.fromkeys`, the true signature of `UserDict.fromkeys` is inexpressible in the current type system.
     # See #3800 & https://github.com/python/typing/issues/548#issuecomment-683336963.
     @classmethod
     @overload
@@ -277,7 +277,7 @@ class OrderedDict(dict[_KT, _VT], Reversible[_KT], Generic[_KT, _VT]):
     def items(self) -> _OrderedDictItemsView[_KT, _VT]: ...
     def values(self) -> _OrderedDictValuesView[_KT, _VT]: ...
     # `fromkeys` is actually inherited from `dict` at runtime, so the signature should be kept in line with `dict.fromkeys`.
-    # Ideally we would not redefine it here, but the true signature of `dict.fromkeys` is not expressable in the current type system.
+    # Ideally we would not redefine it here, but the true signature of `dict.fromkeys` is not expressible in the current type system.
     # See #3800 & https://github.com/python/typing/issues/548#issuecomment-683336963.
     @classmethod
     @overload

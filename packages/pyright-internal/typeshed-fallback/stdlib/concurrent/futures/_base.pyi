@@ -5,7 +5,7 @@ from abc import abstractmethod
 from collections.abc import Container, Iterable, Iterator, Sequence
 from logging import Logger
 from typing import Any, Callable, Generic, Protocol, TypeVar, overload
-from typing_extensions import Literal, SupportsIndex
+from typing_extensions import Literal, ParamSpec, SupportsIndex
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -33,8 +33,8 @@ if sys.version_info >= (3, 7):
     class BrokenExecutor(RuntimeError): ...
 
 _T = TypeVar("_T")
-
 _T_co = TypeVar("_T_co", covariant=True)
+_P = ParamSpec("_P")
 
 # Copied over Collection implementation as it does not exist in Python 2 and <3.6.
 # Also to solve pytype issues with _Collection.
@@ -60,9 +60,9 @@ class Future(Generic[_T]):
 
 class Executor:
     if sys.version_info >= (3, 9):
-        def submit(self, __fn: Callable[..., _T], *args: Any, **kwargs: Any) -> Future[_T]: ...
+        def submit(self, __fn: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> Future[_T]: ...
     else:
-        def submit(self, fn: Callable[..., _T], *args: Any, **kwargs: Any) -> Future[_T]: ...
+        def submit(self, fn: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> Future[_T]: ...
     def map(
         self, fn: Callable[..., _T], *iterables: Iterable[Any], timeout: float | None = ..., chunksize: int = ...
     ) -> Iterator[_T]: ...

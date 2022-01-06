@@ -23,8 +23,6 @@ from .connection import ConnectionPool
 from .lock import Lock
 from .retry import Retry
 
-_ScoreCastFuncReturn = TypeVar("_ScoreCastFuncReturn")
-
 _Value = Union[bytes, float, int, str]
 _Key = Union[str, bytes]
 

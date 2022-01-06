@@ -25,7 +25,6 @@ from typing_extensions import Literal, ParamSpec, final
 
 # Note, all classes "defined" here require special handling.
 
-_T = TypeVar("_T")
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
 _T_co = TypeVar("_T_co", covariant=True)

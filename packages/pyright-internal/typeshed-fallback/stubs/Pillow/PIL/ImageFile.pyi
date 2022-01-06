@@ -10,7 +10,6 @@ LOAD_TRUNCATED_IMAGES: bool
 ERRORS: Any
 
 def raise_oserror(error) -> NoReturn: ...
-def raise_ioerror(error) -> NoReturn: ...
 
 class ImageFile(Image):
     custom_mimetype: Any

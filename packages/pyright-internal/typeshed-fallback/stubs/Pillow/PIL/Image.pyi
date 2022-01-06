@@ -1,7 +1,7 @@
 from _typeshed import SupportsRead, SupportsWrite
 from collections.abc import Iterable, Iterator, MutableMapping
 from pathlib import Path
-from typing import Any, Callable, Protocol, Sequence, SupportsBytes, Union
+from typing import Any, Callable, ClassVar, Protocol, Sequence, SupportsBytes, Union
 from typing_extensions import Literal
 
 from ._imaging import (
@@ -102,8 +102,8 @@ class _E:
 _ImageState = tuple[dict[str, Any], str, tuple[int, int], Any, bytes]
 
 class Image:
-    format: Any
-    format_description: Any
+    format: ClassVar[str | None]
+    format_description: ClassVar[str | None]
     im: Any
     mode: str
     palette: Any
@@ -196,7 +196,7 @@ class Image:
         **params: Any,
     ) -> None: ...
     def seek(self, frame: int) -> None: ...
-    def show(self, title: str | None = ..., command: str | None = ...) -> None: ...
+    def show(self, title: str | None = ...) -> None: ...
     def split(self) -> tuple[Image, ...]: ...
     def getchannel(self, channel: int | str) -> Image: ...
     def tell(self) -> int: ...

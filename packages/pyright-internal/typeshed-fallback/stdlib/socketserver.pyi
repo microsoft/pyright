@@ -2,9 +2,8 @@ import sys
 import types
 from _typeshed import Self
 from socket import socket as _socket
-from typing import Any, BinaryIO, Callable, ClassVar, Type, TypeVar, Union
+from typing import Any, BinaryIO, Callable, ClassVar, Type, Union
 
-_T = TypeVar("_T")
 _RequestType = Union[_socket, tuple[bytes, _socket]]
 _AddressType = Union[tuple[str, int], str]
 

@@ -47,79 +47,79 @@ def ensure_future(coro_or_future: Awaitable[_T], *, loop: AbstractEventLoop | No
 # typing PR #1550 for discussion.
 if sys.version_info >= (3, 10):
     @overload
-    def gather(coro_or_future1: _FutureT[_T1], *, return_exceptions: Literal[False] = ...) -> Future[tuple[_T1]]: ...
+    def gather(__coro_or_future1: _FutureT[_T1], *, return_exceptions: Literal[False] = ...) -> Future[tuple[_T1]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1], coro_or_future2: _FutureT[_T2], *, return_exceptions: Literal[False] = ...
+        __coro_or_future1: _FutureT[_T1], __coro_or_future2: _FutureT[_T2], *, return_exceptions: Literal[False] = ...
     ) -> Future[tuple[_T1, _T2]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
         *,
         return_exceptions: Literal[False] = ...,
     ) -> Future[tuple[_T1, _T2, _T3]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
         *,
         return_exceptions: Literal[False] = ...,
     ) -> Future[tuple[_T1, _T2, _T3, _T4]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
-        coro_or_future5: _FutureT[_T5],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
+        __coro_or_future5: _FutureT[_T5],
         *,
         return_exceptions: Literal[False] = ...,
     ) -> Future[tuple[_T1, _T2, _T3, _T4, _T5]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[Any],
-        coro_or_future2: _FutureT[Any],
-        coro_or_future3: _FutureT[Any],
-        coro_or_future4: _FutureT[Any],
-        coro_or_future5: _FutureT[Any],
-        coro_or_future6: _FutureT[Any],
+        __coro_or_future1: _FutureT[Any],
+        __coro_or_future2: _FutureT[Any],
+        __coro_or_future3: _FutureT[Any],
+        __coro_or_future4: _FutureT[Any],
+        __coro_or_future5: _FutureT[Any],
+        __coro_or_future6: _FutureT[Any],
         *coros_or_futures: _FutureT[Any],
         return_exceptions: bool = ...,
     ) -> Future[list[Any]]: ...
     @overload
-    def gather(coro_or_future1: _FutureT[_T1], *, return_exceptions: bool = ...) -> Future[tuple[_T1 | BaseException]]: ...
+    def gather(__coro_or_future1: _FutureT[_T1], *, return_exceptions: bool = ...) -> Future[tuple[_T1 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1], coro_or_future2: _FutureT[_T2], *, return_exceptions: bool = ...
+        __coro_or_future1: _FutureT[_T1], __coro_or_future2: _FutureT[_T2], *, return_exceptions: bool = ...
     ) -> Future[tuple[_T1 | BaseException, _T2 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
         *,
         return_exceptions: bool = ...,
     ) -> Future[tuple[_T1 | BaseException, _T2 | BaseException, _T3 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
         *,
         return_exceptions: bool = ...,
     ) -> Future[tuple[_T1 | BaseException, _T2 | BaseException, _T3 | BaseException, _T4 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
-        coro_or_future5: _FutureT[_T5],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
+        __coro_or_future5: _FutureT[_T5],
         *,
         return_exceptions: bool = ...,
     ) -> Future[
@@ -129,96 +129,96 @@ if sys.version_info >= (3, 10):
 else:
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1], *, loop: AbstractEventLoop | None = ..., return_exceptions: Literal[False] = ...
+        __coro_or_future1: _FutureT[_T1], *, loop: AbstractEventLoop | None = ..., return_exceptions: Literal[False] = ...
     ) -> Future[tuple[_T1]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: Literal[False] = ...,
     ) -> Future[tuple[_T1, _T2]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: Literal[False] = ...,
     ) -> Future[tuple[_T1, _T2, _T3]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: Literal[False] = ...,
     ) -> Future[tuple[_T1, _T2, _T3, _T4]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
-        coro_or_future5: _FutureT[_T5],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
+        __coro_or_future5: _FutureT[_T5],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: Literal[False] = ...,
     ) -> Future[tuple[_T1, _T2, _T3, _T4, _T5]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[Any],
-        coro_or_future2: _FutureT[Any],
-        coro_or_future3: _FutureT[Any],
-        coro_or_future4: _FutureT[Any],
-        coro_or_future5: _FutureT[Any],
-        coro_or_future6: _FutureT[Any],
+        __coro_or_future1: _FutureT[Any],
+        __coro_or_future2: _FutureT[Any],
+        __coro_or_future3: _FutureT[Any],
+        __coro_or_future4: _FutureT[Any],
+        __coro_or_future5: _FutureT[Any],
+        __coro_or_future6: _FutureT[Any],
         *coros_or_futures: _FutureT[Any],
         loop: AbstractEventLoop | None = ...,
         return_exceptions: bool = ...,
     ) -> Future[list[Any]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1], *, loop: AbstractEventLoop | None = ..., return_exceptions: bool = ...
+        __coro_or_future1: _FutureT[_T1], *, loop: AbstractEventLoop | None = ..., return_exceptions: bool = ...
     ) -> Future[tuple[_T1 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: bool = ...,
     ) -> Future[tuple[_T1 | BaseException, _T2 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: bool = ...,
     ) -> Future[tuple[_T1 | BaseException, _T2 | BaseException, _T3 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: bool = ...,
     ) -> Future[tuple[_T1 | BaseException, _T2 | BaseException, _T3 | BaseException, _T4 | BaseException]]: ...
     @overload
     def gather(
-        coro_or_future1: _FutureT[_T1],
-        coro_or_future2: _FutureT[_T2],
-        coro_or_future3: _FutureT[_T3],
-        coro_or_future4: _FutureT[_T4],
-        coro_or_future5: _FutureT[_T5],
+        __coro_or_future1: _FutureT[_T1],
+        __coro_or_future2: _FutureT[_T2],
+        __coro_or_future3: _FutureT[_T3],
+        __coro_or_future4: _FutureT[_T4],
+        __coro_or_future5: _FutureT[_T5],
         *,
         loop: AbstractEventLoop | None = ...,
         return_exceptions: bool = ...,

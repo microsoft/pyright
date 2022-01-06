@@ -2,7 +2,7 @@ import _compression
 import sys
 from _compression import BaseStream
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
-from typing import IO, Any, Iterable, Protocol, TextIO, TypeVar, overload
+from typing import IO, Any, Iterable, Protocol, TextIO, overload
 from typing_extensions import Literal, SupportsIndex, final
 
 # The following attributes and methods are optional:
@@ -15,8 +15,6 @@ class _WritableFileobj(Protocol):
     # The following attributes and methods are optional:
     # def fileno(self) -> int: ...
     # def close(self) -> object: ...
-
-_T = TypeVar("_T")
 
 def compress(data: bytes, compresslevel: int = ...) -> bytes: ...
 def decompress(data: bytes) -> bytes: ...

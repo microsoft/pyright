@@ -3,10 +3,10 @@ import typing
 from typing import Any, ClassVar
 from typing_extensions import Literal
 
-PyCF_ONLY_AST: int
+PyCF_ONLY_AST: Literal[1024]
 if sys.version_info >= (3, 8):
-    PyCF_TYPE_COMMENTS: int
-    PyCF_ALLOW_TOP_LEVEL_AWAIT: int
+    PyCF_TYPE_COMMENTS: Literal[4096]
+    PyCF_ALLOW_TOP_LEVEL_AWAIT: Literal[8192]
 
 _identifier = str
 

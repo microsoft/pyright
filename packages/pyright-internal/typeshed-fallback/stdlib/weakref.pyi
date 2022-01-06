@@ -11,7 +11,6 @@ from _weakref import (
     ref as ref,
 )
 
-_S = TypeVar("_S")
 _T = TypeVar("_T")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")

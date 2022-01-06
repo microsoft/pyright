@@ -7,8 +7,8 @@ import ctypes
 import mmap
 import sys
 from os import PathLike
-from typing import AbstractSet, Any, Awaitable, ClassVar, Container, Generic, Iterable, Protocol, Type, TypeVar, Union
-from typing_extensions import Literal, final
+from typing import AbstractSet, Any, Awaitable, Container, Generic, Iterable, Protocol, Type, TypeVar, Union
+from typing_extensions import Final, Literal, final
 
 _KT = TypeVar("_KT")
 _KT_co = TypeVar("_KT_co", covariant=True)
@@ -206,9 +206,9 @@ else:
 # See discussion at #6546 & #6560
 # `structseq` classes are unsubclassable, so are all decorated with `@final`.
 class structseq(Generic[_T_co]):
-    n_fields: ClassVar[int]
-    n_unnamed_fields: ClassVar[int]
-    n_sequence_fields: ClassVar[int]
+    n_fields: Final[int]
+    n_unnamed_fields: Final[int]
+    n_sequence_fields: Final[int]
     # The first parameter will generally only take an iterable of a specific length.
     # E.g. `os.uname_result` takes any iterable of length exactly 5.
     #
