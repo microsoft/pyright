@@ -177,11 +177,15 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for "X is <literal>" or "X is not <literal>"
+            // Look for "X is Y" or "X is not Y" where Y is a an enum or bool literal.
             if (isOrIsNotOperator) {
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
                     const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
-                    if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                    if (
+                        isClassInstance(rightType) &&
+                        (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
+                        rightType.literalValue !== undefined
+                    ) {
                         return (type: Type) => {
                             return narrowTypeForLiteralComparison(
                                 evaluator,
@@ -302,14 +306,40 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for X.Y == <literal> or X.Y != <literal> or X.Y is <literal> or X.Y is not <literal>
+            // Look for X.Y == <literal> or X.Y != <literal>
             if (
+                equalsOrNotEqualsOperator &&
                 testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
                 ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
             ) {
                 const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
                 const memberName = testExpression.leftExpression.memberName;
                 if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
+                    return (type: Type) => {
+                        return narrowTypeForDiscriminatedFieldComparison(
+                            evaluator,
+                            type,
+                            memberName.value,
+                            rightType,
+                            adjIsPositiveTest
+                        );
+                    };
+                }
+            }
+
+            // Look for X.Y is <literal> or X.Y is not <literal> where <literal> is
+            // an enum or bool literal
+            if (
+                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
+            ) {
+                const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                const memberName = testExpression.leftExpression.memberName;
+                if (
+                    isClassInstance(rightType) &&
+                    (ClassType.isEnumClass(rightType) || ClassType.isBuiltIn(rightType, 'bool')) &&
+                    rightType.literalValue !== undefined
+                ) {
                     return (type: Type) => {
                         return narrowTypeForDiscriminatedFieldComparison(
                             evaluator,

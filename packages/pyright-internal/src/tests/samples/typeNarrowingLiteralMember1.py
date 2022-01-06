@@ -8,18 +8,21 @@ class A:
     kind: Literal["A"]
     kind_class: ClassVar[Literal["A"]]
     d: Literal[1, 2, 3]
+    is_a: Literal[True]
 
 
 class B:
     kind: Literal["B"]
     kind_class: ClassVar[Literal["B"]]
     d: Literal[3, 4, 5]
+    is_a: Literal[False]
 
 
 class C:
     kind: str
     kind_class: str
     c: int
+    is_a: bool
 
 
 class D:
@@ -33,11 +36,18 @@ def eq_obj1(c: Union[A, B]):
         tc2: Literal["B"] = reveal_type(c)
 
 
-def is_obj1(c: Union[A, B]):
+def is_obj1_1(c: Union[A, B]):
     if c.kind is "A":
-        tc1: Literal["A"] = reveal_type(c)
+        tc1: Literal["A | B"] = reveal_type(c)
     else:
-        tc2: Literal["B"] = reveal_type(c)
+        tc2: Literal["A | B"] = reveal_type(c)
+
+
+def is_obj1_2(c: Union[A, B]):
+    if c.is_a is False:
+        tc1: Literal["B"] = reveal_type(c)
+    else:
+        tc2: Literal["A"] = reveal_type(c)
 
 
 def eq_obj2(c: Union[A, B]):
@@ -49,9 +59,9 @@ def eq_obj2(c: Union[A, B]):
 
 def is_obj2(c: Union[A, B]):
     if c.kind is not "A":
-        tc1: Literal["B"] = reveal_type(c)
+        tc1: Literal["A | B"] = reveal_type(c)
     else:
-        tc2: Literal["A"] = reveal_type(c)
+        tc2: Literal["A | B"] = reveal_type(c)
 
 
 def eq_obj3(c: Union[A, B, C]):
@@ -63,9 +73,9 @@ def eq_obj3(c: Union[A, B, C]):
 
 def is_obj3(c: Union[A, B, C]):
     if c.kind is "A":
-        tc1: Literal["A | C"] = reveal_type(c)
+        tc1: Literal["A | B | C"] = reveal_type(c)
     else:
-        tc2: Literal["B | C"] = reveal_type(c)
+        tc2: Literal["A | B | C"] = reveal_type(c)
 
 
 def eq_obj4(c: Union[A, B]):
@@ -77,7 +87,7 @@ def eq_obj4(c: Union[A, B]):
 
 def is_obj4(c: Union[A, B]):
     if c.d is 1:
-        tc1: Literal["A"] = reveal_type(c)
+        tc1: Literal["A | B"] = reveal_type(c)
     elif c.d is 3:
         tc2: Literal["A | B"] = reveal_type(c)
 
@@ -105,6 +115,6 @@ def eq_class2(c: Union[Type[A], Type[B]]):
 
 def is_class2(c: Union[Type[A], Type[B]]):
     if c.kind_class is "A":
-        tc1: Literal["Type[A]"] = reveal_type(c)
+        tc1: Literal["Type[A] | Type[B]"] = reveal_type(c)
     else:
-        tc2: Literal["Type[B]"] = reveal_type(c)
+        tc2: Literal["Type[A] | Type[B]"] = reveal_type(c)
