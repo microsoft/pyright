@@ -2860,9 +2860,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Splice out the unbounded since it might be zero length.
                         sourceEntryTypes.splice(unboundedIndex, 1);
                     } else if (sourceEntryTypes.length < targetTypes.length) {
+                        const typeToReplicate =
+                            sourceEntryTypes.length > 0 ? sourceEntryTypes[unboundedIndex] : AnyType.create();
+
                         // Add elements to make the count match the target count.
                         while (sourceEntryTypes.length < targetTypes.length) {
-                            sourceEntryTypes.splice(unboundedIndex, 0, sourceEntryTypes[unboundedIndex]);
+                            sourceEntryTypes.splice(unboundedIndex, 0, typeToReplicate);
                         }
                     }
                 }
@@ -18889,8 +18892,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags: CanAssignFlags,
         recursionCount: number
     ) {
-        const destTypeArgs = [...destType.tupleTypeArguments!] ?? [];
-        const srcTypeArgs = [...srcType.tupleTypeArguments!] ?? [];
+        const destTypeArgs = [...(destType.tupleTypeArguments ?? [])];
+        const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
 
         const destVariadicIndex = destTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
         const destUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded);
@@ -18901,9 +18904,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (srcUnboundedIndex >= 0) {
             const requiredSrcArgCount =
                 destVariadicIndex >= 0 || destUnboundedIndex >= 0 ? destTypeArgs.length - 1 : destTypeArgs.length;
+            const typeToReplicate = srcTypeArgs.length > 0 ? srcTypeArgs[srcUnboundedIndex].type : AnyType.create();
 
             while (srcTypeArgs.length < requiredSrcArgCount) {
-                srcTypeArgs.splice(srcUnboundedIndex, 0, srcTypeArgs[srcUnboundedIndex]);
+                srcTypeArgs.splice(srcUnboundedIndex, 0, { type: typeToReplicate, isUnbounded: false });
             }
         }
 
@@ -18945,7 +18949,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     const removedArgs = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture);
                     srcTypeArgs.splice(destUnboundedIndex, 0, {
-                        type: combineTypes(removedArgs.map((t) => t.type)),
+                        type: removedArgs.length > 0 ? combineTypes(removedArgs.map((t) => t.type)) : AnyType.create(),
                         isUnbounded: false,
                     });
                 }
