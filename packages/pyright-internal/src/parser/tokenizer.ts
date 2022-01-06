@@ -230,6 +230,11 @@ export class Tokenizer {
         this._indentAmounts = [];
 
         const end = start + length;
+
+        if (start === 0) {
+            this._readIndentationAfterNewLine();
+        }
+
         while (!this._cs.isEndOfStream()) {
             this._addNextToken();
 
