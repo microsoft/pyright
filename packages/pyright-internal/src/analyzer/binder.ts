@@ -3744,7 +3744,7 @@ export class Binder extends ParseTreeWalker {
             return undefined;
         }
 
-        const classNode = ParseTreeUtils.getEnclosingClass(methodNode);
+        const classNode = ParseTreeUtils.getEnclosingClass(methodNode, /* stopAtFunction */ true);
         if (!classNode) {
             return undefined;
         }
