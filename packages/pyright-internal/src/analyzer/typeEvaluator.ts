@@ -21210,9 +21210,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
         }
 
+        // Handle the special case where the source is a Self type and the
+        // destination is not.
+        let adjustedSrcType = srcType;
+        if (!isTypeVar(specializedDestType) || !specializedDestType.details.isSynthesizedSelf) {
+            if (isTypeVar(srcType) && srcType.details.isSynthesizedSelf && srcType.details.boundType) {
+                adjustedSrcType = applySolvedTypeVars(
+                    srcType.details.boundType,
+                    new TypeVarMap(getTypeVarScopeId(srcType)),
+                    /* unknownIfNotFound */ true
+                );
+            }
+        }
+
         if (
             !canAssignType(
-                srcType,
+                adjustedSrcType,
                 specializedDestType,
                 diag?.createAddendum(),
                 srcTypeVarMap,
@@ -21238,7 +21251,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Determines whether we need to pack some of the source positionals
     // into a tuple that matches a variadic *args parameter in the destination.
     function adjustSourceParamDetailsForDestVariadic(
-        srcType: FunctionType,
         srcDetails: ParameterListDetails,
         destDetails: ParameterListDetails
     ) {
@@ -21345,7 +21357,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const destParamDetails = getParameterListDetails(destType);
         const srcParamDetails = getParameterListDetails(srcType);
-        adjustSourceParamDetailsForDestVariadic(srcType, srcParamDetails, destParamDetails);
+        adjustSourceParamDetailsForDestVariadic(srcParamDetails, destParamDetails);
 
         const srcTypeVarMap = new TypeVarMap(getTypeVarScopeId(srcType));
         const isParamSpecInvolved =
