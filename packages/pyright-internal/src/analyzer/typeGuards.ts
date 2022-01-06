@@ -569,7 +569,11 @@ export function getTypeNarrowingCallback(
                 if (modifyingDecls.length === 0) {
                     const initNode = testExprDecl[0].inferredTypeSource;
 
-                    if (initNode && initNode !== testExpression && isExpressionNode(initNode)) {
+                    if (
+                        initNode &&
+                        !ParseTreeUtils.isNodeContainedWithin(testExpression, initNode) &&
+                        isExpressionNode(initNode)
+                    ) {
                         return getTypeNarrowingCallback(evaluator, reference, initNode, isPositiveTest);
                     }
                 }
