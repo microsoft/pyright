@@ -21,7 +21,7 @@ class _ResultMixinBase(Generic[AnyStr]):
 class _ResultMixinStr(_ResultMixinBase[str]):
     def encode(self, encoding: str = ..., errors: str = ...) -> _ResultMixinBytes: ...
 
-class _ResultMixinBytes(_ResultMixinBase[str]):
+class _ResultMixinBytes(_ResultMixinBase[bytes]):
     def decode(self, encoding: str = ..., errors: str = ...) -> _ResultMixinStr: ...
 
 class _NetlocResultMixinBase(Generic[AnyStr]):
