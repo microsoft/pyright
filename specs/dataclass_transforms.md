@@ -329,7 +329,7 @@ def create_model(
 # Code that imports this library:
 @create_model(init=False)
 class CustomerModel:
-    id: int = ModelField(resolver=lambda : 0)
+    id: int = model_field(resolver=lambda : 0)
     name: str
 ```
 
