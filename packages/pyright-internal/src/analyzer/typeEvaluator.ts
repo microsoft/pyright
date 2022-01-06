@@ -8239,7 +8239,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
-        paramDetails.params.forEach((paramInfo, index) => {
+        paramDetails.params.forEach((paramInfo) => {
             const param = paramInfo.param;
             if (param.name && param.category === ParameterCategory.Simple) {
                 paramMap.set(param.name, {
@@ -8517,7 +8517,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     let effectiveParamType = paramType;
                     const paramName = paramDetails.params[paramIndex].param.name;
 
-                    if (isUnpackedTuple(paramType) && paramType.tupleTypeArguments) {
+                    if (
+                        isUnpackedTuple(paramType) &&
+                        paramType.tupleTypeArguments &&
+                        paramType.tupleTypeArguments.length > 0
+                    ) {
                         effectiveParamType = paramType.tupleTypeArguments[0].type;
                     }
 
