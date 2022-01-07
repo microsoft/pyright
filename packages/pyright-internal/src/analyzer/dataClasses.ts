@@ -728,9 +728,12 @@ function applyDataClassBehaviorOverride(
                     if (ClassType.isFrozenDataClass(baseClass)) {
                         hasFrozenBaseClass = true;
                     } else if (
-                        !baseClass.details.declaredMetaclass ||
-                        !isInstantiableClass(baseClass.details.declaredMetaclass) ||
-                        !baseClass.details.declaredMetaclass.details.metaclassDataClassTransform
+                        !baseClass.details.classDataClassTransform &&
+                        !(
+                            baseClass.details.declaredMetaclass &&
+                            isInstantiableClass(baseClass.details.declaredMetaclass) &&
+                            !!baseClass.details.declaredMetaclass.details.classDataClassTransform
+                        )
                     ) {
                         // If this base class is unfrozen and isn't the class that directly
                         // references the metaclass that provides dataclass-like behaviors,
@@ -798,7 +801,7 @@ function applyDataClassBehaviorOverride(
     }
 }
 
-export function applyDataClassMetaclassBehaviorOverrides(
+export function applyDataClassClassBehaviorOverrides(
     evaluator: TypeEvaluator,
     classType: ClassType,
     args: FunctionArgument[]

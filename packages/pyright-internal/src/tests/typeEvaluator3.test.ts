@@ -998,6 +998,12 @@ test('DataclassTransform2', () => {
 test('DataclassTransform3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform3.py']);
 
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('DataclassTransform4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform4.py']);
+
     TestUtils.validateResults(analysisResults, 1);
 });
 

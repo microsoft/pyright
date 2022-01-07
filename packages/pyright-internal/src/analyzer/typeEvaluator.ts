@@ -83,9 +83,9 @@ import {
 } from './codeFlowTypes';
 import { applyConstructorTransform } from './constructorTransform';
 import {
+    applyDataClassClassBehaviorOverrides,
     applyDataClassDecorator,
     applyDataClassDefaultBehaviors,
-    applyDataClassMetaclassBehaviorOverrides,
     getDataclassDecoratorBehaviors,
     synthesizeDataClassMethods,
     validateDataClassTransformDecorator,
@@ -13856,12 +13856,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (isInstantiableClass(effectiveMetaclass)) {
-            // Mark the class as a dataclass if the metaclass provides dataclass-like behaviors.
-            if (effectiveMetaclass.details.metaclassDataClassTransform) {
-                applyDataClassDefaultBehaviors(classType, effectiveMetaclass.details.metaclassDataClassTransform);
-                applyDataClassMetaclassBehaviorOverrides(evaluatorInterface, classType, initSubclassArgs);
+        let dataClassBehaviors: DataClassBehaviors | undefined;
+        if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
+            dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
+        } else {
+            const baseClassDataTransform = classType.details.mro.find((mroClass) => {
+                return isClass(mroClass) && mroClass.details.classDataClassTransform !== undefined;
+            });
+
+            if (baseClassDataTransform) {
+                dataClassBehaviors = (baseClassDataTransform as ClassType).details.classDataClassTransform!;
             }
+        }
+
+        if (dataClassBehaviors) {
+            applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
+            applyDataClassClassBehaviorOverrides(evaluatorInterface, classType, initSubclassArgs);
         }
 
         // Clear the "partially constructed" flag.
@@ -13995,7 +14005,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isFunction(decoratorCallType)) {
                 if (decoratorCallType.details.name === '__dataclass_transform__') {
-                    originalClassType.details.metaclassDataClassTransform = validateDataClassTransformDecorator(
+                    originalClassType.details.classDataClassTransform = validateDataClassTransformDecorator(
                         evaluatorInterface,
                         decoratorNode.expression
                     );

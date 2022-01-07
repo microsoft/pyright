@@ -409,8 +409,9 @@ interface ClassDetails {
     inheritedSlotsNames?: string[];
     localSlotsNames?: string[];
 
-    // Transforms to apply if this class is used as a metaclass.
-    metaclassDataClassTransform?: DataClassBehaviors | undefined;
+    // Transforms to apply if this class is used as a metaclass
+    // or a base class.
+    classDataClassTransform?: DataClassBehaviors | undefined;
 }
 
 export interface TupleTypeArgument {
