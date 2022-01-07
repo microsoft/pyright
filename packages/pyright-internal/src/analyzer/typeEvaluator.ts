@@ -18223,6 +18223,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let typesAreConsistent = true;
         const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
+        const canAssignFlags = containsLiteralType(srcType, /* includeTypeArgs */ true)
+            ? CanAssignFlags.RetainLiteralsForTypeVar
+            : CanAssignFlags.Default;
 
         destClassFields.forEach((symbol, name) => {
             if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
@@ -18375,7 +18378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         srcMemberType,
                                         subDiag?.createAddendum(),
                                         genericDestTypeVarMap,
-                                        CanAssignFlags.Default,
+                                        canAssignFlags,
                                         recursionCount + 1
                                     )
                                 ) {
@@ -18393,7 +18396,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 srcMemberType,
                                 subDiag?.createAddendum(),
                                 genericDestTypeVarMap,
-                                CanAssignFlags.Default,
+                                canAssignFlags,
                                 recursionCount + 1
                             )
                         ) {
