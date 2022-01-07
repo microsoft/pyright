@@ -7355,7 +7355,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     '__call__',
                     { method: 'get' },
                     /* diag */ undefined,
-                    MemberAccessFlags.ConsiderMetaclassOnly | MemberAccessFlags.SkipTypeBaseClass,
+                    MemberAccessFlags.ConsiderMetaclassOnly |
+                        MemberAccessFlags.SkipTypeBaseClass |
+                        MemberAccessFlags.SkipAttributeAccessOverride,
                     type
                 );
 
