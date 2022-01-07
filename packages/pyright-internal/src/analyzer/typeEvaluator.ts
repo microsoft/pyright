@@ -13196,9 +13196,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     flags |= EvaluatorFlags.ConvertEllipsisToUnknown;
                 }
 
-                if (node.rightExpression.nodeType === ParseNodeType.Name) {
-                    // Don't specialize a generic class on assignment (e.g. "x = list") because
-                    // we may want to later specialize it (e.g. "x[int]").
+                if (
+                    node.rightExpression.nodeType === ParseNodeType.Name ||
+                    node.rightExpression.nodeType === ParseNodeType.MemberAccess
+                ) {
+                    // Don't specialize a generic class on assignment (e.g. "x = list"
+                    // or "x = collections.OrderedDict") because we may want to later
+                    // specialize it (e.g. "x[int]").
                     flags |= EvaluatorFlags.DoNotSpecialize;
                 }
 
