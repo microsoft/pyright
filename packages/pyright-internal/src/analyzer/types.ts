@@ -1062,6 +1062,7 @@ export interface FunctionType extends TypeBase {
 export interface ParamSpecValue {
     flags: FunctionTypeFlags;
     parameters: ParamSpecEntry[];
+    typeVarScopeId: TypeVarScopeId | undefined;
     docString: string | undefined;
     paramSpec: TypeVarType | undefined;
 }

@@ -1261,6 +1261,7 @@ export function buildTypeVarMap(
                         });
                         typeVarMap.setParamSpec(typeParam, {
                             parameters: paramSpecEntries,
+                            typeVarScopeId: typeArgType.details.typeVarScopeId,
                             flags: typeArgType.details.flags,
                             docString: typeArgType.details.docString,
                             paramSpec: typeArgType.details.paramSpec,
@@ -1269,6 +1270,7 @@ export function buildTypeVarMap(
                         typeVarMap.setParamSpec(typeParam, {
                             flags: FunctionTypeFlags.None,
                             parameters: [],
+                            typeVarScopeId: undefined,
                             docString: undefined,
                             paramSpec: typeArgType,
                         });

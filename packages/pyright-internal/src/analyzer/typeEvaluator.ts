@@ -9360,6 +9360,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
+        // If the ParamSpec was bound to a generic function, some TypeVars may
+        // not yet be solved. Add the TypeVar scope for the bound function.
+        typeVarMap.addSolveForScope(paramSpecValue.typeVarScopeId);
+
         let reportedArgError = false;
 
         // Build a map of all named parameters.
@@ -19842,6 +19846,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarMap.setParamSpec(destType, {
                         flags: FunctionTypeFlags.None,
                         parameters: [],
+                        typeVarScopeId: undefined,
                         docString: undefined,
                         paramSpec: srcType,
                     });
@@ -19889,6 +19894,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!typeVarMap.isLocked() && typeVarMap.hasSolveForScope(destType.scopeId)) {
                     typeVarMap.setParamSpec(destType, {
                         parameters,
+                        typeVarScopeId: srcType.details.typeVarScopeId,
                         flags: srcType.details.flags,
                         docString: srcType.details.docString,
                         paramSpec: undefined,
@@ -20557,16 +20563,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const overloadDiag = diag?.createAddendum();
 
             // All overloads in the dest must be assignable.
-            const isAssignable = !destType.overloads.some((destOverload) => {
+            const isAssignable = destType.overloads.every((destOverload) => {
                 if (!FunctionType.isOverloaded(destOverload)) {
-                    return false;
+                    return true;
                 }
 
                 if (typeVarMap) {
                     typeVarMap.addSolveForScope(getTypeVarScopeId(destOverload));
                 }
 
-                return !canAssignType(
+                const result = canAssignType(
                     destOverload,
                     srcType,
                     overloadDiag?.createAddendum(),
@@ -20574,6 +20580,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     flags,
                     recursionCount + 1
                 );
+                return result;
             });
 
             if (!isAssignable) {
@@ -21836,6 +21843,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 effectiveDestType.details.parameters.filter((p) => p.name).length,
                                 effectiveSrcType.details.parameters.length
                             ),
+                        typeVarScopeId: effectiveSrcType.details.typeVarScopeId,
                         docString: effectiveSrcType.details.docString,
                         flags: effectiveSrcType.details.flags,
                         paramSpec: effectiveSrcType.details.paramSpec
