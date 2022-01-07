@@ -51,6 +51,7 @@ import {
     ClassType,
     combineTypes,
     FunctionType,
+    isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -1326,11 +1327,26 @@ export function getCodeFlowEngine(
                 // Track the number of subtypes we've examined.
                 subtypeCount++;
 
-                // We assume here that no constructors or __call__ methods
-                // will be inferred "no return" types, so we can restrict
-                // our check to functions.
                 let functionType: FunctionType | undefined;
                 if (isInstantiableClass(callSubtype)) {
+                    // Does the class have a custom metaclass that implements a `__call__` method?
+                    // If so, it will be called instead of `__init__` or `__new__`. We'll assume
+                    // in this case that the __call__ method is not a NoReturn type.
+                    if (
+                        callSubtype.details.effectiveMetaclass &&
+                        isClass(callSubtype.details.effectiveMetaclass) &&
+                        !ClassType.isBuiltIn(callSubtype.details.effectiveMetaclass, 'type')
+                    ) {
+                        const metaclassCallMember = lookUpClassMember(
+                            callSubtype.details.effectiveMetaclass,
+                            '__call__',
+                            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                        );
+                        if (metaclassCallMember) {
+                            return;
+                        }
+                    }
+
                     let constructorMember = lookUpClassMember(
                         callSubtype,
                         '__init__',
