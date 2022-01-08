@@ -514,10 +514,11 @@ function getTypedDictMembersForClassRecursive(
     if (recursionCount > maxTypeRecursionCount) {
         return;
     }
+    recursionCount++;
 
     classType.details.baseClasses.forEach((baseClassType) => {
         if (isInstantiableClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
-            getTypedDictMembersForClassRecursive(evaluator, baseClassType, keyMap, recursionCount + 1);
+            getTypedDictMembersForClassRecursive(evaluator, baseClassType, keyMap, recursionCount);
         }
     });
 
@@ -623,7 +624,7 @@ export function canAssignTypedDict(
                     /* diag */ undefined,
                     /* typeVarMap */ undefined,
                     /* flags */ undefined,
-                    recursionCount + 1
+                    recursionCount
                 )
             ) {
                 if (diag) {

@@ -262,6 +262,7 @@ export class TypeVarMap {
         if (recursionCount > maxTypeRecursionCount) {
             return 1;
         }
+        recursionCount++;
 
         switch (type.category) {
             case TypeCategory.Unknown:
@@ -284,7 +285,7 @@ export class TypeVarMap {
                 // accurately computing the score. Assume a fixed value.
                 if (type.subtypes.length < 16) {
                     doForEachSubtype(type, (subtype) => {
-                        const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
+                        const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount);
                         maxScore = Math.max(maxScore, subtypeScore);
                     });
                 }
@@ -294,7 +295,7 @@ export class TypeVarMap {
             }
 
             case TypeCategory.Class: {
-                return this._getComplexityScoreForClass(type, recursionCount + 1);
+                return this._getComplexityScoreForClass(type, recursionCount);
             }
         }
 
@@ -308,17 +309,17 @@ export class TypeVarMap {
 
         if (classType.tupleTypeArguments) {
             classType.tupleTypeArguments.forEach((typeArg) => {
-                typeArgScoreSum += this._getComplexityScoreForType(typeArg.type, recursionCount + 1);
+                typeArgScoreSum += this._getComplexityScoreForType(typeArg.type, recursionCount);
                 typeArgCount++;
             });
         } else if (classType.typeArguments) {
             classType.typeArguments.forEach((type) => {
-                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
+                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount);
                 typeArgCount++;
             });
         } else if (classType.details.typeParameters) {
             classType.details.typeParameters.forEach((type) => {
-                typeArgScoreSum += this._getComplexityScoreForType(AnyType.create(), recursionCount + 1);
+                typeArgScoreSum += this._getComplexityScoreForType(AnyType.create(), recursionCount);
                 typeArgCount++;
             });
         }

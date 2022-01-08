@@ -792,6 +792,7 @@ export namespace ClassType {
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
+        recursionCount++;
 
         // If the class details match, it's definitely the same class.
         if (classType.details === type2.details) {
@@ -836,7 +837,7 @@ export namespace ClassType {
                     class2Details.baseClasses[i],
                     /* ignorePseudoGeneric */ true,
                     /* ignoreTypeFlags */ undefined,
-                    recursionCount + 1
+                    recursionCount
                 )
             ) {
                 return false;
@@ -852,7 +853,7 @@ export namespace ClassType {
                     class2Details.declaredMetaclass,
                     /* ignorePseudoGeneric */ true,
                     /* ignoreTypeFlags */ undefined,
-                    recursionCount + 1
+                    recursionCount
                 )
             ) {
                 return false;
@@ -866,7 +867,7 @@ export namespace ClassType {
                     class2Details.typeParameters[i],
                     /* ignorePseudoGeneric */ true,
                     /* ignoreTypeFlags */ undefined,
-                    recursionCount + 1
+                    recursionCount
                 )
             ) {
                 return false;
@@ -1715,7 +1716,7 @@ export namespace UnionType {
                     subtype,
                     /* ignorePseudoGeneric */ undefined,
                     /* ignoreTypeFlags */ undefined,
-                    recursionCount + 1
+                    recursionCount
                 )
             ) !== undefined
         );
@@ -2074,20 +2075,21 @@ export function isTypeSame(
         return false;
     }
 
-    if (recursionCount > maxTypeRecursionCount) {
-        return true;
-    }
-
     if (!ignoreTypeFlags && type1.flags !== type2.flags) {
         return false;
     }
+
+    if (recursionCount > maxTypeRecursionCount) {
+        return true;
+    }
+    recursionCount++;
 
     switch (type1.category) {
         case TypeCategory.Class: {
             const classType2 = type2 as ClassType;
 
             // If the details are not the same it's not the same class.
-            if (!ClassType.isSameGenericClass(type1, classType2, recursionCount + 1)) {
+            if (!ClassType.isSameGenericClass(type1, classType2, recursionCount)) {
                 return false;
             }
 
@@ -2111,7 +2113,7 @@ export function isTypeSame(
                                 type2TupleTypeArgs[i].type,
                                 ignorePseudoGeneric,
                                 /* ignoreTypeFlags */ false,
-                                recursionCount + 1
+                                recursionCount
                             )
                         ) {
                             return false;
@@ -2137,7 +2139,7 @@ export function isTypeSame(
                                 typeArg2,
                                 ignorePseudoGeneric,
                                 /* ignoreTypeFlags */ false,
-                                recursionCount + 1
+                                recursionCount
                             )
                         ) {
                             return false;
@@ -2200,7 +2202,7 @@ export function isTypeSame(
                         param2Type,
                         ignorePseudoGeneric,
                         /* ignoreTypeFlags */ false,
-                        recursionCount + 1
+                        recursionCount
                     )
                 ) {
                     return false;
@@ -2233,7 +2235,7 @@ export function isTypeSame(
                         return2Type,
                         ignorePseudoGeneric,
                         /* ignoreTypeFlags */ false,
-                        recursionCount + 1
+                        recursionCount
                     )
                 ) {
                     return false;
@@ -2259,7 +2261,7 @@ export function isTypeSame(
                         functionType2.overloads[i],
                         ignorePseudoGeneric,
                         ignoreTypeFlags,
-                        recursionCount + 1
+                        recursionCount
                     )
                 ) {
                     return false;
@@ -2281,7 +2283,7 @@ export function isTypeSame(
             // The types do not have a particular order, so we need to
             // do the comparison in an order-independent manner.
             return (
-                findSubtype(type1, (subtype) => !UnionType.containsType(unionType2, subtype, recursionCount + 1)) ===
+                findSubtype(type1, (subtype) => !UnionType.containsType(unionType2, subtype, recursionCount)) ===
                 undefined
             );
         }
@@ -2304,15 +2306,7 @@ export function isTypeSame(
                 const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
                 const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
-                if (
-                    !isTypeSame(
-                        typeArg1,
-                        typeArg2,
-                        ignorePseudoGeneric,
-                        /* ignoreTypeFlags */ false,
-                        recursionCount + 1
-                    )
-                ) {
+                if (!isTypeSame(typeArg1, typeArg2, ignorePseudoGeneric, /* ignoreTypeFlags */ false, recursionCount)) {
                     return false;
                 }
             }
@@ -2341,7 +2335,7 @@ export function isTypeSame(
                         boundType2,
                         ignorePseudoGeneric,
                         /* ignoreTypeFlags */ false,
-                        recursionCount + 1
+                        recursionCount
                     )
                 ) {
                     return false;
@@ -2365,7 +2359,7 @@ export function isTypeSame(
                         constraints2[i],
                         ignorePseudoGeneric,
                         /* ignoreTypeFlags */ false,
-                        recursionCount + 1
+                        recursionCount
                     )
                 ) {
                     return false;

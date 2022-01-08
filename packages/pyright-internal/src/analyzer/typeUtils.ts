@@ -678,6 +678,7 @@ export function containsLiteralType(type: Type, includeTypeArgs = false, recursi
     if (recursionCount > maxTypeRecursionCount) {
         return false;
     }
+    recursionCount++;
 
     if (isClassInstance(type) && isLiteralType(type)) {
         return true;
@@ -686,27 +687,27 @@ export function containsLiteralType(type: Type, includeTypeArgs = false, recursi
     if (includeTypeArgs && isClass(type)) {
         const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
         if (typeArgs) {
-            return typeArgs.some((typeArg) => containsLiteralType(typeArg, includeTypeArgs, recursionCount + 1));
+            return typeArgs.some((typeArg) => containsLiteralType(typeArg, includeTypeArgs, recursionCount));
         }
     }
 
     if (isUnion(type)) {
-        return type.subtypes.some((subtype) => containsLiteralType(subtype, includeTypeArgs, recursionCount + 1));
+        return type.subtypes.some((subtype) => containsLiteralType(subtype, includeTypeArgs, recursionCount));
     }
 
     if (isOverloadedFunction(type)) {
-        return type.overloads.some((overload) => containsLiteralType(overload, includeTypeArgs, recursionCount + 1));
+        return type.overloads.some((overload) => containsLiteralType(overload, includeTypeArgs, recursionCount));
     }
 
     if (isFunction(type)) {
         const returnType = FunctionType.getSpecializedReturnType(type);
-        if (returnType && containsLiteralType(returnType, includeTypeArgs, recursionCount + 1)) {
+        if (returnType && containsLiteralType(returnType, includeTypeArgs, recursionCount)) {
             return true;
         }
 
         for (let i = 0; i < type.details.parameters.length; i++) {
             const paramType = FunctionType.getEffectiveParameterType(type, i);
-            if (containsLiteralType(paramType, includeTypeArgs, recursionCount + 1)) {
+            if (containsLiteralType(paramType, includeTypeArgs, recursionCount)) {
                 return true;
             }
         }
@@ -1052,12 +1053,13 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     if (recursionCount > maxTypeRecursionCount) {
         return [];
     }
+    recursionCount++;
 
     const getTypeVarsFromClass = (classType: ClassType) => {
         const combinedList: TypeVarType[] = [];
         if (classType.typeArguments) {
             classType.typeArguments.forEach((typeArg) => {
-                addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount + 1));
+                addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount));
             });
         }
 
@@ -1068,7 +1070,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         const combinedList: TypeVarType[] = [];
 
         type.typeAliasInfo?.typeArguments.forEach((typeArg) => {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount + 1));
+            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount));
         });
 
         return combinedList;
@@ -1095,7 +1097,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     if (isUnion(type)) {
         const combinedList: TypeVarType[] = [];
         doForEachSubtype(type, (subtype) => {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(subtype, recursionCount + 1));
+            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(subtype, recursionCount));
         });
         return combinedList;
     }
@@ -1106,7 +1108,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         for (let i = 0; i < type.details.parameters.length; i++) {
             addTypeVarsToListIfUnique(
                 combinedList,
-                getTypeVarArgumentsRecursive(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)
+                getTypeVarArgumentsRecursive(FunctionType.getEffectiveParameterType(type, i), recursionCount)
             );
         }
 
@@ -1116,7 +1118,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
 
         const returnType = FunctionType.getSpecializedReturnType(type);
         if (returnType) {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(returnType, recursionCount + 1));
+            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(returnType, recursionCount));
         }
 
         return combinedList;
@@ -1144,6 +1146,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
     if (recursionCount > maxTypeRecursionCount) {
         return;
     }
+    recursionCount++;
 
     if (typeVarMap.isLocked()) {
         return;
@@ -1152,19 +1155,19 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
     switch (destType.category) {
         case TypeCategory.Union:
             doForEachSubtype(destType, (subtype) => {
-                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
+                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount);
             });
             break;
 
         case TypeCategory.Class:
             if (destType.typeArguments) {
                 destType.typeArguments.forEach((typeArg) => {
-                    setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
+                    setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount);
                 });
             }
             if (destType.tupleTypeArguments) {
                 destType.tupleTypeArguments.forEach((typeArg) => {
-                    setTypeArgumentsRecursive(typeArg.type, srcType, typeVarMap, recursionCount + 1);
+                    setTypeArgumentsRecursive(typeArg.type, srcType, typeVarMap, recursionCount);
                 });
             }
             break;
@@ -1172,34 +1175,29 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
         case TypeCategory.Function:
             if (destType.specializedTypes) {
                 destType.specializedTypes.parameterTypes.forEach((paramType) => {
-                    setTypeArgumentsRecursive(paramType, srcType, typeVarMap, recursionCount + 1);
+                    setTypeArgumentsRecursive(paramType, srcType, typeVarMap, recursionCount);
                 });
                 if (destType.specializedTypes.returnType) {
                     setTypeArgumentsRecursive(
                         destType.specializedTypes.returnType,
                         srcType,
                         typeVarMap,
-                        recursionCount + 1
+                        recursionCount
                     );
                 }
             } else {
                 destType.details.parameters.forEach((param) => {
-                    setTypeArgumentsRecursive(param.type, srcType, typeVarMap, recursionCount + 1);
+                    setTypeArgumentsRecursive(param.type, srcType, typeVarMap, recursionCount);
                 });
                 if (destType.details.declaredReturnType) {
-                    setTypeArgumentsRecursive(
-                        destType.details.declaredReturnType,
-                        srcType,
-                        typeVarMap,
-                        recursionCount + 1
-                    );
+                    setTypeArgumentsRecursive(destType.details.declaredReturnType, srcType, typeVarMap, recursionCount);
                 }
             }
             break;
 
         case TypeCategory.OverloadedFunction:
             destType.overloads.forEach((subtype) => {
-                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
+                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount);
             });
             break;
 
@@ -1587,6 +1585,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     if (recursionCount > maxTypeRecursionCount) {
         return false;
     }
+    recursionCount++;
 
     if (isUnknown(type)) {
         return true;
@@ -1597,7 +1596,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     if (type.typeAliasInfo?.typeArguments) {
         if (
             type.typeAliasInfo.typeArguments.some((typeArg) =>
-                isPartlyUnknown(typeArg, allowUnknownTypeArgsForClasses, recursionCount + 1)
+                isPartlyUnknown(typeArg, allowUnknownTypeArgsForClasses, recursionCount)
             )
         ) {
             return true;
@@ -1607,9 +1606,8 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     // See if a union contains an unknown type.
     if (isUnion(type)) {
         return (
-            findSubtype(type, (subtype) =>
-                isPartlyUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount + 1)
-            ) !== undefined
+            findSubtype(type, (subtype) => isPartlyUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount)) !==
+            undefined
         );
     }
 
@@ -1623,7 +1621,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
             const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
             if (typeArgs) {
                 for (const argType of typeArgs) {
-                    if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
+                    if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount)) {
                         return true;
                     }
                 }
@@ -1636,7 +1634,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     // See if a function has an unknown type.
     if (isOverloadedFunction(type)) {
         return type.overloads.some((overload) => {
-            return isPartlyUnknown(overload, false, recursionCount + 1);
+            return isPartlyUnknown(overload, false, recursionCount);
         });
     }
 
@@ -1645,7 +1643,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
             // Ignore parameters such as "*" that have no name.
             if (type.details.parameters[i].name) {
                 const paramType = FunctionType.getEffectiveParameterType(type, i);
-                if (isPartlyUnknown(paramType, /* allowUnknownTypeArgsForClasses */ false, recursionCount + 1)) {
+                if (isPartlyUnknown(paramType, /* allowUnknownTypeArgsForClasses */ false, recursionCount)) {
                     return true;
                 }
             }
@@ -1654,11 +1652,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
         if (
             type.details.declaredReturnType &&
             !FunctionType.isParamSpecValue(type) &&
-            isPartlyUnknown(
-                type.details.declaredReturnType,
-                /* allowUnknownTypeArgsForClasses */ false,
-                recursionCount + 1
-            )
+            isPartlyUnknown(type.details.declaredReturnType, /* allowUnknownTypeArgsForClasses */ false, recursionCount)
         ) {
             return true;
         }
@@ -1888,10 +1882,11 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
                 if (recursionCount > maxTypeRecursionCount) {
                     return false;
                 }
+                recursionCount++;
 
                 return (
                     type.typeArguments.find((typeArg) =>
-                        requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount + 1)
+                        requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount)
                     ) !== undefined
                 );
             }
@@ -1903,6 +1898,7 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
             if (recursionCount > maxTypeRecursionCount) {
                 return false;
             }
+            recursionCount++;
 
             if (type.details.paramSpec) {
                 return true;
@@ -1913,7 +1909,7 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
                     requiresSpecialization(
                         FunctionType.getEffectiveParameterType(type, i),
                         ignorePseudoGeneric,
-                        recursionCount + 1
+                        recursionCount
                     )
                 ) {
                     return true;
@@ -1925,11 +1921,11 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
                     ? type.specializedTypes.returnType
                     : type.details.declaredReturnType;
             if (declaredReturnType) {
-                if (requiresSpecialization(declaredReturnType, ignorePseudoGeneric, recursionCount + 1)) {
+                if (requiresSpecialization(declaredReturnType, ignorePseudoGeneric, recursionCount)) {
                     return true;
                 }
             } else if (type.inferredReturnType) {
-                if (requiresSpecialization(type.inferredReturnType, ignorePseudoGeneric, recursionCount + 1)) {
+                if (requiresSpecialization(type.inferredReturnType, ignorePseudoGeneric, recursionCount)) {
                     return true;
                 }
             }
@@ -1940,16 +1936,15 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
         case TypeCategory.OverloadedFunction: {
             return (
                 type.overloads.find((overload) =>
-                    requiresSpecialization(overload, ignorePseudoGeneric, recursionCount + 1)
+                    requiresSpecialization(overload, ignorePseudoGeneric, recursionCount)
                 ) !== undefined
             );
         }
 
         case TypeCategory.Union: {
             return (
-                findSubtype(type, (subtype) =>
-                    requiresSpecialization(subtype, ignorePseudoGeneric, recursionCount + 1)
-                ) !== undefined
+                findSubtype(type, (subtype) => requiresSpecialization(subtype, ignorePseudoGeneric, recursionCount)) !==
+                undefined
             );
         }
 
@@ -1963,7 +1958,7 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
             // if it has generic type arguments.
             if (type.typeAliasInfo?.typeArguments) {
                 return type.typeAliasInfo.typeArguments.some((typeArg) =>
-                    requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount + 1)
+                    requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount)
                 );
             }
         }
@@ -2097,6 +2092,7 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
     if (recursionCount > maxTypeRecursionCount) {
         return;
     }
+    recursionCount++;
 
     const addIfUnique = (moduleName: string) => {
         if (moduleName && !moduleList.some((n) => n === moduleName)) {
@@ -2117,14 +2113,14 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
 
         case TypeCategory.OverloadedFunction: {
             type.overloads.forEach((overload) => {
-                addDeclaringModuleNamesForType(overload, moduleList, recursionCount + 1);
+                addDeclaringModuleNamesForType(overload, moduleList, recursionCount);
             });
             break;
         }
 
         case TypeCategory.Union: {
             doForEachSubtype(type, (subtype) => {
-                addDeclaringModuleNamesForType(subtype, moduleList, recursionCount + 1);
+                addDeclaringModuleNamesForType(subtype, moduleList, recursionCount);
             });
             break;
         }
@@ -2166,10 +2162,11 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Typ
 class TypeVarTransformer {
     private _isTransformingTypeArg = false;
 
-    apply(type: Type, recursionSet = new Set<string>(), recursionLevel = 0): Type {
-        if (recursionLevel > maxTypeRecursionCount) {
+    apply(type: Type, recursionSet = new Set<string>(), recursionCount = 0): Type {
+        if (recursionCount > maxTypeRecursionCount) {
             return type;
         }
+        recursionCount++;
 
         // Shortcut the operation if possible.
         if (!requiresSpecialization(type)) {
@@ -2195,7 +2192,7 @@ class TypeVarTransformer {
 
                 let requiresUpdate = false;
                 const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
-                    const replacementType = this.apply(typeArg, recursionSet, recursionLevel + 1);
+                    const replacementType = this.apply(typeArg, recursionSet, recursionCount);
                     if (replacementType !== typeArg) {
                         requiresUpdate = true;
                     }
@@ -2226,7 +2223,7 @@ class TypeVarTransformer {
 
                 if (!this._isTransformingTypeArg) {
                     recursionSet.add(typeVarName);
-                    replacementType = this.apply(replacementType, recursionSet, recursionLevel + 1);
+                    replacementType = this.apply(replacementType, recursionSet, recursionCount);
                     recursionSet.delete(typeVarName);
                 }
 
@@ -2242,7 +2239,7 @@ class TypeVarTransformer {
 
         if (isUnion(type)) {
             const newUnionType = mapSubtypes(type, (subtype) => {
-                let transformedType = this.apply(subtype, recursionSet, recursionLevel + 1);
+                let transformedType = this.apply(subtype, recursionSet, recursionCount);
 
                 // If we're transforming a variadic type variable within a union,
                 // combine the individual types within the variadic type variable.
@@ -2266,11 +2263,11 @@ class TypeVarTransformer {
         }
 
         if (isClass(type)) {
-            return this._transformTypeVarsInClassType(type, recursionSet, recursionLevel + 1);
+            return this._transformTypeVarsInClassType(type, recursionSet, recursionCount);
         }
 
         if (isFunction(type)) {
-            return this._transformTypeVarsInFunctionType(type, recursionSet, recursionLevel + 1);
+            return this._transformTypeVarsInFunctionType(type, recursionSet, recursionCount);
         }
 
         if (isOverloadedFunction(type)) {
@@ -2279,7 +2276,7 @@ class TypeVarTransformer {
             // Specialize each of the functions in the overload.
             const newOverloads: FunctionType[] = [];
             type.overloads.forEach((entry) => {
-                const replacementType = this._transformTypeVarsInFunctionType(entry, recursionSet, recursionLevel);
+                const replacementType = this._transformTypeVarsInFunctionType(entry, recursionSet, recursionCount);
                 newOverloads.push(replacementType);
                 if (replacementType !== entry) {
                     requiresUpdate = true;
@@ -2312,7 +2309,7 @@ class TypeVarTransformer {
     private _transformTypeVarsInClassType(
         classType: ClassType,
         recursionSet: Set<string>,
-        recursionLevel: number
+        recursionCount: number
     ): ClassType {
         // Handle the common case where the class has no type parameters.
         if (ClassType.getTypeParameters(classType).length === 0 && !ClassType.isSpecialBuiltIn(classType)) {
@@ -2349,11 +2346,7 @@ class TypeVarTransformer {
                     oldTypeArgType.details.isSynthesizedSelf &&
                     oldTypeArgType.details.boundType
                 ) {
-                    const transformedSelf = this.apply(
-                        oldTypeArgType.details.boundType,
-                        recursionSet,
-                        recursionLevel + 1
-                    );
+                    const transformedSelf = this.apply(oldTypeArgType.details.boundType, recursionSet, recursionCount);
 
                     if (transformedSelf !== oldTypeArgType.details.boundType) {
                         specializationNeeded = true;
@@ -2361,7 +2354,7 @@ class TypeVarTransformer {
                     }
                 }
 
-                let newTypeArgType = this.apply(oldTypeArgType, recursionSet, recursionLevel + 1);
+                let newTypeArgType = this.apply(oldTypeArgType, recursionSet, recursionCount);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
 
@@ -2394,7 +2387,7 @@ class TypeVarTransformer {
                         if (replacementType !== typeParam) {
                             if (!this._isTransformingTypeArg) {
                                 recursionSet.add(typeParamName);
-                                replacementType = this.apply(replacementType, recursionSet, recursionLevel + 1);
+                                replacementType = this.apply(replacementType, recursionSet, recursionCount);
                                 recursionSet.delete(typeParamName);
                             }
 
@@ -2411,7 +2404,7 @@ class TypeVarTransformer {
             if (classType.tupleTypeArguments) {
                 newVariadicTypeArgs = [];
                 classType.tupleTypeArguments.forEach((oldTypeArgType) => {
-                    const newTypeArgType = this.apply(oldTypeArgType.type, recursionSet, recursionLevel + 1);
+                    const newTypeArgType = this.apply(oldTypeArgType.type, recursionSet, recursionCount);
 
                     if (newTypeArgType !== oldTypeArgType.type) {
                         specializationNeeded = true;
@@ -2455,7 +2448,7 @@ class TypeVarTransformer {
     private _transformTypeVarsInFunctionType(
         sourceType: FunctionType,
         recursionSet: Set<string>,
-        recursionLevel: number
+        recursionCount: number
     ): FunctionType {
         let functionType = sourceType;
 
@@ -2472,7 +2465,7 @@ class TypeVarTransformer {
                 ? functionType.specializedTypes.returnType
                 : functionType.details.declaredReturnType;
         const specializedReturnType = declaredReturnType
-            ? this.apply(declaredReturnType, recursionSet, recursionLevel + 1)
+            ? this.apply(declaredReturnType, recursionSet, recursionCount)
             : undefined;
         let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
 
@@ -2515,7 +2508,7 @@ class TypeVarTransformer {
 
         for (let i = 0; i < functionType.details.parameters.length; i++) {
             const paramType = FunctionType.getEffectiveParameterType(functionType, i);
-            const specializedType = this.apply(paramType, recursionSet, recursionLevel + 1);
+            const specializedType = this.apply(paramType, recursionSet, recursionCount);
             specializedParameters.parameterTypes.push(specializedType);
             if (
                 variadicParamIndex === undefined &&
@@ -2544,11 +2537,7 @@ class TypeVarTransformer {
 
         let specializedInferredReturnType: Type | undefined;
         if (functionType.inferredReturnType) {
-            specializedInferredReturnType = this.apply(
-                functionType.inferredReturnType,
-                recursionSet,
-                recursionLevel + 1
-            );
+            specializedInferredReturnType = this.apply(functionType.inferredReturnType, recursionSet, recursionCount);
         }
 
         // If there was no unpacked variadic type variable, we're done.
