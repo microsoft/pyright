@@ -451,7 +451,7 @@ test('Classes2', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 21);
+    TestUtils.validateResults(analysisResults, 22);
 });
 
 test('Classes3', () => {

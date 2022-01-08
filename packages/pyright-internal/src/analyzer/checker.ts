@@ -3813,8 +3813,9 @@ export class Checker extends ParseTreeWalker {
                                     enforceParamNameMatch
                                 )
                             ) {
-                                const decl = overrideFunction.details.declaration;
-                                if (decl && decl.type === DeclarationType.Function) {
+                                const decl =
+                                    overrideFunction.details.declaration ?? getLastTypedDeclaredForSymbol(symbol);
+                                if (decl) {
                                     const diag = this._evaluator.addDiagnostic(
                                         this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
                                         DiagnosticRule.reportIncompatibleMethodOverride,
@@ -3822,7 +3823,7 @@ export class Checker extends ParseTreeWalker {
                                             name,
                                             className: baseClassAndSymbol.classType.details.name,
                                         }) + diagAddendum.getString(),
-                                        decl.node.name
+                                        decl.type === DeclarationType.Function ? decl.node.name : decl.node
                                     );
 
                                     const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);

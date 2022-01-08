@@ -8,6 +8,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    ParamSpec,
     Sequence,
     Type,
     TypedDict,
@@ -18,6 +19,12 @@ from typing import (
 
 
 T_ParentClass = TypeVar("T_ParentClass", bound="ParentClass")
+
+P = ParamSpec("P")
+
+
+def decorator(func: Callable[P, None]) -> Callable[P, int]:
+    ...
 
 
 class ParentClass:
@@ -80,6 +87,9 @@ class ParentClass:
 
     @classmethod
     def my_method20(cls: Type[T_ParentClass], a: str) -> T_ParentClass:
+        ...
+
+    def my_method21(self, var: int) -> None:
         ...
 
     def _protected_method1(self, a: int):
@@ -167,6 +177,11 @@ class ChildClass(ParentClass):
 
     @classmethod
     def my_method20(cls: Type[T_ChildClass], a: str) -> T_ChildClass:
+        ...
+
+    # This should generate an error.
+    @decorator
+    def my_method21(self, var: int) -> None:
         ...
 
     # This should generate an error.
