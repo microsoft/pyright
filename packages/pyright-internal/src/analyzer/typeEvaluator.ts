@@ -480,6 +480,11 @@ interface ReturnTypeInferenceContext {
     codeFlowAnalyzer: CodeFlowAnalyzer;
 }
 
+interface ProtocolAssignmentStackEntry {
+    srcType: ClassType;
+    destType: ClassType;
+}
+
 // How many levels deep should we attempt to infer return
 // types based on call-site argument types? The deeper we go,
 // the more types we may be able to infer, but the worse the
@@ -537,6 +542,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const effectiveTypeCache = new Map<number, EffectiveTypeCacheEntry[]>();
     const suppressedNodeStack: ParseNode[] = [];
     const incompleteTypeTracker = new IncompleteTypeTracker();
+    const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
@@ -18195,25 +18201,51 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         recursionCount++;
 
-        const destClassFields = destType.details.fields;
-
-        // Some protocol definitions include recursive references to themselves.
-        // We need to protect against infinite recursion, so we'll check for that here.
-        if (ClassType.isSameGenericClass(srcType, destType) && !treatSourceAsInstantiable) {
-            if (
-                isTypeSame(
-                    srcType,
-                    destType,
-                    /* ignorePseudoGeneric */ true,
-                    /* ignoreTypeFlags */ undefined,
-                    recursionCount
-                )
-            ) {
-                return true;
-            }
-
-            return verifyTypeArgumentsAssignable(destType, srcType, diag, typeVarMap, flags, recursionCount + 1);
+        // Use a stack of pending protocol class evaluations to detect recursion.
+        // This can happen when a protocol class refers to itself.
+        if (
+            protocolAssignmentStack.some((entry) => {
+                return isTypeSame(entry.srcType, srcType) && isTypeSame(entry.destType, destType);
+            })
+        ) {
+            return true;
         }
+
+        protocolAssignmentStack.push({ srcType, destType });
+        let isCompatible = true;
+
+        try {
+            isCompatible = canAssignClassToProtocolInternal(
+                destType,
+                srcType,
+                diag,
+                typeVarMap,
+                flags,
+                treatSourceAsInstantiable,
+                recursionCount
+            );
+        } catch (e) {
+            // We'd normally use "finally" here, but the TS debugger does such
+            // a poor job dealing with finally, we'll use a catch instead.
+            protocolAssignmentStack.pop();
+            throw e;
+        }
+
+        protocolAssignmentStack.pop();
+
+        return isCompatible;
+    }
+
+    function canAssignClassToProtocolInternal(
+        destType: ClassType,
+        srcType: ClassType,
+        diag: DiagnosticAddendum | undefined,
+        typeVarMap: TypeVarMap | undefined,
+        flags: CanAssignFlags,
+        treatSourceAsInstantiable: boolean,
+        recursionCount: number
+    ): boolean {
+        const destClassFields = destType.details.fields;
 
         // Strip the type arguments off the dest protocol if they are provided.
         const genericDestType = ClassType.cloneForSpecialization(
