@@ -674,6 +674,17 @@
                                 "error"
                             ]
                         },
+                        "reportUnsupportedDunderAll": {
+                            "type": "string",
+                            "description": "Diagnostics for unsupported operations performed on __all__.",
+                            "default": "warning",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportUnusedCallResult": {
                             "type": "string",
                             "description": "Diagnostics for call expressions whose results are not consumed and are not None.",
@@ -696,10 +707,10 @@
                                 "error"
                             ]
                         },
-                        "reportUnsupportedDunderAll": {
+                        "reportUnnecessaryTypeIgnoreComment": {
                             "type": "string",
-                            "description": "Diagnostics for unsupported operations performed on __all__.",
-                            "default": "warning",
+                            "description": "Diagnostics for '# type: ignore' comments that have no effect.",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",

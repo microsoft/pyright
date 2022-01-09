@@ -160,6 +160,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportUnusedCoroutine** [boolean or string, optional]: Generate or suppress diagnostics for call statements whose return value is not used in any way and is a Coroutine. This identifies a common error where an `await` keyword is mistakenly omitted. The default value for this setting is 'error'.
 
+**reportUnnecessaryTypeIgnoreComment** [boolean or string, optional]: Generate or suppress diagnostics for a '# type: ignore' comment that would have no effect if removed.
+
 
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.
@@ -327,6 +329,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "error"    |
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     |
 | reportUnusedCoroutine                     | "none"     | "error"    | "error"    |
+| reportUnnecessaryTypeIgnoreComment        | "none"     | "none"     | "none"     |
 
 
 

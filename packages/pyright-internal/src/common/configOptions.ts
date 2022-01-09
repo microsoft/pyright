@@ -271,6 +271,10 @@ export interface DiagnosticRuleSet {
     // Report cases where a call expression's return result is Coroutine
     // and is not used in any way.
     reportUnusedCoroutine: DiagnosticLevel;
+
+    // Report cases where the removal of a "# type: ignore" comment would
+    // have no effect.
+    reportUnnecessaryTypeIgnoreComment: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -348,6 +352,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnsupportedDunderAll,
         DiagnosticRule.reportUnusedCallResult,
         DiagnosticRule.reportUnusedCoroutine,
+        DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
     ];
 }
 
@@ -423,6 +428,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'none',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'none',
+        reportUnnecessaryTypeIgnoreComment: 'none',
     };
 
     return diagSettings;
@@ -494,6 +500,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnnecessaryTypeIgnoreComment: 'none',
     };
 
     return diagSettings;
@@ -565,6 +572,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'error',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnnecessaryTypeIgnoreComment: 'none',
     };
 
     return diagSettings;
@@ -1287,6 +1295,13 @@ export class ConfigOptions {
                 configObj.reportUnusedCoroutine,
                 DiagnosticRule.reportUnusedCoroutine,
                 defaultSettings.reportUnusedCoroutine
+            ),
+
+            // Read the "reportUnusedCoroutine" entry.
+            reportUnnecessaryTypeIgnoreComment: this._convertDiagnosticLevel(
+                configObj.reportUnnecessaryTypeIgnoreComment,
+                DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
+                defaultSettings.reportUnnecessaryTypeIgnoreComment
             ),
         };
 

@@ -455,6 +455,12 @@
       "title": "Controls reporting of call expressions that returns Coroutine whose results are not consumed",
       "default": "error"
     },
+    "reportUnnecessaryTypeIgnoreComment": {
+      "$id": "#/properties/reportUnnecessaryTypeIgnoreComment",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of '# type: ignore' comments that have no effect'",
+      "default": "none"
+    },
     "extraPaths": {
       "$id": "#/properties/extraPaths",
       "type": "array",

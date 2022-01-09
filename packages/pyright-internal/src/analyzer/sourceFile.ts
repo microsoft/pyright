@@ -28,6 +28,7 @@ import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -147,8 +148,8 @@ export class SourceFile {
     private _parseDiagnostics: Diagnostic[] = [];
     private _bindDiagnostics: Diagnostic[] = [];
     private _checkerDiagnostics: Diagnostic[] = [];
-    private _typeIgnoreLines: { [line: number]: boolean } = {};
-    private _typeIgnoreAll = false;
+    private _typeIgnoreLines = new Map<number, TextRange>();
+    private _typeIgnoreAll: TextRange | undefined;
 
     // Settings that control which diagnostics should be output.
     private _diagnosticRuleSet = getBasicDiagnosticRuleSet();
@@ -254,16 +255,18 @@ export class SourceFile {
             includeWarningsAndErrors = false;
         }
 
-        let diagList: Diagnostic[] = [];
-        diagList = diagList.concat(this._parseDiagnostics, this._bindDiagnostics, this._checkerDiagnostics);
+        let diagList = [...this._parseDiagnostics, ...this._bindDiagnostics, ...this._checkerDiagnostics];
+        const prefilteredDiagList = diagList;
+        const typeIgnoreLinesClone = new Map(this._typeIgnoreLines);
 
         // Filter the diagnostics based on "type: ignore" lines.
         if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
-            if (Object.keys(this._typeIgnoreLines).length > 0) {
+            if (this._typeIgnoreLines.size > 0) {
                 diagList = diagList.filter((d) => {
                     if (d.category !== DiagnosticCategory.UnusedCode && d.category !== DiagnosticCategory.Deprecated) {
                         for (let line = d.range.start.line; line <= d.range.end.line; line++) {
-                            if (this._typeIgnoreLines[line]) {
+                            if (this._typeIgnoreLines.has(line)) {
+                                typeIgnoreLinesClone.delete(line);
                                 return false;
                             }
                         }
@@ -272,6 +275,49 @@ export class SourceFile {
                     return true;
                 });
             }
+        }
+
+        const unnecessaryTypeIgnoreDiags: Diagnostic[] = [];
+
+        if (options.diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment !== 'none') {
+            const diagCategory = convertLevelToCategory(options.diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment);
+
+            const prefilteredErrorList = prefilteredDiagList.filter(
+                (diag) =>
+                    diag.category === DiagnosticCategory.Error ||
+                    diag.category === DiagnosticCategory.Warning ||
+                    diag.category === DiagnosticCategory.Information
+            );
+
+            if (prefilteredErrorList.length === 0 && this._typeIgnoreAll !== undefined) {
+                unnecessaryTypeIgnoreDiags.push(
+                    new Diagnostic(
+                        diagCategory,
+                        Localizer.Diagnostic.unnecessaryTypeIgnore(),
+                        convertOffsetsToRange(
+                            this._typeIgnoreAll.start,
+                            this._typeIgnoreAll.start + this._typeIgnoreAll.length,
+                            this._parseResults!.tokenizerOutput.lines!
+                        )
+                    )
+                );
+            }
+
+            typeIgnoreLinesClone.forEach((textRange) => {
+                if (this._parseResults?.tokenizerOutput.lines) {
+                    unnecessaryTypeIgnoreDiags.push(
+                        new Diagnostic(
+                            diagCategory,
+                            Localizer.Diagnostic.unnecessaryTypeIgnore(),
+                            convertOffsetsToRange(
+                                textRange.start,
+                                textRange.start + textRange.length,
+                                this._parseResults!.tokenizerOutput.lines!
+                            )
+                        )
+                    );
+                }
+            });
         }
 
         if (options.diagnosticRuleSet.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
@@ -309,12 +355,20 @@ export class SourceFile {
         }
 
         // If there is a "type: ignore" comment at the top of the file, clear
-        // the diagnostic list.
+        // the diagnostic list of all error, warning, and information diagnostics.
         if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
-            if (this._typeIgnoreAll) {
-                diagList = [];
+            if (this._typeIgnoreAll !== undefined) {
+                diagList = diagList.filter(
+                    (diag) =>
+                        diag.category !== DiagnosticCategory.Error &&
+                        diag.category !== DiagnosticCategory.Warning &&
+                        diag.category !== DiagnosticCategory.Information
+                );
             }
         }
+
+        // Now add in the "unnecessary type ignore" diagnostics.
+        diagList.push(...unnecessaryTypeIgnoreDiags);
 
         // If we're not returning any diagnostics, filter out all of
         // the errors and warnings, leaving only the unreachable code
@@ -643,8 +697,8 @@ export class SourceFile {
                     tokenizerOutput: {
                         tokens: new TextRangeCollection<Token>([]),
                         lines: new TextRangeCollection<TextRange>([]),
-                        typeIgnoreAll: false,
-                        typeIgnoreLines: {},
+                        typeIgnoreAll: undefined,
+                        typeIgnoreLines: new Map<number, TextRange>(),
                         predominantEndOfLineSequence: '\n',
                         predominantTabSequence: '    ',
                         predominantSingleQuoteCharacter: "'",
