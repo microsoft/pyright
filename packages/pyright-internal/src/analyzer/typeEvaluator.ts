@@ -19290,7 +19290,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             srcTypeArg,
                             assignmentDiag,
                             typeVarMap,
-                            flags | CanAssignFlags.EnforceInvariance | CanAssignFlags.RetainLiteralsForTypeVar,
+                            flags | CanAssignFlags.EnforceInvariance,
                             recursionCount
                         )
                     ) {
