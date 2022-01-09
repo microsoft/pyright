@@ -21233,21 +21233,46 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
-        let specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
+        // We may need to reverse the type var mapping to populate the type
+        // var map of the
+        let specializedSrcType = srcType;
+        let specializedDestType = destType;
+        let reverseMatchingFailed = false;
 
-        // If the destination includes type variables that still need to be solved,
-        // call canAssignType with ReverseTypeVarMatching to populate destTypeVarMap.
-        if (requiresSpecialization(specializedDestType)) {
-            if (
-                !canAssignType(
-                    srcType,
+        if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0) {
+            specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
+
+            if (requiresSpecialization(specializedDestType)) {
+                reverseMatchingFailed = !canAssignType(
+                    specializedSrcType,
                     specializedDestType,
                     /* diag */ undefined,
                     destTypeVarMap,
-                    (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.IgnoreTypeVarScope,
+                    flags | CanAssignFlags.ReverseTypeVarMatching | CanAssignFlags.IgnoreTypeVarScope,
                     recursionCount
-                )
-            ) {
+                );
+
+                specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
+            }
+        } else {
+            specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarMap);
+
+            if (requiresSpecialization(specializedSrcType)) {
+                if (requiresSpecialization(specializedSrcType)) {
+                    reverseMatchingFailed = !canAssignType(
+                        specializedSrcType,
+                        specializedDestType,
+                        /* diag */ undefined,
+                        srcTypeVarMap,
+                        (flags & ~CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.IgnoreTypeVarScope,
+                        recursionCount
+                    );
+
+                    specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarMap);
+                }
+            }
+
+            if (reverseMatchingFailed) {
                 if (diag) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.paramAssignment().format({
@@ -21257,20 +21282,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         })
                     );
                 }
+
                 return false;
             }
-
-            specializedDestType = applySolvedTypeVars(destType, destTypeVarMap);
         }
 
         // Handle the special case where the source is a Self type and the
         // destination is not.
-        let adjustedSrcType = srcType;
         if (!isTypeVar(specializedDestType) || !specializedDestType.details.isSynthesizedSelf) {
-            if (isTypeVar(srcType) && srcType.details.isSynthesizedSelf && srcType.details.boundType) {
-                adjustedSrcType = applySolvedTypeVars(
-                    srcType.details.boundType,
-                    new TypeVarMap(getTypeVarScopeId(srcType)),
+            if (
+                isTypeVar(specializedSrcType) &&
+                specializedSrcType.details.isSynthesizedSelf &&
+                specializedSrcType.details.boundType
+            ) {
+                specializedSrcType = applySolvedTypeVars(
+                    specializedSrcType.details.boundType,
+                    new TypeVarMap(getTypeVarScopeId(specializedSrcType)),
                     /* unknownIfNotFound */ true
                 );
             }
@@ -21278,10 +21305,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (
             !canAssignType(
-                adjustedSrcType,
+                specializedSrcType,
                 specializedDestType,
                 diag?.createAddendum(),
-                srcTypeVarMap,
+                (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcTypeVarMap : destTypeVarMap,
                 flags,
                 recursionCount
             )
@@ -21295,6 +21322,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     })
                 );
             }
+
             return false;
         }
 
@@ -21412,8 +21440,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const srcParamDetails = getParameterListDetails(srcType);
         adjustSourceParamDetailsForDestVariadic(srcParamDetails, destParamDetails);
 
-        const srcTypeVarMap = new TypeVarMap(getTypeVarScopeId(srcType));
-        const isParamSpecInvolved =
+        // The input typeVarMap normally corresponds to the destType, but it
+        // is reversed if the ReverseTypeVarMatching flag is set.
+        const destTypeVarMap =
+            (flags & CanAssignFlags.ReverseTypeVarMatching) === 0
+                ? typeVarMap
+                : new TypeVarMap(getTypeVarScopeId(destType));
+        const srcTypeVarMap =
+            (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0
+                ? typeVarMap
+                : new TypeVarMap(getTypeVarScopeId(srcType));
+
+        const targetIncludesParamSpec =
             (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0
                 ? !!srcType.details.paramSpec
                 : !!destType.details.paramSpec;
@@ -21485,7 +21523,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     srcParamType,
                     paramIndex,
                     diag?.createAddendum(),
-                    typeVarMap,
+                    destTypeVarMap,
                     srcTypeVarMap,
                     flags,
                     recursionCount
@@ -21506,7 +21544,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
             destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.positionOnlyParamCount &&
-            !isParamSpecInvolved
+            !targetIncludesParamSpec
         ) {
             if (diag) {
                 diag.createAddendum().addMessage(
@@ -21528,7 +21566,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcParamDetails.params[destParamDetails.argsIndex].type,
                         destArgsIndex,
                         diag?.createAddendum(),
-                        typeVarMap,
+                        destTypeVarMap,
                         srcTypeVarMap,
                         flags,
                         recursionCount
@@ -21540,7 +21578,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (destPositionalCount < srcPositionalCount) {
             // If the dest type includes a ParamSpec, the additional parameters
             // can be assigned to it, so no need to report an error here.
-            if (!isParamSpecInvolved) {
+            if (!targetIncludesParamSpec) {
                 const nonDefaultSrcParamCount = srcParamDetails.params.filter(
                     (p) => !!p.param.name && !p.param.hasDefault && p.param.category === ParameterCategory.Simple
                 ).length;
@@ -21575,7 +21613,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     srcParamType,
                                     paramIndex,
                                     diag?.createAddendum(),
-                                    typeVarMap,
+                                    destTypeVarMap,
                                     srcTypeVarMap,
                                     flags,
                                     recursionCount
@@ -21605,7 +21643,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             srcArgsType,
                             paramIndex,
                             diag?.createAddendum(),
-                            typeVarMap,
+                            destTypeVarMap,
                             srcTypeVarMap,
                             flags,
                             recursionCount
@@ -21636,7 +21674,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     srcParamDetails.params[srcParamDetails.argsIndex].type,
                     destParamDetails.params[destParamDetails.argsIndex].index,
                     diag?.createAddendum(),
-                    typeVarMap,
+                    destTypeVarMap,
                     srcTypeVarMap,
                     flags,
                     recursionCount
@@ -21653,7 +21691,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             srcParamDetails.argsIndex === undefined &&
             destParamDetails.argsIndex !== undefined &&
             !destParamDetails.hasUnpackedVariadicTypeVar &&
-            !isParamSpecInvolved
+            !targetIncludesParamSpec
         ) {
             if (diag) {
                 diag.createAddendum().addMessage(
@@ -21666,7 +21704,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Handle matching of named (keyword) parameters.
-        if (!isParamSpecInvolved) {
+        if (!targetIncludesParamSpec) {
             // Build a dictionary of named parameters in the dest.
             const destParamMap = new Map<string, FunctionParameter>();
 
@@ -21714,7 +21752,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             srcParam.param.type,
                                             destParamDetails.params[destParamDetails.kwargsIndex].index,
                                             diag?.createAddendum(),
-                                            typeVarMap,
+                                            destTypeVarMap,
                                             srcTypeVarMap,
                                             flags,
                                             recursionCount
@@ -21724,8 +21762,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     }
                                 }
                             } else {
-                                const specializedDestParamType = typeVarMap
-                                    ? applySolvedTypeVars(destParam.type, typeVarMap)
+                                const specializedDestParamType = destTypeVarMap
+                                    ? applySolvedTypeVars(destParam.type, destTypeVarMap)
                                     : destParam.type;
                                 if (
                                     !canAssignType(
@@ -21777,7 +21815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                             destType.details.parameters.findIndex((p) => p === destParam),
                             diag?.createAddendum(),
-                            typeVarMap,
+                            destTypeVarMap,
                             srcTypeVarMap,
                             flags,
                             recursionCount
@@ -21804,7 +21842,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                         destParamDetails.params[destParamDetails.kwargsIndex].index,
                         diag?.createAddendum(),
-                        typeVarMap,
+                        destTypeVarMap,
                         srcTypeVarMap,
                         flags,
                         recursionCount
@@ -21835,7 +21873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the source and the dest are using the same ParamSpec, any additional
         // concatenated parameters must match.
         if (
-            isParamSpecInvolved &&
+            targetIncludesParamSpec &&
             srcType.details.paramSpec?.nameWithScope === destType.details.paramSpec?.nameWithScope
         ) {
             const srcParamCount = srcType.details.parameters.length;
@@ -21855,12 +21893,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (typeVarMap && !typeVarMap.isLocked()) {
-            // If the source function was generic and we solved some of the type variables
+            const effectiveSrcTypeVarMap =
+                (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcTypeVarMap : destTypeVarMap;
+
+            // If the target function was generic and we solved some of the type variables
             // in that generic type, assign them back to the destination typeVar.
-            srcTypeVarMap.getTypeVars().forEach((typeVarEntry) => {
+            effectiveSrcTypeVarMap.getTypeVars().forEach((typeVarEntry) => {
                 canAssignType(
                     typeVarEntry.typeVar,
-                    srcTypeVarMap.getTypeVarType(typeVarEntry.typeVar)!,
+                    effectiveSrcTypeVarMap.getTypeVarType(typeVarEntry.typeVar)!,
                     /* diag */ undefined,
                     typeVarMap
                 );
@@ -21878,7 +21919,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             // Are we assigning to a function with a ParamSpec?
-            if (isParamSpecInvolved) {
+            if (targetIncludesParamSpec) {
                 const effectiveDestType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destType : srcType;
                 const effectiveSrcType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
 

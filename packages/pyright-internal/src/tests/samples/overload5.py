@@ -246,7 +246,7 @@ def func16(var: _T1) -> List[_T1]:
     ...
 
 
-def func16(var: _T1) -> List[_T1] | List[Any]:
+def func16(var: Union[_T1, None]) -> List[_T1] | List[Any]:
     ...
 
 

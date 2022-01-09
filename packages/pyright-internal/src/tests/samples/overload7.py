@@ -3,6 +3,7 @@
 
 from typing import (
     Any,
+    Awaitable,
     Callable,
     Dict,
     Generic,
@@ -280,4 +281,27 @@ def func13(x: str) -> str | NoReturn:
 
 
 def func13(x: int | str) -> str:
+    ...
+
+
+_T14 = TypeVar("_T14")
+
+
+class Wrapper1(Generic[_T14]):
+    ...
+
+
+@overload
+def func14(target: Callable[..., Awaitable[_T14]]) -> Wrapper1[_T14]:
+    ...
+
+
+@overload
+def func14(target: Callable[..., _T14]) -> Wrapper1[_T14]:
+    ...
+
+
+def func14(
+    target: Callable[..., Awaitable[_T14]] | Callable[..., _T14]
+) -> Wrapper1[_T14]:
     ...
