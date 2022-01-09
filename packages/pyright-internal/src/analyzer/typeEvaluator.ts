@@ -6753,16 +6753,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // the class itself. It depends on whether the super() call is located
         // within an instance method or not.
         let resultIsInstance = true;
-        const enclosingMethod = ParseTreeUtils.getEnclosingFunction(node);
-        if (enclosingMethod) {
-            const methodType = getTypeOfFunction(enclosingMethod);
-            if (methodType) {
-                if (
-                    FunctionType.isStaticMethod(methodType.functionType) ||
-                    FunctionType.isConstructorMethod(methodType.functionType) ||
-                    FunctionType.isClassMethod(methodType.functionType)
-                ) {
-                    resultIsInstance = false;
+        if (node.arguments.length <= 1) {
+            const enclosingMethod = ParseTreeUtils.getEnclosingFunction(node);
+            if (enclosingMethod) {
+                const methodType = getTypeOfFunction(enclosingMethod);
+                if (methodType) {
+                    if (
+                        FunctionType.isStaticMethod(methodType.functionType) ||
+                        FunctionType.isConstructorMethod(methodType.functionType) ||
+                        FunctionType.isClassMethod(methodType.functionType)
+                    ) {
+                        resultIsInstance = false;
+                    }
                 }
             }
         }

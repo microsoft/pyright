@@ -168,6 +168,12 @@ test('Super6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Super7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super7.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 
