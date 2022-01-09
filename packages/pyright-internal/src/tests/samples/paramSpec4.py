@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of ParamSpec
 # and Concatenate as described in PEP 612.
 
-from typing import Callable, Concatenate, ParamSpec, TypeVar
+from typing import Callable, Concatenate, Literal, ParamSpec, TypeVar
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -50,3 +50,36 @@ def decorator2(f: Callable[Concatenate[int, int], int]) -> Callable[P, int]:
 # its type arguments.
 def decorator3(f: Callable[Concatenate, int]) -> Callable[P, int]:
     ...
+
+
+def decorator4(func: Callable[P, None]) -> Callable[Concatenate[int, P], None]:
+    def wrapper(x: int, /, *args: P.args, **kwargs: P.kwargs) -> None:
+        ...
+
+    return wrapper
+
+
+def func1(func: Callable[Concatenate[int, P], None]) -> Callable[P, None]:
+    ...
+
+
+def func2(a: int, b: str, c: str) -> None:
+    ...
+
+
+def func3(a: int, /, b: str, c: str) -> None:
+    ...
+
+
+def func4(a: int, b: str, /, c: str) -> None:
+    ...
+
+
+v1 = func1(func2)
+t1: Literal["(b: str, c: str) -> None"] = reveal_type(v1)
+
+v2 = func1(func3)
+t2: Literal["(b: str, c: str) -> None"] = reveal_type(v2)
+
+v3 = func1(func4)
+t3: Literal["(b: str, /, c: str) -> None"] = reveal_type(v3)

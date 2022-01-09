@@ -12196,6 +12196,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (concatTypeArgs && concatTypeArgs.length > 0) {
                         concatTypeArgs.forEach((typeArg, index) => {
                             if (index === concatTypeArgs.length - 1) {
+                                // Add a position-only separator
+                                FunctionType.addParameter(functionType, {
+                                    category: ParameterCategory.Simple,
+                                    isNameSynthesized: false,
+                                    type: UnknownType.create(),
+                                });
+
                                 if (isParamSpec(typeArg)) {
                                     functionType.details.paramSpec = typeArg;
                                 }
@@ -21831,8 +21838,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isParamSpecInvolved &&
             srcType.details.paramSpec?.nameWithScope === destType.details.paramSpec?.nameWithScope
         ) {
-            if (srcType.details.parameters.length !== destType.details.parameters.length) {
-                canAssign = false;
+            const srcParamCount = srcType.details.parameters.length;
+            const destParamCount = destType.details.parameters.length;
+
+            if (srcParamCount !== destParamCount) {
+                // If the dest has an extra position-only parameter separator appended
+                // to the end of the signature, it's OK.
+                if (
+                    srcParamCount !== destParamCount - 1 ||
+                    destType.details.parameters[destParamCount - 1].category !== ParameterCategory.Simple ||
+                    !!destType.details.parameters[destParamCount - 1].name
+                ) {
+                    canAssign = false;
+                }
             }
         }
 

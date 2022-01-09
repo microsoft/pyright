@@ -1295,6 +1295,18 @@ export namespace FunctionType {
             newFunction.details.parameters.length - 2
         );
 
+        // If there is a position-only separator in the captured param spec signature,
+        // remove the position-only separator in the existing signature. Otherwise,
+        // we'll end up with redundant position-only separators.
+        if (paramSpecValue.parameters.some((entry) => entry.category === ParameterCategory.Simple && !entry.name)) {
+            if (newFunction.details.parameters.length > 0) {
+                const lastParam = newFunction.details.parameters[newFunction.details.parameters.length - 1];
+                if (lastParam.category === ParameterCategory.Simple && !lastParam.name) {
+                    newFunction.details.parameters.pop();
+                }
+            }
+        }
+
         paramSpecValue.parameters.forEach((specEntry) => {
             newFunction.details.parameters.push({
                 category: specEntry.category,

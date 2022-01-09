@@ -2133,7 +2133,18 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
 }
 
 export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Type {
-    if (paramSpecEntry.parameters.length > 0 || !paramSpecEntry.paramSpec) {
+    let hasParameters = paramSpecEntry.parameters.length > 0;
+
+    if (paramSpecEntry.parameters.length === 1) {
+        // If the ParamSpec has a position-only separator as its only parameter,
+        // treat it as though there are no parameters.
+        const onlyParam = paramSpecEntry.parameters[0];
+        if (onlyParam.category === ParameterCategory.Simple && !onlyParam.name) {
+            hasParameters = false;
+        }
+    }
+
+    if (hasParameters || !paramSpecEntry.paramSpec) {
         // Create a function type from the param spec entries.
         const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
 
