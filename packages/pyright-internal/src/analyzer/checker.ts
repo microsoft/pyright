@@ -457,14 +457,13 @@ export class Checker extends ParseTreeWalker {
             });
 
             // Check for invalid use of ParamSpec P.args and P.kwargs.
-            const paramSpecParams = node.parameters.filter((param, index) => {
-                const paramInfo = functionTypeResult.functionType.details.parameters[index];
-                if (paramInfo.typeAnnotation && isTypeVar(paramInfo.type) && isParamSpec(paramInfo.type)) {
-                    if (paramInfo.category !== ParameterCategory.Simple) {
+            const paramSpecParams = functionTypeResult.functionType.details.parameters.filter((param) => {
+                if (param.typeAnnotation && isTypeVar(param.type) && isParamSpec(param.type)) {
+                    if (param.category !== ParameterCategory.Simple && param.name) {
                         const paramAnnotation =
-                            paramInfo.typeAnnotation.nodeType === ParseNodeType.StringList
-                                ? paramInfo.typeAnnotation.typeAnnotation
-                                : paramInfo.typeAnnotation;
+                            param.typeAnnotation.nodeType === ParseNodeType.StringList
+                                ? param.typeAnnotation.typeAnnotation
+                                : param.typeAnnotation;
                         if (paramAnnotation?.nodeType === ParseNodeType.MemberAccess) {
                             return true;
                         }
@@ -474,10 +473,10 @@ export class Checker extends ParseTreeWalker {
                 return false;
             });
 
-            if (paramSpecParams.length === 1) {
+            if (paramSpecParams.length === 1 && paramSpecParams[0].typeAnnotation) {
                 this._evaluator.addError(
                     Localizer.Diagnostic.paramSpecArgsKwargsUsage(),
-                    paramSpecParams[0].typeAnnotation || paramSpecParams[0].typeAnnotationComment!
+                    paramSpecParams[0].typeAnnotation
                 );
             }
 

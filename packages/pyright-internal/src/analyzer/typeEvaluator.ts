@@ -113,7 +113,7 @@ import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateOrProtectedName, isSingleDunderName } from './symbolNameUtils';
+import { isConstantName, isPrivateName, isPrivateOrProtectedName, isSingleDunderName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { CachedType, IncompleteTypeTracker, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
 import {
@@ -14357,6 +14357,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         };
 
+        let paramsArePositionOnly = true;
+
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
@@ -14474,6 +14476,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 paramType = annotatedType;
             }
 
+            const isPositionOnlyParam =
+                param.category === ParameterCategory.Simple && param.name && isPrivateName(param.name.value);
+            const isPositionOnlySeparator = param.category === ParameterCategory.Simple && !param.name;
+
+            if (index > 0 && paramsArePositionOnly && !isPositionOnlyParam && !isPositionOnlySeparator) {
+                // Insert an implicit "position-only parameter" separator.
+                FunctionType.addParameter(functionType, {
+                    category: ParameterCategory.Simple,
+                    type: UnknownType.create(),
+                });
+            }
+
+            if (!isPositionOnlyParam || isPositionOnlySeparator) {
+                paramsArePositionOnly = false;
+            }
+
             const functionParam: FunctionParameter = {
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
@@ -14494,6 +14512,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 paramTypes.push(functionParam.type);
             }
         });
+
+        if (paramsArePositionOnly && functionType.details.parameters.length > 0) {
+            // Insert an implicit "position-only parameter" separator.
+            FunctionType.addParameter(functionType, {
+                category: ParameterCategory.Simple,
+                type: UnknownType.create(),
+            });
+        }
 
         if (containingClassType) {
             // If the first parameter doesn't have an explicit type annotation,
