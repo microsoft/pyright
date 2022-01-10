@@ -83,3 +83,27 @@ t2: Literal["(b: str, c: str) -> None"] = reveal_type(v2)
 
 v3 = func1(func4)
 t3: Literal["(b: str, /, c: str) -> None"] = reveal_type(v3)
+
+
+def func5(__fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    ...
+
+
+def func6(name: str, *args: str):
+    ...
+
+
+v5 = func5(func6, "a", "b", "c")
+
+# This should generate an error because 1 isn't assignable to str.
+v6 = func5(func6, "a", "b", "c", 1)
+
+
+def func7(name: str, **kwargs: str):
+    ...
+
+
+v7 = func5(func7, "a", b="b", c="c")
+
+# This should generate an error because 1 isn't assignable to str.
+v8 = func5(func7, "a", b="b", c=1)

@@ -9389,6 +9389,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         let positionalIndex = 0;
+        let positionalIndexLimit = paramSpecParams.findIndex(
+            (paramInfo) => paramInfo.category !== ParameterCategory.Simple
+        );
+        if (positionalIndexLimit < 0) {
+            positionalIndexLimit = paramSpecParams.length;
+        }
+        const argsParam = paramSpecParams.find((paramInfo) => paramInfo.category === ParameterCategory.VarArgList);
+        const kwargsParam = paramSpecParams.find(
+            (paramInfo) => paramInfo.category === ParameterCategory.VarArgDictionary
+        );
+
         argList.forEach((arg) => {
             if (arg.argumentCategory === ArgumentCategory.Simple) {
                 let paramType: Type | undefined;
@@ -9398,6 +9409,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (paramInfo) {
                         paramType = paramInfo.type;
                         paramMap.delete(arg.name.value);
+                    } else if (kwargsParam) {
+                        paramType = kwargsParam.type;
                     } else {
                         addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -9408,12 +9421,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         reportedArgError = true;
                     }
                 } else {
-                    if (positionalIndex < paramSpecParams.length) {
+                    if (positionalIndex < positionalIndexLimit) {
                         const paramInfo = paramSpecParams[positionalIndex];
                         paramType = paramInfo.type;
                         if (paramInfo.name) {
                             paramMap.delete(paramInfo.name);
                         }
+                    } else if (argsParam) {
+                        paramType = argsParam.type;
                     } else {
                         addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
