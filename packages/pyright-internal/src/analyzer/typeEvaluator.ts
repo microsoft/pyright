@@ -22156,30 +22156,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
+        const baseParamDetails = getParameterListDetails(baseMethod);
+        const overrideParamDetails = getParameterListDetails(overrideMethod);
+
         let canOverride = true;
-        const baseParams = baseMethod.details.parameters;
-        const overrideParams = overrideMethod.details.parameters;
-        const overrideArgsParam = overrideParams.find(
-            (param) => param.category === ParameterCategory.VarArgList && !!param.name
-        );
-        const overrideKwargsParam = overrideParams.find(
-            (param) => param.category === ParameterCategory.VarArgDictionary && !!param.name
-        );
 
         // Verify that the param count matches exactly or that the override
         // adds only params that preserve the original signature.
         let foundParamCountMismatch = false;
-        if (overrideParams.length < baseParams.length) {
-            if (!overrideArgsParam || !overrideKwargsParam) {
+        if (overrideParamDetails.params.length < baseParamDetails.params.length) {
+            if (overrideParamDetails.argsIndex === undefined && overrideParamDetails.kwargsIndex === undefined) {
                 foundParamCountMismatch = true;
             }
-        } else if (overrideParams.length > baseParams.length) {
+        } else if (overrideParamDetails.params.length > baseParamDetails.params.length) {
             // Verify that all of the override parameters that extend the
             // signature are either *args, **kwargs or parameters with
             // default values.
 
-            for (let i = baseParams.length; i < overrideParams.length; i++) {
-                const overrideParam = overrideParams[i];
+            for (let i = baseParamDetails.params.length; i < overrideParamDetails.params.length; i++) {
+                const overrideParam = overrideParamDetails.params[i].param;
 
                 if (
                     overrideParam.category === ParameterCategory.Simple &&
@@ -22194,17 +22189,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (foundParamCountMismatch) {
             diag.addMessage(
                 Localizer.DiagnosticAddendum.overrideParamCount().format({
-                    baseCount: baseParams.length,
-                    overrideCount: overrideParams.length,
+                    baseCount: baseParamDetails.params.length,
+                    overrideCount: overrideParamDetails.params.length,
                 })
             );
             canOverride = false;
         }
 
-        const paramCount = Math.min(baseParams.length, overrideParams.length);
-        const positionOnlyIndex = baseParams.findIndex(
-            (param) => !param.name && param.category === ParameterCategory.Simple
-        );
+        const paramCount = Math.min(baseParamDetails.params.length, overrideParamDetails.params.length);
 
         for (let i = 0; i < paramCount; i++) {
             // If the first parameter is a "self" or "cls" parameter, skip the
@@ -22220,11 +22212,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            const baseParam = baseParams[i];
-            const overrideParam = overrideParams[i];
+            const baseParam = baseParamDetails.params[i].param;
+            const overrideParam = overrideParamDetails.params[i].param;
 
             if (
-                i > positionOnlyIndex &&
+                i >= baseParamDetails.positionOnlyParamCount &&
                 !isPrivateOrProtectedName(baseParam.name || '') &&
                 baseParam.category === ParameterCategory.Simple &&
                 baseParam.name !== overrideParam.name
