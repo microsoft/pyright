@@ -9,6 +9,14 @@ class SomeProtocol(Protocol):
     y: int
     z: ClassVar[int]
 
+    @classmethod
+    def meth1(cls) -> None:
+        return None
+
+    @staticmethod
+    def meth2() -> None:
+        return None
+
 
 class Class(SomeProtocol):
     pass
@@ -22,3 +30,6 @@ def func1() -> None:
     y: int = Class.y
 
     z: int = Class.z
+
+    Class.meth1
+    Class.meth2

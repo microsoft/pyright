@@ -339,7 +339,9 @@ interface ArgResult {
 }
 
 interface ClassMemberLookup {
-    // Type of value.
+    symbol: Symbol | undefined;
+
+    // Type of symbol.
     type: Type;
     isTypeIncomplete: boolean;
 
@@ -1651,20 +1653,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // emit an error.
         if (
             memberInfo &&
-            !memberInfo.isClassVar &&
             memberInfo.classType &&
+            memberInfo.symbol &&
             isClass(memberInfo.classType) &&
             ClassType.isProtocolClass(memberInfo.classType)
         ) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.protocolMemberNotClassVar().format({
-                    memberName,
-                    className: memberInfo.classType.details.name,
-                }),
-                errorNode
-            );
+            const primaryDecl = getLastTypedDeclaredForSymbol(memberInfo.symbol);
+            if (primaryDecl && primaryDecl.type === DeclarationType.Variable && !memberInfo.isClassVar) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.protocolMemberNotClassVar().format({
+                        memberName,
+                        className: memberInfo.classType.details.name,
+                    }),
+                    errorNode
+                );
+            }
         }
 
         // If it wasn't found on the class, see if it's part of the metaclass.
@@ -4830,6 +4835,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             return {
+                symbol: memberInfo.symbol,
                 type,
                 isTypeIncomplete,
                 isClassMember: !memberInfo.isInstanceMember,
@@ -4867,6 +4873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 return {
+                    symbol: undefined,
                     type: descriptorResult.type,
                     isTypeIncomplete: false,
                     isClassMember: false,
