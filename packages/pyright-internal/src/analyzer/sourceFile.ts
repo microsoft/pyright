@@ -260,7 +260,7 @@ export class SourceFile {
         const typeIgnoreLinesClone = new Map(this._typeIgnoreLines);
 
         // Filter the diagnostics based on "type: ignore" lines.
-        if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
+        if (this._diagnosticRuleSet.enableTypeIgnoreComments) {
             if (this._typeIgnoreLines.size > 0) {
                 diagList = diagList.filter((d) => {
                     if (d.category !== DiagnosticCategory.UnusedCode && d.category !== DiagnosticCategory.Deprecated) {
@@ -279,8 +279,8 @@ export class SourceFile {
 
         const unnecessaryTypeIgnoreDiags: Diagnostic[] = [];
 
-        if (options.diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment !== 'none') {
-            const diagCategory = convertLevelToCategory(options.diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment);
+        if (this._diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment !== 'none') {
+            const diagCategory = convertLevelToCategory(this._diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment);
 
             const prefilteredErrorList = prefilteredDiagList.filter(
                 (diag) =>
@@ -320,8 +320,8 @@ export class SourceFile {
             });
         }
 
-        if (options.diagnosticRuleSet.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
-            const category = convertLevelToCategory(options.diagnosticRuleSet.reportImportCycles);
+        if (this._diagnosticRuleSet.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
+            const category = convertLevelToCategory(this._diagnosticRuleSet.reportImportCycles);
 
             this._circularDependencies.forEach((cirDep) => {
                 diagList.push(
@@ -356,7 +356,7 @@ export class SourceFile {
 
         // If there is a "type: ignore" comment at the top of the file, clear
         // the diagnostic list of all error, warning, and information diagnostics.
-        if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
+        if (this._diagnosticRuleSet.enableTypeIgnoreComments) {
             if (this._typeIgnoreAll !== undefined) {
                 diagList = diagList.filter(
                     (diag) =>
