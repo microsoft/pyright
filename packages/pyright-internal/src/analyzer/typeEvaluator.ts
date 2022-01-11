@@ -2083,20 +2083,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Applies an "await" operation to the specified type and returns
-    // the result. According to PEP 492, await operates on:
-    // 1) a generator object
-    // 2) an Awaitable (object that provides an __await__ that
-    //    returns a generator object)
+    // the result. According to PEP 492, await operates on an Awaitable
+    // (object that provides an __await__ that returns a generator object).
     // If errorNode is undefined, no errors are reported.
     function getTypeFromAwaitable(type: Type, errorNode?: ParseNode): Type {
         return mapSubtypes(type, (subtype) => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
-            }
-
-            const generatorReturnType = getReturnTypeFromGenerator(subtype);
-            if (generatorReturnType) {
-                return generatorReturnType;
             }
 
             if (isClassInstance(subtype)) {
