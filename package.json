@@ -38,5 +38,8 @@
         "syncpack": "^5.8.15",
         "typescript": "~4.4.4",
         "yargs": "^16.2.0"
+    },
+    "dependencies": {
+        "ts-proto": "^1.100.1"
     }
 }

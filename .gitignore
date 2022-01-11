@@ -120,6 +120,8 @@ junit.xml
 
 .webpack_cache/
 
+dump.lsif
+
 # OS files
 .DS_Store
 Thumbs.db

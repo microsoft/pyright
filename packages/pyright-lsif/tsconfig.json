@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+      "baseUrl": ".",
+      "outDir": "./out",
+      "paths": {
+          "pyright-internal/*": [
+              "../pyright-internal/src/*"
+          ]
+      }
+  },
+  "include": [
+      "src/**/*"
+  ],
+  "exclude": ["src/lsif.ts", "snapshots"]
+}
