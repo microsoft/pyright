@@ -161,19 +161,21 @@ export class BackgroundAnalysisProgram {
     }
 
     startIndexing() {
-        if (!this._configOptions.indexing) {
-            return;
-        }
-
-        this._backgroundAnalysis?.startIndexing(this._configOptions, this.host.kind, this._getIndices());
+        this._backgroundAnalysis?.startIndexing(
+            this._configOptions,
+            this.importResolver,
+            this.host.kind,
+            this._getIndices()
+        );
     }
 
     refreshIndexing() {
-        if (!this._configOptions.indexing) {
-            return;
-        }
-
-        this._backgroundAnalysis?.refreshIndexing(this._configOptions, this.host.kind, this._indices);
+        this._backgroundAnalysis?.refreshIndexing(
+            this._configOptions,
+            this.importResolver,
+            this.host.kind,
+            this._indices
+        );
     }
 
     cancelIndexing() {

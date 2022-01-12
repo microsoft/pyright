@@ -23,7 +23,7 @@ await helper.verifyCompletion('included', 'markdown', {
                 kind: Consts.CompletionItemKind.Method,
                 textEdit: {
                     range: helper.getPositionRange('marker'),
-                    newText: "method1(self, a: str = 'hello', b: int = 1234):\n    return super().method1(a=a, b=b)",
+                    newText: "method1(self, a: str = 'hello', b: int = 1234):\n    return super().method1(a, b)",
                 },
             },
             {
@@ -31,7 +31,7 @@ await helper.verifyCompletion('included', 'markdown', {
                 kind: Consts.CompletionItemKind.Method,
                 textEdit: {
                     range: helper.getPositionRange('marker'),
-                    newText: 'method2(self, a=None):\n    return super().method2(a=a)',
+                    newText: 'method2(self, a=None):\n    return super().method2(a)',
                 },
             },
             {
@@ -39,7 +39,7 @@ await helper.verifyCompletion('included', 'markdown', {
                 kind: Consts.CompletionItemKind.Method,
                 textEdit: {
                     range: helper.getPositionRange('marker'),
-                    newText: 'method3(self, a=1234, b=object()):\n    return super().method3(a=a, b=b)',
+                    newText: 'method3(self, a=1234, b=object()):\n    return super().method3(a, b)',
                 },
             },
         ],

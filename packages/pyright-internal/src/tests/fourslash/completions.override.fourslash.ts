@@ -39,7 +39,7 @@ await helper.verifyCompletion('included', 'markdown', {
                 kind: Consts.CompletionItemKind.Method,
                 textEdit: {
                     range: helper.getPositionRange('marker'),
-                    newText: 'method3(self, b, *, c: str):\n    return super().method3(b, c)',
+                    newText: 'method3(self, b, *, c: str):\n    return super().method3(b, c=c)',
                 },
             },
         ],
