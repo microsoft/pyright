@@ -360,7 +360,12 @@ export interface TypeEvaluator {
     ) => Type | undefined;
     bindFunctionToClassOrObject: (
         baseType: ClassType | undefined,
-        memberType: FunctionType | OverloadedFunctionType
+        memberType: FunctionType | OverloadedFunctionType,
+        memberClass?: ClassType,
+        errorNode?: ParseNode,
+        recursionCount?: number,
+        treatConstructorAsClassMember?: boolean,
+        firstParamType?: ClassType | TypeVarType
     ) => FunctionType | OverloadedFunctionType | undefined;
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getTypeAnnotationForParameter: (node: FunctionNode, paramIndex: number) => ExpressionNode | undefined;

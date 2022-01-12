@@ -124,8 +124,7 @@ export function createTypeEvaluatorWithTracker(
         getTypeFromObjectMember: typeEvaluator.getTypeFromObjectMember,
         getBoundMethod: typeEvaluator.getBoundMethod,
         getTypeFromMagicMethodReturn: typeEvaluator.getTypeFromMagicMethodReturn,
-        bindFunctionToClassOrObject: (b, m) =>
-            run('bindFunctionToClassOrObject', () => typeEvaluator.bindFunctionToClassOrObject(b, m), m),
+        bindFunctionToClassOrObject: typeEvaluator.bindFunctionToClassOrObject,
         getCallSignatureInfo: (n, i, a) =>
             run('getCallSignatureInfo', () => typeEvaluator.getCallSignatureInfo(n, i, a), n),
         getTypeAnnotationForParameter: (n, p) =>

@@ -286,6 +286,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.constantRedefinition'));
         export const constructorNoArgs = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.constructorNoArgs'));
+        export const constructorParametersMismatch = () =>
+            new ParameterizedString<{ classType: string }>(getRawString('Diagnostic.constructorParametersMismatch'));
         export const continueInFinally = () => getRawString('Diagnostic.continueInFinally');
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');
@@ -937,6 +939,10 @@ export namespace Localizer {
         export const incompatibleGetter = () => getRawString('DiagnosticAddendum.incompatibleGetter');
         export const incompatibleSetter = () => getRawString('DiagnosticAddendum.incompatibleSetter');
         export const incompatibleDeleter = () => getRawString('DiagnosticAddendum.incompatibleDeleter');
+        export const initMethodLocation = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodLocation'));
+        export const initMethodSignature = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodSignature'));
         export const functionTooManyParams = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooManyParams')
@@ -986,6 +992,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.namedParamTypeMismatch')
             );
+        export const newMethodLocation = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodLocation'));
+        export const newMethodSignature = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodSignature'));
         export const noOverloadAssignable = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
         export const orPatternMissingName = () =>

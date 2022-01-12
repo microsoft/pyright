@@ -188,6 +188,9 @@ export interface DiagnosticRuleSet {
     // the base class symbol of the same name?
     reportIncompatibleVariableOverride: DiagnosticLevel;
 
+    // Report inconsistencies between __init__ and __new__ signatures.
+    reportInconsistentConstructor: DiagnosticLevel;
+
     // Report function overloads that overlap in signature but have
     // incompatible return types.
     reportOverlappingOverload: DiagnosticLevel;
@@ -327,6 +330,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportConstantRedefinition,
         DiagnosticRule.reportIncompatibleMethodOverride,
         DiagnosticRule.reportIncompatibleVariableOverride,
+        DiagnosticRule.reportInconsistentConstructor,
         DiagnosticRule.reportOverlappingOverload,
         DiagnosticRule.reportUninitializedInstanceVariable,
         DiagnosticRule.reportInvalidStringEscapeSequence,
@@ -403,6 +407,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
+        reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'none',
@@ -475,6 +480,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
+        reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'warning',
@@ -547,6 +553,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'error',
         reportIncompatibleMethodOverride: 'error',
         reportIncompatibleVariableOverride: 'error',
+        reportInconsistentConstructor: 'error',
         reportOverlappingOverload: 'error',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'error',
@@ -1120,6 +1127,13 @@ export class ConfigOptions {
                 configObj.reportIncompatibleVariableOverride,
                 DiagnosticRule.reportIncompatibleVariableOverride,
                 defaultSettings.reportIncompatibleVariableOverride
+            ),
+
+            // Read the "reportInconsistentConstructor" entry.
+            reportInconsistentConstructor: this._convertDiagnosticLevel(
+                configObj.reportInconsistentConstructor,
+                DiagnosticRule.reportInconsistentConstructor,
+                defaultSettings.reportInconsistentConstructor
             ),
 
             // Read the "reportOverlappingOverload" entry.

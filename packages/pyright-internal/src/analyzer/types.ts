@@ -1283,6 +1283,17 @@ export namespace FunctionType {
         return newFunction;
     }
 
+    export function cloneWithNewFlags(type: FunctionType, flags: FunctionTypeFlags) {
+        const newFunction = { ...type };
+
+        // Make a shallow clone of the details.
+        newFunction.details = { ...type.details };
+
+        newFunction.details.flags = flags;
+
+        return newFunction;
+    }
+
     export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: ParamSpecValue) {
         const newFunction = { ...type };
 
@@ -1373,6 +1384,35 @@ export namespace FunctionType {
             type: useUnknown ? UnknownType.create() : AnyType.create(),
             hasDeclaredType: !useUnknown,
         });
+    }
+
+    // Indicates whether the input signature consists of (*args: Any, **kwargs: Any).
+    export function hasDefaultParameters(functionType: FunctionType) {
+        let sawArgs = false;
+        let sawKwargs = false;
+
+        for (let i = 0; i < functionType.details.parameters.length; i++) {
+            const param = functionType.details.parameters[i];
+
+            // Ignore nameless separator parameters.
+            if (!param.name) {
+                continue;
+            }
+
+            if (param.category === ParameterCategory.Simple) {
+                return false;
+            } else if (param.category === ParameterCategory.VarArgList) {
+                sawArgs = true;
+            } else if (param.category === ParameterCategory.VarArgDictionary) {
+                sawKwargs = true;
+            }
+
+            if (!isAnyOrUnknown(FunctionType.getEffectiveParameterType(functionType, i))) {
+                return false;
+            }
+        }
+
+        return sawArgs && sawKwargs;
     }
 
     export function isInstanceMethod(type: FunctionType): boolean {

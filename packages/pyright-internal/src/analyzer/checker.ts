@@ -99,6 +99,7 @@ import {
     ClassType,
     combineTypes,
     FunctionType,
+    FunctionTypeFlags,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -322,6 +323,8 @@ export class Checker extends ParseTreeWalker {
             }
 
             this._validateMultipleInheritanceCompatibility(classTypeResult.classType, node.name);
+
+            this._validateConstructorConsistency(classTypeResult.classType);
 
             this._validateFinalMemberOverrides(classTypeResult.classType);
 
@@ -3588,6 +3591,190 @@ export class Checker extends ParseTreeWalker {
                 });
             }
         });
+    }
+
+    // Validates that the __init__ and __new__ method signatures are consistent.
+    private _validateConstructorConsistency(classType: ClassType) {
+        const initMember = lookUpClassMember(
+            classType,
+            '__init__',
+            ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+        );
+        const newMember = lookUpClassMember(
+            classType,
+            '__new__',
+            ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+        );
+
+        if (!initMember || !newMember || !isClass(initMember.classType) || !isClass(newMember.classType)) {
+            return;
+        }
+
+        // If both the __new__ and __init__ come from subclasses, don't bother
+        // checking for this class.
+        if (
+            !ClassType.isSameGenericClass(newMember.classType, classType) &&
+            !ClassType.isSameGenericClass(initMember.classType, classType)
+        ) {
+            return;
+        }
+
+        // If the class that provides the __new__ method has a custom metaclass with a
+        // __call__ method, skip this check.
+        const metaclass = newMember.classType.details.effectiveMetaclass;
+        if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
+            const callMethod = lookUpClassMember(
+                metaclass,
+                '__call__',
+                ClassMemberLookupFlags.SkipTypeBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+            );
+            if (callMethod) {
+                return;
+            }
+        }
+
+        let newMemberType: Type | undefined = this._evaluator.getTypeOfMember(newMember);
+        if (!isFunction(newMemberType) && !isOverloadedFunction(newMemberType)) {
+            return;
+        }
+        newMemberType = this._evaluator.bindFunctionToClassOrObject(
+            classType,
+            newMemberType,
+            /* memberClass */ undefined,
+            /* errorNode */ undefined,
+            /* recursionCount */ undefined,
+            /* treatConstructorAsClassMember */ true
+        );
+        if (!newMemberType) {
+            return;
+        }
+
+        if (isOverloadedFunction(newMemberType)) {
+            // Find the implementation, not the overloaded signatures.
+            newMemberType = newMemberType.overloads.find((func) => !FunctionType.isOverloaded(func));
+
+            if (!newMemberType) {
+                return;
+            }
+        }
+
+        let initMemberType: Type | undefined = this._evaluator.getTypeOfMember(initMember);
+        if (!isFunction(initMemberType) && !isOverloadedFunction(initMemberType)) {
+            return;
+        }
+        initMemberType = this._evaluator.bindFunctionToClassOrObject(
+            ClassType.cloneAsInstance(classType),
+            initMemberType
+        );
+
+        if (!initMemberType) {
+            return;
+        }
+
+        if (isOverloadedFunction(initMemberType)) {
+            // Find the implementation, not the overloaded signatures.
+            initMemberType = initMemberType.overloads.find((func) => !FunctionType.isOverloaded(func));
+
+            if (!initMemberType) {
+                return;
+            }
+        }
+
+        if (!isFunction(initMemberType) || !isFunction(newMemberType)) {
+            return;
+        }
+
+        // If either of the functions has a default parameter signature
+        // (* args: Any, ** kwargs: Any), don't proceed with the check.
+        if (FunctionType.hasDefaultParameters(initMemberType) || FunctionType.hasDefaultParameters(newMemberType)) {
+            return;
+        }
+
+        // We'll set the "SkipArgsKwargs" flag for pragmatic reasons since __new__
+        // often has an *args and/or **kwargs. We'll also set the ParamSpecValue
+        // because we don't care about the return type for this check.
+        initMemberType = FunctionType.cloneWithNewFlags(
+            initMemberType,
+            initMemberType.details.flags |
+                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck |
+                FunctionTypeFlags.ParamSpecValue
+        );
+        newMemberType = FunctionType.cloneWithNewFlags(
+            newMemberType,
+            initMemberType.details.flags |
+                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck |
+                FunctionTypeFlags.ParamSpecValue
+        );
+
+        if (
+            !this._evaluator.canAssignType(
+                newMemberType,
+                initMemberType,
+                /* diag */ undefined,
+                /* typeVarMap */ undefined,
+                CanAssignFlags.SkipFunctionReturnTypeCheck
+            ) ||
+            !this._evaluator.canAssignType(
+                initMemberType,
+                newMemberType,
+                /* diag */ undefined,
+                /* typeVarMap */ undefined,
+                CanAssignFlags.SkipFunctionReturnTypeCheck
+            )
+        ) {
+            const displayOnInit = ClassType.isSameGenericClass(initMember.classType, classType);
+            const initDecl = getLastTypedDeclaredForSymbol(initMember.symbol);
+            const newDecl = getLastTypedDeclaredForSymbol(newMember.symbol);
+
+            if (initDecl && newDecl) {
+                const mainDecl = displayOnInit ? initDecl : newDecl;
+                const mainDeclNode =
+                    mainDecl.node.nodeType === ParseNodeType.Function ? mainDecl.node.name : mainDecl.node;
+
+                const diagAddendum = new DiagnosticAddendum();
+                const initSignature = this._evaluator.printType(initMemberType);
+                const newSignature = this._evaluator.printType(newMemberType);
+
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.initMethodSignature().format({
+                        type: initSignature,
+                    })
+                );
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.newMethodSignature().format({
+                        type: newSignature,
+                    })
+                );
+
+                const diagnostic = this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportInconsistentConstructor,
+                    DiagnosticRule.reportInconsistentConstructor,
+                    Localizer.Diagnostic.constructorParametersMismatch().format({
+                        classType: this._evaluator.printType(
+                            ClassType.cloneAsInstance(displayOnInit ? initMember.classType : newMember.classType)
+                        ),
+                    }) + diagAddendum.getString(),
+                    mainDeclNode
+                );
+
+                if (diagnostic) {
+                    const secondaryDecl = displayOnInit ? newDecl : initDecl;
+
+                    diagnostic.addRelatedInfo(
+                        (displayOnInit
+                            ? Localizer.DiagnosticAddendum.newMethodLocation()
+                            : Localizer.DiagnosticAddendum.initMethodLocation()
+                        ).format({
+                            type: this._evaluator.printType(
+                                ClassType.cloneAsInstance(displayOnInit ? newMember.classType : initMember.classType)
+                            ),
+                        }),
+                        secondaryDecl.path,
+                        secondaryDecl.range
+                    );
+                }
+            }
+        }
     }
 
     // Validates that any methods in multiple base classes are compatible with each other.

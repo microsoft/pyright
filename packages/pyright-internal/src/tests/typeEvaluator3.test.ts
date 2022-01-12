@@ -869,6 +869,19 @@ test('Constructor11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('InconsistentConstructor1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.diagnosticRuleSet.reportInconsistentConstructor = 'none';
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentConstructor1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Enable it as an error.
+    configOptions.diagnosticRuleSet.reportInconsistentConstructor = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentConstructor1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('ClassGetItem1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classGetItem1.py']);
 
