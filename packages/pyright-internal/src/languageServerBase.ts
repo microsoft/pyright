@@ -187,7 +187,6 @@ export interface ServerOptions {
     disableChecker?: boolean;
     supportedCommands?: string[];
     supportedCodeActions?: string[];
-    uriParser: UriParser;
 }
 
 interface ClientCapabilities {
@@ -276,8 +275,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._workspaceMap = this._serverOptions.workspaceMap;
         this._fileWatcherProvider = this._serverOptions.fileWatcherProvider;
-        this.fs = this._serverOptions.fileSystem;
-        this._uriParser = this._serverOptions.uriParser;
+
+        this.fs = new PyrightFileSystem(this._serverOptions.fileSystem);
+        this._uriParser = new UriParser(this.fs);
 
         // Set the working directory to a known location within
         // the extension directory. Otherwise the execution of
@@ -1446,7 +1446,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) {
                 return process.env.HOME;
             }
-
+            if (trimmedName === 'env:USERNAME' && process.env.USERNAME !== undefined) {
+                return process.env.USERNAME;
+            }
+            if (trimmedName === 'env:VIRTUAL_ENV' && process.env.VIRTUAL_ENV !== undefined) {
+                return process.env.VIRTUAL_ENV;
+            }
             return match;
         });
     }

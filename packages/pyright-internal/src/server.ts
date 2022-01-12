@@ -32,10 +32,8 @@ import { Host } from './common/host';
 import { resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import { createFromRealFileSystem, WorkspaceFileWatcherProvider } from './common/realFileSystem';
-import { UriParser } from './common/uriParser';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
-import { PyrightFileSystem } from './pyrightFileSystem';
 import { WorkspaceMap } from './workspaceMap';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
@@ -56,7 +54,6 @@ export class PyrightServer extends LanguageServerBase {
         const workspaceMap = new WorkspaceMap();
         const fileWatcherProvider = new WorkspaceFileWatcherProvider(workspaceMap, console);
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
-        const pyrightFileSystem = new PyrightFileSystem(fileSystem);
 
         super(
             {
@@ -64,12 +61,11 @@ export class PyrightServer extends LanguageServerBase {
                 rootDirectory,
                 version,
                 workspaceMap,
-                fileSystem: pyrightFileSystem,
+                fileSystem: fileSystem,
                 fileWatcherProvider,
                 cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
-                uriParser: new UriParser(pyrightFileSystem),
             },
             connection,
             console

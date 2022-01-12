@@ -176,11 +176,11 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType, data: cancellationId, port: port2 });
     }
 
-    startIndexing(configOptions: ConfigOptions, kind: HostKind, indices: Indices) {
+    startIndexing(configOptions: ConfigOptions, importResolver: ImportResolver, kind: HostKind, indices: Indices) {
         /* noop */
     }
 
-    refreshIndexing(configOptions: ConfigOptions, kind: HostKind, indices?: Indices) {
+    refreshIndexing(configOptions: ConfigOptions, importResolver: ImportResolver, kind: HostKind, indices?: Indices) {
         /* noop */
     }
 

@@ -1037,7 +1037,7 @@ export class Program {
     }
 
     getTextOnRange(filePath: string, range: Range, token: CancellationToken): string | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }

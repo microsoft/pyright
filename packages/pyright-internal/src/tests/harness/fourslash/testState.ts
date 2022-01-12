@@ -1593,7 +1593,7 @@ export class TestState {
         }
     }
 
-    private _rangeText({ fileName, pos, end }: Range): string {
+    protected _rangeText({ fileName, pos, end }: Range): string {
         return this._getFileContent(fileName).slice(pos, end);
     }
 

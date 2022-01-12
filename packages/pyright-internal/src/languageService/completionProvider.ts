@@ -73,6 +73,7 @@ import {
     isLiteralType,
     isLiteralTypeOrUnion,
     isProperty,
+    lookUpObjectMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
@@ -1110,7 +1111,7 @@ export class CompletionProvider {
             return sb;
         }
 
-        const parameters = getParameters();
+        const parameters = getParameters(isStaticMethod ? decl.node.parameters : decl.node.parameters.slice(1));
         if (decl.node.name.value !== '__init__') {
             sb += 'return ';
         }
@@ -1125,25 +1126,34 @@ export class CompletionProvider {
 
         return sb + `super().${decl.node.name.value}(${parameters.map(convertToString).join(', ')})`;
 
-        function getParameters() {
-            if (isStaticMethod) {
-                return decl.node.parameters.filter((p) => p.name);
+        function getParameters(parameters: ParameterNode[]) {
+            const results: [node: ParameterNode, keywordOnly: boolean][] = [];
+
+            let keywordOnly = false;
+            for (const parameter of parameters) {
+                if (parameter.name) {
+                    results.push([parameter, keywordOnly]);
+                }
+
+                keywordOnly =
+                    parameter.category === ParameterCategory.VarArgList ||
+                    parameter.category === ParameterCategory.VarArgDictionary;
             }
 
-            return decl.node.parameters.slice(1).filter((p) => p.name);
+            return results;
         }
 
-        function convertToString(parameter: ParameterNode) {
-            const name = parameter.name?.value;
-            if (parameter.category === ParameterCategory.VarArgList) {
+        function convertToString(parameter: [node: ParameterNode, keywordOnly: boolean]) {
+            const name = parameter[0].name?.value;
+            if (parameter[0].category === ParameterCategory.VarArgList) {
                 return `*${name}`;
             }
 
-            if (parameter.category === ParameterCategory.VarArgDictionary) {
+            if (parameter[0].category === ParameterCategory.VarArgDictionary) {
                 return `**${name}`;
             }
 
-            return parameter.defaultValue ? `${name}=${name}` : name;
+            return parameter[1] ? `${name}=${name}` : name;
         }
     }
 
@@ -1351,7 +1361,7 @@ export class CompletionProvider {
             const indexNode = parseNode.parent!.parent! as IndexNode;
             const excludes = new Set(completionList.items.map((i) => i.label));
 
-            this._getDictionaryKeys(indexNode, parseNode).forEach((key) => {
+            this._getIndexerKeys(indexNode, parseNode).forEach((key) => {
                 if (excludes.has(key)) {
                     // Don't add key if it already exists in the completion.
                     // ex) key = "dictKey"
@@ -1528,7 +1538,30 @@ export class CompletionProvider {
         return values;
     }
 
-    private _getDictionaryKeys(indexNode: IndexNode, invocationNode: ParseNode) {
+    private _getIndexerKeyType(baseType: ClassType) {
+        // Handle dict type
+        if (ClassType.isBuiltIn(baseType, 'dict') || ClassType.isBuiltIn(baseType, 'Mapping')) {
+            if (baseType.typeArguments?.length === 2) {
+                return baseType.typeArguments[0];
+            }
+        }
+
+        // Handle simple __getitem__
+        const member = lookUpObjectMember(baseType, '__getitem__');
+        if (member?.symbol.hasDeclarations()) {
+            const declaration = member.symbol.getDeclarations()[0];
+            if (isFunctionDeclaration(declaration) && declaration.isMethod) {
+                const getItemType = this._evaluator.getTypeForDeclaration(declaration);
+                if (getItemType && isFunction(getItemType) && getItemType.details.parameters.length === 2) {
+                    return getItemType.details.parameters[1].type;
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    private _getIndexerKeys(indexNode: IndexNode, invocationNode: ParseNode) {
         if (indexNode.baseExpression.nodeType !== ParseNodeType.Name) {
             // This completion only supports simple name case
             return [];
@@ -1539,17 +1572,12 @@ export class CompletionProvider {
             return [];
         }
 
-        // Must be dict type
-        if (!ClassType.isBuiltIn(baseType, 'dict') && !ClassType.isBuiltIn(baseType, 'Mapping')) {
-            return [];
-        }
-
-        // See whether dictionary is typed using Literal types. If it is, return those literal keys.
-        // For now, we are not using __getitem__ since we don't have a way to get effective parameter type of __getitem__.
-        if (baseType.typeArguments?.length === 2) {
+        // See whether indexer key is typed using Literal types. If it is, return those literal keys.
+        const keyType = this._getIndexerKeyType(baseType);
+        if (keyType) {
             const keys: string[] = [];
 
-            this._getSubTypesWithLiteralValues(baseType.typeArguments[0]).forEach((v) => {
+            this._getSubTypesWithLiteralValues(keyType).forEach((v) => {
                 if (
                     !ClassType.isBuiltIn(v, 'str') &&
                     !ClassType.isBuiltIn(v, 'int') &&
@@ -1730,7 +1758,7 @@ export class CompletionProvider {
                     completionList
                 )
             ) {
-                const keys = this._getDictionaryKeys(parentNode.parent, parseNode);
+                const keys = this._getIndexerKeys(parentNode.parent, parseNode);
                 const quoteValue = this._getQuoteValueFromPriorText(priorText);
 
                 for (const key of keys) {
