@@ -38,7 +38,7 @@
         "backticksIllegal": "Expressions surrounded by backticks are not supported in Python 3.x; use repr instead",
         "baseClassCircular": "Class cannot derive from itself",
         "baseClassFinal": "Base class \"{type}\" is marked final and cannot be subclassed",
-        "baseClassInvalid": "Argument to class must be a base class, but type is \"{type}\"",
+        "baseClassInvalid": "Argument to class must be a base class",
         "baseClassMethodTypeIncompatible": "Base classes for class \"{classType}\" define method \"{name}\" in incompatible way",
         "baseClassUnknown": "Base class type is unknown, obscuring type of derived class",
         "bindTypeMismatch": "Could not bind method \"{methodName}\" because \"{type}\" is not assignable to parameter \"{paramName}\"",

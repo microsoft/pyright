@@ -227,8 +227,7 @@ export namespace Localizer {
         export const awaitNotInAsync = () => getRawString('Diagnostic.awaitNotInAsync');
         export const backticksIllegal = () => getRawString('Diagnostic.backticksIllegal');
         export const baseClassCircular = () => getRawString('Diagnostic.baseClassCircular');
-        export const baseClassInvalid = () =>
-            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.baseClassInvalid'));
+        export const baseClassInvalid = () => getRawString('Diagnostic.baseClassInvalid');
         export const baseClassFinal = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.baseClassFinal'));
         export const baseClassMethodTypeIncompatible = () =>

@@ -13525,11 +13525,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
-                    if (!isInstantiableClass(argType) || argType.includeSubclasses) {
+                    if (!isInstantiableClass(argType)) {
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.baseClassInvalid().format({ type: printType(argType) }),
+                            Localizer.Diagnostic.baseClassInvalid(),
                             arg
                         );
                         argType = UnknownType.create();
