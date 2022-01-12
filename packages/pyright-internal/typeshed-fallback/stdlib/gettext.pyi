@@ -1,6 +1,6 @@
 import sys
 from _typeshed import StrPath
-from typing import IO, Any, Container, Iterable, Sequence, Type, TypeVar, overload
+from typing import IO, Any, Container, Iterable, Sequence, TypeVar, overload
 from typing_extensions import Literal
 
 class NullTranslations:
@@ -45,7 +45,7 @@ if sys.version_info >= (3, 11):
         domain: str,
         localedir: StrPath | None = ...,
         languages: Iterable[str] | None = ...,
-        class_: Type[_T] = ...,
+        class_: type[_T] = ...,
         fallback: Literal[False] = ...,
     ) -> _T: ...
     @overload
@@ -53,7 +53,7 @@ if sys.version_info >= (3, 11):
         domain: str,
         localedir: StrPath | None = ...,
         languages: Iterable[str] | None = ...,
-        class_: Type[Any] = ...,
+        class_: type[Any] = ...,
         fallback: Literal[True] = ...,
     ) -> Any: ...
     def install(domain: str, localedir: StrPath | None = ..., names: Container[str] | None = ...) -> None: ...
@@ -73,7 +73,7 @@ else:
         domain: str,
         localedir: StrPath | None = ...,
         languages: Iterable[str] | None = ...,
-        class_: Type[_T] = ...,
+        class_: type[_T] = ...,
         fallback: Literal[False] = ...,
         codeset: str | None = ...,
     ) -> _T: ...
@@ -82,7 +82,7 @@ else:
         domain: str,
         localedir: StrPath | None = ...,
         languages: Iterable[str] | None = ...,
-        class_: Type[Any] = ...,
+        class_: type[Any] = ...,
         fallback: Literal[True] = ...,
         codeset: str | None = ...,
     ) -> Any: ...

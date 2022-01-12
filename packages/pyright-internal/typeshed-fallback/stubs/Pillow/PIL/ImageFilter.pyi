@@ -1,5 +1,5 @@
 from _typeshed import Self
-from typing import Any, Callable, Iterable, Sequence, Type
+from typing import Any, Callable, Iterable, Sequence
 from typing_extensions import Literal
 
 from .Image import Image
@@ -121,7 +121,7 @@ class Color3DLUT(MultibandFilter):
     ) -> None: ...
     @classmethod
     def generate(
-        cls: Type[Self],
+        cls: type[Self],
         size: int | tuple[int, int, int],
         callback: Callable[[float, float, float], Iterable[float]],
         channels: int = ...,

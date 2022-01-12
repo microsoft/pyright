@@ -1,13 +1,9 @@
-import sys
 from _typeshed import SupportsWrite
 from typing import Any, Callable, Iterable, Optional, Text, Tuple, TypeVar, Union
 
 from .descriptor import FieldDescriptor
 from .descriptor_pool import DescriptorPool
 from .message import Message
-
-if sys.version_info < (3, 0):
-    long = int
 
 _M = TypeVar("_M", bound=Message)  # message type (of self)
 

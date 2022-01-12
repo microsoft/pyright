@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Iterator, Protocol, Type, Union
+from typing import Any, Iterable, Iterator, Protocol, Union
 from typing_extensions import Literal
 
 QUOTE_ALL: Literal[1]
@@ -19,7 +19,7 @@ class Dialect:
     strict: int
     def __init__(self) -> None: ...
 
-_DialectLike = Union[str, Dialect, Type[Dialect]]
+_DialectLike = Union[str, Dialect, type[Dialect]]
 
 class _reader(Iterator[list[str]]):
     dialect: Dialect

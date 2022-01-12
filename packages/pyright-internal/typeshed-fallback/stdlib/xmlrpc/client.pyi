@@ -6,7 +6,7 @@ from _typeshed import Self, SupportsRead, SupportsWrite
 from datetime import datetime
 from io import BytesIO
 from types import TracebackType
-from typing import Any, Callable, Iterable, Mapping, Protocol, Type, Union, overload
+from typing import Any, Callable, Iterable, Mapping, Protocol, Union, overload
 from typing_extensions import Literal
 
 class _SupportsTimeTuple(Protocol):
@@ -86,7 +86,7 @@ class Binary:
 
 def _binary(data: bytes) -> Binary: ...  # undocumented
 
-WRAPPERS: tuple[Type[DateTime], Type[Binary]]  # undocumented
+WRAPPERS: tuple[type[DateTime], type[Binary]]  # undocumented
 
 class ExpatParser:  # undocumented
     def __init__(self, target: Unmarshaller) -> None: ...
@@ -96,7 +96,7 @@ class ExpatParser:  # undocumented
 class Marshaller:
 
     dispatch: dict[
-        Type[Any], Callable[[Marshaller, Any, Callable[[str], Any]], None]
+        type[Any], Callable[[Marshaller, Any, Callable[[str], Any]], None]
     ]  # TODO: Replace 'Any' with some kind of binding
 
     memo: dict[Any, None]
@@ -301,7 +301,7 @@ class ServerProxy:
     def __call__(self, attr: str) -> Callable[[], None] | Transport: ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
-        self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None: ...
     def __close(self) -> None: ...  # undocumented
     def __request(self, methodname: str, params: tuple[_Marshallable, ...]) -> tuple[_Marshallable, ...]: ...  # undocumented

@@ -1,10 +1,9 @@
 import sys
-from _typeshed import SupportsRichComparisonT
+from _typeshed import Self, SupportsRichComparisonT
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, Hashable, Iterable, NamedTuple, Sequence, SupportsFloat, Type, TypeVar, Union
+from typing import Any, Hashable, Iterable, NamedTuple, Sequence, SupportsFloat, TypeVar, Union
 
-_T = TypeVar("_T")
 # Most functions in this module accept homogeneous collections of one of these types
 _Number = Union[float, Decimal, Fraction]
 _NumberT = TypeVar("_NumberT", float, Decimal, Fraction)
@@ -58,7 +57,7 @@ if sys.version_info >= (3, 8):
         @property
         def variance(self) -> float: ...
         @classmethod
-        def from_samples(cls: Type[_T], data: Iterable[SupportsFloat]) -> _T: ...
+        def from_samples(cls: type[Self], data: Iterable[SupportsFloat]) -> Self: ...
         def samples(self, n: int, *, seed: Any | None = ...) -> list[float]: ...
         def pdf(self, x: float) -> float: ...
         def cdf(self, x: float) -> float: ...

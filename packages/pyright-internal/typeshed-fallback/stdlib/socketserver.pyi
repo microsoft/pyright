@@ -2,7 +2,7 @@ import sys
 import types
 from _typeshed import Self
 from socket import socket as _socket
-from typing import Any, BinaryIO, Callable, ClassVar, Type, Union
+from typing import Any, BinaryIO, Callable, ClassVar, Union
 
 _RequestType = Union[_socket, tuple[bytes, _socket]]
 _AddressType = Union[tuple[str, int], str]
@@ -32,7 +32,7 @@ class BaseServer:
     def verify_request(self, request: _RequestType, client_address: _AddressType) -> bool: ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
-        self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None
     ) -> None: ...
     def service_actions(self) -> None: ...
     def shutdown_request(self, request: _RequestType) -> None: ...  # undocumented

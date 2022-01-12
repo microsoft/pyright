@@ -1,6 +1,6 @@
 from _typeshed import Self
 from types import TracebackType
-from typing import Any, Type
+from typing import Any
 from typing_extensions import Literal
 
 from .server import Server
@@ -101,7 +101,7 @@ class Connection:
     def usage(self): ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
-        self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> Literal[False] | None: ...
     def bind(self, read_server_info: bool = ..., controls: Any | None = ...): ...
     def rebind(

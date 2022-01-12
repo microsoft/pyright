@@ -1,11 +1,11 @@
 import sys
-from typing import Any, Callable, ClassVar, Iterable, Iterator, Mapping, Optional, Protocol, Type, Union
+from typing import Any, Callable, ClassVar, Iterable, Iterator, Mapping, Optional, Protocol, Union
 from typing_extensions import final
 
 HIGHEST_PROTOCOL: int
 DEFAULT_PROTOCOL: int
 
-bytes_types: tuple[Type[Any], ...]  # undocumented
+bytes_types: tuple[type[Any], ...]  # undocumented
 
 class _ReadableFileobj(Protocol):
     def read(self, __n: int) -> bytes: ...

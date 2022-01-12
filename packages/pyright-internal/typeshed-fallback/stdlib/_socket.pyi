@@ -356,6 +356,9 @@ if sys.platform == "linux" and sys.version_info >= (3, 9):
 
     J1939_FILTER_MAX: int
 
+if sys.platform == "linux" and sys.version_info >= (3, 10):
+    IPPROTO_MPTCP: int
+
 if sys.platform == "linux":
     AF_PACKET: int
     PF_PACKET: int

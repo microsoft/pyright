@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Type
+from typing import Any, Mapping
 
 from .retry import Retry
 
@@ -87,7 +87,7 @@ class Connection:
         encoding: str = ...,
         encoding_errors: str = ...,
         decode_responses: bool = ...,
-        parser_class: Type[BaseParser] = ...,
+        parser_class: type[BaseParser] = ...,
         socket_read_size: int = ...,
         health_check_interval: int = ...,
         client_name: str | None = ...,

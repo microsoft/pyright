@@ -1,7 +1,7 @@
 import sys
 from _typeshed import Self, StrOrBytesPath
 from datetime import date, datetime, time
-from typing import Any, Callable, Generator, Iterable, Iterator, Protocol, Type, TypeVar
+from typing import Any, Callable, Generator, Iterable, Iterator, Protocol, TypeVar
 
 _T = TypeVar("_T")
 
@@ -94,7 +94,7 @@ if sys.version_info >= (3, 7):
         detect_types: int = ...,
         isolation_level: str | None = ...,
         check_same_thread: bool = ...,
-        factory: Type[Connection] | None = ...,
+        factory: type[Connection] | None = ...,
         cached_statements: int = ...,
         uri: bool = ...,
     ) -> Connection: ...
@@ -106,14 +106,14 @@ else:
         detect_types: int = ...,
         isolation_level: str | None = ...,
         check_same_thread: bool = ...,
-        factory: Type[Connection] | None = ...,
+        factory: type[Connection] | None = ...,
         cached_statements: int = ...,
         uri: bool = ...,
     ) -> Connection: ...
 
 def enable_callback_tracebacks(__enable: bool) -> None: ...
 def enable_shared_cache(enable: int) -> None: ...
-def register_adapter(__type: Type[_T], __caster: Callable[[_T], int | float | str | bytes]) -> None: ...
+def register_adapter(__type: type[_T], __caster: Callable[[_T], int | float | str | bytes]) -> None: ...
 def register_converter(__name: str, __converter: Callable[[bytes], Any]) -> None: ...
 
 if sys.version_info < (3, 8):

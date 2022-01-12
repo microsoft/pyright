@@ -1,7 +1,7 @@
 import sys
 from _typeshed import StrOrBytesPath, StrPath, SupportsWrite
 from collections.abc import Callable, ItemsView, Iterable, Iterator, Mapping, MutableMapping, Sequence
-from typing import Any, ClassVar, Optional, Pattern, Type, TypeVar, overload
+from typing import Any, ClassVar, Optional, Pattern, TypeVar, overload
 from typing_extensions import Literal
 
 # Internal type aliases
@@ -47,7 +47,7 @@ class RawConfigParser(_parser):
     def __init__(
         self,
         defaults: Mapping[str, str | None] | None = ...,
-        dict_type: Type[Mapping[str, str]] = ...,
+        dict_type: type[Mapping[str, str]] = ...,
         allow_no_value: Literal[True] = ...,
         *,
         delimiters: Sequence[str] = ...,
@@ -63,7 +63,7 @@ class RawConfigParser(_parser):
     def __init__(
         self,
         defaults: _section | None = ...,
-        dict_type: Type[Mapping[str, str]] = ...,
+        dict_type: type[Mapping[str, str]] = ...,
         allow_no_value: bool = ...,
         *,
         delimiters: Sequence[str] = ...,

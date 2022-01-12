@@ -1,9 +1,9 @@
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Generic, Type, TypeVar, overload
+from typing import Any, Generic, TypeVar, overload
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 _T = TypeVar("_T")
-_TT = TypeVar("_TT", bound=Type[Any])
+_TT = TypeVar("_TT", bound=type[Any])
 _R = TypeVar("_R")
 
 __all__ = (
@@ -62,10 +62,10 @@ class NonCallableMock(Base, Any):
     def __new__(__cls, *args: Any, **kw: Any) -> NonCallableMock: ...
     def __init__(
         self,
-        spec: list[str] | object | Type[object] | None = ...,
+        spec: list[str] | object | type[object] | None = ...,
         wraps: Any | None = ...,
         name: str | None = ...,
-        spec_set: list[str] | object | Type[object] | None = ...,
+        spec_set: list[str] | object | type[object] | None = ...,
         parent: NonCallableMock | None = ...,
         _spec_state: Any | None = ...,
         _new_name: str = ...,
@@ -174,7 +174,7 @@ class _patch_dict:
 
 class _patcher:
     TEST_PREFIX: str
-    dict: Type[_patch_dict]
+    dict: type[_patch_dict]
     @overload
     def __call__(  # type: ignore[misc]
         self,
@@ -268,7 +268,7 @@ class AsyncMockMixin(Base):
 class AsyncMagicMixin(MagicMixin):
     def __init__(self, *args: Any, **kw: Any) -> None: ...
 
-class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock): ...
+class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock): ...  # type: ignore # argument disparities between base classes
 
 class MagicProxy(Base):
     name: str

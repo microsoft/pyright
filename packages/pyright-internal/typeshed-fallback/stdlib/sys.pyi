@@ -5,13 +5,13 @@ from importlib.abc import PathEntryFinder
 from importlib.machinery import ModuleSpec
 from io import TextIOWrapper
 from types import FrameType, ModuleType, TracebackType
-from typing import Any, AsyncGenerator, Callable, NoReturn, Optional, Protocol, Sequence, TextIO, Type, TypeVar, Union, overload
+from typing import Any, AsyncGenerator, Callable, NoReturn, Optional, Protocol, Sequence, TextIO, TypeVar, Union, overload
 from typing_extensions import Literal, final
 
 _T = TypeVar("_T")
 
 # The following type alias are stub-only and do not exist during runtime
-_ExcInfo = tuple[Type[BaseException], BaseException, TracebackType]
+_ExcInfo = tuple[type[BaseException], BaseException, TracebackType]
 _OptExcInfo = Union[_ExcInfo, tuple[None, None, None]]
 
 # Intentionally omits one deprecated and one optional method of `importlib.abc.MetaPathFinder`
@@ -31,12 +31,12 @@ if sys.platform == "win32":
     dllhandle: int
 dont_write_bytecode: bool
 displayhook: Callable[[object], Any]
-excepthook: Callable[[Type[BaseException], BaseException, TracebackType | None], Any]
+excepthook: Callable[[type[BaseException], BaseException, TracebackType | None], Any]
 exec_prefix: str
 executable: str
 float_repr_style: Literal["short", "legacy"]
 hexversion: int
-last_type: Type[BaseException] | None
+last_type: type[BaseException] | None
 last_value: BaseException | None
 last_traceback: TracebackType | None
 maxsize: int
@@ -216,7 +216,7 @@ def _current_frames() -> dict[int, FrameType]: ...
 def _getframe(__depth: int = ...) -> FrameType: ...
 def _debugmallocstats() -> None: ...
 def __displayhook__(value: object) -> None: ...
-def __excepthook__(type_: Type[BaseException], value: BaseException, traceback: TracebackType | None) -> None: ...
+def __excepthook__(type_: type[BaseException], value: BaseException, traceback: TracebackType | None) -> None: ...
 def exc_info() -> _OptExcInfo: ...
 
 # sys.exit() accepts an optional argument of anything printable
@@ -294,7 +294,7 @@ if sys.version_info < (3, 9):
 if sys.version_info >= (3, 8):
     # Doesn't exist at runtime, but exported in the stubs so pytest etc. can annotate their code more easily.
     class UnraisableHookArgs:
-        exc_type: Type[BaseException]
+        exc_type: type[BaseException]
         exc_value: BaseException | None
         exc_traceback: TracebackType | None
         err_msg: str | None

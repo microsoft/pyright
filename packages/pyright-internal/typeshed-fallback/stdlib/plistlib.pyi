@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 from enum import Enum
-from typing import IO, Any, Mapping, MutableMapping, Type
+from typing import IO, Any, Mapping, MutableMapping
 
 class PlistFormat(Enum):
     FMT_XML: int
@@ -11,8 +11,8 @@ FMT_XML = PlistFormat.FMT_XML
 FMT_BINARY = PlistFormat.FMT_BINARY
 
 if sys.version_info >= (3, 9):
-    def load(fp: IO[bytes], *, fmt: PlistFormat | None = ..., dict_type: Type[MutableMapping[str, Any]] = ...) -> Any: ...
-    def loads(value: bytes, *, fmt: PlistFormat | None = ..., dict_type: Type[MutableMapping[str, Any]] = ...) -> Any: ...
+    def load(fp: IO[bytes], *, fmt: PlistFormat | None = ..., dict_type: type[MutableMapping[str, Any]] = ...) -> Any: ...
+    def loads(value: bytes, *, fmt: PlistFormat | None = ..., dict_type: type[MutableMapping[str, Any]] = ...) -> Any: ...
 
 else:
     def load(
@@ -20,14 +20,14 @@ else:
         *,
         fmt: PlistFormat | None = ...,
         use_builtin_types: bool = ...,
-        dict_type: Type[MutableMapping[str, Any]] = ...,
+        dict_type: type[MutableMapping[str, Any]] = ...,
     ) -> Any: ...
     def loads(
         value: bytes,
         *,
         fmt: PlistFormat | None = ...,
         use_builtin_types: bool = ...,
-        dict_type: Type[MutableMapping[str, Any]] = ...,
+        dict_type: type[MutableMapping[str, Any]] = ...,
     ) -> Any: ...
 
 def dump(

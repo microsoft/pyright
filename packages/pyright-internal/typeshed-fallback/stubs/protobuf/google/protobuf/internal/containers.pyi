@@ -1,18 +1,5 @@
-from typing import (
-    Any,
-    Callable,
-    Iterable,
-    Iterator,
-    List,
-    Mapping as Mapping,
-    MutableMapping as MutableMapping,
-    Optional,
-    Sequence,
-    Text,
-    TypeVar,
-    Union,
-    overload,
-)
+from collections.abc import MutableMapping
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Sequence, Text, TypeVar, Union, overload
 from typing_extensions import SupportsIndex
 
 from google.protobuf.descriptor import Descriptor

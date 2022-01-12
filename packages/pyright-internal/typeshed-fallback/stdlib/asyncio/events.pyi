@@ -24,7 +24,7 @@ _SSLContext = Union[bool, None, ssl.SSLContext]
 _TransProtPair = tuple[BaseTransport, BaseProtocol]
 
 class Handle:
-    _cancelled = False
+    _cancelled: bool
     _args: Sequence[Any]
     if sys.version_info >= (3, 7):
         def __init__(
@@ -32,7 +32,6 @@ class Handle:
         ) -> None: ...
     else:
         def __init__(self, callback: Callable[..., Any], args: Sequence[Any], loop: AbstractEventLoop) -> None: ...
-    def __repr__(self) -> str: ...
     def cancel(self) -> None: ...
     def _run(self) -> None: ...
     if sys.version_info >= (3, 7):

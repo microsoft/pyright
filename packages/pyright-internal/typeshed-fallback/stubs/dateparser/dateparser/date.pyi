@@ -2,7 +2,7 @@ import collections
 import sys
 from _typeshed import Self as Self
 from datetime import datetime
-from typing import ClassVar, Iterable, Iterator, Type, overload
+from typing import ClassVar, Iterable, Iterator, overload
 
 from dateparser import _Settings
 from dateparser.conf import Settings
@@ -107,4 +107,4 @@ class DateDataParser:
     def _get_applicable_locales(self, date_string: str) -> Iterator[Locale]: ...
     def _is_applicable_locale(self, locale: Locale, date_string: str) -> bool: ...
     @classmethod
-    def _get_locale_loader(cls: Type[DateDataParser]) -> LocaleDataLoader: ...
+    def _get_locale_loader(cls: type[DateDataParser]) -> LocaleDataLoader: ...

@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Iterable, Sequence
-from typing import Callable, NoReturn, Type
+from typing import Callable, NoReturn
 from typing_extensions import Literal
 
 from google.cloud.ndb import exceptions, key as key_module, query as query_module, tasklets as tasklets_module
@@ -96,16 +96,16 @@ class Property(ModelAttribute):
 
 class ModelKey(Property):
     def __init__(self) -> None: ...
-    def __get__(self, entity: Model, unused_cls: Type[Model] | None = ...) -> key_module.Key | list[key_module.Key] | None: ...
+    def __get__(self, entity: Model, unused_cls: type[Model] | None = ...) -> key_module.Key | list[key_module.Key] | None: ...
 
 class BooleanProperty(Property):
-    def __get__(self, entity: Model, unused_cls: Type[Model] | None = ...) -> bool | list[bool] | None: ...
+    def __get__(self, entity: Model, unused_cls: type[Model] | None = ...) -> bool | list[bool] | None: ...
 
 class IntegerProperty(Property):
-    def __get__(self, entity: Model, unused_cls: Type[Model] | None = ...) -> int | list[int] | None: ...
+    def __get__(self, entity: Model, unused_cls: type[Model] | None = ...) -> int | list[int] | None: ...
 
 class FloatProperty(Property):
-    def __get__(self, entity: Model, unused_cls: Type[Model] | None = ...) -> float | list[float] | None: ...
+    def __get__(self, entity: Model, unused_cls: type[Model] | None = ...) -> float | list[float] | None: ...
 
 class _CompressedValue(bytes):
     z_val: bytes = ...
@@ -127,7 +127,7 @@ class BlobProperty(Property):
         verbose_name: str | None = ...,
         write_empty_list: bool | None = ...,
     ) -> None: ...
-    def __get__(self, entity: Model, unused_cls: Type[Model] | None = ...) -> bytes | list[bytes] | None: ...
+    def __get__(self, entity: Model, unused_cls: type[Model] | None = ...) -> bytes | list[bytes] | None: ...
 
 class CompressedTextProperty(BlobProperty):
     def __init__(self, *args, **kwargs) -> None: ...
@@ -135,7 +135,7 @@ class CompressedTextProperty(BlobProperty):
 class TextProperty(Property):
     def __new__(cls, *args, **kwargs): ...
     def __init__(self, *args, **kwargs) -> None: ...
-    def __get__(self, entity: Model, unused_cls: Type[Model] | None = ...) -> str | list[str] | None: ...
+    def __get__(self, entity: Model, unused_cls: type[Model] | None = ...) -> str | list[str] | None: ...
 
 class StringProperty(TextProperty):
     def __init__(self, *args, **kwargs) -> None: ...
@@ -189,7 +189,7 @@ class KeyProperty(Property):
     def __init__(
         self,
         name: str | None = ...,
-        kind: Type[Model] | str | None = ...,
+        kind: type[Model] | str | None = ...,
         indexed: bool | None = ...,
         repeated: bool | None = ...,
         required: bool | None = ...,
@@ -228,7 +228,7 @@ class StructuredProperty(Property):
     def IN(self, value: Iterable[object]) -> query_module.DisjunctionNode | query_module.FalseNode: ...
 
 class LocalStructuredProperty(BlobProperty):
-    def __init__(self, model_class: Type[Model], **kwargs) -> None: ...
+    def __init__(self, model_class: type[Model], **kwargs) -> None: ...
 
 class GenericProperty(Property):
     def __init__(self, name: str | None = ..., compressed: bool = ..., **kwargs) -> None: ...
@@ -252,14 +252,14 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     def __hash__(self) -> NoReturn: ...
     def __eq__(self, other: object) -> bool: ...
     @classmethod
-    def gql(cls: Type[Model], query_string: str, *args, **kwargs) -> query_module.Query: ...
+    def gql(cls: type[Model], query_string: str, *args, **kwargs) -> query_module.Query: ...
     def put(self, **kwargs): ...
     def put_async(self, **kwargs) -> tasklets_module.Future: ...
     @classmethod
-    def query(cls: Type[Model], *args, **kwargs) -> query_module.Query: ...
+    def query(cls: type[Model], *args, **kwargs) -> query_module.Query: ...
     @classmethod
     def allocate_ids(
-        cls: Type[Model],
+        cls: type[Model],
         size: int | None = ...,
         max: int | None = ...,
         parent: key_module.Key | None = ...,
@@ -278,7 +278,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     ) -> tuple[key_module.Key, key_module.Key]: ...
     @classmethod
     def allocate_ids_async(
-        cls: Type[Model],
+        cls: type[Model],
         size: int | None = ...,
         max: int | None = ...,
         parent: key_module.Key | None = ...,
@@ -297,7 +297,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     ) -> tasklets_module.Future: ...
     @classmethod
     def get_by_id(
-        cls: Type[Model],
+        cls: type[Model],
         id: int | str | None,
         parent: key_module.Key | None = ...,
         namespace: str | None = ...,
@@ -321,7 +321,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     ) -> tasklets_module.Future: ...
     @classmethod
     def get_by_id_async(
-        cls: Type[Model],
+        cls: type[Model],
         id: int | str,
         parent: key_module.Key | None = ...,
         namespace: str | None = ...,
@@ -345,7 +345,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     ) -> Model | None: ...
     @classmethod
     def get_or_insert(
-        cls: Type[Model],
+        cls: type[Model],
         name: str,
         parent: key_module.Key | None = ...,
         namespace: str | None = ...,
@@ -370,7 +370,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     ) -> Model: ...
     @classmethod
     def get_or_insert_async(
-        cls: Type[Model],
+        cls: type[Model],
         name: str,
         parent: key_module.Key | None = ...,
         namespace: str | None = ...,
@@ -407,7 +407,7 @@ class Expando(Model):
     def __delattr__(self, name: str) -> None: ...
 
 def get_multi_async(
-    keys: Sequence[Type[key_module.Key]],
+    keys: Sequence[type[key_module.Key]],
     read_consistency: Literal["EVENTUAL"] | None = ...,
     read_policy: Literal["EVENTUAL"] | None = ...,
     transaction: bytes | None = ...,
@@ -423,9 +423,9 @@ def get_multi_async(
     max_memcache_items: int | None = ...,
     force_writes: bool | None = ...,
     _options: object | None = ...,
-) -> list[Type[tasklets_module.Future]]: ...
+) -> list[type[tasklets_module.Future]]: ...
 def get_multi(
-    keys: Sequence[Type[key_module.Key]],
+    keys: Sequence[type[key_module.Key]],
     read_consistency: Literal["EVENTUAL"] | None = ...,
     read_policy: Literal["EVENTUAL"] | None = ...,
     transaction: bytes | None = ...,
@@ -441,9 +441,9 @@ def get_multi(
     max_memcache_items: int | None = ...,
     force_writes: bool | None = ...,
     _options: object | None = ...,
-) -> list[Type[Model] | None]: ...
+) -> list[type[Model] | None]: ...
 def put_multi_async(
-    entities: list[Type[Model]],
+    entities: list[type[Model]],
     retries: int | None = ...,
     timeout: float | None = ...,
     deadline: float | None = ...,

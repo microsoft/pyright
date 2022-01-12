@@ -1,6 +1,6 @@
 from _typeshed import WriteableBuffer
 from io import BufferedIOBase, RawIOBase
-from typing import Any, Callable, Protocol, Type
+from typing import Any, Callable, Protocol
 
 BUFFER_SIZE: Any
 
@@ -16,7 +16,7 @@ class DecompressReader(RawIOBase):
         self,
         fp: _Reader,
         decomp_factory: Callable[..., object],
-        trailing_error: Type[Exception] | tuple[Type[Exception], ...] = ...,
+        trailing_error: type[Exception] | tuple[type[Exception], ...] = ...,
         **decomp_args: Any,
     ) -> None: ...
     def readable(self) -> bool: ...

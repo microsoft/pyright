@@ -9,7 +9,6 @@ from typing import (
     SupportsComplex,
     SupportsFloat,
     SupportsInt,
-    Type,
     TypeVar,
     Union,
     overload,
@@ -68,7 +67,7 @@ class chain(Iterator[_T], Generic[_T]):
     def __iter__(self) -> Iterator[_T]: ...
     @classmethod
     # We use Type and not Type[_S] to not lose the type inference from __iterable
-    def from_iterable(cls: Type[Any], __iterable: Iterable[Iterable[_S]]) -> Iterator[_S]: ...
+    def from_iterable(cls: type[Any], __iterable: Iterable[Iterable[_S]]) -> Iterator[_S]: ...
     if sys.version_info >= (3, 9):
         def __class_getitem__(cls, __item: Any) -> GenericAlias: ...
 

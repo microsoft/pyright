@@ -3,7 +3,7 @@ from _typeshed import Self, SupportsRead, SupportsReadline
 from socket import socket
 from ssl import SSLContext
 from types import TracebackType
-from typing import Any, Callable, Iterable, Iterator, TextIO, Type
+from typing import Any, Callable, Iterable, Iterator, TextIO
 from typing_extensions import Literal
 
 MSG_OOB: int
@@ -18,7 +18,7 @@ class error_temp(Error): ...
 class error_perm(Error): ...
 class error_proto(Error): ...
 
-all_errors: tuple[Type[Exception], ...]
+all_errors: tuple[type[Exception], ...]
 
 class FTP:
     debugging: int
@@ -35,7 +35,7 @@ class FTP:
     encoding: str
     def __enter__(self: Self) -> Self: ...
     def __exit__(
-        self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None: ...
     source_address: tuple[str, int] | None
     if sys.version_info >= (3, 9):

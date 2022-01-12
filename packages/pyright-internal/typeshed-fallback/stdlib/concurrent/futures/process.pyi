@@ -31,7 +31,6 @@ _MAX_WINDOWS_WORKERS: int
 class _RemoteTraceback(Exception):
     tb: str
     def __init__(self, tb: TracebackType) -> None: ...
-    def __str__(self) -> str: ...
 
 class _ExceptionWithTraceback:
     exc: BaseException

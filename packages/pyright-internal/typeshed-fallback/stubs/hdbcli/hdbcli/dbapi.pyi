@@ -1,7 +1,7 @@
 import decimal
 from _typeshed import ReadableBuffer
 from datetime import date, datetime, time
-from typing import Any, Sequence, Type, overload
+from typing import Any, Sequence, overload
 from typing_extensions import Literal
 
 from .resultrow import ResultRow
@@ -108,8 +108,8 @@ def Binary(data: ReadableBuffer) -> memoryview: ...
 
 Decimal = decimal.Decimal
 
-NUMBER: Type[int] | Type[float] | Type[complex]
-DATETIME: Type[date] | Type[time] | Type[datetime]
+NUMBER: type[int] | type[float] | type[complex]
+DATETIME: type[date] | type[time] | type[datetime]
 STRING = str
 BINARY = memoryview
 ROWID = int

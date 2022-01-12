@@ -1,7 +1,7 @@
 import unittest.case
 import unittest.result
 import unittest.suite
-from typing import Callable, TextIO, Type
+from typing import Callable, TextIO
 
 _ResultClassType = Callable[[TextIO, bool, int], unittest.result.TestResult]
 
@@ -27,7 +27,7 @@ class TextTestRunner:
         failfast: bool = ...,
         buffer: bool = ...,
         resultclass: _ResultClassType | None = ...,
-        warnings: Type[Warning] | None = ...,
+        warnings: type[Warning] | None = ...,
         *,
         tb_locals: bool = ...,
     ) -> None: ...

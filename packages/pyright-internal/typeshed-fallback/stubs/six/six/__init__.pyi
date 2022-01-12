@@ -8,7 +8,7 @@ from collections.abc import Callable, ItemsView, Iterable, Iterator as _Iterator
 from functools import wraps as wraps
 from importlib.util import spec_from_loader as spec_from_loader
 from io import BytesIO as BytesIO, StringIO as StringIO
-from typing import Any, AnyStr, NoReturn, Pattern, Type, TypeVar, overload
+from typing import Any, AnyStr, NoReturn, Pattern, TypeVar, overload
 from typing_extensions import Literal
 
 from . import moves as moves
@@ -24,9 +24,9 @@ PY2: Literal[False]
 PY3: Literal[True]
 PY34: Literal[True]
 
-string_types: tuple[Type[str]]
-integer_types: tuple[Type[int]]
-class_types: tuple[Type[Type[Any]]]
+string_types: tuple[type[str]]
+integer_types: tuple[type[int]]
+class_types: tuple[type[type[Any]]]
 text_type = str
 binary_type = bytes
 
@@ -77,8 +77,8 @@ def assertRegex(
 
 exec_ = exec
 
-def reraise(tp: Type[BaseException] | None, value: BaseException | None, tb: types.TracebackType | None = ...) -> NoReturn: ...
-def raise_from(value: BaseException | Type[BaseException], from_value: BaseException | None) -> NoReturn: ...
+def reraise(tp: type[BaseException] | None, value: BaseException | None, tb: types.TracebackType | None = ...) -> NoReturn: ...
+def raise_from(value: BaseException | type[BaseException], from_value: BaseException | None) -> NoReturn: ...
 
 print_ = print
 

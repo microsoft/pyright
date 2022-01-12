@@ -7,7 +7,7 @@ import ctypes
 import mmap
 import sys
 from os import PathLike
-from typing import AbstractSet, Any, Awaitable, Container, Generic, Iterable, Protocol, Type, TypeVar, Union
+from typing import AbstractSet, Any, Awaitable, Container, Generic, Iterable, Protocol, TypeVar, Union
 from typing_extensions import Final, Literal, final
 
 _KT = TypeVar("_KT")
@@ -215,4 +215,4 @@ class structseq(Generic[_T_co]):
     # The second parameter will accept a dict of any kind without raising an exception,
     # but only has any meaning if you supply it a dict where the keys are strings.
     # https://github.com/python/typeshed/pull/6560#discussion_r767149830
-    def __new__(cls: Type[_T], sequence: Iterable[_T_co], dict: dict[str, Any] = ...) -> _T: ...
+    def __new__(cls: type[Self], sequence: Iterable[_T_co], dict: dict[str, Any] = ...) -> Self: ...

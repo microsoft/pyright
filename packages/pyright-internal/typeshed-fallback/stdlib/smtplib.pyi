@@ -4,7 +4,7 @@ from email.message import Message as _Message
 from socket import socket
 from ssl import SSLContext
 from types import TracebackType
-from typing import Any, Pattern, Protocol, Sequence, Type, Union, overload
+from typing import Any, Pattern, Protocol, Sequence, Union, overload
 
 _Reply = tuple[int, bytes]
 _SendErrs = dict[str, _Reply]
@@ -79,7 +79,7 @@ class SMTP:
     ) -> None: ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
-        self, exc_type: Type[BaseException] | None, exc_value: BaseException | None, tb: TracebackType | None
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, tb: TracebackType | None
     ) -> None: ...
     def set_debuglevel(self, debuglevel: int) -> None: ...
     def connect(self, host: str = ..., port: int = ..., source_address: _SourceAddress | None = ...) -> _Reply: ...

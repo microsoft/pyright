@@ -1,8 +1,8 @@
 import sys
-from typing import Any, Awaitable, Callable, Generic, Iterable, Mapping, Sequence, Type, TypeVar, overload
+from typing import Any, Awaitable, Callable, Generic, Iterable, Mapping, Sequence, TypeVar, overload
 
 _T = TypeVar("_T")
-_TT = TypeVar("_TT", bound=Type[Any])
+_TT = TypeVar("_TT", bound=type[Any])
 _R = TypeVar("_R")
 
 if sys.version_info >= (3, 8):
@@ -106,10 +106,10 @@ class NonCallableMock(Base, Any):
     def __new__(__cls, *args: Any, **kw: Any) -> NonCallableMock: ...
     def __init__(
         self,
-        spec: list[str] | object | Type[object] | None = ...,
+        spec: list[str] | object | type[object] | None = ...,
         wraps: Any | None = ...,
         name: str | None = ...,
-        spec_set: list[str] | object | Type[object] | None = ...,
+        spec_set: list[str] | object | type[object] | None = ...,
         parent: NonCallableMock | None = ...,
         _spec_state: Any | None = ...,
         _new_name: str = ...,
@@ -258,7 +258,7 @@ class _patch_dict:
 
 class _patcher:
     TEST_PREFIX: str
-    dict: Type[_patch_dict]
+    dict: type[_patch_dict]
     if sys.version_info >= (3, 8):
         # This overload also covers the case, where new==DEFAULT. In this case, the return type is _patch[Any].
         # Ideally we'd be able to add an overload for it so that the return type is _patch[MagicMock],
@@ -406,7 +406,7 @@ if sys.version_info >= (3, 8):
         await_args_list: _CallList
     class AsyncMagicMixin(MagicMixin):
         def __init__(self, *args: Any, **kw: Any) -> None: ...
-    class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock): ...
+    class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock): ...  # type: ignore # argument disparities between base classes
 
 class MagicProxy:
     name: Any

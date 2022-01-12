@@ -5,7 +5,7 @@ from enum import Enum
 from tkinter.constants import *
 from tkinter.font import _FontDescription
 from types import TracebackType
-from typing import Any, Callable, Generic, Mapping, Optional, Protocol, Sequence, Type, TypeVar, Union, overload
+from typing import Any, Callable, Generic, Mapping, Optional, Protocol, Sequence, TypeVar, Union, overload
 from typing_extensions import Literal, TypedDict
 
 # Using anything from tkinter.font in this file means that 'import tkinter'
@@ -571,7 +571,7 @@ class Wm:
     withdraw = wm_withdraw
 
 class _ExceptionReportingCallback(Protocol):
-    def __call__(self, __exc: Type[BaseException], __val: BaseException, __tb: TracebackType | None) -> Any: ...
+    def __call__(self, __exc: type[BaseException], __val: BaseException, __tb: TracebackType | None) -> Any: ...
 
 class Tk(Misc, Wm):
     master: None

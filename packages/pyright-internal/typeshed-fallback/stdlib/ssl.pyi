@@ -2,7 +2,7 @@ import enum
 import socket
 import sys
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
-from typing import Any, Callable, ClassVar, Iterable, NamedTuple, Optional, Type, Union, overload
+from typing import Any, Callable, ClassVar, Iterable, NamedTuple, Optional, Union, overload
 from typing_extensions import Literal, TypedDict
 
 _PCTRTT = tuple[tuple[str, str], ...]
@@ -294,9 +294,9 @@ class _ASN1Object(NamedTuple):
     longname: str
     oid: str
     @classmethod
-    def fromnid(cls: Type[Self], nid: int) -> Self: ...
+    def fromnid(cls: type[Self], nid: int) -> Self: ...
     @classmethod
-    def fromname(cls: Type[Self], name: str) -> Self: ...
+    def fromname(cls: type[Self], name: str) -> Self: ...
 
 class Purpose(_ASN1Object, enum.Enum):
     SERVER_AUTH: _ASN1Object
@@ -391,8 +391,8 @@ class SSLContext:
         maximum_version: TLSVersion
         minimum_version: TLSVersion
         sni_callback: Callable[[SSLObject, str, SSLContext], None | int] | None
-        sslobject_class: ClassVar[Type[SSLObject]]
-        sslsocket_class: ClassVar[Type[SSLSocket]]
+        sslobject_class: ClassVar[type[SSLObject]]
+        sslsocket_class: ClassVar[type[SSLSocket]]
     if sys.version_info >= (3, 8):
         keylog_filename: str
         post_handshake_auth: bool

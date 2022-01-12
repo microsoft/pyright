@@ -1,4 +1,4 @@
-from typing import Any, Type
+from typing import Any
 
 from pyVmomi.vim import ManagedEntity
 from pyVmomi.vim.view import ContainerView
@@ -6,17 +6,17 @@ from pyVmomi.vmodl import DynamicProperty
 
 class PropertyCollector:
     class PropertySpec:
-        def __init__(self, *, all: bool = ..., type: Type[ManagedEntity] = ..., pathSet: list[str] = ...) -> None: ...
+        def __init__(self, *, all: bool = ..., type: type[ManagedEntity] = ..., pathSet: list[str] = ...) -> None: ...
         all: bool
-        type: Type[ManagedEntity]
+        type: type[ManagedEntity]
         pathSet: list[str]
     class TraversalSpec:
         def __init__(
-            self, *, path: str = ..., skip: bool = ..., type: Type[ContainerView] = ..., **kwargs: Any  # incomplete
+            self, *, path: str = ..., skip: bool = ..., type: type[ContainerView] = ..., **kwargs: Any  # incomplete
         ) -> None: ...
         path: str
         skip: bool
-        type: Type[ContainerView]
+        type: type[ContainerView]
         def __getattr__(self, name: str) -> Any: ...  # incomplete
     class RetrieveOptions:
         def __init__(self, *, maxObjects: int) -> None: ...

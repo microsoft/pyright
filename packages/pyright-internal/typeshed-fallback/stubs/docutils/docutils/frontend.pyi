@@ -1,7 +1,7 @@
 import optparse
 from collections.abc import Iterable, Mapping
 from configparser import RawConfigParser
-from typing import Any, ClassVar, Type
+from typing import Any, ClassVar
 
 from docutils import SettingsSpec
 from docutils.parsers import Parser
@@ -64,7 +64,7 @@ class OptionParser(optparse.OptionParser, SettingsSpec):
     version_template: ClassVar[str]
     def __init__(
         self,
-        components: Iterable[Type[Parser]] = ...,
+        components: Iterable[type[Parser]] = ...,
         defaults: Mapping[str, Any] | None = ...,
         read_config_files: bool | None = ...,
         *args,

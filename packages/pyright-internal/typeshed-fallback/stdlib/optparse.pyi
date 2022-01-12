@@ -1,4 +1,4 @@
-from typing import IO, Any, AnyStr, Callable, Iterable, Mapping, Sequence, Type, overload
+from typing import IO, Any, AnyStr, Callable, Iterable, Mapping, Sequence, overload
 
 NO_DEFAULT: tuple[str, ...]
 SUPPRESS_HELP: str
@@ -119,8 +119,8 @@ class OptionContainer:
     conflict_handler: str
     defaults: dict[str, Any]
     description: Any
-    option_class: Type[Option]
-    def __init__(self, option_class: Type[Option], conflict_handler: Any, description: Any) -> None: ...
+    option_class: type[Option]
+    def __init__(self, option_class: type[Option], conflict_handler: Any, description: Any) -> None: ...
     def _check_conflict(self, option: Any) -> None: ...
     def _create_option_mappings(self) -> None: ...
     def _share_option_mappings(self, parser: OptionParser) -> None: ...
@@ -177,7 +177,7 @@ class OptionParser(OptionContainer):
         self,
         usage: str | None = ...,
         option_list: Iterable[Option] | None = ...,
-        option_class: Type[Option] = ...,
+        option_class: type[Option] = ...,
         version: str | None = ...,
         conflict_handler: str = ...,
         description: str | None = ...,

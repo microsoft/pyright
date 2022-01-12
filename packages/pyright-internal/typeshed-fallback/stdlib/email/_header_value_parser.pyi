@@ -1,10 +1,9 @@
 import sys
+from _typeshed import Self
 from email.errors import HeaderParseError, MessageDefect
 from email.policy import Policy
-from typing import Any, Iterable, Iterator, Pattern, Type, TypeVar, Union
+from typing import Any, Iterable, Iterator, Pattern, Union
 from typing_extensions import Final
-
-_T = TypeVar("_T")
 
 WSP: Final[set[str]]
 CFWS_LEADER: Final[set[str]]
@@ -327,7 +326,7 @@ class Terminal(str):
     syntactic_break: bool
     token_type: str
     defects: list[MessageDefect]
-    def __new__(cls: Type[_T], value: str, token_type: str) -> _T: ...
+    def __new__(cls: type[Self], value: str, token_type: str) -> Self: ...
     def pprint(self) -> None: ...
     @property
     def all_defects(self) -> list[MessageDefect]: ...

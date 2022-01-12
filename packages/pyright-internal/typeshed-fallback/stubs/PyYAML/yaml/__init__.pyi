@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from typing import IO, Any, Pattern, Type, TypeVar, overload
+from typing import IO, Any, Pattern, TypeVar, overload
 
 from . import resolver as resolver  # Help mypy a bit; this is implied by loader and dumper
 from .constructor import BaseConstructor
@@ -270,39 +270,39 @@ def add_implicit_resolver(
     tag: str,
     regexp: Pattern[str],
     first: Iterable[Any] | None = ...,
-    Loader: Type[BaseResolver] | None = ...,
-    Dumper: Type[BaseResolver] = ...,
+    Loader: type[BaseResolver] | None = ...,
+    Dumper: type[BaseResolver] = ...,
 ) -> None: ...
 def add_path_resolver(
     tag: str,
     path: Iterable[Any],
-    kind: Type[Any] | None = ...,
-    Loader: Type[BaseResolver] | None = ...,
-    Dumper: Type[BaseResolver] = ...,
+    kind: type[Any] | None = ...,
+    Loader: type[BaseResolver] | None = ...,
+    Dumper: type[BaseResolver] = ...,
 ) -> None: ...
 @overload
 def add_constructor(
     tag: str, constructor: Callable[[Loader | FullLoader | UnsafeLoader, Node], Any], Loader: None = ...
 ) -> None: ...
 @overload
-def add_constructor(tag: str, constructor: Callable[[_Constructor, Node], Any], Loader: Type[_Constructor]) -> None: ...
+def add_constructor(tag: str, constructor: Callable[[_Constructor, Node], Any], Loader: type[_Constructor]) -> None: ...
 @overload
 def add_multi_constructor(
     tag_prefix: str, multi_constructor: Callable[[Loader | FullLoader | UnsafeLoader, str, Node], Any], Loader: None = ...
 ) -> None: ...
 @overload
 def add_multi_constructor(
-    tag_prefix: str, multi_constructor: Callable[[_Constructor, str, Node], Any], Loader: Type[_Constructor]
+    tag_prefix: str, multi_constructor: Callable[[_Constructor, str, Node], Any], Loader: type[_Constructor]
 ) -> None: ...
 @overload
-def add_representer(data_type: Type[_T], representer: Callable[[Dumper, _T], Node]) -> None: ...
+def add_representer(data_type: type[_T], representer: Callable[[Dumper, _T], Node]) -> None: ...
 @overload
-def add_representer(data_type: Type[_T], representer: Callable[[_Representer, _T], Node], Dumper: Type[_Representer]) -> None: ...
+def add_representer(data_type: type[_T], representer: Callable[[_Representer, _T], Node], Dumper: type[_Representer]) -> None: ...
 @overload
-def add_multi_representer(data_type: Type[_T], multi_representer: Callable[[Dumper, _T], Node]) -> None: ...
+def add_multi_representer(data_type: type[_T], multi_representer: Callable[[Dumper, _T], Node]) -> None: ...
 @overload
 def add_multi_representer(
-    data_type: Type[_T], multi_representer: Callable[[_Representer, _T], Node], Dumper: Type[_Representer]
+    data_type: type[_T], multi_representer: Callable[[_Representer, _T], Node], Dumper: type[_Representer]
 ) -> None: ...
 
 class YAMLObjectMetaclass(type):

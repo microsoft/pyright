@@ -4,7 +4,7 @@ import sys
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
 from os import _Opener
 from types import TracebackType
-from typing import IO, Any, BinaryIO, Callable, Iterable, Iterator, TextIO, Type
+from typing import IO, Any, BinaryIO, Callable, Iterable, Iterator, TextIO
 
 DEFAULT_BUFFER_SIZE: int
 
@@ -26,7 +26,7 @@ class IOBase:
     def __next__(self) -> bytes: ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
-        self, exc_type: Type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> bool | None: ...
     def close(self) -> None: ...
     def fileno(self) -> int: ...
@@ -63,7 +63,7 @@ class BufferedIOBase(IOBase):
     def read(self, __size: int | None = ...) -> bytes: ...
     def read1(self, __size: int = ...) -> bytes: ...
 
-class FileIO(RawIOBase, BinaryIO):
+class FileIO(RawIOBase, BinaryIO):  # type: ignore # argument disparities between the base classes
     mode: str
     name: StrOrBytesPath | int  # type: ignore[assignment]
     def __init__(
@@ -75,7 +75,7 @@ class FileIO(RawIOBase, BinaryIO):
     def read(self, __size: int = ...) -> bytes: ...
     def __enter__(self: Self) -> Self: ...
 
-class BytesIO(BufferedIOBase, BinaryIO):
+class BytesIO(BufferedIOBase, BinaryIO):  # type: ignore # argument disparities between the base classes
     def __init__(self, initial_bytes: bytes = ...) -> None: ...
     # BytesIO does not contain a "name" field. This workaround is necessary
     # to allow BytesIO sub-classes to add this field, as it is defined
@@ -89,7 +89,7 @@ class BytesIO(BufferedIOBase, BinaryIO):
     else:
         def read1(self, __size: int | None) -> bytes: ...  # type: ignore[override]
 
-class BufferedReader(BufferedIOBase, BinaryIO):
+class BufferedReader(BufferedIOBase, BinaryIO):  # type: ignore # argument disparities between base classes
     def __enter__(self: Self) -> Self: ...
     def __init__(self, raw: RawIOBase, buffer_size: int = ...) -> None: ...
     def peek(self, __size: int = ...) -> bytes: ...
@@ -98,7 +98,7 @@ class BufferedReader(BufferedIOBase, BinaryIO):
     else:
         def read1(self, __size: int) -> bytes: ...  # type: ignore[override]
 
-class BufferedWriter(BufferedIOBase, BinaryIO):
+class BufferedWriter(BufferedIOBase, BinaryIO):  # type: ignore # argument disparities between base classes
     def __enter__(self: Self) -> Self: ...
     def __init__(self, raw: RawIOBase, buffer_size: int = ...) -> None: ...
     def write(self, __buffer: ReadableBuffer) -> int: ...
@@ -130,7 +130,7 @@ class TextIOBase(IOBase):
     def read(self, __size: int | None = ...) -> str: ...
     def tell(self) -> int: ...
 
-class TextIOWrapper(TextIOBase, TextIO):
+class TextIOWrapper(TextIOBase, TextIO):  # type: ignore # argument disparities between base classes
     def __init__(
         self,
         buffer: IO[bytes],

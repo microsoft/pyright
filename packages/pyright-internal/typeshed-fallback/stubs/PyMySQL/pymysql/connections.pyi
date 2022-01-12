@@ -1,5 +1,5 @@
 from socket import socket as _socket
-from typing import Any, AnyStr, Generic, Mapping, Type, TypeVar, overload
+from typing import Any, AnyStr, Generic, Mapping, TypeVar, overload
 
 from .charset import charset_by_id as charset_by_id, charset_by_name as charset_by_name
 from .constants import CLIENT as CLIENT, COMMAND as COMMAND, FIELD_TYPE as FIELD_TYPE, SERVER_STATUS as SERVER_STATUS
@@ -133,7 +133,7 @@ class Connection(Generic[_C]):
         conv=...,
         use_unicode: bool | None = ...,
         client_flag: int = ...,
-        cursorclass: Type[_C] = ...,  # different between overloads
+        cursorclass: type[_C] = ...,  # different between overloads
         init_command: Any | None = ...,
         connect_timeout: int | None = ...,
         ssl: Mapping[Any, Any] | None = ...,
@@ -178,7 +178,7 @@ class Connection(Generic[_C]):
     @overload
     def cursor(self, cursor: None = ...) -> _C: ...
     @overload
-    def cursor(self, cursor: Type[_C2]) -> _C2: ...
+    def cursor(self, cursor: type[_C2]) -> _C2: ...
     def query(self, sql, unbuffered: bool = ...) -> int: ...
     def next_result(self, unbuffered: bool = ...) -> int: ...
     def affected_rows(self): ...

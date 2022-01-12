@@ -1,6 +1,6 @@
 import sys
 from types import ModuleType
-from typing import Any, Container, Iterable, Sequence, Type
+from typing import Any, Container, Iterable, Sequence
 from typing_extensions import Literal
 
 if sys.platform == "win32":
@@ -34,8 +34,8 @@ if sys.platform == "win32":
     def change_sequence(
         seq: Sequence[tuple[str, str | None, int]],
         action: str,
-        seqno: int | Type[_Unspecified] = ...,
-        cond: str | Type[_Unspecified] = ...,
+        seqno: int | type[_Unspecified] = ...,
+        cond: str | type[_Unspecified] = ...,
     ) -> None: ...
     def add_data(db: _Database, table: str, values: Iterable[tuple[Any, ...]]) -> None: ...
     def add_stream(db: _Database, name: str, path: str) -> None: ...
@@ -95,7 +95,6 @@ if sys.platform == "win32":
 
         name: str
         def __init__(self, fname: str) -> None: ...
-        def __repr__(self) -> str: ...
     class Feature:
 
         id: str
