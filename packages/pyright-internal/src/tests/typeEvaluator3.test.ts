@@ -983,6 +983,12 @@ test('Decorator5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Decorator6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 

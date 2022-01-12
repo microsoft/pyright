@@ -14882,6 +14882,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 switch (decoratorType.details.name) {
                     case 'classmethod':
                     case 'staticmethod': {
+                        const requiredFlag =
+                            decoratorType.details.name === 'classmethod'
+                                ? FunctionTypeFlags.ClassMethod
+                                : FunctionTypeFlags.StaticMethod;
+
+                        // If the function isn't currently a class method or static method
+                        // (which can happen if the function was wrapped in a decorator),
+                        // add the appropriate flag.
+                        if (isFunction(inputFunctionType) && (inputFunctionType.details.flags & requiredFlag) === 0) {
+                            const newFunction = FunctionType.clone(inputFunctionType);
+                            newFunction.details.flags &= ~(
+                                FunctionTypeFlags.ConstructorMethod |
+                                FunctionTypeFlags.StaticMethod |
+                                FunctionTypeFlags.ClassMethod
+                            );
+                            newFunction.details.flags |= requiredFlag;
+                            return newFunction;
+                        }
+
                         return inputFunctionType;
                     }
                 }
