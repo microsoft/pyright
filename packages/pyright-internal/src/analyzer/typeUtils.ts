@@ -716,6 +716,37 @@ export function containsLiteralType(type: Type, includeTypeArgs = false, recursi
     return false;
 }
 
+// If all of the subtypes are literals with the same built-in class (e.g.
+// all 'int' or all 'str'), this function returns the name of that type. If
+// some of the subtypes are not literals or the literal classes don't match,
+// it returns undefined.
+export function getLiteralTypeClassName(type: Type): string | undefined {
+    if (isClassInstance(type)) {
+        if (type.literalValue !== undefined && ClassType.isBuiltIn(type)) {
+            return type.details.name;
+        }
+        return undefined;
+    }
+
+    if (isUnion(type)) {
+        let className: string | undefined;
+        let foundMismatch = false;
+
+        doForEachSubtype(type, (subtype) => {
+            const subtypeLiteralTypeName = getLiteralTypeClassName(subtype);
+            if (!subtypeLiteralTypeName) {
+                foundMismatch = true;
+            } else if (!className) {
+                className = subtypeLiteralTypeName;
+            }
+        });
+
+        return foundMismatch ? undefined : className;
+    }
+
+    return undefined;
+}
+
 export function isEllipsisType(type: Type): boolean {
     return isAny(type) && type.isEllipsis;
 }

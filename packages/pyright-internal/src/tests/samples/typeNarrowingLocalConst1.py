@@ -130,7 +130,7 @@ def func9(var: Optional[str] = None):
     if 1 > 1 + 2:
         var = None
     else:
-        var = "" + ""
+        var = "a" + "b"
 
     if var_not_None:
-        t4: Literal["str | None"] = reveal_type(var)
+        t4: Literal["Literal['ab'] | None"] = reveal_type(var)
