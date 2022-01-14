@@ -576,15 +576,21 @@ export function getEnclosingClassOrModule(node: ParseNode, stopAtFunction = fals
 
 export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined {
     let curNode = node.parent;
+    let prevNode: ParseNode | undefined;
+
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Function) {
-            return curNode;
+            // Don't treat a decorator as being "enclosed" in the function.
+            if (!curNode.decorators.some((decorator) => decorator === prevNode)) {
+                return curNode;
+            }
         }
 
         if (curNode.nodeType === ParseNodeType.Class) {
             return undefined;
         }
 
+        prevNode = curNode;
         curNode = curNode.parent;
     }
 
