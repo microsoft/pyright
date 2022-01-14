@@ -561,7 +561,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'error',
         reportInconsistentConstructor: 'error',
         reportOverlappingOverload: 'error',
-        reportMissingSuperCall: 'error',
+        reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',

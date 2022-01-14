@@ -310,7 +310,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |
 | reportInconsistentConstructor             | "none"     | "none"     | "error"    |
 | reportOverlappingOverload                 | "none"     | "none"     | "error"    |
-| reportMissingSuperCall                    | "none"     | "none"     | "error"    |
+| reportMissingSuperCall                    | "none"     | "none"     | "none"     |
 | reportUninitializedInstanceVariable       | "none"     | "none"     | "none"     |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "error"    |
 | reportUnknownParameterType                | "none"     | "none"     | "error"    |
