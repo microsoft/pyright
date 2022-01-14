@@ -109,6 +109,13 @@ import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { assignTypeToPatternTargets, narrowTypeBasedOnPattern } from './patternMatching';
+import {
+    canAssignProperty,
+    clonePropertyWithDeleter,
+    clonePropertyWithSetter,
+    createProperty,
+    validatePropertyMethod,
+} from './properties';
 import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
@@ -189,7 +196,6 @@ import {
     TypeCategory,
     TypeCondition,
     TypedDictEntry,
-    TypeSourceId,
     TypeVarScopeId,
     TypeVarScopeType,
     TypeVarType,
@@ -14958,19 +14964,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* expectedType */ undefined,
                     evaluatorFlags | EvaluatorFlags.DoNotSpecialize
                 ).type;
+
                 if (isProperty(baseType)) {
                     const memberName = decoratorNode.expression.memberName.value;
                     if (memberName === 'setter') {
                         if (isFunction(inputFunctionType)) {
-                            validatePropertyMethod(inputFunctionType, decoratorNode);
-                            return clonePropertyWithSetter(baseType, inputFunctionType, functionNode);
+                            validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
+                            return clonePropertyWithSetter(
+                                evaluatorInterface,
+                                baseType,
+                                inputFunctionType,
+                                functionNode
+                            );
                         } else {
                             return inputFunctionType;
                         }
                     } else if (memberName === 'deleter') {
                         if (isFunction(inputFunctionType)) {
-                            validatePropertyMethod(inputFunctionType, decoratorNode);
-                            return clonePropertyWithDeleter(baseType, inputFunctionType, functionNode);
+                            validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
+                            return clonePropertyWithDeleter(
+                                evaluatorInterface,
+                                baseType,
+                                inputFunctionType,
+                                functionNode
+                            );
                         } else {
                             return inputFunctionType;
                         }
@@ -15009,8 +15026,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle properties and subclasses of properties specially.
             if (ClassType.isPropertyClass(decoratorType)) {
                 if (isFunction(inputFunctionType)) {
-                    validatePropertyMethod(inputFunctionType, decoratorNode);
+                    validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
                     return createProperty(
+                        evaluatorInterface,
                         decoratorNode,
                         decoratorType.details.name,
                         inputFunctionType,
@@ -15024,6 +15042,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const boundMethod = bindFunctionToClassOrObject(inputFunctionType, memberType);
                             if (boundMethod && isFunction(boundMethod)) {
                                 return createProperty(
+                                    evaluatorInterface,
                                     decoratorNode,
                                     decoratorType.details.name,
                                     boundMethod,
@@ -15054,323 +15073,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return returnType;
-    }
-
-    function validatePropertyMethod(method: FunctionType, errorNode: ParseNode) {
-        if (FunctionType.isStaticMethod(method)) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.propertyStaticMethod(),
-                errorNode
-            );
-        }
-    }
-
-    function createProperty(
-        decoratorNode: DecoratorNode,
-        className: string,
-        fget: FunctionType,
-        typeSourceId: TypeSourceId
-    ): ClassType {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(decoratorNode);
-        const typeMetaclass = getBuiltInType(decoratorNode, 'type');
-        const propertyClass = ClassType.createInstantiable(
-            className,
-            ParseTreeUtils.getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
-            fileInfo.moduleName,
-            fileInfo.filePath,
-            ClassTypeFlags.PropertyClass,
-            typeSourceId,
-            /* declaredMetaclass */ undefined,
-            isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
-        );
-        computeMroLinearization(propertyClass);
-
-        const propertyObject = ClassType.cloneAsInstance(propertyClass);
-        propertyClass.isAsymmetricDescriptor = false;
-
-        // Fill in the fget method.
-        const fields = propertyClass.details.fields;
-        const fgetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fget);
-        fields.set('fget', fgetSymbol);
-
-        if (FunctionType.isClassMethod(fget)) {
-            propertyClass.details.flags |= ClassTypeFlags.ClassProperty;
-        }
-
-        // Fill in the __get__ method with an overload.
-        const getFunction1 = FunctionType.createInstance(
-            '__get__',
-            '',
-            '',
-            FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-        );
-        getFunction1.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: propertyObject,
-            hasDeclaredType: true,
-        });
-        getFunction1.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'obj',
-            type: NoneType.createInstance(),
-            hasDeclaredType: true,
-        });
-        getFunction1.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'objtype',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-            hasDefault: true,
-            defaultType: AnyType.create(),
-        });
-        getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
-            ? FunctionType.getSpecializedReturnType(fget)
-            : propertyObject;
-        getFunction1.details.declaration = fget.details.declaration;
-
-        const getFunction2 = FunctionType.createInstance(
-            '__get__',
-            '',
-            '',
-            FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-        );
-        getFunction2.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: propertyObject,
-            hasDeclaredType: true,
-        });
-
-        // Use the type of the "self" parameter for the object type. If it
-        // was a synthesized "self" TypeVar with a bound type, use the bound
-        // type instead. Note that this might also be a "cls" parameter if
-        // the property is a classmethod.
-        let objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
-        if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
-            objType = makeTopLevelTypeVarsConcrete(objType);
-        }
-        getFunction2.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'obj',
-            type: objType,
-            hasDeclaredType: true,
-        });
-        getFunction2.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'objtype',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-            hasDefault: true,
-            defaultType: AnyType.create(),
-        });
-        getFunction2.details.declaredReturnType = FunctionType.getSpecializedReturnType(fget);
-        getFunction2.details.declaration = fget.details.declaration;
-
-        // Override the scope ID since we're using parameter types from the
-        // decorated function.
-        getFunction2.details.typeVarScopeId = getTypeVarScopeId(fget);
-
-        const getFunctionOverload = OverloadedFunctionType.create([getFunction1, getFunction2]);
-        const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunctionOverload);
-        fields.set('__get__', getSymbol);
-
-        // Fill in the getter, setter and deleter methods.
-        ['getter', 'setter', 'deleter'].forEach((accessorName) => {
-            const accessorFunction = FunctionType.createInstance(
-                accessorName,
-                '',
-                '',
-                FunctionTypeFlags.SynthesizedMethod
-            );
-            accessorFunction.details.parameters.push({
-                category: ParameterCategory.Simple,
-                name: 'self',
-                type: AnyType.create(),
-                hasDeclaredType: true,
-            });
-            accessorFunction.details.parameters.push({
-                category: ParameterCategory.Simple,
-                name: 'accessor',
-                type: AnyType.create(),
-                hasDeclaredType: true,
-            });
-            accessorFunction.details.declaredReturnType = propertyObject;
-            const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
-            fields.set(accessorName, accessorSymbol);
-        });
-
-        return propertyObject;
-    }
-
-    function clonePropertyWithSetter(prop: Type, fset: FunctionType, errorNode: FunctionNode): Type {
-        if (!isProperty(prop)) {
-            return prop;
-        }
-
-        const classType = prop as ClassType;
-        const flagsToClone = classType.details.flags;
-        let isAsymmetricDescriptor = !!classType.isAsymmetricDescriptor;
-
-        // Verify parameters for fset.
-        // We'll skip this test if the diagnostic rule is disabled because it
-        // can be somewhat expensive, especially in code that is not annotated.
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-        if (errorNode.parameters.length >= 2) {
-            const typeAnnotation = getTypeAnnotationForParameter(errorNode, 1);
-            if (typeAnnotation) {
-                // Verify consistency of the type.
-                const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
-                if (fgetType && !isAnyOrUnknown(fgetType)) {
-                    const fsetType = getTypeOfAnnotation(typeAnnotation, {
-                        associateTypeVarsWithScope: true,
-                        disallowRecursiveTypeAlias: true,
-                    });
-
-                    // The setter type should be assignable to the getter type.
-                    if (fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch !== 'none') {
-                        const diag = new DiagnosticAddendum();
-                        if (!canAssignType(fgetType, fsetType, diag)) {
-                            addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch,
-                                DiagnosticRule.reportPropertyTypeMismatch,
-                                Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
-                                typeAnnotation
-                            );
-                        }
-                    }
-
-                    if (!isTypeSame(fgetType, fsetType)) {
-                        isAsymmetricDescriptor = true;
-                    }
-                }
-            }
-        }
-
-        const propertyClass = ClassType.createInstantiable(
-            classType.details.name,
-            classType.details.fullName,
-            classType.details.moduleName,
-            AnalyzerNodeInfo.getFileInfo(errorNode).filePath,
-            flagsToClone,
-            classType.details.typeSourceId,
-            classType.details.declaredMetaclass,
-            classType.details.effectiveMetaclass
-        );
-        computeMroLinearization(propertyClass);
-
-        const propertyObject = ClassType.cloneAsInstance(propertyClass);
-        propertyClass.isAsymmetricDescriptor = isAsymmetricDescriptor;
-
-        // Clone the symbol table of the old class type.
-        const fields = propertyClass.details.fields;
-        classType.details.fields.forEach((symbol, name) => {
-            if (!symbol.isIgnoredForProtocolMatch()) {
-                fields.set(name, symbol);
-            }
-        });
-
-        // Fill in the fset method.
-        const fsetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fset);
-        fields.set('fset', fsetSymbol);
-
-        // Fill in the __set__ method.
-        const setFunction = FunctionType.createInstance('__set__', '', '', FunctionTypeFlags.SynthesizedMethod);
-        setFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: prop,
-            hasDeclaredType: true,
-        });
-        let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
-        if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
-            objType = makeTopLevelTypeVarsConcrete(objType);
-        }
-        setFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'obj',
-            type: combineTypes([objType, NoneType.createInstance()]),
-            hasDeclaredType: true,
-        });
-        setFunction.details.declaredReturnType = NoneType.createInstance();
-        let setParamType: Type = UnknownType.create();
-        if (
-            fset.details.parameters.length >= 2 &&
-            fset.details.parameters[1].category === ParameterCategory.Simple &&
-            fset.details.parameters[1].name
-        ) {
-            setParamType = fset.details.parameters[1].type;
-        }
-        setFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'value',
-            type: setParamType,
-            hasDeclaredType: true,
-        });
-        const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
-        fields.set('__set__', setSymbol);
-
-        return propertyObject;
-    }
-
-    function clonePropertyWithDeleter(prop: Type, fdel: FunctionType, errorNode: FunctionNode): Type {
-        if (!isProperty(prop)) {
-            return prop;
-        }
-
-        const classType = prop as ClassType;
-        const propertyClass = ClassType.createInstantiable(
-            classType.details.name,
-            classType.details.fullName,
-            classType.details.moduleName,
-            AnalyzerNodeInfo.getFileInfo(errorNode).filePath,
-            classType.details.flags,
-            classType.details.typeSourceId,
-            classType.details.declaredMetaclass,
-            classType.details.effectiveMetaclass
-        );
-        computeMroLinearization(propertyClass);
-
-        const propertyObject = ClassType.cloneAsInstance(propertyClass);
-        propertyClass.isAsymmetricDescriptor = classType.isAsymmetricDescriptor ?? false;
-
-        // Clone the symbol table of the old class type.
-        const fields = propertyClass.details.fields;
-        classType.details.fields.forEach((symbol, name) => {
-            if (!symbol.isIgnoredForProtocolMatch()) {
-                fields.set(name, symbol);
-            }
-        });
-
-        // Fill in the fdel method.
-        const fdelSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fdel);
-        fields.set('fdel', fdelSymbol);
-
-        // Fill in the __delete__ method.
-        const delFunction = FunctionType.createInstance('__delete__', '', '', FunctionTypeFlags.SynthesizedMethod);
-        delFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: prop,
-            hasDeclaredType: true,
-        });
-        let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
-        if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
-            objType = makeTopLevelTypeVarsConcrete(objType);
-        }
-        delFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'obj',
-            type: combineTypes([objType, NoneType.createInstance()]),
-            hasDeclaredType: true,
-        });
-        delFunction.details.declaredReturnType = NoneType.createInstance();
-        const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
-        fields.set('__delete__', delSymbol);
-
-        return propertyObject;
     }
 
     // Given a function node and the function type associated with it, this
@@ -18565,6 +18267,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ) {
                                 if (
                                     !canAssignProperty(
+                                        evaluatorInterface,
                                         ClassType.cloneAsInstantiable(destMemberType),
                                         ClassType.cloneAsInstantiable(srcMemberType),
                                         srcType,
@@ -18824,89 +18527,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typesAreConsistent;
     }
 
-    function canAssignProperty(
-        destPropertyType: ClassType,
-        srcPropertyType: ClassType,
-        srcClass: ClassType,
-        diag: DiagnosticAddendum | undefined,
-        typeVarMap?: TypeVarMap,
-        recursionCount = 0
-    ): boolean {
-        const objectToBind = ClassType.cloneAsInstance(srcClass);
-        let isAssignable = true;
-        const accessors: { name: string; missingDiagMsg: () => string; incompatibleDiagMsg: () => string }[] = [
-            {
-                name: 'fget',
-                missingDiagMsg: Localizer.DiagnosticAddendum.missingGetter,
-                incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleGetter,
-            },
-            {
-                name: 'fset',
-                missingDiagMsg: Localizer.DiagnosticAddendum.missingSetter,
-                incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleSetter,
-            },
-            {
-                name: 'fdel',
-                missingDiagMsg: Localizer.DiagnosticAddendum.missingDeleter,
-                incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleDeleter,
-            },
-        ];
-
-        accessors.forEach((accessorInfo) => {
-            const destAccessSymbol = destPropertyType.details.fields.get(accessorInfo.name);
-            const destAccessType = destAccessSymbol ? getDeclaredTypeOfSymbol(destAccessSymbol) : undefined;
-
-            if (destAccessType && isFunction(destAccessType)) {
-                const srcAccessSymbol = srcPropertyType.details.fields.get(accessorInfo.name);
-                const srcAccessType = srcAccessSymbol ? getDeclaredTypeOfSymbol(srcAccessSymbol) : undefined;
-
-                if (!srcAccessType || !isFunction(srcAccessType)) {
-                    if (diag) {
-                        diag.addMessage(accessorInfo.missingDiagMsg());
-                    }
-                    isAssignable = false;
-                    return;
-                }
-
-                const boundDestAccessType = bindFunctionToClassOrObject(
-                    objectToBind,
-                    destAccessType,
-                    /* memberClass */ undefined,
-                    /* errorNode */ undefined,
-                    recursionCount
-                );
-                const boundSrcAccessType = bindFunctionToClassOrObject(
-                    objectToBind,
-                    srcAccessType,
-                    /* memberClass */ undefined,
-                    /* errorNode */ undefined,
-                    recursionCount
-                );
-
-                if (
-                    !boundDestAccessType ||
-                    !boundSrcAccessType ||
-                    !canAssignType(
-                        boundDestAccessType,
-                        boundSrcAccessType,
-                        diag?.createAddendum(),
-                        typeVarMap,
-                        CanAssignFlags.Default,
-                        recursionCount
-                    )
-                ) {
-                    if (diag) {
-                        diag.addMessage('getter type is incompatible');
-                    }
-                    isAssignable = false;
-                    return;
-                }
-            }
-        });
-
-        return isAssignable;
-    }
-
     // This function is used to validate the variance of type variables
     // within a protocol class.
     function canAssignProtocolClassToSelf(destType: ClassType, srcType: ClassType, recursionCount = 0): boolean {
@@ -18938,6 +18558,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         if (
                             !canAssignProperty(
+                                evaluatorInterface,
                                 ClassType.cloneAsInstantiable(destMemberType),
                                 ClassType.cloneAsInstantiable(srcMemberType),
                                 srcType,
