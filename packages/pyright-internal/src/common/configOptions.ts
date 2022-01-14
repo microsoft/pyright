@@ -195,6 +195,9 @@ export interface DiagnosticRuleSet {
     // incompatible return types.
     reportOverlappingOverload: DiagnosticLevel;
 
+    // Report failure to call super().__init__() in __init__ method.
+    reportMissingSuperCall: DiagnosticLevel;
+
     // Report instance variables that are not initialized within
     // the constructor.
     reportUninitializedInstanceVariable: DiagnosticLevel;
@@ -332,6 +335,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportIncompatibleVariableOverride,
         DiagnosticRule.reportInconsistentConstructor,
         DiagnosticRule.reportOverlappingOverload,
+        DiagnosticRule.reportMissingSuperCall,
         DiagnosticRule.reportUninitializedInstanceVariable,
         DiagnosticRule.reportInvalidStringEscapeSequence,
         DiagnosticRule.reportUnknownParameterType,
@@ -409,6 +413,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
+        reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'none',
         reportUnknownParameterType: 'none',
@@ -482,6 +487,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
+        reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
@@ -555,6 +561,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'error',
         reportInconsistentConstructor: 'error',
         reportOverlappingOverload: 'error',
+        reportMissingSuperCall: 'error',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
@@ -1141,6 +1148,13 @@ export class ConfigOptions {
                 configObj.reportOverlappingOverload,
                 DiagnosticRule.reportOverlappingOverload,
                 defaultSettings.reportOverlappingOverload
+            ),
+
+            // Read the "reportMissingSuperCall" entry.
+            reportMissingSuperCall: this._convertDiagnosticLevel(
+                configObj.reportMissingSuperCall,
+                DiagnosticRule.reportMissingSuperCall,
+                defaultSettings.reportMissingSuperCall
             ),
 
             // Read the "reportUninitializedInstanceVariable" entry.

@@ -352,7 +352,7 @@ export class Checker extends ParseTreeWalker {
 
     override visitFunction(node: FunctionNode): boolean {
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
-        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
 
         if (functionTypeResult) {
             // Track whether we have seen a *args: P.args parameter. Named
@@ -4271,6 +4271,19 @@ export class Checker extends ParseTreeWalker {
         const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
         const classType = classTypeInfo?.classType;
 
+        if (node.name && classType) {
+            const superCheckMethods = ['__init__', '__init_subclass__', '__enter__', '__exit__'];
+            if (superCheckMethods.some((name) => name === node.name.value)) {
+                if (
+                    !FunctionType.isAbstractMethod(functionType) &&
+                    !FunctionType.isOverloaded(functionType) &&
+                    !this._fileInfo.isStubFile
+                ) {
+                    this._validateSuperCallForMethod(node, functionType, classType);
+                }
+            }
+        }
+
         if (node.name && node.name.value === '__new__') {
             // __new__ overrides should have a "cls" parameter.
             if (
@@ -4408,6 +4421,110 @@ export class Checker extends ParseTreeWalker {
                 this._validateClsSelfParameterType(functionType, classType, /* isCls */ false);
             }
         }
+    }
+
+    // Determines whether the method properly calls through to the same method in all
+    // parent classes that expose a same-named method.
+    private _validateSuperCallForMethod(node: FunctionNode, methodType: FunctionType, classType: ClassType) {
+        // This is an expensive test, so if it's not enabled, don't do any work.
+        if (this._fileInfo.diagnosticRuleSet.reportMissingSuperCall === 'none') {
+            return;
+        }
+
+        // Determine which parent classes expose a same-named method.
+        let baseClassesToCall: ClassType[] = [];
+        classType.details.baseClasses.forEach((baseClass) => {
+            if (isClass(baseClass)) {
+                const methodMember = lookUpClassMember(
+                    baseClass,
+                    methodType.details.name,
+                    ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                );
+
+                if (methodMember && isClass(methodMember.classType)) {
+                    const methodClass = methodMember.classType;
+                    if (!baseClassesToCall.find((cls) => ClassType.isSameGenericClass(cls, methodClass))) {
+                        baseClassesToCall.push(methodClass);
+                    }
+                }
+            }
+        });
+
+        // Now scan the implementation of the method to determine whether
+        // super().<method> has been called for all of the required base classes.
+        const callNodeWalker = new ParseTreeUtils.CallNodeWalker((node) => {
+            if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
+                // Is it accessing the method by the same name?
+                if (node.leftExpression.memberName.value === methodType.details.name) {
+                    const memberBaseExpr = node.leftExpression.leftExpression;
+
+                    // Is it a "super" call?
+                    if (
+                        memberBaseExpr.nodeType === ParseNodeType.Call &&
+                        memberBaseExpr.leftExpression.nodeType === ParseNodeType.Name &&
+                        memberBaseExpr.leftExpression.value === 'super'
+                    ) {
+                        let targetClassType: Type | undefined;
+
+                        // Is this a zero-argument call to 'super', or is an explicit
+                        // target class provided?
+                        if (memberBaseExpr.arguments.length === 0) {
+                            targetClassType = classType;
+                        } else {
+                            targetClassType = this._evaluator.getTypeOfExpression(
+                                memberBaseExpr.arguments[0].valueExpression
+                            ).type;
+                            targetClassType = this._evaluator.makeTopLevelTypeVarsConcrete(targetClassType);
+                        }
+
+                        if (isAnyOrUnknown(targetClassType)) {
+                            // If the target class is Any or unknown, all bets are off.
+                            baseClassesToCall = [];
+                        } else if (isInstantiableClass(targetClassType)) {
+                            const lookupResults = lookUpClassMember(
+                                targetClassType,
+                                methodType.details.name,
+                                ClassMemberLookupFlags.SkipOriginalClass |
+                                    ClassMemberLookupFlags.SkipInstanceVariables |
+                                    ClassMemberLookupFlags.SkipObjectBaseClass
+                            );
+
+                            if (lookupResults && isInstantiableClass(lookupResults.classType)) {
+                                const baseType = lookupResults.classType;
+
+                                // Note that we've called this base class.
+                                baseClassesToCall = baseClassesToCall.filter(
+                                    (cls) => !ClassType.isSameGenericClass(cls, baseType)
+                                );
+                            }
+                        }
+                    } else {
+                        // Is it an X.<method> direct call?
+                        const baseType = this._evaluator.getType(memberBaseExpr);
+                        if (baseType && isInstantiableClass(baseType)) {
+                            // Note that we've called this base class.
+                            baseClassesToCall = baseClassesToCall.filter(
+                                (cls) => !ClassType.isSameGenericClass(cls, baseType)
+                            );
+                        }
+                    }
+                }
+            }
+        });
+        callNodeWalker.walk(node.suite);
+
+        // If there are base classes that haven't yet been called, report it as an error.
+        baseClassesToCall.forEach((baseClass) => {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportMissingSuperCall,
+                DiagnosticRule.reportMissingSuperCall,
+                Localizer.Diagnostic.missingSuperCall().format({
+                    methodName: methodType.details.name,
+                    classType: this._evaluator.printType(convertToInstance(baseClass)),
+                }),
+                node.name
+            );
+        });
     }
 
     // Validates that the annotated type of a "self" or "cls" parameter is

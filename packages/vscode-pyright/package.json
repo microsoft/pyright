@@ -454,6 +454,17 @@
                                 "error"
                             ]
                         },
+                        "reportMissingSuperCall": {
+                            "type": "string",
+                            "description": "Diagnostics for missing call to parent class for inherited `__init__` methods.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportUninitializedInstanceVariable": {
                             "type": "string",
                             "description": "Diagnostics for instance variables that are not declared or initialized within class body or `__init__` method.",

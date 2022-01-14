@@ -174,6 +174,17 @@ test('Super7', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('MissingSuper1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['missingSuper1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportMissingSuperCall = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['missingSuper1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 4);
+});
+
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 

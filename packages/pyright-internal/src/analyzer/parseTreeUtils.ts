@@ -1353,6 +1353,17 @@ export class NameNodeWalker extends ParseTreeWalker {
     }
 }
 
+export class CallNodeWalker extends ParseTreeWalker {
+    constructor(private _callback: (node: CallNode) => void) {
+        super();
+    }
+
+    override visitCall(node: CallNode) {
+        this._callback(node);
+        return true;
+    }
+}
+
 export function getEnclosingParameter(node: ParseNode): ParameterNode | undefined {
     let curNode: ParseNode | undefined = node;
 

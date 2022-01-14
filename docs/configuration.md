@@ -114,6 +114,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportOverlappingOverload** [boolean or string, optional]: Generate or suppress diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types. The default value for this setting is 'none'.
 
+**reportMissingSuperCall** [boolean or string, optional]: Generate or suppress diagnostics for `__init__`, `__init_subclass__`, `__enter__` and `__exit__` methods in a subclass that fail to call through to the same-named method on a base class. The default value for this setting is 'none'.
+
 **reportUninitializedInstanceVariable** [boolean or string, optional]: Generate or suppress diagnostics for instance variables within a class that are not initialized or declared within the class body or the `__init__` method. The default value for this setting is 'none'.
 
 **reportInvalidStringEscapeSequence** [boolean or string, optional]: Generate or suppress diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions. The default value for this setting is 'warning'.
@@ -308,6 +310,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |
 | reportInconsistentConstructor             | "none"     | "none"     | "error"    |
 | reportOverlappingOverload                 | "none"     | "none"     | "error"    |
+| reportMissingSuperCall                    | "none"     | "none"     | "error"    |
 | reportUninitializedInstanceVariable       | "none"     | "none"     | "none"     |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "error"    |
 | reportUnknownParameterType                | "none"     | "none"     | "error"    |

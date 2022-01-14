@@ -317,6 +317,12 @@
       "title": "Controls reporting of function overloads that overlap in signature and obscure each other or do not agree on return type",
       "default": "none"
     },
+    "reportMissingSuperCall": {
+      "$id": "#/properties/reportMissingSuperCall",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of missing call to parent class for inherited `__init__` methods",
+      "default": "none"
+    },
     "reportUninitializedInstanceVariable": {
       "$id": "#/properties/reportUninitializedInstanceVariable",
       "$ref": "#/definitions/diagnostic",
