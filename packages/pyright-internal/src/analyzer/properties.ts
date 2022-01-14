@@ -125,14 +125,7 @@ export function createProperty(
         hasDeclaredType: true,
     });
 
-    // Use the type of the "self" parameter for the object type. If it
-    // was a synthesized "self" TypeVar with a bound type, use the bound
-    // type instead. Note that this might also be a "cls" parameter if
-    // the property is a classmethod.
-    let objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
-    if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
-        objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
-    }
+    const objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
     getFunction2.details.parameters.push({
         category: ParameterCategory.Simple,
         name: 'obj',

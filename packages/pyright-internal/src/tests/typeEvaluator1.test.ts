@@ -1129,6 +1129,12 @@ test('Self4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Self5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('UnusedVariable1', () => {
     const configOptions = new ConfigOptions('.');
 
