@@ -10458,7 +10458,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // incomplete because we may be evaluating types within a loop,
         // so the literal values may change each time.
         const isLiteralMathAllowed = !leftTypeResult.isIncomplete && !rightTypeResult.isIncomplete;
-        let type = validateBinaryOperation(node.operator, leftType, rightType, node, expectedType, diag, isLiteralMathAllowed);
+        let type = validateBinaryOperation(
+            node.operator,
+            leftType,
+            rightType,
+            node,
+            expectedType,
+            diag,
+            isLiteralMathAllowed
+        );
 
         if (!diag.isEmpty() || !type) {
             if (!isIncomplete) {
