@@ -724,7 +724,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
     console.log(
         `${errorCount.toString()} ${errorCount === 1 ? 'error' : 'errors'}, ` +
             `${warningCount.toString()} ${warningCount === 1 ? 'warning' : 'warnings'}, ` +
-            `${informationCount.toString()} ${informationCount === 1 ? 'info' : 'infos'} `
+            `${informationCount.toString()} ${informationCount === 1 ? 'information' : 'informations'} `
     );
 
     return {
@@ -755,7 +755,7 @@ function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
             ? chalk.red('error')
             : diag.severity === 'warning'
             ? chalk.cyan('warning')
-            : chalk.blue('info');
+            : chalk.blue('information');
     message += `: ${firstLine}`;
     if (remainingLines.length > 0) {
         message += '\n' + prefix + remainingLines.join('\n' + prefix);
