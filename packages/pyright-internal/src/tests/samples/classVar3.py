@@ -2,6 +2,7 @@
 # where it is not allowed.
 
 from typing import Any, ClassVar, Final, Generic, List, TypeVar
+from typing_extensions import Self
 
 # This should generate an error.
 x: ClassVar[int] = 3
@@ -28,6 +29,7 @@ class Foo(Generic[T]):
 
     ok1: ClassVar[list]
     ok2: ClassVar[List[Any]]
+    ok3: ClassVar[List[Self]]
 
     # This should generate an error.
     def func1(self, a: ClassVar[int]):

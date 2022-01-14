@@ -1902,7 +1902,12 @@ export function requiresTypeArguments(classType: ClassType) {
     return false;
 }
 
-export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, recursionCount = 0): boolean {
+export function requiresSpecialization(
+    type: Type,
+    ignorePseudoGeneric = false,
+    ignoreSelf = false,
+    recursionCount = 0
+): boolean {
     switch (type.category) {
         case TypeCategory.Class: {
             if (ClassType.isPseudoGenericClass(type) && ignorePseudoGeneric) {
@@ -1917,7 +1922,7 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
 
                 return (
                     type.typeArguments.find((typeArg) =>
-                        requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount)
+                        requiresSpecialization(typeArg, ignorePseudoGeneric, ignoreSelf, recursionCount)
                     ) !== undefined
                 );
             }
@@ -1940,6 +1945,7 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
                     requiresSpecialization(
                         FunctionType.getEffectiveParameterType(type, i),
                         ignorePseudoGeneric,
+                        ignoreSelf,
                         recursionCount
                     )
                 ) {
@@ -1952,11 +1958,11 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
                     ? type.specializedTypes.returnType
                     : type.details.declaredReturnType;
             if (declaredReturnType) {
-                if (requiresSpecialization(declaredReturnType, ignorePseudoGeneric, recursionCount)) {
+                if (requiresSpecialization(declaredReturnType, ignorePseudoGeneric, ignoreSelf, recursionCount)) {
                     return true;
                 }
             } else if (type.inferredReturnType) {
-                if (requiresSpecialization(type.inferredReturnType, ignorePseudoGeneric, recursionCount)) {
+                if (requiresSpecialization(type.inferredReturnType, ignorePseudoGeneric, ignoreSelf, recursionCount)) {
                     return true;
                 }
             }
@@ -1967,21 +1973,26 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
         case TypeCategory.OverloadedFunction: {
             return (
                 type.overloads.find((overload) =>
-                    requiresSpecialization(overload, ignorePseudoGeneric, recursionCount)
+                    requiresSpecialization(overload, ignorePseudoGeneric, ignoreSelf, recursionCount)
                 ) !== undefined
             );
         }
 
         case TypeCategory.Union: {
             return (
-                findSubtype(type, (subtype) => requiresSpecialization(subtype, ignorePseudoGeneric, recursionCount)) !==
-                undefined
+                findSubtype(type, (subtype) =>
+                    requiresSpecialization(subtype, ignorePseudoGeneric, ignoreSelf, recursionCount)
+                ) !== undefined
             );
         }
 
         case TypeCategory.TypeVar: {
             // Most TypeVar types need to be specialized.
             if (!type.details.recursiveTypeAliasName) {
+                if (type.details.isSynthesizedSelf && ignoreSelf) {
+                    return false;
+                }
+
                 return true;
             }
 
@@ -1989,7 +2000,7 @@ export function requiresSpecialization(type: Type, ignorePseudoGeneric = false, 
             // if it has generic type arguments.
             if (type.typeAliasInfo?.typeArguments) {
                 return type.typeAliasInfo.typeArguments.some((typeArg) =>
-                    requiresSpecialization(typeArg, ignorePseudoGeneric, recursionCount)
+                    requiresSpecialization(typeArg, ignorePseudoGeneric, ignoreSelf, recursionCount)
                 );
             }
         }
