@@ -126,6 +126,17 @@ test('Coroutines2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Coroutines3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // This functionality is deprecated in Python 3.11, so the type no longer
+    // exists in typing.pyi after that point.
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines3.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Loops1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops1.py']);
 

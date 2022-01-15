@@ -1434,6 +1434,7 @@ export function getGeneratorYieldType(declaredReturnType: Type, isAsync: boolean
                 ['AsyncIterable', 'Iterable'],
                 ['AsyncIterator', 'Iterator'],
                 ['AsyncGenerator', 'Generator'],
+                ['', 'AwaitableGenerator'],
             ];
 
             if (expectedClasses.some((classes) => ClassType.isBuiltIn(subtype, isAsync ? classes[0] : classes[1]))) {
@@ -1869,11 +1870,12 @@ function _expandVariadicUnpackedUnion(type: Type) {
 // returns the type arguments for the type.
 export function getGeneratorTypeArgs(returnType: Type): Type[] | undefined {
     if (isClassInstance(returnType)) {
-        if (ClassType.isBuiltIn(returnType)) {
-            const className = returnType.details.name;
-            if (className === 'Generator' || className === 'AsyncGenerator') {
-                return returnType.typeArguments;
-            }
+        if (ClassType.isBuiltIn(returnType, ['Generator', 'AsyncGenerator'])) {
+            return returnType.typeArguments;
+        } else if (ClassType.isBuiltIn(returnType, 'AwaitableGenerator')) {
+            // AwaitableGenerator has four type arguments, and the last 3
+            // correspond to the generator.
+            return returnType.typeArguments?.slice(1);
         }
     }
 

@@ -11881,6 +11881,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is the expression a Generator type?
         if (generatorTypeArgs) {
             returnedType = generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
+        } else if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, 'Coroutine')) {
+            // Handle old-style (pre-await) Coroutines as a special case.
+            returnedType = UnknownType.create();
         } else {
             const iterableType = getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
 
@@ -11888,8 +11891,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             generatorTypeArgs = getGeneratorTypeArgs(iterableType);
             if (generatorTypeArgs) {
                 returnedType = generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
-            } else {
-                returnedType = UnknownType.create();
             }
         }
 
@@ -15322,17 +15323,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Is it a generator?
                     if (functionDecl?.isGenerator) {
                         const inferredYieldTypes: Type[] = [];
+                        let useAwaitableGenerator = false;
+
                         if (functionDecl.yieldStatements) {
                             functionDecl.yieldStatements.forEach((yieldNode) => {
                                 if (isNodeReachable(yieldNode)) {
                                     if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
                                         const iteratorType = getTypeOfExpression(yieldNode.expression).type;
-                                        const yieldType = getTypeFromIterator(
-                                            iteratorType,
-                                            /* isAsync */ false,
-                                            yieldNode
-                                        );
-                                        inferredYieldTypes.push(yieldType || UnknownType.create());
+                                        if (
+                                            isClassInstance(iteratorType) &&
+                                            ClassType.isBuiltIn(iteratorType, 'Coroutine')
+                                        ) {
+                                            // Handle old-style (pre-await) Coroutines.
+                                            inferredYieldTypes.push();
+                                            useAwaitableGenerator = true;
+                                        } else {
+                                            const yieldType = getTypeFromIterator(
+                                                iteratorType,
+                                                /* isAsync */ false,
+                                                yieldNode
+                                            );
+                                            inferredYieldTypes.push(yieldType || UnknownType.create());
+                                        }
                                     } else {
                                         if (yieldNode.expression) {
                                             const yieldType = getTypeOfExpression(yieldNode.expression).type;
@@ -15350,20 +15362,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                         const inferredYieldType = combineTypes(inferredYieldTypes);
 
-                        // Inferred yield types need to be wrapped in a Generator to
-                        // produce the final result.
-                        const generatorType = getTypingType(node, 'Generator');
+                        // Inferred yield types need to be wrapped in a Generator or
+                        // AwaitableGenerator to produce the final result.
+                        const generatorType = getTypingType(
+                            node,
+                            useAwaitableGenerator ? 'AwaitableGenerator' : 'Generator'
+                        );
+
                         if (generatorType && isInstantiableClass(generatorType)) {
+                            const typeArgs: Type[] = [];
+
+                            if (useAwaitableGenerator) {
+                                typeArgs.push(AnyType.create());
+                            }
+
+                            typeArgs.push(
+                                inferredYieldType,
+                                NoneType.createInstance(),
+                                isNoReturnType(inferredReturnType) ? NoneType.createInstance() : inferredReturnType
+                            );
+
                             inferredReturnType = ClassType.cloneAsInstance(
                                 ClassType.cloneForSpecialization(
                                     generatorType,
-                                    [
-                                        inferredYieldType,
-                                        NoneType.createInstance(),
-                                        isNoReturnType(inferredReturnType)
-                                            ? NoneType.createInstance()
-                                            : inferredReturnType,
-                                    ],
+                                    typeArgs,
                                     /* isTypeArgumentExplicit */ true
                                 )
                             );

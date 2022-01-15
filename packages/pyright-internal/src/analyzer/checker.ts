@@ -890,18 +890,26 @@ export class Checker extends ParseTreeWalker {
 
     override visitYieldFrom(node: YieldFromNode) {
         const yieldFromType = this._evaluator.getType(node.expression) || UnknownType.create();
-        let yieldType =
-            this._evaluator.getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+        let yieldType: Type | undefined;
 
-        // Does the iterator return a Generator? If so, get the yield type from it.
-        // If the iterator doesn't return a Generator, use the iterator return type
-        // directly.
-        const generatorTypeArgs = getGeneratorTypeArgs(yieldType);
-        if (generatorTypeArgs) {
-            yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
+        if (isClassInstance(yieldFromType) && ClassType.isBuiltIn(yieldFromType, 'Coroutine')) {
+            // Handle the case of old-style (pre-await) coroutines.
+            yieldType = UnknownType.create();
         } else {
             yieldType =
-                this._evaluator.getTypeFromIterator(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+                this._evaluator.getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+
+            // Does the iterator return a Generator? If so, get the yield type from it.
+            // If the iterator doesn't return a Generator, use the iterator return type
+            // directly.
+            const generatorTypeArgs = getGeneratorTypeArgs(yieldType);
+            if (generatorTypeArgs) {
+                yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
+            } else {
+                yieldType =
+                    this._evaluator.getTypeFromIterator(yieldFromType, /* isAsync */ false, node) ||
+                    UnknownType.create();
+            }
         }
 
         this._validateYieldType(node, yieldType);
