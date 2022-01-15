@@ -488,7 +488,7 @@ export function getTypeNarrowingCallback(
             }
         }
 
-        // Look for a TypeGuard assertion function.
+        // Look for a TypeGuard function.
         if (testExpression.arguments.length >= 1) {
             const arg0Expr = testExpression.arguments[0].valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
@@ -497,7 +497,7 @@ export function getTypeNarrowingCallback(
                     isFunction(callType) &&
                     callType.details.declaredReturnType &&
                     isClassInstance(callType.details.declaredReturnType) &&
-                    ClassType.isBuiltIn(callType.details.declaredReturnType, 'TypeGuard')
+                    ClassType.isBuiltIn(callType.details.declaredReturnType, ['TypeGuard', 'StrictTypeGuard'])
                 ) {
                     // Evaluate the type guard call expression.
                     const functionReturnType = evaluator.getTypeOfExpression(testExpression).type;
@@ -506,8 +506,20 @@ export function getTypeNarrowingCallback(
                         ClassType.isBuiltIn(functionReturnType, 'bool') &&
                         functionReturnType.typeGuardType
                     ) {
+                        const isStrictTypeGuard = ClassType.isBuiltIn(
+                            callType.details.declaredReturnType,
+                            'StrictTypeGuard'
+                        );
+                        const typeGuardType = functionReturnType.typeGuardType;
+
                         return (type: Type) => {
-                            return isPositiveTest ? functionReturnType.typeGuardType : type;
+                            return narrowTypeForUserDefinedTypeGuard(
+                                evaluator,
+                                type,
+                                typeGuardType,
+                                isPositiveTest,
+                                isStrictTypeGuard
+                            );
                         };
                     }
                 }
@@ -634,6 +646,42 @@ function getDeclsForLocalVar(
     const reachableDecls = decls.filter((decl) => evaluator.isNodeReachable(reachableFrom, decl.node));
 
     return reachableDecls.length > 0 ? reachableDecls : undefined;
+}
+
+function narrowTypeForUserDefinedTypeGuard(
+    evaluator: TypeEvaluator,
+    type: Type,
+    typeGuardType: Type,
+    isPositiveTest: boolean,
+    isStrictTypeGuard: boolean
+): Type {
+    // For non-strict type guards, always narrow to the typeGuardType
+    // in the positive case and don't narrow in the negative case.
+    if (!isStrictTypeGuard) {
+        return isPositiveTest ? typeGuardType : type;
+    }
+
+    // For strict type guards, narrow the current type.
+    return mapSubtypes(type, (subtype) => {
+        return mapSubtypes(typeGuardType, (typeGuardSubtype) => {
+            const isSubType = evaluator.canAssignType(typeGuardSubtype, subtype);
+            const isSuperType = evaluator.canAssignType(subtype, typeGuardSubtype);
+
+            if (isPositiveTest) {
+                if (isSubType) {
+                    return subtype;
+                } else if (isSuperType) {
+                    return typeGuardSubtype;
+                }
+            } else {
+                if (!isSubType && !isSubType) {
+                    return subtype;
+                }
+            }
+
+            return undefined;
+        });
+    });
 }
 
 // Narrow the type based on whether the subtype can be true or false.

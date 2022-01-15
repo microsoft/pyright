@@ -9283,17 +9283,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedReturnType = ClassType.cloneForUnpackedTuple(specializedReturnType, /* isUnpackedTuple */ false);
         }
 
-        // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
-        // object with a type argument that reflects the narrowed type.
+        // Handle 'TypeGuard' and 'StrictTypeGuard' specially. We'll transform the
+        // return type into a 'bool' object with a type argument that reflects the
+        // narrowed type.
         if (
             isClassInstance(specializedReturnType) &&
-            ClassType.isBuiltIn(specializedReturnType, 'TypeGuard') &&
+            ClassType.isBuiltIn(specializedReturnType, ['TypeGuard', 'StrictTypeGuard']) &&
             specializedReturnType.typeArguments &&
             specializedReturnType.typeArguments.length > 0
         ) {
             if (boolClassType && isInstantiableClass(boolClassType)) {
                 specializedReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForTypeGuard(boolClassType, specializedReturnType.typeArguments[0])
+                    ClassType.cloneForTypeGuard(
+                        boolClassType,
+                        specializedReturnType.typeArguments[0],
+                        ClassType.isBuiltIn(specializedReturnType, 'StrictTypeGuard')
+                    )
                 );
             }
         }
@@ -13246,6 +13251,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['TypeAlias', { alias: '', module: 'builtins' }],
             ['Concatenate', { alias: '', module: 'builtins' }],
             ['TypeGuard', { alias: '', module: 'builtins' }],
+            ['StrictTypeGuard', { alias: '', module: 'builtins' }],
             ['Unpack', { alias: '', module: 'builtins' }],
             ['Required', { alias: '', module: 'builtins' }],
             ['NotRequired', { alias: '', module: 'builtins' }],
@@ -16504,7 +16510,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return createConcatenateType(errorNode, classType, typeArgs);
                 }
 
-                case 'TypeGuard': {
+                case 'TypeGuard':
+                case 'StrictTypeGuard': {
                     return createTypeGuardType(errorNode, classType, typeArgs);
                 }
 
@@ -20187,7 +20194,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const isLiteral = isClass(srcType) && srcType.literalValue !== undefined;
                     return !isLiteral;
                 }
-            } else if (ClassType.isBuiltIn(destType, 'TypeGuard')) {
+            } else if (ClassType.isBuiltIn(destType, ['TypeGuard', 'StrictTypeGuard'])) {
                 // All the source to be a "bool".
                 if ((originalFlags & CanAssignFlags.AllowBoolTypeGuard) !== 0) {
                     if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'bool')) {
@@ -21768,7 +21775,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // This should also act as a bool, since that's its type at runtime.
                     if (
                         isClassInstance(srcReturnType) &&
-                        ClassType.isBuiltIn(srcReturnType, 'TypeGuard') &&
+                        ClassType.isBuiltIn(srcReturnType, ['TypeGuard', 'StrictTypeGuard']) &&
                         boolClassType &&
                         isInstantiableClass(boolClassType)
                     ) {

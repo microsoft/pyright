@@ -437,6 +437,7 @@ export interface ClassType extends TypeBase {
     // that indicates how a type should be narrowed. This field will
     // be used only in a bool class.
     typeGuardType?: Type | undefined;
+    isStrictTypeGuard?: boolean;
 
     // If a generic container class (like a list or dict) is known
     // to contain no elements, its type arguments may be "Unknown".
@@ -604,9 +605,14 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneForTypeGuard(classType: ClassType, typeGuardType: Type): ClassType {
+    export function cloneForTypeGuard(
+        classType: ClassType,
+        typeGuardType: Type,
+        isStrictTypeGuard: boolean
+    ): ClassType {
         const newClassType = { ...classType };
         newClassType.typeGuardType = typeGuardType;
+        newClassType.isStrictTypeGuard = isStrictTypeGuard;
         return newClassType;
     }
 
@@ -659,13 +665,17 @@ export namespace ClassType {
         return true;
     }
 
-    export function isBuiltIn(classType: ClassType, className?: string) {
+    export function isBuiltIn(classType: ClassType, className?: string | string[]) {
         if (!(classType.details.flags & ClassTypeFlags.BuiltInClass)) {
             return false;
         }
 
         if (className !== undefined) {
-            return classType.details.name === className || classType.aliasName === className;
+            const classArray = Array.isArray(className) ? className : [className];
+            return (
+                classArray.some((name) => name === classType.details.name) ||
+                classArray.some((name) => name === classType.aliasName)
+            );
         }
 
         return true;

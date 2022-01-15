@@ -560,6 +560,14 @@ export class Checker extends ParseTreeWalker {
 
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
+
+            // Verify that strict type guard functions don't violate the constraints
+            // of strict type guards.
+            this._validateStrictTypeGuardFunction(
+                node,
+                functionTypeResult.functionType,
+                containingClassNode !== undefined
+            );
         }
 
         // If we're at the module level within a stub file, report a diagnostic
@@ -3055,6 +3063,48 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         });
+    }
+
+    private _validateStrictTypeGuardFunction(node: FunctionNode, functionType: FunctionType, isMethod: boolean) {
+        // Is this a strict type guard function?
+        if (!functionType.details.declaredReturnType) {
+            return;
+        }
+
+        if (
+            !isClassInstance(functionType.details.declaredReturnType) ||
+            !ClassType.isBuiltIn(functionType.details.declaredReturnType, 'StrictTypeGuard') ||
+            !functionType.details.declaredReturnType.typeArguments ||
+            functionType.details.declaredReturnType.typeArguments.length < 1
+        ) {
+            return;
+        }
+
+        const typeGuardType = functionType.details.declaredReturnType.typeArguments[0];
+
+        // Determine the type of the first parameter.
+        const paramNumber = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
+        if (functionType.details.parameters.length < paramNumber) {
+            return;
+        }
+
+        const paramType = FunctionType.getEffectiveParameterType(functionType, paramNumber);
+
+        // Verify that the typeGuardType is a narrower type than the paramType.
+        if (!this._evaluator.canAssignType(paramType, typeGuardType)) {
+            const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+            if (returnAnnotation) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.strictTypeGuardReturnType().format({
+                        type: this._evaluator.printType(paramType),
+                        returnType: this._evaluator.printType(typeGuardType),
+                    }),
+                    returnAnnotation
+                );
+            }
+        }
     }
 
     private _validateDunderSignatures(node: FunctionNode, functionType: FunctionType, isMethod: boolean) {
