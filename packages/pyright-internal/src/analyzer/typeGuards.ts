@@ -47,7 +47,6 @@ import {
     isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
-    NeverType,
     NoneType,
     OverloadedFunctionType,
     Type,
@@ -70,7 +69,6 @@ import {
     getTypeVarScopeId,
     isLiteralType,
     isLiteralTypeOrUnion,
-    isNoReturnType,
     isTupleClass,
     isUnboundedTupleClass,
     lookUpClassMember,
@@ -411,7 +409,9 @@ export function getTypeNarrowingCallback(
                         EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed
                 ).type;
+
                 const classTypeList = getIsInstanceClassTypes(arg1Type);
+
                 if (classTypeList) {
                     return (type: Type) => {
                         const narrowedType = narrowTypeForIsInstance(
@@ -501,18 +501,14 @@ export function getTypeNarrowingCallback(
                 ) {
                     // Evaluate the type guard call expression.
                     const functionReturnType = evaluator.getTypeOfExpression(testExpression).type;
-                    if (isClassInstance(functionReturnType) && ClassType.isBuiltIn(functionReturnType, 'bool')) {
-                        const typeForTest = isPositiveTest
-                            ? functionReturnType.positiveTypeGuardType
-                            : functionReturnType.negativeTypeGuardType;
-                        if (typeForTest) {
-                            return (type: Type) => {
-                                if (!isPositiveTest && isNoReturnType(typeForTest)) {
-                                    return NeverType.create();
-                                }
-                                return typeForTest;
-                            };
-                        }
+                    if (
+                        isClassInstance(functionReturnType) &&
+                        ClassType.isBuiltIn(functionReturnType, 'bool') &&
+                        functionReturnType.typeGuardType
+                    ) {
+                        return (type: Type) => {
+                            return isPositiveTest ? functionReturnType.typeGuardType : type;
+                        };
                     }
                 }
             }

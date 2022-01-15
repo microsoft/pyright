@@ -151,7 +151,6 @@ export interface FlowExhaustedMatch extends FlowNode {
 export interface FlowCall extends FlowNode {
     node: CallNode;
     antecedent: FlowNode;
-    typeGuardArgExpression?: ExpressionNode;
 }
 
 // See comment in the visitTry method in binder.ts for a full

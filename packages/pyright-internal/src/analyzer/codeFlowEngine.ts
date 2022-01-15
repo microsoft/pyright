@@ -379,52 +379,6 @@ export function getCodeFlowEngine(
                             return setCacheEntry(curFlowNode, undefined, usedOuterScopeAlias, /* isIncomplete */ false);
                         }
 
-                        // See if this is a TypeGuard[X, NoReturn] call.
-                        if (
-                            callFlowNode.typeGuardArgExpression &&
-                            reference &&
-                            isMatchingExpression(reference, callFlowNode.typeGuardArgExpression)
-                        ) {
-                            const callLeftExpr = callFlowNode.node.leftExpression;
-
-                            const functionTypeResult = evaluator.getTypeOfExpression(
-                                callLeftExpr,
-                                /* expectedType */ undefined,
-                                EvaluatorFlags.DoNotSpecialize
-                            );
-                            const functionType = functionTypeResult.type;
-
-                            // Does this look like it's a custom type guard function?
-                            if (
-                                isFunction(functionType) &&
-                                functionType.details.declaredReturnType &&
-                                isClassInstance(functionType.details.declaredReturnType) &&
-                                ClassType.isBuiltIn(functionType.details.declaredReturnType, 'TypeGuard')
-                            ) {
-                                // Evaluate the type guard call expression.
-                                const functionReturnTypeResult = evaluator.getTypeOfExpression(callFlowNode.node);
-                                const functionReturnType = functionReturnTypeResult.type;
-
-                                if (
-                                    isClassInstance(functionReturnType) &&
-                                    ClassType.isBuiltIn(functionReturnType, 'bool')
-                                ) {
-                                    if (
-                                        functionReturnType.positiveTypeGuardType &&
-                                        functionReturnType.negativeTypeGuardType &&
-                                        isNoReturnType(functionReturnType.negativeTypeGuardType)
-                                    ) {
-                                        return setCacheEntry(
-                                            curFlowNode,
-                                            functionReturnType.positiveTypeGuardType,
-                                            usedOuterScopeAlias,
-                                            !!functionReturnTypeResult.isIncomplete
-                                        );
-                                    }
-                                }
-                            }
-                        }
-
                         curFlowNode = callFlowNode.antecedent;
                         continue;
                     }

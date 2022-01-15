@@ -9292,12 +9292,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedReturnType.typeArguments.length > 0
         ) {
             if (boolClassType && isInstantiableClass(boolClassType)) {
-                const positiveType = specializedReturnType.typeArguments[0];
-                const negativeType =
-                    specializedReturnType.typeArguments.length > 1 ? specializedReturnType.typeArguments[1] : undefined;
-
                 specializedReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForTypeGuard(boolClassType, positiveType, negativeType)
+                    ClassType.cloneForTypeGuard(boolClassType, specializedReturnType.typeArguments[0])
                 );
             }
         }
@@ -12575,7 +12571,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
     function createTypeGuardType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
-        if (!typeArgs || typeArgs.length < 1 || typeArgs.length > 2) {
+        if (!typeArgs || typeArgs.length !== 1) {
             addError(Localizer.Diagnostic.typeGuardArgCount(), errorNode);
             return UnknownType.create();
         }

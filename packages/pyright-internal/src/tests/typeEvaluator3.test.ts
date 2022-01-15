@@ -570,18 +570,6 @@ test('TypeGuard2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeGuard3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeGuard4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 
