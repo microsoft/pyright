@@ -7628,7 +7628,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the expected type is generic (but not specialized), we can't proceed.
         const expectedTypeArgs = expectedType.typeArguments;
         if (!expectedTypeArgs) {
-            return canAssignType(type, ClassType.cloneAsInstantiable(expectedType), /* diag */ undefined, typeVarMap);
+            return canAssignType(
+                type,
+                ClassType.cloneAsInstantiable(expectedType),
+                /* diag */ undefined,
+                typeVarMap,
+                CanAssignFlags.PopulatingExpectedType
+            );
         }
 
         // If the expected type is the same as the target type (commonly the case),
@@ -7680,7 +7686,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ true);
         const syntheticTypeVarMap = new TypeVarMap(expectedTypeScopeId);
-        if (canAssignType(genericExpectedType, specializedType, /* diag */ undefined, syntheticTypeVarMap)) {
+        if (
+            canAssignType(
+                genericExpectedType,
+                specializedType,
+                /* diag */ undefined,
+                syntheticTypeVarMap,
+                CanAssignFlags.PopulatingExpectedType
+            )
+        ) {
             let isResultValid = true;
 
             synthExpectedTypeArgs.forEach((typeVar, index) => {
@@ -9138,7 +9152,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     effectiveExpectedType,
                     /* diag */ undefined,
                     typeVarMap,
-                    effectiveFlags
+                    effectiveFlags | CanAssignFlags.PopulatingExpectedType
                 );
             }
         }
@@ -19960,14 +19974,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 } else {
                     // Reverse the order of assignment to populate the TypeVarMap for
-                    // the source TypeVar.
+                    // the source TypeVar. Normally we set the AllowTypeVarNarrowing flag
+                    // so the wide type bound of the TypeVar is set rather than the narrow
+                    // type bound. This allows the type to be further narrowed through other
+                    // assignments. However, if we're populating the expected type in the
+                    // TypeVarMap, we don't want to allow further narrowing.
+                    let effectiveFlags = originalFlags;
+                    if ((originalFlags & CanAssignFlags.PopulatingExpectedType) !== 0) {
+                        effectiveFlags &= ~(
+                            CanAssignFlags.ReverseTypeVarMatching | CanAssignFlags.AllowTypeVarNarrowing
+                        );
+                    } else {
+                        effectiveFlags |= CanAssignFlags.AllowTypeVarNarrowing;
+                    }
+
                     if (
                         canAssignTypeToTypeVar(
                             srcType as TypeVarType,
                             destType,
                             diag,
                             typeVarMap,
-                            originalFlags | CanAssignFlags.AllowTypeVarNarrowing,
+                            effectiveFlags,
                             recursionCount
                         )
                     ) {

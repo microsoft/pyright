@@ -1,7 +1,7 @@
 # This sample tests the case that exercises some of the heuristics that
 # determine whether TypeVar matching should retain a literal type.
 
-from typing import Callable, Dict, Generic, Literal, TypeVar
+from typing import Callable, Dict, Generic, Literal, Tuple, TypeVar
 
 
 FileChanges = Dict[str, Literal["created", "edited", "removed"]]
@@ -28,3 +28,10 @@ def func1(value: _T) -> Async[_T]:
 
 def func2() -> Async[bool]:
     return func1(True)
+
+
+def func3(value: _T) -> Callable[[_T], None]:
+    ...
+
+
+x: Callable[[Tuple[bool]], None] = func3((True,))

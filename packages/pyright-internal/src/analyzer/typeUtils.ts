@@ -173,6 +173,8 @@ export const enum CanAssignFlags {
     // do not generate an error. This is used for populating the
     // typeVarMap when handling contravariant parameters in a callable.
     IgnoreTypeVarScope = 1 << 9,
+
+    PopulatingExpectedType = 1 << 10,
 }
 
 export enum ParameterSource {
