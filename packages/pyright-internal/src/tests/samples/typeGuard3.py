@@ -61,6 +61,17 @@ def func5(val: dict[_K, _V] | Mapping[_K, _V]):
         t2: Literal["dict[_K@func5, _V@func5]"] = reveal_type(val)
 
 
+def is_cardinal_direction(val: str) -> StrictTypeGuard[Literal["N", "S", "E", "W"]]:
+    return val in ("N", "S", "E", "W")
+
+
+def func6(direction: Literal["NW", "E"]):
+    if is_cardinal_direction(direction):
+        t1: Literal["Literal['E']"] = reveal_type(direction)
+    else:
+        t2: Literal["Literal['NW']"] = reveal_type(direction)
+
+
 class Animal:
     ...
 

@@ -664,7 +664,7 @@ function narrowTypeForUserDefinedTypeGuard(
     // For strict type guards, narrow the current type.
     return mapSubtypes(type, (subtype) => {
         return mapSubtypes(typeGuardType, (typeGuardSubtype) => {
-            const isSubType = evaluator.canAssignType(typeGuardSubtype, subtype);
+            const isSubType = evaluator.canAssignType(typeGuardType, subtype);
             const isSuperType = evaluator.canAssignType(subtype, typeGuardSubtype);
 
             if (isPositiveTest) {
