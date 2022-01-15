@@ -747,6 +747,14 @@ export function getLiteralTypeClassName(type: Type): string | undefined {
     return undefined;
 }
 
+export function getUnionSubtypeCount(type: Type): number {
+    if (isUnion(type)) {
+        return type.subtypes.length;
+    }
+
+    return 1;
+}
+
 export function isEllipsisType(type: Type): boolean {
     return isAny(type) && type.isEllipsis;
 }

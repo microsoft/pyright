@@ -73,3 +73,40 @@ def func4(a: Literal[True], b: Literal[False]):
     while True:
         c8 = not c8
         t8_1: Literal["bool"] = reveal_type(c8)
+
+
+mode = Literal[
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "z",
+    "y",
+    "z",
+]
+
+
+def func5(
+    a: mode, b: mode, c: mode, d: mode, e: mode, f: mode, g: mode, h: mode, i: mode
+):
+    # Make sure this degenerate case falls back to "str".
+    t1: Literal["str"] = reveal_type(a + b + c + d + e + f + g + h + i)
