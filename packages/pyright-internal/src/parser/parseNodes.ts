@@ -1339,7 +1339,7 @@ export namespace EllipsisNode {
 
 export interface NumberNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Number;
-    value: number;
+    value: number | bigint;
     isInteger: boolean;
     isImaginary: boolean;
 }

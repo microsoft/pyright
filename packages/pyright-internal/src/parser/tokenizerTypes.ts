@@ -342,7 +342,7 @@ export namespace StringToken {
 
 export interface NumberToken extends Token {
     readonly type: TokenType.Number;
-    readonly value: number;
+    readonly value: number | bigint;
     readonly isInteger: boolean;
     readonly isImaginary: boolean;
 }
@@ -351,7 +351,7 @@ export namespace NumberToken {
     export function create(
         start: number,
         length: number,
-        value: number,
+        value: number | bigint,
         isInteger: boolean,
         isImaginary: boolean,
         comments: Comment[] | undefined

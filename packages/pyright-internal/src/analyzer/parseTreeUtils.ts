@@ -187,6 +187,12 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
 
         case ParseNodeType.Number: {
             let value = node.value.toString();
+
+            // If it's stored as a bigint, strip off the "n".
+            if (value.endsWith('n')) {
+                value = value.substring(0, value.length - 1);
+            }
+
             if (node.isImaginary) {
                 value += 'j';
             }

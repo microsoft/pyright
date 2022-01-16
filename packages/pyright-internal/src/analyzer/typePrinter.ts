@@ -484,6 +484,11 @@ export function printLiteralValue(type: ClassType, quotation = "'"): string {
         literalStr = literalValue ? 'True' : 'False';
     } else if (literalValue instanceof EnumLiteral) {
         literalStr = `${literalValue.className}.${literalValue.itemName}`;
+    } else if (typeof literalValue === 'bigint') {
+        literalStr = literalValue.toString();
+        if (literalStr.endsWith('n')) {
+            literalStr = literalStr.substring(0, literalStr.length - 1);
+        }
     } else {
         literalStr = literalValue.toString();
     }

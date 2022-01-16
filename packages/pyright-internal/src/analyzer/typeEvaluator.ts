@@ -1502,7 +1502,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 // Check for Literal[False], Literal[0], Literal[""].
-                if (type.literalValue === false || type.literalValue === 0 || type.literalValue === '') {
+                if (
+                    type.literalValue === false ||
+                    type.literalValue === 0 ||
+                    type.literalValue === BigInt(0) ||
+                    type.literalValue === ''
+                ) {
                     return false;
                 }
 
@@ -5988,8 +5993,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const index0Expr = node.items[0].valueExpression;
             const valueType = getTypeOfExpression(index0Expr).type;
 
-            if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType, 'int') && isLiteralType(valueType)) {
-                const indexValue = valueType.literalValue as number;
+            if (
+                isClassInstance(valueType) &&
+                ClassType.isBuiltIn(valueType, 'int') &&
+                isLiteralType(valueType) &&
+                typeof valueType.literalValue === 'number'
+            ) {
+                const indexValue = valueType.literalValue;
                 const tupleType = getSpecializedTupleType(baseType);
 
                 if (tupleType && tupleType.tupleTypeArguments && !isUnboundedTupleClass(tupleType)) {
@@ -6014,9 +6024,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (
                                     isClassInstance(valType) &&
                                     ClassType.isBuiltIn(valType, 'int') &&
-                                    isLiteralType(valType)
+                                    isLiteralType(valType) &&
+                                    typeof valType.literalValue === 'number'
                                 ) {
-                                    value = valType.literalValue as number;
+                                    value = valType.literalValue;
                                     if (value < 0) {
                                         value = tupleType.tupleTypeArguments!.length + value;
                                     }
@@ -10291,7 +10302,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (node.operator === OperatorType.Subtract) {
                     type = mapSubtypes(exprType, (subtype) => {
                         const classSubtype = subtype as ClassType;
-                        return ClassType.cloneWithLiteral(classSubtype, -(classSubtype.literalValue as number));
+                        return ClassType.cloneWithLiteral(
+                            classSubtype,
+                            -(classSubtype.literalValue as number | bigint)
+                        );
                     });
                 }
             } else if (literalClassName === 'bool') {
@@ -10862,14 +10876,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 operator === OperatorType.FloorDivide ||
                                 operator === OperatorType.Mod
                             ) {
+                                let isValidResult = true;
+
                                 type = mapSubtypes(leftType, (leftSubtype) => {
                                     return mapSubtypes(rightType, (rightSubtype) => {
                                         const leftClassSubtype = leftSubtype as ClassType;
                                         const rightClassSubtype = rightSubtype as ClassType;
-                                        const leftLiteralValue = leftClassSubtype.literalValue as number;
-                                        const rightLiteralValue = rightClassSubtype.literalValue as number;
+                                        const leftLiteralValue = BigInt(
+                                            leftClassSubtype.literalValue as number | bigint
+                                        );
+                                        const rightLiteralValue = BigInt(
+                                            rightClassSubtype.literalValue as number | bigint
+                                        );
 
-                                        let newValue: number | undefined;
+                                        let newValue: number | bigint | undefined;
                                         if (operator === OperatorType.Add) {
                                             newValue = leftLiteralValue + rightLiteralValue;
                                         } else if (operator === OperatorType.Subtract) {
@@ -10877,18 +10897,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         } else if (operator === OperatorType.Multiply) {
                                             newValue = leftLiteralValue * rightLiteralValue;
                                         } else if (operator === OperatorType.FloorDivide) {
-                                            if (rightLiteralValue !== 0) {
-                                                newValue = Math.floor(leftLiteralValue / rightLiteralValue);
+                                            if (rightLiteralValue !== BigInt(0)) {
+                                                newValue = leftLiteralValue / rightLiteralValue;
                                             }
                                         } else if (operator === OperatorType.Mod) {
-                                            if (rightLiteralValue !== 0) {
+                                            if (rightLiteralValue !== BigInt(0)) {
                                                 newValue = leftLiteralValue % rightLiteralValue;
                                             }
                                         }
 
-                                        return ClassType.cloneWithLiteral(leftClassSubtype, newValue);
+                                        if (newValue === undefined) {
+                                            isValidResult = false;
+                                            return undefined;
+                                        } else if (typeof newValue === 'number' && isNaN(newValue)) {
+                                            isValidResult = false;
+                                            return undefined;
+                                        } else {
+                                            // Convert back to a simple number if it fits. Leave as a bigint
+                                            // if it doesn't.
+                                            if (newValue === BigInt(Number(newValue))) {
+                                                newValue = Number(newValue);
+                                            }
+
+                                            return ClassType.cloneWithLiteral(leftClassSubtype, newValue);
+                                        }
                                     });
                                 });
+
+                                if (!isValidResult) {
+                                    type = undefined;
+                                }
                             }
                         }
                     }

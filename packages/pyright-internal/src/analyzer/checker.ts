@@ -1044,19 +1044,18 @@ export class Checker extends ParseTreeWalker {
                             subscriptType &&
                             isClassInstance(subscriptType) &&
                             ClassType.isBuiltIn(subscriptType, 'int') &&
-                            isLiteralType(subscriptType)
+                            isLiteralType(subscriptType) &&
+                            typeof subscriptType.literalValue === 'number'
                         ) {
-                            const subscriptValue = subscriptType.literalValue as number;
-
                             if (
-                                (subscriptValue >= 0 && subscriptValue >= tupleLength) ||
-                                (subscriptValue < 0 && subscriptValue + tupleLength < 0)
+                                (subscriptType.literalValue >= 0 && subscriptType.literalValue >= tupleLength) ||
+                                (subscriptType.literalValue < 0 && subscriptType.literalValue + tupleLength < 0)
                             ) {
                                 this._evaluator.addDiagnostic(
                                     this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.tupleIndexOutOfRange().format({
-                                        index: subscriptValue,
+                                        index: subscriptType.literalValue,
                                         type: this._evaluator.printType(subtype),
                                     }),
                                     node

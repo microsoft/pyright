@@ -754,9 +754,18 @@ export class Tokenizer {
 
             if (radix > 0) {
                 const text = this._cs.getText().substr(start, this._cs.position - start);
-                const value = parseInt(text.substr(leadingChars).replace(/_/g, ''), radix);
-                if (!isNaN(value)) {
-                    this._tokens.push(NumberToken.create(start, text.length, value, true, false, this._getComments()));
+                const simpleIntText = text.replace(/_/g, '');
+                let intValue: number | bigint = parseInt(simpleIntText.substr(leadingChars), radix);
+
+                if (!isNaN(intValue)) {
+                    const bigIntValue = BigInt(simpleIntText);
+                    if (BigInt(intValue) !== bigIntValue) {
+                        intValue = bigIntValue;
+                    }
+
+                    this._tokens.push(
+                        NumberToken.create(start, text.length, intValue, true, false, this._getComments())
+                    );
                     return true;
                 }
             }
@@ -793,16 +802,25 @@ export class Tokenizer {
 
         if (isDecimalInteger) {
             let text = this._cs.getText().substr(start, this._cs.position - start);
-            const value = parseInt(text.replace(/_/g, ''), 10);
-            if (!isNaN(value)) {
+            const simpleIntText = text.replace(/_/g, '');
+            let intValue: number | bigint = parseInt(simpleIntText, 10);
+
+            if (!isNaN(intValue)) {
                 let isImaginary = false;
+
+                const bigIntValue = BigInt(simpleIntText);
+                if (BigInt(intValue) !== bigIntValue) {
+                    intValue = bigIntValue;
+                }
+
                 if (this._cs.currentChar === Char.j || this._cs.currentChar === Char.J) {
                     isImaginary = true;
                     text += String.fromCharCode(this._cs.currentChar);
                     this._cs.moveNext();
                 }
+
                 this._tokens.push(
-                    NumberToken.create(start, text.length, value, true, isImaginary, this._getComments())
+                    NumberToken.create(start, text.length, intValue, true, isImaginary, this._getComments())
                 );
                 return true;
             }

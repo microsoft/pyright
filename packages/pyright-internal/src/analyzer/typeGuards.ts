@@ -142,9 +142,11 @@ export function getTypeNarrowingCallback(
                     !leftExpression.items[0].valueExpression.isImaginary
                 ) {
                     const indexValue = leftExpression.items[0].valueExpression.value;
-                    return (type: Type) => {
-                        return narrowTupleTypeForIsNone(evaluator, type, adjIsPositiveTest, indexValue);
-                    };
+                    if (typeof indexValue === 'number') {
+                        return (type: Type) => {
+                            return narrowTupleTypeForIsNone(evaluator, type, adjIsPositiveTest, indexValue);
+                        };
+                    }
                 }
             }
 
@@ -297,9 +299,11 @@ export function getTypeNarrowingCallback(
                     if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
                         const tupleLength = testExpression.rightExpression.value;
 
-                        return (type: Type) => {
-                            return narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest);
-                        };
+                        if (typeof tupleLength === 'number') {
+                            return (type: Type) => {
+                                return narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest);
+                            };
+                        }
                     }
                 }
             }
@@ -1384,8 +1388,13 @@ function narrowTypeForDiscriminatedTupleComparison(
     let canNarrow = true;
 
     const narrowedType = mapSubtypes(referenceType, (subtype) => {
-        if (isClassInstance(subtype) && ClassType.isTupleClass(subtype) && !isUnboundedTupleClass(subtype)) {
-            const indexValue = indexLiteralType.literalValue as number;
+        if (
+            isClassInstance(subtype) &&
+            ClassType.isTupleClass(subtype) &&
+            !isUnboundedTupleClass(subtype) &&
+            typeof indexLiteralType.literalValue === 'number'
+        ) {
+            const indexValue = indexLiteralType.literalValue;
             if (subtype.tupleTypeArguments && indexValue >= 0 && indexValue < subtype.tupleTypeArguments.length) {
                 const tupleEntryType = subtype.tupleTypeArguments[indexValue]?.type;
                 if (tupleEntryType && isLiteralTypeOrUnion(tupleEntryType)) {
