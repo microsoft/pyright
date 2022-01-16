@@ -1367,7 +1367,9 @@ export function getCodeFlowEngine(
                             returnType.typeArguments.length >= 3
                         ) {
                             if (isNoReturnType(returnType.typeArguments[2])) {
-                                noReturnTypeCount++;
+                                if (node.parent?.nodeType === ParseNodeType.Await) {
+                                    noReturnTypeCount++;
+                                }
                             }
                         }
                     } else if (returnType) {
