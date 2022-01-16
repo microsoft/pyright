@@ -228,7 +228,7 @@
         "methodOrdering": "Cannot create consistent method ordering",
         "methodOverridden": "\"{name}\" overrides method of same name in class \"{className}\" with incompatible type \"{type}\"",
         "methodReturnsNonObject": "\"{name}\" method does not return an object",
-        "missingSuperCall": "Method \"{methodName}\" does not call the method of the same name in parent class \"{classType}\"",
+        "missingSuperCall": "Method \"{methodName}\" does not call the method of the same name in parent class",
         "moduleAsType": "Module cannot be used as a type",
         "moduleNotCallable": "Module is not callable",
         "moduleUnknownMember": "\"{name}\" is not a known member of module",
