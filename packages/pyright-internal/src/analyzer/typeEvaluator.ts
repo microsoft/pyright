@@ -10823,15 +10823,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (leftLiteralClassName && !getTypeCondition(leftType)) {
                     const rightLiteralClassName = getLiteralTypeClassName(rightType);
 
-                    // If the number of subtypes starts to explode, don't use this
-                    // code path.
+                    // If the number of subtypes starts to explode, don't use this code path.
                     const maxLiteralMathSubtypeCount = 64;
 
                     if (
                         leftLiteralClassName === rightLiteralClassName &&
                         !getTypeCondition(rightType) &&
-                        getUnionSubtypeCount(leftType) < maxLiteralMathSubtypeCount &&
-                        getUnionSubtypeCount(rightType) < maxLiteralMathSubtypeCount
+                        getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) < maxLiteralMathSubtypeCount
                     ) {
                         if (leftLiteralClassName === 'str' || leftLiteralClassName === 'bytes') {
                             if (operator === OperatorType.Add) {
