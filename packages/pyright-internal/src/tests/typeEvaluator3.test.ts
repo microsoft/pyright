@@ -93,7 +93,7 @@ test('Generators10', () => {
 test('Generators11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators11.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Generators12', () => {

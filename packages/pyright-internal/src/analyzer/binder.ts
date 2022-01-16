@@ -1076,7 +1076,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitYield(node: YieldNode): boolean {
-        if (this._isInListComprehension(node)) {
+        if (this._isInListComprehension(node, /* ignoreOutermostIterable */ true)) {
             this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
         }
 
@@ -1085,7 +1085,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitYieldFrom(node: YieldFromNode): boolean {
-        if (this._isInListComprehension(node)) {
+        if (this._isInListComprehension(node, /* ignoreOutermostIterable */ true)) {
             this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
         }
 
@@ -2151,12 +2151,27 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _isInListComprehension(node: ParseNode) {
+    private _isInListComprehension(node: ParseNode, ignoreOutermostIterable = false) {
         let curNode: ParseNode | undefined = node;
+        let prevNode: ParseNode | undefined;
+        let prevPrevNode: ParseNode | undefined;
+
         while (curNode) {
             if (curNode.nodeType === ParseNodeType.ListComprehension) {
+                if (ignoreOutermostIterable && curNode.comprehensions.length > 0) {
+                    const outermostCompr = curNode.comprehensions[0];
+                    if (prevNode === outermostCompr && outermostCompr.nodeType === ParseNodeType.ListComprehensionFor) {
+                        if (prevPrevNode === outermostCompr.iterableExpression) {
+                            return false;
+                        }
+                    }
+                }
+
                 return true;
             }
+
+            prevPrevNode = prevNode;
+            prevNode = curNode;
             curNode = curNode.parent;
         }
         return false;

@@ -18,3 +18,10 @@ def func2() -> Generator[int, int, None]:
 
     v2 = yield 4
     t_v2: Literal["int"] = reveal_type(v2)
+
+
+def func3():
+    [x for x in (yield [[[1]], [[2]], [[3]]]) for y in x]
+
+    # This should generate an error.
+    [x for x in [[[1]], [[2]], [[3]]] for y in (yield x)]
