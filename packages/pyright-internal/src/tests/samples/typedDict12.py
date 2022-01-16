@@ -15,10 +15,19 @@ foo: Foo = {}
 v1: Optional[str] = foo.get("bar")
 
 v2: str = foo.get("bar", "")
+
 v3: Union[str, int] = foo.get("bar", 3)
 
 v4: str = foo.setdefault("bar", "1")
-v5: Union[str, int] = foo.setdefault("bar", 3)
+
+# This should generate an error.
+foo.setdefault("bar", 3)
+
+# This should generate an error.
+foo.setdefault("bar")
+
+# This should generate an error.
+foo.setdefault("baz", "")
 
 v6: str = foo.pop("bar")
 v7: str = foo.pop("bar", "none")
