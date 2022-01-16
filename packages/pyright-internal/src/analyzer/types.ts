@@ -2351,17 +2351,27 @@ export function isTypeSame(
 
             // Handle the case where this is a generic recursive type alias. Make
             // sure that the type argument types match.
-            const type1TypeArgs = type1?.typeAliasInfo?.typeArguments || [];
-            const type2TypeArgs = type2?.typeAliasInfo?.typeArguments || [];
-            const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
+            if (type1.details.recursiveTypeParameters && type2TypeVar.details.recursiveTypeParameters) {
+                const type1TypeArgs = type1?.typeAliasInfo?.typeArguments || [];
+                const type2TypeArgs = type2?.typeAliasInfo?.typeArguments || [];
+                const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
-            for (let i = 0; i < typeArgCount; i++) {
-                // Assume that missing type args are "Any".
-                const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
-                const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
+                for (let i = 0; i < typeArgCount; i++) {
+                    // Assume that missing type args are "Any".
+                    const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
+                    const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
-                if (!isTypeSame(typeArg1, typeArg2, ignorePseudoGeneric, /* ignoreTypeFlags */ false, recursionCount)) {
-                    return false;
+                    if (
+                        !isTypeSame(
+                            typeArg1,
+                            typeArg2,
+                            ignorePseudoGeneric,
+                            /* ignoreTypeFlags */ false,
+                            recursionCount
+                        )
+                    ) {
+                        return false;
+                    }
                 }
             }
 
@@ -2374,7 +2384,8 @@ export function isTypeSame(
                 type1.details.isParamSpec !== type2TypeVar.details.isParamSpec ||
                 type1.details.isVariadic !== type2TypeVar.details.isVariadic ||
                 type1.details.isSynthesized !== type2TypeVar.details.isSynthesized ||
-                type1.details.variance !== type2TypeVar.details.variance
+                type1.details.variance !== type2TypeVar.details.variance ||
+                type1.scopeId !== type2TypeVar.scopeId
             ) {
                 return false;
             }

@@ -19883,6 +19883,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
+            if (isTypeSame(destType, srcType)) {
+                return true;
+            }
+
             // Handle the special case where both types are Self types. We'll allow
             // them to be treated as equivalent to handle certain common idioms.
             if (
