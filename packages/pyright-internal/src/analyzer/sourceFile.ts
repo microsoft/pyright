@@ -72,9 +72,6 @@ const _maxSourceFileSize = 50 * 1024 * 1024;
 interface ResolveImportResult {
     imports: ImportResult[];
     builtinsImportResult?: ImportResult | undefined;
-    typingModulePath?: string | undefined;
-    typeshedModulePath?: string | undefined;
-    collectionsModulePath?: string | undefined;
 }
 
 export class SourceFile {
@@ -172,9 +169,6 @@ export class SourceFile {
     // Information about implicit and explicit imports from this file.
     private _imports: ImportResult[] | undefined;
     private _builtinsImport: ImportResult | undefined;
-    private _typingModulePath: string | undefined;
-    private _typeshedModulePath: string | undefined;
-    private _collectionsModulePath: string | undefined;
 
     private _logTracker: LogTracker;
     readonly fileSystem: FileSystem;
@@ -662,9 +656,6 @@ export class SourceFile {
 
                     this._imports = importResult.imports;
                     this._builtinsImport = importResult.builtinsImportResult;
-                    this._typingModulePath = importResult.typingModulePath;
-                    this._typeshedModulePath = importResult.typeshedModulePath;
-                    this._collectionsModulePath = importResult.collectionsModulePath;
 
                     this._parseDiagnostics = diagSink.fetchAndClear();
                 });
@@ -1176,9 +1167,6 @@ export class SourceFile {
             importLookup,
             futureImports: this._parseResults!.futureImports,
             builtinsScope,
-            typingModulePath: this._typingModulePath,
-            typeshedModulePath: this._typeshedModulePath,
-            collectionsModulePath: this._collectionsModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
             diagnosticRuleSet: this._diagnosticRuleSet,
@@ -1231,56 +1219,12 @@ export class SourceFile {
             builtinsImportResult = undefined;
         }
 
-        // Always include an implicit import of the typing module.
-        const typingImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
-            leadingDots: 0,
-            nameParts: ['typing'],
-            importedSymbols: undefined,
-        });
-
-        // Avoid importing typing from the typing.pyi file itself.
-        let typingModulePath: string | undefined;
-        if (
-            typingImportResult.resolvedPaths.length === 0 ||
-            typingImportResult.resolvedPaths[0] !== this.getFilePath()
-        ) {
-            imports.push(typingImportResult);
-            typingModulePath = typingImportResult.resolvedPaths[0];
-        }
-
-        // Always include an implicit import of the _typeshed module.
-        const typeshedImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
-            leadingDots: 0,
-            nameParts: ['_typeshed'],
-            importedSymbols: undefined,
-        });
-
-        let typeshedModulePath: string | undefined;
-        if (
-            typeshedImportResult.resolvedPaths.length === 0 ||
-            typeshedImportResult.resolvedPaths[0] !== this.getFilePath()
-        ) {
-            imports.push(typeshedImportResult);
-            typeshedModulePath = typeshedImportResult.resolvedPaths[0];
-        }
-
-        let collectionsModulePath: string | undefined;
-
         for (const moduleImport of moduleImports) {
             const importResult = importResolver.resolveImport(this._filePath, execEnv, {
                 leadingDots: moduleImport.leadingDots,
                 nameParts: moduleImport.nameParts,
                 importedSymbols: moduleImport.importedSymbols,
             });
-
-            // If the file imports the stdlib 'collections' module, stash
-            // away its file path. The type analyzer may need this to
-            // access types defined in the collections module.
-            if (importResult.isImportFound && importResult.isTypeshedFile) {
-                if (moduleImport.nameParts.length >= 1 && moduleImport.nameParts[0] === 'collections') {
-                    collectionsModulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-                }
-            }
 
             imports.push(importResult);
 
@@ -1293,9 +1237,6 @@ export class SourceFile {
         return {
             imports,
             builtinsImportResult,
-            typingModulePath,
-            typeshedModulePath,
-            collectionsModulePath,
         };
     }
 

@@ -16,7 +16,11 @@ import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 
 // Maps import paths to the symbol table for the imported module.
-export type ImportLookup = (filePath: string) => ImportLookupResult | undefined;
+export interface AbsoluteModuleDescriptor {
+    importingFilePath: string;
+    nameParts: string[];
+}
+export type ImportLookup = (filePathOrModule: string | AbsoluteModuleDescriptor) => ImportLookupResult | undefined;
 
 export interface ImportLookupResult {
     symbolTable: SymbolTable;
@@ -29,9 +33,6 @@ export interface AnalyzerFileInfo {
     importLookup: ImportLookup;
     futureImports: Map<string, boolean>;
     builtinsScope?: Scope | undefined;
-    typingModulePath?: string | undefined;
-    typeshedModulePath?: string | undefined;
-    collectionsModulePath?: string | undefined;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
     diagnosticRuleSet: DiagnosticRuleSet;

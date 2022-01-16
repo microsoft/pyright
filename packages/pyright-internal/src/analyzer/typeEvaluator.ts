@@ -2334,21 +2334,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        return getTypeFromTypeshedModule(symbolName, fileInfo.typingModulePath);
+        return getTypeFromModule(node, symbolName, ['typing']);
     }
 
     function getTypeshedType(node: ParseNode, symbolName: string): Type | undefined {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        return getTypeFromTypeshedModule(symbolName, fileInfo.typeshedModulePath);
+        return getTypeFromModule(node, symbolName, ['_typeshed']);
     }
 
-    function getTypeFromTypeshedModule(symbolName: string, importPath: string | undefined) {
-        if (!importPath) {
-            return undefined;
-        }
+    function getTypeFromModule(node: ParseNode, symbolName: string, nameParts: string[]) {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const lookupResult = importLookup({ nameParts, importingFilePath: fileInfo.filePath });
 
-        const lookupResult = importLookup(importPath);
         if (!lookupResult) {
             return undefined;
         }
@@ -13204,15 +13200,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             baseClass = getBuiltInType(node, baseClassName);
         } else if (aliasMapEntry.module === 'collections') {
             // The typing.pyi file imports collections.
-            if (fileInfo.collectionsModulePath) {
-                const lookupResult = importLookup(fileInfo.collectionsModulePath);
-                if (lookupResult) {
-                    const symbol = lookupResult.symbolTable.get(baseClassName);
-                    if (symbol) {
-                        baseClass = getEffectiveTypeOfSymbol(symbol);
-                    }
-                }
-            }
+            baseClass = getTypeFromModule(node, baseClassName, ['collections']);
         } else if (aliasMapEntry.module === 'self') {
             const symbolWithScope = lookUpSymbolRecursive(node, baseClassName, /* honorCodeFlow */ false);
             if (symbolWithScope) {

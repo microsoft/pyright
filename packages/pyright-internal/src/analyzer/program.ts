@@ -60,7 +60,7 @@ import { RenameModuleProvider } from '../languageService/renameModuleProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { ImportLookupResult } from './analyzerFileInfo';
+import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { isAliasDeclaration } from './declaration';
@@ -808,8 +808,40 @@ export class Program {
         fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope);
     }
 
-    private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+    private _lookUpImport = (filePathOrModule: string | AbsoluteModuleDescriptor): ImportLookupResult | undefined => {
+        let sourceFileInfo: SourceFileInfo | undefined;
+
+        if (typeof filePathOrModule === 'string') {
+            sourceFileInfo = this._getSourceFileInfoFromPath(filePathOrModule);
+        } else {
+            // Resolve the import.
+            const importResult = this._importResolver.resolveImport(
+                filePathOrModule.importingFilePath,
+                this._configOptions.findExecEnvironment(filePathOrModule.importingFilePath),
+                {
+                    leadingDots: 0,
+                    nameParts: filePathOrModule.nameParts,
+                    importedSymbols: undefined,
+                }
+            );
+
+            if (importResult.isImportFound && !importResult.isNativeLib && importResult.resolvedPaths.length > 0) {
+                let resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                if (resolvedPath) {
+                    // See if the source file already exists in the program.
+                    sourceFileInfo = this._getSourceFileInfoFromPath(resolvedPath);
+
+                    if (!sourceFileInfo) {
+                        resolvedPath = normalizePathCase(this._fs, resolvedPath);
+
+                        // Start tracking the source file.
+                        this.addTrackedFile(resolvedPath);
+                        sourceFileInfo = this._getSourceFileInfoFromPath(resolvedPath);
+                    }
+                }
+            }
+        }
+
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -818,7 +850,7 @@ export class Program {
             // Bind the file if it's not already bound. Don't count this time
             // against the type checker.
             timingStats.typeCheckerTime.subtractFromTime(() => {
-                this._bindFile(sourceFileInfo);
+                this._bindFile(sourceFileInfo!);
             });
         }
 
