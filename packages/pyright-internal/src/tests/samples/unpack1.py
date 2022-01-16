@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of the unpack operator.
 
-# pyright: strict
+# pyright: strictListInference=true
 
 from typing import Literal
 
@@ -48,3 +48,11 @@ t_d2: Literal["list[int]"] = reveal_type(d2)
 
 [d3, e3, *f3] = (1, 2, 3, 4)
 t_f3: Literal["list[int]"] = reveal_type(f3)
+
+[g1, g2, g3] = (1, 2, 3)
+
+# This should generate an error.
+[g1, g2, g3, g4] = (1, 2, 3)
+
+# This should generate an error.
+[g1, g2] = (1, 2, 3)

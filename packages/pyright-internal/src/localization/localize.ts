@@ -482,6 +482,8 @@ export namespace Localizer {
             new ParameterizedString<{ returnType: string }>(
                 getRawString('Diagnostic.lambdaReturnTypePartiallyUnknown')
             );
+        export const listAssignmentMismatch = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.listAssignmentMismatch'));
         export const listInAnnotation = () => getRawString('Diagnostic.listInAnnotation');
         export const literalUnsupportedType = () => getRawString('Diagnostic.literalUnsupportedType');
         export const literalEmptyArgs = () => getRawString('Diagnostic.literalEmptyArgs');
@@ -963,6 +965,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(getRawString('DiagnosticAddendum.keyUndefined'));
         export const kwargsParamMissing = () =>
             new ParameterizedString<{ paramName: string }>(getRawString('DiagnosticAddendum.kwargsParamMissing'));
+        export const listAssignmentMismatch = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.listAssignmentMismatch'));
         export const literalAssignmentMismatch = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.literalAssignmentMismatch')

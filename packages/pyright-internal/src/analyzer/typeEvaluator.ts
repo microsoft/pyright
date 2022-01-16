@@ -2839,17 +2839,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function assignTypeToTupleNode(target: TupleNode, type: Type, isTypeIncomplete: boolean, srcExpr: ExpressionNode) {
+    function assignTypeToTupleOrListNode(
+        target: TupleNode | ListNode,
+        type: Type,
+        isTypeIncomplete: boolean,
+        srcExpr: ExpressionNode
+    ) {
+        const targetExpressions = target.nodeType === ParseNodeType.List ? target.entries : target.expressions;
+
         // Initialize the array of target types, one for each target.
-        const targetTypes: Type[][] = new Array(target.expressions.length);
-        for (let i = 0; i < target.expressions.length; i++) {
+        const targetTypes: Type[][] = new Array(targetExpressions.length);
+        for (let i = 0; i < targetExpressions.length; i++) {
             targetTypes[i] = [];
         }
-        const targetUnpackIndex = target.expressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
+        const targetUnpackIndex = targetExpressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
 
         // Do any of the targets use an unpack operator? If so, it will consume all of the
         // entries at that location.
-        const unpackIndex = target.expressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
+        const unpackIndex = targetExpressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
 
         type = makeTopLevelTypeVarsConcrete(type);
 
@@ -2888,7 +2895,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             targetUnpackIndex,
                             sourceEntryTypes.length - targetTypes.length + 1
                         );
-                        sourceEntryTypes.splice(targetUnpackIndex, 0, combineTypes(removedEntries));
+                        let combinedTypes = combineTypes(removedEntries);
+                        if (target.nodeType === ParseNodeType.List) {
+                            combinedTypes = stripLiteralValue(combinedTypes);
+                        }
+                        sourceEntryTypes.splice(targetUnpackIndex, 0, combinedTypes);
                     } else if (sourceEntryTypes.length === targetTypes.length - 1) {
                         sourceEntryTypes.splice(targetUnpackIndex, 0, NeverType.create());
                     }
@@ -2901,12 +2912,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 // Have we accounted for all of the targets and sources? If not, we have a size mismatch.
-                if (sourceEntryTypes.length !== target.expressions.length) {
+                if (sourceEntryTypes.length !== targetExpressions.length) {
                     const expectedEntryCount =
-                        unpackIndex >= 0 ? target.expressions.length - 1 : target.expressions.length;
+                        unpackIndex >= 0 ? targetExpressions.length - 1 : targetExpressions.length;
                     const subDiag = diagAddendum.createAddendum();
                     subDiag.addMessage(
-                        Localizer.DiagnosticAddendum.tupleAssignmentMismatch().format({
+                        (target.nodeType === ParseNodeType.List
+                            ? Localizer.DiagnosticAddendum.listAssignmentMismatch()
+                            : Localizer.DiagnosticAddendum.tupleAssignmentMismatch()
+                        ).format({
                             type: printType(subtype),
                         })
                     );
@@ -2921,7 +2935,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // The assigned expression isn't a tuple, so it had better
                 // be some iterable type.
                 const iterableType = getTypeFromIterator(subtype, /* isAsync */ false, srcExpr) || UnknownType.create();
-                for (let index = 0; index < target.expressions.length; index++) {
+                for (let index = 0; index < targetExpressions.length; index++) {
                     targetTypes[index].push(addConditionToType(iterableType, getTypeCondition(subtype)));
                 }
             }
@@ -2932,15 +2946,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.tupleAssignmentMismatch().format({
+                (target.nodeType === ParseNodeType.List
+                    ? Localizer.Diagnostic.listAssignmentMismatch()
+                    : Localizer.Diagnostic.tupleAssignmentMismatch()
+                ).format({
                     type: printType(type),
                 }) + diagAddendum.getString(),
                 target
             );
         }
 
-        // Assign the resulting types to the individual names in the tuple target expression.
-        target.expressions.forEach((expr, index) => {
+        // Assign the resulting types to the individual names in the tuple
+        // or list target expression.
+        targetExpressions.forEach((expr, index) => {
             const typeList = targetTypes[index];
             let targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
             targetType = removeNoReturnFromUnion(targetType);
@@ -3272,8 +3290,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 break;
             }
 
+            case ParseNodeType.List:
             case ParseNodeType.Tuple: {
-                assignTypeToTupleNode(target, type, isTypeIncomplete, srcExpr);
+                assignTypeToTupleOrListNode(target, type, isTypeIncomplete, srcExpr);
                 break;
             }
 
@@ -3325,22 +3344,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcExpr
                     );
                 }
-                break;
-            }
-
-            case ParseNodeType.List: {
-                // The assigned expression had better be some iterable type.
-                const iteratedType = getTypeFromIterator(type, /* isAsync */ false, srcExpr) || UnknownType.create();
-
-                target.entries.forEach((entry) => {
-                    assignTypeToExpression(
-                        entry,
-                        iteratedType,
-                        /* isIncomplete */ false,
-                        srcExpr,
-                        ignoreEmptyContainers
-                    );
-                });
                 break;
             }
 
