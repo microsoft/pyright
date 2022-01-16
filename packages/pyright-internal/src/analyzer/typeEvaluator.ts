@@ -4359,7 +4359,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (typeResult?.isAsymmetricDescriptor) {
                         isAsymmetricDescriptor = true;
                     }
-                } else if (ClassType.isBuiltIn(baseType, 'type') && objectType && isClassInstance(objectType)) {
+                } else if (
+                    ClassType.isBuiltIn(baseType, 'type') &&
+                    objectType &&
+                    isClassInstance(objectType) &&
+                    !baseTypeResult.isSuperCall
+                ) {
                     // Handle the case where the base type is an instance of 'type'. We'll
                     // treat it as an instantiable subclass of 'object'.
                     const typeResult = getTypeFromClassMember(
@@ -6797,6 +6802,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         resultIsInstance && bindToType && isInstantiableClass(bindToType)
                             ? ClassType.cloneAsInstance(bindToType)
                             : bindToType,
+                    isSuperCall: true,
                 };
             }
         }
@@ -6809,6 +6815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (targetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
                 return {
                     type: UnknownType.create(),
+                    isSuperCall: true,
                     node,
                 };
             }
@@ -6819,6 +6826,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isInstantiableClass(baseClassType)) {
                     return {
                         type: resultIsInstance ? ClassType.cloneAsInstance(baseClassType) : baseClassType,
+                        isSuperCall: true,
                         node,
                     };
                 }
@@ -6827,6 +6835,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             type: UnknownType.create(),
+            isSuperCall: true,
             node,
         };
     }

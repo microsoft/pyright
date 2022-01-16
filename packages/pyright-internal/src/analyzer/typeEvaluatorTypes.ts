@@ -153,6 +153,9 @@ export interface TypeResult {
     // bind.
     bindToType?: ClassType | TypeVarType | undefined;
 
+    // Indicates that the type comes from a super() call.
+    isSuperCall?: boolean;
+
     // Is member a descriptor object that is asymmetric with respect
     // to __get__ and __set__ types?
     isAsymmetricDescriptor?: boolean;

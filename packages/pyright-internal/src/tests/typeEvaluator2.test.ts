@@ -174,6 +174,12 @@ test('Super7', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('Super8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MissingSuper1', () => {
     const configOptions = new ConfigOptions('.');
 
