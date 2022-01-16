@@ -6,11 +6,13 @@ from types import TracebackType
 from typing import Any, Callable, Iterable, Iterator, TextIO
 from typing_extensions import Literal
 
-MSG_OOB: int
-FTP_PORT: int
-MAXLINE: int
-CRLF: str
-B_CRLF: bytes
+__all__ = ["FTP", "error_reply", "error_temp", "error_perm", "error_proto", "all_errors"]
+
+MSG_OOB: Literal[1]
+FTP_PORT: Literal[21]
+MAXLINE: Literal[8192]
+CRLF: Literal["\r\n"]
+B_CRLF: Literal[b"\r\n"]
 
 class Error(Exception): ...
 class error_reply(Error): ...

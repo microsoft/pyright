@@ -5,12 +5,13 @@ from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
 from os import _Opener
 from types import TracebackType
 from typing import IO, Any, BinaryIO, Callable, Iterable, Iterator, TextIO
+from typing_extensions import Literal
 
-DEFAULT_BUFFER_SIZE: int
+DEFAULT_BUFFER_SIZE: Literal[8192]
 
-SEEK_SET: int
-SEEK_CUR: int
-SEEK_END: int
+SEEK_SET: Literal[0]
+SEEK_CUR: Literal[1]
+SEEK_END: Literal[2]
 
 open = builtins.open
 

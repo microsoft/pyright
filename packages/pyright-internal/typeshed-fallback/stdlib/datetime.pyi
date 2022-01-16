@@ -2,12 +2,12 @@ import sys
 from _typeshed import Self
 from time import struct_time
 from typing import ClassVar, NamedTuple, NoReturn, SupportsAbs, TypeVar, overload
-from typing_extensions import final
+from typing_extensions import Literal, final
 
 _D = TypeVar("_D", bound=date)
 
-MINYEAR: int
-MAXYEAR: int
+MINYEAR: Literal[1]
+MAXYEAR: Literal[9999]
 
 class tzinfo:
     def tzname(self, __dt: datetime | None) -> str | None: ...

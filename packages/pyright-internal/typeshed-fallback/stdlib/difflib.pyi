@@ -1,11 +1,10 @@
 import sys
-from typing import Any, AnyStr, Callable, Generic, Iterable, Iterator, NamedTuple, Sequence, TypeVar, Union, overload
+from typing import Any, AnyStr, Callable, Generic, Iterable, Iterator, NamedTuple, Sequence, TypeVar, overload
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
 
 _T = TypeVar("_T")
-_JunkCallback = Union[Callable[[str], bool], Callable[[str], bool]]
 
 class Match(NamedTuple):
     a: int
@@ -41,7 +40,7 @@ def get_close_matches(
 ) -> list[Sequence[_T]]: ...
 
 class Differ:
-    def __init__(self, linejunk: _JunkCallback | None = ..., charjunk: _JunkCallback | None = ...) -> None: ...
+    def __init__(self, linejunk: Callable[[str], bool] | None = ..., charjunk: Callable[[str], bool] | None = ...) -> None: ...
     def compare(self, a: Sequence[str], b: Sequence[str]) -> Iterator[str]: ...
 
 def IS_LINE_JUNK(line: str, pat: Any = ...) -> bool: ...  # pat is undocumented
@@ -67,7 +66,7 @@ def context_diff(
     lineterm: str = ...,
 ) -> Iterator[str]: ...
 def ndiff(
-    a: Sequence[str], b: Sequence[str], linejunk: _JunkCallback | None = ..., charjunk: _JunkCallback | None = ...
+    a: Sequence[str], b: Sequence[str], linejunk: Callable[[str], bool] | None = ..., charjunk: Callable[[str], bool] | None = ...
 ) -> Iterator[str]: ...
 
 class HtmlDiff:
@@ -75,8 +74,8 @@ class HtmlDiff:
         self,
         tabsize: int = ...,
         wrapcolumn: int | None = ...,
-        linejunk: _JunkCallback | None = ...,
-        charjunk: _JunkCallback | None = ...,
+        linejunk: Callable[[str], bool] | None = ...,
+        charjunk: Callable[[str], bool] | None = ...,
     ) -> None: ...
     def make_file(
         self,

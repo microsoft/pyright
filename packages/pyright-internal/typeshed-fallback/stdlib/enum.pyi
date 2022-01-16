@@ -33,7 +33,7 @@ class _EnumDict(dict[str, Any]):
 class EnumMeta(ABCMeta):
     if sys.version_info >= (3, 11):
         def __new__(
-            metacls: type[Self],
+            metacls: type[Self],  # type: ignore
             cls: str,
             bases: tuple[type, ...],
             classdict: _EnumDict,

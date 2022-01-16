@@ -99,7 +99,13 @@ class SupportsIndex(Protocol, metaclass=abc.ABCMeta):
 
 # PEP 612 support for Python < 3.9
 if sys.version_info >= (3, 10):
-    from typing import Concatenate as Concatenate, ParamSpec as ParamSpec, TypeAlias as TypeAlias, TypeGuard as TypeGuard
+    from typing import (
+        Concatenate as Concatenate,
+        ParamSpec as ParamSpec,
+        TypeAlias as TypeAlias,
+        TypeGuard as TypeGuard,
+        is_typeddict as is_typeddict,
+    )
 else:
     class ParamSpecArgs:
         __origin__: ParamSpec
@@ -122,6 +128,7 @@ else:
     Concatenate: _SpecialForm = ...
     TypeAlias: _SpecialForm = ...
     TypeGuard: _SpecialForm = ...
+   def is_typeddict(tp: object) -> bool: ...
 
 # PEP 646
 Unpack: _SpecialForm = ...

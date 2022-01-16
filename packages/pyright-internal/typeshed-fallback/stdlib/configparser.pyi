@@ -16,8 +16,8 @@ if sys.version_info >= (3, 7):
 else:
     _Path = StrPath
 
-DEFAULTSECT: str
-MAX_INTERPOLATION_DEPTH: int
+DEFAULTSECT: Literal["DEFAULT"]
+MAX_INTERPOLATION_DEPTH: Literal[10]
 
 class Interpolation:
     def before_get(self, parser: _parser, section: str, option: str, value: str, defaults: _section) -> str: ...

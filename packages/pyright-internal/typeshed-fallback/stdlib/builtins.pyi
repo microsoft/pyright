@@ -111,7 +111,7 @@ class object:
     def __dir__(self) -> Iterable[str]: ...
     def __init_subclass__(cls) -> None: ...
 
-class staticmethod(Generic[_R]):  # Special, only valid as a decorator.
+class staticmethod(Generic[_R]):
     __func__: Callable[..., _R]
     __isabstractmethod__: bool
     def __init__(self: staticmethod[_R], __f: Callable[..., _R]) -> None: ...
@@ -123,7 +123,7 @@ class staticmethod(Generic[_R]):  # Special, only valid as a decorator.
         __wrapped__: Callable[..., _R]
         def __call__(self, *args: Any, **kwargs: Any) -> _R: ...
 
-class classmethod(Generic[_R]):  # Special, only valid as a decorator.
+class classmethod(Generic[_R]):
     __func__: Callable[..., _R]
     __isabstractmethod__: bool
     def __init__(self: classmethod[_R], __f: Callable[..., _R]) -> None: ...
@@ -1664,7 +1664,7 @@ if sys.version_info >= (3, 10):
     class EncodingWarning(Warning): ...
 
 if sys.version_info >= (3, 11):
-    _SplitCondition = type[BaseException] | tuple[type[BaseException, ...]] | Callable[[BaseException], bool]
+    _SplitCondition = type[BaseException] | tuple[type[BaseException], ...] | Callable[[BaseException], bool]
     class BaseExceptionGroup(BaseException):
         def __new__(cls, __message: str, __exceptions: Sequence[BaseException]) -> BaseExceptionGroup | ExceptionGroup: ...
         @property
