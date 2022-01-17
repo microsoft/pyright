@@ -446,9 +446,7 @@ export function synthesizeTypedDictClassMethods(
         entries.forEach((entry, name) => {
             const nameLiteralType = ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, name));
 
-            if (entry.isRequired) {
-                getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ false));
-            }
+            getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ false));
             getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ true));
             popOverloads.push(...createPopMethods(nameLiteralType, entry.valueType));
             setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
