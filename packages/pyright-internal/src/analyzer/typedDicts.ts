@@ -747,7 +747,7 @@ export function getTypeFromIndexedTypedDict(
         return undefined;
     }
 
-    const entries = getTypedDictMembersForClass(evaluator, baseType, /* allowNarrowed */ true);
+    const entries = getTypedDictMembersForClass(evaluator, baseType, /* allowNarrowed */ usage.method === 'get');
 
     const indexTypeResult = evaluator.getTypeOfExpression(node.items[0].valueExpression);
     const indexType = indexTypeResult.type;
@@ -790,7 +790,9 @@ export function getTypeFromIndexedTypedDict(
             }
 
             if (usage.method === 'set') {
-                evaluator.canAssignType(entry.valueType, usage.setType || AnyType.create(), diag);
+                if (!evaluator.canAssignType(entry.valueType, usage.setType || AnyType.create(), diag)) {
+                    allDiagsInvolveNotRequiredKeys = false;
+                }
             } else if (usage.method === 'del' && entry.isRequired) {
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.keyRequiredDeleted().format({

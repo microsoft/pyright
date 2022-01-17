@@ -45,3 +45,6 @@ movie6["name"] = "goodbye"
 
 movie7 = {"name": "hello", "year": 1971}
 movie7["name"] = "goodbye"
+
+movie8: Movie2 = {"year": 1981, "name": "test"}
+movie8["year"] = 1982
