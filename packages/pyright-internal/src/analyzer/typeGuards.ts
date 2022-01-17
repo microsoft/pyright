@@ -1070,9 +1070,16 @@ function narrowTypeForIsInstance(
                 }
             }
         } else if (
-            !classTypeList.some((filterType) =>
-                evaluator.canAssignType(varType, convertToInstance(evaluator.makeTopLevelTypeVarsConcrete(filterType)))
-            )
+            !classTypeList.some((filterType) => {
+                // If the filter type is a runtime checkable protocol class, it can
+                // be used in an instance check.
+                const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
+                if (isClass(concreteFilterType) && !ClassType.isProtocolClass(concreteFilterType)) {
+                    return false;
+                }
+
+                return evaluator.canAssignType(varType, convertToInstance(concreteFilterType));
+            })
         ) {
             filteredTypes.push(unexpandedType);
         }
