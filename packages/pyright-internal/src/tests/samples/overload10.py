@@ -2,7 +2,7 @@
 # a *args parameter.
 
 
-from typing import Iterable, Literal, Tuple, TypeVar, overload
+from typing import Iterable, Tuple, TypeVar, overload
 
 
 _T1 = TypeVar("_T1")
@@ -30,17 +30,17 @@ def func1(*iterables: Iterable[_T1]) -> Tuple[_T1, ...]:
 
 def func2(x: Iterable[int]):
     v1 = func1(x)
-    t1: Literal["Tuple[int]"] = reveal_type(v1)
+    reveal_type(v1, expected_text="Tuple[int]")
 
     v2 = func1(x, x)
-    t2: Literal["Tuple[int, int]"] = reveal_type(v2)
+    reveal_type(v2, expected_text="Tuple[int, int]")
 
     y = [x, x, x, x]
 
     v3 = func1(*y)
-    t3: Literal["Tuple[int, ...]"] = reveal_type(v3)
+    reveal_type(v3, expected_text="Tuple[int, ...]")
 
     z = (x, x)
 
     v4 = func1(*z)
-    t4: Literal["Tuple[int, int]"] = reveal_type(v4)
+    reveal_type(v4, expected_text="Tuple[int, int]")

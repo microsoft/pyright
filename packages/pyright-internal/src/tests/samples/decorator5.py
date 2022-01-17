@@ -2,8 +2,6 @@
 # an unannotated decorator should allow the decorated
 # function type (and docstring) to pass through unmodified.
 
-from typing import Literal
-
 
 def simple_decorator(method):
     def wrapper(*args, **kw):
@@ -18,7 +16,7 @@ def function(var: str, kvar: str):
     return
 
 
-t1: Literal["(var: str, kvar: str) -> None"] = reveal_type(function)
+reveal_type(function, expected_text="(var: str, kvar: str) -> None")
 
 
 class Foo:
@@ -27,5 +25,5 @@ class Foo:
         return
 
 
-t2: Literal["(var: str, kvar: str) -> None"] = reveal_type(Foo().method)
-t3: Literal["(self: Foo, var: str, kvar: str) -> None"] = reveal_type(Foo.method)
+reveal_type(Foo().method, expected_text="(var: str, kvar: str) -> None")
+reveal_type(Foo.method, expected_text="(self: Foo, var: str, kvar: str) -> None")

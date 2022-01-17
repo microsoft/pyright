@@ -2,7 +2,7 @@
 # protocol (i.e. a `__get__` method), and a member is accessed through
 # the class.
 
-from typing import Any, Literal
+from typing import Any
 
 
 class _IntDescriptorMeta(type):
@@ -21,8 +21,8 @@ class X:
     number_cls = IntDescriptorClass
 
 
-t1: Literal["int"] = reveal_type(X.number_cls)
-t2: Literal["int"] = reveal_type(X().number_cls)
+reveal_type(X.number_cls, expected_text="int")
+reveal_type(X().number_cls, expected_text="int")
 
 # This should generate an error
 X.number_cls = "hi"

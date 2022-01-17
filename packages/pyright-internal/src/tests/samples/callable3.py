@@ -2,7 +2,7 @@
 # callable type as an input parameter, and the latter callable
 # contains generic types.
 
-from typing import Callable, Generic, Literal, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Optional, Tuple, TypeVar
 
 Msg = TypeVar("Msg")
 Reply = TypeVar("Reply")
@@ -25,4 +25,4 @@ build_message: Callable[
 ] = lambda r: (42, r)
 ret = agent.post_and_async_reply(build_message)
 
-t1: Literal["str | None"] = reveal_type(ret)
+reveal_type(ret, expected_text="str | None")

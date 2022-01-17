@@ -1,7 +1,6 @@
 # This sample tests logical operators on enums.
 
 import enum
-from typing import Literal
 
 
 class CustomFlags(enum.Flag):
@@ -11,7 +10,7 @@ class CustomFlags(enum.Flag):
 
 
 flags1 = CustomFlags.A | CustomFlags.B
-t1: Literal["CustomFlags"] = reveal_type(flags1)
+reveal_type(flags1, expected_text="CustomFlags")
 
 flags2 = CustomFlags.A & CustomFlags.B
-t2: Literal["CustomFlags"] = reveal_type(flags2)
+reveal_type(flags2, expected_text="CustomFlags")

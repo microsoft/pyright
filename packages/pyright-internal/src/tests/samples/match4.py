@@ -2,17 +2,17 @@
 # described in PEP 634) that contain value patterns.
 
 from enum import Enum
-from typing import Literal, Tuple, TypeVar, Union
+from typing import Tuple, TypeVar, Union
 from http import HTTPStatus
 
 def handle_reply(reply: Tuple[HTTPStatus, str] | Tuple[HTTPStatus]):
     match reply:
         case (HTTPStatus.OK as a1, a2):
-            t_a1: Literal["Literal[HTTPStatus.OK]"] = reveal_type(a1)
-            t_a2: Literal["str"] = reveal_type(a2)
+            reveal_type(a1, expected_text="Literal[HTTPStatus.OK]")
+            reveal_type(a2, expected_text="str")
 
         case (HTTPStatus.NOT_FOUND as d1, ):
-            t_d1: Literal["Literal[HTTPStatus.NOT_FOUND]"] = reveal_type(d1)
+            reveal_type(d1, expected_text="Literal[HTTPStatus.NOT_FOUND]")
 
 
 class MyEnum(Enum):
@@ -27,22 +27,22 @@ class MyClass:
 def test_unknown(value_to_match):
     match value_to_match:
         case MyEnum.V1 as a1:
-            t_a1: Literal["Unknown"] = reveal_type(a1)
-            t_v1: Literal["Unknown"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="Unknown")
+            reveal_type(value_to_match, expected_text="Unknown")
 
 
 def test_enum(value_to_match: MyEnum):
     match value_to_match:
         case MyEnum.V1 as a1:
-            t_a1: Literal["Literal[MyEnum.V1]"] = reveal_type(a1)
-            t_v1: Literal["Literal[MyEnum.V1]"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="Literal[MyEnum.V1]")
+            reveal_type(value_to_match, expected_text="Literal[MyEnum.V1]")
 
 
 def test_class_var(value_to_match: str):
     match value_to_match:
         case MyClass.class_var_1 as a1:
-            t_a1: Literal["Never"] = reveal_type(a1)
-            t_v1: Literal["Never"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
 
 
 TInt = TypeVar("TInt", bound=MyEnum)
@@ -50,8 +50,8 @@ TInt = TypeVar("TInt", bound=MyEnum)
 def test_union(value_to_match: Union[TInt, MyEnum]) -> Union[TInt, MyEnum]:
     match value_to_match:
         case MyEnum.V1 as a1:
-            t_a1: Literal["Literal[MyEnum.V1]"] = reveal_type(a1)
-            t_v1: Literal["Literal[MyEnum.V1]"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="Literal[MyEnum.V1]")
+            reveal_type(value_to_match, expected_text="Literal[MyEnum.V1]")
 
     return value_to_match
 
@@ -70,17 +70,17 @@ class Color(Enum):
 def test_enum_narrowing(m: Union[Medal, Color, int]):
     match m:
         case Medal.gold as a1:
-            t_a1: Literal['Literal[Medal.gold]'] = reveal_type(a1)
-            t_ma: Literal['Literal[Medal.gold]'] = reveal_type(m)
+            reveal_type(a1, expected_text='Literal[Medal.gold]')
+            reveal_type(m, expected_text='Literal[Medal.gold]')
 
         case Medal.silver as b1:
-            t_b1: Literal['Literal[Medal.silver]'] = reveal_type(b1)
-            t_mb: Literal['Literal[Medal.silver]'] = reveal_type(m)
+            reveal_type(b1, expected_text='Literal[Medal.silver]')
+            reveal_type(m, expected_text='Literal[Medal.silver]')
 
         case Color() as c1:
-            t_c1: Literal['Color'] = reveal_type(c1)
-            t_mc: Literal['Color'] = reveal_type(m)
+            reveal_type(c1, expected_text='Color')
+            reveal_type(m, expected_text='Color')
 
         case d1:
-            t_d1: Literal['int | Literal[Medal.bronze]'] = reveal_type(d1)
-            t_md: Literal['int | Literal[Medal.bronze]'] = reveal_type(m)
+            reveal_type(d1, expected_text='int | Literal[Medal.bronze]')
+            reveal_type(m, expected_text='int | Literal[Medal.bronze]')

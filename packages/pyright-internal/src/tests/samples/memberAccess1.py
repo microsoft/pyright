@@ -1,7 +1,7 @@
 # This sample validates that member access magic functions
 # like __get__ and __set__ are handled correctly.
 
-from typing import Any, Generic, Literal, Type, TypeVar, overload
+from typing import Any, Generic, Type, TypeVar, overload
 from functools import cached_property
 
 _T = TypeVar("_T")
@@ -25,8 +25,8 @@ class Foo:
         a: Column[str] = cls.bar
 
 
-t1: Literal["Column[str]"] = reveal_type(Foo.bar)
-t2: Literal["str"] = reveal_type(Foo().bar)
+reveal_type(Foo.bar, expected_text="Column[str]")
+reveal_type(Foo().bar, expected_text="str")
 
 
 class Foo2:
@@ -48,4 +48,4 @@ class SomeClass:
     instance: Factory
 
 
-t3: Literal["SomeClass"] = reveal_type(SomeClass.instance)
+reveal_type(SomeClass.instance, expected_text="SomeClass")

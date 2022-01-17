@@ -56,8 +56,8 @@ class MyEnum(Enum):
 
 def func5(x: Union[MyEnum, str]):
     if x is MyEnum.ZERO:
-        t1: Literal["Literal[MyEnum.ZERO]"] = reveal_type(x)
+        reveal_type(x, expected_text="Literal[MyEnum.ZERO]")
     elif x is MyEnum.ONE:
-        t2: Literal["Literal[MyEnum.ONE]"] = reveal_type(x)
+        reveal_type(x, expected_text="Literal[MyEnum.ONE]")
     else:
-        t3: Literal["str"] = reveal_type(x)
+        reveal_type(x, expected_text="str")

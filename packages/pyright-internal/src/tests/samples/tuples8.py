@@ -1,7 +1,7 @@
 # This sample verifies that the "tuple" type is treated
 # analogously to "Tuple" type.
 
-from typing import Iterable, Literal, Tuple, TypeVar
+from typing import Iterable, Tuple, TypeVar
 
 
 _T = TypeVar("_T")
@@ -95,4 +95,4 @@ def qux() -> None:
     foo = ["foo"]
     quux = baz(foo)
     for s in quux:
-        t1: Literal["str"] = reveal_type(s)
+        reveal_type(s, expected_text="str")

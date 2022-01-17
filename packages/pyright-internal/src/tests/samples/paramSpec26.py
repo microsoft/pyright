@@ -1,7 +1,7 @@
 # This sample tests the case where a generic class parameterized by a
 # ParamSpec is specialized using a Concatenate[] type argument.
 
-from typing import Literal, ParamSpec, Concatenate, Generic, Callable, Any
+from typing import ParamSpec, Concatenate, Generic, Callable, Any
 
 P = ParamSpec("P")
 
@@ -20,6 +20,6 @@ def test(a: int, b: str) -> str:
 
 
 val1 = A(test)
-t1: Literal["A[(a: int, b: str)]"] = reveal_type(val1)
+reveal_type(val1, expected_text="A[(a: int, b: str)]")
 val2 = func1(val1)
-t2: Literal["A[(b: str)]"] = reveal_type(val2)
+reveal_type(val2, expected_text="A[(b: str)]")

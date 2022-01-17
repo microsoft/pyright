@@ -4,9 +4,6 @@
 # pyright: reportFunctionMemberAccess=error
 
 
-from typing import Literal
-
-
 def func1(a: int) -> str:
     ...
 
@@ -30,16 +27,16 @@ class A:
 
 
 s2 = A().method1.__self__
-t_s2: Literal["A"] = reveal_type(s2)
+reveal_type(s2, expected_text="A")
 
 s3 = A.method2.__self__
-t_s3: Literal["Type[A]"] = reveal_type(s3)
+reveal_type(s3, expected_text="Type[A]")
 
 s3 = A.method2.__self__
-t_s3: Literal["Type[A]"] = reveal_type(s3)
+reveal_type(s3, expected_text="Type[A]")
 
 s4 = A().method2.__self__
-t_s4: Literal["Type[A]"] = reveal_type(s4)
+reveal_type(s4, expected_text="Type[A]")
 
 # This should generate an error because method3 is static.
 s5 = A().method3.__self__

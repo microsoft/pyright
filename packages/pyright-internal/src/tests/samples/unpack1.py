@@ -2,8 +2,6 @@
 
 # pyright: strictListInference=true
 
-from typing import Literal
-
 
 class Foo:
     ...
@@ -41,13 +39,13 @@ x3 = *(1, 2, 3), 2
 
 
 [d1, *e1, f1] = [1, 2, 3, 4]
-t_e1: Literal["list[int]"] = reveal_type(e1)
+reveal_type(e1, expected_text="list[int]")
 
 [*d2, e2, f2] = [1, 2, 3, 4]
-t_d2: Literal["list[int]"] = reveal_type(d2)
+reveal_type(d2, expected_text="list[int]")
 
 [d3, e3, *f3] = (1, 2, 3, 4)
-t_f3: Literal["list[int]"] = reveal_type(f3)
+reveal_type(f3, expected_text="list[int]")
 
 [g1, g2, g3] = (1, 2, 3)
 

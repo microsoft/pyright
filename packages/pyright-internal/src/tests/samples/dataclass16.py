@@ -1,7 +1,7 @@
 # This sample verifies that a generic dataclass works.
 
 from dataclasses import dataclass
-from typing import Generic, Literal, TypeVar, Union
+from typing import Generic, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -11,11 +11,11 @@ class Foo(Generic[T]):
     value: Union[str, T]
 
 
-t1: Literal["Foo[str]"] = reveal_type(Foo(""))
+reveal_type(Foo(""), expected_text="Foo[str]")
 
 
 class Bar(Foo[int]):
     pass
 
 
-t2: Literal["Bar"] = reveal_type(Bar(123))
+reveal_type(Bar(123), expected_text="Bar")

@@ -1,7 +1,7 @@
 # This sample tests the case where a TypeVar is bound to a
 # protocol class.
 
-from typing import Literal, Protocol, Type, TypeVar
+from typing import Protocol, Type, TypeVar
 
 
 class ClsProtocol(Protocol):
@@ -18,5 +18,5 @@ class Sample:
         return cls()
 
 
-t1: Literal["Sample"] = reveal_type(Sample.test())
-t2: Literal["Sample"] = reveal_type(Sample().test())
+reveal_type(Sample.test(), expected_text="Sample")
+reveal_type(Sample().test(), expected_text="Sample")

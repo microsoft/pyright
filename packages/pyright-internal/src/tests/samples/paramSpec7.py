@@ -1,7 +1,7 @@
 # This sample tests the handling of a specialized function
 # used as an argument to a ParamSpec.
 
-from typing import Callable, Generic, Literal, ParamSpec, TypeVar
+from typing import Callable, Generic, ParamSpec, TypeVar
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -18,5 +18,5 @@ class Baz(Generic[T]):
 
 baz: Baz[int] = Baz()
 
-t1: Literal["(v: int) -> None"] = reveal_type(baz.qux)
-t2: Literal["(v: int) -> None"] = reveal_type(foo(baz.qux))
+reveal_type(baz.qux, expected_text="(v: int) -> None")
+reveal_type(foo(baz.qux), expected_text="(v: int) -> None")

@@ -1,7 +1,7 @@
 # This sample tests isinstance type narrowing when the class list
 # includes "Callable".
 
-from typing import Callable, List, Literal, Sequence, TypeVar, Union
+from typing import Callable, List, Sequence, TypeVar, Union
 
 
 class A:
@@ -26,13 +26,14 @@ TCall1 = TypeVar("TCall1", bound=Callable[..., int])
 
 def func1(obj: Union[Callable[[int, str], int], List[int], A, B, C, D, TCall1]):
     if isinstance(obj, (Callable, Sequence, C)):
-        t1: Literal[
-            "((int, str) -> int) | List[int] | B | C | D | TCall1@func1"
-        ] = reveal_type(obj)
+        reveal_type(
+            obj,
+            expected_text="((int, str) -> int) | List[int] | B | C | D | TCall1@func1",
+        )
     else:
-        t2: Literal["A"] = reveal_type(obj)
+        reveal_type(obj, expected_text="A")
 
     if isinstance(obj, Callable):
-        t3: Literal["((int, str) -> int) | B | TCall1@func1"] = reveal_type(obj)
+        reveal_type(obj, expected_text="((int, str) -> int) | B | TCall1@func1")
     else:
-        t4: Literal["List[int] | C | D | A"] = reveal_type(obj)
+        reveal_type(obj, expected_text="List[int] | C | D | A")

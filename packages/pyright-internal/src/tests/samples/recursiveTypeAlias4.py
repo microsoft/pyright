@@ -2,7 +2,7 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Optional, Union
 
 
 JSONArray = List["JSONType"]
@@ -17,26 +17,30 @@ JSONType = Union[JSONPrimitive, JSONStructured]
 # Using type alias checking for list:
 def f2(args: JSONStructured):
     if isinstance(args, List):
-        t1: Literal[
-            "List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]"
-        ] = reveal_type(args)
+        reveal_type(
+            args,
+            expected_text="List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]",
+        )
     else:
-        t2: Literal[
-            "Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]"
-        ] = reveal_type(args)
+        reveal_type(
+            args,
+            expected_text="Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]",
+        )
         dargs: JSONObject = args
 
 
 # Using type alias checking for dict:
 def f3(args: JSONStructured):
     if isinstance(args, Dict):
-        t1: Literal[
-            "Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]"
-        ] = reveal_type(args)
+        reveal_type(
+            args,
+            expected_text="Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]",
+        )
     else:
-        t2: Literal[
-            "List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]"
-        ] = reveal_type(args)
+        reveal_type(
+            args,
+            expected_text="List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]",
+        )
         largs: JSONArray = args
 
 

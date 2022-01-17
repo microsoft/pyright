@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Generic, List, Literal, Tuple, TypeVar, Union
+from typing import Generic, List, Tuple, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -13,7 +13,7 @@ _Xs = TypeVarTuple("_Xs")
 
 class ClassA(Generic[_T, Unpack[_Xs]]):
     def __init__(self, *args: Unpack[_Xs]) -> None:
-        t1: Literal["tuple[*_Xs@ClassA]"] = reveal_type(args)
+        reveal_type(args, expected_text="tuple[*_Xs@ClassA]")
 
     # This should generate an error
     def func2(self) -> Union[_Xs]:

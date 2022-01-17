@@ -1,14 +1,14 @@
 # This sample tests that binary operations "or" and "and"
 # properly handle bidirectional type inference.
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
 
 
 def func_or(a: Optional[Dict[str, Any]]):
     a = a or dict()
-    t1: Literal["Dict[str, Any]"] = reveal_type(a)
+    reveal_type(a, expected_text="Dict[str, Any]")
 
 
 def func_and():
     a: Optional[Dict[str, Any]] = True and dict()
-    t1: Literal["dict[str, Any]"] = reveal_type(a)
+    reveal_type(a, expected_text="dict[str, Any]")

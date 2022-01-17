@@ -1,6 +1,6 @@
 # This sample file tests various aspects of type analysis for tuples.
 
-from typing import List, Literal, Tuple, Union
+from typing import List, Tuple, Union
 import os
 
 
@@ -138,10 +138,10 @@ def func13(
     d: Union[Tuple[int], Tuple[str, str], Tuple[int, ...]],
 ):
     v1 = a[0]
-    t_v1: Literal["int"] = reveal_type(v1)
+    reveal_type(v1, expected_text="int")
 
     v2 = a[1]
-    t_v2: Literal["str"] = reveal_type(v2)
+    reveal_type(v2, expected_text="str")
 
     # This should generate an error.
     v3 = a[2]
@@ -150,20 +150,20 @@ def func13(
     v4 = b[0]
 
     v5 = c[100]
-    t_v5: Literal["int"] = reveal_type(v5)
+    reveal_type(v5, expected_text="int")
 
     v6 = a[-2]
-    t_v6: Literal["int"] = reveal_type(v6)
+    reveal_type(v6, expected_text="int")
 
     v7 = a[-1]
-    t_v7: Literal["str"] = reveal_type(v7)
+    reveal_type(v7, expected_text="str")
 
     # This should generate an error.
     v8 = a[-3]
-    t_v8: Literal["int | str"] = reveal_type(v8)
+    reveal_type(v8, expected_text="int | str")
 
     v9 = c[-100]
-    t_v9: Literal["int"] = reveal_type(v9)
+    reveal_type(v9, expected_text="int")
 
     v10 = d[0]
 
@@ -178,4 +178,4 @@ def func13(
 def func14():
     list1 = [1, 2, 3]
     v1 = tuple(list1)
-    t_v1: Literal["tuple[int, ...]"] = reveal_type(v1)
+    reveal_type(v1, expected_text="tuple[int, ...]")

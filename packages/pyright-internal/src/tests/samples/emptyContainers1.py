@@ -2,7 +2,7 @@
 
 # pyright: reportUnknownVariableType=true, reportUnknownArgumentType=true
 
-from typing import List, Literal
+from typing import List
 
 
 def func1(a: bool):
@@ -11,14 +11,14 @@ def func1(a: bool):
     if a:
         val1 = [2, 3]
 
-    t_val1: Literal["list[int]"] = reveal_type(val1)
+    reveal_type(val1, expected_text="list[int]")
 
     if a:
         val2 = []
     else:
         val2 = []
 
-    t_val2: Literal["list[Unknown]"] = reveal_type(val2)
+    reveal_type(val2, expected_text="list[Unknown]")
 
     # This should generate an error because val2 is partially unknown.
     val2 += [3]
@@ -28,13 +28,13 @@ def func1(a: bool):
     # This would normally generate an error, but because it comes from
     # a [] expression, it's allowed.
     print(val3)
-    t_val3_1: Literal["list[Unknown]"] = reveal_type(val3)
+    reveal_type(val3, expected_text="list[Unknown]")
 
     if a:
         val3 = [3.4]
 
     print(val3)
-    t_val3_2: Literal["list[float]"] = reveal_type(val3)
+    reveal_type(val3, expected_text="list[float]")
 
 
 def func2(a: bool):
@@ -43,14 +43,14 @@ def func2(a: bool):
     if a:
         val1 = {"a": 2}
 
-    t_val1: Literal["dict[str, int]"] = reveal_type(val1)
+    reveal_type(val1, expected_text="dict[str, int]")
 
     if a:
         val2 = {}
     else:
         val2 = {}
 
-    t_val2: Literal["dict[Unknown, Unknown]"] = reveal_type(val2)
+    reveal_type(val2, expected_text="dict[Unknown, Unknown]")
 
     # This should generate an error because val2 is partially unknown.
     val2.pop()
@@ -60,13 +60,13 @@ def func2(a: bool):
     # This would normally generate an error, but because it comes from
     # a {} expression, it's allowed.
     print(val3)
-    t_val3_1: Literal["dict[Unknown, Unknown]"] = reveal_type(val3)
+    reveal_type(val3, expected_text="dict[Unknown, Unknown]")
 
     if a:
         val3 = {"b": 3.4}
 
     print(val3)
-    t_val3_2: Literal["dict[str, float]"] = reveal_type(val3)
+    reveal_type(val3, expected_text="dict[str, float]")
 
 
 class A:
@@ -80,9 +80,9 @@ class A:
         self.val2 = {"a": 1}
 
     def method3(self):
-        t_val1: Literal["list[float]"] = reveal_type(self.val1)
-        t_val2: Literal["dict[str, int]"] = reveal_type(self.val2)
-        t_val3: Literal["list[Unknown]"] = reveal_type(self.val3)
+        reveal_type(self.val1, expected_text="list[float]")
+        reveal_type(self.val2, expected_text="dict[str, int]")
+        reveal_type(self.val3, expected_text="list[Unknown]")
 
     def method4(self) -> List[int]:
         # This should generate an error because of a type mismatch.

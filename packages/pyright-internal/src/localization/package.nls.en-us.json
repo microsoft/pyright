@@ -331,6 +331,8 @@
         "revealLocalsArgs": "Expected no arguments for \"reveal_locals\" call",
         "revealLocalsNone": "No locals in this scope",
         "revealTypeArgs": "Expected a single positional argument for \"reveal_type\" call",
+        "revealTypeExpectedTextArg": "The \"expected_text\" argument for function \"reveal_type\" must be a str literal value",
+        "revealTypeExpectedTextMismatch": "Type text mismatch; expected \"{expected}\" but received \"{received}\"",
         "selfTypeContext": "\"Self\" is not valid in this context",
         "selfTypeWithTypedSelfOrCls": "\"Self\" cannot be used in a function with a `self` or `cls` parameter that has a type annotation other than \"Self\"",
         "setterGetterTypeMismatch": "Property setter value type is not assignable to the getter return type",

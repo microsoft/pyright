@@ -1,7 +1,7 @@
 # This sample tests assignments to indexed expressions
 # where the base is a specialized object.
 
-from typing import List, Dict, Literal, Union
+from typing import List, Dict, Union
 
 
 v1: List[int] = [1, 2, 3, 4, 5]
@@ -16,15 +16,15 @@ v2[1] = 123
 
 v3: List[Union[int, str]] = ["a"]
 v3[0] = 3
-t3: Literal["Literal[3]"] = reveal_type(v3[0])
+reveal_type(v3[0], expected_text="Literal[3]")
 
 
 v4: Dict[str, Union[int, str]] = {}
 v4["aaa"] = 3
 v4["bbb"] = "bbb"
-t4_0: Literal["Literal[3]"] = reveal_type(v4["aaa"])
-t4_1: Literal["Literal['bbb']"] = reveal_type(v4["bbb"])
-t4_2: Literal["int | str"] = reveal_type(v4["ccc"])
+reveal_type(v4["aaa"], expected_text="Literal[3]")
+reveal_type(v4["bbb"], expected_text="Literal['bbb']")
+reveal_type(v4["ccc"], expected_text="int | str")
 
 
 class Assymetric:
@@ -37,4 +37,4 @@ class Assymetric:
 
 v5 = Assymetric()
 v5[0] = 3
-t5: Literal["int"] = reveal_type(v5[0])
+reveal_type(v5[0], expected_text="int")

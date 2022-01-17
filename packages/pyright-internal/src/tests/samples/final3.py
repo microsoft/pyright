@@ -2,7 +2,7 @@
 # introduced in Python 3.8.
 
 import typing
-from typing import Final, List, Literal
+from typing import Final, List
 
 foo1: typing.Final = 3
 
@@ -27,7 +27,7 @@ foo3: Final[str, int] = "hello"
 
 
 foo4: Final = 5
-t_4: Literal["Literal[5]"] = reveal_type(foo4)
+reveal_type(foo4, expected_text="Literal[5]")
 
 
 class Foo:
@@ -78,8 +78,8 @@ class Foo:
         self.member7: Final = 6
 
 
-t1: Literal["Literal[4]"] = reveal_type(Foo.member1)
-t2: Literal["Literal[4]"] = reveal_type(Foo(True).member1)
+reveal_type(Foo.member1, expected_text="Literal[4]")
+reveal_type(Foo(True).member1, expected_text="Literal[4]")
 
 
 class Bar(Foo):

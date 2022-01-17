@@ -1,7 +1,7 @@
 # This sample tests the instantiation of classes via a constructor
 # when the type of the class is a TypeVar.
 
-from typing import Literal, Type, TypeVar
+from typing import Type, TypeVar
 
 
 class Foo:
@@ -17,7 +17,7 @@ def func1(cls: Type[_TFoo]) -> _TFoo:
     y = cls()
 
     x = cls(1, "")
-    t1: Literal["_TFoo@func1"] = reveal_type(x)
+    reveal_type(x, expected_text="_TFoo@func1")
     return x
 
 
@@ -29,5 +29,5 @@ def func2(cls: Type[_T]) -> _T:
     y = cls(1, "")
 
     x = cls()
-    t1: Literal["_T@func2"] = reveal_type(x)
+    reveal_type(x, expected_text="_T@func2")
     return x

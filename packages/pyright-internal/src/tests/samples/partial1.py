@@ -1,7 +1,7 @@
 # This sample tests the functools.partial support.
 
 from functools import partial
-from typing import Literal, TypeVar
+from typing import TypeVar
 
 _T1 = TypeVar("_T1")
 
@@ -13,7 +13,7 @@ def func1():
 
 p1_0 = partial(func1)
 
-t_p1_0: Literal["Literal[0]"] = reveal_type(p1_0())
+reveal_type(p1_0(), expected_text="Literal[0]")
 
 # This should generate an error.
 p1_0("")
@@ -29,7 +29,7 @@ def func2(name: str, number: int) -> None:
 
 p2_0 = partial(func2)
 
-t_p2_0: Literal["None"] = reveal_type(p2_0("", 3))
+reveal_type(p2_0("", 3), expected_text="None")
 
 # This should generate an error.
 p2_0()
@@ -72,7 +72,7 @@ def func3(name: str, /, number: int):
 
 p3_0 = partial(func3)
 
-t_p3_0: Literal["Literal[0]"] = reveal_type(p3_0("", 3))
+reveal_type(p3_0("", 3), expected_text="Literal[0]")
 
 # This should generate an error.
 p3_0(name="", number=3)
@@ -100,8 +100,8 @@ def func5(name: _T1, number: _T1) -> _T1:
 
 
 p5_0 = partial(func5)
-t_p5_0_0: Literal["int"] = reveal_type(p5_0(3, 3))
-t_p5_0_1: Literal["str"] = reveal_type(p5_0("3", "3"))
+reveal_type(p5_0(3, 3), expected_text="int")
+reveal_type(p5_0("3", "3"), expected_text="str")
 
 
 p5_1 = partial(func5, 2)
@@ -118,7 +118,7 @@ def func6(a: int, name: _T1, number: _T1) -> _T1:
 
 p6_0 = partial(func6, 3, 4)
 
-t_p6_0_0: Literal["int"] = reveal_type(p6_0(3))
+reveal_type(p6_0(3), expected_text="int")
 
 
 def func7(a: int, name: float, *args: str):

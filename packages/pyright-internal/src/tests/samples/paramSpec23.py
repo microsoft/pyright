@@ -2,7 +2,7 @@
 # is assigned to a ParamSpec that doesn't include a Concatenate.
 
 
-from typing import Callable, Literal, TypeVar
+from typing import Callable, TypeVar
 from typing_extensions import Concatenate, ParamSpec
 
 Pi = ParamSpec("Pi")
@@ -18,4 +18,4 @@ T = TypeVar("T")
 
 def outer(f: Callable[Concatenate[str, Po], object]):
     x = is_inty(f)
-    t_x: Literal["(str, **Po@outer) -> int"] = reveal_type(x)
+    reveal_type(x, expected_text="(str, **Po@outer) -> int")

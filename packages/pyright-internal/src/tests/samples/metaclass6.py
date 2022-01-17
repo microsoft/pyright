@@ -2,7 +2,6 @@
 # protocols if a class type is passed.
 
 from enum import Enum
-from typing import Literal
 
 
 class Foo(str, Enum):
@@ -10,7 +9,7 @@ class Foo(str, Enum):
 
 
 for member in Foo:
-    t1: Literal["Foo"] = reveal_type(member)
+    reveal_type(member, expected_text="Foo")
 
 foo_members = list(Foo)
-t2: Literal["list[Foo]"] = reveal_type(foo_members)
+reveal_type(foo_members, expected_text="list[Foo]")

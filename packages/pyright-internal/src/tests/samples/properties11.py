@@ -2,7 +2,7 @@
 # are supported in Python 3.9 and newer.
 
 
-from typing import Literal, Type, TypeVar
+from typing import Type, TypeVar
 
 
 class Class1:
@@ -17,9 +17,9 @@ class Class1:
         pass
 
 
-t1: Literal["str"] = reveal_type(Class1.prop1)
+reveal_type(Class1.prop1, expected_text="str")
 
-t2: Literal["str"] = reveal_type(Class1().prop1)
+reveal_type(Class1().prop1, expected_text="str")
 
 Class1.prop1 = "hi"
 
@@ -41,5 +41,5 @@ class Class3(Class2):
     ...
 
 
-t3: Literal["Type[Class2]"] = reveal_type(Class2.prop1)
-t4: Literal["Type[Class3]"] = reveal_type(Class3.prop1)
+reveal_type(Class2.prop1, expected_text="Type[Class2]")
+reveal_type(Class3.prop1, expected_text="Type[Class3]")

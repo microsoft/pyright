@@ -1,7 +1,7 @@
 # This sample tests the handling of generic classes parameterized
 # with a ParamSpec.
 
-from typing import Callable, Generic, Literal, TypeVar
+from typing import Callable, Generic, TypeVar
 from typing_extensions import ParamSpec
 
 P = ParamSpec("P")
@@ -22,7 +22,7 @@ def func(a: int) -> str:
 
 
 a = Foo(func)
-t_a: Literal["Foo[(a: int), str]"] = reveal_type(a)
+reveal_type(a, expected_text="Foo[(a: int), str]")
 
 c = foo(a, 2)
-t_c: Literal["str"] = reveal_type(c)
+reveal_type(c, expected_text="str")

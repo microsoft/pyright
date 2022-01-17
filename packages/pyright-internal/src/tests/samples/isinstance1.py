@@ -1,28 +1,28 @@
 # This sample tests basic type narrowing behavior for
 # the isinstance call.
 
-from typing import Any, List, Literal, Optional, Type, TypedDict, Union
+from typing import Any, List, Optional, Type, TypedDict, Union
 
 
 def func1(x: Union[List[str], int]):
     if isinstance(x, list):
-        t1: Literal["List[str]"] = reveal_type(x)
+        reveal_type(x, expected_text="List[str]")
     else:
-        t2: Literal["int"] = reveal_type(x)
+        reveal_type(x, expected_text="int")
 
 
 def func2(x: Any):
     if isinstance(x, list):
-        t1: Literal["list[Unknown]"] = reveal_type(x)
+        reveal_type(x, expected_text="list[Unknown]")
     else:
-        t2: Literal["Any"] = reveal_type(x)
+        reveal_type(x, expected_text="Any")
 
 
 def func3(x):
     if isinstance(x, list):
-        t1: Literal["list[Unknown]"] = reveal_type(x)
+        reveal_type(x, expected_text="list[Unknown]")
     else:
-        t2: Literal["Unknown"] = reveal_type(x)
+        reveal_type(x, expected_text="Unknown")
 
 
 class SomeTypedDict(TypedDict):
@@ -31,27 +31,27 @@ class SomeTypedDict(TypedDict):
 
 def func4(x: Union[int, SomeTypedDict]):
     if isinstance(x, dict):
-        t1: Literal["SomeTypedDict"] = reveal_type(x)
+        reveal_type(x, expected_text="SomeTypedDict")
     else:
-        t2: Literal["int"] = reveal_type(x)
+        reveal_type(x, expected_text="int")
 
 
 def func5(x: int | str | complex):
     if isinstance(x, (int, str)):
-        t1: Literal["int | str"] = reveal_type(x)
+        reveal_type(x, expected_text="int | str")
     else:
-        t2: Literal["complex"] = reveal_type(x)
+        reveal_type(x, expected_text="complex")
 
 
 def func6(x: Type[int] | Type[str] | Type[complex]):
     if issubclass(x, (int, str)):
-        t1: Literal["Type[int] | Type[str]"] = reveal_type(x)
+        reveal_type(x, expected_text="Type[int] | Type[str]")
     else:
-        t2: Literal["Type[complex]"] = reveal_type(x)
+        reveal_type(x, expected_text="Type[complex]")
 
 
 def func7(x: Optional[Union[int, SomeTypedDict]]):
     if isinstance(x, (dict, type(None))):
-        t1: Literal["SomeTypedDict | None"] = reveal_type(x)
+        reveal_type(x, expected_text="SomeTypedDict | None")
     else:
-        t2: Literal["int"] = reveal_type(x)
+        reveal_type(x, expected_text="int")

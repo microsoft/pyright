@@ -1,7 +1,7 @@
 # This sample tests the handling of a constrained TypeVar used with
 # a Type[T] annotation.
 
-from typing import Literal, Type, TypeVar, Any
+from typing import Type, TypeVar, Any
 
 
 class A:
@@ -20,14 +20,13 @@ def factory(desired_type: Type[T]) -> T:
 
 
 factory(str)
-t1: Literal["str"] = reveal_type(factory(str))
+reveal_type(factory(str), expected_text="str")
 
 factory(int)
-t2: Literal["int"] = reveal_type(factory(int))
+reveal_type(factory(int), expected_text="int")
 
 factory(A).f()
-t3: Literal["A"] = reveal_type(factory(A))
+reveal_type(factory(A), expected_text="A")
 
 # This should generate an error
 factory(float)
-

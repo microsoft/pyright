@@ -2,7 +2,7 @@
 # allow the second argument to be a Protocol class.
 
 from inspect import isfunction
-from typing import Any, Callable, Literal, Protocol, Type, TypeVar, Union
+from typing import Any, Callable, Protocol, Type, TypeVar, Union
 from types import FunctionType, LambdaType
 
 
@@ -43,9 +43,9 @@ _T1 = TypeVar("_T1", bound=CustomClass)
 
 def func1(cls: Type[_T1], val: _T1):
     if issubclass(cls, CustomClass):
-        t1: Literal["Type[CustomClass]*"] = reveal_type(cls)
+        reveal_type(cls, expected_text="Type[CustomClass]*")
     else:
-        t2: Literal["Never"] = reveal_type(cls)
+        reveal_type(cls, expected_text="Never")
 
 
 _T2 = TypeVar("_T2")

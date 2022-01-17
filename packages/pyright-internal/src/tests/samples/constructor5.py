@@ -3,17 +3,17 @@
 # that is matched against a protocol in the OrderedDict
 # constructor.
 
-from typing import Literal, OrderedDict
+from typing import OrderedDict
 
 
 val1 = {
     "a": 1,
     "b": 0,
 }
-t1: Literal["dict[str, int]"] = reveal_type(val1)
+reveal_type(val1, expected_text="dict[str, int]")
 
 val2 = OrderedDict(val1)
-t2: Literal["OrderedDict[str, int]"] = reveal_type(val2)
+reveal_type(val2, expected_text="OrderedDict[str, int]")
 
 
 val3 = OrderedDict(
@@ -22,4 +22,4 @@ val3 = OrderedDict(
         "b": 0,
     }
 )
-t3: Literal["OrderedDict[str, int]"] = reveal_type(val3)
+reveal_type(val3, expected_text="OrderedDict[str, int]")

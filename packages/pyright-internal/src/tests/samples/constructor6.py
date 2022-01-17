@@ -32,9 +32,9 @@ class TextField(Generic[_T]):
 
 
 def foo(a: bool):
-    t1: Literal["TextField[str]"] = reveal_type(TextField())
-    t2: Literal["TextField[str | None]"] = reveal_type(TextField(null=True))
-    t3: Literal["TextField[Unknown]"] = reveal_type(TextField(null=a))
+    reveal_type(TextField(), expected_text="TextField[str]")
+    reveal_type(TextField(null=True), expected_text="TextField[str | None]")
+    reveal_type(TextField(null=a), expected_text="TextField[Unknown]")
 
 
 class Model:
@@ -66,5 +66,5 @@ class Author(Model):
     pass
 
 
-t1: Literal["ForeignKey[Author]"] = reveal_type(ForeignKey(Author, null=False))
-t2: Literal["ForeignKey[Author | None]"] = reveal_type(ForeignKey(Author, null=True))
+reveal_type(ForeignKey(Author, null=False), expected_text="ForeignKey[Author]")
+reveal_type(ForeignKey(Author, null=True), expected_text="ForeignKey[Author | None]")

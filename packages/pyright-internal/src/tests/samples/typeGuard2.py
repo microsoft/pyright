@@ -3,7 +3,7 @@
 
 # pyright: strict, reportMissingModuleSource=false
 
-from typing import Any, Callable, List, Literal, Sequence, TypeVar, overload
+from typing import Any, Callable, List, Sequence, TypeVar, overload
 from typing_extensions import TypeGuard
 
 
@@ -43,16 +43,16 @@ def overloaded_filter(
 
 
 x1 = cb1(1)
-t_x1: Literal["bool"] = reveal_type(x1)
+reveal_type(x1, expected_text="bool")
 
 sf1 = simple_filter([], cb1)
-t_sf1: Literal["List[object]"] = reveal_type(sf1)
+reveal_type(sf1, expected_text="List[object]")
 
 sf2 = simple_filter([], cb2)
-t_sf2: Literal["List[object]"] = reveal_type(sf2)
+reveal_type(sf2, expected_text="List[object]")
 
 of1 = overloaded_filter([], cb1)
-t_of1: Literal["Sequence[int]"] = reveal_type(of1)
+reveal_type(of1, expected_text="Sequence[int]")
 
 of2 = overloaded_filter([], cb2)
-t_of2: Literal["Sequence[object]"] = reveal_type(of2)
+reveal_type(of2, expected_text="Sequence[object]")

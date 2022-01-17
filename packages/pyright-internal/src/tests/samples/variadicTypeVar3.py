@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Generic, List, Literal, Sequence, Tuple, TypeVar, Union
+from typing import Generic, List, Sequence, Tuple, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -14,7 +14,7 @@ _Xs = TypeVarTuple("_Xs")
 class Array(Generic[Unpack[_Xs]]):
     def __init__(self, *args: Unpack[_Xs]) -> None:
         self.x: Tuple[Unpack[_Xs]] = args
-        t1: Literal["tuple[*_Xs@Array]"] = reveal_type(args)
+        reveal_type(args, expected_text="tuple[*_Xs@Array]")
 
     # This should generate an error because _Xs is not unpacked.
     def foo(self, *args: _Xs) -> None:
@@ -22,7 +22,7 @@ class Array(Generic[Unpack[_Xs]]):
 
 
 def linearize(value: Array[Unpack[_Xs]]) -> Sequence[Union[Unpack[_Xs]]]:
-    t1: Literal["Array[*_Xs@linearize]"] = reveal_type(value)
+    reveal_type(value, expected_text="Array[*_Xs@linearize]")
     return []
 
 
@@ -31,27 +31,27 @@ def array_to_tuple(value: Array[Unpack[_Xs]]) -> Tuple[complex, Unpack[_Xs]]:
 
 
 def func1(x: Array[int, str, str, float], y: Array[()]):
-    t1: Literal["Array[int, str, str, float]"] = reveal_type(x)
+    reveal_type(x, expected_text="Array[int, str, str, float]")
 
-    t2: Literal["Array[()]"] = reveal_type(y)
+    reveal_type(y, expected_text="Array[()]")
 
     a1 = Array(3, 3.5, "b")
-    t3: Literal["Array[int, float, str]"] = reveal_type(a1)
+    reveal_type(a1, expected_text="Array[int, float, str]")
 
     a2 = linearize(a1)
-    t4: Literal["Sequence[int | float | str]"] = reveal_type(a2)
+    reveal_type(a2, expected_text="Sequence[int | float | str]")
 
     b1 = Array()
-    t5: Literal["Array[()]"] = reveal_type(b1)
+    reveal_type(b1, expected_text="Array[()]")
 
     b2 = linearize(b1)
-    t6: Literal["Sequence[Unknown]"] = reveal_type(b2)
+    reveal_type(b2, expected_text="Sequence[Unknown]")
 
     e = array_to_tuple(x)
-    t7: Literal["Tuple[complex, int, str, str, float]"] = reveal_type(e)
+    reveal_type(e, expected_text="Tuple[complex, int, str, str, float]")
 
     f = array_to_tuple(y)
-    t8: Literal["Tuple[complex]"] = reveal_type(f)
+    reveal_type(f, expected_text="Tuple[complex]")
 
 
 class ArrayIntStr(Array[int, str, _T]):

@@ -3,7 +3,6 @@
 from dataclasses import InitVar as InitVarAlias
 
 from dataclasses import *
-from typing import Literal
 
 
 @dataclass
@@ -15,7 +14,7 @@ class Container:
 
 
 c = Container(1, 2, 3)
-t1: Literal["int"] = reveal_type(c.not_init_var1)
+reveal_type(c.not_init_var1, expected_text="int")
 
 # This should generate an error
 c.init_var1

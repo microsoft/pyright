@@ -1,7 +1,7 @@
 # This sample tests the case where a TypeVar is used in the parameter
 # of a callable (and is hence treated as contravariant).
 
-from typing import Callable, Literal, Sequence, TypeVar
+from typing import Callable, Sequence, TypeVar
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -29,6 +29,6 @@ def qux(
     ...
 
 
-t1: Literal["float"] = reveal_type(baz(1.0, foo))
-t2: Literal["Sequence[float]"] = reveal_type(qux([1.0], foo))
-t3: Literal["float"] = reveal_type(qux([1.0], bar))
+reveal_type(baz(1.0, foo), expected_text="float")
+reveal_type(qux([1.0], foo), expected_text="Sequence[float]")
+reveal_type(qux([1.0], bar), expected_text="float")

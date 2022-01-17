@@ -683,6 +683,11 @@ export namespace Localizer {
         export const revealLocalsArgs = () => getRawString('Diagnostic.revealLocalsArgs');
         export const revealLocalsNone = () => getRawString('Diagnostic.revealLocalsNone');
         export const revealTypeArgs = () => getRawString('Diagnostic.revealTypeArgs');
+        export const revealTypeExpectedTextArg = () => getRawString('Diagnostic.revealTypeExpectedTextArg');
+        export const revealTypeExpectedTextMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('Diagnostic.revealTypeExpectedTextMismatch')
+            );
         export const selfTypeContext = () => getRawString('Diagnostic.selfTypeContext');
         export const selfTypeWithTypedSelfOrCls = () => getRawString('Diagnostic.selfTypeWithTypedSelfOrCls');
         export const setterGetterTypeMismatch = () => getRawString('Diagnostic.setterGetterTypeMismatch');

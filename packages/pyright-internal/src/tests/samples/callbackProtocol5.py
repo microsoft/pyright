@@ -1,7 +1,7 @@
 # This sample tests the case where a callback protocol defines additional
 # attributes.
 
-from typing import Any, Callable, Literal, Protocol, TypeVar, cast
+from typing import Any, Callable, Protocol, TypeVar, cast
 from typing_extensions import ParamSpec
 
 
@@ -39,7 +39,7 @@ def some_func1(x: int) -> str:
     ...
 
 
-t1: Literal["SomeFunc1[(x: int), str]"] = reveal_type(some_func1)
+reveal_type(some_func1, expected_text="SomeFunc1[(x: int), str]")
 
 some_func1.other_attribute
 

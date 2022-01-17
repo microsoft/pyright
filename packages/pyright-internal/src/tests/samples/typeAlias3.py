@@ -4,7 +4,7 @@
 
 # pyright: strict
 
-from typing import Callable, Generic, Literal, Tuple, Optional, TypeVar
+from typing import Callable, Generic, Tuple, Optional, TypeVar
 from typing_extensions import ParamSpec
 
 T = TypeVar("T")
@@ -25,10 +25,10 @@ class ClassA(Generic[T]):
 TypeAliasA = ClassA[T]
 
 a1 = ClassA(3.0)
-t_a1: Literal["ClassA[float]"] = reveal_type(a1)
+reveal_type(a1, expected_text="ClassA[float]")
 
 a2 = TypeAliasA(3.0)
-t_a2: Literal["ClassA[float]"] = reveal_type(a2)
+reveal_type(a2, expected_text="ClassA[float]")
 
 Func = Callable[P, T]
 AnyFunc = Func[P, int]

@@ -1,7 +1,7 @@
 # This sample tests handling of tuples and tracking
 # of specific types within a tuple.
 
-from typing import Generic, List, Literal, Optional, Tuple, TypeVar
+from typing import Generic, List, Optional, Tuple, TypeVar
 
 _T = TypeVar("_T")
 
@@ -19,10 +19,10 @@ bb1: str = b
 cc1: int = c
 dd1: complex = d
 
-t_A0: Literal["int"] = reveal_type(objA[0])
-t_A1: Literal["str"] = reveal_type(objA[1])
-t_A2: Literal["int"] = reveal_type(objA[2])
-t_A3: Literal["complex"] = reveal_type(objA[3])
+reveal_type(objA[0], expected_text="int")
+reveal_type(objA[1], expected_text="str")
+reveal_type(objA[2], expected_text="int")
+reveal_type(objA[3], expected_text="complex")
 
 # This should generate an error because the trailing
 # comma turns the index value into a tuple.
@@ -42,9 +42,9 @@ objB = ClassB[complex]()
 
 (x, y, z) = objB
 
-t_x: Literal["complex"] = reveal_type(x)
-t_y: Literal["complex"] = reveal_type(y)
-t_z: Literal["complex"] = reveal_type(z)
+reveal_type(x, expected_text="complex")
+reveal_type(y, expected_text="complex")
+reveal_type(z, expected_text="complex")
 
 xx2: complex = objB[0]
 yy2: complex = objB[1]
@@ -53,7 +53,7 @@ zz2: complex = objB[2]
 
 def func1(lst: Optional[List[str]]) -> None:
     for item in lst or ():
-        t1: Literal["str"] = reveal_type(item)
+        reveal_type(item, expected_text="str")
 
 
 class X(Generic[_T]):

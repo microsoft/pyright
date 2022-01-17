@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Generic, Literal, NewType, Tuple, Union
+from typing import Generic, NewType, Tuple, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -24,9 +24,9 @@ class Array(Generic[Unpack[Shape]]):
 Height = NewType("Height", int)
 Width = NewType("Width", int)
 x: Array[Height, Width] = Array(Height(480), Width(640))
-t1: Literal["tuple[Height, Width]"] = reveal_type(x.shape)
-t2: Literal["Array[Height, Width]"] = reveal_type(abs(x))
-t3: Literal["Array[Height, Width]"] = reveal_type(x + abs(x))
+reveal_type(x.shape, expected_text="tuple[Height, Width]")
+reveal_type(abs(x), expected_text="Array[Height, Width]")
+reveal_type(x + abs(x), expected_text="Array[Height, Width]")
 
 
 _Xs = TypeVarTuple("_Xs")
@@ -48,10 +48,10 @@ def func3(p1: Tuple[int], p2: Tuple[int, str]):
     v2 = func2(p1, p2)
 
     v3 = func2(p2, p2)
-    t_v3: Literal["str"] = reveal_type(v3)
+    reveal_type(v3, expected_text="str")
 
     v4 = func2((3, "hi"), p2)
-    t_v4: Literal["str"] = reveal_type(v4)
+    reveal_type(v4, expected_text="str")
 
     # This should generate an error
     v5 = func2((3, 3), p2)
@@ -62,10 +62,10 @@ def func4(a: int, *args: Unpack[_Xs], **kwargs: str) -> Tuple[int, Unpack[_Xs]]:
 
 
 c1 = func4(4, 5.4, 6j, b="3", c="5")
-t_c1: Literal["Tuple[int, float, complex]"] = reveal_type(c1)
+reveal_type(c1, expected_text="Tuple[int, float, complex]")
 
 c2 = func4(4, b="3", c="5")
-t_c2: Literal["Tuple[int]"] = reveal_type(c2)
+reveal_type(c2, expected_text="Tuple[int]")
 
 # This should generate an error.
 c3 = func4(b="3", c="5")

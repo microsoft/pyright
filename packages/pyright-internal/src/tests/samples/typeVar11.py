@@ -9,4 +9,4 @@ _L1 = Literal["foo", "bar"]
 
 def combine(set1: Set[_L1], set2: Set[_L1]) -> None:
     x = set1 | set2
-    t1: Literal["set[Literal['foo', 'bar']]"] = reveal_type(x)
+    reveal_type(x, expected_text="set[Literal['foo', 'bar']]")

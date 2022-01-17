@@ -2,7 +2,7 @@
 # for arguments that are of a specified length (specifically,
 # tuples with a specified list of elements types).
 
-from typing import Literal, NamedTuple, List, Tuple
+from typing import NamedTuple, List, Tuple
 
 X = NamedTuple("X", [("a", int), ("b", str), ("c", str)])
 
@@ -67,8 +67,8 @@ class Z(NamedTuple):
 q6 = Z(["1"], [3])
 
 for a, b in zip(*q6):
-    t1: Literal["str"] = reveal_type(a)
-    t2: Literal["int"] = reveal_type(b)
+    reveal_type(a, expected_text="str")
+    reveal_type(b, expected_text="int")
 
 
 def func1(a: list[str], c: list[int]):

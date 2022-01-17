@@ -3,7 +3,7 @@
 # the descriptor.
 
 
-from typing import Any, Callable, Generic, Literal, TypeVar, Union, overload
+from typing import Any, Callable, Generic, TypeVar, Union, overload
 
 T = TypeVar("T")
 T_contra = TypeVar("T_contra", contravariant=True)
@@ -52,12 +52,12 @@ class D(C[float]):
     ...
 
 
-t1: Literal["CachedSlotProperty[Self@C[T@C], int]"] = reveal_type(C.prop)
-t2: Literal["CachedSlotProperty[Self@C[float], int]"] = reveal_type(D.prop)
+reveal_type(C.prop, expected_text="CachedSlotProperty[Self@C[T@C], int]")
+reveal_type(D.prop, expected_text="CachedSlotProperty[Self@C[float], int]")
 
 
 c = C("")
-t3: Literal["int"] = reveal_type(c.prop)
+reveal_type(c.prop, expected_text="int")
 
 d = D(1)
-t4: Literal["int"] = reveal_type(d.prop)
+reveal_type(d.prop, expected_text="int")

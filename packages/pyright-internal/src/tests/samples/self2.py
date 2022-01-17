@@ -1,6 +1,6 @@
 # This sample tests the usage of the Self type.
 
-from typing import Callable, Dict, Generic, Literal, ParamSpec, Protocol, Type, TypeVar
+from typing import Callable, Dict, Generic, ParamSpec, Protocol, Type, TypeVar
 from typing_extensions import Self
 from dataclasses import dataclass
 
@@ -53,10 +53,10 @@ class Circle1(Shape1):
 
 
 x1 = Shape1().set_scale(3.4)
-t_x1: Literal["Shape1"] = reveal_type(x1)
+reveal_type(x1, expected_text="Shape1")
 
 x2 = Circle1().set_scale(3.4)
-t_x2: Literal["Circle1"] = reveal_type(x2)
+reveal_type(x2, expected_text="Circle1")
 
 
 class Shape2:
@@ -81,11 +81,11 @@ class Circle2(Shape2):
 
 s2 = Shape2()
 x3 = s2.set_scale(3.4)
-t_x3: Literal["Shape2"] = reveal_type(x3)
+reveal_type(x3, expected_text="Shape2")
 
 c2 = Circle2()
 x4 = c2.set_scale(3.4)
-t_x4: Literal["Circle2"] = reveal_type(x4)
+reveal_type(x4, expected_text="Circle2")
 
 c2.difference(c2)
 s2.difference(c2)
@@ -130,8 +130,8 @@ class Container(Generic[_T]):
 def object_with_concrete_type(
     int_container: Container[int], str_container: Container[str]
 ) -> None:
-    t1: Literal["Container[int]"] = reveal_type(int_container.set_value(0))
-    t2: Literal["Container[str]"] = reveal_type(str_container.set_value(""))
+    reveal_type(int_container.set_value(0), expected_text="Container[int]")
+    reveal_type(str_container.set_value(""), expected_text="Container[str]")
 
 
 def object_with_generic_type(container: Container[_T], value: _T) -> Container[_T]:

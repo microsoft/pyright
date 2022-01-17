@@ -2,7 +2,7 @@
 # there is an expected type, so bidirectional type
 # inference is used.
 
-from typing import Callable, Dict, Literal, Protocol, Tuple
+from typing import Callable, Dict, Protocol, Tuple
 
 f1: Callable[[int, int], int] = lambda a, b: a + b
 
@@ -43,4 +43,4 @@ class Adder(Protocol):
 
 
 v1: Adder = lambda x, y: x + y["hi"]
-t1: Literal["(x: int, y: Dict[str, int]) -> int"] = reveal_type(v1)
+reveal_type(v1, expected_text="(x: int, y: Dict[str, int]) -> int")

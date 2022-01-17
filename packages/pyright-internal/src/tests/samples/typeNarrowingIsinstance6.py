@@ -2,7 +2,7 @@
 # narrow the type of a specialized class to a subclass where the type
 # arguments are implied by the type arguments of the wider class.
 
-from typing import Any, Generic, Iterable, Literal, Sequence, Type, TypeVar, Union
+from typing import Any, Generic, Iterable, Sequence, Type, TypeVar, Union
 
 _T1 = TypeVar("_T1")
 
@@ -17,21 +17,21 @@ class OtherClass(SomeClass[_T1]):
 
 def func1(a: SomeClass[int], b: Union[SomeClass[str], SomeClass[complex]]) -> None:
     if isinstance(a, OtherClass):
-        t1: Literal["OtherClass[int]"] = reveal_type(a)
+        reveal_type(a, expected_text="OtherClass[int]")
 
     if isinstance(b, OtherClass):
-        t2: Literal["OtherClass[str] | OtherClass[complex]"] = reveal_type(b)
+        reveal_type(b, expected_text="OtherClass[str] | OtherClass[complex]")
 
 
 def func2(
     a: Type[SomeClass[int]], b: Union[Type[SomeClass[str]], Type[SomeClass[complex]]]
 ) -> None:
     if issubclass(a, OtherClass):
-        t1: Literal["Type[OtherClass[int]]"] = reveal_type(a)
+        reveal_type(a, expected_text="Type[OtherClass[int]]")
 
     if issubclass(b, OtherClass):
-        t2: Literal["Type[OtherClass[str]] | Type[OtherClass[complex]]"] = reveal_type(
-            b
+        reveal_type(
+            b, expected_text="Type[OtherClass[str]] | Type[OtherClass[complex]]"
         )
 
 
@@ -53,12 +53,12 @@ class Child1(Parent1[_T2]):
 
 def func4(var: Parent1[int]):
     if isinstance(var, Child1):
-        t1: Literal["Child1[int]"] = reveal_type(var)
+        reveal_type(var, expected_text="Child1[int]")
 
 
 def func5(var: Parent1[Any]):
     if isinstance(var, Child1):
-        t1: Literal["Child1[Any]"] = reveal_type(var)
+        reveal_type(var, expected_text="Child1[Any]")
 
 
 _T3 = TypeVar("_T3", float, str)
@@ -74,4 +74,4 @@ class Child2(Parent2[_T3]):
 
 def func6(var: Parent2[int]):
     if isinstance(var, Child2):
-        t1: Literal["Child2[int]"] = reveal_type(var)
+        reveal_type(var, expected_text="Child2[int]")

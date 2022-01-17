@@ -323,7 +323,7 @@ test('Assert1', () => {
 test('RevealedType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['revealedType1.py']);
 
-    TestUtils.validateResults(analysisResults, 0, 0, 3);
+    TestUtils.validateResults(analysisResults, 2, 0, 7);
 });
 
 test('NameBindings1', () => {

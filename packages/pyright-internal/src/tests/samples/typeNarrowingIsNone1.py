@@ -4,7 +4,7 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import Literal, Optional, TypeVar
+from typing import Optional, TypeVar
 
 
 def func1(x: Optional[int]):
@@ -30,18 +30,18 @@ _T1 = TypeVar("_T1", None, str)
 
 def func2(val: _T1) -> _T1:
     if val is not None:
-        t1: Literal["str*"] = reveal_type(val)
+        reveal_type(val, expected_text="str*")
         return val
     else:
-        t2: Literal["None*"] = reveal_type(val)
+        reveal_type(val, expected_text="None*")
         return val
 
 
 def func3(x: object):
     if x is None:
-        t1: Literal["None"] = reveal_type(x)
+        reveal_type(x, expected_text="None")
     else:
-        t2: Literal["object"] = reveal_type(x)
+        reveal_type(x, expected_text="object")
 
 
 _T2 = TypeVar("_T2")
@@ -49,8 +49,8 @@ _T2 = TypeVar("_T2")
 
 def func4(x: _T2) -> _T2:
     if x is None:
-        t1: Literal["None*"] = reveal_type(x)
+        reveal_type(x, expected_text="None*")
         raise ValueError()
     else:
-        t2: Literal["_T2@func4"] = reveal_type(x)
+        reveal_type(x, expected_text="_T2@func4")
         return x

@@ -7,7 +7,6 @@ from typing import (
     Callable,
     Generic,
     List,
-    Literal,
     TypeVar,
     Union,
 )
@@ -20,18 +19,18 @@ def func1(x: Union[str, None, _T]) -> Union[str, None, _T]:
     ...
 
 
-t1_1: Literal["str | None"] = reveal_type(func1(None))
-t1_2: Literal["str | None"] = reveal_type(func1("hi"))
-t1_3: Literal["str | int | None"] = reveal_type(func1(3))
+reveal_type(func1(None), expected_text="str | None")
+reveal_type(func1("hi"), expected_text="str | None")
+reveal_type(func1(3), expected_text="str | int | None")
 
 
 def func2(x: Union[str, None, _T]) -> List[Union[str, None, _T]]:
     ...
 
 
-t2_1: Literal["List[str | None]"] = reveal_type(func2(None))
-t2_2: Literal["List[str | None]"] = reveal_type(func2("hi"))
-t2_3: Literal["List[str | int | None]"] = reveal_type(func2(3))
+reveal_type(func2(None), expected_text="List[str | None]")
+reveal_type(func2("hi"), expected_text="List[str | None]")
+reveal_type(func2(3), expected_text="List[str | int | None]")
 
 
 CallbackSig = Callable[..., Awaitable[None]]

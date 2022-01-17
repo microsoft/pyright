@@ -10,9 +10,9 @@ def is_str1(val: Union[str, int]) -> StrictTypeGuard[str]:
 
 def func1(val: Union[str, int]):
     if is_str1(val):
-        t1: Literal["str"] = reveal_type(val)
+        reveal_type(val, expected_text="str")
     else:
-        t2: Literal["int"] = reveal_type(val)
+        reveal_type(val, expected_text="int")
 
 
 def is_true(o: object) -> StrictTypeGuard[Literal[True]]:
@@ -21,11 +21,11 @@ def is_true(o: object) -> StrictTypeGuard[Literal[True]]:
 
 def func2(val: bool):
     if not is_true(val):
-        t1: Literal["bool"] = reveal_type(val)
+        reveal_type(val, expected_text="bool")
     else:
-        t2: Literal["Literal[True]"] = reveal_type(val)
+        reveal_type(val, expected_text="Literal[True]")
 
-    t3: Literal["bool"] = reveal_type(val)
+    reveal_type(val, expected_text="bool")
 
 
 def is_list(val: object) -> StrictTypeGuard[list[Any]]:
@@ -34,16 +34,16 @@ def is_list(val: object) -> StrictTypeGuard[list[Any]]:
 
 def func3(val: dict[str, str] | list[str] | list[int] | Sequence[int]):
     if is_list(val):
-        t1: Literal["list[str] | list[int] | list[Any]"] = reveal_type(val)
+        reveal_type(val, expected_text="list[str] | list[int] | list[Any]")
     else:
-        t2: Literal["dict[str, str] | Sequence[int]"] = reveal_type(val)
+        reveal_type(val, expected_text="dict[str, str] | Sequence[int]")
 
 
 def func4(val: dict[str, str] | list[str] | list[int] | tuple[int]):
     if is_list(val):
-        t1: Literal["list[str] | list[int]"] = reveal_type(val)
+        reveal_type(val, expected_text="list[str] | list[int]")
     else:
-        t2: Literal["dict[str, str] | tuple[int]"] = reveal_type(val)
+        reveal_type(val, expected_text="dict[str, str] | tuple[int]")
 
 
 _K = TypeVar("_K")
@@ -56,9 +56,9 @@ def is_dict(val: Mapping[_K, _V]) -> StrictTypeGuard[dict[_K, _V]]:
 
 def func5(val: dict[_K, _V] | Mapping[_K, _V]):
     if not is_dict(val):
-        t1: Literal["Mapping[_K@func5, _V@func5]"] = reveal_type(val)
+        reveal_type(val, expected_text="Mapping[_K@func5, _V@func5]")
     else:
-        t2: Literal["dict[_K@func5, _V@func5]"] = reveal_type(val)
+        reveal_type(val, expected_text="dict[_K@func5, _V@func5]")
 
 
 def is_cardinal_direction(val: str) -> StrictTypeGuard[Literal["N", "S", "E", "W"]]:
@@ -67,9 +67,9 @@ def is_cardinal_direction(val: str) -> StrictTypeGuard[Literal["N", "S", "E", "W
 
 def func6(direction: Literal["NW", "E"]):
     if is_cardinal_direction(direction):
-        t1: Literal["Literal['E']"] = reveal_type(direction)
+        reveal_type(direction, expected_text="Literal['E']")
     else:
-        t2: Literal["Literal['NW']"] = reveal_type(direction)
+        reveal_type(direction, expected_text="Literal['NW']")
 
 
 class Animal:

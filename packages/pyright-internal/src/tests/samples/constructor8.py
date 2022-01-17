@@ -17,13 +17,13 @@ class A(Generic[_T1]):
 
 
 a1 = func1(A[float], 3.4)
-t_a1: Literal["A[float]"] = reveal_type(a1)
+reveal_type(a1, expected_text="A[float]")
 
 # This should generate an error.
 a2 = func1(A[int], 3.4)
 
 a3 = func1(A[int], 3)
-t_a3: Literal["A[int]"] = reveal_type(a3)
+reveal_type(a3, expected_text="A[int]")
 
 
 class B(Generic[_T1]):
@@ -40,19 +40,19 @@ class B(Generic[_T1]):
 
 
 b1 = func1(B[int], 3)
-t_b1: Literal["B[int]"] = reveal_type(b1)
+reveal_type(b1, expected_text="B[int]")
 
 # This should generate an error.
 b2 = func1(B[None], 3.5)
 
 b3 = func1(B[float], 3.5)
-t_b3: Literal["B[float]"] = reveal_type(b3)
+reveal_type(b3, expected_text="B[float]")
 
 b4 = func1(B[Union[int, str]], 3)
-t_b4: Literal["B[int | str]"] = reveal_type(b4)
+reveal_type(b4, expected_text="B[int | str]")
 
 b5 = func1(B[Union[int, str]], "3")
-t_b5: Literal["B[int | str]"] = reveal_type(b5)
+reveal_type(b5, expected_text="B[int | str]")
 
 
 class C(Generic[_T1]):
@@ -61,13 +61,13 @@ class C(Generic[_T1]):
 
 
 c1 = func1(C[float], 3.4)
-t_c1: Literal["C[float]"] = reveal_type(c1)
+reveal_type(c1, expected_text="C[float]")
 
 # This should generate an error.
 c2 = func1(C[int], 3.4)
 
 c3 = func1(C[int], 3)
-t_c3: Literal["C[int]"] = reveal_type(c3)
+reveal_type(c3, expected_text="C[int]")
 
 
 class D(Generic[_T1]):
@@ -84,16 +84,16 @@ class D(Generic[_T1]):
 
 
 d1 = func1(D[int], 3)
-t_d1: Literal["D[int]"] = reveal_type(d1)
+reveal_type(d1, expected_text="D[int]")
 
 # This should generate an error.
 d2 = func1(D[None], 3.5)
 
 d3 = func1(D[float], 3.5)
-t_d3: Literal["D[float]"] = reveal_type(d3)
+reveal_type(d3, expected_text="D[float]")
 
 d4 = func1(D[Union[int, str]], 3)
-t_d4: Literal["D[int | str]"] = reveal_type(d4)
+reveal_type(d4, expected_text="D[int | str]")
 
 d5 = func1(D[Union[int, str]], "3")
-t_d5: Literal["D[int | str]"] = reveal_type(d5)
+reveal_type(d5, expected_text="D[int | str]")

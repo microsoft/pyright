@@ -1,6 +1,6 @@
 # This sample tests the use of a generic descriptor class.
 
-from typing import Any, Callable, Generic, Literal, Optional, Type, TypeVar, overload
+from typing import Any, Callable, Generic, Optional, Type, TypeVar, overload
 
 
 _T = TypeVar("_T")
@@ -26,14 +26,14 @@ class Foo:
 foo = Foo()
 
 v1 = foo.bar
-t1: Literal["str"] = reveal_type(v1)
+reveal_type(v1, expected_text="str")
 
 foo.bar = ""
 del foo.bar
 
 
 v2 = foo.baz
-t2: Literal["list[int]"] = reveal_type(v2)
+reveal_type(v2, expected_text="list[int]")
 
 foo.baz = [1]
 del foo.baz
@@ -71,5 +71,5 @@ class B:
 
 
 b = B()
-t_b1: Literal["str"] = reveal_type(b.foo)
-t_b2: Literal["Minimal[B, str]"] = reveal_type(B.foo)
+reveal_type(b.foo, expected_text="str")
+reveal_type(B.foo, expected_text="Minimal[B, str]")

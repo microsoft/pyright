@@ -678,9 +678,11 @@ export class Checker extends ParseTreeWalker {
             this._fileInfo.diagnosticRuleSet.reportUnusedCoroutine !== 'none'
         ) {
             if (node.parent?.nodeType === ParseNodeType.StatementList) {
+                const isRevealTypeCall =
+                    node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'reveal_type';
                 const returnType = this._evaluator.getType(node);
 
-                if (returnType && this._isTypeValidForUnusedValueTest(returnType)) {
+                if (!isRevealTypeCall && returnType && this._isTypeValidForUnusedValueTest(returnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportUnusedCallResult,
                         DiagnosticRule.reportUnusedCallResult,

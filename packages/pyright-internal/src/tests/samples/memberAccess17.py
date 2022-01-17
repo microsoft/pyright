@@ -21,11 +21,11 @@ class Obj:
 
 obj = Obj()
 b1 = obj.foo
-t_b1: Literal["int"] = reveal_type(b1)
+reveal_type(b1, expected_text="int")
 b2 = getattr(obj, "foo")
-t_b2: Literal["Any"] = reveal_type(b2)
+reveal_type(b2, expected_text="Any")
 
 c1 = obj.bar
-t_c1: Literal["str"] = reveal_type(c1)
+reveal_type(c1, expected_text="str")
 c2 = getattr(obj, "bar")
-t_c2: Literal["Any"] = reveal_type(c2)
+reveal_type(c2, expected_text="Any")

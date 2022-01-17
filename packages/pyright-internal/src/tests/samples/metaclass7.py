@@ -2,8 +2,6 @@
 # __call__ method, thus overriding the __new__ method on classes
 # that are created from it.
 
-from typing import Literal
-
 
 class FactoryMetaClass1(type):
     def __call__(cls, **kwargs):
@@ -20,7 +18,7 @@ class Factory1(BaseFactory1, metaclass=FactoryMetaClass1):
 
 
 v1 = Factory1()
-t_v1: Literal["Factory1"] = reveal_type(v1)
+reveal_type(v1, expected_text="Factory1")
 
 
 class FactoryMetaClass2(type):
@@ -37,4 +35,4 @@ class Factory2(BaseFactory2, metaclass=FactoryMetaClass2):
 
 
 v2 = Factory2()
-t_v2: Literal["NoReturn"] = reveal_type(v2)
+reveal_type(v2, expected_text="NoReturn")

@@ -1,7 +1,7 @@
 # This sample tests a member access when the metaclass implements a descriptor
 # protocol.
 
-from typing import Any, Literal, Optional, Union, Type, TypeVar, overload
+from typing import Any, Optional, Union, Type, TypeVar, overload
 
 
 T = TypeVar("T")
@@ -32,5 +32,5 @@ class B:
     a = A
 
 
-t1: Literal["Type[A]"] = reveal_type(B.a)
-t2: Literal["A"] = reveal_type(B().a)
+reveal_type(B.a, expected_text="Type[A]")
+reveal_type(B().a, expected_text="A")

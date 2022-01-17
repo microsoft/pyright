@@ -4,13 +4,11 @@
 
 # pyright: strict
 
-from typing import Literal
-
 
 test = {"key": "value"}
 
 while True:
     a = test
-    t1: Literal["dict[str, str]"] = reveal_type(a)
+    reveal_type(a, expected_text="dict[str, str]")
     test = a.copy()
-    t2: Literal["dict[str, str]"] = reveal_type(test)
+    reveal_type(test, expected_text="dict[str, str]")

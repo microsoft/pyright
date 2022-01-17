@@ -15,9 +15,9 @@ class ClassA:
 def test_unknown(value_to_match):
     match value_to_match:
         case ClassA(attr_a=a2) as a1:
-            t_a1: Literal["ClassA"] = reveal_type(a1)
-            t_a2: Literal["int"] = reveal_type(a2)
-            t_v1: Literal["ClassA"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="ClassA")
+            reveal_type(a2, expected_text="int")
+            reveal_type(value_to_match, expected_text="ClassA")
 
         # This should generate an error because foo isn't instantiable.
         case foo() as a3:
@@ -26,46 +26,46 @@ def test_unknown(value_to_match):
 def test_any(value_to_match: Any):
     match value_to_match:
         case list() as a1:
-            t_a1: Literal["list[Unknown]"] = reveal_type(a1)
-            t_v1: Literal["list[Unknown]"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="list[Unknown]")
+            reveal_type(value_to_match, expected_text="list[Unknown]")
 
 
 def test_custom_type(value_to_match: ClassA):
     match value_to_match:
         case int() as a1:
-            t_a1: Literal["Never"] = reveal_type(a1)
-            t_v1: Literal["Never"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
 
         case ClassA(attr_a=a4, attr_b=a5) as a3:
-            t_a3: Literal["ClassA"] = reveal_type(a3)
-            t_a4: Literal["int"] = reveal_type(a4)
-            t_a5: Literal["str"] = reveal_type(a5)
-            t_v3: Literal["ClassA"] = reveal_type(value_to_match)
-            t_v2: Literal["ClassA"] = reveal_type(value_to_match)
+            reveal_type(a3, expected_text="ClassA")
+            reveal_type(a4, expected_text="int")
+            reveal_type(a5, expected_text="str")
+            reveal_type(value_to_match, expected_text="ClassA")
+            reveal_type(value_to_match, expected_text="ClassA")
 
         case ClassA(a6, a7):
-            t_a6: Literal["int"] = reveal_type(a6)
-            t_a7: Literal["str"] = reveal_type(a7)
-            t_v3: Literal["ClassA"] = reveal_type(value_to_match)
+            reveal_type(a6, expected_text="int")
+            reveal_type(a7, expected_text="str")
+            reveal_type(value_to_match, expected_text="ClassA")
 
         case ClassA() as a2:
-            t_a2: Literal["ClassA"] = reveal_type(a2)
-            t_v4: Literal["ClassA"] = reveal_type(value_to_match)
+            reveal_type(a2, expected_text="ClassA")
+            reveal_type(value_to_match, expected_text="ClassA")
 
 
 def test_literal(value_to_match: Literal[3]):
     match value_to_match:
         case int() as a1:
-            t_a1: Literal["Literal[3]"] = reveal_type(a1)
-            t_v1: Literal["Literal[3]"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="Literal[3]")
+            reveal_type(value_to_match, expected_text="Literal[3]")
 
         case float() as a2:
-            t_a2: Literal["Never"] = reveal_type(a2)
-            t_v2: Literal["Never"] = reveal_type(value_to_match)
+            reveal_type(a2, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
 
         case str() as a3:
-            t_a3: Literal["Never"] = reveal_type(a3)
-            t_v3: Literal["Never"] = reveal_type(value_to_match)
+            reveal_type(a3, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
 
 
 TInt = TypeVar("TInt", bound=int)
@@ -73,16 +73,16 @@ TInt = TypeVar("TInt", bound=int)
 def test_bound_typevar(value_to_match: TInt) -> TInt:
     match value_to_match:
         case int() as a1:
-            t_a1: Literal["int*"] = reveal_type(a1)
-            t_v1: Literal["int*"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="int*")
+            reveal_type(value_to_match, expected_text="int*")
 
         case float() as a2:
-            t_a2: Literal["Never"] = reveal_type(a2)
-            t_v2: Literal["Never"] = reveal_type(value_to_match)
+            reveal_type(a2, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
 
         case str() as a3:
-            t_a3: Literal["Never"] = reveal_type(a3)
-            t_v3: Literal["Never"] = reveal_type(value_to_match)
+            reveal_type(a3, expected_text="Never")
+            reveal_type(value_to_match, expected_text="Never")
 
     return value_to_match
 
@@ -90,16 +90,16 @@ def test_bound_typevar(value_to_match: TInt) -> TInt:
 def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TInt, Literal[3], float, str]:
     match value_to_match:
         case int() as a1:
-            t_a1: Literal["int* | int"] = reveal_type(a1)
-            t_v1: Literal["int* | int"] = reveal_type(value_to_match)
+            reveal_type(a1, expected_text="int* | int")
+            reveal_type(value_to_match, expected_text="int* | int")
 
         case float() as a2:
-            t_a2: Literal["float"] = reveal_type(a2)
-            t_v2: Literal["float"] = reveal_type(value_to_match)
+            reveal_type(a2, expected_text="float")
+            reveal_type(value_to_match, expected_text="float")
 
         case str() as a3:
-            t_a3: Literal["str"] = reveal_type(a3)
-            t_v3: Literal["str"] = reveal_type(value_to_match)
+            reveal_type(a3, expected_text="str")
+            reveal_type(value_to_match, expected_text="str")
 
     return value_to_match
 
@@ -115,59 +115,59 @@ class Point(Generic[T]):
 def func1(points: list[Point[float] | Point[complex]]):
     match points:
         case [] as a1:
-            t_a1: Literal["list[Point[float] | Point[complex]]"] = reveal_type(a1)
-            t_v1: Literal["list[Point[float] | Point[complex]]"] = reveal_type(points)
+            reveal_type(a1, expected_text="list[Point[float] | Point[complex]]")
+            reveal_type(points, expected_text="list[Point[float] | Point[complex]]")
 
         case [Point(0, 0) as b1]:
-            t_b1: Literal["Point[float] | Point[complex]"] = reveal_type(b1)
-            t_v2: Literal["list[Point[float] | Point[complex]]"] = reveal_type(points)
+            reveal_type(b1, expected_text="Point[float] | Point[complex]")
+            reveal_type(points, expected_text="list[Point[float] | Point[complex]]")
 
         case [Point(c1, c2)]:
-            t_c1: Literal["float | complex"] = reveal_type(c1)
-            t_c2: Literal["float | complex"] = reveal_type(c2)
-            t_v3: Literal["list[Point[float] | Point[complex]]"] = reveal_type(points)
+            reveal_type(c1, expected_text="float | complex")
+            reveal_type(c2, expected_text="float | complex")
+            reveal_type(points, expected_text="list[Point[float] | Point[complex]]")
 
         case [Point(0, d1), Point(0, d2)]:
-            t_d1: Literal["float | complex"] = reveal_type(d1)
-            t_d2: Literal["float | complex"] = reveal_type(d2)
-            t_v4: Literal["list[Point[float] | Point[complex]]"] = reveal_type(points)
+            reveal_type(d1, expected_text="float | complex")
+            reveal_type(d2, expected_text="float | complex")
+            reveal_type(points, expected_text="list[Point[float] | Point[complex]]")
 
         case _ as e1:
-            t_e1: Literal["list[Point[float] | Point[complex]]"] = reveal_type(e1)
-            t_v5: Literal["list[Point[float] | Point[complex]]"] = reveal_type(points)
+            reveal_type(e1, expected_text="list[Point[float] | Point[complex]]")
+            reveal_type(points, expected_text="list[Point[float] | Point[complex]]")
 
 
 def func2(subj: object):
     match subj:
         case list() as a1:
-            t_a1: Literal["list[Unknown]"] = reveal_type(a1)
-            t_v1: Literal["list[Unknown]"] = reveal_type(subj)
+            reveal_type(a1, expected_text="list[Unknown]")
+            reveal_type(subj, expected_text="list[Unknown]")
 
 
 def func3(subj: Union[int, str, dict[str, str]]):
     match subj:
         case int(x):
-            t_x1: Literal["int"] = reveal_type(x)
-            t_v1: Literal["int"] = reveal_type(subj)
+            reveal_type(x, expected_text="int")
+            reveal_type(subj, expected_text="int")
 
         case str(x):
-            t_x2: Literal["str"] = reveal_type(x)
-            t_v2: Literal["str"] = reveal_type(subj)
+            reveal_type(x, expected_text="str")
+            reveal_type(subj, expected_text="str")
 
         case dict(x):
-            t_x3: Literal["dict[str, str]"] = reveal_type(x)
-            t_v3: Literal["dict[str, str]"] = reveal_type(subj)
+            reveal_type(x, expected_text="dict[str, str]")
+            reveal_type(subj, expected_text="dict[str, str]")
 
 
 def func4(subj: object):
     match subj:
         case int(x):
-            t_x1: Literal["int"] = reveal_type(x)
-            t_v1: Literal["int"] = reveal_type(subj)
+            reveal_type(x, expected_text="int")
+            reveal_type(subj, expected_text="int")
 
         case str(x):
-            t_x2: Literal["str"] = reveal_type(x)
-            t_v2: Literal["str"] = reveal_type(subj)
+            reveal_type(x, expected_text="str")
+            reveal_type(subj, expected_text="str")
 
 
 # Test the auto-generation of __match_args__ for dataclass.
@@ -187,15 +187,15 @@ class Dataclass2:
 def func5(subj: object):
     match subj:
         case Dataclass1(a, b):
-            t_a1: Literal["int"] = reveal_type(a)
-            t_b1: Literal["complex"] = reveal_type(b)
-            t_v1: Literal["Dataclass1"] = reveal_type(subj)
+            reveal_type(a, expected_text="int")
+            reveal_type(b, expected_text="complex")
+            reveal_type(subj, expected_text="Dataclass1")
 
         case Dataclass2(a, b, c):
-            t_a2: Literal["int"] = reveal_type(a)
-            t_b2: Literal["str"] = reveal_type(b)
-            t_c2: Literal["float"] = reveal_type(c)
-            t_v2: Literal["Dataclass2"] = reveal_type(subj)
+            reveal_type(a, expected_text="int")
+            reveal_type(b, expected_text="str")
+            reveal_type(c, expected_text="float")
+            reveal_type(subj, expected_text="Dataclass2")
 
 
 # Test the auto-generation of __match_args__ for named tuples.
@@ -205,22 +205,22 @@ NT2 = NamedTuple("NT2", [("val1", int), ("val2", str), ("val3", float)])
 def func6(subj: object):
     match subj:
         case NT1(a, b):
-            t_a1: Literal["int"] = reveal_type(a)
-            t_b1: Literal["complex"] = reveal_type(b)
-            t_v1: Literal["NT1"] = reveal_type(subj)
+            reveal_type(a, expected_text="int")
+            reveal_type(b, expected_text="complex")
+            reveal_type(subj, expected_text="NT1")
 
         case NT2(a, b, c):
-            t_a2: Literal["int"] = reveal_type(a)
-            t_b2: Literal["str"] = reveal_type(b)
-            t_c2: Literal["float"] = reveal_type(c)
-            t_v2: Literal["NT2"] = reveal_type(subj)
+            reveal_type(a, expected_text="int")
+            reveal_type(b, expected_text="str")
+            reveal_type(c, expected_text="float")
+            reveal_type(subj, expected_text="NT2")
 
 
 def func7(subj: object):
     match subj:
         case complex(real=a, imag=b):
-            t_a1: Literal["float"] = reveal_type(a)
-            t_b1: Literal["float"] = reveal_type(b)
+            reveal_type(a, expected_text="float")
+            reveal_type(b, expected_text="float")
 
 T2 = TypeVar("T2")
 
@@ -240,19 +240,19 @@ class Child2(Parent[T], Generic[T, T2]):
 def func8(subj: Parent[int]):
     match subj:
         case Child1() as a1:
-            t_a1: Literal['Child1[int]'] = reveal_type(a1)
-            t_a: Literal['Child1[int]'] = reveal_type(subj)
+            reveal_type(a1, expected_text='Child1[int]')
+            reveal_type(subj, expected_text='Child1[int]')
 
         case Child2() as b1:
-            t_b1: Literal['Child2[int, Unknown]'] = reveal_type(b1)
-            t_b: Literal['Child2[int, Unknown]'] = reveal_type(subj)
+            reveal_type(b1, expected_text='Child2[int, Unknown]')
+            reveal_type(subj, expected_text='Child2[int, Unknown]')
 
 T3 = TypeVar("T3")
 
 def func9(v: T3) -> Optional[T3]:
     match v:
         case str():
-            t1: Literal['str*'] = reveal_type(v)
+            reveal_type(v, expected_text='str*')
             return v
         
         case _:
@@ -264,19 +264,19 @@ T4 = TypeVar("T4", int, str)
 def func10(v: T4) -> Optional[T4]:
     match v:
         case str():
-            t1: Literal['str*'] = reveal_type(v)
+            reveal_type(v, expected_text='str*')
             return v
         
         case float():
-            t2: Literal['int*'] = reveal_type(v)
+            reveal_type(v, expected_text='int*')
             return v
         
         case int():
-            t3: Literal['int*'] = reveal_type(v)
+            reveal_type(v, expected_text='int*')
             return v
         
         case list():
-            t4: Literal['Never'] = reveal_type(v)
+            reveal_type(v, expected_text='Never')
             return v
         
         case _:
@@ -285,12 +285,12 @@ def func10(v: T4) -> Optional[T4]:
 def func11(subj: Any):
     match subj:
         case Child1() as a1:
-            t_a1: Literal['Child1[Unknown]'] = reveal_type(a1)
-            t_a: Literal['Child1[Unknown]'] = reveal_type(subj)
+            reveal_type(a1, expected_text='Child1[Unknown]')
+            reveal_type(subj, expected_text='Child1[Unknown]')
 
         case Child2() as b1:
-            t_b1: Literal['Child2[Unknown, Unknown]'] = reveal_type(b1)
-            t_b: Literal['Child2[Unknown, Unknown]'] = reveal_type(subj)
+            reveal_type(b1, expected_text='Child2[Unknown, Unknown]')
+            reveal_type(subj, expected_text='Child2[Unknown, Unknown]')
 
 
 def func12(subj: int, flt_cls: type[float], union_val: float | int):

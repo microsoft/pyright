@@ -2,7 +2,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import List, Literal, TypeVar, Union
+from typing import List, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -41,10 +41,10 @@ def func7(a: List[Union[Unpack[_Xs]]]) -> Union[Unpack[_Xs]]:
 
 def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     v1_1 = func1(a)
-    t_v1_1: Literal["int"] = reveal_type(v1_1)
+    reveal_type(v1_1, expected_text="int")
 
     v1_2 = func1(d)
-    t_v1_2: Literal["complex | str"] = reveal_type(v1_2)
+    reveal_type(v1_2, expected_text="complex | str")
 
     # ---------
 
@@ -53,30 +53,30 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     # variadic) TypeVar matching within a Union. So behavior
     # is likely to vary between type checkers here.
     v2_1 = func2(a)
-    t_v2_1: Literal["int"] = reveal_type(v2_1)
+    reveal_type(v2_1, expected_text="int")
 
     v2_2 = func2(d)
-    t_v2_2: Literal["str | complex"] = reveal_type(v2_2)
+    reveal_type(v2_2, expected_text="str | complex")
 
     # ---------
 
     v3_1 = func3(a)
-    t_v3_1: Literal["int"] = reveal_type(v3_1)
+    reveal_type(v3_1, expected_text="int")
 
     # This should generate an error
     v3_2 = func3(d)
 
     v3_3 = func3(b)
-    t_v3_3: Literal["str"] = reveal_type(v3_3)
+    reveal_type(v3_3, expected_text="str")
 
     # ---------
 
     # This behavior isn't defined by PEP 646 or PEP 484.
     v4_1 = func4(a)
-    t_v4_1: Literal["int"] = reveal_type(v4_1)
+    reveal_type(v4_1, expected_text="int")
 
     v4_2 = func4(d)
-    t_v4_2: Literal["complex | str"] = reveal_type(v4_2)
+    reveal_type(v4_2, expected_text="complex | str")
 
     # ---------
 
@@ -84,7 +84,7 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     v5_1 = func5(a)
 
     v5_2 = func5(a, a)
-    t_v5_2: Literal["int"] = reveal_type(v5_2)
+    reveal_type(v5_2, expected_text="int")
 
     # This should generate an error
     v5_3 = func5(a, b)
@@ -95,22 +95,22 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     # ---------
 
     v6_1 = func6(a)
-    t_v6_1: Literal["int"] = reveal_type(v6_1)
+    reveal_type(v6_1, expected_text="int")
 
     v6_2 = func6(a, b)
-    t_v6_2: Literal["int | str"] = reveal_type(v6_2)
+    reveal_type(v6_2, expected_text="int | str")
 
     v6_3 = func6(a, b, d)
-    t_v6_3: Literal["int | str | complex"] = reveal_type(v6_3)
+    reveal_type(v6_3, expected_text="int | str | complex")
 
     # ---------
 
     v7_1 = func7([a])
-    t_v7_1: Literal["int"] = reveal_type(v7_1)
+    reveal_type(v7_1, expected_text="int")
 
     x: List[Union[int, str]] = [a, b]
     v7_2 = func7(x)
-    t_v7_2: Literal["int | str"] = reveal_type(v7_2)
+    reveal_type(v7_2, expected_text="int | str")
 
     v7_3 = func7([a, b, d])
-    t_v7_3: Literal["int | str | complex"] = reveal_type(v7_3)
+    reveal_type(v7_3, expected_text="int | str | complex")

@@ -2,7 +2,7 @@
 # callable type has keyword-only or positional-only
 # parameter separators.
 
-from typing import Callable, Literal, ParamSpec, TypeVar
+from typing import Callable, ParamSpec, TypeVar
 
 
 P = ParamSpec("P")
@@ -18,7 +18,7 @@ def foo(*, value: str) -> None:
 
 
 bar = decorator(foo)
-t1: Literal["(*, value: str) -> None"] = reveal_type(bar)
+reveal_type(bar, expected_text="(*, value: str) -> None")
 
 
 def baz(value: str, /) -> None:
@@ -26,4 +26,4 @@ def baz(value: str, /) -> None:
 
 
 qux = decorator(baz)
-t2: Literal["(value: str, /) -> None"] = reveal_type(qux)
+reveal_type(qux, expected_text="(value: str, /) -> None")

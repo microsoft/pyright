@@ -1,7 +1,7 @@
 # This sample exercises the type analyzer's type narrowing
 # logic for tests of the form "type(X) is Y" or "type(X) is not Y".
 
-from typing import Any, Dict, Generic, Literal, Optional, TypeVar, Union, final
+from typing import Any, Dict, Generic, Optional, TypeVar, Union, final
 
 
 def func1(a: Union[str, int]) -> int:
@@ -44,9 +44,9 @@ class B(A):
 
 def func4(a: Union[str, A]):
     if type(a) is B:
-        t1: Literal["B"] = reveal_type(a)
+        reveal_type(a, expected_text="B")
     else:
-        t2: Literal["str | A"] = reveal_type(a)
+        reveal_type(a, expected_text="str | A")
 
 
 T = TypeVar("T")
@@ -66,7 +66,7 @@ E = Union[C[T], D]
 
 def func5(x: E[T]) -> None:
     if type(x) is C:
-        t1: Literal["C[T@func5]"] = reveal_type(x)
+        reveal_type(x, expected_text="C[T@func5]")
 
 
 @final
@@ -81,6 +81,6 @@ class BFinal:
 
 def foo(c: Union[AFinal, BFinal]) -> None:
     if type(c) is AFinal:
-        t1: Literal["AFinal"] = reveal_type(c)
+        reveal_type(c, expected_text="AFinal")
     else:
-        t2: Literal["BFinal"] = reveal_type(c)
+        reveal_type(c, expected_text="BFinal")

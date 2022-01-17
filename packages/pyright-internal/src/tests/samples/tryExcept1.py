@@ -1,8 +1,6 @@
 # This sample tests the name binder's handling of
 # try/except/raise statements
 
-from typing import Literal
-
 
 def func1():
 
@@ -18,10 +16,10 @@ def func2(x, y) -> bool:
     try:
         z = x / y
     except (RuntimeError, NameError) as e:
-        t2: Literal["RuntimeError | NameError"] = reveal_type(e)
+        reveal_type(e, expected_text="RuntimeError | NameError")
         return False
     except Exception as e:
-        t1: Literal["Exception"] = reveal_type(e)
+        reveal_type(e, expected_text="Exception")
         return False
     except:
         raise Exception()

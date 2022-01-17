@@ -2,7 +2,7 @@
 # in conjunction with unpacked tuples.
 
 from __future__ import annotations
-from typing import Any, Generic, Literal, NewType, Tuple, TypeVar, Union
+from typing import Any, Generic, NewType, Tuple, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 DType = TypeVar("DType")
@@ -59,7 +59,7 @@ def func3(z: Array[Batch]):
 
 
 def func4(y: Array[Any, Unpack[Tuple[Any, ...]]]):
-    t_y: Literal["Array[Any, *tuple[Any, ...]]"] = reveal_type(y)
+    reveal_type(y, expected_text="Array[Any, *tuple[Any, ...]]")
     expect_variadic_array1(y)
     expect_variadic_array2(y)
     expect_precise_array(y)

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 from typing_extensions import Self, Concatenate, ParamSpec
-from typing import Any, Callable, Literal, TypeVar, Protocol, Generic, overload
+from typing import Any, Callable, TypeVar, Protocol, Generic, overload
 
 T = TypeVar("T", covariant=True)
 O = TypeVar("O")
@@ -51,13 +51,13 @@ class A:
         ...
 
 
-t1: Literal["_wrapped_cache[Any, (a: int, b: str), str]"] = reveal_type(not_in_class)
+reveal_type(not_in_class, expected_text="_wrapped_cache[Any, (a: int, b: str), str]")
 not_in_class(1, "")
 
 a = A()
 
-t2: Literal["_wrapped_cache[A, (a: int, b: str), str]"] = reveal_type(a.in_class)
+reveal_type(a.in_class, expected_text="_wrapped_cache[A, (a: int, b: str), str]")
 a.in_class(1, "")
 
-t3: Literal["_callable_cache[(A, a: int, b: str), str]"] = reveal_type(A.in_class)
+reveal_type(A.in_class, expected_text="_callable_cache[(A, a: int, b: str), str]")
 A.in_class(a, 1, "")

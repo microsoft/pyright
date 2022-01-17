@@ -1,7 +1,7 @@
 # This sample tests cases where a ParamSpec is used as a type parameter
 # for a generic type alias, a generic function, and a generic class.
 
-from typing import Callable, Concatenate, Generic, List, Literal, ParamSpec, TypeVar
+from typing import Callable, Concatenate, Generic, List, ParamSpec, TypeVar
 
 
 _P = ParamSpec("_P")
@@ -21,7 +21,7 @@ def func2(a: str, b: List[int]) -> str:
 
 
 v1 = func1(func2)
-t_v1: Literal["(int, a: str, b: List[int]) -> str"] = reveal_type(v1)
+reveal_type(v1, expected_text="(int, a: str, b: List[int]) -> str")
 
 # This should generate an error because 'int' isn't assignable to
 # ParamSpec _P.
@@ -44,13 +44,13 @@ class RemoteFunction(Generic[_P, _R]):
 
 
 r1 = RemoteFunction(func2)
-t_r1: Literal["RemoteFunction[(a: str, b: List[int]), str]"] = reveal_type(r1)
+reveal_type(r1, expected_text="RemoteFunction[(a: str, b: List[int]), str]")
 
 v2 = r1("hi", [])
-r_v2: Literal["str"] = reveal_type(v2)
+reveal_type(v2, expected_text="str")
 
 v3 = r1.remote("hi", [])
-r_v3: Literal["RemoteResponse[str]"] = reveal_type(v3)
+reveal_type(v3, expected_text="RemoteResponse[str]")
 
 # This should generate an error
 r1(1, [])
@@ -71,4 +71,4 @@ def remote(func: Callable[_P, _R]) -> RemoteFunction[_P, _R]:
 
 
 v4 = remote(func2)
-t_v4: Literal["RemoteFunction[(a: str, b: List[int]), str]"] = reveal_type(v4)
+reveal_type(v4, expected_text="RemoteFunction[(a: str, b: List[int]), str]")

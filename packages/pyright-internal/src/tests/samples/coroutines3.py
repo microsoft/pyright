@@ -1,7 +1,7 @@
 # This sample tests old-style (pre-await) awaitable generators.
 
 import asyncio
-from typing import Any, AwaitableGenerator, Literal
+from typing import Any, AwaitableGenerator
 
 
 @asyncio.coroutine
@@ -11,12 +11,13 @@ def old_style_coroutine1():
 
 async def func1() -> None:
     x = await old_style_coroutine1()
-    t_x: Literal["None"] = reveal_type(x)
+    reveal_type(x, expected_text="None")
     return x
 
 
-t1: Literal["() -> AwaitableGenerator[Any, None, None, None]"] = reveal_type(
-    old_style_coroutine1
+reveal_type(
+    old_style_coroutine1,
+    expected_text="() -> AwaitableGenerator[Any, None, None, None]",
 )
 
 
@@ -30,6 +31,7 @@ async def func2() -> None:
     return x
 
 
-t2: Literal["() -> AwaitableGenerator[Any, None, None, None]"] = reveal_type(
-    old_style_coroutine2
+reveal_type(
+    old_style_coroutine2,
+    expected_text="() -> AwaitableGenerator[Any, None, None, None]",
 )

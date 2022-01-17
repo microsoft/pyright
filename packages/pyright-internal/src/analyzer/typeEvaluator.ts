@@ -6503,16 +6503,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.leftExpression.nodeType === ParseNodeType.Name &&
                 node.leftExpression.value === 'reveal_type'
             ) {
-                if (
-                    node.arguments.length === 1 &&
-                    node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
-                    node.arguments[0].name === undefined
-                ) {
-                    // Handle the special-case "reveal_type" call.
-                    returnResult = getTypeFromRevealType(node);
-                } else {
-                    addError(Localizer.Diagnostic.revealTypeArgs(), node);
-                }
+                // Handle the special-case "reveal_type" call.
+                returnResult = getTypeFromRevealType(node);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
@@ -6594,28 +6586,83 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromRevealType(node: CallNode): TypeResult {
-        const typeResult = getTypeOfExpression(node.arguments[0].valueExpression);
+        let arg0Value: ExpressionNode | undefined;
+        let expectedTypeNode: ExpressionNode | undefined;
+        let expectedType: Type | undefined;
+        let expectedTextNode: ExpressionNode | undefined;
+        let expectedText: string | undefined;
+
+        // Make sure there is only one positional argument passed as arg 0.
+        node.arguments.forEach((arg, index) => {
+            if (index === 0) {
+                if (arg.argumentCategory === ArgumentCategory.Simple && !arg.name) {
+                    arg0Value = arg.valueExpression;
+                }
+            } else if (arg.argumentCategory !== ArgumentCategory.Simple || !arg.name) {
+                arg0Value = undefined;
+            } else if (arg.name.value === 'expected_text') {
+                expectedTextNode = arg.valueExpression;
+                const expectedTextType = getTypeOfExpression(arg.valueExpression).type;
+
+                if (
+                    !isClassInstance(expectedTextType) ||
+                    !ClassType.isBuiltIn(expectedTextType, 'str') ||
+                    typeof expectedTextType.literalValue !== 'string'
+                ) {
+                    addError(Localizer.Diagnostic.revealTypeExpectedTextArg(), arg.valueExpression);
+                } else {
+                    expectedText = expectedTextType.literalValue;
+                }
+            } else if (arg.name.value === 'expected_type') {
+                expectedTypeNode = arg.valueExpression;
+                expectedType = convertToInstance(getTypeForArgumentExpectingType(arg).type);
+            }
+        });
+
+        if (!arg0Value) {
+            addError(Localizer.Diagnostic.revealTypeArgs(), node);
+            return { node, type: UnknownType.create() };
+        }
+
+        const typeResult = getTypeOfExpression(arg0Value);
         const type = typeResult.type;
-        const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
+
+        const exprString = ParseTreeUtils.printExpression(arg0Value);
         const typeString = printType(type, /* expandTypeAlias */ true);
+
+        if (expectedText !== undefined) {
+            if (expectedText !== typeString) {
+                addError(
+                    Localizer.Diagnostic.revealTypeExpectedTextMismatch().format({
+                        expected: expectedText,
+                        received: typeString,
+                    }),
+                    expectedTextNode ?? arg0Value
+                );
+            }
+        }
+
+        if (expectedType) {
+            if (!isTypeSame(expectedType, type)) {
+                const expectedTypeText = printType(expectedType);
+                addError(
+                    Localizer.Diagnostic.revealTypeExpectedTextMismatch().format({
+                        expected: expectedTypeText,
+                        received: typeString,
+                    }),
+                    expectedTypeNode ?? arg0Value
+                );
+            }
+        }
 
         addInformation(
             Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: exprString, type: typeString }),
             node.arguments[0]
         );
 
-        // Return a literal string with the type. We can use this in unit tests
-        // to validate the exact type.
-        const strType = getBuiltInType(node, 'str');
-        let returnType: Type = AnyType.create();
-
-        if (isInstantiableClass(strType)) {
-            returnType = ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, typeString));
-        }
-
         return {
             node,
-            type: returnType,
+            type,
             isIncomplete: typeResult.isIncomplete,
         };
     }

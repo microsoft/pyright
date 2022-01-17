@@ -5,7 +5,7 @@
 # with open('read', 'rb') as fr, open('write', 'wb') as fw:
 #     shutil.copyfileobj(fr, fw)
 
-from typing import Any, AnyStr, Literal, Optional, Protocol, TypeVar, Union
+from typing import Any, AnyStr, Optional, Protocol, TypeVar, Union
 
 
 class Array:
@@ -52,4 +52,4 @@ def copyfileobj(
 
 def f(fr: BufferedReader, fw: BufferedWriter):
     x = copyfileobj(fr, fw)
-    t_x: Literal["bytes"] = reveal_type(x)
+    reveal_type(x, expected_text="bytes")

@@ -2,7 +2,7 @@
 # supplies the type arguments via a callable which is itself generic.
 
 
-from typing import Callable, Generic, Literal, Sequence, TypeVar
+from typing import Callable, Generic, Sequence, TypeVar
 
 T = TypeVar("T")
 V = TypeVar("V", bound=object)
@@ -22,7 +22,7 @@ class Parser(Generic[T, V_co]):
         def fmap2(stream: Sequence[T], pos: int, bt: int) -> Result[U]:
             raise NotImplementedError()
 
-        t1: Literal["FnParser[T@Parser, U@fmap1]"] = reveal_type(FnParser(fmap2))
+        reveal_type(FnParser(fmap2), expected_text="FnParser[T@Parser, U@fmap1]")
         return FnParser(fmap2)
 
 

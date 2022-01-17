@@ -1,7 +1,7 @@
 # This sample tests that Optional types can be matched
 # to Type[T] expressions.
 
-from typing import Generic, Literal, Optional, Type, TypeVar
+from typing import Generic, Optional, Type, TypeVar
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2", bound=None)
@@ -42,10 +42,10 @@ class Bar(Foo):
 def bar(value: _T1) -> Type[Foo[_T1]]:
     baz = Foo(value)
     qux = type(baz)
-    t1: Literal["Type[Foo[_T1@bar]]"] = reveal_type(qux)
+    reveal_type(qux, expected_text="Type[Foo[_T1@bar]]")
     return qux
 
 
 d = Bar.get()
-t_d: Literal["Type[Bar]"] = reveal_type(d)
-t_e: Literal["Type[Bar]"] = reveal_type(Bar.get())
+reveal_type(d, expected_text="Type[Bar]")
+reveal_type(Bar.get(), expected_text="Type[Bar]")

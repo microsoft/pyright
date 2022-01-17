@@ -3,7 +3,7 @@
 
 from asyncio.futures import Future
 from asyncio.tasks import ensure_future
-from typing import Any, Awaitable, Callable, Iterable, Literal, Sequence, TypeVar
+from typing import Any, Awaitable, Callable, Iterable, Sequence, TypeVar
 
 
 _T1 = TypeVar("_T1")
@@ -55,4 +55,4 @@ def callback(done: Continuation[int]) -> None:
     pass
 
 
-t1: Literal["Awaitable[int]"] = reveal_type(from_continuation(callback))
+reveal_type(from_continuation(callback), expected_text="Awaitable[int]")

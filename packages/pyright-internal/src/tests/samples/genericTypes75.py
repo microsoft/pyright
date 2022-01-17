@@ -2,7 +2,7 @@
 # allocates an instance of itself by invoking a constructor and passing
 # an argument that is a generic type.
 
-from typing import Generic, Literal, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -13,11 +13,11 @@ class A(Generic[T]):
 
     def a(self) -> "A[T]":
         x = self.x
-        t1: Literal["T@A"] = reveal_type(x)
+        reveal_type(x, expected_text="T@A")
         t = (x,)
-        t2: Literal["tuple[T@A]"] = reveal_type(t)
+        reveal_type(t, expected_text="tuple[T@A]")
         a = A(t[0])
-        t3: Literal["A[T@A]"] = reveal_type(a)
+        reveal_type(a, expected_text="A[T@A]")
         return a
 
 

@@ -81,7 +81,7 @@ def func8(color: Color) -> bool:
         return False
 
 
-t1: Literal["bool"] = reveal_type(func8(Color.RED))
+reveal_type(func8(Color.RED), expected_text="bool")
 
 
 def func9(a: Union[str, int], b: Union[str, int]) -> bool:

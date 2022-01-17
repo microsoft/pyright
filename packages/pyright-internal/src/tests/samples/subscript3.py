@@ -1,7 +1,7 @@
 # This sample tests subscript forms specified in PEP 637 -
 # keyword and unpacked args.
 
-from typing import Any, Literal, Tuple, Union, overload
+from typing import Any, Tuple, Union, overload
 
 
 class ClassA:
@@ -42,7 +42,7 @@ val_dict = {"a": 2, "b": 2}
 a_obj = ClassA()
 
 x1 = a_obj[1]
-t_x1: Literal["int"] = reveal_type(x1)
+reveal_type(x1, expected_text="int")
 
 a_obj[1] = 3
 
@@ -50,7 +50,7 @@ a_obj[1] = 3
 a_obj[1] = 3.5
 
 x2 = a_obj[1,]
-t_x2: Literal["float"] = reveal_type(x2)
+reveal_type(x2, expected_text="float")
 
 a_obj[1,] = 3.4
 
@@ -58,7 +58,7 @@ a_obj[1,] = 3.4
 a_obj[1,] = 3.5j
 
 x3 = a_obj[1,2]
-t_x3: Literal["float"] = reveal_type(x3)
+reveal_type(x3, expected_text="float")
 
 a_obj[1,2] = 4.5
 
@@ -66,7 +66,7 @@ a_obj[1,2] = 4.5
 a_obj[1,2] = 3.5j
 
 x4 = a_obj[(1,)]
-t_x4: Literal["float"] = reveal_type(x4)
+reveal_type(x4, expected_text="float")
 
 a_obj[(1,)] = 3
 
@@ -74,7 +74,7 @@ a_obj[(1,)] = 3
 a_obj[(1,)] = 3.5j
 
 x6 = a_obj[1, v1=3]
-t_x6: Literal["str"] = reveal_type(x6)
+reveal_type(x6, expected_text="str")
 
 a_obj[1, v1=3] = "hi"
 
@@ -83,7 +83,7 @@ a_obj[1,v1=3] = 3.5j
 
 
 x8 = a_obj[1, *val_list]
-t_x8: Literal["float"] = reveal_type(x8)
+reveal_type(x8, expected_text="float")
 
 a_obj[1, *val_list] = 4.3
 
@@ -102,7 +102,7 @@ b_obj = ClassB()
 y1 = b_obj[1]
 
 y2 = b_obj[v1=3]
-t_y2: Literal["str"] = reveal_type(y2)
+reveal_type(y2, expected_text="str")
 
 # This should generate an error because v2 is not a named arg.
 y3 = b_obj[v2=3]
@@ -118,7 +118,7 @@ class ClassC:
 c_obj = ClassC()
 
 z1 = c_obj[1, *val_list, **val_dict]
-t_z1: Literal["complex"] = reveal_type(z1)
+reveal_type(z1, expected_text="complex")
 
 c_obj[1, *val_list, **val_dict] = 4.3
 
@@ -127,7 +127,7 @@ c_obj[1, *val_list] = 4.3j
 
 
 z2 = c_obj[1, v1=3, v2=4]
-t_z2: Literal["complex"] = reveal_type(z2)
+reveal_type(z2, expected_text="complex")
 
 c_obj[1, v1=3, v2=4] = 4.3
 

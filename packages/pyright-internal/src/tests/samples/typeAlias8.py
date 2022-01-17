@@ -3,7 +3,7 @@
 
 # pyright: reportInvalidTypeVarUse=false
 
-from typing import Callable, Literal, TypeVar
+from typing import Callable, TypeVar
 
 T = TypeVar("T")
 F = Callable[[T], T]
@@ -18,7 +18,7 @@ def f() -> F[T]:
 
 g = f()
 v1 = g("foo")
-t_v1: Literal["str"] = reveal_type(v1)
+reveal_type(v1, expected_text="str")
 
 v2 = g(1)
-t_v2: Literal["int"] = reveal_type(v2)
+reveal_type(v2, expected_text="int")

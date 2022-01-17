@@ -1,7 +1,7 @@
 # This sample tests the case where a NamedTuple object is referenced
 # through a `self` parameter.
 
-from typing import Literal, NamedTuple
+from typing import NamedTuple
 
 
 class Fruit(NamedTuple):
@@ -10,6 +10,6 @@ class Fruit(NamedTuple):
 
     def new_cost(self, new_cost: float):
         my_name, my_cost = self
-        t1: Literal["str"] = reveal_type(my_name)
-        t2: Literal["float"] = reveal_type(my_cost)
+        reveal_type(my_name, expected_text="str")
+        reveal_type(my_cost, expected_text="float")
         return Fruit(my_name, new_cost)

@@ -3,7 +3,7 @@
 # the method but is specialized implicitly via the arguments
 # to the method.
 
-from typing import Generic, Literal, TypeVar
+from typing import Generic, TypeVar
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -28,16 +28,16 @@ class FooSub2(Foo[int]):
 
 
 def test1(val_str: str, val_int: int):
-    t1_0: Literal["Foo[str]"] = reveal_type(Foo.func1(val_str))
-    t1_1: Literal["Foo[str]"] = reveal_type(FooSub1.func1(val_str))
-    t1_2: Literal["Foo[int]"] = reveal_type(FooSub2.func1(val_int))
+    reveal_type(Foo.func1(val_str), expected_text="Foo[str]")
+    reveal_type(FooSub1.func1(val_str), expected_text="Foo[str]")
+    reveal_type(FooSub2.func1(val_int), expected_text="Foo[int]")
 
     # This should generate an error because the argument type doesn't match.
     FooSub2.func1(val_str)
 
-    t2_0: Literal["Foo[str]"] = reveal_type(Foo.func2(val_str))
-    t2_1: Literal["Foo[str]"] = reveal_type(FooSub1.func2(val_str))
-    t2_2: Literal["Foo[int]"] = reveal_type(FooSub2.func2(val_int))
+    reveal_type(Foo.func2(val_str), expected_text="Foo[str]")
+    reveal_type(FooSub1.func2(val_str), expected_text="Foo[str]")
+    reveal_type(FooSub2.func2(val_int), expected_text="Foo[int]")
 
     # This should generate an error because the argument type doesn't match.
     FooSub2.func2(val_str)

@@ -1,7 +1,6 @@
 # This sample tests the case of a context manager within a try/except block.
 
-from types import TracebackType
-from typing import Literal, Optional, ContextManager
+from typing import Optional, ContextManager
 
 
 def create_context() -> ContextManager[str]:
@@ -19,5 +18,5 @@ try:
         x = "0"
         possible_exception()
 except Exception:
-    t1: Literal["Literal['0'] | None"] = reveal_type(x)
-    t2: Literal["str | None"] = reveal_type(ctx)
+    reveal_type(x, expected_text="Literal['0'] | None")
+    reveal_type(ctx, expected_text="str | None")

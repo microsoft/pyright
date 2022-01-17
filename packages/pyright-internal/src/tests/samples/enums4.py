@@ -2,7 +2,6 @@
 # they are not named as such.
 
 from enum import Enum
-from typing import Literal
 
 
 class Status(Enum):
@@ -18,7 +17,7 @@ class Myclass:
 
 myobj = Myclass()
 
-t1: Literal["Status"] = reveal_type(myobj.status)
+reveal_type(myobj.status, expected_text="Status")
 
 myobj.status = Status.good
-t2: Literal["Literal[Status.good]"] = reveal_type(myobj.status)
+reveal_type(myobj.status, expected_text="Literal[Status.good]")

@@ -1,7 +1,7 @@
 # This sample tests the handling of variadic type variables used
 # in generic type aliases and with suffixes.
 
-from typing import Callable, Generic, Literal, TypeVar, Union
+from typing import Callable, Generic, TypeVar
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -35,4 +35,4 @@ def factorial(n: int, acc: int) -> TailRec[int, int, int]:
     return Call(n - 1, acc * n)
 
 
-t1: Literal["(int, int) -> int"] = reveal_type(factorial)
+reveal_type(factorial, expected_text="(int, int) -> int")

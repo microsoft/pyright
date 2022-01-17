@@ -23,8 +23,8 @@ class A:
     Value2 = 1
 
 
-t_value1: Literal["Type[Literal[1]]"] = reveal_type(A.Value1)
-t_value2: Literal["int"] = reveal_type(A.Value2)
+reveal_type(A.Value1, expected_text="Type[Literal[1]]")
+reveal_type(A.Value2, expected_text="int")
 
 
 Alias1 = Literal[0, 1]

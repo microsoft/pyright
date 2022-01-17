@@ -1,7 +1,7 @@
 # This sample tests the simple aliasing of a generic class with no
 # type arguments.
 
-from typing import Generic, Literal, TypeVar, Union
+from typing import Generic, TypeVar, Union
 import collections
 from collections import OrderedDict
 
@@ -15,7 +15,7 @@ class ClassA(Generic[_T]):
 
 
 A = ClassA
-t1: Literal["ClassA[int]"] = reveal_type(A(3))
+reveal_type(A(3), expected_text="ClassA[int]")
 
 
 TA1 = collections.OrderedDict

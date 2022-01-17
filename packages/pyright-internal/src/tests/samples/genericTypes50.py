@@ -2,7 +2,7 @@
 # generic protocols are used.
 
 from datetime import timedelta
-from typing import Any, Generic, Literal, Protocol, TypeVar, overload
+from typing import Any, Generic, Protocol, TypeVar, overload
 
 _X_co = TypeVar("_X_co", covariant=True)
 _X_contra = TypeVar("_X_contra", contravariant=True)
@@ -32,12 +32,13 @@ def divmod(__x: Any, __y: Any) -> Any:
     ...
 
 
-t1: Literal["tuple[int, timedelta]"] = reveal_type(
-    divmod(timedelta(minutes=90), timedelta(hours=1))
+reveal_type(
+    divmod(timedelta(minutes=90), timedelta(hours=1)),
+    expected_text="tuple[int, timedelta]",
 )
-t2: Literal["tuple[int, int]"] = reveal_type(divmod(3, 4))
-t3: Literal["tuple[float, float]"] = reveal_type(divmod(3.6, 4))
-t4: Literal["tuple[float, float]"] = reveal_type(divmod(3, 4.5))
+reveal_type(divmod(3, 4), expected_text="tuple[int, int]")
+reveal_type(divmod(3.6, 4), expected_text="tuple[float, float]")
+reveal_type(divmod(3, 4.5), expected_text="tuple[float, float]")
 
 
 class SupportsLessThan(Protocol):
@@ -58,4 +59,4 @@ def min2(__arg1: SupportsLessThanT, __arg2: SupportsLessThanT) -> SupportsLessTh
 
 def func1():
     x = max2(1, min2(1, 4.5))
-    t_x: Literal["float"] = reveal_type(x)
+    reveal_type(x, expected_text="float")

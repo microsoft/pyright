@@ -1,7 +1,7 @@
 # This sample tests the handling of the Python 3.9
 # TypeAlias feature as documented in PEP 613.
 
-from typing import Literal, Type, TypeAlias as TA, Union
+from typing import Type, TypeAlias as TA, Union
 
 type1: TA = Union[int, str]
 
@@ -53,9 +53,9 @@ SimpleAlias = int
 ExplicitAlias: TA = int
 SimpleNonAlias: Type[int] = int
 
-t1: Literal["Type[int]"] = reveal_type(SimpleAlias)
-t2: Literal["Type[int]"] = reveal_type(ExplicitAlias)
-t3: Literal["Type[int]"] = reveal_type(SimpleNonAlias)
+reveal_type(SimpleAlias, expected_text="Type[int]")
+reveal_type(ExplicitAlias, expected_text="Type[int]")
+reveal_type(SimpleNonAlias, expected_text="Type[int]")
 
 
 class ClassB:

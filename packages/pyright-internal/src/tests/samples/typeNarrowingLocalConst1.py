@@ -3,7 +3,7 @@
 # These are sometimes referred to as "aliased conditional expressions".
 
 
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 import random
 
 
@@ -19,9 +19,9 @@ def func1(x: Union[A, B]) -> None:
     is_a = not not isinstance(x, A)
 
     if not is_a:
-        t1: Literal["B"] = reveal_type(x)
+        reveal_type(x, expected_text="B")
     else:
-        t2: Literal["A"] = reveal_type(x)
+        reveal_type(x, expected_text="A")
 
 
 def func2(x: Union[A, B]) -> None:
@@ -31,18 +31,18 @@ def func2(x: Union[A, B]) -> None:
         x = B()
 
     if is_a:
-        t1: Literal["B | A"] = reveal_type(x)
+        reveal_type(x, expected_text="B | A")
     else:
-        t2: Literal["B | A"] = reveal_type(x)
+        reveal_type(x, expected_text="B | A")
 
 
 def func3(x: Optional[int]):
     is_number = x != None
 
     if is_number:
-        t1: Literal["int"] = reveal_type(x)
+        reveal_type(x, expected_text="int")
     else:
-        t2: Literal["None"] = reveal_type(x)
+        reveal_type(x, expected_text="None")
 
 
 def func4() -> Optional[A]:
@@ -53,9 +53,9 @@ maybe_a1 = func4()
 is_a1 = maybe_a1
 
 if is_a1:
-    t1: Literal["A"] = reveal_type(maybe_a1)
+    reveal_type(maybe_a1, expected_text="A")
 else:
-    t2: Literal["None"] = reveal_type(maybe_a1)
+    reveal_type(maybe_a1, expected_text="None")
 
 maybe_a2 = func4()
 
@@ -68,9 +68,9 @@ def func5():
 is_a2 = maybe_a2
 
 if is_a2:
-    t3: Literal["A | None"] = reveal_type(maybe_a2)
+    reveal_type(maybe_a2, expected_text="A | None")
 else:
-    t4: Literal["A | None"] = reveal_type(maybe_a2)
+    reveal_type(maybe_a2, expected_text="A | None")
 
 
 def func6(x: Union[A, B]) -> None:
@@ -78,9 +78,9 @@ def func6(x: Union[A, B]) -> None:
 
     for y in range(1):
         if is_a:
-            t1: Literal["A | B"] = reveal_type(x)
+            reveal_type(x, expected_text="A | B")
         else:
-            t2: Literal["A | B"] = reveal_type(x)
+            reveal_type(x, expected_text="A | B")
 
         if random.random() < 0.5:
             x = B()
@@ -102,7 +102,7 @@ def func7(val: Optional[str] = None):
     if val_is_none:
         val = get_string()
 
-    t1: Literal["str"] = reveal_type(val)
+    reveal_type(val, expected_text="str")
 
 
 def func8(val: Optional[str] = None):
@@ -115,17 +115,17 @@ def func8(val: Optional[str] = None):
     if val_is_none:
         val = get_string()
 
-    t1: Literal["str | None"] = reveal_type(val)
+    reveal_type(val, expected_text="str | None")
 
 
 def func9(var: Optional[str] = None):
     if var_not_None := not (var is None):
-        t1: Literal["str"] = reveal_type(var)
+        reveal_type(var, expected_text="str")
 
-    t2: Literal["str | None"] = reveal_type(var)
+    reveal_type(var, expected_text="str | None")
 
     if var_not_None:
-        t3: Literal["str"] = reveal_type(var)
+        reveal_type(var, expected_text="str")
 
     if 1 > 1 + 2:
         var = None
@@ -133,4 +133,4 @@ def func9(var: Optional[str] = None):
         var = "a" + "b"
 
     if var_not_None:
-        t4: Literal["Literal['ab'] | None"] = reveal_type(var)
+        reveal_type(var, expected_text="Literal['ab'] | None")

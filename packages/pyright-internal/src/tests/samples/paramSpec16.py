@@ -1,7 +1,7 @@
 # This sample tests the matching of nested callables that each use
 # ParamSpec.
 
-from typing import Callable, Generic, Literal, TypeVar
+from typing import Callable, Generic, TypeVar
 
 from typing_extensions import Concatenate, ParamSpec
 
@@ -25,4 +25,4 @@ def bar(func: Callable[[int], float], a: str) -> bool:
     ...
 
 
-t1: Literal["Foo[(int), float, (a: str), bool]"] = reveal_type(bar)
+reveal_type(bar, expected_text="Foo[(int), float, (a: str), bool]")

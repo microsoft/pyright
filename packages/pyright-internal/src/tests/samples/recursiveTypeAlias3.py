@@ -1,6 +1,6 @@
 # This sample tests Pyright's handling of recursive type aliases.
 
-from typing import List, Literal, TypeAlias, Union
+from typing import List, TypeAlias, Union
 
 # This should generate an error because the forward reference
 # type needs to be in quotes.
@@ -23,4 +23,4 @@ MutualReference3: TypeAlias = "MutualReference3"
 
 
 RecursiveType: TypeAlias = list[Union[str, "RecursiveType"]]
-t1: Literal["Type[list[str | RecursiveType]]"] = reveal_type(RecursiveType)
+reveal_type(RecursiveType, expected_text="Type[list[str | RecursiveType]]")

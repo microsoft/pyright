@@ -1,6 +1,6 @@
 # This sample tests the return type inference for a generator.
 
-from typing import Generator, Literal
+from typing import Generator
 
 
 def func1() -> Generator[int, None, str]:
@@ -14,10 +14,10 @@ def func2() -> Generator[int, int, None]:
     x = [(yield from func1()) for lel in range(5)]
 
     v1 = yield from func1()
-    t_v1: Literal["str"] = reveal_type(v1)
+    reveal_type(v1, expected_text="str")
 
     v2 = yield 4
-    t_v2: Literal["int"] = reveal_type(v2)
+    reveal_type(v2, expected_text="int")
 
 
 def func3():

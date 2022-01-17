@@ -1,6 +1,6 @@
 # This sample tests a loop that modifies a variable through type narrowing.
 
-from typing import Literal, Union
+from typing import Union
 
 
 class State:
@@ -9,14 +9,14 @@ class State:
 
 
 state = State()
-t0: Literal["State"] = reveal_type(state)
+reveal_type(state, expected_text="State")
 
 for _ in range(1):
     result = state.confirm_dialog()
     if isinstance(result, State):
-        t1: Literal["State"] = reveal_type(state)
-        t2: Literal["State"] = reveal_type(result)
+        reveal_type(state, expected_text="State")
+        reveal_type(result, expected_text="State")
         state = result
     else:
-        t3: Literal["State"] = reveal_type(state)
-        t4: Literal["bool"] = reveal_type(result)
+        reveal_type(state, expected_text="State")
+        reveal_type(result, expected_text="bool")

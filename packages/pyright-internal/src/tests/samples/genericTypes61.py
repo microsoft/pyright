@@ -1,7 +1,7 @@
 # This sample tests a case where Type[X] and X are used within the
 # same class declaration.
 
-from typing import Dict, Generic, Literal, Type, TypeVar
+from typing import Dict, Generic, Type, TypeVar
 from dataclasses import dataclass, field
 
 K = TypeVar("K")
@@ -29,6 +29,6 @@ class Thing1(Base):
     pass
 
 
-t1: Literal["BaseTypeRegistry[Thing1]"] = reveal_type(BaseTypeRegistry(Thing1))
+reveal_type(BaseTypeRegistry(Thing1), expected_text="BaseTypeRegistry[Thing1]")
 
 foo: BaseTypeRegistry[Thing1] = BaseTypeRegistry(Thing1)

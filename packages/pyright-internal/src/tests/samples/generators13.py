@@ -1,7 +1,7 @@
 # This sample tests async generator and non-generator functions.
 
 import asyncio
-from typing import AsyncGenerator, AsyncIterator, List, Literal
+from typing import AsyncGenerator, AsyncIterator, List
 
 
 async def get_data() -> List[int]:
@@ -18,14 +18,14 @@ async def generate(nums: List[int]) -> AsyncGenerator[str, None]:
 async def get_generator1() -> AsyncGenerator[str, None]:
     data = await get_data()
     v1 = generate(data)
-    t_v1: Literal["AsyncGenerator[str, None]"] = reveal_type(v1)
+    reveal_type(v1, expected_text="AsyncGenerator[str, None]")
     return v1
 
 
 async def get_generator2() -> AsyncIterator[str]:
     data = await get_data()
     v1 = generate(data)
-    t_v1: Literal["AsyncGenerator[str, None]"] = reveal_type(v1)
+    reveal_type(v1, expected_text="AsyncGenerator[str, None]")
     return v1
 
 
@@ -44,18 +44,18 @@ def get_generator4() -> AsyncGenerator[int, None]:
 
 async def demo_bug1() -> None:
     v1 = get_generator1()
-    t_v1: Literal["Coroutine[Any, Any, AsyncGenerator[str, None]]"] = reveal_type(v1)
+    reveal_type(v1, expected_text="Coroutine[Any, Any, AsyncGenerator[str, None]]")
     gen = await v1
-    t_gen: Literal["AsyncGenerator[str, None]"] = reveal_type(gen)
+    reveal_type(gen, expected_text="AsyncGenerator[str, None]")
     async for s in gen:
         print(s)
 
 
 async def demo_bug2() -> None:
     v1 = get_generator2()
-    t_v1: Literal["Coroutine[Any, Any, AsyncIterator[str]]"] = reveal_type(v1)
+    reveal_type(v1, expected_text="Coroutine[Any, Any, AsyncIterator[str]]")
     gen = await v1
-    t_gen: Literal["AsyncIterator[str]"] = reveal_type(gen)
+    reveal_type(gen, expected_text="AsyncIterator[str]")
     async for s in gen:
         print(s)
 

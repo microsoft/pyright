@@ -1,7 +1,7 @@
 # This sample tests the use of ParamSpec along with Concatenate in
 # a return type.
 
-from typing import Callable, Literal, Protocol, TypeVar, Concatenate, ParamSpec
+from typing import Callable, Protocol, TypeVar, Concatenate, ParamSpec
 from threading import RLock
 import functools
 
@@ -45,13 +45,13 @@ def test_3(cls: MyClass, param1: int) -> str:
 testClass = MyClass()
 
 res1 = testClass.test_1(42)
-t_res1: Literal["str"] = reveal_type(res1)
+reveal_type(res1, expected_text="str")
 
 res2 = testClass.test_2()
-t_res2: Literal["str"] = reveal_type(res2)
+reveal_type(res2, expected_text="str")
 
 res3 = test_3(testClass, 42)
-t_res3: Literal["str"] = reveal_type(res3)
+reveal_type(res3, expected_text="str")
 
 res4: Callable[[MyClass, int], str] = with_lock(test_3)
-t_res4: Literal["(MyClass, param1: int) -> str"] = reveal_type(res4)
+reveal_type(res4, expected_text="(MyClass, param1: int) -> str")

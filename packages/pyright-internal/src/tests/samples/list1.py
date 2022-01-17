@@ -8,7 +8,6 @@ from typing import (
     Dict,
     Generic,
     List,
-    Literal,
     Optional,
     Sequence,
     TypeVar,
@@ -16,13 +15,13 @@ from typing import (
 
 
 v1 = [1, 2, 3]
-t_v1: Literal["list[int]"] = reveal_type(v1)
+reveal_type(v1, expected_text="list[int]")
 
 v2 = [1, 3.4, "hi"]
-t_v2: Literal["list[int | float | str]"] = reveal_type(v2)
+reveal_type(v2, expected_text="list[int | float | str]")
 
 v3 = []
-t_v3: Literal["list[Unknown]"] = reveal_type(v3)
+reveal_type(v3, expected_text="list[Unknown]")
 
 v4: List[object] = []
 
@@ -53,18 +52,18 @@ class Bar:
 
 
 v10 = Bar()
-t_v10_1: Literal["list[Foo]"] = reveal_type(v10.baz)
+reveal_type(v10.baz, expected_text="list[Foo]")
 v10.baz = [Foo()]
-t_v10_2: Literal["list[Foo]"] = reveal_type(v10.baz)
+reveal_type(v10.baz, expected_text="list[Foo]")
 
 v11: List[Any] = [["hi", ["hi"], [[{}]]]]
-t_v11: Literal["list[Any]"] = reveal_type(v11)
+reveal_type(v11, expected_text="list[Any]")
 
 v12: List[Optional[int]] = [None] * 3
-t_v12: Literal["list[int | None]"] = reveal_type(v12)
+reveal_type(v12, expected_text="list[int | None]")
 
 v13: List[Optional[str]] = ["3", None] * 2
-t_v13: Literal["list[str | None]"] = reveal_type(v13)
+reveal_type(v13, expected_text="list[str | None]")
 
 x1 = 3
 v14: List[Optional[str]] = [None] * x1

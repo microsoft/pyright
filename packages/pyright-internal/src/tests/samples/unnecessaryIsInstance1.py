@@ -2,7 +2,6 @@
 
 from typing import (
     ClassVar,
-    Literal,
     Protocol,
     Type,
     TypedDict,
@@ -71,10 +70,10 @@ class ClassC:
 
 def func3(obj: BaseClass):
     if isinstance(obj, (ClassA, ClassB)):
-        t_1: Literal["ClassA | ClassB"] = reveal_type(obj)
+        reveal_type(obj, expected_text="ClassA | ClassB")
 
     if isinstance(obj, (ClassA, ClassB, ClassC)):
-        t_2: Literal["ClassA | ClassB"] = reveal_type(obj)
+        reveal_type(obj, expected_text="ClassA | ClassB")
 
 
 class A:

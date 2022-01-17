@@ -1,6 +1,6 @@
 # This sample verifies the case where a property returns a callable
 
-from typing import Callable, Literal
+from typing import Callable
 
 
 class ClassA:
@@ -20,5 +20,5 @@ obj = ClassA(str_to_int)
 val1: int = obj.converter("123", 10)
 val2: int = obj.converter_prop("123", 10)
 
-t1: Literal["(str, int) -> int"] = reveal_type(obj.converter)
-t2: Literal["(str, int) -> int"] = reveal_type(obj.converter_prop)
+reveal_type(obj.converter, expected_text="(str, int) -> int")
+reveal_type(obj.converter_prop, expected_text="(str, int) -> int")

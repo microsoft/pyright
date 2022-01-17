@@ -1,35 +1,35 @@
 # This sample tests various forms of subscript expressions for
 # syntax and semantic (type) errors.
 
-from typing import List, Literal, TypeVar
+from typing import List, TypeVar
 
 
 _T = TypeVar("_T", list, tuple)
 
 def func1(p1: List[int], p2: _T):
     a1 = p1[0]
-    t_a1: Literal["int"] = reveal_type(a1)
+    reveal_type(a1, expected_text="int")
 
     a2 = p1[:]
-    t_a2: Literal["list[int]"] = reveal_type(a2)
+    reveal_type(a2, expected_text="list[int]")
 
     a3 = p1[1:]
-    t_a3: Literal["list[int]"] = reveal_type(a3)
+    reveal_type(a3, expected_text="list[int]")
 
     a4 = p1[1:2]
-    t_a4: Literal["list[int]"] = reveal_type(a4)
+    reveal_type(a4, expected_text="list[int]")
 
     a5 = p1[0:1:3]
-    t_a5: Literal["list[int]"] = reveal_type(a5)
+    reveal_type(a5, expected_text="list[int]")
 
     a6 = p1[:3]
-    t_a6: Literal["list[int]"] = reveal_type(a6)
+    reveal_type(a6, expected_text="list[int]")
 
     a7 = p1[::]
-    t_a7: Literal["list[int]"] = reveal_type(a7)
+    reveal_type(a7, expected_text="list[int]")
 
     a8 = p1[::2]
-    t_a8: Literal["list[int]"] = reveal_type(a8)
+    reveal_type(a8, expected_text="list[int]")
 
     # This should generate a syntax error.
     b1 = p1[0:1:3:4]
@@ -39,17 +39,17 @@ def func1(p1: List[int], p2: _T):
 
     # This should generate a type error.
     c1 = p1[:,]
-    t_c1: Literal["Unknown"] = reveal_type(c1)
+    reveal_type(c1, expected_text="Unknown")
 
     # This should generate a type error.
     c2 = p1[:,:]
-    t_c2: Literal["Unknown"] = reveal_type(c2)
+    reveal_type(c2, expected_text="Unknown")
 
     # This should generate a type error.
     c3 = p1[1,]
-    t_c3: Literal["Unknown"] = reveal_type(c3)
+    reveal_type(c3, expected_text="Unknown")
 
     d1 = p2[0]
-    t_d1: Literal["Unknown"] = reveal_type(d1)
+    reveal_type(d1, expected_text="Unknown")
 
 

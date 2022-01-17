@@ -2,32 +2,30 @@
 # augmented assignments (combining a binary operator
 # with an assignment).
 
-from typing import Literal
-
 
 a = 1
 b = 3.4
 
 a += b
-t1: Literal["float"] = reveal_type(a)
+reveal_type(a, expected_text="float")
 
 a -= b
-t2: Literal["float"] = reveal_type(a)
+reveal_type(a, expected_text="float")
 
 a *= b
-t3: Literal["float"] = reveal_type(a)
+reveal_type(a, expected_text="float")
 
 a /= b
-t4: Literal["float"] = reveal_type(a)
+reveal_type(a, expected_text="float")
 
 a //= b
-t5: Literal["float"] = reveal_type(a)
+reveal_type(a, expected_text="float")
 
 a %= b
-t6: Literal["float"] = reveal_type(a)
+reveal_type(a, expected_text="float")
 
 a **= b
-t7: Literal["Any"] = reveal_type(a)
+reveal_type(a, expected_text="Any")
 
 a = 1
 

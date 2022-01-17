@@ -1,7 +1,7 @@
 # This sample tests that the negative filtering for the 'isinstance'
 # narrowing logic properly preserves a TypeVar.
 
-from typing import Literal, TypeVar, Generic
+from typing import TypeVar, Generic
 
 
 class Operator:
@@ -17,9 +17,9 @@ class BasePipeline(Operator, Generic[OpType]):
         step: OpType,
     ) -> None:
         if isinstance(step, BasePipeline):
-            t1: Literal["BasePipeline[Unknown]*"] = reveal_type(step)
+            reveal_type(step, expected_text="BasePipeline[Unknown]*")
         else:
-            t2: Literal["Operator*"] = reveal_type(step)
+            reveal_type(step, expected_text="Operator*")
 
 
 T1 = TypeVar("T1", int, str)
@@ -36,7 +36,7 @@ T2 = TypeVar("T2")
 
 def func2(arg: T2) -> T2:
     if isinstance(arg, str):
-        t1: Literal["str*"] = reveal_type(arg)
+        reveal_type(arg, expected_text="str*")
 
-    t2: Literal["str* | object*"] = reveal_type(arg)
+    reveal_type(arg, expected_text="str* | object*")
     return arg

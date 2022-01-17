@@ -1,6 +1,6 @@
 # This sample tests various diagnostics related to TypeVar usage.
 
-from typing import Callable, Generic, List, Literal, Optional, TypeVar
+from typing import Callable, Generic, List, Optional, TypeVar
 import typing
 
 _T = TypeVar("_T")
@@ -69,7 +69,7 @@ T = TypeVar("T")
 
 def foo() -> Callable[[T], T]:
     def inner(v: T) -> T:
-        t_v: Literal["T@foo"] = reveal_type(v)
+        reveal_type(v, expected_text="T@foo")
         return v
 
     return inner

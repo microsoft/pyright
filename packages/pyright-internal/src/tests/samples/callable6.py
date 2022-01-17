@@ -1,7 +1,7 @@
 # This sample tests the use of unpacked tuples in a Callable, as described
 # in PEP 646.
 
-from typing import Callable, Literal, Tuple, TypeVar, Union
+from typing import Callable, Tuple, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 _T = TypeVar("_T", bound=int)
@@ -16,7 +16,7 @@ TA3 = Callable[[int, Unpack[Tuple[int, int]], str], int]
 
 def func1(x: TA1):
     r1 = x(3, 4, 5, (1, 2, "hi"), "hi")
-    t1: Literal["int"] = reveal_type(r1)
+    reveal_type(r1, expected_text="int")
 
     x(3, (1, 2, "hi"), "hi")
 
@@ -47,7 +47,7 @@ def func3(
 
 
 v3 = func3("", 1, "2", 3.3, None, "")
-t_v3: Literal["int | str | float | None"] = reveal_type(v3)
+reveal_type(v3, expected_text="int | str | float | None")
 
 func3("", "")
 
@@ -68,7 +68,7 @@ def func4(
 
 
 v4 = func4("", 1, "2", 3.3, None, "")
-t_v4: Literal["Tuple[int, str, float, None, complex]"] = reveal_type(v4)
+reveal_type(v4, expected_text="Tuple[int, str, float, None, complex]")
 
 
 def func5(path: str, *args: Unpack[Tuple[str, ...]]) -> None:

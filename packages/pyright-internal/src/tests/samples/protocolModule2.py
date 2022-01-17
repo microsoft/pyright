@@ -1,6 +1,6 @@
 # This sample tests protocol matching for modules.
 
-from typing import Literal, Protocol, Type, TypeVar, Union, runtime_checkable
+from typing import Protocol, Type, TypeVar, Union, runtime_checkable
 from . import protocolModule1
 import datetime
 from importlib import import_module
@@ -63,21 +63,21 @@ class NonProtocol:
 # Test type narrowing of module symbols for isinstance checks.
 def func1(x: Type[_T]):
     if isinstance(datetime, (P1, P2, NonProtocol, x)):
-        t1: Literal["P1 | P2 | _T@func1"] = reveal_type(datetime)
+        reveal_type(datetime, expected_text="P1 | P2 | _T@func1")
     else:
-        t2: Literal['Module("datetime")'] = reveal_type(datetime)
+        reveal_type(datetime, expected_text='Module("datetime")')
 
 
 def func2():
     if not isinstance(datetime, P1):
-        t1: Literal['Module("datetime")'] = reveal_type(datetime)
+        reveal_type(datetime, expected_text='Module("datetime")')
     else:
-        t2: Literal["P1"] = reveal_type(datetime)
+        reveal_type(datetime, expected_text="P1")
 
 
 def func3():
     my_module = import_module("my_module")
     if isinstance(my_module, (P1, NonProtocol)):
-        t1: Literal["P1"] = reveal_type(my_module)
+        reveal_type(my_module, expected_text="P1")
     else:
-        t2: Literal["ModuleType"] = reveal_type(my_module)
+        reveal_type(my_module, expected_text="ModuleType")

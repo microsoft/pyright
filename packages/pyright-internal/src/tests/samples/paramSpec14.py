@@ -1,7 +1,7 @@
 # This sample tests the handling of ParamSpec when used with
 # static methods and class methods.
 
-from typing import Literal, Callable
+from typing import Callable
 from typing_extensions import ParamSpec
 
 P = ParamSpec("P")
@@ -26,5 +26,5 @@ class Foo:
         return val
 
 
-t1: Literal["int"] = reveal_type(Foo.identity_cls(1.2))
-t2: Literal["int"] = reveal_type(Foo.identity_static(1.2))
+reveal_type(Foo.identity_cls(1.2), expected_text="int")
+reveal_type(Foo.identity_static(1.2), expected_text="int")

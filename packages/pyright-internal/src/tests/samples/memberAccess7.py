@@ -1,7 +1,7 @@
 # This sample tests the handling of a __getattr__ method that returns
 # a callable. Such a method should not be bound.
 
-from typing import Callable, Literal, TypeVar
+from typing import Callable, TypeVar
 
 
 class ClassA:
@@ -30,7 +30,7 @@ class ClassB(metaclass=MetaClass):
 
 
 v1 = ClassB.some_function(3)
-t_v1: Literal["int"] = reveal_type(v1)
+reveal_type(v1, expected_text="int")
 
 v2 = ClassB.some_function("hi")
-t_v2: Literal["str"] = reveal_type(v2)
+reveal_type(v2, expected_text="str")
