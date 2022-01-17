@@ -863,6 +863,44 @@ export function transformExpectedTypeForConstructor(
     return transformer.apply(expectedType);
 }
 
+// Given a protocol class, this function returns a set of all the
+// symbols (indexed by symbol name) that are part of that protocol
+// and its protocol parent classes. If a same-named symbol appears
+// in a parent and a child, the child overrides the parent.
+export function getProtocolSymbols(classType: ClassType) {
+    const symbolMap = new Map<string, ClassMember>();
+
+    if (ClassType.isProtocolClass(classType)) {
+        getProtocolSymbolsRecursive(classType, symbolMap);
+    }
+
+    return symbolMap;
+}
+
+function getProtocolSymbolsRecursive(classType: ClassType, symbolMap: Map<string, ClassMember>, recursionCount = 0) {
+    if (recursionCount > maxTypeRecursionCount) {
+        return;
+    }
+
+    classType.details.baseClasses.forEach((baseClass) => {
+        if (isClass(baseClass) && ClassType.isProtocolClass(baseClass)) {
+            getProtocolSymbolsRecursive(baseClass, symbolMap, recursionCount + 1);
+        }
+    });
+
+    classType.details.fields.forEach((symbol, name) => {
+        if (!symbol.isIgnoredForProtocolMatch()) {
+            symbolMap.set(name, {
+                symbol,
+                classType,
+                isInstanceMember: symbol.isInstanceMember(),
+                isClassVar: symbol.isClassVar(),
+                isTypeDeclared: symbol.hasTypedDeclarations(),
+            });
+        }
+    });
+}
+
 export function lookUpObjectMember(
     objectType: Type,
     memberName: string,

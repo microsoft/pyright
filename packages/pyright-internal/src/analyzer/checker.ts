@@ -139,6 +139,7 @@ import {
     getGeneratorTypeArgs,
     getGeneratorYieldType,
     getParameterListDetails,
+    getProtocolSymbols,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     isEllipsisType,
@@ -333,6 +334,8 @@ export class Checker extends ParseTreeWalker {
             this._validateFinalClassNotAbstract(classTypeResult.classType, node);
 
             this._validateDataClassPostInit(classTypeResult.classType, node);
+
+            this._validateProtocolCompatibility(classTypeResult.classType, node);
 
             this._reportDuplicateEnumMembers(classTypeResult.classType);
 
@@ -3306,6 +3309,62 @@ export class Checker extends ParseTreeWalker {
                 this._evaluator.addError(Localizer.Diagnostic.duplicateEnumMember().format({ name }), decls[1].node);
             }
         });
+    }
+
+    // If a non-protocol class explicitly inherits from a protocol class, this method
+    // verifies that any class or instance variables declared but not assigned
+    // in the protocol class are implemented in the subclass.
+    private _validateProtocolCompatibility(classType: ClassType, errorNode: ClassNode) {
+        if (ClassType.isProtocolClass(classType)) {
+            return;
+        }
+
+        const diagAddendum = new DiagnosticAddendum();
+
+        classType.details.baseClasses.forEach((baseClass) => {
+            if (!isClass(baseClass) || !ClassType.isProtocolClass(baseClass)) {
+                return;
+            }
+
+            const protocolSymbols = getProtocolSymbols(baseClass);
+
+            protocolSymbols.forEach((member, name) => {
+                const decls = member.symbol.getDeclarations();
+
+                // We care only about variables, not functions or other declaration types.
+                if (decls.length === 0 || decls[0].type !== DeclarationType.Variable) {
+                    return;
+                }
+
+                if (!isClass(member.classType)) {
+                    return;
+                }
+
+                // If none of the declarations involve assignments, assume it's
+                // not implemented in the protocol.
+                if (!decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
+                    // This is a variable declaration that is not implemented in the
+                    // protocol base class. Make sure it's implemented in the derived class.
+                    if (!classType.details.fields.has(name)) {
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.missingProtocolMember().format({
+                                name,
+                                classType: member.classType.details.name,
+                            })
+                        );
+                    }
+                }
+            });
+        });
+
+        if (!diagAddendum.isEmpty()) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.missingProtocolMembers() + diagAddendum.getString(),
+                errorNode.name
+            );
+        }
     }
 
     // If a class is a dataclass with a `__post_init__` method, verify that its

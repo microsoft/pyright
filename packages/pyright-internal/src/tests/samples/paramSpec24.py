@@ -12,7 +12,7 @@ P = ParamSpec("P")
 
 
 class _callable_cache(Protocol[P, T]):
-    foo: int
+    foo: int = 0
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         ...

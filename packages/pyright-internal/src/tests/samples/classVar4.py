@@ -19,7 +19,8 @@ class SomeProtocol(Protocol):
 
 
 class Class(SomeProtocol):
-    pass
+    y = 0
+    z = 0
 
 
 def func1() -> None:
