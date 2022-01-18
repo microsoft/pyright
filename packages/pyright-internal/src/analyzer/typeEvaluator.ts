@@ -20964,7 +20964,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             return !applicableConditions.some((condition) => {
                 if (destType.details.boundType) {
-                    assert(condition.constraintIndex === 0);
+                    assert(condition.constraintIndex === 0, 'Expected constraint for bound TypeVar to have index of 0');
 
                     return canAssignType(
                         destType.details.boundType,
@@ -20977,12 +20977,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (destType.details.constraints.length > 0) {
-                    assert(condition.constraintIndex < destType.details.constraints.length);
-                    const typeVarConstraint = destType.details.constraints[condition.constraintIndex];
-                    assert(typeVarConstraint !== undefined);
+                    assert(
+                        condition.constraintIndex < destType.details.constraints.length,
+                        'Constraint for constrained TypeVar is out of bounds'
+                    );
 
                     return canAssignType(
-                        typeVarConstraint,
+                        destType.details.constraints[condition.constraintIndex],
                         srcSubtype,
                         /* diag */ undefined,
                         /* typeVarMap */ undefined,
