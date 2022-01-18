@@ -3095,12 +3095,12 @@ export class Checker extends ParseTreeWalker {
         const typeGuardType = functionType.details.declaredReturnType.typeArguments[0];
 
         // Determine the type of the first parameter.
-        const paramNumber = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
-        if (functionType.details.parameters.length < paramNumber) {
+        const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
+        if (paramIndex >= functionType.details.parameters.length) {
             return;
         }
 
-        const paramType = FunctionType.getEffectiveParameterType(functionType, paramNumber);
+        const paramType = FunctionType.getEffectiveParameterType(functionType, paramIndex);
 
         // Verify that the typeGuardType is a narrower type than the paramType.
         if (!this._evaluator.canAssignType(paramType, typeGuardType)) {

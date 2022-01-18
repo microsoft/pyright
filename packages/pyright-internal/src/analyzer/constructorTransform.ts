@@ -110,7 +110,7 @@ function applyPartialTransform(
                 if (paramListDetails.argsIndex !== undefined) {
                     const paramType = FunctionType.getEffectiveParameterType(
                         origFunctionType,
-                        paramListDetails.argsIndex
+                        paramListDetails.params[paramListDetails.argsIndex].index
                     );
                     const diag = new DiagnosticAddendum();
 
@@ -190,7 +190,7 @@ function applyPartialTransform(
                 } else {
                     const paramType = FunctionType.getEffectiveParameterType(
                         origFunctionType,
-                        paramListDetails.kwargsIndex
+                        paramListDetails.params[paramListDetails.kwargsIndex].index
                     );
                     const diag = new DiagnosticAddendum();
 
