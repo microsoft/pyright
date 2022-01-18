@@ -839,10 +839,6 @@ export function applyDataClassDecorator(
     applyDataClassDefaultBehaviors(classType, defaultBehaviors);
 
     if (callNode?.arguments) {
-        callNode.arguments.forEach((arg) => {
-            if (arg.name && arg.valueExpression) {
-                applyDataClassBehaviorOverride(evaluator, arg, classType, arg.name.value, arg.valueExpression);
-            }
-        });
+        applyDataClassClassBehaviorOverrides(evaluator, classType, callNode.arguments);
     }
 }

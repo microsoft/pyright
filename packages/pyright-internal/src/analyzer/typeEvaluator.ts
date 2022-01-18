@@ -14120,6 +14120,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Determine whether this class derives from (or has a metaclass) that imbues
+        // it with dataclass-like behaviors. If so, we'll apply those here.
         let dataClassBehaviors: DataClassBehaviors | undefined;
         if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
             dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
