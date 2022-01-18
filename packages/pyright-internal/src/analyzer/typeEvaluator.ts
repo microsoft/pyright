@@ -8470,6 +8470,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 break;
             }
 
+            if (paramIndex >= paramDetails.params.length) {
+                break;
+            }
+
             const paramType = paramDetails.params[paramIndex].type;
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 if (!argList[argIndex].valueExpression) {
@@ -8513,7 +8517,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     combinedTupleType &&
                     isClassInstance(combinedTupleType) &&
                     combinedTupleType.tupleTypeArguments &&
-                    combinedTupleType.tupleTypeArguments.length > 0
+                    combinedTupleType.tupleTypeArguments.length > 0 &&
+                    unpackedArgIndex < combinedTupleType.tupleTypeArguments.length
                 ) {
                     listElementType = combinedTupleType.tupleTypeArguments[unpackedArgIndex].type;
 
@@ -9000,7 +9005,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // def foo(v1: _T = 'default')
                 // and _T is a TypeVar, we need to match the TypeVar to the default
                 // value's type if it's not provided by the caller.
-                paramDetails.params.forEach((paramInfo, index) => {
+                paramDetails.params.forEach((paramInfo) => {
                     const param = paramInfo.param;
                     if (param.category === ParameterCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name)!;
