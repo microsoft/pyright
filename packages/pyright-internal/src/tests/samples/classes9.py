@@ -3,7 +3,7 @@
 # diagnostic rule.
 
 
-from typing import Generic, TypeVar
+from typing import Generic, Iterable, TypeVar
 
 
 class A1:
@@ -80,3 +80,32 @@ class E2(Generic[_T_E]):
 
 class ESub(E1[int], E2[int]):
     ...
+
+
+_T_F = TypeVar("_T_F")
+
+
+class F1(Generic[_T_F]):
+    def dostuff(self) -> Iterable[_T_F]:
+        ...
+
+
+class F2(F1[_T_F]):
+    def dostuff(self) -> Iterable[_T_F]:
+        ...
+
+
+class F3(F1[_T_F]):
+    ...
+
+
+class FSub1(F3[int], F2[int]):
+    pass
+
+
+class FSub2(F3[int], F1[int]):
+    pass
+
+
+class FSub3(F2[int], F1[int]):
+    pass

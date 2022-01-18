@@ -1088,7 +1088,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
 
     // Evaluate the types of members from the end of the MRO to the beginning.
     for (let i = classType.details.mro.length - 1; i >= 0; i--) {
-        const mroClass = classType.details.mro[i];
+        const mroClass = partiallySpecializeType(classType.details.mro[i], classType);
 
         // If this ancestor class is unknown, throw away all symbols
         // found so far because they could be overridden by the unknown class.

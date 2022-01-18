@@ -3960,9 +3960,13 @@ export class Checker extends ParseTreeWalker {
 
                     if (overrideClassAndSymbol) {
                         let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
-                        baseType = partiallySpecializeType(baseType, baseClasses[symbolMapBaseIndex]);
+                        if (isClass(baseClassAndSymbol.classType)) {
+                            baseType = partiallySpecializeType(baseType, baseClassAndSymbol.classType);
+                        }
                         let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideClassAndSymbol.symbol);
-                        overrideType = partiallySpecializeType(overrideType, baseClasses[symbolMapOverrideIndex]);
+                        if (isClass(overrideClassAndSymbol.classType)) {
+                            overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
+                        }
 
                         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
                             const diagAddendum = new DiagnosticAddendum();
