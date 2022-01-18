@@ -689,6 +689,10 @@ export namespace Localizer {
             new ParameterizedString<{ expected: string; received: string }>(
                 getRawString('Diagnostic.revealTypeExpectedTextMismatch')
             );
+        export const revealTypeExpectedTypeMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('Diagnostic.revealTypeExpectedTypeMismatch')
+            );
         export const selfTypeContext = () => getRawString('Diagnostic.selfTypeContext');
         export const selfTypeWithTypedSelfOrCls = () => getRawString('Diagnostic.selfTypeWithTypedSelfOrCls');
         export const setterGetterTypeMismatch = () => getRawString('Diagnostic.setterGetterTypeMismatch');

@@ -6646,7 +6646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!isTypeSame(expectedType, type)) {
                 const expectedTypeText = printType(expectedType);
                 addError(
-                    Localizer.Diagnostic.revealTypeExpectedTextMismatch().format({
+                    Localizer.Diagnostic.revealTypeExpectedTypeMismatch().format({
                         expected: expectedTypeText,
                         received: typeString,
                     }),
