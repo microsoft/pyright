@@ -840,6 +840,12 @@ test('GenericTypes79', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('GenericTypes80', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes80.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 

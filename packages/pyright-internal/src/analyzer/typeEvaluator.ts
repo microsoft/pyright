@@ -19632,6 +19632,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // as long as it doesn't violate the current narrow bound.
                     if (
                         isPartlyUnknown(curNarrowTypeBound) &&
+                        !isUnknown(adjSrcType) &&
                         canAssignType(
                             adjSrcType,
                             curNarrowTypeBound,
