@@ -2,9 +2,9 @@ import textwrap
 from typing import IO, Any, Callable, Generic, Text, TypeVar, overload
 from typing_extensions import SupportsIndex
 
-_TB = TypeVar("_TB", bound="_BaseEntry")
-_TP = TypeVar("_TP", bound="POFile")
-_TM = TypeVar("_TM", bound="MOFile")
+_TB = TypeVar("_TB", bound=_BaseEntry)
+_TP = TypeVar("_TP", bound=POFile)
+_TM = TypeVar("_TM", bound=MOFile)
 
 default_encoding: str
 

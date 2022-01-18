@@ -136,7 +136,7 @@ if sys.version_info >= (3, 9):
     Annotated: _SpecialForm = ...
 
 # Predefined type variables.
-AnyStr = TypeVar("AnyStr", str, bytes)
+AnyStr = TypeVar("AnyStr", str, bytes)  # noqa: Y001
 
 if sys.version_info >= (3, 8):
     # This class did actually exist in 3.7, but had a different base.

@@ -3,7 +3,7 @@ from typing import IO, Pattern
 
 from paramiko.message import Message
 
-OPENSSH_AUTH_MAGIC: bytes = ...
+OPENSSH_AUTH_MAGIC: bytes
 
 def _unpad_openssh(data: bytes) -> bytes: ...
 

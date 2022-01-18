@@ -3,7 +3,7 @@ from _typeshed import Self, StrPath
 from datetime import tzinfo
 from typing import Any, Iterable, Protocol, Sequence
 
-_T = typing.TypeVar("_T", bound="ZoneInfo")
+_T = typing.TypeVar("_T", bound=ZoneInfo)
 
 class _IOBytes(Protocol):
     def read(self, __size: int) -> bytes: ...
