@@ -964,7 +964,18 @@ export function getCodeFlowEngine(
     function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode): boolean {
         const visitedFlowNodeMap = new Set<number>();
 
-        function isFlowNodeReachableRecursive(flowNode: FlowNode, sourceFlowNode: FlowNode | undefined): boolean {
+        function isFlowNodeReachableRecursive(
+            flowNode: FlowNode,
+            sourceFlowNode: FlowNode | undefined,
+            recursionCount = 0
+        ): boolean {
+            // Cut off the recursion at some point to prevent a stack overflow.
+            const maxFlowNodeReachableRecursionCount = 100;
+            if (recursionCount > maxFlowNodeReachableRecursionCount) {
+                return true;
+            }
+            recursionCount++;
+
             let curFlowNode = flowNode;
 
             while (true) {
@@ -1040,7 +1051,7 @@ export function getCodeFlowEngine(
 
                     const labelNode = curFlowNode as FlowLabel;
                     for (const antecedent of labelNode.antecedents) {
-                        if (isFlowNodeReachableRecursive(antecedent, sourceFlowNode)) {
+                        if (isFlowNodeReachableRecursive(antecedent, sourceFlowNode, recursionCount)) {
                             return true;
                         }
                     }
@@ -1064,7 +1075,11 @@ export function getCodeFlowEngine(
 
                     try {
                         postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                        return isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent, sourceFlowNode);
+                        return isFlowNodeReachableRecursive(
+                            postFinallyFlowNode.antecedent,
+                            sourceFlowNode,
+                            recursionCount
+                        );
                     } finally {
                         postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                     }
