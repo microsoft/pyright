@@ -31,6 +31,7 @@
         "assignmentExprContext": "Assignment expression must be within module, function or lambda",
         "assignmentExprComprehension": "Assignment expression target \"{name}\" cannot use same name as comprehension for target",
         "assignmentInProtocol": "Instance or class variables within a Protocol class must be explicitly declared within the class body",
+        "assignmentExprInSubscript": "Assignment expressions within a subscript are supported only in Python 3.10 and newer",
         "assignmentTargetExpr": "Expression cannot be assignment target",
         "asyncNotInAsyncFunction": "Use of \"async\" not allowed outside of async function",
         "awaitIllegal": "Use of \"await\" requires Python 3.5 or newer",

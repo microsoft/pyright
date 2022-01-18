@@ -220,6 +220,7 @@ export namespace Localizer {
         export const assignmentExprContext = () => getRawString('Diagnostic.assignmentExprContext');
         export const assignmentExprComprehension = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.assignmentExprComprehension'));
+        export const assignmentExprInSubscript = () => getRawString('Diagnostic.assignmentExprInSubscript');
         export const assignmentInProtocol = () => getRawString('Diagnostic.assignmentInProtocol');
         export const assignmentTargetExpr = () => getRawString('Diagnostic.assignmentTargetExpr');
         export const asyncNotInAsyncFunction = () => getRawString('Diagnostic.asyncNotInAsyncFunction');

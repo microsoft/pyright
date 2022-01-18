@@ -3246,6 +3246,7 @@ export class Parser {
                 argType = ArgumentCategory.UnpackedDictionary;
             }
 
+            const startOfSubscriptIndex = this._tokenIndex;
             let valueExpr = this._parsePossibleSlice();
             let nameIdentifier: IdentifierToken | undefined;
 
@@ -3259,6 +3260,17 @@ export class Parser {
                         nameIdentifier = nameExpr.token;
                     } else {
                         this._addError(Localizer.Diagnostic.expectedParamName(), nameExpr);
+                    }
+                } else if (
+                    valueExpr.nodeType === ParseNodeType.Name &&
+                    this._peekOperatorType() === OperatorType.Walrus
+                ) {
+                    this._tokenIndex = startOfSubscriptIndex;
+                    valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+
+                    // Python 3.10 and newer allow assignment expressions to be used inside of a subscript.
+                    if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_10) {
+                        this._addError(Localizer.Diagnostic.assignmentExprInSubscript(), valueExpr);
                     }
                 }
             }
