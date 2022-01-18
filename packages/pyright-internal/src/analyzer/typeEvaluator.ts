@@ -14270,7 +14270,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ).type;
 
             if (isFunction(decoratorCallType)) {
-                if (decoratorCallType.details.name === '__dataclass_transform__') {
+                if (
+                    decoratorCallType.details.name === '__dataclass_transform__' ||
+                    decoratorCallType.details.builtInName === 'dataclass_transform'
+                ) {
                     originalClassType.details.classDataClassTransform = validateDataClassTransformDecorator(
                         evaluatorInterface,
                         decoratorNode.expression
@@ -15059,7 +15062,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ).type;
 
             if (isFunction(decoratorCallType)) {
-                if (decoratorCallType.details.name === '__dataclass_transform__') {
+                if (
+                    decoratorCallType.details.name === '__dataclass_transform__' ||
+                    decoratorCallType.details.builtInName === 'dataclass_transform'
+                ) {
                     undecoratedType.details.decoratorDataClassBehaviors = validateDataClassTransformDecorator(
                         evaluatorInterface,
                         decoratorNode.expression
