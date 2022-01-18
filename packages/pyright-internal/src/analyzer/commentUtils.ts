@@ -12,11 +12,13 @@ import {
     cloneDiagnosticRuleSet,
     DiagnosticLevel,
     DiagnosticRuleSet,
+    getBasicDiagnosticRuleSet,
     getBooleanDiagnosticRules,
     getDiagLevelDiagnosticRules,
     getStrictDiagnosticRuleSet,
     getStrictModeNotOverriddenRules,
 } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
 
@@ -46,10 +48,20 @@ export function getFileLevelDirectives(
 }
 
 function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
-    const strictRuleSet = getStrictDiagnosticRuleSet();
+    _overrideRules(ruleSet, getStrictDiagnosticRuleSet(), getStrictModeNotOverriddenRules());
+}
+
+function _applyBasicRules(ruleSet: DiagnosticRuleSet) {
+    _overrideRules(ruleSet, getBasicDiagnosticRuleSet(), []);
+}
+
+function _overrideRules(
+    ruleSet: DiagnosticRuleSet,
+    overrideRuleSet: DiagnosticRuleSet,
+    skipRuleNames: DiagnosticRule[]
+) {
     const boolRuleNames = getBooleanDiagnosticRules();
     const diagRuleNames = getDiagLevelDiagnosticRules();
-    const skipRuleNames = getStrictModeNotOverriddenRules();
 
     // Enable the strict rules as appropriate.
     for (const ruleName of boolRuleNames) {
@@ -57,7 +69,7 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
             continue;
         }
 
-        if ((strictRuleSet as any)[ruleName]) {
+        if ((overrideRuleSet as any)[ruleName]) {
             (ruleSet as any)[ruleName] = true;
         }
     }
@@ -67,15 +79,16 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
             continue;
         }
 
-        const strictValue: DiagnosticLevel = (strictRuleSet as any)[ruleName];
+        const overrideValue: DiagnosticLevel = (overrideRuleSet as any)[ruleName];
         const prevValue: DiagnosticLevel = (ruleSet as any)[ruleName];
 
+        // Override only if the new value is more strict than the existing value.
         if (
-            strictValue === 'error' ||
-            (strictValue === 'warning' && prevValue !== 'error') ||
-            (strictValue === 'information' && prevValue !== 'error' && prevValue !== 'warning')
+            overrideValue === 'error' ||
+            (overrideValue === 'warning' && prevValue !== 'error') ||
+            (overrideValue === 'information' && prevValue !== 'error' && prevValue !== 'warning')
         ) {
-            (ruleSet as any)[ruleName] = strictValue;
+            (ruleSet as any)[ruleName] = overrideValue;
         }
     }
 }
@@ -92,6 +105,8 @@ function _parsePyrightComment(commentValue: string, ruleSet: DiagnosticRuleSet) 
         // diagnostic rules with their strict counterparts.
         if (operandList.some((s) => s === 'strict')) {
             _applyStrictRules(ruleSet);
+        } else if (operandList.some((s) => s === 'basic')) {
+            _applyBasicRules(ruleSet);
         }
 
         for (const operand of operandList) {

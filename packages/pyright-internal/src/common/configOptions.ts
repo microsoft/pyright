@@ -534,7 +534,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportPropertyTypeMismatch: 'none',
         reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
-        reportMissingModuleSource: 'warning',
+        reportMissingModuleSource: 'warning', // Not overridden by strict mode
         reportMissingTypeStubs: 'error',
         reportImportCycles: 'error',
         reportUnusedImport: 'error',
