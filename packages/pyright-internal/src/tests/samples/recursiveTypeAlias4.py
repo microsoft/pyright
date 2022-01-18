@@ -19,12 +19,12 @@ def f2(args: JSONStructured):
     if isinstance(args, List):
         reveal_type(
             args,
-            expected_text="List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]",
+            expected_text="List[str | float | int | bool | JSONArray | Dict[str, JSONType] | None]",
         )
     else:
         reveal_type(
             args,
-            expected_text="Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]",
+            expected_text="Dict[str, str | float | int | bool | List[JSONType] | JSONObject | None]",
         )
         dargs: JSONObject = args
 
@@ -34,12 +34,12 @@ def f3(args: JSONStructured):
     if isinstance(args, Dict):
         reveal_type(
             args,
-            expected_text="Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[str | float | int | bool | JSONArray | Dict[str, ...] | None]] | Type[Dict[str, ...]]]",
+            expected_text="Dict[str, str | float | int | bool | List[JSONType] | JSONObject | None]",
         )
     else:
         reveal_type(
             args,
-            expected_text="List[str | float | int | bool | Type[List[JSONType]] | Dict[str, Type[str] | Type[float] | Type[int] | Type[bool] | Type[None] | Type[List[JSONType]] | Type[Dict[str, ...]]] | None]",
+            expected_text="List[str | float | int | bool | JSONArray | Dict[str, JSONType] | None]",
         )
         largs: JSONArray = args
 

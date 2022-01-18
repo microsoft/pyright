@@ -3142,9 +3142,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeChanged = false;
 
         const expandSubtype = (unexpandedType: Type) => {
-            const expandedType = isUnion(unexpandedType)
-                ? unexpandedType
-                : makeTopLevelTypeVarsConcrete(unexpandedType);
+            let expandedType = isUnion(unexpandedType) ? unexpandedType : makeTopLevelTypeVarsConcrete(unexpandedType);
+
+            expandedType = transformPossibleRecursiveTypeAlias(expandedType);
 
             doForEachSubtype(expandedType, (subtype) => {
                 if (conditionFilter) {

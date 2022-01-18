@@ -20,6 +20,7 @@ import {
     isNoneInstance,
     isParamSpec,
     isTypeSame,
+    isTypeVar,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     removeNoneFromUnion,
@@ -29,7 +30,7 @@ import {
     TypeCategory,
     TypeVarType,
 } from './types';
-import { doForEachSubtype, isTupleClass } from './typeUtils';
+import { convertToInstance, doForEachSubtype, isTupleClass } from './typeUtils';
 
 const singleTickRegEx = /'/g;
 const escapedDoubleQuoteRegEx = /\\"/g;
@@ -167,7 +168,24 @@ export function printType(
         }
     }
 
-    if (recursionTypes.find((t) => t === type) || recursionTypes.length > maxTypeRecursionCount) {
+    if (
+        recursionTypes.find(
+            (t) =>
+                t === type ||
+                (t.typeAliasInfo !== undefined && t.typeAliasInfo.fullName === type.typeAliasInfo?.fullName)
+        ) ||
+        recursionTypes.length > maxTypeRecursionCount
+    ) {
+        // If this is a recursive TypeVar, we've already expanded it once, so
+        // just print its name at this point.
+        if (isTypeVar(type) && type.details.isSynthesized && type.details.recursiveTypeAliasName) {
+            return type.details.recursiveTypeAliasName;
+        }
+
+        if (type.typeAliasInfo) {
+            return type.typeAliasInfo.name;
+        }
+
         return '...';
     }
 
@@ -383,7 +401,9 @@ export function printType(
                     if (type.details.recursiveTypeAliasName) {
                         if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) !== 0 && type.details.boundType) {
                             return printType(
-                                type.details.boundType,
+                                TypeBase.isInstance(type)
+                                    ? convertToInstance(type.details.boundType)
+                                    : type.details.boundType,
                                 printTypeFlags,
                                 returnTypeCallback,
                                 recursionTypes
