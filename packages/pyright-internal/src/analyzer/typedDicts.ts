@@ -462,14 +462,18 @@ export function synthesizeTypedDictClassMethods(
             'get',
             Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(getOverloads))
         );
-        symbolTable.set(
-            'pop',
-            Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(popOverloads))
-        );
-        symbolTable.set(
-            'setdefault',
-            Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(setDefaultOverloads))
-        );
+        if (popOverloads.length > 0) {
+            symbolTable.set(
+                'pop',
+                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(popOverloads))
+            );
+        }
+        if (setDefaultOverloads.length > 0) {
+            symbolTable.set(
+                'setdefault',
+                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(setDefaultOverloads))
+            );
+        }
         symbolTable.set('__delitem__', Symbol.createWithType(SymbolFlags.ClassMember, createDelItemMethod(strType)));
     }
 }
