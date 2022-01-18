@@ -13914,7 +13914,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Make sure we don't have 'object' derive from itself. Infinite
         // recursion will result.
-        if (!ClassType.isBuiltIn(classType, 'object')) {
+        if (
+            !ClassType.isBuiltIn(classType, 'object') &&
+            classType.details.baseClasses.filter((baseClass) => isClass(baseClass)).length === 0
+        ) {
+            // If there are no other (known) base classes, the class implicitly derives from object.
             classType.details.baseClasses.push(getBuiltInType(node, 'object'));
         }
 
