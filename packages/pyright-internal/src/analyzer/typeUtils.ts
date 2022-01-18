@@ -1960,6 +1960,11 @@ export function requiresSpecialization(
     ignoreSelf = false,
     recursionCount = 0
 ): boolean {
+    if (recursionCount > maxTypeRecursionCount) {
+        return false;
+    }
+    recursionCount++;
+
     switch (type.category) {
         case TypeCategory.Class: {
             if (ClassType.isPseudoGenericClass(type) && ignorePseudoGeneric) {
@@ -1967,11 +1972,6 @@ export function requiresSpecialization(
             }
 
             if (type.typeArguments) {
-                if (recursionCount > maxTypeRecursionCount) {
-                    return false;
-                }
-                recursionCount++;
-
                 return (
                     type.typeArguments.find((typeArg) =>
                         requiresSpecialization(typeArg, ignorePseudoGeneric, ignoreSelf, recursionCount)
@@ -1983,11 +1983,6 @@ export function requiresSpecialization(
         }
 
         case TypeCategory.Function: {
-            if (recursionCount > maxTypeRecursionCount) {
-                return false;
-            }
-            recursionCount++;
-
             if (type.details.paramSpec) {
                 return true;
             }
