@@ -465,10 +465,167 @@ test('dont walk up the root', () => {
     assert(!importResult.isImportFound);
 });
 
+test('pkgutil type namespace package', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', '__init__.py'),
+            content: "__path__ = __import__('pkgutil').extend_path(__path__, __name__)",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', 'a', '__init__.py'),
+            content: "name = 'a'",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', '__init__.py'),
+            content: "__path__ = __import__('pkgutil').extend_path(__path__, __name__)",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', 'b', '__init__.py'),
+            content: "name = 'b'",
+        },
+    ];
+    const importResult1 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['a']
+    );
+    assert(importResult1.isNamespacePackage);
+    const importResult2 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['b']
+    );
+    assert(importResult2.isNamespacePackage);
+});
+
+test('pkgutil type namespace package 2', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', '__init__.py'),
+            content: 'import pkgutil\n__path__ = pkgutil.extend_path(__path__, __name__)',
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', 'a', '__init__.py'),
+            content: "name = 'a'",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', '__init__.py'),
+            content: 'import pkgutil\n__path__ = pkgutil.extend_path(__path__, __name__)',
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', 'b', '__init__.py'),
+            content: "name = 'b'",
+        },
+    ];
+    const importResult1 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['a']
+    );
+    assert(importResult1.isNamespacePackage);
+    const importResult2 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['b']
+    );
+    assert(importResult2.isNamespacePackage);
+});
+
+test('pkgresource type namespace package', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', '__init__.py'),
+            content: "__import__('pkg_resources').declare_namespace(__name__)",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', 'a', '__init__.py'),
+            content: "name = 'a'",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', '__init__.py'),
+            content: "__import__('pkg_resources').declare_namespace(__name__)",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', 'b', '__init__.py'),
+            content: "name = 'b'",
+        },
+    ];
+    const importResult1 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['a']
+    );
+    assert(importResult1.isNamespacePackage);
+    const importResult2 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['b']
+    );
+    assert(importResult2.isNamespacePackage);
+});
+
+test('pkgresource type namespace package 2', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', '__init__.py'),
+            content: 'import pkg_resources\npkg_resources.declare_namespace(__name__)',
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_a', 'example_pkg', 'a', '__init__.py'),
+            content: "name = 'a'",
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', '__init__.py'),
+            content: 'import pkg_resources\npkg_resources.declare_namespace(__name__)',
+        },
+        {
+            path: combinePaths(libraryRoot, 'pkg_b', 'example_pkg', 'b', '__init__.py'),
+            content: "name = 'b'",
+        },
+    ];
+    const importResult1 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['a']
+    );
+    assert(importResult1.isNamespacePackage);
+    const importResult2 = getImportResult(
+        files,
+        ['example_pkg'],
+        (c) => {
+            c.defaultExtraPaths = [combinePaths(libraryRoot, 'pkg_a'), combinePaths(libraryRoot, 'pkg_b')];
+        },
+        ['b']
+    );
+    assert(importResult2.isNamespacePackage);
+});
+
 function getImportResult(
     files: { path: string; content: string }[],
     nameParts: string[],
-    setup?: (c: ConfigOptions) => void
+    setup?: (c: ConfigOptions) => void,
+    importedSymbols: string[] = []
 ) {
     setup =
         setup ??
@@ -492,7 +649,7 @@ function getImportResult(
     const importResult = importResolver.resolveImport(file, configOptions.findExecEnvironment(file), {
         leadingDots: 0,
         nameParts: nameParts,
-        importedSymbols: [],
+        importedSymbols: importedSymbols,
     });
 
     return importResult;

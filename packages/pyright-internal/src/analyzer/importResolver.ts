@@ -12,6 +12,7 @@ import type { Dirent } from 'fs';
 
 import { flatten, getMapValues, getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { DiagnosticSink } from '../common/diagnosticSink';
 import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
@@ -42,6 +43,15 @@ import { PythonVersion, versionFromString } from '../common/pythonVersion';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
+import {
+    AssignmentNode,
+    CallNode,
+    MemberAccessNode,
+    NameNode,
+    ParseNodeType,
+    StringListNode,
+} from '../parser/parseNodes';
+import { ParseOptions, Parser } from '../parser/parser';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
@@ -858,6 +868,160 @@ export class ImportResolver {
         return [containingPath, fileOrDirName];
     }
 
+    private _isDunderImportPackage(memberAccessNode: MemberAccessNode, packageName: string): boolean {
+        if (memberAccessNode.leftExpression.nodeType !== ParseNodeType.Call) {
+            return false;
+        }
+        const rightLeftCall = memberAccessNode.leftExpression as CallNode;
+
+        if (rightLeftCall.leftExpression.nodeType !== ParseNodeType.Name) {
+            return false;
+        }
+        const callName = (rightLeftCall.leftExpression as NameNode).value;
+        if (callName !== '__import__') {
+            return false;
+        }
+        if (rightLeftCall.arguments.length !== 1) {
+            return false;
+        }
+        const importArg = rightLeftCall.arguments[0];
+        if (importArg.valueExpression.nodeType !== ParseNodeType.StringList) {
+            return false;
+        }
+
+        const importString = (importArg.valueExpression as StringListNode).strings[0];
+        if (importString.value !== packageName) {
+            return false;
+        }
+        return true;
+    }
+
+    private _isNameNode(memberAccessNode: MemberAccessNode, nameValue: string): boolean {
+        if (memberAccessNode.leftExpression.nodeType !== ParseNodeType.Name) {
+            return false;
+        }
+        const name = memberAccessNode.leftExpression as NameNode;
+        return name.value === nameValue;
+    }
+
+    private _isPkgutilStyleNamespace(initPath: string): boolean {
+        // The __init__.py file must contain one of two statements:
+        // __path__ = __import__('pkgutil').extend_path(__path__, __name__)
+        // import pkgutil
+        // __path__ = pkgutil.extend_path(__path__, __name__)
+
+        const fileContent = this.fileSystem.readFileSync(initPath, 'utf8');
+        const result = new Parser().parseSourceFile(fileContent, new ParseOptions(), new DiagnosticSink());
+
+        for (const statementList of result.parseTree.statements) {
+            if (statementList.nodeType !== ParseNodeType.StatementList) {
+                continue;
+            }
+            for (const statement of statementList.statements) {
+                if (statement.nodeType !== ParseNodeType.Assignment) {
+                    continue;
+                }
+                const assignment = statement as AssignmentNode;
+
+                if (assignment.leftExpression.nodeType !== ParseNodeType.Name) {
+                    continue;
+                }
+                const left = assignment.leftExpression as NameNode;
+                if (left.value !== '__path__') {
+                    continue;
+                }
+
+                if (assignment.rightExpression.nodeType !== ParseNodeType.Call) {
+                    continue;
+                }
+                const right = assignment.rightExpression as CallNode;
+                if (right.arguments.length !== 2) {
+                    continue;
+                }
+                const arg1 = right.arguments[0].valueExpression as NameNode;
+                if (arg1.nodeType !== ParseNodeType.Name) {
+                    continue;
+                }
+                const arg2 = right.arguments[1].valueExpression as NameNode;
+                if (arg2.nodeType !== ParseNodeType.Name) {
+                    continue;
+                }
+                if (arg1.value !== '__path__' || arg2.value !== '__name__') {
+                    continue;
+                }
+
+                if (right.leftExpression.nodeType !== ParseNodeType.MemberAccess) {
+                    continue;
+                }
+                const rightLeft = right.leftExpression as MemberAccessNode;
+
+                if (rightLeft.memberName.value !== 'extend_path') {
+                    continue;
+                }
+
+                // Two options here: __import__('pkgutil') or pkgutil
+                if (this._isDunderImportPackage(rightLeft, 'pkgutil')) {
+                    return true;
+                }
+
+                if (this._isNameNode(rightLeft, 'pkgutil')) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private _isPkgResourcelStyleNamespace(initPath: string): boolean {
+        // The __init__.py file must contain one of two statements:
+        // __import__('pkg_resources').declare_namespace(__name__)
+        // import pkgutil
+        // pkgutil.declare_namespace(__name__)
+
+        const fileContent = this.fileSystem.readFileSync(initPath, 'utf8');
+        const result = new Parser().parseSourceFile(fileContent, new ParseOptions(), new DiagnosticSink());
+
+        for (const statementList of result.parseTree.statements) {
+            if (statementList.nodeType !== ParseNodeType.StatementList) {
+                continue;
+            }
+            for (const statement of statementList.statements) {
+                if (statement.nodeType !== ParseNodeType.Call) {
+                    continue;
+                }
+
+                if (statement.arguments.length !== 1) {
+                    continue;
+                }
+                const arg1 = statement.arguments[0].valueExpression as NameNode;
+                if (arg1.nodeType !== ParseNodeType.Name) {
+                    continue;
+                }
+                if (arg1.value !== '__name__') {
+                    continue;
+                }
+
+                if (statement.leftExpression.nodeType !== ParseNodeType.MemberAccess) {
+                    continue;
+                }
+                const left = statement.leftExpression as MemberAccessNode;
+                if (left.memberName.value !== 'declare_namespace') {
+                    continue;
+                }
+
+                // Two options here: __import__('pkgutil') or pkgutil
+                if (this._isDunderImportPackage(left, 'pkg_resources')) {
+                    return true;
+                }
+
+                if (this._isNameNode(left, 'pkg_resources')) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private _resolveAbsoluteImport(
         rootPath: string,
         execEnv: ExecutionEnvironment,
@@ -930,6 +1094,8 @@ export class ImportResolver {
                     const fileNameWithoutExtension = '__init__';
                     const pyFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.py');
                     const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
+                    let isPkgutilStyleNamespace = false;
+                    let isPkgResourcelStyleNamespace = false;
                     let foundInit = false;
 
                     if (allowPyi && this.fileExistsCached(pyiFilePath)) {
@@ -942,6 +1108,10 @@ export class ImportResolver {
                     } else if (this.fileExistsCached(pyFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
                         resolvedPaths.push(pyFilePath);
+                        isPkgutilStyleNamespace = this._isPkgutilStyleNamespace(pyFilePath);
+                        if (!isPkgutilStyleNamespace) {
+                            isPkgResourcelStyleNamespace = this._isPkgResourcelStyleNamespace(pyFilePath);
+                        }
                         foundInit = true;
                     }
 
@@ -962,7 +1132,7 @@ export class ImportResolver {
                         continue;
                     }
 
-                    if (foundInit) {
+                    if (foundInit && !isPkgutilStyleNamespace && !isPkgResourcelStyleNamespace) {
                         implicitImports = this._findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
                             pyFilePath,
                             pyiFilePath,
