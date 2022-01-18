@@ -15069,13 +15069,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Special-case the "no_type_check" because it has no definition.
-        // Pyright chooses not to implement the semantics of "no_type_check"
-        // because it's an ill-conceived construct.
-        if (isInstantiableClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'no_type_check')) {
-            return inputFunctionType;
-        }
-
         let returnType = getTypeFromDecorator(decoratorNode, inputFunctionType);
 
         // Check for some built-in decorator types with known semantics.
