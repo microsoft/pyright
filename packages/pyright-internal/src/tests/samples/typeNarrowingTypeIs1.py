@@ -79,8 +79,17 @@ class BFinal:
     pass
 
 
-def foo(c: Union[AFinal, BFinal]) -> None:
-    if type(c) is AFinal:
-        reveal_type(c, expected_text="AFinal")
+def func6(val: Union[AFinal, BFinal]) -> None:
+    if type(val) is AFinal:
+        reveal_type(val, expected_text="AFinal")
     else:
-        reveal_type(c, expected_text="BFinal")
+        reveal_type(val, expected_text="BFinal")
+
+
+def func7(val: Any):
+    if type(val) is int:
+        reveal_type(val, expected_text="int")
+    else:
+        reveal_type(val, expected_text="Any")
+
+    reveal_type(val, expected_text="int | Any")

@@ -1484,6 +1484,8 @@ function narrowTypeForTypeIs(type: Type, classType: ClassType, isPositiveTest: b
             }
         } else if (isNoneInstance(subtype)) {
             return isPositiveTest ? undefined : subtype;
+        } else if (isAnyOrUnknown(subtype)) {
+            return isPositiveTest ? ClassType.cloneAsInstance(classType) : subtype;
         }
 
         return subtype;
