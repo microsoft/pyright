@@ -247,24 +247,3 @@ export class Symbol {
 
 // Maps names to symbol information.
 export type SymbolTable = Map<string, Symbol>;
-
-class Foo {
-    bar: number | string = 0;
-
-    setBarToString() {
-        this.bar = '';
-    }
-}
-
-function test() {
-    const f = new Foo();
-    f.bar = 1;
-
-    const val1 = f.bar; // Type of "val1" is number
-    console.log(val1);
-
-    f.setBarToString();
-
-    const val2 = f.bar; // Type of "val2" is still number
-    console.log(val2);
-}
