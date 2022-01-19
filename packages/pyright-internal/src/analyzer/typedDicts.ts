@@ -328,7 +328,12 @@ export function synthesizeTypedDictClassMethods(
             return defaultTypeVar;
         };
 
-        const createGetMethod = (keyType: Type, valueType: Type, includeDefault: boolean) => {
+        const createGetMethod = (
+            keyType: Type,
+            valueType: Type,
+            includeDefault: boolean,
+            defaultTypeMatchesField = false
+        ) => {
             const getOverload = FunctionType.createInstance(
                 'get',
                 '',
@@ -348,10 +353,12 @@ export function synthesizeTypedDictClassMethods(
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'default',
-                    type: defaultTypeVar,
+                    type: defaultTypeMatchesField ? valueType : defaultTypeVar,
                     hasDeclaredType: true,
                 });
-                getOverload.details.declaredReturnType = combineTypes([valueType, defaultTypeVar]);
+                getOverload.details.declaredReturnType = defaultTypeMatchesField
+                    ? valueType
+                    : combineTypes([valueType, defaultTypeVar]);
             } else {
                 getOverload.details.declaredReturnType = combineTypes([valueType, NoneType.createInstance()]);
             }
@@ -447,7 +454,22 @@ export function synthesizeTypedDictClassMethods(
             const nameLiteralType = ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, name));
 
             getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ false));
-            getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ true));
+            getOverloads.push(
+                createGetMethod(
+                    nameLiteralType,
+                    entry.valueType,
+                    /* includeDefault */ true,
+                    /* defaultTypeMatchesField */ true
+                )
+            );
+            getOverloads.push(
+                createGetMethod(
+                    nameLiteralType,
+                    entry.valueType,
+                    /* includeDefault */ true,
+                    /* defaultTypeMatchesField */ false
+                )
+            );
             popOverloads.push(...createPopMethods(nameLiteralType, entry.valueType));
             setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
         });
