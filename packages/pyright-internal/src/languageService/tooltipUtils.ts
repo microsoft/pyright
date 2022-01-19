@@ -29,6 +29,7 @@ import {
     OverloadedFunctionType,
     Type,
 } from '../analyzer/types';
+import { isDefined } from '../common/core';
 
 // 70 is vscode's default hover width size.
 export function getOverloadedFunctionTooltip(
@@ -67,6 +68,28 @@ export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: S
     return getFunctionDocStringInherited(type, decl, sourceMapper, classResults?.classType);
 }
 
+export function getOverloadedFunctionDocStringsFromType(
+    type: OverloadedFunctionType,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator
+) {
+    if (type.overloads.length === 0) {
+        return [];
+    }
+
+    const decl = type.overloads[0].details.declaration;
+    const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
+    const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+
+    return getOverloadedFunctionDocStringsInherited(
+        type,
+        type.overloads.map((o) => o.details.declaration).filter(isDefined),
+        sourceMapper,
+        evaluator,
+        classResults?.classType
+    );
+}
+
 export function getDocumentationPartsForTypeAndDecl(
     sourceMapper: SourceMapper,
     type: Type,
@@ -91,16 +114,7 @@ export function getDocumentationPartsForTypeAndDecl(
             return [doc];
         }
     } else if (isOverloadedFunction(type)) {
-        const enclosingClass = resolvedDecl ? ParseTreeUtils.getEnclosingClass(resolvedDecl.node) : undefined;
-        const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-        return getOverloadedFunctionDocStringsInherited(
-            type,
-            resolvedDecl,
-            sourceMapper,
-            evaluator,
-            classResults?.classType
-        );
+        return getOverloadedFunctionDocStringsFromType(type, sourceMapper, evaluator);
     } else if (resolvedDecl?.type === DeclarationType.Variable) {
         const doc = getVariableDocString(resolvedDecl, sourceMapper);
         if (doc) {

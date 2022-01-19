@@ -417,7 +417,9 @@ export class ImportResolver {
                                     result.nonStubImportResult.resolvedPaths.length - 1
                                 ];
 
-                            if (nonEmptyPath.endsWith('.py')) {
+                            if (nonEmptyPath.endsWith('.py') || nonEmptyPath.endsWith('.pyi')) {
+                                // We allow pyi in case there are multiple pyi for a compiled module such as
+                                // numpy.random.mtrand
                                 sourceFilePaths.push(nonEmptyPath);
                             }
                         }

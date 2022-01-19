@@ -14,6 +14,7 @@ import {
     CallHierarchyIncomingCall,
     CallHierarchyItem,
     CallHierarchyOutgoingCall,
+    CompletionList,
     DocumentHighlight,
     MarkupKind,
 } from 'vscode-languageserver-types';
@@ -50,7 +51,12 @@ import {
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
-import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
+import {
+    AbbreviationMap,
+    CompletionMap,
+    CompletionOptions,
+    CompletionResultsList,
+} from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
 import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
@@ -1142,7 +1148,7 @@ export class Program {
                 this._importResolver,
                 parseTree,
                 range.start,
-                new Set(),
+                new Map(),
                 map,
                 {
                     lazyEdit,
@@ -1540,7 +1546,7 @@ export class Program {
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
-    ): Promise<CompletionResults | undefined> {
+    ): Promise<CompletionResultsList | undefined> {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -1575,13 +1581,20 @@ export class Program {
                     );
                 });
 
-                ls.add(`found ${result?.completionList?.items.length ?? 'null'} items`);
+                ls.add(`found ${result?.completionMap?.size ?? 'null'} items`);
                 return result;
             }
         );
 
-        if (!completionResult?.completionList || !this._extension?.completionListExtension) {
-            return completionResult;
+        const completionResultsList: CompletionResultsList = {
+            completionList: CompletionList.create(CompletionMap.toArray(completionResult?.completionMap)),
+            memberAccessInfo: completionResult?.memberAccessInfo,
+            autoImportInfo: completionResult?.autoImportInfo,
+            extensionInfo: completionResult?.extensionInfo,
+        };
+
+        if (!completionResult?.completionMap || !this._extension?.completionListExtension) {
+            return completionResultsList;
         }
 
         const parseResults = sourceFileInfo.sourceFile.getParseResults();
@@ -1589,7 +1602,7 @@ export class Program {
             const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
             if (offset !== undefined) {
                 await this._extension.completionListExtension.updateCompletionResults(
-                    completionResult,
+                    completionResultsList,
                     parseResults,
                     offset,
                     token
@@ -1597,7 +1610,7 @@ export class Program {
             }
         }
 
-        return completionResult;
+        return completionResultsList;
     }
 
     resolveCompletionItem(

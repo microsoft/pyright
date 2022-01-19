@@ -105,7 +105,7 @@ export function getFunctionDocStringInherited(
 
 export function getOverloadedFunctionDocStringsInherited(
     type: OverloadedFunctionType,
-    resolvedDecl: Declaration | undefined,
+    resolvedDecls: Declaration[],
     sourceMapper: SourceMapper,
     evaluator: TypeEvaluator,
     classType?: ClassType
@@ -116,9 +116,11 @@ export function getOverloadedFunctionDocStringsInherited(
     // they typically not helpful (and object's __init__ doc causes issues
     // with our current docstring traversal).
     if (!isInheritedFromBuiltin(type, classType)) {
-        docStrings = _getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper);
-        if (docStrings && docStrings.length > 0) {
-            return docStrings;
+        for (const resolvedDecl of resolvedDecls) {
+            docStrings = _getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper);
+            if (docStrings && docStrings.length > 0) {
+                return docStrings;
+            }
         }
     }
 

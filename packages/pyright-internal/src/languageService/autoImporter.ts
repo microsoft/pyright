@@ -31,6 +31,7 @@ import { Position } from '../common/textRange';
 import { Duration } from '../common/timing';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { CompletionMap } from './completionProvider';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 
 export interface AutoImportSymbol {
@@ -186,7 +187,7 @@ export class AutoImporter {
         private _importResolver: ImportResolver,
         private _parseResults: ParseResults,
         private _invocationPosition: Position,
-        private _excludes: Set<string>,
+        private readonly _excludes: CompletionMap,
         private _moduleSymbolMap: ModuleSymbolMap,
         private _options: AutoImportOptions
     ) {
@@ -657,8 +658,25 @@ export class AutoImporter {
         return this._options.patternMatcher(word, name);
     }
 
+    private _shouldExclude(name: string) {
+        const completions = this._excludes.get(name);
+        if (!completions) {
+            return false;
+        }
+
+        if (Array.isArray(completions)) {
+            if (completions.find((c) => !c.data?.autoImport)) {
+                return true;
+            }
+        } else {
+            if (!completions.data?.autoImport) {
+                return true;
+            }
+        }
+        return false;
+    }
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
-        if (this._excludes.has(name)) {
+        if (this._shouldExclude(name)) {
             return true;
         }
 
