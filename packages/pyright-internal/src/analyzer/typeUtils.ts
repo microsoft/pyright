@@ -174,6 +174,9 @@ export const enum CanAssignFlags {
     // typeVarMap when handling contravariant parameters in a callable.
     IgnoreTypeVarScope = 1 << 9,
 
+    // We're initially populating the TypeVarMap with an expected type,
+    // so TypeVars should match the specified type exactly rather than
+    // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 10,
 }
 

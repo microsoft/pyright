@@ -7731,7 +7731,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType).map((typeParam, index) => {
             const typeVar = TypeVarType.createInstance(`__dest${index}`);
             typeVar.details.isSynthesized = true;
-            typeVar.details.variance = typeParam.details.variance;
+
+            // Use invariance here so we set the narrow and wide values on the TypeVar.
+            typeVar.details.variance = Variance.Invariant;
             typeVar.scopeId = expectedTypeScopeId;
             return typeVar;
         });
