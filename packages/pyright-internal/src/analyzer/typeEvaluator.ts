@@ -22158,13 +22158,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 if (overrideParam.category === ParameterCategory.Simple) {
                     if (enforceParamNames) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.overrideParamName().format({
-                                index: i + 1,
-                                baseName: baseParam.name || '*',
-                                overrideName: overrideParam.name || '*',
-                            })
-                        );
+                        if (overrideParamDetails.params[i].source === ParameterSource.PositionOnly) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
+                                    index: i + 1,
+                                    baseName: baseParam.name || '*',
+                                })
+                            );
+                        } else {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.overrideParamName().format({
+                                    index: i + 1,
+                                    baseName: baseParam.name || '*',
+                                    overrideName: overrideParam.name || '*',
+                                })
+                            );
+                        }
                         canOverride = false;
                     }
                 }

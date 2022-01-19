@@ -1039,6 +1039,10 @@ export namespace Localizer {
             new ParameterizedString<{ index: number; baseName: string; overrideName: string }>(
                 getRawString('DiagnosticAddendum.overrideParamName')
             );
+        export const overrideParamNamePositionOnly = () =>
+            new ParameterizedString<{ index: number; baseName: string }>(
+                getRawString('DiagnosticAddendum.overrideParamNamePositionOnly')
+            );
         export const overrideParamType = () =>
             new ParameterizedString<{ index: number; baseType: string; overrideType: string }>(
                 getRawString('DiagnosticAddendum.overrideParamType')

@@ -531,6 +531,7 @@
         "overriddenSymbol": "Overridden symbol",
         "overrideParamCount": "Parameter count mismatch; base method has {baseCount}, but override has {overrideCount}",
         "overrideParamName": "Parameter {index} name mismatch: base parameter is named \"{baseName}\", override parameter is named \"{overrideName}\"",
+        "overrideParamNamePositionOnly": "Parameter {index} name mismatch: base parameter is named \"{baseName}\", override parameter is position-only\"",
         "overrideParamType": "Parameter {index} type mismatch: base parameter is type \"{baseType}\", override parameter is type \"{overrideType}\"",
         "overrideReturnType": "Return type mismatch: base method returns type \"{baseType}\", override returns type \"{overrideType}\"",
         "overrideType": "Base class defines type as \"{type}\"",
