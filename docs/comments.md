@@ -12,13 +12,19 @@ self._target = 3 # type: Union[int, str]
 ```
 
 ## File-level Type Controls
-Strict typing controls (where all supported type-checking switches generate errors) can be enabled for a file through the use of a special comment. Typically this comment is placed at or near the top of a code file on its own line.
+Strict type checking, where most supported type-checking switches generate errors, can be enabled for a file through the use of a special comment. Typically this comment is placed at or near the top of a code file on its own line.
 
 ```python
 # pyright: strict
 ```
 
-Individual configuration settings can also be overridden on a per-file basis and combined with “strict” typing. For example, if you want to enable all type checks except for “reportPrivateUsage”, you could add the following comment:
+Likewise, basic type checking can be enabled for a file.
+
+```python
+# pyright: basic
+```
+
+Individual configuration settings can also be overridden on a per-file basis and optionally combined with “strict” or “basic” type checking. For example, if you want to enable all type checks except for “reportPrivateUsage”, you could add the following comment:
 
 ```python
 # pyright: strict, reportPrivateUsage=false
