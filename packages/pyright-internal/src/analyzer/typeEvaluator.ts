@@ -20168,7 +20168,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // type. These are functionally equivalent, but "Any" looks
                 // better in the text representation.
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
-                setTypeArgumentsRecursive(destType, typeVarSubstitution, typeVarMap);
+                setTypeArgumentsRecursive(destType, typeVarSubstitution, typeVarMap, recursionCount);
             }
             if ((flags & CanAssignFlags.OverloadOverlapCheck) === 0) {
                 return true;
@@ -20177,7 +20177,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isNever(srcType)) {
             if (typeVarMap) {
-                setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap);
+                setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap, recursionCount);
             }
             return true;
         }
@@ -21853,7 +21853,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarEntry.typeVar,
                     effectiveSrcTypeVarMap.getTypeVarType(typeVarEntry.typeVar)!,
                     /* diag */ undefined,
-                    typeVarMap
+                    typeVarMap,
+                    /* flags */ undefined,
+                    recursionCount
                 );
             });
 
@@ -22333,7 +22335,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Make sure all the source constraint types map to constraint types in the dest.
             if (
                 srcType.details.constraints.every((sourceConstraint) => {
-                    return constraints.some((destConstraint) => canAssignType(destConstraint, sourceConstraint));
+                    return constraints.some((destConstraint) =>
+                        canAssignType(
+                            destConstraint,
+                            sourceConstraint,
+                            /* diag */ undefined,
+                            /* typeVarMap */ undefined,
+                            /* flags */ undefined,
+                            recursionCount
+                        )
+                    );
                 })
             ) {
                 return true;
@@ -22341,7 +22352,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             // Try to find a match among the constraints.
             for (const constraint of constraints) {
-                if (canAssignType(constraint, effectiveSrcType)) {
+                if (
+                    canAssignType(
+                        constraint,
+                        effectiveSrcType,
+                        /* diag */ undefined,
+                        /* typeVarMap */ undefined,
+                        /* flags */ undefined,
+                        recursionCount
+                    )
+                ) {
                     return true;
                 }
             }
