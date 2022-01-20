@@ -3308,7 +3308,19 @@ export class Checker extends ParseTreeWalker {
 
             const decls = symbol.getDeclarations();
             if (decls.length >= 2 && decls[0].type === DeclarationType.Variable) {
-                this._evaluator.addError(Localizer.Diagnostic.duplicateEnumMember().format({ name }), decls[1].node);
+                const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+
+                // Is this symbol a literal instance of the enum class?
+                if (
+                    isClassInstance(symbolType) &&
+                    ClassType.isSameGenericClass(symbolType, classType) &&
+                    symbolType.literalValue !== undefined
+                ) {
+                    this._evaluator.addError(
+                        Localizer.Diagnostic.duplicateEnumMember().format({ name }),
+                        decls[1].node
+                    );
+                }
             }
         });
     }

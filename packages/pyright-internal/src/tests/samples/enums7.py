@@ -13,6 +13,12 @@ class Color(Enum):
     # already exists.
     blue = "blue"
 
+    def __init__(self, value: str):
+        if value == "blue":
+            self.foo = False
+        else:
+            self.foo = True
+
 
 class NonEnum:
     ...
