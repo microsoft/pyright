@@ -2069,12 +2069,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // Construct the list of class lists that need to be merged.
     const classListsToMerge: Type[][] = [];
 
-    // Remove any Generic class. It appears not to participate in MRO calculations.
-    const baseClassesToInclude = classType.details.baseClasses.filter(
-        (baseClass) => !isInstantiableClass(baseClass) || !ClassType.isBuiltIn(baseClass, 'Generic')
-    );
-
-    baseClassesToInclude.forEach((baseClass) => {
+    classType.details.baseClasses.forEach((baseClass) => {
         if (isInstantiableClass(baseClass)) {
             const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClass, /* makeConcrete */ false);
             classListsToMerge.push(
@@ -2088,7 +2083,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     });
 
     classListsToMerge.push(
-        baseClassesToInclude.map((baseClass) => {
+        classType.details.baseClasses.map((baseClass) => {
             const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, /* makeConcrete */ false);
             return applySolvedTypeVars(baseClass, typeVarMap);
         })
