@@ -25,7 +25,7 @@ import {
     MarkupKind,
 } from 'vscode-languageserver-types';
 
-import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
+import { BackgroundAnalysisBase, IndexOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -54,7 +54,7 @@ import {
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
 import { IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
@@ -251,8 +251,8 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.test_setIndexing(workspaceIndices, libraryIndices);
     }
 
-    startIndexing() {
-        this._backgroundAnalysisProgram.startIndexing();
+    startIndexing(indexOptions: IndexOptions) {
+        this._backgroundAnalysisProgram.startIndexing(indexOptions);
     }
 
     setFileClosed(path: string) {
@@ -357,7 +357,7 @@ export class AnalyzerService {
         options: CompletionOptions,
         nameMap: AbbreviationMap | undefined,
         token: CancellationToken
-    ): Promise<CompletionResults | undefined> {
+    ): Promise<CompletionResultsList | undefined> {
         return this._program.getCompletionsForPosition(
             filePath,
             position,

@@ -101,7 +101,7 @@ import { DocumentRange, Position } from './common/textRange';
 import { UriParser } from './common/uriParser';
 import { convertWorkspaceEdits } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
-import { CompletionItemData, CompletionResults } from './languageService/completionProvider';
+import { CompletionItemData, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter } from './languageService/definitionProvider';
 import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService/documentSymbolProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
@@ -1176,7 +1176,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         position: Position,
         workspacePath: string,
         token: CancellationToken
-    ): Promise<CompletionResults | undefined> {
+    ): Promise<CompletionResultsList | undefined> {
         return workspace.serviceInstance.getCompletionsForPosition(
             filePath,
             position,

@@ -8,7 +8,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { CompletionResults } from '../languageService/completionProvider';
+import { CompletionResultsList } from '../languageService/completionProvider';
 import { ParseResults } from '../parser/parser';
 
 export interface LanguageServiceExtension {
@@ -18,7 +18,7 @@ export interface LanguageServiceExtension {
 export interface CompletionListExtension {
     // Extension updates completion list provided by the application.
     updateCompletionResults(
-        completionResults: CompletionResults,
+        completionResults: CompletionResultsList,
         parseResults: ParseResults,
         position: number,
         token: CancellationToken
