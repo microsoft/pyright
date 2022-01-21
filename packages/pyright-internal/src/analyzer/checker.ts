@@ -2122,7 +2122,28 @@ export class Checker extends ParseTreeWalker {
         if (!sawAssignment && !this._fileInfo.isStubFile) {
             const firstDecl = decls.find((decl) => decl.type === DeclarationType.Variable && decl.isFinal);
             if (firstDecl) {
-                this._evaluator.addError(Localizer.Diagnostic.finalUnassigned().format({ name }), firstDecl.node);
+                // Is this an instance variable declared within a dataclass? If so, it
+                // is implicitly initialized by the synthesized `__init__` method and
+                // therefore has an implied assignment.
+                let isImplicitlyAssigned = false;
+
+                if (symbol.isClassMember() && !symbol.isClassVar()) {
+                    const containingClass = ParseTreeUtils.getEnclosingClass(firstDecl.node, /* stopAtFunction */ true);
+                    if (containingClass) {
+                        const classType = this._evaluator.getTypeOfClass(containingClass);
+                        if (
+                            classType &&
+                            isClass(classType.decoratedType) &&
+                            ClassType.isDataClass(classType.decoratedType)
+                        ) {
+                            isImplicitlyAssigned = true;
+                        }
+                    }
+                }
+
+                if (!isImplicitlyAssigned) {
+                    this._evaluator.addError(Localizer.Diagnostic.finalUnassigned().format({ name }), firstDecl.node);
+                }
             }
         }
     }
