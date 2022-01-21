@@ -17,6 +17,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
@@ -3348,7 +3349,8 @@ export class Checker extends ParseTreeWalker {
 
     // If a non-protocol class explicitly inherits from a protocol class, this method
     // verifies that any class or instance variables declared but not assigned
-    // in the protocol class are implemented in the subclass.
+    // in the protocol class are implemented in the subclass. It also checks that any
+    // empty functions declared in the protocol are implemented in the subclass.
     private _validateProtocolCompatibility(classType: ClassType, errorNode: ClassNode) {
         if (ClassType.isProtocolClass(classType)) {
             return;
@@ -3366,27 +3368,37 @@ export class Checker extends ParseTreeWalker {
             protocolSymbols.forEach((member, name) => {
                 const decls = member.symbol.getDeclarations();
 
-                // We care only about variables, not functions or other declaration types.
-                if (decls.length === 0 || decls[0].type !== DeclarationType.Variable) {
+                if (decls.length === 0 || !isClass(member.classType)) {
                     return;
                 }
 
-                if (!isClass(member.classType)) {
-                    return;
-                }
-
-                // If none of the declarations involve assignments, assume it's
-                // not implemented in the protocol.
-                if (!decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
-                    // This is a variable declaration that is not implemented in the
-                    // protocol base class. Make sure it's implemented in the derived class.
-                    if (!classType.details.fields.has(name)) {
-                        diagAddendum.addMessage(
-                            Localizer.DiagnosticAddendum.missingProtocolMember().format({
-                                name,
-                                classType: member.classType.details.name,
-                            })
-                        );
+                if (decls[0].type === DeclarationType.Variable) {
+                    // If none of the declarations involve assignments, assume it's
+                    // not implemented in the protocol.
+                    if (!decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
+                        // This is a variable declaration that is not implemented in the
+                        // protocol base class. Make sure it's implemented in the derived class.
+                        if (!classType.details.fields.has(name)) {
+                            diagAddendum.addMessage(
+                                Localizer.DiagnosticAddendum.missingProtocolMember().format({
+                                    name,
+                                    classType: member.classType.details.name,
+                                })
+                            );
+                        }
+                    }
+                } else if (decls[0].type === DeclarationType.Function) {
+                    if (ParseTreeUtils.isSuiteEmpty(decls[0].node.suite) && decls[0]) {
+                        if (getFileExtension(decls[0].path).toLowerCase() !== '.pyi') {
+                            if (!classType.details.fields.has(name)) {
+                                diagAddendum.addMessage(
+                                    Localizer.DiagnosticAddendum.missingProtocolMember().format({
+                                        name,
+                                        classType: member.classType.details.name,
+                                    })
+                                );
+                            }
+                        }
                     }
                 }
             });

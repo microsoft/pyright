@@ -6,16 +6,20 @@ from __future__ import annotations
 from typing_extensions import Self, Concatenate, ParamSpec
 from typing import Any, Callable, TypeVar, Protocol, Generic, overload
 
-T = TypeVar("T", covariant=True)
+T = TypeVar("T")
 O = TypeVar("O")
 P = ParamSpec("P")
 
 
 class _callable_cache(Protocol[P, T]):
     foo: int = 0
+    val: T
+
+    def __init__(self, val: T) -> None:
+        self.val = val
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
-        ...
+        return self.val
 
 
 class _wrapped_cache(_callable_cache[P, T], Generic[O, P, T]):

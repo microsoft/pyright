@@ -1,7 +1,7 @@
 # This sample tests that a Generic base class overrides the type parameter
 # ordering of other type parameters.
 
-from typing import Container, Generic, Iterable, Mapping, Protocol, TypeVar
+from typing import Container, Generic, Iterable, Iterator, Mapping, Protocol, TypeVar
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar(
@@ -15,6 +15,9 @@ class Foo(Iterable[_T2], Generic[_T1, _T2]):
 
     def foo(self, a: _T1, b: _T2) -> _T2:
         return b
+
+    def __iter__(self) -> Iterator[int]:
+        ...
 
 
 a: Foo[int, str] = Foo(2, "")
