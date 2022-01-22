@@ -300,12 +300,7 @@ export function createNamedTupleType(
     // will handle property type checking. We may need to disable default
     // parameter processing for __new__ (see isAssignmentToDefaultsFollowingNamedTuple),
     // and we don't want to do it for __init__ as well.
-    const initType = FunctionType.createInstance(
-        '__init__',
-        '',
-        '',
-        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipConstructorCheck
-    );
+    const initType = FunctionType.createInstance('__init__', '', '', FunctionTypeFlags.SynthesizedMethod);
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
     initType.details.declaredReturnType = NoneType.createInstance();
