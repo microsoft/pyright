@@ -920,7 +920,7 @@ function narrowTypeForIsInstance(
                                 if (
                                     evaluator.populateTypeVarMapBasedOnExpectedType(
                                         unspecializedFilterType,
-                                        ClassType.cloneAsInstance(varType),
+                                        varType,
                                         typeVarMap,
                                         /* liveTypeVarScopes */ undefined
                                     )

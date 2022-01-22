@@ -6376,7 +6376,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const tupleTypeVarMap = new TypeVarMap(getTypeVarScopeId(tupleClassType));
             if (
                 !populateTypeVarMapBasedOnExpectedType(
-                    tupleClassType,
+                    ClassType.cloneAsInstance(tupleClassType),
                     expectedType,
                     tupleTypeVarMap,
                     getTypeVarScopesForNode(node)
@@ -7325,7 +7325,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
                     if (
                         populateTypeVarMapBasedOnExpectedType(
-                            type,
+                            ClassType.cloneAsInstance(type),
                             expectedSubType,
                             typeVarMap,
                             getTypeVarScopesForNode(errorNode)
@@ -7565,7 +7565,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
             if (expectedType) {
                 populateTypeVarMapBasedOnExpectedType(
-                    type,
+                    ClassType.cloneAsInstance(type),
                     expectedType,
                     typeVarMap,
                     getTypeVarScopesForNode(errorNode)
@@ -7677,7 +7677,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (!isClassInstance(expectedType)) {
+        if (!isClass(expectedType)) {
             return false;
         }
 
@@ -7686,7 +7686,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!expectedTypeArgs) {
             return canAssignType(
                 type,
-                ClassType.cloneAsInstantiable(expectedType),
+                expectedType,
                 /* diag */ undefined,
                 typeVarMap,
                 CanAssignFlags.PopulatingExpectedType
@@ -7728,7 +7728,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return typeVar;
         });
         const genericExpectedType = ClassType.cloneForSpecialization(
-            ClassType.cloneAsInstantiable(expectedType),
+            expectedType,
             synthExpectedTypeArgs,
             /* isTypeArgumentExplicit */ true
         );
@@ -9178,7 +9178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 const tempTypeVarMap = new TypeVarMap(getTypeVarScopeId(effectiveReturnType));
                 populateTypeVarMapBasedOnExpectedType(
-                    ClassType.cloneAsInstantiable(effectiveReturnType),
+                    effectiveReturnType,
                     effectiveExpectedType,
                     tempTypeVarMap,
                     getTypeVarScopesForNode(errorNode)
@@ -11487,7 +11487,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const dictTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInDict));
         if (
             !populateTypeVarMapBasedOnExpectedType(
-                ClassType.cloneAsInstantiable(builtInDict),
+                builtInDict,
                 expectedType,
                 dictTypeVarMap,
                 getTypeVarScopesForNode(node)
@@ -11805,7 +11805,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeVarMap = new TypeVarMap(getTypeVarScopeId(builtInListOrSet));
         if (
             !populateTypeVarMapBasedOnExpectedType(
-                ClassType.cloneAsInstantiable(builtInListOrSet),
+                builtInListOrSet,
                 expectedType,
                 typeVarMap,
                 getTypeVarScopesForNode(node)
@@ -22020,7 +22020,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* typeArguments */ undefined,
                     /* isTypeArgumentExplicit */ false
                 ),
-                ClassType.cloneAsInstance(declaredType),
+                declaredType,
                 typeVarMap,
                 []
             );
