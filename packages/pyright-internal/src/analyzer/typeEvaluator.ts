@@ -9135,8 +9135,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !expectedType ||
             isAnyOrUnknown(expectedType) ||
-            requiresSpecialization(expectedType) ||
-            !type.details.declaredReturnType
+            !type.details.declaredReturnType ||
+            !requiresSpecialization(type.details.declaredReturnType)
         ) {
             return validateFunctionArgumentTypes(errorNode, matchResults, typeVarMap, skipUnknownArgCheck);
         }
