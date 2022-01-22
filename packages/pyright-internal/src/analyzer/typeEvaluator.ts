@@ -1041,7 +1041,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Await: {
-                const exprTypeResult = getTypeOfExpression(node.expression, undefined, flags);
+                const effectiveExpectedType = expectedType
+                    ? createAwaitableReturnType(node, expectedType, /* isGenerator */ false)
+                    : undefined;
+
+                const exprTypeResult = getTypeOfExpression(node.expression, effectiveExpectedType, flags);
                 typeResult = {
                     type: getTypeFromAwaitable(exprTypeResult.type, node.expression),
                     node,
