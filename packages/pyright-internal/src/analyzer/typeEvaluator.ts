@@ -8231,6 +8231,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     ClassType.cloneAsInstantiable(returnType)
                                 );
                                 newClassType.details.baseClasses.push(getBuiltInType(errorNode, 'object'));
+                                newClassType.details.effectiveMetaclass = expandedSubtype;
                                 computeMroLinearization(newClassType);
                                 return newClassType;
                             }
