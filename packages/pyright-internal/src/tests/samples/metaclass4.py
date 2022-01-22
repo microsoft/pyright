@@ -8,7 +8,7 @@ class MyMeta(type):
         pass
 
 
-MyCustomClass = MyMeta("MyCustomClass")
+MyCustomClass = MyMeta("MyCustomClass", (object,), {})
 
 
 class DerivedCustomClass(MyCustomClass):
