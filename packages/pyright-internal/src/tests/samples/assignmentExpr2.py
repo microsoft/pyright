@@ -41,3 +41,7 @@ def pep572_examples():
     foo(x = y := f(25))  # INVALID
     foo(x=(y := f(25)))  # Valid, though probably confusing
 
+    # This should generate an error.
+    [y for x in [0, 1] if y := x - 1]
+
+    [y for x in [0, 1] if (y := x - 1)]
