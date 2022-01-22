@@ -8204,8 +8204,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, 'type')
                                 )
                             ) {
-                                // We don't know the name of the new class in this case.
-                                const newClassName = '__class_' + returnType.details.name;
+                                let newClassName = '__class_' + returnType.details.name;
+                                if (argList.length === 3) {
+                                    const firstArgType = getTypeForArgument(argList[0]).type;
+                                    if (
+                                        isClassInstance(firstArgType) &&
+                                        ClassType.isBuiltIn(firstArgType, 'str') &&
+                                        typeof firstArgType.literalValue === 'string'
+                                    ) {
+                                        newClassName = firstArgType.literalValue;
+                                    }
+                                }
+
                                 const newClassType = ClassType.createInstantiable(
                                     newClassName,
                                     '',
