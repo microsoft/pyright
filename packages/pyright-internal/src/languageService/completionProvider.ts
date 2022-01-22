@@ -260,22 +260,6 @@ export interface ExtensionInfo {
     totalTimeInMS: number;
 }
 
-export type CompletionMap = Map<string, CompletionItem | CompletionItem[]>;
-export namespace CompletionMap {
-    export function toArray(completionMap: CompletionMap | undefined) {
-        const items: CompletionItem[] = [];
-        completionMap?.forEach((value) => {
-            if (Array.isArray(value)) {
-                value.forEach((item) => {
-                    items.push(item);
-                });
-            } else {
-                items.push(value);
-            }
-        });
-        return items;
-    }
-}
 interface CompletionResultsBase {
     memberAccessInfo?: MemberAccessInfo | undefined;
     autoImportInfo?: AutoImportInfo | undefined;
@@ -481,7 +465,7 @@ export class CompletionProvider {
             }
 
             if (curNode.nodeType === ParseNodeType.Dictionary) {
-                const completionMap: CompletionMap = new Map();
+                const completionMap = new CompletionMap();
                 if (this._addTypedDictKeys(curNode, /* stringNode */ undefined, priorText, postText, completionMap)) {
                     return { completionMap };
                 }
@@ -495,7 +479,7 @@ export class CompletionProvider {
                 if (dictionaryEntry.parent?.nodeType === ParseNodeType.Dictionary) {
                     const dictionaryNode = dictionaryEntry.parent;
                     if (dictionaryNode.trailingCommaToken && dictionaryNode.trailingCommaToken.start < offset) {
-                        const completionMap: CompletionMap = new Map();
+                        const completionMap = new CompletionMap();
                         if (
                             this._addTypedDictKeys(
                                 dictionaryNode,
@@ -624,7 +608,7 @@ export class CompletionProvider {
                 // cached, so it's not as bad as it might seem.
                 this.getCompletionsForPosition();
             } else if (!completionItem.additionalTextEdits) {
-                const completionMap: CompletionMap = new Map();
+                const completionMap = new CompletionMap();
                 const completionResults = { completionMap };
 
                 this._addAutoImportCompletions(
@@ -840,8 +824,8 @@ export class CompletionProvider {
         const completionItem = CompletionItem.create(keyword);
         completionItem.kind = CompletionItemKind.Keyword;
         completionItem.sortText = this._makeSortText(SortCategory.LikelyKeyword, keyword);
-        const completionMap: CompletionMap = new Map();
-        completionMap.set(completionItem.label, completionItem);
+        const completionMap = new CompletionMap();
+        completionMap.set(completionItem);
         return { completionMap };
     }
 
@@ -852,7 +836,7 @@ export class CompletionProvider {
         }
 
         const funcParensDisabled = partialName.parent?.nodeType === ParseNodeType.Function ? true : undefined;
-        const completionMap: CompletionMap = new Map();
+        const completionMap = new CompletionMap();
 
         const enclosingFunc = ParseTreeUtils.getEnclosingFunction(partialName);
         symbolTable.forEach((symbol, name) => {
@@ -938,7 +922,7 @@ export class CompletionProvider {
         const staticmethod = decorators?.some((d) => this._checkDecorator(d, 'staticmethod')) ?? false;
         const classmethod = decorators?.some((d) => this._checkDecorator(d, 'classmethod')) ?? false;
 
-        const completionMap: CompletionMap = new Map();
+        const completionMap = new CompletionMap();
 
         symbolTable.forEach((symbol, name) => {
             let decl = getLastTypedDeclaredForSymbol(symbol);
@@ -1189,7 +1173,7 @@ export class CompletionProvider {
         priorWord: string
     ): CompletionResults | undefined {
         const symbolTable = new Map<string, Symbol>();
-        const completionMap: CompletionMap = new Map();
+        const completionMap = new CompletionMap();
         let memberAccessInfo: MemberAccessInfo = {};
 
         let leftType = this._evaluator.getType(leftExprNode);
@@ -1320,7 +1304,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        const completionMap: CompletionMap = new Map();
+        const completionMap = new CompletionMap();
         const completionResults = { completionMap };
 
         // Return empty completionList for Ellipsis
@@ -1349,7 +1333,7 @@ export class CompletionProvider {
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
             completionItem.sortText = this._makeSortText(SortCategory.Keyword, keyword);
-            completionMap.set(completionItem.label, completionItem);
+            completionMap.set(completionItem);
         });
 
         // Add auto-import suggestions from other modules.
@@ -1726,7 +1710,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        const completionMap: CompletionMap = new Map();
+        const completionMap = new CompletionMap();
 
         // See if the type evaluator can determine the expected type for this node.
         if (isExpressionNode(parentNode)) {
@@ -2016,7 +2000,7 @@ export class CompletionProvider {
             completionItem.textEdit = TextEdit.replace(range, valueWithQuotes);
             completionItem.detail = detail;
 
-            completionMap.set(completionItem.label, completionItem);
+            completionMap.set(completionItem);
         }
     }
 
@@ -2118,7 +2102,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        const completionMap: CompletionMap = new Map();
+        const completionMap = new CompletionMap();
 
         const resolvedPath =
             importInfo.resolvedPaths.length > 0 ? importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
@@ -2194,7 +2178,7 @@ export class CompletionProvider {
                 completionItem.data = completionItemData;
                 completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
 
-                completionMap.set(completionItem.label, completionItem);
+                completionMap.set(completionItem);
             }
         });
     }
@@ -2557,12 +2541,7 @@ export class CompletionProvider {
             return;
         }
 
-        // Check label and kind to avoid duplicates
-        const existing = completionMap.get(name);
-        if (
-            (existing && !Array.isArray(existing) && existing.kind === itemKind) ||
-            (Array.isArray(existing) && existing.find((c) => c.kind === itemKind))
-        ) {
+        if (completionMap.has(name, CompletionMap.matchKindAndImportText, itemKind, detail?.autoImportText)) {
             return;
         }
 
@@ -2693,7 +2672,7 @@ export class CompletionProvider {
             }
         }
 
-        completionMap.set(completionItem.label, completionItem);
+        completionMap.set(completionItem);
     }
 
     private _getRecentListIndex(name: string, autoImportText: string) {
@@ -2799,7 +2778,7 @@ export class CompletionProvider {
             moduleDescriptor
         );
 
-        const completionMap: CompletionMap = new Map();
+        const completionMap = new CompletionMap();
 
         // If we're in the middle of a "from X import Y" statement, offer
         // the "import" keyword as a completion.
@@ -2813,7 +2792,7 @@ export class CompletionProvider {
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
             completionItem.sortText = this._makeSortText(SortCategory.Keyword, keyword);
-            completionMap.set(completionItem.label, completionItem);
+            completionMap.set(completionItem);
         }
 
         completions.forEach((completionName) => {
@@ -2824,7 +2803,7 @@ export class CompletionProvider {
             const completionItem = CompletionItem.create(completionName);
             completionItem.kind = CompletionItemKind.Module;
             completionItem.sortText = this._makeSortText(SortCategory.ImportModuleName, completionName);
-            completionMap.set(completionItem.label, completionItem);
+            completionMap.set(completionItem);
         });
 
         return { completionMap };
@@ -2834,5 +2813,108 @@ export class CompletionProvider {
         // Do cheap check using only nodes that will cover 99.9% cases
         // before doing more expensive type evaluation.
         return decl.isMethod && decl.node.decorators.length > 0;
+    }
+}
+
+export class CompletionMap {
+    private _completions: Map<string, CompletionItem | CompletionItem[]> = new Map();
+
+    get size() {
+        return this._completions.size;
+    }
+
+    set(value: CompletionItem): void {
+        const existing = this._completions.get(value.label);
+        if (!existing) {
+            this._completions.set(value.label, value);
+        } else if (Array.isArray(existing)) {
+            existing.push(value);
+        } else {
+            this._completions.set(value.label, [existing, value]);
+        }
+    }
+
+    get(key: string): CompletionItem | CompletionItem[] | undefined {
+        return this._completions.get(key);
+    }
+
+    has(
+        label: string,
+        predicate?: (
+            other: CompletionItem | CompletionItem[],
+            kind?: CompletionItemKind,
+            autoImportText?: string
+        ) => boolean,
+        kind?: CompletionItemKind,
+        autImportText?: string
+    ): boolean {
+        const existing = this._completions.get(label);
+        if (!existing) {
+            return false;
+        }
+
+        if (predicate) {
+            return predicate(existing, kind, autImportText);
+        }
+        return true;
+    }
+
+    clear(): void {
+        this._completions.clear();
+    }
+
+    delete(key: string): boolean {
+        return this._completions.delete(key);
+    }
+
+    toArray(): CompletionItem[] {
+        const items: CompletionItem[] = [];
+        this._completions?.forEach((value) => {
+            if (Array.isArray(value)) {
+                value.forEach((item) => {
+                    items.push(item);
+                });
+            } else {
+                items.push(value);
+            }
+        });
+        return items;
+    }
+
+    static matchKindAndImportText(
+        existing: CompletionItem | CompletionItem[],
+        kind?: CompletionItemKind,
+        autoImportText?: string
+    ): boolean {
+        if (!existing) {
+            return false;
+        }
+
+        if (!Array.isArray(existing)) {
+            return existing.kind === kind && existing.data?.autoImport === autoImportText;
+        } else {
+            return !!existing.find((c) => c.kind === kind && c.data.autoImport === autoImportText);
+        }
+    }
+
+    static labelOnlyIgnoringAutoImports(
+        existing: CompletionItem | CompletionItem[],
+        _kind?: CompletionItemKind,
+        _autoImportText?: string
+    ): boolean {
+        if (!existing) {
+            return false;
+        }
+
+        if (Array.isArray(existing)) {
+            if (existing.find((c) => !c.data?.autoImport)) {
+                return true;
+            }
+        } else {
+            if (!existing.data?.autoImport) {
+                return true;
+            }
+        }
+        return false;
     }
 }

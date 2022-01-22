@@ -1148,7 +1148,7 @@ export class Program {
                 this._importResolver,
                 parseTree,
                 range.start,
-                new Map(),
+                new CompletionMap(),
                 map,
                 {
                     lazyEdit,
@@ -1587,7 +1587,7 @@ export class Program {
         );
 
         const completionResultsList: CompletionResultsList = {
-            completionList: CompletionList.create(CompletionMap.toArray(completionResult?.completionMap)),
+            completionList: CompletionList.create(completionResult?.completionMap?.toArray()),
             memberAccessInfo: completionResult?.memberAccessInfo,
             autoImportInfo: completionResult?.autoImportInfo,
             extensionInfo: completionResult?.extensionInfo,
