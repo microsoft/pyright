@@ -6505,7 +6505,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.leftExpression.nodeType === ParseNodeType.Name &&
                 node.leftExpression.value === 'reveal_type'
             ) {
-                // Handle the special-case "reveal_type" call.
+                // Handle the implicit "reveal_type" call.
+                returnResult = getTypeFromRevealType(node);
+            } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'reveal_type') {
+                // Handle the "typing.reveal_type" call.
                 returnResult = getTypeFromRevealType(node);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
