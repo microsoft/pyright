@@ -902,7 +902,7 @@ class _TreeviewTagDict(TypedDict):
 
 class _TreeviewHeaderDict(TypedDict):
     text: str
-    image: list[str]
+    image: list[str] | Literal[""]
     anchor: tkinter._Anchor
     command: str
     state: str  # Doesn't seem to appear anywhere else than in these dicts
@@ -994,13 +994,15 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
     @overload
     def heading(self, column: _TreeviewColumnId, option: Literal["text"]) -> str: ...
     @overload
-    def heading(self, column: _TreeviewColumnId, option: Literal["image"]) -> tuple[str]: ...
+    def heading(self, column: _TreeviewColumnId, option: Literal["image"]) -> tuple[str] | str: ...
     @overload
     def heading(self, column: _TreeviewColumnId, option: Literal["anchor"]) -> _tkinter.Tcl_Obj: ...
     @overload
     def heading(self, column: _TreeviewColumnId, option: Literal["command"]) -> str: ...
     @overload
     def heading(self, column: _TreeviewColumnId, option: str) -> Any: ...
+    @overload
+    def heading(self, column: _TreeviewColumnId, option: None = ...) -> _TreeviewHeaderDict: ...  # type: ignore[misc]
     @overload
     def heading(
         self,
@@ -1011,7 +1013,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         image: tkinter._ImageSpec = ...,
         anchor: tkinter._Anchor = ...,
         command: str | Callable[[], Any] = ...,
-    ) -> _TreeviewHeaderDict | None: ...
+    ) -> None: ...
     def identify(self, component, x, y): ...
     def identify_row(self, y: int) -> str: ...
     def identify_column(self, x: int) -> str: ...
@@ -1044,6 +1046,8 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
     @overload
     def item(self, item: str, option: str) -> Any: ...
     @overload
+    def item(self, item: str, option: None = ...) -> _TreeviewItemDict: ...  # type: ignore[misc]
+    @overload
     def item(
         self,
         item: str,
@@ -1054,7 +1058,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         values: list[Any] | tuple[Any, ...] | Literal[""] = ...,
         open: bool = ...,
         tags: str | list[str] | tuple[str, ...] = ...,
-    ) -> _TreeviewItemDict | None: ...
+    ) -> None: ...
     def move(self, item: str, parent: str, index: int) -> None: ...
     reattach = move
     def next(self, item: str) -> str: ...  # returning empty string means last item

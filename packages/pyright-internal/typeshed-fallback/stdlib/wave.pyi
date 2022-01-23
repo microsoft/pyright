@@ -1,6 +1,6 @@
 import sys
 from _typeshed import ReadableBuffer, Self
-from typing import IO, Any, BinaryIO, NamedTuple, NoReturn, Union
+from typing import IO, Any, BinaryIO, NamedTuple, NoReturn, Union, overload
 from typing_extensions import Literal
 
 _File = Union[str, IO[bytes]]
@@ -62,7 +62,11 @@ class Wave_write:
     def writeframes(self, data: ReadableBuffer) -> None: ...
     def close(self) -> None: ...
 
-# Returns a Wave_read if mode is rb and Wave_write if mode is wb
+@overload
+def open(f: _File, mode: Literal["r", "rb"]) -> Wave_read: ...
+@overload
+def open(f: _File, mode: Literal["w", "wb"]) -> Wave_write: ...
+@overload
 def open(f: _File, mode: str | None = ...) -> Any: ...
 
 if sys.version_info < (3, 9):

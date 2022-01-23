@@ -2,7 +2,7 @@ from _typeshed import Self, SupportsRead
 from typing import Any, Sequence
 
 from .builder import TreeBuilder
-from .element import PageElement, SoupStrainer, Tag
+from .element import PageElement, SoupStrainer as SoupStrainer, Tag as Tag
 from .formatter import Formatter
 
 class GuessedAtParserWarning(UserWarning): ...
