@@ -1882,11 +1882,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             !!methodType &&
                             isFunction(methodType) &&
                             methodType.details.fullName === 'builtins.object.__init__';
+                        const isSkipConstructor =
+                            !!methodType && isFunction(methodType) && FunctionType.isSkipConstructorCheck(methodType);
 
                         // If there was no `__init__` or the only `__init__` that was found
                         // was form the `object` class, see if we can find a better `__new__`
                         // method.
-                        if (!methodType || isObjectInit) {
+                        if (!methodType || isObjectInit || isSkipConstructor) {
                             const constructorType = getBoundMethod(
                                 subtype,
                                 '__new__',
@@ -7308,6 +7310,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isTypeIncomplete = false;
         let usedMetaclassCallMethod = false;
 
+        // Create a helper function that determines whether we should skip argument
+        // validation for either __init__ or __new__. This is required for certain
+        // synthesized constructor types, namely NamedTuples.
+        const skipConstructorCheck = (type: Type) => {
+            return isFunction(type) && FunctionType.isSkipConstructorCheck(type);
+        };
+
         // Validate __init__
         // We validate __init__ before __new__ because the former typically has
         // more specific type annotations, and we want to evaluate the arguments
@@ -7322,7 +7331,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
         )?.type;
 
-        if (initMethodType) {
+        if (initMethodType && !skipConstructorCheck(initMethodType)) {
             // If there is an expected type, analyze the constructor call
             // for each of the subtypes that comprise the expected type. If
             // one or more analyzes with no errors, use those results.
@@ -7461,7 +7470,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            if (constructorMethodInfo) {
+            if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
                 const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
 
                 if (type.typeAliasInfo) {
