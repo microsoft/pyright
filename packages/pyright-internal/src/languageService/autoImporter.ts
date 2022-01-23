@@ -659,21 +659,7 @@ export class AutoImporter {
     }
 
     private _shouldExclude(name: string) {
-        const completions = this._excludes.get(name);
-        if (!completions) {
-            return false;
-        }
-
-        if (Array.isArray(completions)) {
-            if (completions.find((c) => !c.data?.autoImport)) {
-                return true;
-            }
-        } else {
-            if (!completions.data?.autoImport) {
-                return true;
-            }
-        }
-        return false;
+        return this._excludes.has(name, CompletionMap.labelOnlyIgnoringAutoImports);
     }
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
         if (this._shouldExclude(name)) {
