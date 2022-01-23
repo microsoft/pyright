@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 
-class _TokenType(tuple[str]):
+class _TokenType(tuple[str, ...]):
     parent: _TokenType | None
     def split(self) -> list[_TokenType]: ...
     subtypes: set[_TokenType]

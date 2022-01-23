@@ -1119,7 +1119,7 @@ class LabeledScale(Frame):
         from_: float = ...,
         to: float = ...,
         *,
-        compound: Literal["top"] | Literal["bottom"] = ...,
+        compound: Literal["top", "bottom"] = ...,
         **kw: Any,
     ) -> None: ...
     # destroy is overridden, signature does not change
@@ -1134,7 +1134,7 @@ class OptionMenu(Menubutton):
         *values: str,
         # rest of these are keyword-only because *args syntax used above
         style: str = ...,
-        direction: Literal["above"] | Literal["below"] | Literal["left"] | Literal["right"] | Literal["flush"] = ...,
+        direction: Literal["above", "below", "left", "right", "flush"] = ...,
         command: Callable[[tkinter.StringVar], Any] | None = ...,
     ) -> None: ...
     # configure, config, cget, destroy are inherited from Menubutton

@@ -168,6 +168,9 @@ class Redis(RedisModuleCommands, CoreCommands[_StrType], SentinelCommands, Gener
         ssl_check_hostname: bool = ...,
         ssl_password: Any | None = ...,
         ssl_validate_ocsp: bool = ...,
+        ssl_validate_ocsp_stapled: bool = ...,  # added in 4.1.1
+        ssl_ocsp_context: Any | None = ...,  # added in 4.1.1
+        ssl_ocsp_expected_cert: Any | None = ...,  # added in 4.1.1
         max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
@@ -202,6 +205,11 @@ class Redis(RedisModuleCommands, CoreCommands[_StrType], SentinelCommands, Gener
         ssl_cert_reqs: str | int | None = ...,
         ssl_ca_certs: str | None = ...,
         ssl_check_hostname: bool = ...,
+        ssl_password: Any | None = ...,
+        ssl_validate_ocsp: bool = ...,
+        ssl_validate_ocsp_stapled: bool = ...,  # added in 4.1.1
+        ssl_ocsp_context: Any | None = ...,  # added in 4.1.1
+        ssl_ocsp_expected_cert: Any | None = ...,  # added in 4.1.1
         max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,
@@ -235,6 +243,11 @@ class Redis(RedisModuleCommands, CoreCommands[_StrType], SentinelCommands, Gener
         ssl_cert_reqs: str | int | None = ...,
         ssl_ca_certs: str | None = ...,
         ssl_check_hostname: bool = ...,
+        ssl_password: Any | None = ...,
+        ssl_validate_ocsp: bool = ...,
+        ssl_validate_ocsp_stapled: bool = ...,  # added in 4.1.1
+        ssl_ocsp_context: Any | None = ...,  # added in 4.1.1
+        ssl_ocsp_expected_cert: Any | None = ...,  # added in 4.1.1
         max_connections: int | None = ...,
         single_connection_client: bool = ...,
         health_check_interval: float = ...,

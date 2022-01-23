@@ -1,5 +1,5 @@
 from concurrent.futures import Future
-from typing import Callable, Optional, Text, Type
+from typing import Callable, Optional, Text
 
 from google.protobuf.descriptor import MethodDescriptor, ServiceDescriptor
 from google.protobuf.message import Message
@@ -16,8 +16,8 @@ class Service:
         request: Message,
         done: Optional[Callable[[Message], None]],
     ) -> Optional[Future[Message]]: ...
-    def GetRequestClass(self, method_descriptor: MethodDescriptor) -> Type[Message]: ...
-    def GetResponseClass(self, method_descriptor: MethodDescriptor) -> Type[Message]: ...
+    def GetRequestClass(self, method_descriptor: MethodDescriptor) -> type[Message]: ...
+    def GetResponseClass(self, method_descriptor: MethodDescriptor) -> type[Message]: ...
 
 class RpcController:
     def Reset(self) -> None: ...
@@ -34,6 +34,6 @@ class RpcChannel:
         method_descriptor: MethodDescriptor,
         rpc_controller: RpcController,
         request: Message,
-        response_class: Type[Message],
+        response_class: type[Message],
         done: Optional[Callable[[Message], None]],
     ) -> Optional[Future[Message]]: ...

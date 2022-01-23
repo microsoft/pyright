@@ -14,6 +14,8 @@ else:
 
 _S = TypeVar("_S")
 _T = TypeVar("_T")
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 _KT_co = TypeVar("_KT_co", covariant=True)
@@ -64,6 +66,14 @@ class UserDict(MutableMapping[_KT, _VT], Generic[_KT, _VT]):
     @classmethod
     @overload
     def fromkeys(cls, iterable: Iterable[_T], value: _S) -> UserDict[_T, _S]: ...
+    if sys.version_info >= (3, 9):
+        def __or__(self, other: UserDict[_T1, _T2] | dict[_T1, _T2]) -> UserDict[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, other: UserDict[_T1, _T2] | dict[_T1, _T2]) -> UserDict[_KT | _T1, _VT | _T2]: ...  # type: ignore[misc]
+        # UserDict.__ior__ should be kept roughly in line with MutableMapping.update()
+        @overload  # type: ignore[misc]
+        def __ior__(self: Self, other: SupportsKeysAndGetItem[_KT, _VT]) -> Self: ...
+        @overload
+        def __ior__(self: Self, other: Iterable[tuple[_KT, _VT]]) -> Self: ...
 
 class UserList(MutableSequence[_T]):
     data: list[_T]
@@ -334,3 +344,11 @@ class ChainMap(MutableMapping[_KT, _VT], Generic[_KT, _VT]):
     @classmethod
     @overload
     def fromkeys(cls, __iterable: Iterable[_T], __value: _S) -> ChainMap[_T, _S]: ...
+    if sys.version_info >= (3, 9):
+        def __or__(self, other: Mapping[_T1, _T2]) -> ChainMap[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, other: Mapping[_T1, _T2]) -> ChainMap[_KT | _T1, _VT | _T2]: ...
+        # ChainMap.__ior__ should be kept roughly in line with MutableMapping.update()
+        @overload  # type: ignore[misc]
+        def __ior__(self: Self, other: SupportsKeysAndGetItem[_KT, _VT]) -> Self: ...
+        @overload
+        def __ior__(self: Self, other: Iterable[tuple[_KT, _VT]]) -> Self: ...

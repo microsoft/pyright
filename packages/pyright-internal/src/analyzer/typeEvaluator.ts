@@ -9147,8 +9147,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !expectedType ||
             isAnyOrUnknown(expectedType) ||
-            !type.details.declaredReturnType ||
-            !requiresSpecialization(type.details.declaredReturnType)
+            requiresSpecialization(expectedType) ||
+            !type.details.declaredReturnType
         ) {
             return validateFunctionArgumentTypes(errorNode, matchResults, typeVarMap, skipUnknownArgCheck);
         }
@@ -12136,9 +12136,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node.parameters.forEach((param, index) => {
             let paramType: Type = UnknownType.create();
             if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
-                paramType = makeTopLevelTypeVarsConcrete(
-                    FunctionType.getEffectiveParameterType(expectedFunctionType, index)
-                );
+                paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
+
+                if (isTypeVar(paramType) && paramType.details.boundType) {
+                    paramType = makeTopLevelTypeVarsConcrete(paramType);
+                }
             }
 
             if (param.name) {

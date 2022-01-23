@@ -50,6 +50,11 @@ class SearchCommands:
         no_field_flags: bool = ...,
         stopwords: Any | None = ...,
         definition: Any | None = ...,
+        max_text_fields: bool = ...,  # added in 4.1.1
+        temporary: Any | None = ...,  # added in 4.1.1
+        no_highlight: bool = ...,  # added in 4.1.1
+        no_term_frequencies: bool = ...,  # added in 4.1.1
+        skip_initial_scan: bool = ...,  # added in 4.1.1
     ): ...
     def alter_schema_add(self, fields): ...
     def dropindex(self, delete_documents: bool = ...): ...

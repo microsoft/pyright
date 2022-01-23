@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Text, TypeVar, Union
+from typing import Any, Optional, Text, TypeVar, Union
 
 from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
@@ -26,7 +26,7 @@ def MessageToDict(
     use_integers_for_enums: bool = ...,
     descriptor_pool: Optional[DescriptorPool] = ...,
     float_precision: Optional[int] = ...,
-) -> Dict[Text, Any]: ...
+) -> dict[Text, Any]: ...
 def Parse(
     text: Union[bytes, Text],
     message: _MessageT,

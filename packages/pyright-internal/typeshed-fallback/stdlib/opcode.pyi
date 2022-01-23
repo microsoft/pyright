@@ -1,6 +1,23 @@
 import sys
 from typing_extensions import Literal
 
+__all__ = [
+    "cmp_op",
+    "hasconst",
+    "hasname",
+    "hasjrel",
+    "hasjabs",
+    "haslocal",
+    "hascompare",
+    "hasfree",
+    "opname",
+    "opmap",
+    "HAVE_ARGUMENT",
+    "EXTENDED_ARG",
+    "hasnargs",
+    "stack_effect",
+]
+
 if sys.version_info >= (3, 9):
     cmp_op: tuple[Literal["<"], Literal["<="], Literal["=="], Literal["!="], Literal[">"], Literal[">="]]
 else:
@@ -28,8 +45,8 @@ hasfree: list[int]
 opname: list[str]
 
 opmap: dict[str, int]
-HAVE_ARGUMENT: int
-EXTENDED_ARG: int
+HAVE_ARGUMENT: Literal[90]
+EXTENDED_ARG: Literal[144]
 
 if sys.version_info >= (3, 8):
     def stack_effect(__opcode: int, __oparg: int | None = ..., *, jump: bool | None = ...) -> int: ...
