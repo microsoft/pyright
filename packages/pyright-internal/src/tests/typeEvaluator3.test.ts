@@ -787,6 +787,19 @@ test('Match9', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Match10', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.diagnosticRuleSet.reportMatchNotExhaustive = 'none';
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['match10.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportMatchNotExhaustive = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['match10.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 4);
+});
+
 test('List1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['list1.py']);
     TestUtils.validateResults(analysisResults, 0);

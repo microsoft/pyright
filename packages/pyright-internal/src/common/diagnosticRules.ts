@@ -74,4 +74,5 @@ export enum DiagnosticRule {
     reportUnusedCallResult = 'reportUnusedCallResult',
     reportUnusedCoroutine = 'reportUnusedCoroutine',
     reportUnnecessaryTypeIgnoreComment = 'reportUnnecessaryTypeIgnoreComment',
+    reportMatchNotExhaustive = 'reportMatchNotExhaustive',
 }

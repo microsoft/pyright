@@ -490,6 +490,7 @@ export namespace Localizer {
         export const literalEmptyArgs = () => getRawString('Diagnostic.literalEmptyArgs');
         export const literalNotCallable = () => getRawString('Diagnostic.literalNotCallable');
         export const matchIncompatible = () => getRawString('Diagnostic.matchIncompatible');
+        export const matchIsNotExhaustive = () => getRawString('Diagnostic.matchIsNotExhaustive');
         export const memberAccess = () =>
             new ParameterizedString<{ name: string; type: string }>(getRawString('Diagnostic.memberAccess'));
         export const memberDelete = () =>
@@ -980,6 +981,9 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.literalAssignmentMismatch')
             );
+        export const matchIsNotExhaustiveType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.matchIsNotExhaustiveType'));
+        export const matchIsNotExhaustiveHint = () => getRawString('DiagnosticAddendum.matchIsNotExhaustiveHint');
         export const memberAssignment = () =>
             new ParameterizedString<{ type: string; name: string; classType: string }>(
                 getRawString('DiagnosticAddendum.memberAssignment')

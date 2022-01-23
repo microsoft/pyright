@@ -1288,6 +1288,7 @@ export class Checker extends ParseTreeWalker {
 
     override visitMatch(node: MatchNode): boolean {
         this._evaluator.getType(node.subjectExpression);
+        this._validateExhaustiveMatch(node);
         return true;
     }
 
@@ -1319,6 +1320,34 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _validateExhaustiveMatch(node: MatchNode) {
+        // This check can be expensive, so skip it if it's disabled.
+        if (this._fileInfo.diagnosticRuleSet.reportMatchNotExhaustive === 'none') {
+            return;
+        }
+
+        const narrowedTypeResult = this._evaluator.evaluateTypeForSubnode(node, () => {
+            this._evaluator.evaluateTypesForMatchNode(node);
+        });
+
+        if (narrowedTypeResult && !isNever(narrowedTypeResult.type)) {
+            const diagAddendum = new DiagnosticAddendum();
+            diagAddendum.addMessage(
+                Localizer.DiagnosticAddendum.matchIsNotExhaustiveType().format({
+                    type: this._evaluator.printType(narrowedTypeResult.type),
+                })
+            );
+            diagAddendum.addMessage(Localizer.DiagnosticAddendum.matchIsNotExhaustiveHint());
+
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportMatchNotExhaustive,
+                DiagnosticRule.reportMatchNotExhaustive,
+                Localizer.Diagnostic.matchIsNotExhaustive() + diagAddendum.getString(),
+                node.subjectExpression
+            );
+        }
     }
 
     private _suppressUnboundCheck(callback: () => void) {

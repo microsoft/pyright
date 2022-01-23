@@ -164,7 +164,9 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportUnusedCoroutine** [boolean or string, optional]: Generate or suppress diagnostics for call statements whose return value is not used in any way and is a Coroutine. This identifies a common error where an `await` keyword is mistakenly omitted. The default value for this setting is 'error'.
 
-**reportUnnecessaryTypeIgnoreComment** [boolean or string, optional]: Generate or suppress diagnostics for a '# type: ignore' comment that would have no effect if removed.
+**reportUnnecessaryTypeIgnoreComment** [boolean or string, optional]: Generate or suppress diagnostics for a '# type: ignore' comment that would have no effect if removed. The default value for this setting is 'none'.
+
+**reportMatchNotExhaustive** [boolean or string, optional]: Generate or suppress diagnostics for a 'match' statement that does not provide cases that exhaustively match against all potential types of the target expression. The default value for this setting is 'none'.
 
 
 ## Execution Environment Options
@@ -336,15 +338,6 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     |
 | reportUnusedCoroutine                     | "none"     | "error"    | "error"    |
 | reportUnnecessaryTypeIgnoreComment        | "none"     | "none"     | "none"     |
-
-
-
-
-
-
-
-
-
-
+| reportMatchNotExhaustive                  | "none"     | "none"     | "error"    |
 
 

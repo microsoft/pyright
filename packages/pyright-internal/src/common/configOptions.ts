@@ -281,6 +281,10 @@ export interface DiagnosticRuleSet {
     // Report cases where the removal of a "# type: ignore" comment would
     // have no effect.
     reportUnnecessaryTypeIgnoreComment: DiagnosticLevel;
+
+    // Report cases where the a "match" statement is not exhaustive in
+    // covering all possible cases.
+    reportMatchNotExhaustive: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -361,6 +365,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnusedCallResult,
         DiagnosticRule.reportUnusedCoroutine,
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
+        DiagnosticRule.reportMatchNotExhaustive,
     ];
 }
 
@@ -439,6 +444,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'none',
         reportUnnecessaryTypeIgnoreComment: 'none',
+        reportMatchNotExhaustive: 'none',
     };
 
     return diagSettings;
@@ -513,6 +519,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
         reportUnnecessaryTypeIgnoreComment: 'none',
+        reportMatchNotExhaustive: 'none',
     };
 
     return diagSettings;
@@ -587,6 +594,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
         reportUnnecessaryTypeIgnoreComment: 'none',
+        reportMatchNotExhaustive: 'error',
     };
 
     return diagSettings;
@@ -1330,6 +1338,13 @@ export class ConfigOptions {
                 configObj.reportUnnecessaryTypeIgnoreComment,
                 DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
                 defaultSettings.reportUnnecessaryTypeIgnoreComment
+            ),
+
+            // Read the "reportUnusedCoroutine" entry.
+            reportMatchNotExhaustive: this._convertDiagnosticLevel(
+                configObj.reportMatchNotExhaustive,
+                DiagnosticRule.reportMatchNotExhaustive,
+                defaultSettings.reportMatchNotExhaustive
             ),
         };
 
