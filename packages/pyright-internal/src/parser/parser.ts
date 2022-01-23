@@ -188,10 +188,6 @@ const enum ParseTextMode {
     FunctionAnnotation,
 }
 
-// PEP 637 proposed support for keyword arguments in subscript
-// expressions, but it was rejected.
-const supportPEP637 = false;
-
 export class Parser {
     private _fileContents?: string;
     private _tokenizerOutput?: TokenizerOutput;
@@ -3290,20 +3286,15 @@ export class Parser {
             }
             argList.push(argNode);
 
-            if (supportPEP637) {
-                if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_10) {
-                    if (argNode.name) {
-                        this._addError(Localizer.Diagnostic.keywordSubscriptIllegal(), argNode.name);
-                    }
-                    if (argType !== ArgumentCategory.Simple) {
-                        this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), argNode);
-                    }
-                }
-            } else {
-                if (argNode.name) {
-                    this._addError(Localizer.Diagnostic.keywordSubscriptIllegal(), argNode.name);
-                }
-                if (argType !== ArgumentCategory.Simple) {
+            if (argNode.name) {
+                this._addError(Localizer.Diagnostic.keywordSubscriptIllegal(), argNode.name);
+            }
+
+            if (argType !== ArgumentCategory.Simple) {
+                const unpackAllowed =
+                    this._parseOptions.isStubFile || this._getLanguageVersion() >= PythonVersion.V3_11;
+
+                if (argType === ArgumentCategory.UnpackedDictionary || !unpackAllowed) {
                     this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), argNode);
                 }
             }

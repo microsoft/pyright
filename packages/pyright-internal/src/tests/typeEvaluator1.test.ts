@@ -1202,3 +1202,15 @@ test('TupleUnpack1', () => {
 
     TestUtils.validateResults(analysisResults, 3);
 });
+
+test('TupleUnpack2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 16);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 3);
+});

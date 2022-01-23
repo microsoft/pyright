@@ -6253,12 +6253,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeResult = getTypeArgTypeResult(arg.valueExpression, index);
 
                 if (arg.argumentCategory !== ArgumentCategory.Simple) {
-                    if (
-                        arg.argumentCategory === ArgumentCategory.UnpackedList &&
-                        isVariadicTypeVar(typeResult.type) &&
-                        !typeResult.type.isVariadicUnpacked
-                    ) {
-                        typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
+                    if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+                        if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicUnpacked) {
+                            typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
+                        } else if (
+                            isInstantiableClass(typeResult.type) &&
+                            !typeResult.type.includeSubclasses &&
+                            isTupleClass(typeResult.type)
+                        ) {
+                            typeResult.type = ClassType.cloneForUnpackedTuple(typeResult.type);
+                        }
                     }
                 }
 
