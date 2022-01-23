@@ -188,6 +188,9 @@ const enum ParseTextMode {
     FunctionAnnotation,
 }
 
+// Limit the max child node depth to prevent stack overflows.
+const maxChildNodeDepth = 256;
+
 export class Parser {
     private _fileContents?: string;
     private _tokenizerOutput?: TokenizerOutput;
@@ -2823,7 +2826,7 @@ export class Parser {
                 break;
             }
             const rightExpr = this._parseAndTest();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.Or);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, OperatorType.Or);
         }
 
         return leftExpr;
@@ -2842,7 +2845,7 @@ export class Parser {
                 break;
             }
             const rightExpr = this._parseNotTest();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.And);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, OperatorType.And);
         }
 
         return leftExpr;
@@ -2853,7 +2856,7 @@ export class Parser {
         const notToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.Not)) {
             const notExpr = this._parseNotTest();
-            return UnaryOperationNode.create(notToken, notExpr, OperatorType.Not);
+            return this._createUnaryOperationNode(notToken, notExpr, OperatorType.Not);
         }
 
         return this._parseComparison();
@@ -2903,7 +2906,7 @@ export class Parser {
             }
 
             const rightExpr = this._parseComparison();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, comparisonOperator);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, comparisonOperator);
         }
 
         return leftExpr;
@@ -2922,7 +2925,7 @@ export class Parser {
                 break;
             }
             const rightExpr = this._parseBitwiseXorExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseOr);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, OperatorType.BitwiseOr);
         }
 
         return leftExpr;
@@ -2941,7 +2944,7 @@ export class Parser {
                 break;
             }
             const rightExpr = this._parseBitwiseAndExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseXor);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, OperatorType.BitwiseXor);
         }
 
         return leftExpr;
@@ -2960,7 +2963,7 @@ export class Parser {
                 break;
             }
             const rightExpr = this._parseShiftExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseAnd);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, OperatorType.BitwiseAnd);
         }
 
         return leftExpr;
@@ -2978,7 +2981,7 @@ export class Parser {
         while (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
             this._getNextToken();
             const rightExpr = this._parseArithmeticExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, nextOperator);
             peekToken = this._peekToken();
             nextOperator = this._peekOperatorType();
         }
@@ -3002,7 +3005,7 @@ export class Parser {
                 return rightExpr;
             }
 
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, nextOperator);
             peekToken = this._peekToken();
             nextOperator = this._peekOperatorType();
         }
@@ -3028,7 +3031,7 @@ export class Parser {
         ) {
             this._getNextToken();
             const rightExpr = this._parseArithmeticFactor();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+            leftExpr = this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, nextOperator);
             peekToken = this._peekToken();
             nextOperator = this._peekOperatorType();
         }
@@ -3048,7 +3051,7 @@ export class Parser {
         ) {
             this._getNextToken();
             const expression = this._parseArithmeticFactor();
-            return UnaryOperationNode.create(nextToken, expression, nextOperator);
+            return this._createUnaryOperationNode(nextToken, expression, nextOperator);
         }
 
         const leftExpr = this._parseAtomExpression();
@@ -3059,7 +3062,7 @@ export class Parser {
         const peekToken = this._peekToken();
         if (this._consumeTokenIfOperator(OperatorType.Power)) {
             const rightExpr = this._parseArithmeticFactor();
-            return BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.Power);
+            return this._createBinaryOperationNode(leftExpr, rightExpr, peekToken, OperatorType.Power);
         }
 
         return leftExpr;
@@ -4529,6 +4532,40 @@ export class Parser {
         }
 
         return segmentExprLength;
+    }
+
+    private _createBinaryOperationNode(
+        leftExpression: ExpressionNode,
+        rightExpression: ExpressionNode,
+        operatorToken: Token,
+        operator: OperatorType
+    ) {
+        // Determine if we're exceeding the max parse depth. If so, replace
+        // the subnode with an error node. Otherwise we risk crashing in the binder
+        // or type evaluator.
+        if (leftExpression.maxChildDepth !== undefined && leftExpression.maxChildDepth >= maxChildNodeDepth) {
+            leftExpression = ErrorNode.create(leftExpression, ErrorExpressionCategory.MaxDepthExceeded);
+            this._addError(Localizer.Diagnostic.maxParseDepthExceeded(), leftExpression);
+        }
+
+        if (rightExpression.maxChildDepth !== undefined && rightExpression.maxChildDepth >= maxChildNodeDepth) {
+            rightExpression = ErrorNode.create(rightExpression, ErrorExpressionCategory.MaxDepthExceeded);
+            this._addError(Localizer.Diagnostic.maxParseDepthExceeded(), rightExpression);
+        }
+
+        return BinaryOperationNode.create(leftExpression, rightExpression, operatorToken, operator);
+    }
+
+    private _createUnaryOperationNode(operatorToken: Token, expression: ExpressionNode, operator: OperatorType) {
+        // Determine if we're exceeding the max parse depth. If so, replace
+        // the subnode with an error node. Otherwise we risk crashing in the binder
+        // or type evaluator.
+        if (expression.maxChildDepth !== undefined && expression.maxChildDepth >= maxChildNodeDepth) {
+            expression = ErrorNode.create(expression, ErrorExpressionCategory.MaxDepthExceeded);
+            this._addError(Localizer.Diagnostic.maxParseDepthExceeded(), expression);
+        }
+
+        return UnaryOperationNode.create(operatorToken, expression, operator);
     }
 
     private _parseStringList(): StringListNode {

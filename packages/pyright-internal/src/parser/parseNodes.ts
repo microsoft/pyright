@@ -122,6 +122,7 @@ export const enum ErrorExpressionCategory {
     MissingPattern,
     MissingPatternSubject,
     MissingDictValue,
+    MaxDepthExceeded,
 }
 
 export interface ParseNodeBase extends TextRange {
@@ -131,6 +132,12 @@ export interface ParseNodeBase extends TextRange {
     id: number;
 
     parent?: ParseNode | undefined;
+
+    // For some parse nodes, each child's depth is calculated,
+    // and the max child depth is recorded here. This is used
+    // to detect long chains of operations that can result in
+    // stack overflows during evaluation.
+    maxChildDepth?: number;
 }
 
 let _nextNodeId = 1;
@@ -784,6 +791,7 @@ export namespace UnaryOperationNode {
         };
 
         expression.parent = node;
+        node.maxChildDepth = 1 + (expression.maxChildDepth ?? 0);
 
         extendRange(node, expression);
 
@@ -820,6 +828,8 @@ export namespace BinaryOperationNode {
 
         leftExpression.parent = node;
         rightExpression.parent = node;
+
+        node.maxChildDepth = 1 + Math.max(leftExpression.maxChildDepth ?? 0, rightExpression.maxChildDepth ?? 0);
 
         extendRange(node, rightExpression);
 

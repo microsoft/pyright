@@ -219,6 +219,7 @@
         "literalNotCallable": "Literal type cannot be instantiated",
         "matchIncompatible": "Match statements require Python 3.10 or newer",
         "matchIsNotExhaustive": "Cases within match statement do not exhaustively handle all values",
+        "maxParseDepthExceeded": "Maximum parse depth exceeded; break expression into smaller sub-expressions",
         "memberAccess": "Cannot access member \"{name}\" for type \"{type}\"",
         "memberDelete": "Cannot delete member \"{name}\" for type \"{type}\"",
         "memberSet": "Cannot assign member \"{name}\" for type \"{type}\"",

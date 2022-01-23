@@ -52,6 +52,8 @@ export const enum PrintExpressionFlags {
     ForwardDeclarations = 1 << 0,
 }
 
+// Returns the depth of the node as measured from the root
+// of the parse tree.
 export function getNodeDepth(node: ParseNode): number {
     let depth = 0;
     let curNode: ParseNode | undefined = node;
