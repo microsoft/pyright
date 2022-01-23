@@ -20260,7 +20260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (isNever(srcType)) {
+        if (isNever(srcType) || isNoReturnType(srcType)) {
             if (typeVarMap) {
                 setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap, recursionCount);
             }
