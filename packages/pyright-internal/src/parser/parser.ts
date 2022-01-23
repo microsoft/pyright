@@ -1460,7 +1460,9 @@ export class Parser {
         }
 
         const ifToken = this._getKeywordToken(KeywordType.If);
-        const ifExpr = this._tryParseLambdaExpression() || this._parseAssignmentExpression();
+        const ifExpr =
+            this._tryParseLambdaExpression() ||
+            this._parseAssignmentExpression(/* disallowAssignmentExpression */ true);
 
         const compIfNode = ListComprehensionIfNode.create(ifToken, ifExpr);
 
@@ -2776,7 +2778,7 @@ export class Parser {
     }
 
     // assign_expr: NAME := test
-    private _parseAssignmentExpression() {
+    private _parseAssignmentExpression(disallowAssignmentExpression = false) {
         const leftExpr = this._parseOrTest();
         if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
@@ -2791,7 +2793,7 @@ export class Parser {
             return leftExpr;
         }
 
-        if (!this._assignmentExpressionsAllowed || this._isParsingTypeAnnotation) {
+        if (!this._assignmentExpressionsAllowed || this._isParsingTypeAnnotation || disallowAssignmentExpression) {
             this._addError(Localizer.Diagnostic.walrusNotAllowed(), walrusToken);
         }
 

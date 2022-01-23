@@ -263,6 +263,7 @@ export namespace ModuleType {
 
 export interface DataClassEntry {
     name: string;
+    classType: ClassType;
     isClassVar: boolean;
     isKeywordOnly: boolean;
     alias?: string | undefined;

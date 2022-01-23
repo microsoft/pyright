@@ -2,7 +2,7 @@
     "name": "vscode-pyright",
     "displayName": "Pyright",
     "description": "VS Code static type checking for Python",
-    "version": "1.1.212",
+    "version": "1.1.213",
     "private": true,
     "license": "MIT",
     "author": {
@@ -14,7 +14,7 @@
         "url": "https://github.com/Microsoft/pyright"
     },
     "engines": {
-        "vscode": "^1.57.0"
+        "vscode": "^1.63.1"
     },
     "keywords": [
         "python"
@@ -828,16 +828,16 @@
         "vscode-languageserver-protocol": "3.16.0"
     },
     "devDependencies": {
-        "@types/copy-webpack-plugin": "^8.0.1",
+        "@types/copy-webpack-plugin": "^10.1.0",
         "@types/node": "^12.20.41",
-        "@types/vscode": "~1.57.0",
-        "copy-webpack-plugin": "^9.1.0",
+        "@types/vscode": "~1.63.1",
+        "copy-webpack-plugin": "^10.2.1",
         "detect-indent": "^6.1.0",
         "shx": "^0.3.4",
         "ts-loader": "^9.2.6",
         "typescript": "~4.4.4",
-        "vsce": "~1.102.0",
-        "webpack": "^5.66.0",
+        "vsce": "~2.6.3",
+        "webpack": "^5.67.0",
         "webpack-cli": "^4.9.1"
     }
 }

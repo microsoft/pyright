@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "Type checker for the Python language",
-    "version": "1.1.212",
+    "version": "1.1.213",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
@@ -23,13 +23,13 @@
         "webpack": "webpack --mode development --progress"
     },
     "devDependencies": {
-        "@types/copy-webpack-plugin": "^8.0.1",
+        "@types/copy-webpack-plugin": "^10.1.0",
         "@types/node": "^12.20.41",
-        "copy-webpack-plugin": "^9.1.0",
+        "copy-webpack-plugin": "^10.2.1",
         "shx": "^0.3.4",
         "ts-loader": "^9.2.6",
         "typescript": "~4.4.4",
-        "webpack": "^5.66.0",
+        "webpack": "^5.67.0",
         "webpack-cli": "^4.9.1"
     },
     "files": [

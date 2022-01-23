@@ -534,16 +534,17 @@ function narrowTypeBasedOnClassPattern(
                                         /* isTypeArgumentExplicit */ false
                                     );
 
+                                    const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
                                     if (
                                         evaluator.populateTypeVarMapBasedOnExpectedType(
-                                            unspecializedMatchType,
+                                            matchTypeInstance,
                                             matchSubtype,
                                             typeVarMap,
                                             []
                                         )
                                     ) {
                                         resultType = applySolvedTypeVars(
-                                            ClassType.cloneAsInstance(unspecializedMatchType),
+                                            matchTypeInstance,
                                             typeVarMap,
                                             /* unknownIfNotFound */ true
                                         ) as ClassType;

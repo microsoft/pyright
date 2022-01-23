@@ -93,7 +93,7 @@ test('AssignmentExpr1', () => {
 
 test('AssignmentExpr2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr2.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('AssignmentExpr3', () => {
@@ -308,6 +308,11 @@ test('Final3', () => {
 test('Final4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final4.pyi']);
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('Final5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final5.py']);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('InferredTypes1', () => {

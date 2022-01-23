@@ -8,7 +8,9 @@ class MyMeta(type):
         pass
 
 
-MyCustomClass = MyMeta("MyCustomClass")
+MyCustomClass = MyMeta("MyCustomClass", (object,), {})
+
+reveal_type(MyCustomClass, expected_text="Type[MyCustomClass]")
 
 
 class DerivedCustomClass(MyCustomClass):

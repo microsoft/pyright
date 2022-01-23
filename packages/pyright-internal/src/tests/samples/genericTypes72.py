@@ -8,8 +8,17 @@ from typing import Any, Literal, TypeVar
 _T = TypeVar("_T")
 
 
-def getattr(__o: object, name: str, __default: _T) -> Any | _T:
+def func1(__o: object, name: str, __default: _T) -> Any | _T:
     ...
 
 
-x: Literal[1, 2, 3] = getattr(object(), "", 1)
+x: Literal[1, 2, 3] = func1(object(), "", 1)
+
+
+def func2(a: _T) -> bool | _T:
+    ...
+
+
+y = func2(None)
+if y is not True:
+    y or func2(False)

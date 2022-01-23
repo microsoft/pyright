@@ -1041,7 +1041,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Await: {
-                const exprTypeResult = getTypeOfExpression(node.expression, undefined, flags);
+                const effectiveExpectedType = expectedType
+                    ? createAwaitableReturnType(node, expectedType, /* isGenerator */ false)
+                    : undefined;
+
+                const exprTypeResult = getTypeOfExpression(node.expression, effectiveExpectedType, flags);
                 typeResult = {
                     type: getTypeFromAwaitable(exprTypeResult.type, node.expression),
                     node,
@@ -6378,7 +6382,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const tupleTypeVarMap = new TypeVarMap(getTypeVarScopeId(tupleClassType));
             if (
                 !populateTypeVarMapBasedOnExpectedType(
-                    tupleClassType,
+                    ClassType.cloneAsInstance(tupleClassType),
                     expectedType,
                     tupleTypeVarMap,
                     getTypeVarScopesForNode(node)
@@ -6503,7 +6507,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.leftExpression.nodeType === ParseNodeType.Name &&
                 node.leftExpression.value === 'reveal_type'
             ) {
-                // Handle the special-case "reveal_type" call.
+                // Handle the implicit "reveal_type" call.
+                returnResult = getTypeFromRevealType(node);
+            } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'reveal_type') {
+                // Handle the "typing.reveal_type" call.
                 returnResult = getTypeFromRevealType(node);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
@@ -6950,7 +6957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
                 const callResult = useSpeculativeMode(errorNode, () => {
-                    return validateFunctionArgumentTypes(
+                    return validateFunctionArgumentTypesWithExpectedType(
                         errorNode,
                         matchResults,
                         effectiveTypeVarMap,
@@ -6986,7 +6993,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 useSpeculativeMode(errorNode, () => {
                     typeVarMap.addSolveForScope(getTypeVarScopeId(overload));
                     typeVarMap.unlock();
-                    return validateFunctionArgumentTypes(
+                    return validateFunctionArgumentTypesWithExpectedType(
                         errorNode,
                         matchResults,
                         typeVarMap,
@@ -7000,7 +7007,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // And run through the first expanded argument list one more time to
         // populate the type cache.
         matchedOverloads[0].typeVarMap.unlock();
-        const finalCallResult = validateFunctionArgumentTypes(
+        const finalCallResult = validateFunctionArgumentTypesWithExpectedType(
             errorNode,
             matchedOverloads[0].matchResults,
             matchedOverloads[0].typeVarMap,
@@ -7059,8 +7066,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         errorNode,
                         match,
                         new TypeVarMap(getTypeVarScopeId(match.overload)),
-                        /* skipUnknownArgCheck */ true,
-                        /* expectedType */ undefined
+                        /* skipUnknownArgCheck */ true
                     );
 
                     if (callResult && !callResult.argumentErrors) {
@@ -7172,7 +7178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(lastMatch.overload));
             effectiveTypeVarMap.unlock();
 
-            return validateFunctionArgumentTypes(
+            return validateFunctionArgumentTypesWithExpectedType(
                 errorNode,
                 lastMatch,
                 effectiveTypeVarMap,
@@ -7335,7 +7341,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
                     if (
                         populateTypeVarMapBasedOnExpectedType(
-                            type,
+                            ClassType.cloneAsInstance(type),
                             expectedSubType,
                             typeVarMap,
                             getTypeVarScopesForNode(errorNode)
@@ -7575,7 +7581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
             if (expectedType) {
                 populateTypeVarMapBasedOnExpectedType(
-                    type,
+                    ClassType.cloneAsInstance(type),
                     expectedType,
                     typeVarMap,
                     getTypeVarScopesForNode(errorNode)
@@ -7687,7 +7693,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (!isClassInstance(expectedType)) {
+        if (!isClass(expectedType)) {
             return false;
         }
 
@@ -7696,7 +7702,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!expectedTypeArgs) {
             return canAssignType(
                 type,
-                ClassType.cloneAsInstantiable(expectedType),
+                expectedType,
                 /* diag */ undefined,
                 typeVarMap,
                 CanAssignFlags.PopulatingExpectedType
@@ -7738,7 +7744,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return typeVar;
         });
         const genericExpectedType = ClassType.cloneForSpecialization(
-            ClassType.cloneAsInstantiable(expectedType),
+            expectedType,
             synthExpectedTypeArgs,
             /* isTypeArgumentExplicit */ true
         );
@@ -8214,8 +8220,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, 'type')
                                 )
                             ) {
-                                // We don't know the name of the new class in this case.
-                                const newClassName = '__class_' + returnType.details.name;
+                                let newClassName = '__class_' + returnType.details.name;
+                                if (argList.length === 3) {
+                                    const firstArgType = getTypeForArgument(argList[0]).type;
+                                    if (
+                                        isClassInstance(firstArgType) &&
+                                        ClassType.isBuiltIn(firstArgType, 'str') &&
+                                        typeof firstArgType.literalValue === 'string'
+                                    ) {
+                                        newClassName = firstArgType.literalValue;
+                                    }
+                                }
+
                                 const newClassType = ClassType.createInstantiable(
                                     newClassName,
                                     '',
@@ -8227,6 +8243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     ClassType.cloneAsInstantiable(returnType)
                                 );
                                 newClassType.details.baseClasses.push(getBuiltInType(errorNode, 'object'));
+                                newClassType.details.effectiveMetaclass = expandedSubtype;
                                 computeMroLinearization(newClassType);
                                 return newClassType;
                             }
@@ -9118,18 +9135,113 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // After having matched arguments with parameters, this function evaluates the
     // types of each argument expression and validates that the resulting type is
     // compatible with the declared type of the corresponding parameter.
-    function validateFunctionArgumentTypes(
+    function validateFunctionArgumentTypesWithExpectedType(
         errorNode: ExpressionNode,
         matchResults: MatchArgsToParamsResult,
         typeVarMap: TypeVarMap,
         skipUnknownArgCheck = false,
-        expectedType?: Type
+        expectedType: Type | undefined
     ): CallResult {
+        const type = matchResults.overload;
+
+        if (
+            !expectedType ||
+            isAnyOrUnknown(expectedType) ||
+            !type.details.declaredReturnType ||
+            !requiresSpecialization(type.details.declaredReturnType)
+        ) {
+            return validateFunctionArgumentTypes(errorNode, matchResults, typeVarMap, skipUnknownArgCheck);
+        }
+
+        const effectiveReturnType = getFunctionEffectiveReturnType(type);
+        let effectiveExpectedType: Type | undefined = expectedType;
+        let effectiveFlags = CanAssignFlags.AllowTypeVarNarrowing;
+        if (containsLiteralType(effectiveExpectedType, /* includeTypeArgs */ true)) {
+            effectiveFlags |= CanAssignFlags.RetainLiteralsForTypeVar;
+        }
+
+        // If the expected type is a union, we don't know which type is expected.
+        // We may or may not be able to make use of the expected type. We'll evaluate
+        // speculatively to see if using the expected type works.
+        if (isUnion(expectedType)) {
+            let speculativeResults: CallResult | undefined;
+
+            useSpeculativeMode(errorNode, () => {
+                const typeVarMapCopy = typeVarMap.clone();
+                canAssignType(
+                    effectiveReturnType,
+                    effectiveExpectedType!,
+                    /* diag */ undefined,
+                    typeVarMapCopy,
+                    effectiveFlags | CanAssignFlags.PopulatingExpectedType
+                );
+                speculativeResults = validateFunctionArgumentTypes(
+                    errorNode,
+                    matchResults,
+                    typeVarMapCopy,
+                    skipUnknownArgCheck
+                );
+            });
+
+            if (speculativeResults && speculativeResults.argumentErrors) {
+                effectiveExpectedType = undefined;
+            }
+        }
+
+        if (effectiveExpectedType) {
+            // Prepopulate the typeVarMap based on the specialized expected type if the
+            // callee has a declared return type. This will allow us to more closely match
+            // the expected type if possible. We set the AllowTypeVarNarrowing and
+            // SkipStripLiteralForTypeVar flags so the type can be further narrowed
+            // and so literals are not stripped.
+
+            // If the return type is not the same as the expected type but is
+            // assignable to the expected type, determine which type arguments
+            // are needed to match the expected type.
+            if (
+                isClassInstance(effectiveReturnType) &&
+                isClassInstance(effectiveExpectedType) &&
+                !ClassType.isSameGenericClass(effectiveReturnType, effectiveExpectedType)
+            ) {
+                const tempTypeVarMap = new TypeVarMap(getTypeVarScopeId(effectiveReturnType));
+                populateTypeVarMapBasedOnExpectedType(
+                    effectiveReturnType,
+                    effectiveExpectedType,
+                    tempTypeVarMap,
+                    getTypeVarScopesForNode(errorNode)
+                );
+
+                const genericReturnType = ClassType.cloneForSpecialization(
+                    effectiveReturnType,
+                    /* typeArguments */ undefined,
+                    /* isTypeArgumentExplicit */ false
+                );
+
+                effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarMap);
+            }
+
+            canAssignType(
+                effectiveReturnType,
+                effectiveExpectedType,
+                /* diag */ undefined,
+                typeVarMap,
+                effectiveFlags | CanAssignFlags.PopulatingExpectedType
+            );
+        }
+
+        return validateFunctionArgumentTypes(errorNode, matchResults, typeVarMap, skipUnknownArgCheck);
+    }
+
+    function validateFunctionArgumentTypes(
+        errorNode: ExpressionNode,
+        matchResults: MatchArgsToParamsResult,
+        typeVarMap: TypeVarMap,
+        skipUnknownArgCheck = false
+    ): CallResult {
+        const type = matchResults.overload;
         let isTypeIncomplete = matchResults.isTypeIncomplete;
         let argumentErrors = false;
         let specializedInitSelfType: Type | undefined;
-        const type = matchResults.overload;
-
         const typeCondition = getTypeCondition(type);
 
         if (type.boundTypeVarScopeId) {
@@ -9169,64 +9281,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 });
-            }
-        }
-
-        if (
-            expectedType &&
-            !isAnyOrUnknown(expectedType) &&
-            !requiresSpecialization(expectedType) &&
-            type.details.declaredReturnType
-        ) {
-            // If the expected type is a union, we don't know which type is expected,
-            // so avoid using the expected type. The exception is if there are literals
-            // in the union, where it's important to prepopulate the literals.
-            if (!isUnion(expectedType) || containsLiteralType(expectedType, /* includeTypeArgs */ true)) {
-                // Prepopulate the typeVarMap based on the specialized expected type if the
-                // callee has a declared return type. This will allow us to more closely match
-                // the expected type if possible. We set the AllowTypeVarNarrowing and
-                // SkipStripLiteralForTypeVar flags so the type can be further narrowed
-                // and so literals are not stripped.
-                const effectiveReturnType = getFunctionEffectiveReturnType(type);
-                let effectiveExpectedType: Type = expectedType;
-
-                // If the return type is not the same as the expected type but is
-                // assignable to the expected type, determine which type arguments
-                // are needed to match the expected type.
-                if (
-                    isClassInstance(effectiveReturnType) &&
-                    isClassInstance(expectedType) &&
-                    !ClassType.isSameGenericClass(effectiveReturnType, expectedType)
-                ) {
-                    const tempTypeVarMap = new TypeVarMap(getTypeVarScopeId(effectiveReturnType));
-                    populateTypeVarMapBasedOnExpectedType(
-                        ClassType.cloneAsInstantiable(effectiveReturnType),
-                        expectedType,
-                        tempTypeVarMap,
-                        getTypeVarScopesForNode(errorNode)
-                    );
-
-                    const genericReturnType = ClassType.cloneForSpecialization(
-                        effectiveReturnType,
-                        /* typeArguments */ undefined,
-                        /* isTypeArgumentExplicit */ false
-                    );
-
-                    effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarMap);
-                }
-
-                let effectiveFlags = CanAssignFlags.AllowTypeVarNarrowing;
-                if (containsLiteralType(effectiveExpectedType, /* includeTypeArgs */ true)) {
-                    effectiveFlags |= CanAssignFlags.RetainLiteralsForTypeVar;
-                }
-
-                canAssignType(
-                    effectiveReturnType,
-                    effectiveExpectedType,
-                    /* diag */ undefined,
-                    typeVarMap,
-                    effectiveFlags | CanAssignFlags.PopulatingExpectedType
-                );
             }
         }
 
@@ -9445,7 +9499,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
-        return validateFunctionArgumentTypes(errorNode, matchResults, typeVarMap, skipUnknownArgCheck, expectedType);
+        return validateFunctionArgumentTypesWithExpectedType(
+            errorNode,
+            matchResults,
+            typeVarMap,
+            skipUnknownArgCheck,
+            expectedType
+        );
     }
 
     // Determines whether the specified argument list satisfies the function
@@ -11454,7 +11514,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const dictTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInDict));
         if (
             !populateTypeVarMapBasedOnExpectedType(
-                ClassType.cloneAsInstantiable(builtInDict),
+                builtInDict,
                 expectedType,
                 dictTypeVarMap,
                 getTypeVarScopesForNode(node)
@@ -11772,7 +11832,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeVarMap = new TypeVarMap(getTypeVarScopeId(builtInListOrSet));
         if (
             !populateTypeVarMapBasedOnExpectedType(
-                ClassType.cloneAsInstantiable(builtInListOrSet),
+                builtInListOrSet,
                 expectedType,
                 typeVarMap,
                 getTypeVarScopesForNode(node)
@@ -12076,7 +12136,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node.parameters.forEach((param, index) => {
             let paramType: Type = UnknownType.create();
             if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
-                paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
+                paramType = makeTopLevelTypeVarsConcrete(
+                    FunctionType.getEffectiveParameterType(expectedFunctionType, index)
+                );
             }
 
             if (param.name) {
@@ -17092,10 +17154,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Disables recording of errors and warnings.
     function suppressDiagnostics<T>(node: ParseNode, callback: () => T) {
         suppressedNodeStack.push(node);
+
         try {
-            return callback();
-        } finally {
+            const result = callback();
             suppressedNodeStack.pop();
+            return result;
+        } catch (e) {
+            // We don't use finally here because the TypeScript debugger doesn't
+            // handle finally well when single stepping.
+            suppressedNodeStack.pop();
+            throw e;
         }
     }
 
@@ -17106,18 +17174,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         speculativeTypeTracker.enterSpeculativeContext(speculativeNode, allowCacheRetention);
 
         try {
-            return callback();
-        } finally {
+            const result = callback();
             speculativeTypeTracker.leaveSpeculativeContext();
+            return result;
+        } catch (e) {
+            // We don't use finally here because the TypeScript debugger doesn't
+            // handle finally well when single stepping.
+            speculativeTypeTracker.leaveSpeculativeContext();
+            throw e;
         }
     }
 
     function disableSpeculativeMode(callback: () => void) {
         const stack = speculativeTypeTracker.disableSpeculativeMode();
+
         try {
             callback();
-        } finally {
             speculativeTypeTracker.enableSpeculativeMode(stack);
+        } catch (e) {
+            // We don't use finally here because the TypeScript debugger doesn't
+            // handle finally well when single stepping.
+            speculativeTypeTracker.enableSpeculativeMode(stack);
+            throw e;
         }
     }
 
@@ -21987,7 +22065,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* typeArguments */ undefined,
                     /* isTypeArgumentExplicit */ false
                 ),
-                ClassType.cloneAsInstance(declaredType),
+                declaredType,
                 typeVarMap,
                 []
             );

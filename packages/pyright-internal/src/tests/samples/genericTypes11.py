@@ -4,12 +4,12 @@
 
 # pyright: strict
 
-from typing import Callable, Iterator, TypeVar
+from typing import Callable, Iterator, Protocol, TypeVar
 
-_T = TypeVar("_T")
+_T = TypeVar("_T", covariant=True)
 
 
-class Foo(Iterator[_T]):
+class Foo(Iterator[_T], Protocol):
     pass
 
 

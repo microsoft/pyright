@@ -3,16 +3,32 @@
 # it does appear within the stdlib typeshed stubs (see os.scandir).
 
 from os import DirEntry
-from typing import AnyStr, ContextManager, Iterator
+from types import TracebackType
+from typing import AnyStr, ContextManager, Iterator, Type
+from typing_extensions import Self
 
 
 class _ScandirIterator(
     Iterator[DirEntry[AnyStr]], ContextManager["_ScandirIterator[AnyStr]"]
 ):
+    def __iter__(self) -> Self:
+        ...
+
     def __next__(self) -> DirEntry[AnyStr]:
         ...
 
     def close(self) -> None:
+        ...
+
+    def __enter__(self) -> Self:
+        ...
+
+    def __exit__(
+        self,
+        __exc_type: Type[BaseException] | None,
+        __exc_value: BaseException | None,
+        __traceback: TracebackType | None,
+    ) -> bool | None:
         ...
 
 

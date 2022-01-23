@@ -1,6 +1,6 @@
 # This sample tests the logic that validates that a concrete class that
 # explicitly derives from a protocol class implements the variables
-# defined in the protocol.
+# and functions defined in the protocol.
 
 from typing import ClassVar, Protocol
 
@@ -51,3 +51,14 @@ class Concrete4(Protocol1, Protocol3):
         self.im1 = 3
         self.im10 = 10
         self.cm11 = 3
+
+
+class Protocol5(Protocol):
+    def foo(self) -> int:
+        ...
+
+
+# This should generate an error because "foo" is
+# not implemented.
+class Concrete5(Protocol5):
+    pass
