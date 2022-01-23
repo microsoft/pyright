@@ -17142,10 +17142,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Disables recording of errors and warnings.
     function suppressDiagnostics<T>(node: ParseNode, callback: () => T) {
         suppressedNodeStack.push(node);
+
         try {
-            return callback();
-        } finally {
+            const result = callback();
             suppressedNodeStack.pop();
+            return result;
+        } catch (e) {
+            // We don't use finally here because the TypeScript debugger doesn't
+            // handle finally well when single stepping.
+            suppressedNodeStack.pop();
+            throw e;
         }
     }
 
@@ -17156,18 +17162,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         speculativeTypeTracker.enterSpeculativeContext(speculativeNode, allowCacheRetention);
 
         try {
-            return callback();
-        } finally {
+            const result = callback();
             speculativeTypeTracker.leaveSpeculativeContext();
+            return result;
+        } catch (e) {
+            // We don't use finally here because the TypeScript debugger doesn't
+            // handle finally well when single stepping.
+            speculativeTypeTracker.leaveSpeculativeContext();
+            throw e;
         }
     }
 
     function disableSpeculativeMode(callback: () => void) {
         const stack = speculativeTypeTracker.disableSpeculativeMode();
+
         try {
             callback();
-        } finally {
             speculativeTypeTracker.enableSpeculativeMode(stack);
+        } catch (e) {
+            // We don't use finally here because the TypeScript debugger doesn't
+            // handle finally well when single stepping.
+            speculativeTypeTracker.enableSpeculativeMode(stack);
+            throw e;
         }
     }
 
