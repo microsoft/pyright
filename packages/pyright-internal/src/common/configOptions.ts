@@ -44,7 +44,7 @@ export class ExecutionEnvironment {
         this.root = root || undefined;
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
-        this.extraPaths = defaultExtraPaths || [];
+        this.extraPaths = [...(defaultExtraPaths ?? [])];
     }
 
     // Root directory for execution - absolute or relative to the
