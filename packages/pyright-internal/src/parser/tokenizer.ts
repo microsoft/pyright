@@ -759,7 +759,7 @@ export class Tokenizer {
 
                 if (!isNaN(intValue)) {
                     const bigIntValue = BigInt(simpleIntText);
-                    if (BigInt(intValue) !== bigIntValue) {
+                    if (!isFinite(intValue) || BigInt(intValue) !== bigIntValue) {
                         intValue = bigIntValue;
                     }
 
@@ -809,7 +809,7 @@ export class Tokenizer {
                 let isImaginary = false;
 
                 const bigIntValue = BigInt(simpleIntText);
-                if (BigInt(intValue) !== bigIntValue) {
+                if (!isFinite(intValue) || BigInt(intValue) !== bigIntValue) {
                     intValue = bigIntValue;
                 }
 

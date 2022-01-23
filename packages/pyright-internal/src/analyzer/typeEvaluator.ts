@@ -11009,37 +11009,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             rightClassSubtype.literalValue as number | bigint
                                         );
 
-                                        let newValue: number | bigint | undefined;
-                                        if (operator === OperatorType.Add) {
-                                            newValue = leftLiteralValue + rightLiteralValue;
-                                        } else if (operator === OperatorType.Subtract) {
-                                            newValue = leftLiteralValue - rightLiteralValue;
-                                        } else if (operator === OperatorType.Multiply) {
-                                            newValue = leftLiteralValue * rightLiteralValue;
-                                        } else if (operator === OperatorType.FloorDivide) {
-                                            if (rightLiteralValue !== BigInt(0)) {
-                                                newValue = leftLiteralValue / rightLiteralValue;
-                                            }
-                                        } else if (operator === OperatorType.Mod) {
-                                            if (rightLiteralValue !== BigInt(0)) {
-                                                newValue = leftLiteralValue % rightLiteralValue;
-                                            }
-                                        }
-
-                                        if (newValue === undefined) {
-                                            isValidResult = false;
-                                            return undefined;
-                                        } else if (typeof newValue === 'number' && isNaN(newValue)) {
-                                            isValidResult = false;
-                                            return undefined;
-                                        } else {
-                                            // Convert back to a simple number if it fits. Leave as a bigint
-                                            // if it doesn't.
-                                            if (newValue === BigInt(Number(newValue))) {
-                                                newValue = Number(newValue);
+                                        try {
+                                            let newValue: number | bigint | undefined;
+                                            if (operator === OperatorType.Add) {
+                                                newValue = leftLiteralValue + rightLiteralValue;
+                                            } else if (operator === OperatorType.Subtract) {
+                                                newValue = leftLiteralValue - rightLiteralValue;
+                                            } else if (operator === OperatorType.Multiply) {
+                                                newValue = leftLiteralValue * rightLiteralValue;
+                                            } else if (operator === OperatorType.FloorDivide) {
+                                                if (rightLiteralValue !== BigInt(0)) {
+                                                    newValue = leftLiteralValue / rightLiteralValue;
+                                                }
+                                            } else if (operator === OperatorType.Mod) {
+                                                if (rightLiteralValue !== BigInt(0)) {
+                                                    newValue = leftLiteralValue % rightLiteralValue;
+                                                }
                                             }
 
-                                            return ClassType.cloneWithLiteral(leftClassSubtype, newValue);
+                                            if (newValue === undefined) {
+                                                isValidResult = false;
+                                                return undefined;
+                                            } else if (typeof newValue === 'number' && isNaN(newValue)) {
+                                                isValidResult = false;
+                                                return undefined;
+                                            } else {
+                                                // Convert back to a simple number if it fits. Leave as a bigint
+                                                // if it doesn't.
+                                                if (newValue === BigInt(Number(newValue))) {
+                                                    newValue = Number(newValue);
+                                                }
+
+                                                return ClassType.cloneWithLiteral(leftClassSubtype, newValue);
+                                            }
+                                        } catch {
+                                            isValidResult = false;
+                                            return undefined;
                                         }
                                     });
                                 });
