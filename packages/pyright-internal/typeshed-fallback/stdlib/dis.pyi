@@ -1,22 +1,35 @@
 import sys
 import types
-from opcode import (
-    EXTENDED_ARG as EXTENDED_ARG,
-    HAVE_ARGUMENT as HAVE_ARGUMENT,
-    cmp_op as cmp_op,
-    hascompare as hascompare,
-    hasconst as hasconst,
-    hasfree as hasfree,
-    hasjabs as hasjabs,
-    hasjrel as hasjrel,
-    haslocal as haslocal,
-    hasname as hasname,
-    hasnargs as hasnargs,
-    opmap as opmap,
-    opname as opname,
-    stack_effect as stack_effect,
-)
+from opcode import *  # `dis` re-exports it as a part of public API
 from typing import IO, Any, Callable, Iterator, NamedTuple, Union
+
+__all__ = [
+    "code_info",
+    "dis",
+    "disassemble",
+    "distb",
+    "disco",
+    "findlinestarts",
+    "findlabels",
+    "show_code",
+    "get_instructions",
+    "Instruction",
+    "Bytecode",
+    "cmp_op",
+    "hasconst",
+    "hasname",
+    "hasjrel",
+    "hasjabs",
+    "haslocal",
+    "hascompare",
+    "hasfree",
+    "opname",
+    "opmap",
+    "HAVE_ARGUMENT",
+    "EXTENDED_ARG",
+    "hasnargs",
+    "stack_effect",
+]
 
 # Strictly this should not have to include Callable, but mypy doesn't use FunctionType
 # for functions (python/mypy#3171)

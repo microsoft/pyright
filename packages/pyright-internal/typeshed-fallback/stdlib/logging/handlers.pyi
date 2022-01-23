@@ -254,7 +254,7 @@ class QueueHandler(Handler):
     def enqueue(self, record: LogRecord) -> None: ...
 
 class QueueListener:
-    handlers: tuple[Handler]  # undocumented
+    handlers: tuple[Handler, ...]  # undocumented
     respect_handler_level: bool  # undocumented
     if sys.version_info >= (3, 7):
         queue: SimpleQueue[Any] | Queue[Any]  # undocumented

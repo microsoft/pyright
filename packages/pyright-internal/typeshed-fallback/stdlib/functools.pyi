@@ -2,7 +2,7 @@ import sys
 import types
 from _typeshed import Self, SupportsAllComparisons, SupportsItems
 from typing import Any, Callable, Generic, Hashable, Iterable, NamedTuple, Sequence, Sized, TypeVar, overload
-from typing_extensions import final
+from typing_extensions import Literal, final
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -39,8 +39,10 @@ if sys.version_info >= (3, 8):
 else:
     def lru_cache(maxsize: int | None = ..., typed: bool = ...) -> Callable[[Callable[..., _T]], _lru_cache_wrapper[_T]]: ...
 
-WRAPPER_ASSIGNMENTS: Sequence[str]
-WRAPPER_UPDATES: Sequence[str]
+WRAPPER_ASSIGNMENTS: tuple[
+    Literal["__module__"], Literal["__name__"], Literal["__qualname__"], Literal["__doc__"], Literal["__annotations__"],
+]
+WRAPPER_UPDATES: tuple[Literal["__dict__"]]
 
 def update_wrapper(wrapper: _T, wrapped: _AnyCallable, assigned: Sequence[str] = ..., updated: Sequence[str] = ...) -> _T: ...
 def wraps(wrapped: _AnyCallable, assigned: Sequence[str] = ..., updated: Sequence[str] = ...) -> Callable[[_T], _T]: ...

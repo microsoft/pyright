@@ -1,5 +1,4 @@
 import sys
-import typing
 from typing import Any, ClassVar
 from typing_extensions import Literal
 
@@ -11,8 +10,8 @@ if sys.version_info >= (3, 8):
 _identifier = str
 
 class AST:
-    _attributes: ClassVar[typing.Tuple[str, ...]]
-    _fields: ClassVar[typing.Tuple[str, ...]]
+    _attributes: ClassVar[tuple[str, ...]]
+    _fields: ClassVar[tuple[str, ...]]
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     # TODO: Not all nodes have all of the following attributes
     lineno: int

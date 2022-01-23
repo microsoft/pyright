@@ -1,6 +1,6 @@
 import sys
 from typing import Any, Callable, ClassVar, Generic, Iterator, Mapping, TypeVar, overload
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec, final
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -9,6 +9,7 @@ _T = TypeVar("_T")
 _D = TypeVar("_D")
 _P = ParamSpec("_P")
 
+@final
 class ContextVar(Generic[_T]):
     def __init__(self, name: str, *, default: _T = ...) -> None: ...
     @property
@@ -22,6 +23,7 @@ class ContextVar(Generic[_T]):
     if sys.version_info >= (3, 9):
         def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 
+@final
 class Token(Generic[_T]):
     @property
     def var(self) -> ContextVar[_T]: ...
@@ -35,6 +37,7 @@ def copy_context() -> Context: ...
 
 # It doesn't make sense to make this generic, because for most Contexts each ContextVar will have
 # a different value.
+@final
 class Context(Mapping[ContextVar[Any], Any]):
     def __init__(self) -> None: ...
     @overload
