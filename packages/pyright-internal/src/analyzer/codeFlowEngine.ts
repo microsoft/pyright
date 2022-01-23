@@ -970,7 +970,7 @@ export function getCodeFlowEngine(
             recursionCount = 0
         ): boolean {
             // Cut off the recursion at some point to prevent a stack overflow.
-            const maxFlowNodeReachableRecursionCount = 100;
+            const maxFlowNodeReachableRecursionCount = 64;
             if (recursionCount > maxFlowNodeReachableRecursionCount) {
                 return true;
             }
