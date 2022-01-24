@@ -21596,25 +21596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             canAssign = false;
         }
 
-        if (destParamDetails.argsIndex !== undefined) {
-            const destArgsIndex = destParamDetails.params[destParamDetails.argsIndex].index;
-            if (destParamDetails.argsIndex < srcParamDetails.params.length) {
-                if (
-                    !canAssignFunctionParameter(
-                        destParamDetails.params[destParamDetails.argsIndex].type,
-                        srcParamDetails.params[destParamDetails.argsIndex].type,
-                        destArgsIndex,
-                        diag?.createAddendum(),
-                        destTypeVarMap,
-                        srcTypeVarMap,
-                        flags,
-                        recursionCount
-                    )
-                ) {
-                    canAssign = false;
-                }
-            }
-        } else if (destPositionalCount < srcPositionalCount) {
+        if (destPositionalCount < srcPositionalCount) {
             // If the dest type includes a ParamSpec, the additional parameters
             // can be assigned to it, so no need to report an error here.
             if (!targetIncludesParamSpec) {
