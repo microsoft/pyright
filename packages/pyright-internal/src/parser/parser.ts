@@ -182,6 +182,11 @@ export interface ModuleImport {
     importedSymbols: string[] | undefined;
 }
 
+export interface ArgListResult {
+    args: ArgumentNode[];
+    trailingComma: boolean;
+}
+
 const enum ParseTextMode {
     Expression,
     VariableAnnotation,
@@ -2055,7 +2060,7 @@ export class Parser {
         let argList: ArgumentNode[] = [];
         const openParenToken = this._peekToken();
         if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-            argList = this._parseArgList();
+            argList = this._parseArgList().args;
 
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
                 this._addError(Localizer.Diagnostic.expectedCloseParen(), openParenToken);
@@ -3117,14 +3122,17 @@ export class Parser {
                 const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
                 this._isParsingTypeAnnotation = false;
 
-                const argList = this._parseArgList();
-                const callNode = CallNode.create(atomExpression);
-                callNode.arguments = argList;
-                if (argList.length > 0) {
-                    argList.forEach((arg) => {
-                        arg.parent = callNode;
+                const argListResult = this._parseArgList();
+                const callNode = CallNode.create(atomExpression, argListResult.args, argListResult.trailingComma);
+
+                if (argListResult.args.length > 1 || argListResult.trailingComma) {
+                    argListResult.args.forEach((arg) => {
+                        if (arg.valueExpression.nodeType === ParseNodeType.ListComprehension) {
+                            if (!arg.valueExpression.isParenthesized) {
+                                this._addError(Localizer.Diagnostic.generatorNotParenthesized(), arg.valueExpression);
+                            }
+                        }
                     });
-                    extendRange(callNode, argList[argList.length - 1]);
                 }
 
                 const nextToken = this._peekToken();
@@ -3384,9 +3392,10 @@ export class Parser {
     }
 
     // arglist: argument (',' argument)*  [',']
-    private _parseArgList(): ArgumentNode[] {
+    private _parseArgList(): ArgListResult {
         const argList: ArgumentNode[] = [];
         let sawKeywordArg = false;
+        let trailingComma = false;
 
         while (true) {
             const nextTokenType = this._peekTokenType();
@@ -3398,6 +3407,7 @@ export class Parser {
                 break;
             }
 
+            trailingComma = false;
             const arg = this._parseArgument();
             if (arg.name) {
                 sawKeywordArg = true;
@@ -3409,9 +3419,11 @@ export class Parser {
             if (!this._consumeTokenIfType(TokenType.Comma)) {
                 break;
             }
+
+            trailingComma = true;
         }
 
-        return argList;
+        return { args: argList, trailingComma };
     }
 
     // argument: ( test [comp_for] |
@@ -3527,6 +3539,10 @@ export class Parser {
             }
 
             if (possibleTupleNode.nodeType === ParseNodeType.StringList) {
+                possibleTupleNode.isParenthesized = true;
+            }
+
+            if (possibleTupleNode.nodeType === ParseNodeType.ListComprehension) {
                 possibleTupleNode.isParenthesized = true;
             }
 

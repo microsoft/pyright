@@ -173,6 +173,7 @@
         "formatStringUnterminated": "Unterminated expression in f-string; missing close brace",
         "functionDecoratorTypeUnknown": "Untyped function decorator obscures type of function; ignoring decorator",
         "generatorAsyncReturnType": "Return type of async generator function must be \"AsyncGenerator\" or \"AsyncIterable\"",
+        "generatorNotParenthesized": "Generator expressions must be parenthesized if not sole argument",
         "generatorSyncReturnType": "Return type of generator function must be \"Generator\" or \"Iterable\"",
         "genericClassAssigned": "Generic class type cannot be assigned",
         "genericClassDeleted": "Generic class type cannot be deleted",

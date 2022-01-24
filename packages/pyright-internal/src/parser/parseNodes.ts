@@ -1095,20 +1095,29 @@ export interface CallNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Call;
     leftExpression: ExpressionNode;
     arguments: ArgumentNode[];
+    trailingComma: boolean;
 }
 
 export namespace CallNode {
-    export function create(leftExpression: ExpressionNode) {
+    export function create(leftExpression: ExpressionNode, argList: ArgumentNode[], trailingComma: boolean) {
         const node: CallNode = {
             start: leftExpression.start,
             length: leftExpression.length,
             nodeType: ParseNodeType.Call,
             id: _nextNodeId++,
             leftExpression,
-            arguments: [],
+            arguments: argList,
+            trailingComma,
         };
 
         leftExpression.parent = node;
+
+        if (argList.length > 0) {
+            argList.forEach((arg) => {
+                arg.parent = node;
+            });
+            extendRange(node, argList[argList.length - 1]);
+        }
 
         return node;
     }
@@ -1118,6 +1127,7 @@ export interface ListComprehensionNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.ListComprehension;
     expression: ParseNode;
     comprehensions: ListComprehensionIterNode[];
+    isParenthesized?: boolean;
 }
 
 export namespace ListComprehensionNode {

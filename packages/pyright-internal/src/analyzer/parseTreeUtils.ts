@@ -332,7 +332,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 listStr = `${keyStr}: ${valueStr}`;
             }
 
-            return (
+            listStr =
                 listStr +
                 ' ' +
                 node.comprehensions
@@ -347,8 +347,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                             return `if ${printExpression(expr.testExpression, flags)}`;
                         }
                     })
-                    .join(' ')
-            );
+                    .join(' ');
+
+            return node.isParenthesized ? `(${listStr}})` : listStr;
         }
 
         case ParseNodeType.Slice: {
