@@ -12086,6 +12086,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeFromLambda(node: LambdaNode, expectedType: Type | undefined): TypeResult {
         const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
+        functionType.details.typeVarScopeId = getScopeIdForNode(node);
 
         // Pre-cache the newly-created function type.
         writeTypeCache(node, functionType, EvaluatorFlags.None, /* isIncomplete */ false);
@@ -12146,10 +12147,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let paramType: Type = UnknownType.create();
             if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
                 paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
-
-                if (isTypeVar(paramType) && paramType.details.boundType) {
-                    paramType = makeTopLevelTypeVarsConcrete(paramType);
-                }
             }
 
             if (param.name) {
@@ -21358,17 +21355,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 recursionCount
             )
         ) {
-            if (diag) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.paramAssignment().format({
-                        index: paramIndex + 1,
-                        sourceType: printType(destType),
-                        destType: printType(srcType),
-                    })
-                );
-            }
+            // There are cases involving lambdas where the parameter types are type
+            // variables and match exactly but fail the assignment check because the
+            // TypeVars are out of scope. This happens because parameter types assigned
+            // to lambdas during bidirectional inference do not match the TypeVar scope
+            // of the lambda itself.
+            if (!isTypeSame(destType, srcType)) {
+                if (diag) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.paramAssignment().format({
+                            index: paramIndex + 1,
+                            sourceType: printType(destType),
+                            destType: printType(srcType),
+                        })
+                    );
+                }
 
-            return false;
+                return false;
+            }
         }
 
         return true;
