@@ -20324,8 +20324,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (isNoneTypeClass(destType) && isNoneTypeClass(srcType)) {
-            return true;
+        if (isNoneTypeClass(destType)) {
+            if (isNoneTypeClass(srcType)) {
+                return true;
+            }
+
+            if (isInstantiableClass(srcType) && ClassType.isBuiltIn(srcType, 'NoneType')) {
+                return true;
+            }
         }
 
         // Is the src a specialized "Type" object?
