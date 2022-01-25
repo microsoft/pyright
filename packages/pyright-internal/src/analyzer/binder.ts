@@ -1532,7 +1532,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitImportFrom(node: ImportFromNode): boolean {
-        const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar', 'Required', 'NotRequired'];
+        const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar', 'Required', 'NotRequired', 'Annotated'];
         const dataclassesSymbolsOfInterest = ['InitVar'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
@@ -3422,11 +3422,22 @@ export class Binder extends ParseTreeWalker {
                         symbolWithScope.symbol.setIsInstanceMember();
                     }
 
-                    if (
-                        typeAnnotation.nodeType === ParseNodeType.Index &&
-                        this._isDataclassesAnnotation(typeAnnotation.baseExpression, 'InitVar')
-                    ) {
-                        symbolWithScope.symbol.setIsInitVar();
+                    // Look for an 'InitVar' either by itself or wrapped in an 'Annotated'.
+                    if (typeAnnotation.nodeType === ParseNodeType.Index) {
+                        if (this._isDataclassesAnnotation(typeAnnotation.baseExpression, 'InitVar')) {
+                            symbolWithScope.symbol.setIsInitVar();
+                        } else if (
+                            this._isTypingAnnotation(typeAnnotation.baseExpression, 'Annotated') &&
+                            typeAnnotation.items.length > 0
+                        ) {
+                            const item0Expr = typeAnnotation.items[0].valueExpression;
+                            if (
+                                item0Expr.nodeType === ParseNodeType.Index &&
+                                this._isDataclassesAnnotation(item0Expr.baseExpression, 'InitVar')
+                            ) {
+                                symbolWithScope.symbol.setIsInitVar();
+                            }
+                        }
                     }
                 }
 

@@ -2,6 +2,7 @@
 # described in PEP 593.
 
 from typing import Annotated, TypeVar, ClassVar, Final
+from dataclasses import InitVar, dataclass
 
 
 class struct2:
@@ -58,3 +59,14 @@ x: Param[int] = 3
 class A:
     classvar: Annotated[ClassVar[int], (2, 5)] = 4
     const: Annotated[Final[int], "metadata"] = 4
+
+
+@dataclass
+class B:
+    x: Annotated[InitVar[int], "metadata"]
+
+
+d1 = B(x=4)
+
+# This should generate an error because x is not an actual member.
+d1.x
