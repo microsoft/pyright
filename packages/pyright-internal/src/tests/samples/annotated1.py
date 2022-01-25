@@ -1,7 +1,7 @@
 # This sample tests handling of the Python 3.9 "Annotated" feature
 # described in PEP 593.
 
-from typing import Annotated, TypeVar
+from typing import Annotated, TypeVar, ClassVar, Final
 
 
 class struct2:
@@ -53,3 +53,8 @@ _T = TypeVar("_T")
 Param = Annotated[_T, "x"]
 
 x: Param[int] = 3
+
+
+class A:
+    classvar: Annotated[ClassVar[int], (2, 5)] = 4
+    const: Annotated[Final[int], "metadata"] = 4

@@ -6179,10 +6179,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeArgs: TypeResult[] = [];
         let adjFlags = flags;
 
-        if (isFinalAnnotation) {
-            adjFlags |= EvaluatorFlags.FinalDisallowed;
-        } else if (isClassVarAnnotation) {
-            adjFlags |= EvaluatorFlags.ClassVarDisallowed;
+        if (isFinalAnnotation || isClassVarAnnotation) {
+            adjFlags |= EvaluatorFlags.ClassVarDisallowed | EvaluatorFlags.FinalDisallowed;
         } else {
             adjFlags &= ~(
                 EvaluatorFlags.DoNotSpecialize |
@@ -6190,7 +6188,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.TypeVarTupleDisallowed |
                 EvaluatorFlags.RequiredAllowed
             );
-            adjFlags |= EvaluatorFlags.ClassVarDisallowed;
+
+            if (!isAnnotatedClass) {
+                adjFlags |= EvaluatorFlags.ClassVarDisallowed | EvaluatorFlags.FinalDisallowed;
+            }
         }
 
         // Create a local function that validates a single type argument.
@@ -6267,9 +6268,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.ExpectingTypeAnnotation |
             EvaluatorFlags.ConvertEllipsisToAny |
-            EvaluatorFlags.EvaluateStringLiteralAsType |
-            EvaluatorFlags.FinalDisallowed |
-            EvaluatorFlags.ClassVarDisallowed;
+            EvaluatorFlags.EvaluateStringLiteralAsType;
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         if (fileInfo.isStubFile) {
