@@ -4881,8 +4881,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isTypeIncomplete: false,
                     isClassMember: false,
                     isClassVar: false,
-                    isAsymmetricDescriptor: false
-                }
+                    isAsymmetricDescriptor: false,
+                };
             }
         }
 
