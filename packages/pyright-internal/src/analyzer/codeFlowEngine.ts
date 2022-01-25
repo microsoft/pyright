@@ -938,8 +938,45 @@ export function getCodeFlowEngine(
                         if (preFinallyFlowNode.isGateClosed) {
                             return { type: undefined, usedOuterScopeAlias, isIncomplete: false };
                         }
-                        curFlowNode = preFinallyFlowNode.antecedent;
-                        continue;
+
+                        // Before recursively calling, set the cache entry to prevent infinite recursion.
+                        setCacheEntry(
+                            curFlowNode,
+                            reference ? undefined : initialType,
+                            usedOuterScopeAlias,
+                            /* isIncomplete */ true
+                        );
+
+                        try {
+                            const flowTypeResult = getTypeFromFlowNode(
+                                preFinallyFlowNode.antecedent,
+                                reference,
+                                targetSymbolId,
+                                initialType,
+                                isInitialTypeIncomplete
+                            );
+
+                            // Mark the result as incomplete even if the result of the recursive
+                            // call indicated it was complete. This will prevent the type from
+                            // being permanently cached. We want to cache the type only if
+                            // we're evaluating the "gate closed" path.
+                            return setCacheEntry(
+                                curFlowNode,
+                                flowTypeResult.type,
+                                usedOuterScopeAlias,
+                                /* isIncomplete */ true
+                            );
+                        } catch (e) {
+                            setIncompleteSubtype(
+                                curFlowNode,
+                                0,
+                                undefined,
+                                /* isIncomplete */ true,
+                                /* isPending */ false,
+                                usedOuterScopeAlias
+                            );
+                            throw e;
+                        }
                     }
 
                     if (curFlowNode.flags & FlowFlags.PostFinally) {
