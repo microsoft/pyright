@@ -4874,33 +4874,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             0
         ) {
             const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage, memberName);
-
             if (generalAttrType) {
-                const descriptorResult = applyDescriptorAccessMethod(
-                    generalAttrType,
-                    memberInfo,
-                    classType,
-                    bindToType,
-                    /* isAccessedThroughObject */ !!bindToType,
-                    flags,
-                    errorNode,
-                    memberName,
-                    usage,
-                    diag
-                );
-
-                if (!descriptorResult) {
-                    return undefined;
-                }
-
                 return {
                     symbol: undefined,
-                    type: descriptorResult.type,
+                    type: generalAttrType,
                     isTypeIncomplete: false,
                     isClassMember: false,
                     isClassVar: false,
-                    isAsymmetricDescriptor: descriptorResult.isAsymmetricDescriptor,
-                };
+                    isAsymmetricDescriptor: false
+                }
             }
         }
 
