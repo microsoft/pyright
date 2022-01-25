@@ -14891,6 +14891,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // If the return type is explicitly annotated as a generator, mark the
+        // function as a generator even though it may not contain a "yield" statement.
+        // This is important for generator functions declared in stub files, abstract
+        // methods or protocol definitions.
+        if (fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.suite)) {
+            if (
+                functionType.details.declaredReturnType &&
+                isClassInstance(functionType.details.declaredReturnType) &&
+                ClassType.isBuiltIn(functionType.details.declaredReturnType, [
+                    'Generator',
+                    'AsyncGenerator',
+                    'AwaitableGenerator',
+                ])
+            ) {
+                functionType.details.flags |= FunctionTypeFlags.Generator;
+            }
+        }
+
         // If it's an async function, wrap the return type in an Awaitable or Generator.
         const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
 
@@ -15339,7 +15357,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             awaitableFunctionType.details.declaredReturnType = createAwaitableReturnType(
                 node,
                 functionType.details.declaredReturnType,
-                !!functionType.details.declaration?.isGenerator
+                FunctionType.isGenerator(functionType)
             );
         }
 
