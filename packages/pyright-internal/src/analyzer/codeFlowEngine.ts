@@ -298,6 +298,10 @@ export function getCodeFlowEngine(
                 };
             }
 
+            function deleteCacheEntry(flowNode: FlowNode) {
+                flowNodeTypeCache!.delete(flowNode.id);
+            }
+
             function evaluateAssignmentFlowNode(flowNode: FlowAssignment): TypeResult | undefined {
                 // For function and class nodes, the reference node is the name
                 // node, but we need to use the parent node (the FunctionNode or ClassNode)
@@ -775,25 +779,11 @@ export function getCodeFlowEngine(
                                     );
                                 }
 
-                                setIncompleteSubtype(
-                                    curFlowNode,
-                                    0,
-                                    undefined,
-                                    /* isIncomplete */ true,
-                                    /* isPending */ false,
-                                    usedOuterScopeAlias
-                                );
+                                deleteCacheEntry(curFlowNode);
                             } catch (e) {
                                 // We don't use finally here because the debugger
                                 // doesn't handle it well during single stepping.
-                                setIncompleteSubtype(
-                                    curFlowNode,
-                                    0,
-                                    undefined,
-                                    /* isIncomplete */ true,
-                                    /* isPending */ false,
-                                    usedOuterScopeAlias
-                                );
+                                deleteCacheEntry(curFlowNode);
                                 throw e;
                             }
                         }
@@ -852,25 +842,11 @@ export function getCodeFlowEngine(
                                         }
                                     }
 
-                                    setIncompleteSubtype(
-                                        curFlowNode,
-                                        0,
-                                        undefined,
-                                        /* isIncomplete */ true,
-                                        /* isPending */ false,
-                                        usedOuterScopeAlias
-                                    );
+                                    deleteCacheEntry(curFlowNode);
                                 } catch (e) {
                                     // We don't use finally here because the debugger
                                     // doesn't handle it well during single stepping.
-                                    setIncompleteSubtype(
-                                        curFlowNode,
-                                        0,
-                                        undefined,
-                                        /* isIncomplete */ true,
-                                        /* isPending */ false,
-                                        usedOuterScopeAlias
-                                    );
+                                    deleteCacheEntry(curFlowNode);
                                     throw e;
                                 }
                             }
@@ -967,14 +943,7 @@ export function getCodeFlowEngine(
                                 /* isIncomplete */ true
                             );
                         } catch (e) {
-                            setIncompleteSubtype(
-                                curFlowNode,
-                                0,
-                                undefined,
-                                /* isIncomplete */ true,
-                                /* isPending */ false,
-                                usedOuterScopeAlias
-                            );
+                            deleteCacheEntry(curFlowNode);
                             throw e;
                         }
                     }
