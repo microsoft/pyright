@@ -276,6 +276,7 @@ export interface CompletionOptions {
     format: MarkupKind;
     snippet: boolean;
     lazyEdit: boolean;
+    autoImport: boolean;
 }
 
 export type AbbreviationMap = Map<string, AbbreviationInfo>;
@@ -349,7 +350,7 @@ export class CompletionProvider {
         private _evaluator: TypeEvaluator,
         private _options: CompletionOptions,
         private _sourceMapper: SourceMapper,
-        private _autoImportMaps: AutoImportMaps | undefined,
+        private _autoImportMaps: AutoImportMaps,
         private _cancellationToken: CancellationToken
     ) {
         this._execEnv = this._configOptions.findExecEnvironment(this._filePath);
@@ -1338,7 +1339,7 @@ export class CompletionProvider {
 
         // Add auto-import suggestions from other modules.
         // Ignore this check for privates, since they are not imported.
-        if (this._configOptions.autoImportCompletions && !priorWord.startsWith('_') && !this._itemToResolve) {
+        if (!priorWord.startsWith('_') && !this._itemToResolve) {
             this._addAutoImportCompletions(priorWord, similarityLimit, this._options.lazyEdit, completionResults);
         }
 
@@ -2010,10 +2011,13 @@ export class CompletionProvider {
         lazyEdit: boolean,
         completionResults: CompletionResults
     ) {
-        if (!this._autoImportMaps) {
-            return;
-        }
-        if (!completionResults.completionMap) {
+        if (
+            !completionResults.completionMap ||
+            !this._configOptions.autoImportCompletions ||
+            !this._options.autoImport
+        ) {
+            // If auto import on the server is turned off or this particular invocation
+            // is turned off (ex, notebook), don't do any thing.
             return;
         }
 

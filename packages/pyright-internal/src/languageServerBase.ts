@@ -101,7 +101,7 @@ import { DocumentRange, Position } from './common/textRange';
 import { UriParser } from './common/uriParser';
 import { convertWorkspaceEdits } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
-import { CompletionItemData, CompletionResultsList } from './languageService/completionProvider';
+import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter } from './languageService/definitionProvider';
 import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService/documentSymbolProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
@@ -140,6 +140,7 @@ export interface WorkspaceServiceInstance {
     serviceInstance: AnalyzerService;
     disableLanguageServices: boolean;
     disableOrganizeImports: boolean;
+    disableWorkspaceSymbol?: boolean;
     isInitialized: Deferred<boolean>;
 }
 
@@ -780,7 +781,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         for (const workspace of this._workspaceMap.values()) {
             await workspace.isInitialized.promise;
-            if (!workspace.disableLanguageServices) {
+            if (!workspace.disableLanguageServices && !workspace.disableWorkspaceSymbol) {
                 workspace.serviceInstance.reportSymbolsForWorkspace(params.query, reporter, token);
             }
         }
@@ -943,6 +944,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             filePath,
             position,
             workspace.rootPath,
+            this.getCompletionOptions(params),
             token
         );
 
@@ -1175,13 +1177,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         filePath: string,
         position: Position,
         workspacePath: string,
+        options: CompletionOptions,
         token: CancellationToken
     ): Promise<CompletionResultsList | undefined> {
         return workspace.serviceInstance.getCompletionsForPosition(
             filePath,
             position,
             workspacePath,
-            this.getCompletionOptions(),
+            options,
             undefined,
             token
         );
@@ -1193,11 +1196,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
     }
 
-    protected getCompletionOptions() {
+    protected getCompletionOptions(params?: CompletionParams) {
         return {
             format: this.client.completionDocFormat,
             snippet: this.client.completionSupportsSnippet,
             lazyEdit: this.client.completionItemResolveSupportsAdditionalTextEdits,
+            autoImport: true,
         };
     }
 
@@ -1212,6 +1216,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             serviceInstance: this.createAnalyzerService(workspace?.name ?? rootPath),
             disableLanguageServices: false,
             disableOrganizeImports: false,
+            disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
         };
     }
