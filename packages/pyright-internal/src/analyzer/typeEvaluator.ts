@@ -4672,11 +4672,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // class being passed as an argument. This comes up frequently in
             // cases where a type is passed as an argument (e.g. "defaultdict(list)").
             // It can also come up in cases like "isinstance(x, (list, dict))".
-            if (
-                isInstantiableClass(type) &&
-                ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.Argument)
-            ) {
-                skipPartialUnknownCheck = true;
+            if (isInstantiableClass(type)) {
+                const argNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Argument);
+                if (argNode && argNode?.parent?.nodeType === ParseNodeType.Call) {
+                    skipPartialUnknownCheck = true;
+                }
             }
 
             if (!skipPartialUnknownCheck) {
