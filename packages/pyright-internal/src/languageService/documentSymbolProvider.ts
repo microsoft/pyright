@@ -411,15 +411,21 @@ function collectSymbolIndexDataForName(
         );
     }
 
+    let aliasData: IndexAliasData | undefined = undefined;
+    if (DeclarationType.Alias === declaration.type) {
+        aliasData = getIndexAliasData(AnalyzerNodeInfo.getFileInfo(parseResults.parseTree)!.importLookup, declaration);
+        // If we can't create alias data for import alias, then don't include it in index.
+        if (!aliasData) {
+            return;
+        }
+    }
+
     const data: IndexSymbolData = {
         name,
         externallyVisible,
         kind: symbolKind,
         itemKind: convertSymbolKindToCompletionItemKind(symbolKind),
-        alias:
-            DeclarationType.Alias === declaration.type
-                ? getIndexAliasData(AnalyzerNodeInfo.getFileInfo(parseResults.parseTree)!.importLookup, declaration)
-                : undefined,
+        alias: aliasData,
         range: options.indexingForAutoImportMode ? undefined : range,
         selectionRange: options.indexingForAutoImportMode ? undefined : selectionRange,
         children: options.indexingForAutoImportMode ? undefined : children,
