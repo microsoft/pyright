@@ -909,17 +909,21 @@ export function isNodeContainedWithin(node: ParseNode, potentialContainer: Parse
     return false;
 }
 
-export function isNodeContainedWithinNodeType(node: ParseNode, containerType: ParseNodeType): boolean {
+export function getParentNodeOfType(node: ParseNode, containerType: ParseNodeType): ParseNode | undefined {
     let curNode: ParseNode | undefined = node;
     while (curNode) {
         if (curNode.nodeType === containerType) {
-            return true;
+            return curNode;
         }
 
         curNode = curNode.parent;
     }
 
-    return false;
+    return undefined;
+}
+
+export function isNodeContainedWithinNodeType(node: ParseNode, containerType: ParseNodeType): boolean {
+    return getParentNodeOfType(node, containerType) !== undefined;
 }
 
 export function isSuiteEmpty(node: SuiteNode): boolean {
