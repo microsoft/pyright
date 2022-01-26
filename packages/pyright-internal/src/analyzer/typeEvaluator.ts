@@ -2418,14 +2418,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Determines whether there is a code flow path from sourceNode to sinkNode.
-    function isFlowPathBetweenNodes(sourceNode: ParseNode, sinkNode: ParseNode) {
+    function isFlowPathBetweenNodes(sourceNode: ParseNode, sinkNode: ParseNode, allowSelf = true) {
         const sourceFlowNode = AnalyzerNodeInfo.getFlowNode(sourceNode);
         const sinkFlowNode = AnalyzerNodeInfo.getFlowNode(sinkNode);
         if (!sourceFlowNode || !sinkFlowNode) {
             return false;
         }
         if (sourceFlowNode === sinkFlowNode) {
-            return true;
+            return allowSelf;
         }
 
         return codeFlowEngine.isFlowNodeReachable(sinkFlowNode, sourceFlowNode);
@@ -4913,18 +4913,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isAsymmetricDescriptor = false;
 
         type = mapSubtypes(type, (subtype) => {
-            if (isClass(subtype)) {
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+            if (isClass(concreteSubtype)) {
                 // If it's an object, use its class to lookup the descriptor. If it's a class,
                 // use its metaclass instead.
-                let lookupClass: ClassType | undefined = subtype;
+                let lookupClass: ClassType | undefined = concreteSubtype;
                 let isAccessedThroughMetaclass = false;
-                if (TypeBase.isInstantiable(subtype)) {
-                    if (subtype.details.effectiveMetaclass && isInstantiableClass(subtype.details.effectiveMetaclass)) {
+                if (TypeBase.isInstantiable(concreteSubtype)) {
+                    if (
+                        concreteSubtype.details.effectiveMetaclass &&
+                        isInstantiableClass(concreteSubtype.details.effectiveMetaclass)
+                    ) {
                         // When accessing a class member that is a class whose metaclass implements
                         // a descriptor protocol, only 'get' operations are allowed. If it's accessed
                         // through the object, all access methods are supported.
                         if (isAccessedThroughObject || usage.method === 'get') {
-                            lookupClass = convertToInstance(subtype.details.effectiveMetaclass) as ClassType;
+                            lookupClass = convertToInstance(concreteSubtype.details.effectiveMetaclass) as ClassType;
                             isAccessedThroughMetaclass = true;
                         } else {
                             lookupClass = undefined;
@@ -5054,7 +5059,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // The "bind-to" class depends on whether the descriptor is defined
                                 // on the metaclass or the class. We handle properties specially here
                                 // because of the way we model the __get__ logic in the property class.
-                                if (ClassType.isPropertyClass(subtype) && !isAccessedThroughMetaclass) {
+                                if (ClassType.isPropertyClass(concreteSubtype) && !isAccessedThroughMetaclass) {
                                     if (memberInfo && isInstantiableClass(memberInfo.classType)) {
                                         bindToClass = memberInfo.classType;
                                     }
@@ -5071,7 +5076,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     errorNode,
                                     /* recursionCount */ undefined,
                                     /* treatConstructorAsClassMember */ undefined,
-                                    isAccessedThroughMetaclass ? subtype : undefined
+                                    isAccessedThroughMetaclass ? concreteSubtype : undefined
                                 );
 
                                 if (
@@ -5118,13 +5123,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
-            } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
+            } else if (isFunction(concreteSubtype) || isOverloadedFunction(concreteSubtype)) {
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
                 if (!isAccessedThroughObject || (memberInfo && !memberInfo.isInstanceMember)) {
                     return bindFunctionToClassOrObject(
                         isAccessedThroughObject ? ClassType.cloneAsInstance(baseTypeClass) : baseTypeClass,
-                        subtype,
+                        concreteSubtype,
                         memberInfo && isInstantiableClass(memberInfo.classType) ? memberInfo.classType : undefined,
                         errorNode,
                         /* recursionCount */ undefined,
@@ -5195,16 +5200,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (enforceTargetType) {
-                    let effectiveType = subtype;
+                    let effectiveType = concreteSubtype;
 
                     // If the code is patching a method (defined on the class)
                     // with an object-level function, strip the "self" parameter
                     // off the original type. This is sometimes done for test
                     // purposes to override standard behaviors of specific methods.
                     if (isAccessedThroughObject) {
-                        if (!memberInfo!.isInstanceMember && isFunction(subtype)) {
-                            if (FunctionType.isClassMethod(subtype) || FunctionType.isInstanceMethod(subtype)) {
-                                effectiveType = FunctionType.clone(subtype, /* stripFirstParam */ true);
+                        if (!memberInfo!.isInstanceMember && isFunction(concreteSubtype)) {
+                            if (
+                                FunctionType.isClassMethod(concreteSubtype) ||
+                                FunctionType.isInstanceMethod(concreteSubtype)
+                            ) {
+                                effectiveType = FunctionType.clone(concreteSubtype, /* stripFirstParam */ true);
                             }
                         }
                     }
@@ -15061,11 +15069,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
             }
 
-            const decoratorType = getTypeOfExpression(
+            const decoratorTypeResult = getTypeOfExpression(
                 decoratorNode.expression,
                 /* expectedType */ undefined,
                 evaluatorFlags
-            ).type;
+            );
+            const decoratorType = decoratorTypeResult.type;
+
             if (isFunction(decoratorType)) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
                     if (isInClass) {
@@ -15106,11 +15116,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             evaluatorFlags |= EvaluatorFlags.DoNotSpecialize;
         }
 
-        const decoratorType = getTypeOfExpression(
+        const decoratorTypeResult = getTypeOfExpression(
             decoratorNode.expression,
             /* expectedType */ undefined,
             evaluatorFlags
-        ).type;
+        );
+        const decoratorType = decoratorTypeResult.type;
 
         // Special-case the "overload" because it has no definition. Older versions of typeshed
         // defined "overload" as an object, but newer versions define it as a function.
@@ -15224,13 +15235,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (ClassType.isPropertyClass(decoratorType)) {
                 if (isFunction(inputFunctionType)) {
                     validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
-                    return createProperty(
-                        evaluatorInterface,
-                        decoratorNode,
-                        decoratorType.details.name,
-                        inputFunctionType,
-                        ParseTreeUtils.getTypeSourceId(decoratorNode)
-                    );
+                    return createProperty(evaluatorInterface, decoratorNode, decoratorType, inputFunctionType);
                 } else if (isClassInstance(inputFunctionType)) {
                     const callMember = lookUpObjectMember(inputFunctionType, '__call__');
                     if (callMember) {
@@ -15238,13 +15243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (isFunction(memberType) || isOverloadedFunction(memberType)) {
                             const boundMethod = bindFunctionToClassOrObject(inputFunctionType, memberType);
                             if (boundMethod && isFunction(boundMethod)) {
-                                return createProperty(
-                                    evaluatorInterface,
-                                    decoratorNode,
-                                    decoratorType.details.name,
-                                    boundMethod,
-                                    ParseTreeUtils.getTypeSourceId(decoratorNode)
-                                );
+                                return createProperty(evaluatorInterface, decoratorNode, decoratorType, boundMethod);
                             }
                         }
                     }
@@ -17789,7 +17788,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): EffectiveTypeResult {
         // If there's a declared type, it takes precedence over inferred types.
         if (symbol.hasTypedDeclarations()) {
-            const declaredType = getDeclaredTypeOfSymbol(symbol);
+            const declaredType = getDeclaredTypeOfSymbol(symbol, usageNode);
             return {
                 type: declaredType || UnknownType.create(),
                 isIncomplete: false,
@@ -17936,17 +17935,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
     }
 
-    function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
+    function getDeclaredTypeOfSymbol(symbol: Symbol, usageNode?: NameNode): Type | undefined {
         const synthesizedType = symbol.getSynthesizedType();
         if (synthesizedType) {
             return synthesizedType;
         }
 
-        const typedDecls = symbol.getTypedDeclarations();
+        let typedDecls = symbol.getTypedDeclarations();
 
         if (typedDecls.length === 0) {
             // There was no declaration with a defined type.
             return undefined;
+        }
+
+        // If there is more than one typed decl, filter out any that are not
+        // reachable from the usage node (if specified). This can happen in
+        // cases where a property symbol is redefined to add a setter, deleter,
+        // etc.
+        if (typedDecls.length > 1 && usageNode) {
+            const filteredTypedDecls = typedDecls.filter((decl) => {
+                if (decl.type !== DeclarationType.Alias) {
+                    // Is the declaration in the same execution scope as the "usageNode" node?
+                    const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
+                    const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
+                    if (usageScope === declScope) {
+                        if (!isFlowPathBetweenNodes(decl.node, usageNode, /* allowSelf */ false)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            });
+
+            if (filteredTypedDecls.length > 0) {
+                typedDecls = filteredTypedDecls;
+            }
         }
 
         // Start with the last decl. If that's already being resolved,

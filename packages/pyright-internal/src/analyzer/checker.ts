@@ -2226,20 +2226,21 @@ export class Checker extends ParseTreeWalker {
                     return true;
                 }
 
+                const decoratedType = primaryDeclTypeInfo
+                    ? this._evaluator.makeTopLevelTypeVarsConcrete(primaryDeclTypeInfo.decoratedType)
+                    : undefined;
+
                 // We need to handle properties in a careful manner because of
                 // the way that setters and deleters are often defined using multiple
                 // methods with the same name.
                 if (
-                    primaryDeclTypeInfo &&
-                    isClassInstance(primaryDeclTypeInfo.decoratedType) &&
-                    ClassType.isPropertyClass(primaryDeclTypeInfo.decoratedType) &&
+                    decoratedType &&
+                    isClassInstance(decoratedType) &&
+                    ClassType.isPropertyClass(decoratedType) &&
                     isClassInstance(funcTypeInfo.decoratedType) &&
                     ClassType.isPropertyClass(funcTypeInfo.decoratedType)
                 ) {
-                    return (
-                        funcTypeInfo.decoratedType.details.typeSourceId !==
-                        primaryDeclTypeInfo!.decoratedType.details.typeSourceId
-                    );
+                    return funcTypeInfo.decoratedType.details.typeSourceId !== decoratedType.details.typeSourceId;
                 }
 
                 return !FunctionType.isOverloaded(funcTypeInfo.functionType);

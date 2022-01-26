@@ -12,7 +12,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import { DecoratorNode, FunctionNode, ParameterCategory, ParseNode } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { getClassFullName } from './parseTreeUtils';
+import { getClassFullName, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -30,7 +30,6 @@ import {
     NoneType,
     OverloadedFunctionType,
     Type,
-    TypeSourceId,
     UnknownType,
 } from './types';
 import { CanAssignFlags, computeMroLinearization, getTypeVarScopeId, isProperty } from './typeUtils';
@@ -50,14 +49,17 @@ export function validatePropertyMethod(evaluator: TypeEvaluator, method: Functio
 export function createProperty(
     evaluator: TypeEvaluator,
     decoratorNode: DecoratorNode,
-    className: string,
-    fget: FunctionType,
-    typeSourceId: TypeSourceId
+    decoratorType: ClassType,
+    fget: FunctionType
 ): ClassType {
     const fileInfo = getFileInfo(decoratorNode);
     const typeMetaclass = evaluator.getBuiltInType(decoratorNode, 'type');
+    const typeSourceId = ClassType.isBuiltIn(decoratorType, 'property')
+        ? getTypeSourceId(decoratorNode)
+        : decoratorType.details.typeSourceId;
+
     const propertyClass = ClassType.createInstantiable(
-        className,
+        decoratorType.details.name,
         getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
         fileInfo.moduleName,
         fileInfo.filePath,
@@ -66,13 +68,26 @@ export function createProperty(
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
+
+    propertyClass.details.typeVarScopeId = decoratorType.details.typeVarScopeId;
     computeMroLinearization(propertyClass);
+
+    // Clone the symbol table of the old class type.
+    const fields = propertyClass.details.fields;
+    decoratorType.details.fields.forEach((symbol, name) => {
+        const ignoredMethods = ['__get__', '__set__', '__delete__', 'fget', 'fset', 'fdel'];
+
+        if (!symbol.isIgnoredForProtocolMatch()) {
+            if (!ignoredMethods.some((m) => m === name)) {
+                fields.set(name, symbol);
+            }
+        }
+    });
 
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
     propertyClass.isAsymmetricDescriptor = false;
 
     // Fill in the fget method.
-    const fields = propertyClass.details.fields;
     const fgetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fget);
     fields.set('fget', fgetSymbol);
 
@@ -233,6 +248,7 @@ export function clonePropertyWithSetter(
         classType.details.declaredMetaclass,
         classType.details.effectiveMetaclass
     );
+    propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
     computeMroLinearization(propertyClass);
 
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
@@ -310,6 +326,7 @@ export function clonePropertyWithDeleter(
         classType.details.declaredMetaclass,
         classType.details.effectiveMetaclass
     );
+    propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
     computeMroLinearization(propertyClass);
 
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
