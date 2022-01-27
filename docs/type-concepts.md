@@ -84,10 +84,9 @@ Switching from a mutable container type to a corresponding immutable container t
 ```
 my_list_1: List[int] = [1, 2, 3]
 my_list_2: Sequence[Optional[int]] = my_list_1  # No longer an error
-my_list_2.append(None)  # Error
 ```
 
-The type error on the second line has now gone away, but a new error is reported on the third line because the `append` operation is not allowed on an immutable Sequence.
+The type error on the second line has now gone away.
 
 For more details about generic types, type parameters, and invariance, refer to [PEP 483 — The Theory of Type Hints](https://www.python.org/dev/peps/pep-0483/).
 
