@@ -1660,7 +1660,9 @@ export function getCodeFlowEngine(
                     symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
                 }
 
-                return symbol ? evaluator.getEffectiveTypeOfSymbol(symbol) : undefined;
+                // We want to limit the evaluation to declared types only, so
+                // we use getDeclaredTypeOfSymbol rather than getEffectiveTypeOfSymbol.
+                return symbol ? evaluator.getDeclaredTypeOfSymbol(symbol) : undefined;
             });
 
             if (!isNever(declaredTypeOfSymbol)) {
