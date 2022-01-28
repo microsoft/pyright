@@ -8350,6 +8350,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let matchedUnpackedListOfUnknownLength = false;
         let reportedArgError = false;
         let isTypeIncomplete = false;
+        let isVariadicTypeVarFullyMatched = false;
 
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
@@ -8553,6 +8554,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // unpacked variadic type variable.
                     listElementType = argType;
                     isArgCompatibleWithVariadic = true;
+                    advanceToNextArg = true;
+                    isVariadicTypeVarFullyMatched = true;
+                } else if (
+                    isClassInstance(argType) &&
+                    isTupleClass(argType) &&
+                    argType.tupleTypeArguments &&
+                    argType.tupleTypeArguments.length === 1 &&
+                    isVariadicTypeVar(argType.tupleTypeArguments[0].type)
+                ) {
+                    // Handle the case where an unpacked variadic type var has
+                    // been packaged into a tuple.
+                    listElementType = argType.tupleTypeArguments[0].type;
+                    isArgCompatibleWithVariadic = true;
+                    advanceToNextArg = true;
+                    isVariadicTypeVarFullyMatched = true;
                 } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                     listElementType = undefined;
                 } else {
@@ -8622,7 +8638,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     argIndex++;
                 }
 
-                if (paramDetails.params[paramIndex].param.category !== ParameterCategory.VarArgList) {
+                if (
+                    isVariadicTypeVarFullyMatched ||
+                    paramDetails.params[paramIndex].param.category !== ParameterCategory.VarArgList
+                ) {
                     paramIndex++;
                 }
             } else if (paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList) {
@@ -9050,12 +9069,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // bother doing the extra work here. This occurs frequently when attempting to find the
         // correct overload.
         if (!reportedArgError || !speculativeTypeTracker.isSpeculative(undefined)) {
-            // If there are arguments that map to a variadic *args parameter, see
-            // if the type of that *args parameter is a variadic type variable. If so,
-            // we'll preprocess those arguments and combine them into a tuple.
+            // If there are arguments that map to a variadic *args parameter that hasn't
+            // already been matched, see if the type of that *args parameter is a variadic
+            // type variable. If so, we'll preprocess those arguments and combine them
+            // into a tuple.
             if (
                 paramDetails.argsIndex !== undefined &&
-                paramDetails.params[paramDetails.argsIndex].param.hasDeclaredType
+                paramDetails.params[paramDetails.argsIndex].param.hasDeclaredType &&
+                !isVariadicTypeVarFullyMatched
             ) {
                 const paramType = paramDetails.params[paramDetails.argsIndex].type;
                 const variadicArgs = validateArgTypeParams.filter((argParam) => argParam.mapsToVarArgList);
