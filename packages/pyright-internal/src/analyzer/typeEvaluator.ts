@@ -10563,6 +10563,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // For the "+" operator , use this technique only if the right operand is
                 // a list expression. This heuristic handles the common case of `my_list + [0]`.
                 expectedOperandType = leftType;
+            } else if (node.operator === OperatorType.BitwiseOr) {
+                // If this is a bitwise or ("|"), use the type of the left operand. This allows
+                // us to support the case where a TypedDict is being updated with a dict expression.
+                expectedOperandType = leftType;
             }
         }
 
@@ -10732,7 +10736,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const leftTypeResult = getTypeOfExpression(node.leftExpression);
         const leftType = leftTypeResult.type;
-        const rightTypeResult = getTypeOfExpression(node.rightExpression);
+
+        let expectedOperandType: Type | undefined;
+        if (node.operator === OperatorType.BitwiseOrEqual) {
+            // If this is a bitwise or ("|="), use the type of the left operand. This allows
+            // us to support the case where a TypedDict is being updated with a dict expression.
+            expectedOperandType = leftType;
+        }
+
+        const rightTypeResult = getTypeOfExpression(node.rightExpression, expectedOperandType);
         const rightType = rightTypeResult.type;
         const isIncomplete = !!rightTypeResult.isIncomplete || !!leftTypeResult.isIncomplete;
 

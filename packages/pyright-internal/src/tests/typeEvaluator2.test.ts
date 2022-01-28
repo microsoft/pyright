@@ -1107,3 +1107,9 @@ test('TypedDict16', () => {
 
     TestUtils.validateResults(analysisResults, 9);
 });
+
+test('TypedDict17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict17.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
