@@ -2649,6 +2649,8 @@ class TypeVarTransformer {
 
         // Unpack the tuple and synthesize a new function in the process.
         const newFunctionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.SynthesizedMethod);
+        let insertKeywordOnlySeparator = false;
+
         specializedParameters.parameterTypes.forEach((paramType, index) => {
             if (index === variadicParamIndex) {
                 // Unpack the tuple into individual parameters.
@@ -2661,8 +2663,27 @@ class TypeVarTransformer {
                         hasDeclaredType: true,
                     });
                 });
+
+                insertKeywordOnlySeparator = true;
             } else {
                 const param = { ...functionType.details.parameters[index] };
+
+                if (param.category === ParameterCategory.VarArgList && !param.name) {
+                    insertKeywordOnlySeparator = false;
+                } else if (param.category === ParameterCategory.VarArgDictionary) {
+                    insertKeywordOnlySeparator = false;
+                }
+
+                // Insert a keyword-only separator parameter if we previously
+                // unpacked a variadic TypeVar.
+                if (param.category === ParameterCategory.Simple && param.name && insertKeywordOnlySeparator) {
+                    FunctionType.addParameter(newFunctionType, {
+                        category: ParameterCategory.VarArgList,
+                        type: UnknownType.create(),
+                    });
+                    insertKeywordOnlySeparator = false;
+                }
+
                 param.type = paramType;
                 if (param.name && param.isNameSynthesized) {
                     param.name = `__p${newFunctionType.details.parameters.length}`;
