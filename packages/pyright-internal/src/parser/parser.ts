@@ -3663,23 +3663,31 @@ export class Parser {
         // Do a lookahead operation to see if this smells like an arrow
         // call. If not, it's probably a normal parenthesis or tuple
         // expression.
-        this._suppressErrors(() => {
-            const curTokenIndex = this._tokenIndex;
+        const curTokenIndex = this._tokenIndex;
+        this._consumeTokenIfKeyword(KeywordType.Async);
 
-            this._consumeTokenIfKeyword(KeywordType.Async);
+        if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
+            let parenLevel = 1;
+            smellsLikeArrowCall = true;
 
-            if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-                this._parseArrowCallableParameterList();
-
-                if (this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                    if (this._consumeTokenIfType(TokenType.Arrow)) {
-                        smellsLikeArrowCall = true;
-                    }
+            while (parenLevel > 0) {
+                const nextToken = this._getNextToken();
+                if (nextToken.type === TokenType.OpenParenthesis) {
+                    parenLevel++;
+                } else if (nextToken.type === TokenType.CloseParenthesis) {
+                    parenLevel--;
+                } else if (nextToken.type === TokenType.EndOfStream) {
+                    smellsLikeArrowCall = false;
+                    break;
                 }
             }
 
-            this._tokenIndex = curTokenIndex;
-        });
+            if (!this._consumeTokenIfType(TokenType.Arrow)) {
+                smellsLikeArrowCall = false;
+            }
+        }
+
+        this._tokenIndex = curTokenIndex;
 
         if (!smellsLikeArrowCall) {
             return undefined;

@@ -1179,6 +1179,14 @@ test('ArrowCallable2', () => {
     TestUtils.validateResults(analysisResults2, 0);
 });
 
+test('ArrowCallable3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['arrowCallable3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Partial1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['partial1.py']);
 
