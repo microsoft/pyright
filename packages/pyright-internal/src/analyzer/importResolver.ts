@@ -1193,44 +1193,27 @@ export class ImportResolver {
         const importName = this.formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
 
-        // First check for a stdlib typeshed file.
-        if (allowPyi && moduleDescriptor.nameParts.length > 0) {
-            const builtInImport = this._findTypeshedPath(
+        // Check for a local stub file using stubPath.
+        if (allowPyi && this._configOptions.stubPath) {
+            importFailureInfo.push(`Looking in stubPath '${this._configOptions.stubPath}'`);
+            const typingsImport = this.resolveAbsoluteImport(
+                this._configOptions.stubPath,
                 execEnv,
                 moduleDescriptor,
                 importName,
-                /* isStdLib */ true,
-                importFailureInfo
+                importFailureInfo,
+                /* allowPartial */ undefined,
+                /* allowNativeLib */ false,
+                /* useStubPackage */ true,
+                allowPyi,
+                /* lookForPyTyped */ false
             );
-            if (builtInImport) {
-                builtInImport.isTypeshedFile = true;
-                return builtInImport;
-            }
-        }
 
-        if (allowPyi) {
-            // Check for a local stub file using stubPath.
-            if (this._configOptions.stubPath) {
-                importFailureInfo.push(`Looking in stubPath '${this._configOptions.stubPath}'`);
-                const typingsImport = this.resolveAbsoluteImport(
-                    this._configOptions.stubPath,
-                    execEnv,
-                    moduleDescriptor,
-                    importName,
-                    importFailureInfo,
-                    /* allowPartial */ undefined,
-                    /* allowNativeLib */ false,
-                    /* useStubPackage */ true,
-                    allowPyi,
-                    /* lookForPyTyped */ false
-                );
-
-                if (typingsImport.isImportFound) {
-                    // We will treat typings files as "local" rather than "third party".
-                    typingsImport.importType = ImportType.Local;
-                    typingsImport.isLocalTypingsFile = true;
-                    return typingsImport;
-                }
+            if (typingsImport.isImportFound) {
+                // We will treat typings files as "local" rather than "third party".
+                typingsImport.importType = ImportType.Local;
+                typingsImport.isLocalTypingsFile = true;
+                return typingsImport;
             }
         }
 
@@ -1308,13 +1291,14 @@ export class ImportResolver {
 
         // If a library is fully py.typed, then we have found the best match,
         // unless the execution environment is typeshed itself, in which case
-        // we don't want to favor py.typed libraries the typeshed lookup below.
+        // we don't want to favor py.typed libraries. Use the typeshed lookup below.
         if (execEnv.root !== this._getTypeshedRoot(execEnv, importFailureInfo)) {
             if (bestResultSoFar?.pyTypedInfo && !bestResultSoFar.isPartlyResolved) {
                 return bestResultSoFar;
             }
         }
 
+        // Call the extensibility hook for subclasses.
         const extraResults = this.resolveImportEx(
             sourceFilePath,
             execEnv,
@@ -1323,13 +1307,29 @@ export class ImportResolver {
             importFailureInfo,
             allowPyi
         );
-        if (extraResults !== undefined) {
+
+        if (extraResults) {
             return extraResults;
         }
 
-        if (allowPyi) {
+        if (allowPyi && moduleDescriptor.nameParts.length > 0) {
+            // Check for a stdlib typeshed file.
+            importFailureInfo.push(`Looking for typeshed stdlib path`);
+            const typeshedStdlibImport = this._findTypeshedPath(
+                execEnv,
+                moduleDescriptor,
+                importName,
+                /* isStdLib */ true,
+                importFailureInfo
+            );
+
+            if (typeshedStdlibImport) {
+                typeshedStdlibImport.isTypeshedFile = true;
+                return typeshedStdlibImport;
+            }
+
             // Check for a third-party typeshed file.
-            importFailureInfo.push(`Looking for typeshed path`);
+            importFailureInfo.push(`Looking for typeshed third-party path`);
             const typeshedImport = this._findTypeshedPath(
                 execEnv,
                 moduleDescriptor,
