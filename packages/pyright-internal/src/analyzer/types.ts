@@ -1497,9 +1497,9 @@ export namespace FunctionType {
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {
-        assert(index < type.details.parameters.length);
-        if (type.specializedTypes) {
-            assert(index < type.specializedTypes.parameterTypes.length);
+        assert(index < type.details.parameters.length, 'Parameter types array overflow');
+
+        if (type.specializedTypes && index < type.specializedTypes.parameterTypes.length) {
             return type.specializedTypes.parameterTypes[index];
         }
 
