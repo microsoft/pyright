@@ -3654,9 +3654,7 @@ export class Checker extends ParseTreeWalker {
     // the proper variance (invariant, covariant, contravariant). See PEP 544
     // for an explanation for why this is important to enforce.
     private _validateProtocolTypeParamVariance(errorNode: ClassNode, classType: ClassType) {
-        const origTypeParams = classType.details.typeParameters.filter(
-            (typeParam) => !isParamSpec(typeParam) && !isVariadicTypeVar(typeParam)
-        );
+        const origTypeParams = classType.details.typeParameters.filter((typeParam) => !isParamSpec(typeParam));
 
         // If this isn't a generic protocol, there's nothing to do here.
         if (origTypeParams.length === 0) {
@@ -3669,7 +3667,9 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Replace all of the type parameters with invariant TypeVars.
-        const updatedTypeParams = origTypeParams.map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
+        const updatedTypeParams = origTypeParams.map((typeParam) =>
+            isVariadicTypeVar(typeParam) ? typeParam : TypeVarType.cloneAsInvariant(typeParam)
+        );
         const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
         const objectObject = ClassType.cloneAsInstance(objectType);
@@ -3685,16 +3685,24 @@ export class Checker extends ParseTreeWalker {
         );
 
         updatedTypeParams.forEach((param, paramIndex) => {
+            // Skip variadics.
+            if (param.details.isVariadic) {
+                return;
+            }
+
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with an object instance.
-            const srcTypeArgs = updatedTypeParams.map((_, i) => {
+            const srcTypeArgs = updatedTypeParams.map((p, i) => {
+                if (p.details.isVariadic) {
+                    return p;
+                }
                 return i === paramIndex ? objectObject : dummyTypeObject;
             });
 
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with itself.
             const destTypeArgs = updatedTypeParams.map((p, i) => {
-                return i === paramIndex ? p : dummyTypeObject;
+                return i === paramIndex || p.details.isVariadic ? p : dummyTypeObject;
             });
 
             const srcType = ClassType.cloneForSpecialization(
