@@ -266,6 +266,7 @@ import {
     synthesizeTypeVarForSelfCls,
     transformExpectedTypeForConstructor,
     transformPossibleRecursiveTypeAlias,
+    VirtualParameterDetails,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -21759,13 +21760,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Handle matching of named (keyword) parameters.
         if (!targetIncludesParamSpec) {
             // Build a dictionary of named parameters in the dest.
-            const destParamMap = new Map<string, FunctionParameter>();
+            const destParamMap = new Map<string, VirtualParameterDetails>();
 
             if (destParamDetails.firstKeywordOnlyIndex !== undefined) {
                 destParamDetails.params.forEach((param, index) => {
                     if (index >= destParamDetails.firstKeywordOnlyIndex!) {
                         if (param.param.name && param.param.category === ParameterCategory.Simple) {
-                            destParamMap.set(param.param.name, param.param);
+                            destParamMap.set(param.param.name, param);
                         }
                     }
                 });
@@ -21782,17 +21783,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (srcStartOfNamed >= 0) {
-                srcParamDetails.params.forEach((srcParam, index) => {
+                srcParamDetails.params.forEach((srcParamInfo, index) => {
                     if (index >= srcStartOfNamed) {
-                        if (srcParam.param.name && srcParam.param.category === ParameterCategory.Simple) {
-                            const destParam = destParamMap.get(srcParam.param.name);
+                        if (srcParamInfo.param.name && srcParamInfo.param.category === ParameterCategory.Simple) {
+                            const destParamInfo = destParamMap.get(srcParamInfo.param.name);
                             const paramDiag = diag?.createAddendum();
-                            if (!destParam) {
-                                if (destParamDetails.kwargsIndex === undefined && !srcParam.param.hasDefault) {
+                            const srcParamType = FunctionType.getEffectiveParameterType(srcType, srcParamInfo.index);
+
+                            if (!destParamInfo) {
+                                if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.hasDefault) {
                                     if (paramDiag) {
                                         paramDiag.addMessage(
                                             Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
-                                                name: srcParam.param.name,
+                                                name: srcParamInfo.param.name,
                                             })
                                         );
                                     }
@@ -21802,7 +21805,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     if (
                                         !canAssignFunctionParameter(
                                             destParamDetails.params[destParamDetails.kwargsIndex].type,
-                                            srcParam.param.type,
+                                            srcParamType,
                                             destParamDetails.params[destParamDetails.kwargsIndex].index,
                                             diag?.createAddendum(),
                                             destTypeVarMap,
@@ -21815,12 +21818,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     }
                                 }
                             } else {
+                                const destParamType = FunctionType.getEffectiveParameterType(
+                                    destType,
+                                    destParamInfo.index
+                                );
                                 const specializedDestParamType = destTypeVarMap
-                                    ? applySolvedTypeVars(destParam.type, destTypeVarMap)
-                                    : destParam.type;
+                                    ? applySolvedTypeVars(destParamType, destTypeVarMap)
+                                    : destParamType;
+
                                 if (
                                     !canAssignType(
-                                        srcParam.param.type,
+                                        srcParamType,
                                         specializedDestParamType,
                                         paramDiag?.createAddendum(),
                                         undefined,
@@ -21831,27 +21839,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     if (paramDiag) {
                                         paramDiag.addMessage(
                                             Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
-                                                name: srcParam.param.name,
+                                                name: srcParamInfo.param.name,
                                                 sourceType: printType(specializedDestParamType),
-                                                destType: printType(srcParam.param.type),
+                                                destType: printType(srcParamType),
                                             })
                                         );
                                     }
                                     canAssign = false;
                                 }
 
-                                if (!!destParam.hasDefault && !srcParam.param.hasDefault) {
+                                if (!!destParamInfo.param.hasDefault && !srcParamInfo.param.hasDefault) {
                                     if (diag) {
                                         diag.createAddendum().addMessage(
                                             Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
-                                                name: srcParam.param.name,
+                                                name: srcParamInfo.param.name,
                                             })
                                         );
                                     }
                                     canAssign = false;
                                 }
 
-                                destParamMap.delete(srcParam.param.name);
+                                destParamMap.delete(srcParamInfo.param.name);
                             }
                         }
                     }
@@ -21859,14 +21867,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // See if there are any unmatched named parameters.
-            destParamMap.forEach((destParam, paramName) => {
-                if (srcParamDetails.kwargsIndex !== undefined && destParam.name) {
+            destParamMap.forEach((destParamInfo, paramName) => {
+                if (srcParamDetails.kwargsIndex !== undefined && destParamInfo.param.name) {
                     // Make sure the src kwargs type is compatible.
                     if (
                         !canAssignFunctionParameter(
-                            destParam.type,
+                            destParamInfo.param.type,
                             srcParamDetails.params[srcParamDetails.kwargsIndex].type,
-                            destType.details.parameters.findIndex((p) => p === destParam),
+                            destParamInfo.index,
                             diag?.createAddendum(),
                             destTypeVarMap,
                             srcTypeVarMap,
@@ -21876,7 +21884,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         canAssign = false;
                     }
-                    destParamMap.delete(destParam.name);
+                    destParamMap.delete(paramName);
                 } else {
                     if (diag) {
                         diag.createAddendum().addMessage(
