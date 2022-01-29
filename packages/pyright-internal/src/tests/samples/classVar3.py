@@ -1,7 +1,7 @@
 # This sample tests the reporting of errors for ClassVar in contexts
 # where it is not allowed.
 
-from typing import Any, ClassVar, Final, Generic, List, TypeVar
+from typing import Annotated, Any, ClassVar, Final, Generic, List, TypeVar
 from typing_extensions import Self
 
 # This should generate an error.
@@ -29,7 +29,7 @@ class Foo(Generic[T]):
 
     ok1: ClassVar[list]
     ok2: ClassVar[List[Any]]
-    ok3: ClassVar[List[Self]]
+    ok3: Annotated[ClassVar[List[Self]], ""]
 
     # This should generate an error.
     def func1(self, a: ClassVar[int]):

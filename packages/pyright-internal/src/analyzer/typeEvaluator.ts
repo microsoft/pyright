@@ -6301,9 +6301,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 addError(Localizer.Diagnostic.protocolNotAllowedInTypeArgument(), node);
             }
 
-            // "ClassVar" is not allowed as a type argument.
-            if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ClassVar')) {
-                addError(Localizer.Diagnostic.protocolNotAllowedInTypeArgument(), node);
+            if ((flags & EvaluatorFlags.ClassVarDisallowed) !== 0) {
+                // "ClassVar" is not allowed as a type argument.
+                if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ClassVar')) {
+                    addError(Localizer.Diagnostic.classVarNotAllowed(), node);
+                }
             }
         }
 

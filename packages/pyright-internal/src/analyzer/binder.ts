@@ -3669,9 +3669,16 @@ export class Binder extends ParseTreeWalker {
         let isClassVar = false;
         let classVarTypeNode: ExpressionNode | undefined;
 
-        if (typeAnnotation) {
-            if (this._isTypingAnnotation(typeAnnotation, 'ClassVar')) {
+        while (typeAnnotation) {
+            if (
+                typeAnnotation.nodeType === ParseNodeType.Index &&
+                typeAnnotation.items.length > 0 &&
+                this._isTypingAnnotation(typeAnnotation.baseExpression, 'Annotated')
+            ) {
+                typeAnnotation = typeAnnotation.items[0].valueExpression;
+            } else if (this._isTypingAnnotation(typeAnnotation, 'ClassVar')) {
                 isClassVar = true;
+                break;
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
                 // Recursively call to see if the base expression is "ClassVar".
                 const finalInfo = this._isAnnotationClassVar(typeAnnotation.baseExpression);
@@ -3684,6 +3691,9 @@ export class Binder extends ParseTreeWalker {
                     isClassVar = true;
                     classVarTypeNode = typeAnnotation.items[0].valueExpression;
                 }
+                break;
+            } else {
+                break;
             }
         }
 
