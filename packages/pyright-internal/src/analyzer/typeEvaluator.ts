@@ -22228,6 +22228,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we're overriding an overloaded method, uses the last overload.
         if (isOverloadedFunction(baseMethod)) {
             baseMethod = baseMethod.overloads[baseMethod.overloads.length - 1];
+
+            // If the overloaded method doesn't have an implementation, skip the check.
+            if (FunctionType.isOverloaded(baseMethod)) {
+                return true;
+            }
         }
 
         // If we're overriding a non-method with a method, report it as an error.

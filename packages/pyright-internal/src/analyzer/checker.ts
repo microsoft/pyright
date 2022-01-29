@@ -4060,6 +4060,11 @@ export class Checker extends ParseTreeWalker {
                             } else if (isOverloadedFunction(overrideType)) {
                                 // Use the last overload.
                                 overrideFunction = overrideType.overloads[overrideType.overloads.length - 1];
+
+                                // If the last overload isn't an implementation, skip the check for this symbol.
+                                if (FunctionType.isOverloaded(overrideFunction)) {
+                                    continue;
+                                }
                             }
 
                             if (overrideFunction) {
