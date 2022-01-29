@@ -22,34 +22,32 @@ from typing import (  # noqa Y022
     Mapping,
     NewType as NewType,
     NoReturn as NoReturn,
+    Protocol as Protocol,
     Text as Text,
     Type as Type,
     TypeVar,
     ValuesView,
     _Alias,
     overload as overload,
+    runtime_checkable as runtime_checkable,
 )
 
 _T = TypeVar("_T")
 _F = TypeVar("_F", bound=Callable[..., Any])
-_TC = TypeVar("_TC", bound=type[object])
 
 class _SpecialForm:
     def __getitem__(self, typeargs: Any) -> Any: ...
 
-def runtime_checkable(cls: _TC) -> _TC: ...
-
 # This alias for above is kept here for backwards compatibility.
 runtime = runtime_checkable
-Protocol: _SpecialForm = ...
-Final: _SpecialForm = ...
-Self: _SpecialForm = ...
-Required: _SpecialForm = ...
-NotRequired: _SpecialForm = ...
+Final: _SpecialForm
+Self: _SpecialForm
+Required: _SpecialForm
+NotRequired: _SpecialForm
 
 def final(f: _F) -> _F: ...
 
-Literal: _SpecialForm = ...
+Literal: _SpecialForm
 
 def IntVar(name: str) -> Any: ...  # returns a new TypeVar
 
@@ -76,7 +74,7 @@ class _TypedDict(Mapping[str, object], metaclass=abc.ABCMeta):
     def __delitem__(self, k: NoReturn) -> None: ...
 
 # TypedDict is a (non-subscriptable) special form.
-TypedDict: object = ...
+TypedDict: object
 
 OrderedDict = _Alias()
 
@@ -90,8 +88,8 @@ if sys.version_info >= (3, 7):
     def get_args(tp: Any) -> tuple[Any, ...]: ...
     def get_origin(tp: Any) -> Any | None: ...
 
-Annotated: _SpecialForm = ...
-_AnnotatedAlias: Any = ...  # undocumented
+Annotated: _SpecialForm
+_AnnotatedAlias: Any  # undocumented
 
 @runtime_checkable
 class SupportsIndex(Protocol, metaclass=abc.ABCMeta):
@@ -126,9 +124,9 @@ else:
         def args(self) -> ParamSpecArgs: ...
         @property
         def kwargs(self) -> ParamSpecKwargs: ...
-    Concatenate: _SpecialForm = ...
-    TypeAlias: _SpecialForm = ...
-    TypeGuard: _SpecialForm = ...
+    Concatenate: _SpecialForm
+    TypeAlias: _SpecialForm
+    TypeGuard: _SpecialForm
     def is_typeddict(tp: object) -> bool: ...
 
 # PEP 646

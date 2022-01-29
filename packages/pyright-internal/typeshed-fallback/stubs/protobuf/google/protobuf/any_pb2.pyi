@@ -9,7 +9,7 @@ import google.protobuf.message
 import typing
 import typing_extensions
 
-DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 class Any(google.protobuf.message.Message, google.protobuf.internal.well_known_types.Any):
     """`Any` contains an arbitrary serialized protocol buffer message along with a
@@ -95,10 +95,10 @@ class Any(google.protobuf.message.Message, google.protobuf.internal.well_known_t
           "value": "1.212s"
         }
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     TYPE_URL_FIELD_NUMBER: builtins.int
     VALUE_FIELD_NUMBER: builtins.int
-    type_url: typing.Text = ...
+    type_url: typing.Text
     """A URL/resource name that uniquely identifies the type of the serialized
     protocol buffer message. This string must contain at least
     one "/" character. The last segment of the URL's path must represent
@@ -128,13 +128,13 @@ class Any(google.protobuf.message.Message, google.protobuf.internal.well_known_t
     used with implementation specific semantics.
     """
 
-    value: builtins.bytes = ...
+    value: builtins.bytes
     """Must be a valid serialized protocol buffer of the above specified type."""
 
     def __init__(self,
         *,
-        type_url : typing.Text = ...,
-        value : builtins.bytes = ...,
+        type_url: typing.Optional[typing.Text] = ...,
+        value: typing.Optional[builtins.bytes] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["type_url",b"type_url","value",b"value"]) -> None: ...
 global___Any = Any

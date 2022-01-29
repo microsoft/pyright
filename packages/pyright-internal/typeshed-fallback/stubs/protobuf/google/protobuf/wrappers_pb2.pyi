@@ -8,21 +8,21 @@ import google.protobuf.message
 import typing
 import typing_extensions
 
-DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 class DoubleValue(google.protobuf.message.Message):
     """Wrapper message for `double`.
 
     The JSON representation for `DoubleValue` is JSON number.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.float = ...
+    value: builtins.float
     """The double value."""
 
     def __init__(self,
         *,
-        value : builtins.float = ...,
+        value: typing.Optional[builtins.float] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___DoubleValue = DoubleValue
@@ -32,14 +32,14 @@ class FloatValue(google.protobuf.message.Message):
 
     The JSON representation for `FloatValue` is JSON number.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.float = ...
+    value: builtins.float
     """The float value."""
 
     def __init__(self,
         *,
-        value : builtins.float = ...,
+        value: typing.Optional[builtins.float] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___FloatValue = FloatValue
@@ -49,14 +49,14 @@ class Int64Value(google.protobuf.message.Message):
 
     The JSON representation for `Int64Value` is JSON string.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.int = ...
+    value: builtins.int
     """The int64 value."""
 
     def __init__(self,
         *,
-        value : builtins.int = ...,
+        value: typing.Optional[builtins.int] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___Int64Value = Int64Value
@@ -66,14 +66,14 @@ class UInt64Value(google.protobuf.message.Message):
 
     The JSON representation for `UInt64Value` is JSON string.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.int = ...
+    value: builtins.int
     """The uint64 value."""
 
     def __init__(self,
         *,
-        value : builtins.int = ...,
+        value: typing.Optional[builtins.int] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___UInt64Value = UInt64Value
@@ -83,14 +83,14 @@ class Int32Value(google.protobuf.message.Message):
 
     The JSON representation for `Int32Value` is JSON number.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.int = ...
+    value: builtins.int
     """The int32 value."""
 
     def __init__(self,
         *,
-        value : builtins.int = ...,
+        value: typing.Optional[builtins.int] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___Int32Value = Int32Value
@@ -100,14 +100,14 @@ class UInt32Value(google.protobuf.message.Message):
 
     The JSON representation for `UInt32Value` is JSON number.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.int = ...
+    value: builtins.int
     """The uint32 value."""
 
     def __init__(self,
         *,
-        value : builtins.int = ...,
+        value: typing.Optional[builtins.int] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___UInt32Value = UInt32Value
@@ -117,14 +117,14 @@ class BoolValue(google.protobuf.message.Message):
 
     The JSON representation for `BoolValue` is JSON `true` and `false`.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.bool = ...
+    value: builtins.bool
     """The bool value."""
 
     def __init__(self,
         *,
-        value : builtins.bool = ...,
+        value: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___BoolValue = BoolValue
@@ -134,14 +134,14 @@ class StringValue(google.protobuf.message.Message):
 
     The JSON representation for `StringValue` is JSON string.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: typing.Text = ...
+    value: typing.Text
     """The string value."""
 
     def __init__(self,
         *,
-        value : typing.Text = ...,
+        value: typing.Optional[typing.Text] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___StringValue = StringValue
@@ -151,14 +151,14 @@ class BytesValue(google.protobuf.message.Message):
 
     The JSON representation for `BytesValue` is JSON string.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: builtins.bytes = ...
+    value: builtins.bytes
     """The bytes value."""
 
     def __init__(self,
         *,
-        value : builtins.bytes = ...,
+        value: typing.Optional[builtins.bytes] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["value",b"value"]) -> None: ...
 global___BytesValue = BytesValue

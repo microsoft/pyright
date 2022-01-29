@@ -5,7 +5,7 @@ isort:skip_file
 import google.protobuf.descriptor
 import google.protobuf.message
 
-DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 class Empty(google.protobuf.message.Message):
     """A generic empty message that you can re-use to avoid defining duplicated
@@ -18,7 +18,7 @@ class Empty(google.protobuf.message.Message):
 
     The JSON representation for `Empty` is empty JSON object `{}`.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     def __init__(self,
         ) -> None: ...
 global___Empty = Empty

@@ -10,7 +10,7 @@ import google.protobuf.message
 import typing
 import typing_extensions
 
-DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 class FieldMask(google.protobuf.message.Message, google.protobuf.internal.well_known_types.FieldMask):
     """`FieldMask` represents a set of symbolic field paths, for example:
@@ -213,7 +213,7 @@ class FieldMask(google.protobuf.message.Message, google.protobuf.internal.well_k
     request should verify the included field paths, and return an
     `INVALID_ARGUMENT` error if any path is unmappable.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     PATHS_FIELD_NUMBER: builtins.int
     @property
     def paths(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]:
@@ -221,7 +221,7 @@ class FieldMask(google.protobuf.message.Message, google.protobuf.internal.well_k
         pass
     def __init__(self,
         *,
-        paths : typing.Optional[typing.Iterable[typing.Text]] = ...,
+        paths: typing.Optional[typing.Iterable[typing.Text]] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["paths",b"paths"]) -> None: ...
 global___FieldMask = FieldMask

@@ -24,7 +24,11 @@ if sys.version_info >= (3, 7):
     from types import ClassMethodDescriptorType, WrapperDescriptorType, MemberDescriptorType, MethodDescriptorType
 
 from typing import Any, ClassVar, Coroutine, NamedTuple, Protocol, TypeVar, Union
-from typing_extensions import Literal, TypeGuard
+from typing_extensions import Literal, ParamSpec, TypeGuard
+
+_P = ParamSpec("_P")
+_T_cont = TypeVar("_T_cont", contravariant=True)
+_V_cont = TypeVar("_V_cont", contravariant=True)
 
 #
 # Types and members
@@ -79,9 +83,6 @@ if sys.version_info >= (3, 8):
 
 else:
     def isasyncgenfunction(object: object) -> bool: ...
-
-_T_cont = TypeVar("_T_cont", contravariant=True)
-_V_cont = TypeVar("_V_cont", contravariant=True)
 
 class _SupportsSet(Protocol[_T_cont, _V_cont]):
     def __set__(self, __instance: _T_cont, __value: _V_cont) -> None: ...
@@ -166,7 +167,6 @@ class Signature:
     empty = _empty
     @property
     def parameters(self) -> types.MappingProxyType[str, Parameter]: ...
-    # TODO: can we be more specific here?
     @property
     def return_annotation(self) -> Any: ...
     def bind(self, *args: Any, **kwargs: Any) -> BoundArguments: ...
@@ -177,17 +177,17 @@ class Signature:
     if sys.version_info >= (3, 10):
         @classmethod
         def from_callable(
-            cls,
+            cls: type[Self],
             obj: Callable[..., Any],
             *,
             follow_wrapped: bool = ...,
             globals: Mapping[str, Any] | None = ...,
             locals: Mapping[str, Any] | None = ...,
             eval_str: bool = ...,
-        ) -> Signature: ...
+        ) -> Self: ...
     else:
         @classmethod
-        def from_callable(cls, obj: Callable[..., Any], *, follow_wrapped: bool = ...) -> Signature: ...
+        def from_callable(cls: type[Self], obj: Callable[..., Any], *, follow_wrapped: bool = ...) -> Self: ...
 
 if sys.version_info >= (3, 10):
     def get_annotations(
@@ -318,7 +318,7 @@ def formatargvalues(
     formatvalue: Callable[[Any], str] | None = ...,
 ) -> str: ...
 def getmro(cls: type) -> tuple[type, ...]: ...
-def getcallargs(__func: Callable[..., Any], *args: Any, **kwds: Any) -> dict[str, Any]: ...
+def getcallargs(__func: Callable[_P, Any], *args: _P.args, **kwds: _P.kwargs) -> dict[str, Any]: ...
 
 class ClosureVars(NamedTuple):
     nonlocals: Mapping[str, Any]

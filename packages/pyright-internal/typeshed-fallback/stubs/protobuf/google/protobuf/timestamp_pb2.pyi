@@ -6,9 +6,10 @@ import builtins
 import google.protobuf.descriptor
 import google.protobuf.internal.well_known_types
 import google.protobuf.message
+import typing
 import typing_extensions
 
-DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 class Timestamp(google.protobuf.message.Message, google.protobuf.internal.well_known_types.Timestamp):
     """A Timestamp represents a point in time independent of any time zone or local
@@ -103,16 +104,16 @@ class Timestamp(google.protobuf.message.Message, google.protobuf.internal.well_k
     http://www.joda.org/joda-time/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime%2D%2D
     ) to obtain a formatter capable of generating timestamps in this format.
     """
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     SECONDS_FIELD_NUMBER: builtins.int
     NANOS_FIELD_NUMBER: builtins.int
-    seconds: builtins.int = ...
+    seconds: builtins.int
     """Represents seconds of UTC time since Unix epoch
     1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
     9999-12-31T23:59:59Z inclusive.
     """
 
-    nanos: builtins.int = ...
+    nanos: builtins.int
     """Non-negative fractions of a second at nanosecond resolution. Negative
     second values with fractions must still have non-negative nanos values
     that count forward in time. Must be from 0 to 999,999,999
@@ -121,8 +122,8 @@ class Timestamp(google.protobuf.message.Message, google.protobuf.internal.well_k
 
     def __init__(self,
         *,
-        seconds : builtins.int = ...,
-        nanos : builtins.int = ...,
+        seconds: typing.Optional[builtins.int] = ...,
+        nanos: typing.Optional[builtins.int] = ...,
         ) -> None: ...
     def ClearField(self, field_name: typing_extensions.Literal["nanos",b"nanos","seconds",b"seconds"]) -> None: ...
 global___Timestamp = Timestamp

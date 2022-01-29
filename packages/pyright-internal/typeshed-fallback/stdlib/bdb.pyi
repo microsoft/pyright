@@ -1,10 +1,11 @@
 from types import CodeType, FrameType, TracebackType
 from typing import IO, Any, Callable, Iterable, Mapping, SupportsInt, TypeVar
-from typing_extensions import Literal
+from typing_extensions import Literal, ParamSpec
 
 __all__ = ["BdbQuit", "Bdb", "Breakpoint"]
 
 _T = TypeVar("_T")
+_P = ParamSpec("_P")
 _TraceDispatch = Callable[[FrameType, str, Any], Any]  # TODO: Recursive type
 _ExcInfo = tuple[type[BaseException], BaseException, FrameType]
 
@@ -64,7 +65,7 @@ class Bdb:
     def run(self, cmd: str | CodeType, globals: dict[str, Any] | None = ..., locals: Mapping[str, Any] | None = ...) -> None: ...
     def runeval(self, expr: str, globals: dict[str, Any] | None = ..., locals: Mapping[str, Any] | None = ...) -> None: ...
     def runctx(self, cmd: str | CodeType, globals: dict[str, Any] | None, locals: Mapping[str, Any] | None) -> None: ...
-    def runcall(self, __func: Callable[..., _T], *args: Any, **kwds: Any) -> _T | None: ...
+    def runcall(self, __func: Callable[_P, _T], *args: _P.args, **kwds: _P.kwargs) -> _T | None: ...
 
 class Breakpoint:
 

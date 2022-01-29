@@ -11,29 +11,29 @@ import google.protobuf.message
 import typing
 import typing_extensions
 
-DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 class Version(google.protobuf.message.Message):
     """The version number of protocol compiler."""
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     MAJOR_FIELD_NUMBER: builtins.int
     MINOR_FIELD_NUMBER: builtins.int
     PATCH_FIELD_NUMBER: builtins.int
     SUFFIX_FIELD_NUMBER: builtins.int
-    major: builtins.int = ...
-    minor: builtins.int = ...
-    patch: builtins.int = ...
-    suffix: typing.Text = ...
+    major: builtins.int
+    minor: builtins.int
+    patch: builtins.int
+    suffix: typing.Text
     """A suffix for alpha, beta or rc release, e.g., "alpha-1", "rc2". It should
     be empty for mainline stable releases.
     """
 
     def __init__(self,
         *,
-        major : typing.Optional[builtins.int] = ...,
-        minor : typing.Optional[builtins.int] = ...,
-        patch : typing.Optional[builtins.int] = ...,
-        suffix : typing.Optional[typing.Text] = ...,
+        major: typing.Optional[builtins.int] = ...,
+        minor: typing.Optional[builtins.int] = ...,
+        patch: typing.Optional[builtins.int] = ...,
+        suffix: typing.Optional[typing.Text] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["major",b"major","minor",b"minor","patch",b"patch","suffix",b"suffix"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["major",b"major","minor",b"minor","patch",b"patch","suffix",b"suffix"]) -> None: ...
@@ -41,7 +41,7 @@ global___Version = Version
 
 class CodeGeneratorRequest(google.protobuf.message.Message):
     """An encoded CodeGeneratorRequest is written to the plugin's stdin."""
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     FILE_TO_GENERATE_FIELD_NUMBER: builtins.int
     PARAMETER_FIELD_NUMBER: builtins.int
     PROTO_FILE_FIELD_NUMBER: builtins.int
@@ -53,7 +53,7 @@ class CodeGeneratorRequest(google.protobuf.message.Message):
         descriptor will be included in proto_file, below.
         """
         pass
-    parameter: typing.Text = ...
+    parameter: typing.Text
     """The generator parameter passed on the command-line."""
 
     @property
@@ -80,10 +80,10 @@ class CodeGeneratorRequest(google.protobuf.message.Message):
         pass
     def __init__(self,
         *,
-        file_to_generate : typing.Optional[typing.Iterable[typing.Text]] = ...,
-        parameter : typing.Optional[typing.Text] = ...,
-        proto_file : typing.Optional[typing.Iterable[google.protobuf.descriptor_pb2.FileDescriptorProto]] = ...,
-        compiler_version : typing.Optional[global___Version] = ...,
+        file_to_generate: typing.Optional[typing.Iterable[typing.Text]] = ...,
+        parameter: typing.Optional[typing.Text] = ...,
+        proto_file: typing.Optional[typing.Iterable[google.protobuf.descriptor_pb2.FileDescriptorProto]] = ...,
+        compiler_version: typing.Optional[global___Version] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["compiler_version",b"compiler_version","parameter",b"parameter"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["compiler_version",b"compiler_version","file_to_generate",b"file_to_generate","parameter",b"parameter","proto_file",b"proto_file"]) -> None: ...
@@ -91,28 +91,29 @@ global___CodeGeneratorRequest = CodeGeneratorRequest
 
 class CodeGeneratorResponse(google.protobuf.message.Message):
     """The plugin writes an encoded CodeGeneratorResponse to stdout."""
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    class _Feature:
+        ValueType = typing.NewType('ValueType', builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+    class _FeatureEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[CodeGeneratorResponse._Feature.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        FEATURE_NONE: CodeGeneratorResponse._Feature.ValueType  # 0
+        FEATURE_PROTO3_OPTIONAL: CodeGeneratorResponse._Feature.ValueType  # 1
     class Feature(_Feature, metaclass=_FeatureEnumTypeWrapper):
         """Sync with code_generator.h."""
         pass
-    class _Feature:
-        V = typing.NewType('V', builtins.int)
-    class _FeatureEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_Feature.V], builtins.type):
-        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
-        FEATURE_NONE = CodeGeneratorResponse.Feature.V(0)
-        FEATURE_PROTO3_OPTIONAL = CodeGeneratorResponse.Feature.V(1)
 
-    FEATURE_NONE = CodeGeneratorResponse.Feature.V(0)
-    FEATURE_PROTO3_OPTIONAL = CodeGeneratorResponse.Feature.V(1)
+    FEATURE_NONE: CodeGeneratorResponse.Feature.ValueType  # 0
+    FEATURE_PROTO3_OPTIONAL: CodeGeneratorResponse.Feature.ValueType  # 1
 
     class File(google.protobuf.message.Message):
         """Represents a single generated file."""
-        DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
         NAME_FIELD_NUMBER: builtins.int
         INSERTION_POINT_FIELD_NUMBER: builtins.int
         CONTENT_FIELD_NUMBER: builtins.int
         GENERATED_CODE_INFO_FIELD_NUMBER: builtins.int
-        name: typing.Text = ...
+        name: typing.Text
         """The file name, relative to the output directory.  The name must not
         contain "." or ".." components and must be relative, not be absolute (so,
         the file cannot lie outside the output directory).  "/" must be used as
@@ -126,7 +127,7 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
         CodeGeneratorResponse before writing files to disk.
         """
 
-        insertion_point: typing.Text = ...
+        insertion_point: typing.Text
         """If non-empty, indicates that the named file should already exist, and the
         content here is to be inserted into that file at a defined insertion
         point.  This feature allows a code generator to extend the output
@@ -166,7 +167,7 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
         If |insertion_point| is present, |name| must also be present.
         """
 
-        content: typing.Text = ...
+        content: typing.Text
         """The file contents."""
 
         @property
@@ -178,10 +179,10 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
             pass
         def __init__(self,
             *,
-            name : typing.Optional[typing.Text] = ...,
-            insertion_point : typing.Optional[typing.Text] = ...,
-            content : typing.Optional[typing.Text] = ...,
-            generated_code_info : typing.Optional[google.protobuf.descriptor_pb2.GeneratedCodeInfo] = ...,
+            name: typing.Optional[typing.Text] = ...,
+            insertion_point: typing.Optional[typing.Text] = ...,
+            content: typing.Optional[typing.Text] = ...,
+            generated_code_info: typing.Optional[google.protobuf.descriptor_pb2.GeneratedCodeInfo] = ...,
             ) -> None: ...
         def HasField(self, field_name: typing_extensions.Literal["content",b"content","generated_code_info",b"generated_code_info","insertion_point",b"insertion_point","name",b"name"]) -> builtins.bool: ...
         def ClearField(self, field_name: typing_extensions.Literal["content",b"content","generated_code_info",b"generated_code_info","insertion_point",b"insertion_point","name",b"name"]) -> None: ...
@@ -189,7 +190,7 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
     ERROR_FIELD_NUMBER: builtins.int
     SUPPORTED_FEATURES_FIELD_NUMBER: builtins.int
     FILE_FIELD_NUMBER: builtins.int
-    error: typing.Text = ...
+    error: typing.Text
     """Error message.  If non-empty, code generation failed.  The plugin process
     should exit with status code zero even if it reports an error in this way.
 
@@ -200,7 +201,7 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
     exiting with a non-zero status code.
     """
 
-    supported_features: builtins.int = ...
+    supported_features: builtins.int
     """A bitmask of supported features that the code generator supports.
     This is a bitwise "or" of values from the Feature enum.
     """
@@ -209,9 +210,9 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
     def file(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CodeGeneratorResponse.File]: ...
     def __init__(self,
         *,
-        error : typing.Optional[typing.Text] = ...,
-        supported_features : typing.Optional[builtins.int] = ...,
-        file : typing.Optional[typing.Iterable[global___CodeGeneratorResponse.File]] = ...,
+        error: typing.Optional[typing.Text] = ...,
+        supported_features: typing.Optional[builtins.int] = ...,
+        file: typing.Optional[typing.Iterable[global___CodeGeneratorResponse.File]] = ...,
         ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["error",b"error","supported_features",b"supported_features"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["error",b"error","file",b"file","supported_features",b"supported_features"]) -> None: ...

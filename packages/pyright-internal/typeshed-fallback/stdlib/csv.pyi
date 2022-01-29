@@ -17,6 +17,7 @@ from _csv import (
     unregister_dialect as unregister_dialect,
     writer as writer,
 )
+from _typeshed import Self
 from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 from typing import Any, Generic, TypeVar, overload
 
@@ -75,7 +76,7 @@ class DictReader(Generic[_T], Iterator[_DictReadMapping[_T, str]]):
         *args: Any,
         **kwds: Any,
     ) -> None: ...
-    def __iter__(self) -> DictReader[_T]: ...
+    def __iter__(self: Self) -> Self: ...
     def __next__(self) -> _DictReadMapping[_T, str]: ...
 
 class DictWriter(Generic[_T]):

@@ -16,7 +16,7 @@ from typing import (
     Union,
     overload,
 )
-from typing_extensions import Literal, SupportsIndex
+from typing_extensions import Literal, SupportsIndex, TypeGuard
 
 _T = TypeVar("_T")
 _File = Union[StrOrBytesPath, FileDescriptor, IO[Any]]
@@ -27,7 +27,8 @@ class ParseError(SyntaxError):
     code: int
     position: tuple[int, int]
 
-def iselement(element: object) -> bool: ...
+# In reality it works based on `.tag` attribute duck typing.
+def iselement(element: object) -> TypeGuard[Element]: ...
 
 if sys.version_info >= (3, 8):
     @overload

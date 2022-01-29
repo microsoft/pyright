@@ -16,7 +16,7 @@ Any = object()
 class TypeVar:
     __name__: str
     __bound__: Any | None
-    __constraints__: Tuple[Any, ...]
+    __constraints__: tuple[Any, ...]
     __covariant__: bool
     __contravariant__: bool
     def __init__(
@@ -41,20 +41,27 @@ _T = TypeVar("_T")
 
 def overload(func: _F) -> _F: ...
 
+# Unlike the vast majority module-level objects in stub files,
+# these `_SpecialForm` objects in typing need the default value `= ...`,
+# due to the fact that they are used elswhere in the same file.
+# Otherwise, flake8 erroneously flags them as undefined.
+# `_SpecialForm` objects in typing.py that are not used elswhere in the same file
+# do not need the default value assignment.
 Union: _SpecialForm = ...
-Optional: _SpecialForm = ...
-Tuple: _SpecialForm = ...
 Generic: _SpecialForm = ...
 # Protocol is only present in 3.8 and later, but mypy needs it unconditionally
 Protocol: _SpecialForm = ...
 Callable: _SpecialForm = ...
 Type: _SpecialForm = ...
-ClassVar: _SpecialForm = ...
 NoReturn: _SpecialForm = ...
+
+Optional: _SpecialForm
+Tuple: _SpecialForm
+ClassVar: _SpecialForm
 if sys.version_info >= (3, 8):
-    Final: _SpecialForm = ...
+    Final: _SpecialForm
     def final(f: _T) -> _T: ...
-    Literal: _SpecialForm = ...
+    Literal: _SpecialForm
     # TypedDict is a (non-subscriptable) special form.
     TypedDict: object
 
@@ -80,9 +87,9 @@ if sys.version_info >= (3, 10):
         def kwargs(self) -> ParamSpecKwargs: ...
         def __or__(self, other: Any) -> _SpecialForm: ...
         def __ror__(self, other: Any) -> _SpecialForm: ...
-    Concatenate: _SpecialForm = ...
-    TypeAlias: _SpecialForm = ...
-    TypeGuard: _SpecialForm = ...
+    Concatenate: _SpecialForm
+    TypeAlias: _SpecialForm
+    TypeGuard: _SpecialForm
     class NewType:
         def __init__(self, name: str, tp: type) -> None: ...
         def __call__(self, x: _T) -> _T: ...
@@ -126,7 +133,7 @@ if sys.version_info >= (3, 7):
     OrderedDict = _Alias()
 
 if sys.version_info >= (3, 9):
-    Annotated: _SpecialForm = ...
+    Annotated: _SpecialForm
 
 # Predefined type variables.
 AnyStr = TypeVar("AnyStr", str, bytes)  # noqa: Y001
@@ -393,7 +400,7 @@ class MappingView(Sized):
     def __init__(self, mapping: Mapping[Any, Any]) -> None: ...  # undocumented
     def __len__(self) -> int: ...
 
-class ItemsView(MappingView, AbstractSet[Tuple[_KT_co, _VT_co]], Generic[_KT_co, _VT_co]):
+class ItemsView(MappingView, AbstractSet[tuple[_KT_co, _VT_co]], Generic[_KT_co, _VT_co]):
     def __init__(self, mapping: Mapping[_KT_co, _VT_co]) -> None: ...  # undocumented
     def __and__(self, o: Iterable[Any]) -> set[tuple[_KT_co, _VT_co]]: ...
     def __rand__(self, o: Iterable[_T]) -> set[_T]: ...
@@ -477,9 +484,9 @@ class MutableMapping(Mapping[_KT, _VT], Generic[_KT, _VT]):
     def setdefault(self, __key: _KT, __default: _VT) -> _VT: ...
     # 'update' used to take a Union, but using overloading is better.
     # The second overloaded type here is a bit too general, because
-    # Mapping[Tuple[_KT, _VT], W] is a subclass of Iterable[Tuple[_KT, _VT]],
+    # Mapping[tuple[_KT, _VT], W] is a subclass of Iterable[tuple[_KT, _VT]],
     # but will always have the behavior of the first overloaded type
-    # at runtime, leading to keys of a mix of types _KT and Tuple[_KT, _VT].
+    # at runtime, leading to keys of a mix of types _KT and tuple[_KT, _VT].
     # We don't currently have any way of forcing all Mappings to use
     # the first overload, but by using overloading rather than a Union,
     # mypy will commit to using the first overload when the argument is
@@ -502,7 +509,7 @@ class MutableMapping(Mapping[_KT, _VT], Generic[_KT, _VT]):
 
 Text = str
 
-TYPE_CHECKING = True
+TYPE_CHECKING: bool
 
 # In stubs, the arguments of the IO class are marked as positional-only.
 # This differs from runtime, but better reflects the fact that in reality
@@ -595,13 +602,13 @@ class Match(Generic[AnyStr]):
     @overload
     def group(self, __group: str | int) -> AnyStr | Any: ...
     @overload
-    def group(self, __group1: str | int, __group2: str | int, *groups: str | int) -> Tuple[AnyStr | Any, ...]: ...
+    def group(self, __group1: str | int, __group2: str | int, *groups: str | int) -> tuple[AnyStr | Any, ...]: ...
     # Each item of groups()'s return tuple is either "AnyStr" or
     # "AnyStr | None", depending on the pattern.
     @overload
-    def groups(self) -> Tuple[AnyStr | Any, ...]: ...
+    def groups(self) -> tuple[AnyStr | Any, ...]: ...
     @overload
-    def groups(self, default: _T) -> Tuple[AnyStr | _T, ...]: ...
+    def groups(self, default: _T) -> tuple[AnyStr | _T, ...]: ...
     # Each value in groupdict()'s return dict is either "AnyStr" or
     # "AnyStr | None", depending on the pattern.
     @overload
@@ -612,7 +619,7 @@ class Match(Generic[AnyStr]):
     def end(self, __group: int | str = ...) -> int: ...
     def span(self, __group: int | str = ...) -> tuple[int, int]: ...
     @property
-    def regs(self) -> Tuple[tuple[int, int], ...]: ...  # undocumented
+    def regs(self) -> tuple[tuple[int, int], ...]: ...  # undocumented
     # __getitem__() returns "AnyStr" or "AnyStr | None", depending on the pattern.
     @overload
     def __getitem__(self, __key: _Literal[0]) -> AnyStr: ...
@@ -678,7 +685,7 @@ else:
 
 if sys.version_info >= (3, 8):
     def get_origin(tp: Any) -> Any | None: ...
-    def get_args(tp: Any) -> Tuple[Any, ...]: ...
+    def get_args(tp: Any) -> tuple[Any, ...]: ...
 
 @overload
 def cast(typ: Type[_T], val: Any) -> _T: ...
@@ -689,13 +696,13 @@ def cast(typ: object, val: Any) -> Any: ...
 
 # Type constructors
 
-class NamedTuple(Tuple[Any, ...]):
+class NamedTuple(tuple[Any, ...]):
     if sys.version_info < (3, 8):
         _field_types: collections.OrderedDict[str, type]
     elif sys.version_info < (3, 9):
         _field_types: dict[str, type]
     _field_defaults: dict[str, Any]
-    _fields: Tuple[str, ...]
+    _fields: tuple[str, ...]
     _source: str
     @overload
     def __init__(self, typename: str, fields: Iterable[tuple[str, Any]] = ...) -> None: ...

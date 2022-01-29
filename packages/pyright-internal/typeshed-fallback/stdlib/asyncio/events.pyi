@@ -10,7 +10,7 @@ from .base_events import Server
 from .futures import Future
 from .protocols import BaseProtocol
 from .tasks import Task
-from .transports import BaseTransport
+from .transports import BaseTransport, ReadTransport, SubprocessTransport, WriteTransport
 from .unix_events import AbstractChildWatcher
 
 if sys.version_info >= (3, 7):
@@ -376,11 +376,11 @@ class AbstractEventLoop(metaclass=ABCMeta):
     @abstractmethod
     async def connect_read_pipe(
         self, protocol_factory: Callable[[], _ProtocolT], pipe: Any
-    ) -> tuple[BaseTransport, _ProtocolT]: ...
+    ) -> tuple[ReadTransport, _ProtocolT]: ...
     @abstractmethod
     async def connect_write_pipe(
         self, protocol_factory: Callable[[], _ProtocolT], pipe: Any
-    ) -> tuple[BaseTransport, _ProtocolT]: ...
+    ) -> tuple[WriteTransport, _ProtocolT]: ...
     @abstractmethod
     async def subprocess_shell(
         self,
@@ -397,7 +397,7 @@ class AbstractEventLoop(metaclass=ABCMeta):
         errors: None = ...,
         text: Literal[False, None] = ...,
         **kwargs: Any,
-    ) -> tuple[BaseTransport, _ProtocolT]: ...
+    ) -> tuple[SubprocessTransport, _ProtocolT]: ...
     @abstractmethod
     async def subprocess_exec(
         self,
@@ -413,15 +413,15 @@ class AbstractEventLoop(metaclass=ABCMeta):
         encoding: None = ...,
         errors: None = ...,
         **kwargs: Any,
-    ) -> tuple[BaseTransport, _ProtocolT]: ...
+    ) -> tuple[SubprocessTransport, _ProtocolT]: ...
     @abstractmethod
     def add_reader(self, fd: FileDescriptorLike, callback: Callable[..., Any], *args: Any) -> None: ...
     @abstractmethod
-    def remove_reader(self, fd: FileDescriptorLike) -> None: ...
+    def remove_reader(self, fd: FileDescriptorLike) -> bool: ...
     @abstractmethod
     def add_writer(self, fd: FileDescriptorLike, callback: Callable[..., Any], *args: Any) -> None: ...
     @abstractmethod
-    def remove_writer(self, fd: FileDescriptorLike) -> None: ...
+    def remove_writer(self, fd: FileDescriptorLike) -> bool: ...
     # Completion based I/O methods returning Futures prior to 3.7
     if sys.version_info >= (3, 7):
         @abstractmethod

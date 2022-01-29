@@ -100,11 +100,11 @@ class Flag:
     value: Any
     help: str
     short_name: str
-    boolean = False
-    present = False
+    boolean: bool
+    present: bool
     parser: ArgumentParser
     serializer: ArgumentSerializer
-    allow_override = False
+    allow_override: bool
     def __init__(
         self,
         parser: ArgumentParser,

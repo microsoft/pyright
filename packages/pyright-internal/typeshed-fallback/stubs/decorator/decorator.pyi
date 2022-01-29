@@ -1,9 +1,11 @@
 import sys
 from typing import Any, Callable, Iterator, NamedTuple, Pattern, Text, TypeVar
+from typing_extensions import ParamSpec
 
 _C = TypeVar("_C", bound=Callable[..., Any])
 _Func = TypeVar("_Func", bound=Callable[..., Any])
 _T = TypeVar("_T")
+_P = ParamSpec("_P")
 
 def get_init(cls: type) -> None: ...
 
@@ -79,5 +81,5 @@ def decorator(
 class ContextManager(_GeneratorContextManager[_T]):
     def __call__(self, func: _C) -> _C: ...
 
-def contextmanager(func: Callable[..., Iterator[_T]]) -> Callable[..., ContextManager[_T]]: ...
+def contextmanager(func: Callable[_P, Iterator[_T]]) -> Callable[_P, ContextManager[_T]]: ...
 def dispatch_on(*dispatch_args: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...

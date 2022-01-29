@@ -31,8 +31,9 @@ def isfuture(obj: object) -> bool: ...
 class Future(Awaitable[_T], Iterable[_T]):
     _state: str
     _exception: BaseException
-    _blocking = False
-    _log_traceback = False
+    _blocking: bool
+    _log_traceback: bool
+    _asyncio_future_blocking: bool  # is a part of duck-typing contract for `Future`
     def __init__(self, *, loop: AbstractEventLoop | None = ...) -> None: ...
     def __del__(self) -> None: ...
     if sys.version_info >= (3, 7):
