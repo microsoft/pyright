@@ -991,8 +991,26 @@ export function getCodeFlowEngine(
                         if (reference && reference.nodeType === ParseNodeType.Name) {
                             const nameValue = reference.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
-                                const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
-                                return setCacheEntry(curFlowNode, type, usedOuterScopeAlias, /* isIncomplete */ false);
+                                // Before calling getTypeFromWildcardImport, set the cache entry to prevent infinite recursion.
+                                setCacheEntry(
+                                    curFlowNode,
+                                    reference ? undefined : initialType,
+                                    usedOuterScopeAlias,
+                                    /* isIncomplete */ true
+                                );
+
+                                try {
+                                    const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
+                                    return setCacheEntry(
+                                        curFlowNode,
+                                        type,
+                                        usedOuterScopeAlias,
+                                        /* isIncomplete */ false
+                                    );
+                                } catch (e) {
+                                    deleteCacheEntry(curFlowNode);
+                                    throw e;
+                                }
                             }
                         }
 
