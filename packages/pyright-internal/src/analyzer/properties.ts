@@ -102,19 +102,19 @@ export function createProperty(
         '',
         FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
     );
-    getFunction1.details.parameters.push({
+    FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
         name: 'self',
         type: propertyObject,
         hasDeclaredType: true,
     });
-    getFunction1.details.parameters.push({
+    FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
         name: 'obj',
         type: NoneType.createInstance(),
         hasDeclaredType: true,
     });
-    getFunction1.details.parameters.push({
+    FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
         name: 'objtype',
         type: AnyType.create(),
@@ -133,7 +133,7 @@ export function createProperty(
         '',
         FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
     );
-    getFunction2.details.parameters.push({
+    FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
         name: 'self',
         type: propertyObject,
@@ -141,13 +141,13 @@ export function createProperty(
     });
 
     const objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
-    getFunction2.details.parameters.push({
+    FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
         name: 'obj',
         type: objType,
         hasDeclaredType: true,
     });
-    getFunction2.details.parameters.push({
+    FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
         name: 'objtype',
         type: AnyType.create(),
@@ -169,13 +169,13 @@ export function createProperty(
     // Fill in the getter, setter and deleter methods.
     ['getter', 'setter', 'deleter'].forEach((accessorName) => {
         const accessorFunction = FunctionType.createInstance(accessorName, '', '', FunctionTypeFlags.SynthesizedMethod);
-        accessorFunction.details.parameters.push({
+        FunctionType.addParameter(accessorFunction, {
             category: ParameterCategory.Simple,
             name: 'self',
             type: AnyType.create(),
             hasDeclaredType: true,
         });
-        accessorFunction.details.parameters.push({
+        FunctionType.addParameter(accessorFunction, {
             category: ParameterCategory.Simple,
             name: 'accessor',
             type: AnyType.create(),
@@ -268,7 +268,7 @@ export function clonePropertyWithSetter(
 
     // Fill in the __set__ method.
     const setFunction = FunctionType.createInstance('__set__', '', '', FunctionTypeFlags.SynthesizedMethod);
-    setFunction.details.parameters.push({
+    FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'self',
         type: prop,
@@ -278,7 +278,7 @@ export function clonePropertyWithSetter(
     if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
-    setFunction.details.parameters.push({
+    FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'obj',
         type: combineTypes([objType, NoneType.createInstance()]),
@@ -293,7 +293,7 @@ export function clonePropertyWithSetter(
     ) {
         setParamType = fset.details.parameters[1].type;
     }
-    setFunction.details.parameters.push({
+    FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'value',
         type: setParamType,
@@ -346,7 +346,7 @@ export function clonePropertyWithDeleter(
 
     // Fill in the __delete__ method.
     const delFunction = FunctionType.createInstance('__delete__', '', '', FunctionTypeFlags.SynthesizedMethod);
-    delFunction.details.parameters.push({
+    FunctionType.addParameter(delFunction, {
         category: ParameterCategory.Simple,
         name: 'self',
         type: prop,
@@ -356,7 +356,7 @@ export function clonePropertyWithDeleter(
     if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
-    delFunction.details.parameters.push({
+    FunctionType.addParameter(delFunction, {
         category: ParameterCategory.Simple,
         name: 'obj',
         type: combineTypes([objType, NoneType.createInstance()]),

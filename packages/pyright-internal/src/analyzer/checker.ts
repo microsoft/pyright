@@ -521,7 +521,7 @@ export class Checker extends ParseTreeWalker {
 
             if (functionTypeResult) {
                 const annotationNode = param.typeAnnotation || param.typeAnnotationComment;
-                if (annotationNode) {
+                if (annotationNode && index < functionTypeResult.functionType.details.parameters.length) {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
                     if (
                         isTypeVar(paramType) &&

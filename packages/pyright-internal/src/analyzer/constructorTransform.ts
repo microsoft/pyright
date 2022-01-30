@@ -289,7 +289,9 @@ function applyPartialTransform(
         specializedFunctionType.details.docString
     );
 
-    FunctionType.addParameter(newCallMemberType, callMemberType.details.parameters[0]);
+    if (callMemberType.details.parameters.length > 0) {
+        FunctionType.addParameter(newCallMemberType, callMemberType.details.parameters[0]);
+    }
     newParamList.forEach((param) => {
         FunctionType.addParameter(newCallMemberType, param);
     });
