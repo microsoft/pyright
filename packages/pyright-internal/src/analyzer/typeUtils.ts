@@ -2066,10 +2066,42 @@ export function requiresSpecialization(
 export function computeMroLinearization(classType: ClassType): boolean {
     let isMroFound = true;
 
+    const filteredBaseClasses = classType.details.baseClasses.filter((baseClass, index) => {
+        if (isInstantiableClass(baseClass)) {
+            // Generic has some special-case logic (see description of __mro_entries__
+            // in PEP 560) that we need to account for here.
+            if (ClassType.isBuiltIn(baseClass, 'Generic')) {
+                // If the class is a Protocol, the generic is ignored for the purposes
+                // of computing the MRO.
+                if (ClassType.isProtocolClass(classType)) {
+                    return false;
+                }
+
+                // If the class contains any specialized generic classes after
+                // the Generic base, the Generic base is ignored for purposes
+                // of computing the MRO.
+                if (
+                    classType.details.baseClasses.some((innerBaseClass, innerIndex) => {
+                        return (
+                            innerIndex > index &&
+                            isInstantiableClass(innerBaseClass) &&
+                            innerBaseClass.typeArguments &&
+                            innerBaseClass.isTypeArgumentExplicit
+                        );
+                    })
+                ) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    });
+
     // Construct the list of class lists that need to be merged.
     const classListsToMerge: Type[][] = [];
 
-    classType.details.baseClasses.forEach((baseClass) => {
+    filteredBaseClasses.forEach((baseClass, index) => {
         if (isInstantiableClass(baseClass)) {
             const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClass, /* makeConcrete */ false);
             classListsToMerge.push(
@@ -2083,7 +2115,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     });
 
     classListsToMerge.push(
-        classType.details.baseClasses.map((baseClass) => {
+        filteredBaseClasses.map((baseClass) => {
             const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, /* makeConcrete */ false);
             return applySolvedTypeVars(baseClass, typeVarMap);
         })

@@ -185,6 +185,12 @@ test('Mro3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Mro4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['mro4.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('DefaultInitializer1', () => {
     const configOptions = new ConfigOptions('.');
 
