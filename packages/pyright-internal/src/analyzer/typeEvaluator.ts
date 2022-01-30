@@ -11029,16 +11029,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 type = mapSubtypes(leftType, (leftSubtype) => {
                                     return mapSubtypes(rightType, (rightSubtype) => {
-                                        const leftClassSubtype = leftSubtype as ClassType;
-                                        const rightClassSubtype = rightSubtype as ClassType;
-                                        const leftLiteralValue = BigInt(
-                                            leftClassSubtype.literalValue as number | bigint
-                                        );
-                                        const rightLiteralValue = BigInt(
-                                            rightClassSubtype.literalValue as number | bigint
-                                        );
-
                                         try {
+                                            const leftClassSubtype = leftSubtype as ClassType;
+                                            const rightClassSubtype = rightSubtype as ClassType;
+                                            const leftLiteralValue = BigInt(
+                                                leftClassSubtype.literalValue as number | bigint
+                                            );
+                                            const rightLiteralValue = BigInt(
+                                                rightClassSubtype.literalValue as number | bigint
+                                            );
+
                                             let newValue: number | bigint | undefined;
                                             if (operator === OperatorType.Add) {
                                                 newValue = leftLiteralValue + rightLiteralValue;
