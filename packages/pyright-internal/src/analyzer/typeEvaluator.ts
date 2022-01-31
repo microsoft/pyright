@@ -20070,9 +20070,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
-        destType = transformPossibleRecursiveTypeAlias(destType);
-        srcType = transformPossibleRecursiveTypeAlias(srcType);
-
         // If this is a one-element union that contains a variadic type variable,
         // pull out the subtype.
         if (isUnion(destType) && destType.subtypes.length === 1 && isVariadicTypeVar(destType.subtypes[0])) {
@@ -20109,6 +20106,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
         recursionCount++;
+
+        // If the source and dest refer to the same recursive type alias, handle
+        // the case specially to avoid recursing down both type aliases.
+        if (
+            isTypeVar(destType) &&
+            destType.details.recursiveTypeAliasScopeId &&
+            destType.typeAliasInfo?.typeArguments &&
+            isTypeVar(srcType) &&
+            srcType.details.recursiveTypeAliasScopeId &&
+            srcType.typeAliasInfo?.typeArguments &&
+            destType.details.recursiveTypeAliasScopeId === srcType.details.recursiveTypeAliasScopeId
+        ) {
+            let isAssignable = true;
+            const srcTypeArgs = srcType.typeAliasInfo.typeArguments;
+            destType.typeAliasInfo.typeArguments.forEach((destTypeArg, index) => {
+                const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
+                if (!canAssignType(destTypeArg, srcTypeArg, diag, typeVarMap, flags, recursionCount)) {
+                    isAssignable = false;
+                }
+            });
+
+            return isAssignable;
+        }
+
+        // Transform recursive type aliases if necessary.
+        destType = transformPossibleRecursiveTypeAlias(destType);
+        srcType = transformPossibleRecursiveTypeAlias(srcType);
 
         // If the source or dest is unbound, allow the assignment. The
         // error will be reported elsewhere.
