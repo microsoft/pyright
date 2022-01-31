@@ -17758,8 +17758,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (inferredType && resolvedDecl.typeAliasName) {
                 // If this was a speculative type alias, it becomes a real type alias only
-                // in the event that its inferred type is instantiable.
-                if (TypeBase.isInstantiable(inferredType) && !isAnyOrUnknown(inferredType)) {
+                // in the event that its inferred type is instantiable or explicitly Any
+                // (but not an ellipsis).
+                if (
+                    TypeBase.isInstantiable(inferredType) &&
+                    !isUnknown(inferredType) &&
+                    !isEllipsisType(inferredType)
+                ) {
                     inferredType = transformTypeForTypeAlias(
                         inferredType,
                         resolvedDecl.typeAliasName,
