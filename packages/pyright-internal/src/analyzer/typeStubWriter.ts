@@ -42,7 +42,7 @@ import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { isFunction, isNever, isUnknown, removeUnknownFromUnion } from './types';
+import { ClassType, isFunction, isInstantiableClass, isNever, isUnknown, removeUnknownFromUnion } from './types';
 
 class TrackedImport {
     constructor(public importName: string) {}
@@ -351,6 +351,17 @@ export class TypeStubWriter extends ParseTreeWalker {
                 const valueType = this._evaluator.getType(node.leftExpression);
                 if (valueType?.typeAliasInfo) {
                     isTypeAlias = true;
+                } else if (node.rightExpression.nodeType === ParseNodeType.Call) {
+                    // Special-case TypeVar, TypeVarTuple, ParamSpec and NewType calls. Treat
+                    // them like type aliases.
+                    const callBaseType = this._evaluator.getType(node.rightExpression.leftExpression);
+                    if (
+                        callBaseType &&
+                        isInstantiableClass(callBaseType) &&
+                        ClassType.isBuiltIn(callBaseType, ['TypeVar', 'TypeVarTuple', 'ParamSpec', 'NewType'])
+                    ) {
+                        isTypeAlias = true;
+                    }
                 }
             }
         } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
