@@ -6,7 +6,19 @@
 from typing import Optional
 
 
-def f(key: str, msg: Optional[str]) -> str:
+def f(key: str, msg: Optional[str]):
     if msg is None:
-        msg = {"a": "b"}.get(key, "c")
-    return msg
+        my_dict = {"a": "b"}
+        msg = my_dict.get(key, "c")
+
+        # Without bidirectional type inference, the
+        # revealed type will be "str", but since "msg"
+        # has a declared type, it will be used in this
+        # case to inform the type "str | None", which
+        # is a valid solution for the constraint solver.
+        # Unfortunately, it's probably not the answer
+        # the user expects in this case.
+        reveal_type(msg, expected_text="str | None")
+
+        x = my_dict.get(key, "c")
+        reveal_type(x, expected_text="str")

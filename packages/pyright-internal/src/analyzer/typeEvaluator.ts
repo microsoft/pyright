@@ -20836,103 +20836,101 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        // Handle the case where the source and dest are both unions and
-        // invariance is being enforced and the dest contains type variables.
-        if (flags & CanAssignFlags.EnforceInvariance) {
-            if (isUnion(destType)) {
-                const remainingDestSubtypes: Type[] = [];
-                let remainingSrcSubtypes: Type[] = [...srcType.subtypes];
-                let isIncompatible = false;
+        // Handle the case where the source and dest are both unions. Try
+        // to eliminate as many exact type matches between the src and dest.
+        if (isUnion(destType)) {
+            // Handle the special case where the dest is a union of Any and
+            // a type variable and CanAssignFlags.AllowTypeVarNarrowing is
+            // in effect. This occurs, for example, with the return type of
+            // the getattr function.
+            if ((flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0) {
+                const nonAnySubtypes = destType.subtypes.filter((t) => !isAnyOrUnknown(t));
+                if (nonAnySubtypes.length === 1 && isTypeVar(nonAnySubtypes[0])) {
+                    canAssignType(nonAnySubtypes[0], srcType, /* diag */ undefined, typeVarMap, flags, recursionCount);
 
-                // First attempt to match all of the non-generic types in the dest
-                // to non-generic types in the source.
-                destType.subtypes.forEach((destSubtype) => {
-                    if (requiresSpecialization(destSubtype)) {
-                        remainingDestSubtypes.push(destSubtype);
-                    } else {
-                        const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
-                            isTypeSame(
-                                srcSubtype,
-                                destSubtype,
-                                /* ignorePseudoGeneric */ undefined,
-                                /* ignoreTypeFlags */ undefined,
-                                recursionCount
-                            )
-                        );
-                        if (srcTypeIndex >= 0) {
-                            remainingSrcSubtypes.splice(srcTypeIndex, 1);
-                        } else {
-                            isIncompatible = true;
-                        }
-                    }
-                });
-
-                // For all remaining source subtypes, attempt to find a dest subtype
-                // whose primary type matches.
-                if (!isIncompatible) {
-                    [...remainingSrcSubtypes].forEach((srcSubtype) => {
-                        const destTypeIndex = remainingDestSubtypes.findIndex(
-                            (destSubtype) =>
-                                isClass(srcSubtype) &&
-                                isClass(destSubtype) &&
-                                TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
-                                ClassType.isSameGenericClass(srcSubtype, destSubtype)
-                        );
-                        if (destTypeIndex >= 0) {
-                            if (
-                                !canAssignType(
-                                    remainingDestSubtypes[destTypeIndex],
-                                    srcSubtype,
-                                    diag?.createAddendum(),
-                                    typeVarMap,
-                                    flags,
-                                    recursionCount
-                                )
-                            ) {
-                                isIncompatible = true;
-                            }
-
-                            remainingDestSubtypes.splice(destTypeIndex, 1);
-                            remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
-                        }
-                    });
-                }
-
-                // If there is a remaining dest subtype and it's a type variable, attempt
-                // to assign the remaining source subtypes to it.
-                if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
-                    if (
-                        remainingDestSubtypes.length !== 1 ||
-                        !isTypeVar(remainingDestSubtypes[0]) ||
-                        !canAssignType(
-                            remainingDestSubtypes[0],
-                            combineTypes(remainingSrcSubtypes),
-                            diag?.createAddendum(),
-                            typeVarMap,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        isIncompatible = true;
-                    }
-                }
-
-                if (!isIncompatible) {
+                    // This always succeeds because the destination contains Any.
                     return true;
                 }
             }
-        }
 
-        // Handle the special case where the dest is a union of Any and
-        // a type variable and CanAssignFlags.AllowTypeVarNarrowing is
-        // in effect. This occurs, for example, with the return type of
-        // the getattr function.
-        if ((flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0 && isUnion(destType)) {
-            const nonAnySubtypes = destType.subtypes.filter((t) => !isAnyOrUnknown(t));
-            if (nonAnySubtypes.length === 1 && isTypeVar(nonAnySubtypes[0])) {
-                canAssignType(nonAnySubtypes[0], srcType, /* diag */ undefined, typeVarMap, flags, recursionCount);
+            const remainingDestSubtypes: Type[] = [];
+            let remainingSrcSubtypes: Type[] = [...srcType.subtypes];
+            let isIncompatible = false;
 
-                // This always succeeds because the destination contains Any.
+            // First attempt to match all of the non-generic types in the dest
+            // to non-generic types in the source.
+            destType.subtypes.forEach((destSubtype) => {
+                if (requiresSpecialization(destSubtype)) {
+                    remainingDestSubtypes.push(destSubtype);
+                } else {
+                    const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
+                        isTypeSame(
+                            srcSubtype,
+                            destSubtype,
+                            /* ignorePseudoGeneric */ undefined,
+                            /* ignoreTypeFlags */ undefined,
+                            recursionCount
+                        )
+                    );
+                    if (srcTypeIndex >= 0) {
+                        remainingSrcSubtypes.splice(srcTypeIndex, 1);
+                    } else {
+                        isIncompatible = true;
+                    }
+                }
+            });
+
+            // For all remaining source subtypes, attempt to find a dest subtype
+            // whose primary type matches.
+            if (!isIncompatible) {
+                [...remainingSrcSubtypes].forEach((srcSubtype) => {
+                    const destTypeIndex = remainingDestSubtypes.findIndex(
+                        (destSubtype) =>
+                            isClass(srcSubtype) &&
+                            isClass(destSubtype) &&
+                            TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
+                            ClassType.isSameGenericClass(srcSubtype, destSubtype)
+                    );
+                    if (destTypeIndex >= 0) {
+                        if (
+                            !canAssignType(
+                                remainingDestSubtypes[destTypeIndex],
+                                srcSubtype,
+                                diag?.createAddendum(),
+                                typeVarMap,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            isIncompatible = true;
+                        }
+
+                        remainingDestSubtypes.splice(destTypeIndex, 1);
+                        remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
+                    }
+                });
+            }
+
+            // If there is a remaining dest subtype and it's a type variable, attempt
+            // to assign the remaining source subtypes to it.
+            if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
+                if (
+                    remainingDestSubtypes.length !== 1 ||
+                    !isTypeVar(remainingDestSubtypes[0]) ||
+                    !canAssignType(
+                        remainingDestSubtypes[0],
+                        combineTypes(remainingSrcSubtypes),
+                        diag?.createAddendum(),
+                        typeVarMap,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    isIncompatible = true;
+                }
+            }
+
+            if (!isIncompatible) {
                 return true;
             }
         }
