@@ -146,7 +146,6 @@ import {
     isEllipsisType,
     isLiteralType,
     isLiteralTypeOrUnion,
-    isNoReturnType,
     isPartlyUnknown,
     isProperty,
     isTupleClass,
@@ -154,7 +153,6 @@ import {
     lookUpClassMember,
     mapSubtypes,
     partiallySpecializeType,
-    removeNoReturnFromUnion,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
@@ -792,7 +790,7 @@ export class Checker extends ParseTreeWalker {
 
         if (this._evaluator.isNodeReachable(node, /* sourceNode */ undefined) && enclosingFunctionNode) {
             if (declaredReturnType) {
-                if (isNoReturnType(declaredReturnType)) {
+                if (isNever(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -1547,7 +1545,7 @@ export class Checker extends ParseTreeWalker {
     // Determines whether the specified type is one that should trigger
     // an "unused" value diagnostic.
     private _isTypeValidForUnusedValueTest(type: Type) {
-        return !isNoneInstance(type) && !isNoReturnType(type) && !isNever(type) && !isAnyOrUnknown(type);
+        return !isNoneInstance(type) && !isNever(type) && !isAnyOrUnknown(type);
     }
 
     // Verifies that each local type variable is used more than once.
@@ -1757,20 +1755,16 @@ export class Checker extends ParseTreeWalker {
         );
 
         // Now check the return types.
-        const overloadReturnType = removeNoReturnFromUnion(
-            overload.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(overload)
-        );
-        const implementationReturnType = removeNoReturnFromUnion(
-            applySolvedTypeVars(
-                implementation.details.declaredReturnType ||
-                    this._evaluator.getFunctionInferredReturnType(implementation),
-                typeVarMap
-            )
+        const overloadReturnType =
+            overload.details.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
+        const implementationReturnType = applySolvedTypeVars(
+            implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
+            typeVarMap
         );
 
         const returnDiag = new DiagnosticAddendum();
         if (
-            !isNoReturnType(overloadReturnType) &&
+            !isNever(overloadReturnType) &&
             !this._evaluator.canAssignType(
                 implementationReturnType,
                 overloadReturnType,
@@ -3180,7 +3174,7 @@ export class Checker extends ParseTreeWalker {
             const declaredReturnType = functionType.details.declaredReturnType;
 
             if (returnAnnotation && declaredReturnType) {
-                if (!isNoneInstance(declaredReturnType) && !isNoReturnType(declaredReturnType)) {
+                if (!isNoneInstance(declaredReturnType) && !isNever(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -3191,7 +3185,7 @@ export class Checker extends ParseTreeWalker {
             } else {
                 const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
                 if (
-                    !isNoReturnType(inferredReturnType) &&
+                    !isNever(inferredReturnType) &&
                     !isNoneInstance(inferredReturnType) &&
                     !isAnyOrUnknown(inferredReturnType)
                 ) {
@@ -3264,7 +3258,7 @@ export class Checker extends ParseTreeWalker {
             // against the declared type, but we need to verify the implicit None
             // at the end of the function.
             if (declaredReturnType && !functionNeverReturns && implicitlyReturnsNone) {
-                if (isNoReturnType(declaredReturnType)) {
+                if (isNever(declaredReturnType)) {
                     // If the function consists entirely of "...", assume that it's
                     // an abstract method or a protocol method and don't require that
                     // the return type matches. This check can also be skipped for an overload.
@@ -4778,7 +4772,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (this._evaluator.isNodeReachable(node, /* sourceNode */ undefined)) {
-            if (declaredReturnType && isNoReturnType(declaredReturnType)) {
+            if (declaredReturnType && isNever(declaredReturnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,

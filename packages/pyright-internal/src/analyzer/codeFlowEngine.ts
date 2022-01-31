@@ -71,7 +71,6 @@ import {
     ClassMemberLookupFlags,
     convertToInstance,
     doForEachSubtype,
-    isNoReturnType,
     isTypeAliasPlaceholder,
     lookUpClassMember,
     mapSubtypes,
@@ -1468,14 +1467,14 @@ export function getCodeFlowEngine(
                             returnType.typeArguments &&
                             returnType.typeArguments.length >= 3
                         ) {
-                            if (isNoReturnType(returnType.typeArguments[2])) {
+                            if (isNever(returnType.typeArguments[2])) {
                                 if (node.parent?.nodeType === ParseNodeType.Await) {
                                     noReturnTypeCount++;
                                 }
                             }
                         }
                     } else if (returnType) {
-                        if (isNoReturnType(returnType)) {
+                        if (isNever(returnType)) {
                             noReturnTypeCount++;
                         }
                     } else if (functionType.details.declaration) {

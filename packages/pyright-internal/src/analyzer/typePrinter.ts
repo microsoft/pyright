@@ -462,7 +462,7 @@ export function printType(
             }
 
             case TypeCategory.Never: {
-                return 'Never';
+                return type.isNoReturn ? 'NoReturn' : 'Never';
             }
 
             case TypeCategory.Any: {

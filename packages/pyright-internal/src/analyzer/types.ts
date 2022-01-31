@@ -558,7 +558,7 @@ export namespace ClassType {
 
         // Never should never appear as a type argument, so replace it with
         newClassType.typeArguments = typeArguments
-            ? typeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
+            ? typeArguments.map((t) => (isNever(t) && !t.isNoReturn ? UnknownType.create() : t))
             : undefined;
 
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
@@ -1563,16 +1563,28 @@ export namespace NoneType {
 
 export interface NeverType extends TypeBase {
     category: TypeCategory.Never;
+    isNoReturn: boolean;
 }
 
 export namespace NeverType {
     const _neverInstance: NeverType = {
         category: TypeCategory.Never,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        isNoReturn: false,
     };
 
-    export function create() {
+    const _noReturnInstance: NeverType = {
+        category: TypeCategory.Never,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        isNoReturn: true,
+    };
+
+    export function createNever() {
         return _neverInstance;
+    }
+
+    export function createNoReturn() {
+        return _noReturnInstance;
     }
 }
 
@@ -1587,6 +1599,7 @@ export namespace AnyType {
         isEllipsis: false,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
     };
+
     const _ellipsisInstance: AnyType = {
         category: TypeCategory.Any,
         isEllipsis: true,
@@ -2515,10 +2528,16 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
 export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
-    // Filter out any "Never" types.
-    subtypes = subtypes.filter((subtype) => subtype.category !== TypeCategory.Never);
+    // Filter out any "Never" and "NoReturn" types.
+    let sawNoReturn = false;
+    subtypes = subtypes.filter((subtype) => {
+        if (subtype.category === TypeCategory.Never && subtype.isNoReturn) {
+            sawNoReturn = true;
+        }
+        return subtype.category !== TypeCategory.Never;
+    });
     if (subtypes.length === 0) {
-        return NeverType.create();
+        return sawNoReturn ? NeverType.createNoReturn() : NeverType.createNever();
     }
 
     // Handle the common case where there is only one type.

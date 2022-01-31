@@ -237,7 +237,6 @@ import {
     isEllipsisType,
     isLiteralType,
     isLiteralTypeOrUnion,
-    isNoReturnType,
     isOptionalType,
     isPartlyUnknown,
     isProperty,
@@ -253,7 +252,6 @@ import {
     ParameterSource,
     partiallySpecializeType,
     populateTypeVarMapForSelfType,
-    removeNoReturnFromUnion,
     removeParamSpecVariadicsFromFunction,
     removeParamSpecVariadicsFromSignature,
     requiresSpecialization,
@@ -2188,7 +2186,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         subtype.tupleTypeArguments &&
                         subtype.tupleTypeArguments.length === 0
                     ) {
-                        return NeverType.create();
+                        return NeverType.createNever();
                     }
 
                     iterReturnType = getSpecializedReturnType(subtype, iterMethodName, errorNode);
@@ -2911,7 +2909,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                         sourceEntryTypes.splice(targetUnpackIndex, 0, combinedTypes);
                     } else if (sourceEntryTypes.length === targetTypes.length - 1) {
-                        sourceEntryTypes.splice(targetUnpackIndex, 0, NeverType.create());
+                        sourceEntryTypes.splice(targetUnpackIndex, 0, NeverType.createNever());
                     }
                 }
 
@@ -2970,8 +2968,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // or list target expression.
         targetExpressions.forEach((expr, index) => {
             const typeList = targetTypes[index];
-            let targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
-            targetType = removeNoReturnFromUnion(targetType);
+            const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
 
             assignTypeToExpression(expr, targetType, isTypeIncomplete, srcExpr, /* ignoreEmptyContainers */ true);
         });
@@ -6531,12 +6528,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 returnResult.type = callResult.returnType || UnknownType.create();
 
-                // If some of the subtypes have NoReturn and others don't remove
-                // the NoReturn type from the union.
-                if (isUnion(returnResult.type)) {
-                    returnResult.type = removeNoReturnFromUnion(returnResult.type);
-                }
-
                 if (callResult.argumentErrors) {
                     returnResult.typeErrors = true;
 
@@ -8331,7 +8322,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             argumentErrors,
-            returnType: isNever(returnType) ? undefined : returnType,
+            returnType: isNever(returnType) && !returnType.isNoReturn ? undefined : returnType,
             isTypeIncomplete,
             specializedInitSelfType,
         };
@@ -10400,7 +10391,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isIncomplete = exprTypeResult.isIncomplete;
 
         if (isNever(exprType)) {
-            return { node, type: NeverType.create(), isIncomplete };
+            return { node, type: NeverType.createNever(), isIncomplete };
         }
 
         // Map unary operators to magic functions. Note that the bitwise
@@ -10751,7 +10742,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isIncomplete = !!rightTypeResult.isIncomplete || !!leftTypeResult.isIncomplete;
 
         if (isNever(leftType) || isNever(rightType)) {
-            return { node, type: NeverType.create(), isIncomplete };
+            return { node, type: NeverType.createNever(), isIncomplete };
         }
 
         type = mapSubtypesExpandTypeVars(
@@ -10865,7 +10856,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
 
         if (isNever(leftType) || isNever(rightType)) {
-            return NeverType.create();
+            return NeverType.createNever();
         }
 
         if (booleanOperatorMap[operator] !== undefined) {
@@ -10974,9 +10965,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                                 // If the operator is an AND or OR, we need to combine the two types.
                                 if (operator === OperatorType.And || operator === OperatorType.Or) {
-                                    return removeNoReturnFromUnion(
-                                        combineTypes([leftSubtypeUnexpanded, rightSubtypeUnexpanded])
-                                    );
+                                    return combineTypes([leftSubtypeUnexpanded, rightSubtypeUnexpanded]);
                                 }
                                 // The other boolean operators always return a bool value.
                                 return getBuiltInObject(errorNode, 'bool');
@@ -12058,8 +12047,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const type = removeNoReturnFromUnion(combineTypes(typesToCombine));
-        return { type, node, isIncomplete };
+        return { type: combineTypes(typesToCombine), node, isIncomplete };
     }
 
     function getTypeFromYield(node: YieldNode): TypeResult {
@@ -13156,7 +13144,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // we're in some other context.
             if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                 addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
-                return NeverType.create();
+                return NeverType.createNever();
             }
 
             return classType;
@@ -13463,6 +13451,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['NotRequired', { alias: '', module: 'builtins' }],
             ['Self', { alias: '', module: 'builtins' }],
             ['NoReturn', { alias: '', module: 'builtins' }],
+            ['Never', { alias: '', module: 'builtins' }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -13500,6 +13489,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['_promote', { alias: '', module: 'builtins' }],
             ['no_type_check', { alias: '', module: 'builtins' }],
             ['NoReturn', { alias: '', module: 'builtins' }],
+            ['Never', { alias: '', module: 'builtins' }],
             ['Counter', { alias: 'Counter', module: 'collections' }],
             ['List', { alias: 'list', module: 'builtins' }],
             ['Dict', { alias: 'dict', module: 'builtins' }],
@@ -15503,12 +15493,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (isAbstract || methodAlwaysRaisesNotImplemented(functionDecl)) {
                             inferredReturnType = UnknownType.create();
                         } else {
-                            const noReturnClass = getTypingType(node, 'NoReturn');
-                            if (noReturnClass && isInstantiableClass(noReturnClass)) {
-                                inferredReturnType = ClassType.cloneAsInstance(noReturnClass);
-                            } else {
-                                inferredReturnType = UnknownType.create();
-                            }
+                            inferredReturnType = NeverType.createNoReturn();
                         }
                     } else {
                         const inferredReturnTypes: Type[] = [];
@@ -15534,9 +15519,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Remove any unbound values since those would generate an exception
                         // before being returned.
                         inferredReturnType = removeUnbound(inferredReturnType);
-
-                        // Remove NoReturn types if they appear within a union.
-                        inferredReturnType = removeNoReturnFromUnion(inferredReturnType);
                     }
 
                     // Is it a generator?
@@ -15598,7 +15580,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeArgs.push(
                                 inferredYieldType,
                                 NoneType.createInstance(),
-                                isNoReturnType(inferredReturnType) ? NoneType.createInstance() : inferredReturnType
+                                isNever(inferredReturnType) ? NoneType.createInstance() : inferredReturnType
                             );
 
                             inferredReturnType = ClassType.cloneAsInstance(
@@ -16689,6 +16671,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             switch (aliasedName) {
                 case 'Callable': {
                     return createCallableType(typeArgs, errorNode);
+                }
+
+                case 'Never': {
+                    if (typeArgs && typeArgs.length > 0) {
+                        addError(
+                            Localizer.Diagnostic.typeArgsExpectingNone().format({ name: 'Never' }),
+                            typeArgs[0].node
+                        );
+                    }
+                    return NeverType.createNever();
+                }
+
+                case 'NoReturn': {
+                    if (typeArgs && typeArgs.length > 0) {
+                        addError(
+                            Localizer.Diagnostic.typeArgsExpectingNone().format({ name: 'NoReturn' }),
+                            typeArgs[0].node
+                        );
+                    }
+                    return NeverType.createNoReturn();
                 }
 
                 case 'Optional': {
@@ -18173,7 +18175,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
             if (contextualReturnType) {
-                returnType = removeNoReturnFromUnion(contextualReturnType);
+                returnType = contextualReturnType;
             }
         }
 
@@ -18289,7 +18291,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             contextualReturnType = removeUnbound(contextualReturnType);
 
             // Do we need to wrap this in an awaitable?
-            if (FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(contextualReturnType)) {
+            if (FunctionType.isWrapReturnTypeInAwait(type) && !isNever(contextualReturnType)) {
                 contextualReturnType = createAwaitableReturnType(
                     functionNode,
                     contextualReturnType,
@@ -20348,7 +20350,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (isNever(srcType) || isNoReturnType(srcType)) {
+        if (isNever(srcType)) {
             if (typeVarMap) {
                 setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap, recursionCount);
             }
@@ -22088,7 +22090,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 let isReturnTypeCompatible = false;
 
-                if (isNoReturnType(srcReturnType)) {
+                if (isNever(srcReturnType)) {
                     // We'll allow any function that returns NoReturn to match any
                     // function return type, consistent with other type checkers.
                     isReturnTypeCompatible = true;

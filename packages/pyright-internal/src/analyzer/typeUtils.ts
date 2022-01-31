@@ -45,7 +45,6 @@ import {
     OverloadedFunctionType,
     ParamSpecEntry,
     ParamSpecValue,
-    removeFromUnion,
     SpecializedFunctionTypes,
     TupleTypeArgument,
     Type,
@@ -396,7 +395,7 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
 
     const transformedSubtype = callback(type);
     if (!transformedSubtype) {
-        return NeverType.create();
+        return NeverType.createNever();
     }
     return transformedSubtype;
 }
@@ -762,14 +761,6 @@ export function getUnionSubtypeCount(type: Type): number {
 
 export function isEllipsisType(type: Type): boolean {
     return isAny(type) && type.isEllipsis;
-}
-
-export function isNoReturnType(type: Type): boolean {
-    return isClassInstance(type) && ClassType.isBuiltIn(type, 'NoReturn');
-}
-
-export function removeNoReturnFromUnion(type: Type): Type {
-    return removeFromUnion(type, (subtype) => isNoReturnType(subtype));
 }
 
 export function isProperty(type: Type) {

@@ -130,7 +130,7 @@ export function narrowTypeBasedOnPattern(
 
         case ParseNodeType.PatternCapture: {
             // A capture captures everything, so nothing remains in the negative case.
-            return isPositiveTest ? type : NeverType.create();
+            return isPositiveTest ? type : NeverType.createNever();
         }
 
         case ParseNodeType.Error: {
@@ -489,7 +489,7 @@ function narrowTypeBasedOnClassPattern(
             Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(classType) }),
             pattern.className
         );
-        return NeverType.create();
+        return NeverType.createNever();
     }
 
     return evaluator.mapSubtypesExpandTypeVars(
@@ -645,7 +645,7 @@ function narrowTypeOfClassPatternArgument(
             // attributes can be added by subtypes, so it's safe to eliminate this
             // type entirely.
             if (ClassType.isFinal(matchType)) {
-                return NeverType.create();
+                return NeverType.createNever();
             }
 
             argType = UnknownType.create();
@@ -704,7 +704,7 @@ function narrowTypeBasedOnValuePattern(
                         }
 
                         if (isNever(valueSubtypeExpanded) || isNever(subjectSubtypeUnexpanded)) {
-                            return NeverType.create();
+                            return NeverType.createNever();
                         }
 
                         if (isAnyOrUnknown(valueSubtypeExpanded) || isAnyOrUnknown(subjectSubtypeUnexpanded)) {
