@@ -1420,22 +1420,6 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     return isClsParam ? TypeVarType.cloneAsInstantiable(selfType) : selfType;
 }
 
-// Returns the declared "send" type (the type returned from the yield
-// statement) if it was declared, or undefined otherwise.
-export function getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
-    const returnType = FunctionType.getSpecializedReturnType(functionType);
-    if (returnType) {
-        const generatorTypeArgs = getGeneratorTypeArgs(returnType);
-
-        if (generatorTypeArgs) {
-            // The send type is the second type arg.
-            return generatorTypeArgs.length >= 2 ? generatorTypeArgs[1] : UnknownType.create();
-        }
-    }
-
-    return undefined;
-}
-
 // Returns the declared "return" type (the type returned from a return statement)
 // if it was declared, or undefined otherwise.
 export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {

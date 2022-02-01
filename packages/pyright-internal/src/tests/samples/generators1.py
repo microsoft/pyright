@@ -1,7 +1,7 @@
 # This sample tests various type checking operations relating to
 # generator functions (those with a "yield" method).
 
-from typing import Any, Generator, Dict, Iterable, Iterator, List
+from typing import Any, Generator, Dict, Iterable, Iterator, List, TypedDict
 
 
 class ClassA:
@@ -108,3 +108,15 @@ async def generator10() -> int:
 # This should generate an error.
 def generator11() -> List[int]:
     yield 3
+
+
+class TD1(TypedDict):
+    x: str
+
+
+def generator12() -> Generator[TD1, None, None]:
+    yield {"x": "x"}
+
+def generator13() -> Generator[TD1, None, None]:
+    # This should generate an error.
+    yield {"y": "x"}

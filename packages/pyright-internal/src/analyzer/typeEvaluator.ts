@@ -225,7 +225,6 @@ import {
     doForEachSubtype,
     explodeGenericClass,
     getDeclaredGeneratorReturnType,
-    getDeclaredGeneratorSendType,
     getGeneratorTypeArgs,
     getLiteralTypeClassName,
     getParameterListDetails,
@@ -12060,6 +12059,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromYield(node: YieldNode): TypeResult {
+        let expectedYieldType: Type | undefined;
         let sentType: Type | undefined;
         let isIncomplete = false;
 
@@ -12067,12 +12067,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (enclosingFunction) {
             const functionTypeInfo = getTypeOfFunction(enclosingFunction);
             if (functionTypeInfo) {
-                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
+                const returnType = FunctionType.getSpecializedReturnType(functionTypeInfo.functionType);
+                if (returnType) {
+                    const generatorTypeArgs = getGeneratorTypeArgs(returnType);
+
+                    if (generatorTypeArgs) {
+                        if (generatorTypeArgs.length >= 1) {
+                            expectedYieldType = generatorTypeArgs[0];
+                        }
+
+                        if (generatorTypeArgs.length >= 2) {
+                            sentType = generatorTypeArgs[1];
+                        }
+                    }
+                }
             }
         }
 
         if (node.expression) {
-            const exprResult = getTypeOfExpression(node.expression);
+            const exprResult = getTypeOfExpression(node.expression, expectedYieldType);
             if (exprResult.isIncomplete) {
                 isIncomplete = true;
             }
