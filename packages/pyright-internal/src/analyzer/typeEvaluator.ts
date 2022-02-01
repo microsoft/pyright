@@ -1955,6 +1955,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let symbol: Symbol | undefined;
         let classOrObjectBase: ClassType | undefined;
         let memberAccessClass: Type | undefined;
+        let bindFunction = true;
 
         switch (expression.nodeType) {
             case ParseNodeType.Name: {
@@ -2011,6 +2012,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     classOrObjectBase = baseType;
                     memberAccessClass = classMemberInfo?.classType;
+
+                    // If this is an instance member (e.g. a dataclass field), don't
+                    // bind it to the object if it's a function.
+                    if (classMemberInfo?.isInstanceMember) {
+                        bindFunction = false;
+                    }
                 } else if (isInstantiableClass(baseType)) {
                     classMemberInfo = lookUpClassMember(
                         baseType,
@@ -2087,12 +2094,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
-                        declaredType = bindFunctionToClassOrObject(
-                            classOrObjectBase,
-                            declaredType,
-                            /* memberClass */ undefined,
-                            expression
-                        );
+                        if (bindFunction) {
+                            declaredType = bindFunctionToClassOrObject(
+                                classOrObjectBase,
+                                declaredType,
+                                /* memberClass */ undefined,
+                                expression
+                            );
+                        }
                     }
                 }
 
