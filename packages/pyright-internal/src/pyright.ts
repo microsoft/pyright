@@ -168,7 +168,7 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.outputjson) {
-        const incompatibleArgs = ['watch', 'stats', 'verbose', 'createstub', 'dependencies'];
+        const incompatibleArgs = ['stats', 'verbose', 'createstub', 'dependencies'];
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'outputjson' option cannot be used with '${arg}' option`);
