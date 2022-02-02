@@ -137,6 +137,10 @@ export namespace TypeBase {
         return (type.flags |= TypeFlags.SpecialForm);
     }
 
+    export function cloneType<T extends TypeBase>(type: T): T {
+        return { ...type };
+    }
+
     export function cloneForTypeAlias(
         type: Type,
         name: string,
@@ -145,7 +149,7 @@ export namespace TypeBase {
         typeParams?: TypeVarType[],
         typeArgs?: Type[]
     ): Type {
-        const typeClone = { ...type };
+        const typeClone = cloneType(type);
 
         typeClone.typeAliasInfo = {
             name,
@@ -159,7 +163,7 @@ export namespace TypeBase {
     }
 
     export function cloneForAnnotated(type: Type) {
-        const typeClone = { ...type };
+        const typeClone = cloneType(type);
         typeClone.flags |= TypeFlags.Annotated;
         return typeClone;
     }
@@ -171,7 +175,7 @@ export namespace TypeBase {
             return type;
         }
 
-        const typeClone = { ...type };
+        const typeClone = cloneType(type);
         typeClone.condition = condition;
         return typeClone;
     }
@@ -523,24 +527,24 @@ export namespace ClassType {
         return newClass;
     }
 
-    export function cloneAsInstance(classType: ClassType) {
+    export function cloneAsInstance(classType: ClassType): ClassType {
         if (TypeBase.isInstance(classType)) {
             return classType;
         }
 
-        const objectType = { ...classType };
+        const objectType = TypeBase.cloneType(classType);
         objectType.flags &= ~(TypeFlags.Instantiable | TypeFlags.SpecialForm);
         objectType.flags |= TypeFlags.Instance;
         objectType.includeSubclasses = true;
         return objectType;
     }
 
-    export function cloneAsInstantiable(objectType: ClassType) {
+    export function cloneAsInstantiable(objectType: ClassType): ClassType {
         if (TypeBase.isInstantiable(objectType)) {
             return objectType;
         }
 
-        const classType = { ...objectType };
+        const classType = TypeBase.cloneType(objectType);
         classType.flags &= ~TypeFlags.Instance;
         classType.flags |= TypeFlags.Instantiable;
         return classType;
@@ -554,7 +558,7 @@ export namespace ClassType {
         tupleTypeArguments?: TupleTypeArgument[],
         isEmptyContainer?: boolean
     ): ClassType {
-        const newClassType = { ...classType };
+        const newClassType = TypeBase.cloneType(classType);
 
         // Never should never appear as a type argument, so replace it with
         newClassType.typeArguments = typeArguments
@@ -579,13 +583,13 @@ export namespace ClassType {
     }
 
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
-        const newClassType = { ...classType };
+        const newClassType = TypeBase.cloneType(classType);
         newClassType.literalValue = value;
         return newClassType;
     }
 
     export function cloneForTypingAlias(classType: ClassType, aliasName: string): ClassType {
-        const newClassType = { ...classType };
+        const newClassType = TypeBase.cloneType(classType);
         newClassType.aliasName = aliasName;
         return newClassType;
     }
@@ -593,14 +597,14 @@ export namespace ClassType {
     export function cloneForNarrowedTypedDictEntries(
         classType: ClassType,
         narrowedEntries?: Map<string, TypedDictEntry>
-    ) {
-        const newClassType = { ...classType };
+    ): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
         newClassType.typedDictNarrowedEntries = narrowedEntries;
         return newClassType;
     }
 
     export function cloneWithNewTypeParameters(classType: ClassType, typeParams: TypeVarType[]): ClassType {
-        const newClassType = { ...classType };
+        const newClassType = TypeBase.cloneType(classType);
         newClassType.details = { ...newClassType.details };
         newClassType.details.typeParameters = typeParams;
         return newClassType;
@@ -611,14 +615,14 @@ export namespace ClassType {
         typeGuardType: Type,
         isStrictTypeGuard: boolean
     ): ClassType {
-        const newClassType = { ...classType };
+        const newClassType = TypeBase.cloneType(classType);
         newClassType.typeGuardType = typeGuardType;
         newClassType.isStrictTypeGuard = isStrictTypeGuard;
         return newClassType;
     }
 
-    export function cloneForSymbolTableUpdate(classType: ClassType) {
-        const newClassType = { ...classType };
+    export function cloneForSymbolTableUpdate(classType: ClassType): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
         newClassType.details = { ...newClassType.details };
         newClassType.details.fields = new Map(newClassType.details.fields);
         newClassType.details.mro = [...newClassType.details.mro];
@@ -626,13 +630,13 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneForUnpackedTuple(classType: ClassType, isUnpacked = true) {
-        const newClassType = { ...classType };
+    export function cloneForUnpackedTuple(classType: ClassType, isUnpacked = true): ClassType {
+        const newClassType = TypeBase.cloneType(classType);
         newClassType.isUnpackedTuple = isUnpacked;
         return newClassType;
     }
 
-    export function isLiteralValueSame(type1: ClassType, type2: ClassType) {
+    export function isLiteralValueSame(type1: ClassType, type2: ClassType): boolean {
         if (type1.literalValue === undefined) {
             return type2.literalValue === undefined;
         } else if (type2.literalValue === undefined) {
@@ -1177,17 +1181,19 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    export function cloneAsInstance(type: FunctionType) {
+    export function cloneAsInstance(type: FunctionType): FunctionType {
         assert(TypeBase.isInstantiable(type));
-        const newInstance: FunctionType = { ...type };
+
+        const newInstance: FunctionType = TypeBase.cloneType(type);
         newInstance.flags &= ~(TypeFlags.Instantiable | TypeFlags.SpecialForm);
         newInstance.flags |= TypeFlags.Instance;
         return newInstance;
     }
 
-    export function cloneAsInstantiable(type: FunctionType) {
+    export function cloneAsInstantiable(type: FunctionType): FunctionType {
         assert(TypeBase.isInstance(type));
-        const newInstance: FunctionType = { ...type };
+
+        const newInstance: FunctionType = TypeBase.cloneType(type);
         newInstance.flags &= ~(TypeFlags.Instance | TypeFlags.SpecialForm);
         newInstance.flags |= TypeFlags.Instantiable;
         return newInstance;
@@ -1222,7 +1228,7 @@ export namespace FunctionType {
     }
 
     // Creates a new function based on the parameters of another function.
-    export function cloneForParamSpec(type: FunctionType, paramSpecValue: ParamSpecValue | undefined) {
+    export function cloneForParamSpec(type: FunctionType, paramSpecValue: ParamSpecValue | undefined): FunctionType {
         const newFunction = create(
             type.details.name,
             type.details.fullName,
@@ -1286,8 +1292,8 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    export function cloneWithNewFlags(type: FunctionType, flags: FunctionTypeFlags) {
-        const newFunction = { ...type };
+    export function cloneWithNewFlags(type: FunctionType, flags: FunctionTypeFlags): FunctionType {
+        const newFunction = TypeBase.cloneType(type);
 
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
@@ -1297,8 +1303,8 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: ParamSpecValue) {
-        const newFunction = { ...type };
+    export function cloneForParamSpecApplication(type: FunctionType, paramSpecValue: ParamSpecValue): FunctionType {
+        const newFunction = TypeBase.cloneType(type);
 
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
@@ -1340,7 +1346,7 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    export function cloneRemoveParamSpecVariadics(type: FunctionType, paramSpec: TypeVarType) {
+    export function cloneRemoveParamSpecVariadics(type: FunctionType, paramSpec: TypeVarType): FunctionType {
         const newFunction = create(
             type.details.name,
             type.details.fullName,
@@ -1390,7 +1396,7 @@ export namespace FunctionType {
     }
 
     // Indicates whether the input signature consists of (*args: Any, **kwargs: Any).
-    export function hasDefaultParameters(functionType: FunctionType) {
+    export function hasDefaultParameters(functionType: FunctionType): boolean {
         let sawArgs = false;
         let sawKwargs = false;
 
@@ -1882,17 +1888,19 @@ export namespace TypeVarType {
         return create(name, isParamSpec, TypeFlags.Instantiable);
     }
 
-    export function cloneAsInstance(type: TypeVarType) {
+    export function cloneAsInstance(type: TypeVarType): TypeVarType {
         assert(TypeBase.isInstantiable(type));
-        const newInstance: TypeVarType = { ...type };
+
+        const newInstance: TypeVarType = TypeBase.cloneType(type);
         newInstance.flags &= ~(TypeFlags.Instantiable | TypeFlags.SpecialForm);
         newInstance.flags |= TypeFlags.Instance;
         return newInstance;
     }
 
-    export function cloneAsInstantiable(type: TypeVarType) {
+    export function cloneAsInstantiable(type: TypeVarType): TypeVarType {
         assert(TypeBase.isInstance(type));
-        const newInstance: TypeVarType = { ...type };
+
+        const newInstance: TypeVarType = TypeBase.cloneType(type);
         newInstance.flags &= ~(TypeFlags.Instance | TypeFlags.SpecialForm);
         newInstance.flags |= TypeFlags.Instantiable;
         return newInstance;
@@ -1903,8 +1911,8 @@ export namespace TypeVarType {
         scopeId: string,
         scopeName: string,
         scopeType: TypeVarScopeType
-    ) {
-        const newInstance: TypeVarType = { ...type };
+    ): TypeVarType {
+        const newInstance = TypeBase.cloneType(type);
         newInstance.nameWithScope = makeNameWithScope(type.details.name, scopeId);
         newInstance.scopeId = scopeId;
         newInstance.scopeName = scopeName;
@@ -1914,7 +1922,7 @@ export namespace TypeVarType {
 
     export function cloneForUnpacked(type: TypeVarType, isInUnion = false) {
         assert(type.details.isVariadic);
-        const newInstance: TypeVarType = { ...type };
+        const newInstance = TypeBase.cloneType(type);
         newInstance.isVariadicUnpacked = true;
         newInstance.isVariadicInUnion = isInUnion;
         return newInstance;
@@ -1922,7 +1930,7 @@ export namespace TypeVarType {
 
     export function cloneForPacked(type: TypeVarType) {
         assert(type.details.isVariadic);
-        const newInstance: TypeVarType = { ...type };
+        const newInstance = TypeBase.cloneType(type);
         newInstance.isVariadicUnpacked = false;
         newInstance.isVariadicInUnion = false;
         return newInstance;
@@ -1930,7 +1938,7 @@ export namespace TypeVarType {
 
     // Creates a "simplified" version of the TypeVar with invariance
     // and no bound or constraints. ParamSpecs and variadics are left unmodified.
-    export function cloneAsInvariant(type: TypeVarType) {
+    export function cloneAsInvariant(type: TypeVarType): TypeVarType {
         if (type.details.isParamSpec || type.details.isVariadic) {
             return type;
         }
@@ -1941,7 +1949,7 @@ export namespace TypeVarType {
             }
         }
 
-        const newInstance: TypeVarType = { ...type };
+        const newInstance = TypeBase.cloneType(type);
         newInstance.details = { ...newInstance.details };
         newInstance.details.variance = Variance.Invariant;
         newInstance.details.boundType = undefined;
@@ -1949,15 +1957,15 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForParamSpecAccess(type: TypeVarType, access: ParamSpecAccess | undefined) {
-        const newInstance: TypeVarType = { ...type };
+    export function cloneForParamSpecAccess(type: TypeVarType, access: ParamSpecAccess | undefined): TypeVarType {
+        const newInstance = TypeBase.cloneType(type);
         newInstance.paramSpecAccess = access;
         return newInstance;
     }
 
-    export function cloneAsSpecializedSelf(type: TypeVarType, specializedBoundType: Type) {
+    export function cloneAsSpecializedSelf(type: TypeVarType, specializedBoundType: Type): TypeVarType {
         assert(type.details.isSynthesizedSelf);
-        const newInstance: TypeVarType = { ...type };
+        const newInstance = TypeBase.cloneType(type);
         newInstance.details = { ...newInstance.details };
         newInstance.details.boundType = specializedBoundType;
         return newInstance;
@@ -1967,7 +1975,7 @@ export namespace TypeVarType {
         return `${name}.${scopeId}`;
     }
 
-    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags) {
+    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags): TypeVarType {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             details: {
