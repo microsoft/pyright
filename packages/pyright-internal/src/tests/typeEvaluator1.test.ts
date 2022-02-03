@@ -549,6 +549,12 @@ test('Lambda5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Lambda6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda6.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Call1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call1.py']);
 

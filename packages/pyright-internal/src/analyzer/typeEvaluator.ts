@@ -3673,16 +3673,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
                 }
 
-                // If the symbol used by the code flow engine isn't the same
-                // as the original symbol, then an outer-scoped symbol was used,
-                // and we need to mark it as accessed.
-                if (codeFlowTypeResult.usedOuterScopeAlias) {
-                    const outerScopeSymbol = symbolWithScope.scope.parent?.lookUpSymbolRecursive(name);
-                    if (outerScopeSymbol) {
-                        setSymbolAccessed(fileInfo, outerScopeSymbol.symbol, node);
-                    }
-                }
-
                 if (!codeFlowTypeResult.type && symbolWithScope.isBeyondExecutionScope) {
                     const outerScopeTypeResult = getCodeFlowTypeForCapturedVariable(
                         node,
@@ -16615,7 +16605,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionNode);
 
         if (!codeFlowExpressions || !codeFlowExpressions.has(referenceKey)) {
-            return { type: undefined, usedOuterScopeAlias: false, isIncomplete: false };
+            return { type: undefined, isIncomplete: false };
         }
 
         // Is there an code flow analyzer cached for this execution scope?
@@ -16633,7 +16623,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(startNode ?? reference);
         if (flowNode === undefined) {
-            return { type: undefined, usedOuterScopeAlias: false, isIncomplete: false };
+            return { type: undefined, isIncomplete: false };
         }
 
         return getTypeFromCodeFlow(
@@ -17144,8 +17134,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): SymbolWithScope | undefined {
         const scope = ScopeUtils.getScopeForNode(node);
         let symbolWithScope = scope?.lookUpSymbolRecursive(name);
+        const scopeType = scope?.type ?? ScopeType.Module;
 
-        if (symbolWithScope && honorCodeFlow) {
+        // Functions and list comprehensions don't allow access to implicitly
+        // aliased symbols in outer scopes if they haven't yet been assigned
+        // within the local scope.
+        const scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.ListComprehension;
+
+        if (symbolWithScope && honorCodeFlow && scopeTypeHonorsCodeFlow) {
             // Filter the declarations based on flow reachability.
             const reachableDecls = symbolWithScope.symbol.getDeclarations().filter((decl) => {
                 if (decl.type !== DeclarationType.Alias && decl.type !== DeclarationType.Intrinsic) {
@@ -17167,7 +17163,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
-
                 return true;
             });
 

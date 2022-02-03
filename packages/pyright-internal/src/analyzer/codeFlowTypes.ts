@@ -43,7 +43,6 @@ export enum FlowFlags {
     Call = 1 << 10, // Call node
     PreFinallyGate = 1 << 11, // Injected edge that links pre-finally label and pre-try flow
     PostFinally = 1 << 12, // Injected edge that links post-finally flow with the rest of the graph
-    AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
     VariableAnnotation = 1 << 14, // Separates a variable annotation from its name node
     PostContextManager = 1 << 15, // Label that's used for context managers that suppress exceptions
     TrueNeverCondition = 1 << 16, // Condition whose type evaluates to never when narrowed in positive test
@@ -91,18 +90,6 @@ export interface FlowAssignment extends FlowNode {
     node: CodeFlowReferenceExpressionNode;
     antecedent: FlowNode;
     targetSymbolId: number;
-}
-
-// FlowAssignmentAlias handles a case where a symbol
-// takes on the value of a symbol with the same name
-// but within an outer scope, such as when a variable
-// is references within a list comprehension iteration
-// expression before the result is assigned to a
-// local variable of the same name.
-export interface FlowAssignmentAlias extends FlowNode {
-    antecedent: FlowNode;
-    targetSymbolId: number;
-    aliasSymbolId: number;
 }
 
 // FlowVariableAnnotation separates a variable annotation

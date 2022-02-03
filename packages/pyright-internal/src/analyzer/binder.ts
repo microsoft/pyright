@@ -84,7 +84,6 @@ import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
     FlowAssignment,
-    FlowAssignmentAlias,
     FlowBranchLabel,
     FlowCall,
     FlowCondition,
@@ -477,28 +476,9 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.functionAnnotationComment);
         }
 
-        // Find the function or module that contains this function and use its scope.
-        // We can't simply use this._currentScope because functions within a class use
-        // the scope of the containing function or module when they execute.
-        let functionOrModuleNode: ParseNode | undefined = node.parent;
-        while (functionOrModuleNode) {
-            if (
-                functionOrModuleNode.nodeType === ParseNodeType.Module ||
-                functionOrModuleNode.nodeType === ParseNodeType.Function
-            ) {
-                break;
-            }
-
-            functionOrModuleNode = functionOrModuleNode.parent;
-        }
-        assert(functionOrModuleNode !== undefined);
-
-        const functionOrModuleScope = AnalyzerNodeInfo.getScope(functionOrModuleNode!);
-        assert(functionOrModuleScope !== undefined);
-
         // Don't walk the body of the function until we're done analyzing
         // the current scope.
-        this._createNewScope(ScopeType.Function, functionOrModuleScope, () => {
+        this._createNewScope(ScopeType.Function, this._getNonClassParentScope(), () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
             const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
@@ -576,7 +556,7 @@ export class Binder extends ParseTreeWalker {
             }
         });
 
-        this._createNewScope(ScopeType.Function, this._currentScope, () => {
+        this._createNewScope(ScopeType.Function, this._getNonClassParentScope(), () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
             this._deferBinding(() => {
@@ -1908,7 +1888,7 @@ export class Binder extends ParseTreeWalker {
     override visitListComprehension(node: ListComprehensionNode): boolean {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
 
-        this._createNewScope(ScopeType.ListComprehension, this._currentScope, () => {
+        this._createNewScope(ScopeType.ListComprehension, this._getNonClassParentScope(), () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
             const falseLabel = this._createBranchLabel();
@@ -1916,7 +1896,6 @@ export class Binder extends ParseTreeWalker {
             // We'll walk the comprehensions list twice. The first time we'll
             // bind targets of for statements. The second time we'll walk
             // expressions and create the control flow graph.
-            const boundSymbols: Map<string, Symbol>[] = [];
             for (let i = 0; i < node.comprehensions.length; i++) {
                 const compr = node.comprehensions[i];
                 const addedSymbols = new Map<string, Symbol>();
@@ -1936,24 +1915,11 @@ export class Binder extends ParseTreeWalker {
                         }
                     }
                 }
-                boundSymbols.push(addedSymbols);
             }
 
             for (let i = 0; i < node.comprehensions.length; i++) {
                 const compr = node.comprehensions[i];
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    const addedSymbols = boundSymbols[i];
-
-                    // Determine if we added a new symbol to this scope. If so, see
-                    // if it's the same name as a symbol in an outer scope. If so, we'll
-                    // create an alias node in the control flow graph.
-                    for (const addedSymbol of addedSymbols) {
-                        const aliasSymbol = this._currentScope.parent!.lookUpSymbol(addedSymbol[0]);
-                        if (aliasSymbol) {
-                            this._createAssignmentAliasFlowNode(addedSymbol[1].id, aliasSymbol.id);
-                        }
-                    }
-
                     this.walk(compr.iterableExpression);
 
                     this._createAssignmentTargetFlowNodes(
@@ -2103,6 +2069,17 @@ export class Binder extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    private _getNonClassParentScope() {
+        // We may not be able to use the current scope if it's a class scope.
+        // Walk up until we find a non-class scope instead.
+        let parentScope = this._currentScope;
+        while (parentScope.type === ScopeType.Class) {
+            parentScope = parentScope.parent!;
+        }
+
+        return parentScope;
     }
 
     private _addSlotsToCurrentScope(slotNameNodes: StringListNode[]) {
@@ -2913,20 +2890,6 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _createAssignmentAliasFlowNode(targetSymbolId: number, aliasSymbolId: number) {
-        if (!this._isCodeUnreachable()) {
-            const flowNode: FlowAssignmentAlias = {
-                flags: FlowFlags.AssignmentAlias,
-                id: getUniqueFlowNodeId(),
-                antecedent: this._currentFlowNode!,
-                targetSymbolId,
-                aliasSymbolId,
-            };
-
-            this._currentFlowNode = flowNode;
-        }
-    }
-
     private _createVariableAnnotationFlowNode() {
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowVariableAnnotation = {
@@ -3093,16 +3056,6 @@ export class Binder extends ParseTreeWalker {
             let symbol = scope.lookUpSymbol(name);
             if (!symbol) {
                 symbol = scope.addSymbol(name, SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
-
-                // Handle the case where a new symbol is being added to a class
-                // but the expression assigned to it uses a symbol of the same
-                // name that is declared in an outer scope.
-                if (scope.type === ScopeType.Class) {
-                    const aliasSymbol = scope.parent!.lookUpSymbol(name);
-                    if (aliasSymbol) {
-                        this._createAssignmentAliasFlowNode(symbol.id, aliasSymbol.id);
-                    }
-                }
 
                 if (this._currentScope.type === ScopeType.Module || this._currentScope.type === ScopeType.Builtin) {
                     if (isPrivateOrProtectedName(name)) {

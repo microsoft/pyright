@@ -709,6 +709,7 @@ export function getEvaluationNodeForAssignmentExpression(
 // a symbol referenced in the specified node.
 export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
     let prevNode: ParseNode | undefined;
+    let prevPrevNode: ParseNode | undefined;
     let curNode: ParseNode | undefined = node;
     let isParamNameNode = false;
 
@@ -761,14 +762,31 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
                 break;
             }
 
-            case ParseNodeType.ListComprehension:
+            case ParseNodeType.ListComprehension: {
+                if (getScope(curNode) !== undefined) {
+                    // The iterable expression of the first subnode of a list comprehension
+                    // is evaluated within the scope of its parent.
+                    const isFirstIterableExpr =
+                        prevNode === curNode.comprehensions[0] &&
+                        curNode.comprehensions[0].nodeType === ParseNodeType.ListComprehensionFor &&
+                        curNode.comprehensions[0].iterableExpression === prevPrevNode;
+
+                    if (!isFirstIterableExpr) {
+                        return curNode;
+                    }
+                }
+                break;
+            }
+
             case ParseNodeType.Module: {
                 if (getScope(curNode) !== undefined) {
                     return curNode;
                 }
+                break;
             }
         }
 
+        prevPrevNode = prevNode;
         prevNode = curNode;
         curNode = curNode.parent;
     }
