@@ -3202,6 +3202,7 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(target.value),
                         inferredTypeSource: source,
+                        isInferenceAllowedInPyTyped: this._isInferenceAllowedInPyTyped(name.value),
                         typeAliasName: isPossibleTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
@@ -3288,6 +3289,11 @@ export class Binder extends ParseTreeWalker {
                 break;
             }
         }
+    }
+
+    private _isInferenceAllowedInPyTyped(symbolName: string): boolean {
+        const exemptSymbols = ['__match_args__', '__slots__', '__all__'];
+        return exemptSymbols.some((name) => name === symbolName);
     }
 
     private _addTypeDeclarationForVariable(target: ExpressionNode, typeAnnotation: ExpressionNode) {

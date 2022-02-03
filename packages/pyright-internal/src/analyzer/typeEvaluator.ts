@@ -17790,7 +17790,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         resolvedDecl.node
                     );
                 } else if (isSpeculativeTypeAliasFromPyTypedFile) {
-                    return UnknownType.create();
+                    if (decl.type !== DeclarationType.Variable || !decl.isInferenceAllowedInPyTyped) {
+                        return UnknownType.create();
+                    }
                 }
             }
 

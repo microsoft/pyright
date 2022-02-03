@@ -124,6 +124,11 @@ export interface VariableDeclaration extends DeclarationBase {
     // Is the declaration an entry in __slots__?
     isDefinedBySlots?: boolean;
 
+    // For most symbols in a "py.typed" file, type inference is not
+    // allowed. But in certain cases (as with __match_args__ or __slots__),
+    // inference is permitted.
+    isInferenceAllowedInPyTyped?: boolean;
+
     // Is the declaration using a runtime-evaluated type expression
     // rather than an annotation? This is used for TypedDicts, NamedTuples,
     // and other complex (more dynamic) class definitions with typed variables.
