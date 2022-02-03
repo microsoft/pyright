@@ -1,5 +1,5 @@
 # This sample tests the translation of a heterogenous tuple
-# into an Interable.
+# into an Iterable.
 
 from typing import Iterable, TypeVar, Union
 

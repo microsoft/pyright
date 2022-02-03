@@ -6335,7 +6335,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return getTypeFromTupleExpected(node, subtype);
                     });
 
-                    if (subtypeResult) {
+                    if (subtypeResult && canAssignType(subtype, subtypeResult.type)) {
                         matchingSubtype = subtype;
                     }
                 }
