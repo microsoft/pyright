@@ -21,6 +21,7 @@ export const enum MetadataOptionNames {
     fileName = 'filename',
     library = 'library',
     distLibrary = 'distlibrary',
+    ipythonMode = 'ipythonmode',
 }
 
 /** List of allowed file metadata names */
@@ -28,6 +29,7 @@ export const fileMetadataNames = [
     MetadataOptionNames.fileName,
     MetadataOptionNames.library,
     MetadataOptionNames.distLibrary,
+    MetadataOptionNames.ipythonMode,
 ];
 
 /** all the necessary information to set the right compiler settings */

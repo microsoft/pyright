@@ -1,0 +1,255 @@
+/*
+ * tokenizer.ipython.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Unit tests for tokenizer ipython mode
+ */
+
+import assert from 'assert';
+
+import { TextRange } from '../common/textRange';
+import { TextRangeCollection } from '../common/textRangeCollection';
+import { Comment, CommentType, Token } from '../parser/tokenizerTypes';
+import { parseAndGetTestState } from './harness/fourslash/testState';
+
+test('regular mode', () => {
+    const code = `
+//// [|/*marker*/%cd test|]
+    `;
+
+    testIPython(code, /*expectMagic*/ false);
+});
+
+test('ipython magic', () => {
+    const code = `
+// @ipythonMode: true
+//// [|/*marker*/%cd test|]
+    `;
+
+    testIPython(code);
+});
+
+test('ipython shell escape', () => {
+    const code = `
+// @ipythonMode: true
+//// [|/*marker*/!shellCommand|]
+    `;
+
+    testIPython(code);
+});
+
+test('ipython regular operator - mod', () => {
+    const code = `
+// @ipythonMode: true
+//// a = 1 [|/*marker*/% 1|]
+    `;
+
+    testIPython(code, /*expectMagic*/ false);
+});
+
+test('ipython regular operator - bang', () => {
+    const code = `
+// @ipythonMode: true
+//// a = 1
+//// a [|/*marker*/!= 1|]
+    `;
+
+    testIPython(code, /*expectMagic*/ false);
+});
+
+test('ipython regular operator multiline', () => {
+    const code = `
+// @ipythonMode: true
+//// a = 1 \\
+//// [|/*marker*/% 1|]
+    `;
+
+    testIPython(code, /*expectMagic*/ false);
+});
+
+test('ipython at the top', () => {
+    const code = `
+// @ipythonMode: true
+//// [|/*marker*/%cd test|]
+//// b = 1
+    `;
+
+    testIPython(code);
+});
+
+test('ipython between statements', () => {
+    const code = `
+// @ipythonMode: true
+//// a = 1
+//// [|/*marker*/%cd test|]
+//// b = 1
+    `;
+
+    testIPython(code);
+});
+
+test('ipython at the end', () => {
+    const code = `
+// @ipythonMode: true
+//// a = 1
+//// [|/*marker*/%cd test|]
+    `;
+
+    testIPython(code);
+});
+
+test('ipython multiline magics', () => {
+    const code = `
+// @ipythonMode: true
+//// a = 1
+//// [|/*marker*/%cd test \
+////                 other arguments|]
+    `;
+
+    testIPython(code);
+});
+
+test('ipython cell mode magics', () => {
+    const code = `
+// @ipythonMode: true
+//// [|/*marker*/%%timeit|]
+    `;
+
+    testIPython(code);
+});
+
+test('ipython with indentation', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+////     [|/*marker*/%cd test|]
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+test('ipython without indentation', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+//// [|/*marker*/%cd test|]
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+test('ipython mixed with regular comments 1', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+////     # comments
+////     [|/*marker*/%cd test|]
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+test('ipython mixed with regular comments 2', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+////     # comments
+////     [|/*marker*/%cd test|]
+////     # comments
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+test('ipython mixed with regular comments 3', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+////     [|/*marker*/%cd test|]
+////     # comments
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+test('ipython mixed with regular comments 4', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+//// [|/*marker*/%cd test|]
+////     # comments
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+test('ipython multiple magics 1', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+//// [|/*marker*/%cd test|]
+////     %cd test2
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+test('ipython multiple magics 2', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo():
+//// %cd test
+////     [|/*marker*/%cd test2|]
+////     pass
+    `;
+
+    testIPython(code);
+});
+
+function testIPython(code: string, expectMagic = true) {
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const results = state.program.getBoundSourceFile(range.fileName)!.getParseResults()!;
+
+    const comment = findCommentByOffset(results.tokenizerOutput.tokens, range.pos + 1);
+    if (!expectMagic) {
+        assert(!comment);
+        return;
+    }
+
+    assert(comment);
+    const text = results.text.substring(range.pos, range.end);
+
+    const type = text[0] === '%' ? CommentType.IPythonMagic : CommentType.IPythonShellEscape;
+    assert.strictEqual(type, comment.type);
+    assert.strictEqual(text.substring(1), comment.value);
+}
+
+function findCommentByOffset(tokens: TextRangeCollection<Token>, offset: number) {
+    let startIndex = tokens.getItemAtPosition(offset);
+    startIndex = startIndex >= 0 ? startIndex : 0;
+
+    let comment: Comment | undefined;
+    for (let i = startIndex; i < tokens.count; i++) {
+        const token = tokens.getItemAt(i);
+        comment = token.comments?.find((c) => TextRange.contains(c, offset));
+        if (comment) {
+            break;
+        }
+
+        if (offset < token.start) {
+            return undefined;
+        }
+    }
+
+    return comment;
+}

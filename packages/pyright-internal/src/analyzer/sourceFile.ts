@@ -166,6 +166,9 @@ export class SourceFile {
     // Do we need to perform an indexing step?
     private _indexingNeeded = true;
 
+    // Indicate whether this file is for ipython or not.
+    private _ipythonMode = false;
+
     // Information about implicit and explicit imports from this file.
     private _imports: ImportResult[] | undefined;
     private _builtinsImport: ImportResult | undefined;
@@ -180,7 +183,8 @@ export class SourceFile {
         isThirdPartyImport: boolean,
         isThirdPartyPyTypedPresent: boolean,
         console?: ConsoleInterface,
-        logTracker?: LogTracker
+        logTracker?: LogTracker,
+        ipythonMode = false
     ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
@@ -215,6 +219,7 @@ export class SourceFile {
 
         // 'FG' or 'BG' based on current thread.
         this._logTracker = logTracker ?? new LogTracker(console, isMainThread ? 'FG' : 'BG');
+        this._ipythonMode = ipythonMode;
     }
 
     getFilePath(): string {
@@ -433,11 +438,11 @@ export class SourceFile {
         this._isBindingNeeded = true;
     }
 
-    markDirty(): void {
+    markDirty(indexingNeeded = true): void {
         this._fileContentsVersion++;
         this._isCheckingNeeded = true;
         this._isBindingNeeded = true;
-        this._indexingNeeded = true;
+        this._indexingNeeded = indexingNeeded;
         this._moduleSymbolTable = undefined;
         this._cachedIndexResults = undefined;
     }
@@ -453,11 +458,12 @@ export class SourceFile {
                 this._parseResults.containsWildcardImport ||
                 AnalyzerNodeInfo.getDunderAllInfo(this._parseResults.parseTree) !== undefined
             ) {
+                // We don't need to rebuild index data since wildcard
+                // won't affect user file indices. User file indices
+                // don't contain import alias info.
                 this._parseTreeNeedsCleaning = true;
                 this._isBindingNeeded = true;
-                this._indexingNeeded = true;
                 this._moduleSymbolTable = undefined;
-                this._cachedIndexResults = undefined;
             }
         }
     }
@@ -631,6 +637,7 @@ export class SourceFile {
             const execEnvironment = configOptions.findExecEnvironment(this._filePath);
 
             const parseOptions = new ParseOptions();
+            parseOptions.ipythonMode = this._ipythonMode;
             if (this._filePath.endsWith('pyi')) {
                 parseOptions.isStubFile = true;
             }
@@ -1152,6 +1159,10 @@ export class SourceFile {
                 this._diagnosticVersion++;
             }
         });
+    }
+
+    test_enableIPythonMode(enable: boolean) {
+        this._ipythonMode = enable;
     }
 
     private _buildFileInfo(

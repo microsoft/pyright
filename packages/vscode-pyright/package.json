@@ -840,7 +840,7 @@
     },
     "devDependencies": {
         "@types/copy-webpack-plugin": "^10.1.0",
-        "@types/node": "^12.20.41",
+        "@types/node": "^17.0.8",
         "@types/vscode": "~1.63.1",
         "copy-webpack-plugin": "^10.2.1",
         "detect-indent": "^6.1.0",
