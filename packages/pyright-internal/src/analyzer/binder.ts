@@ -247,18 +247,18 @@ export class Binder extends ParseTreeWalker {
 
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
-                this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str | None');
-                this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
-                this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
-                this._addBuiltInSymbolToCurrentScope('__loader__', node, 'Any');
-                this._addBuiltInSymbolToCurrentScope('__package__', node, 'str');
-                this._addBuiltInSymbolToCurrentScope('__spec__', node, 'Any');
-                this._addBuiltInSymbolToCurrentScope('__path__', node, 'Iterable[str]');
-                this._addBuiltInSymbolToCurrentScope('__file__', node, 'str');
-                this._addBuiltInSymbolToCurrentScope('__cached__', node, 'str');
-                this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
-                this._addBuiltInSymbolToCurrentScope('__annotations__', node, 'Dict[str, Any]');
-                this._addBuiltInSymbolToCurrentScope('__builtins__', node, 'Any');
+                this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
+                this._addImplicitSymbolToCurrentScope('__name__', node, 'str');
+                this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
+                this._addImplicitSymbolToCurrentScope('__loader__', node, 'Any');
+                this._addImplicitSymbolToCurrentScope('__package__', node, 'str');
+                this._addImplicitSymbolToCurrentScope('__spec__', node, 'Any');
+                this._addImplicitSymbolToCurrentScope('__path__', node, 'Iterable[str]');
+                this._addImplicitSymbolToCurrentScope('__file__', node, 'str');
+                this._addImplicitSymbolToCurrentScope('__cached__', node, 'str');
+                this._addImplicitSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
+                this._addImplicitSymbolToCurrentScope('__annotations__', node, 'Dict[str, Any]');
+                this._addImplicitSymbolToCurrentScope('__builtins__', node, 'Any');
 
                 // Create a start node for the module.
                 this._currentFlowNode = this._createStartFlowNode();
@@ -418,8 +418,8 @@ export class Binder extends ParseTreeWalker {
         this._createNewScope(ScopeType.Class, parentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-            this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str | None');
-            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
+            this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
+            this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
 
             if (!this._moduleSymbolOnly) {
                 // Analyze the suite.
@@ -504,7 +504,7 @@ export class Binder extends ParseTreeWalker {
             const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
             if (enclosingClass) {
                 // Add the implicit "__class__" symbol described in PEP 3135.
-                this._addBuiltInSymbolToCurrentScope('__class__', node, 'class');
+                this._addImplicitSymbolToCurrentScope('__class__', node, 'class');
             }
 
             this._deferBinding(() => {
@@ -3166,7 +3166,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _addBuiltInSymbolToCurrentScope(
+    private _addImplicitSymbolToCurrentScope(
         nameValue: string,
         node: ModuleNode | ClassNode | FunctionNode,
         type: IntrinsicType
