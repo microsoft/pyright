@@ -26,6 +26,7 @@ import {
 import { CharacterStream } from './characterStream';
 import {
     Comment,
+    CommentType,
     DedentToken,
     IdentifierToken,
     IndentToken,
@@ -206,7 +207,16 @@ export class Tokenizer {
     private _singleQuoteCount = 0;
     private _doubleQuoteCount = 0;
 
-    tokenize(text: string, start?: number, length?: number, initialParenDepth = 0): TokenizerOutput {
+    // ipython mode
+    private _ipythonMode = false;
+
+    tokenize(
+        text: string,
+        start?: number,
+        length?: number,
+        initialParenDepth = 0,
+        ipythonMode = false
+    ): TokenizerOutput {
         if (start === undefined) {
             start = 0;
         } else if (start < 0 || start > text.length) {
@@ -228,6 +238,7 @@ export class Tokenizer {
         this._parenDepth = initialParenDepth;
         this._lineRanges = [];
         this._indentAmounts = [];
+        this._ipythonMode = ipythonMode;
 
         const end = start + length;
 
@@ -346,6 +357,13 @@ export class Tokenizer {
 
         if (this._cs.currentChar === Char.Hash) {
             this._handleComment();
+            return true;
+        }
+
+        if (this._ipythonMode && this._isIPythonMagics()) {
+            this._handleIPythonMagics(
+                this._cs.currentChar === Char.Percent ? CommentType.IPythonMagic : CommentType.IPythonShellEscape
+            );
             return true;
         }
 
@@ -1010,6 +1028,41 @@ export class Tokenizer {
         return prevComments;
     }
 
+    private _isIPythonMagics() {
+        const prevToken = this._tokens.length > 0 ? this._tokens[this._tokens.length - 1] : undefined;
+        return (
+            (prevToken === undefined || prevToken.type === TokenType.NewLine || prevToken.type === TokenType.Indent) &&
+            (this._cs.currentChar === Char.Percent || this._cs.currentChar === Char.ExclamationMark)
+        );
+    }
+
+    private _handleIPythonMagics(type: CommentType): void {
+        const start = this._cs.position + 1;
+
+        let begin = start;
+        do {
+            this._cs.skipToEol();
+
+            const length = this._cs.position - begin;
+            const value = this._cs.getText().substr(begin, length);
+
+            // is it multiline magics?
+            // %magic command \
+            //        next arguments
+            if (!value.match(/\\\s*$/)) {
+                break;
+            }
+
+            begin = this._cs.position + 1;
+        } while (!this._cs.isEndOfStream());
+
+        const length = this._cs.position - start;
+        const value = this._cs.getText().substr(start, length);
+
+        const comment = Comment.create(start, length, value, type);
+        this._addComments(comment);
+    }
+
     private _handleComment(): void {
         const start = this._cs.position + 1;
         this._cs.skipToEol();
@@ -1036,6 +1089,10 @@ export class Tokenizer {
             }
         }
 
+        this._addComments(comment);
+    }
+
+    private _addComments(comment: Comment) {
         if (this._comments) {
             this._comments.push(comment);
         } else {

@@ -148,12 +148,14 @@ export class ParseOptions {
         this.pythonVersion = latestStablePythonVersion;
         this.reportInvalidStringEscapeSequence = false;
         this.skipFunctionAndClassBody = false;
+        this.ipythonMode = false;
     }
 
     isStubFile: boolean;
     pythonVersion: PythonVersion;
     reportInvalidStringEscapeSequence: boolean;
     skipFunctionAndClassBody: boolean;
+    ipythonMode: boolean;
 }
 
 export interface ParseResults {
@@ -323,7 +325,13 @@ export class Parser {
 
         // Tokenize the file contents.
         const tokenizer = new Tokenizer();
-        this._tokenizerOutput = tokenizer.tokenize(fileContents, textOffset, textLength, initialParenDepth);
+        this._tokenizerOutput = tokenizer.tokenize(
+            fileContents,
+            textOffset,
+            textLength,
+            initialParenDepth,
+            this._parseOptions.ipythonMode
+        );
         this._tokenIndex = 0;
     }
 

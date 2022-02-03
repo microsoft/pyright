@@ -281,7 +281,8 @@ export class Program {
         filePath: string,
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
-        isTracked = false
+        isTracked = false,
+        ipythonMode = false
     ) {
         let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
@@ -293,7 +294,8 @@ export class Program {
                 /* isThirdPartyImport */ false,
                 /* isInPyTypedPackage */ false,
                 this._console,
-                this._logTracker
+                this._logTracker,
+                ipythonMode
             );
             sourceFileInfo = {
                 sourceFile,
@@ -332,14 +334,14 @@ export class Program {
         return this._removeUnneededFiles();
     }
 
-    markAllFilesDirty(evenIfContentsAreSame: boolean) {
+    markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {
         const markDirtyMap = new Map<string, boolean>();
 
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (evenIfContentsAreSame) {
-                sourceFileInfo.sourceFile.markDirty();
+                sourceFileInfo.sourceFile.markDirty(indexingNeeded);
             } else if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
-                sourceFileInfo.sourceFile.markDirty();
+                sourceFileInfo.sourceFile.markDirty(indexingNeeded);
 
                 // Mark any files that depend on this file as dirty
                 // also. This will retrigger analysis of these other files.
@@ -352,7 +354,7 @@ export class Program {
         }
     }
 
-    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
+    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean, indexingNeeded = true) {
         const markDirtyMap = new Map<string, boolean>();
         filePaths.forEach((filePath) => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
@@ -364,7 +366,7 @@ export class Program {
                     evenIfContentsAreSame ||
                     (!sourceFileInfo.isOpenByClient && sourceFileInfo.sourceFile.didContentsChangeOnDisk())
                 ) {
-                    sourceFileInfo.sourceFile.markDirty();
+                    sourceFileInfo.sourceFile.markDirty(indexingNeeded);
 
                     // Mark any files that depend on this file as dirty
                     // also. This will retrigger analysis of these other files.

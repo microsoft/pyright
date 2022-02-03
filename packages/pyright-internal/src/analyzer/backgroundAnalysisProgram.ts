@@ -91,19 +91,26 @@ export class BackgroundAnalysisProgram {
         this._program.setAllowedThirdPartyImports(importNames);
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: string, isTracked: boolean) {
-        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }], isTracked);
-        this._program.setFileOpened(filePath, version, [{ text: contents }], isTracked);
+    setFileOpened(
+        filePath: string,
+        version: number | null,
+        contents: string,
+        isTracked: boolean,
+        ipythonMode: boolean
+    ) {
+        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }], isTracked, ipythonMode);
+        this._program.setFileOpened(filePath, version, [{ text: contents }], isTracked, ipythonMode);
     }
 
     updateOpenFileContents(
         path: string,
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
-        isTracked: boolean
+        isTracked: boolean,
+        ipythonMode: boolean
     ) {
-        this._backgroundAnalysis?.setFileOpened(path, version, contents, isTracked);
-        this._program.setFileOpened(path, version, contents, isTracked);
+        this._backgroundAnalysis?.setFileOpened(path, version, contents, isTracked, ipythonMode);
+        this._program.setFileOpened(path, version, contents, isTracked, ipythonMode);
         this.markFilesDirty([path], true);
     }
 
@@ -113,14 +120,14 @@ export class BackgroundAnalysisProgram {
         this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
-    markAllFilesDirty(evenIfContentsAreSame: boolean) {
-        this._backgroundAnalysis?.markAllFilesDirty(evenIfContentsAreSame);
-        this._program.markAllFilesDirty(evenIfContentsAreSame);
+    markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {
+        this._backgroundAnalysis?.markAllFilesDirty(evenIfContentsAreSame, indexingNeeded);
+        this._program.markAllFilesDirty(evenIfContentsAreSame, indexingNeeded);
     }
 
-    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
-        this._backgroundAnalysis?.markFilesDirty(filePaths, evenIfContentsAreSame);
-        this._program.markFilesDirty(filePaths, evenIfContentsAreSame);
+    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean, indexingNeeded = true) {
+        this._backgroundAnalysis?.markFilesDirty(filePaths, evenIfContentsAreSame, indexingNeeded);
+        this._program.markFilesDirty(filePaths, evenIfContentsAreSame, indexingNeeded);
     }
 
     setCompletionCallback(callback?: AnalysisCompleteCallback) {
@@ -209,19 +216,19 @@ export class BackgroundAnalysisProgram {
         return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
 
-    invalidateAndForceReanalysis(rebuildLibraryIndexing: boolean) {
+    invalidateAndForceReanalysis(rebuildUserFileIndexing: boolean, rebuildLibraryIndexing: boolean) {
         if (rebuildLibraryIndexing) {
             this.refreshIndexing();
         }
 
-        this._backgroundAnalysis?.invalidateAndForceReanalysis();
+        this._backgroundAnalysis?.invalidateAndForceReanalysis(rebuildUserFileIndexing);
 
         // Make sure the import resolver doesn't have invalid
         // cached entries.
         this._importResolver.invalidateCache();
 
         // Mark all files with one or more errors dirty.
-        this._program.markAllFilesDirty(true);
+        this._program.markAllFilesDirty(true, rebuildUserFileIndexing);
     }
 
     restart() {

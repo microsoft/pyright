@@ -201,6 +201,13 @@ export class TestState {
             // Open the first file by default
             this.openFile(this._files[0]);
         }
+
+        for (const filePath of this._files) {
+            const file = files[filePath] as vfs.File;
+            if (file.meta?.[MetadataOptionNames.ipythonMode]) {
+                this.program.getSourceFile(filePath)?.test_enableIPythonMode(true);
+            }
+        }
     }
 
     get importResolver(): ImportResolver {

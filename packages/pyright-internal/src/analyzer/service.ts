@@ -234,13 +234,24 @@ export class AnalyzerService {
         return false;
     }
 
-    setFileOpened(path: string, version: number | null, contents: string) {
-        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, this.isTracked(path));
+    setFileOpened(path: string, version: number | null, contents: string, ipythonMode = false) {
+        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, this.isTracked(path), ipythonMode);
         this._scheduleReanalysis(false);
     }
 
-    updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
-        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, this.isTracked(path));
+    updateOpenFileContents(
+        path: string,
+        version: number | null,
+        contents: TextDocumentContentChangeEvent[],
+        ipythonMode = false
+    ) {
+        this._backgroundAnalysisProgram.updateOpenFileContents(
+            path,
+            version,
+            contents,
+            this.isTracked(path),
+            ipythonMode
+        );
         this._scheduleReanalysis(false);
     }
 
@@ -546,7 +557,7 @@ export class AnalyzerService {
         }
 
         const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
-        const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
+        const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.pytest_cache', '.git'];
 
         if (commandLineOptions.pythonPath) {
             this._console.info(
@@ -776,13 +787,17 @@ export class AnalyzerService {
     // This is called after a new type stub has been created. It allows
     // us to invalidate caches and force reanalysis of files that potentially
     // are affected by the appearance of a new type stub.
-    invalidateAndForceReanalysis(rebuildLibraryIndexing = true, updateTrackedFileList = false) {
+    invalidateAndForceReanalysis(
+        rebuildUserFileIndexing = true,
+        rebuildLibraryIndexing = true,
+        updateTrackedFileList = false
+    ) {
         if (updateTrackedFileList) {
             this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
         }
 
         // Mark all files with one or more errors dirty.
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildLibraryIndexing);
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildUserFileIndexing, rebuildLibraryIndexing);
     }
 
     // Forces the service to stop all analysis, discard all its caches,
@@ -1249,7 +1264,16 @@ export class AnalyzerService {
                         if (!isTemporaryFile) {
                             // Added/deleted/renamed files impact imports,
                             // clear the import resolver cache and reanalyze everything.
-                            this.invalidateAndForceReanalysis(/* rebuildLibraryIndexing */ false);
+                            //
+                            // Here we don't need to rebuild any indexing since this kind of change can't affect
+                            // indices. For library, since the changes are on workspace files, it won't affect library
+                            // indices. For user file, since user file indices don't contains import alias symbols,
+                            // it won't affect those indices. we only need to rebuild user file indices when symbols
+                            // defined in the file are changed. ex) user modified the file.
+                            this.invalidateAndForceReanalysis(
+                                /* rebuildUserFileIndexing */ false,
+                                /* rebuildLibraryIndexing */ false
+                            );
                             this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                         }
                     }
@@ -1297,7 +1321,7 @@ export class AnalyzerService {
                     }
 
                     if (this._verboseOutput) {
-                        this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'}'`);
+                        this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'`);
                     }
 
                     if (isIgnored(path)) {
@@ -1336,7 +1360,7 @@ export class AnalyzerService {
 
             // Invalidate import resolver, mark all files dirty unconditionally,
             // and reanalyze.
-            this.invalidateAndForceReanalysis();
+            this.invalidateAndForceReanalysis(/* rebuildUserFileIndexing */ false);
             this._scheduleReanalysis(false);
         }, 1000);
     }

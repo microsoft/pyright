@@ -35,7 +35,7 @@
     "devDependencies": {
         "@types/command-line-args": "^5.2.0",
         "@types/jest": "^27.4.0",
-        "@types/node": "^12.20.41",
+        "@types/node": "^17.0.8",
         "@types/tmp": "^0.2.3",
         "jest": "^27.4.7",
         "jest-junit": "^13.0.0",

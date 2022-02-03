@@ -165,15 +165,23 @@ export const enum StringTokenFlags {
     ExceedsMaxSize = 1 << 17,
 }
 
+export const enum CommentType {
+    Regular,
+    IPythonMagic,
+    IPythonShellEscape,
+}
+
 export interface Comment extends TextRange {
+    readonly type: CommentType;
     readonly value: string;
     readonly start: number;
     readonly length: number;
 }
 
 export namespace Comment {
-    export function create(start: number, length: number, value: string) {
+    export function create(start: number, length: number, value: string, type = CommentType.Regular) {
         const comment: Comment = {
+            type,
             start,
             length,
             value,
