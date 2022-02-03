@@ -359,6 +359,15 @@ export class Program {
         filePaths.forEach((filePath) => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
             if (sourceFileInfo) {
+                const fileName = getFileName(filePath);
+
+                // Handle builtins and __builtins__ specially. They are implicitly
+                // included by all source files.
+                if (fileName === 'builtins.pyi' || fileName === '__builtins__.pyi') {
+                    this.markAllFilesDirty(evenIfContentsAreSame, indexingNeeded);
+                    return;
+                }
+
                 // If !evenIfContentsAreSame, see if the on-disk contents have
                 // changed. If the file is open, the on-disk contents don't matter
                 // because we'll receive updates directly from the client.

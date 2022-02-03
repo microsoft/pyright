@@ -1214,11 +1214,29 @@ export class SourceFile {
         const imports: ImportResult[] = [];
 
         // Always include an implicit import of the builtins module.
-        let builtinsImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
-            leadingDots: 0,
-            nameParts: ['builtins'],
-            importedSymbols: undefined,
-        });
+        let builtinsImportResult: ImportResult | undefined;
+
+        // If this is a project source file (not a stub), try to resolve
+        // the __builtins__ stub first.
+        if (!this._isThirdPartyImport && !this._isStubFile) {
+            builtinsImportResult = importResolver.resolveImport(this._filePath, execEnv, {
+                leadingDots: 0,
+                nameParts: ['__builtins__'],
+                importedSymbols: undefined,
+            });
+
+            if (builtinsImportResult && !builtinsImportResult.isImportFound) {
+                builtinsImportResult = undefined;
+            }
+        }
+
+        if (!builtinsImportResult) {
+            builtinsImportResult = importResolver.resolveImport(this._filePath, execEnv, {
+                leadingDots: 0,
+                nameParts: ['builtins'],
+                importedSymbols: undefined,
+            });
+        }
 
         // Avoid importing builtins from the builtins.pyi file itself.
         if (

@@ -111,6 +111,7 @@ To update to the latest version:
 * [Comments](/docs/comments.md)
 * [Type Inference](/docs/type-inference.md)
 * [Import Resolution](/docs/import-resolution.md)
+* [Extending Builtins](/docs/builtins.md)
 * [Type Stubs](/docs/type-stubs.md)
 * [Types in Libraries](/docs/typed-libraries.md)
 * [Commands](/docs/commands.md)
