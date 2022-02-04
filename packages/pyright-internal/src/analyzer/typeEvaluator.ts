@@ -16567,8 +16567,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (subnodeType) {
                 return { node: subnode, type: subnodeType, isIncomplete: true };
             }
-        } finally {
+
             incompleteTypeCache = oldIncompleteCache;
+        } catch (e) {
+            // We don't use a finally clause here because the debugger doesn't
+            // handle it well when stepping through code.
+            incompleteTypeCache = oldIncompleteCache;
+            throw e;
         }
 
         return undefined;
@@ -16655,8 +16660,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 initialType,
                 isInitialTypeIncomplete
             );
-        } finally {
+
             incompleteTypeTracker.exitTrackingScope();
+        } catch (e) {
+            // We don't use a finally clause here because the debugger doesn't
+            // handle it well when stepping through the code.
+            incompleteTypeTracker.exitTrackingScope();
+            throw e;
         }
 
         if (codeFlowResult.isIncomplete) {
