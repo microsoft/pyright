@@ -20,6 +20,7 @@ import {
     IfNode,
     ImportFromNode,
     ImportNode,
+    MemberAccessNode,
     ModuleNameNode,
     NameNode,
     ParameterCategory,
@@ -102,12 +103,39 @@ class ImportSymbolWalker extends ParseTreeWalker {
         return true;
     }
 
+    override visitMemberAccess(node: MemberAccessNode): boolean {
+        const baseExpression = this._getRecursiveModuleAccessExpression(node.leftExpression);
+
+        if (baseExpression) {
+            this._accessedImportedSymbols.set(`${baseExpression}.${node.memberName.value}`, true);
+        }
+
+        return true;
+    }
+
     override visitString(node: StringNode) {
         if (this._treatStringsAsSymbols) {
             this._accessedImportedSymbols.set(node.value, true);
         }
 
         return true;
+    }
+
+    private _getRecursiveModuleAccessExpression(node: ExpressionNode): string | undefined {
+        if (node.nodeType === ParseNodeType.Name) {
+            return node.value;
+        }
+
+        if (node.nodeType === ParseNodeType.MemberAccess) {
+            const baseExpression = this._getRecursiveModuleAccessExpression(node.leftExpression);
+            if (!baseExpression) {
+                return undefined;
+            }
+
+            return `${baseExpression}.${node.memberName.value}`;
+        }
+
+        return undefined;
     }
 }
 
