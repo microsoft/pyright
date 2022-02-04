@@ -1763,7 +1763,7 @@ export class Parser {
                     }
                     sawKeywordOnlySeparator = true;
                 } else {
-                    if (sawArgs) {
+                    if (sawKeywordOnlySeparator || sawArgs) {
                         this._addError(Localizer.Diagnostic.duplicateArgsParam(), param);
                     }
                     sawArgs = true;
