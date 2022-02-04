@@ -6,10 +6,23 @@ from dataclasses import dataclass, field
 
 foo = 3
 
+T = TypeVar("T")
+
 class ClassA:
     __match_args__ = ("attr_a", "attr_b")
     attr_a: int
     attr_b: str
+
+class ClassB(Generic[T]):
+    __match_args__ = ("attr_a", "attr_b")
+    attr_a: T
+    attr_b: str
+
+class ClassC:
+    ...
+
+class ClassD(ClassC):
+    ...
 
 
 def test_unknown(value_to_match):
@@ -30,7 +43,7 @@ def test_any(value_to_match: Any):
             reveal_type(value_to_match, expected_text="list[Unknown]")
 
 
-def test_custom_type(value_to_match: ClassA):
+def test_custom_type(value_to_match: ClassA | ClassB[int] | ClassB[str] | ClassC):
     match value_to_match:
         case int() as a1:
             reveal_type(a1, expected_text="Never")
@@ -43,14 +56,18 @@ def test_custom_type(value_to_match: ClassA):
             reveal_type(value_to_match, expected_text="ClassA")
             reveal_type(value_to_match, expected_text="ClassA")
 
-        case ClassA(a6, a7):
-            reveal_type(a6, expected_text="int")
+        case ClassB(a6, a7):
+            reveal_type(a6, expected_text="int | str")
             reveal_type(a7, expected_text="str")
-            reveal_type(value_to_match, expected_text="ClassA")
+            reveal_type(value_to_match, expected_text="ClassB[int] | ClassB[str]")
 
-        case ClassA() as a2:
-            reveal_type(a2, expected_text="ClassA")
-            reveal_type(value_to_match, expected_text="ClassA")
+        case ClassD() as a2:
+            reveal_type(a2, expected_text="ClassD")
+            reveal_type(value_to_match, expected_text="ClassD")
+
+        case ClassC() as a8:
+            reveal_type(a8, expected_text="ClassC")
+            reveal_type(value_to_match, expected_text="ClassC")
 
 
 def test_literal(value_to_match: Literal[3]):
@@ -68,17 +85,17 @@ def test_literal(value_to_match: Literal[3]):
             reveal_type(value_to_match, expected_text="Never")
 
 
-TInt = TypeVar("TInt", bound=int)
+TFloat = TypeVar("TFloat", bound=float)
 
-def test_bound_typevar(value_to_match: TInt) -> TInt:
+def test_bound_typevar(value_to_match: TFloat) -> TFloat:
     match value_to_match:
         case int() as a1:
             reveal_type(a1, expected_text="int*")
             reveal_type(value_to_match, expected_text="int*")
 
         case float() as a2:
-            reveal_type(a2, expected_text="Never")
-            reveal_type(value_to_match, expected_text="Never")
+            reveal_type(a2, expected_text="float*")
+            reveal_type(value_to_match, expected_text="float*")
 
         case str() as a3:
             reveal_type(a3, expected_text="Never")
@@ -87,6 +104,8 @@ def test_bound_typevar(value_to_match: TInt) -> TInt:
     return value_to_match
 
 
+TInt = TypeVar("TInt", bound=int)
+
 def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TInt, Literal[3], float, str]:
     match value_to_match:
         case int() as a1:
@@ -94,8 +113,8 @@ def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TIn
             reveal_type(value_to_match, expected_text="int* | int")
 
         case float() as a2:
-            reveal_type(a2, expected_text="float")
-            reveal_type(value_to_match, expected_text="float")
+            reveal_type(a2, expected_text="int* | float")
+            reveal_type(value_to_match, expected_text="int* | float")
 
         case str() as a3:
             reveal_type(a3, expected_text="str")
@@ -312,3 +331,4 @@ def func12(subj: int, flt_cls: type[float], union_val: float | int):
         # This should generate an error because it is a union.
         case union_val():
             pass
+

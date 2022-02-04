@@ -445,55 +445,92 @@ function narrowTypeBasedOnClassPattern(
         exprType = specializeClassType(exprType);
     }
 
-    const classType = exprType;
-
     if (!isPositiveTest) {
         // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
-        if (!isInstantiableClass(classType)) {
+        if (!isInstantiableClass(exprType)) {
             return type;
         }
 
-        // Don't attempt to narrow if there are arguments.
-        let hasArguments = pattern.arguments.length > 0;
-        if (
-            pattern.arguments.length === 1 &&
-            !pattern.arguments[0].name &&
-            classPatternSpecialCases.some((className) => classType.details.fullName === className)
-        ) {
-            hasArguments = false;
-        }
+        let classType = exprType;
 
-        if (hasArguments) {
-            return type;
-        }
-
-        // Don't attempt to narrow if the class type is generic.
         if (classType.details.typeParameters.length > 0) {
-            return type;
+            classType = ClassType.cloneForSpecialization(classType, undefined, /* isTypeArgumentExplicit */ false);
         }
 
         const classInstance = convertToInstance(classType);
         return mapSubtypes(type, (subtype) => {
-            if (evaluator.canAssignType(classInstance, subtype)) {
+            if (!isClassInstance(subtype)) {
+                return subtype;
+            }
+
+            if (!evaluator.canAssignType(classInstance, subtype)) {
+                return subtype;
+            }
+
+            // If there are no arguments, we're done. We know that this match
+            // will never succeed.
+            if (pattern.arguments.length === 0) {
                 return undefined;
             }
 
-            return subtype;
+            // We might be able to narrow further based on arguments, but only
+            // if the types match exactly or the subtype is a final class and
+            // therefore cannot be subclassed.
+            if (!evaluator.canAssignType(subtype, classInstance)) {
+                if (!ClassType.isFinal(subtype)) {
+                    return subtype;
+                }
+            }
+
+            if (
+                pattern.arguments.length === 1 &&
+                !pattern.arguments[0].name &&
+                classPatternSpecialCases.some((className) => classType.details.fullName === className)
+            ) {
+                return undefined;
+            }
+
+            // Are there any positional arguments? If so, try to get the mappings for
+            // these arguments by fetching the __match_args__ symbol from the class.
+            let positionalArgNames: string[] = [];
+            if (pattern.arguments.some((arg) => !arg.name)) {
+                if (isClass(subtype)) {
+                    positionalArgNames = getPositionalMatchArgNames(evaluator, subtype);
+                }
+            }
+
+            for (let index = 0; index < pattern.arguments.length; index++) {
+                const narrowedArgType = narrowTypeOfClassPatternArgument(
+                    evaluator,
+                    pattern.arguments[index],
+                    index,
+                    positionalArgNames,
+                    subtype,
+                    isPositiveTest
+                );
+
+                if (!isNever(narrowedArgType)) {
+                    return subtype;
+                }
+            }
+
+            // We've completely eliminated the type based on the arguments.
+            return undefined;
         });
     }
 
-    if (!TypeBase.isInstantiable(classType)) {
+    if (!TypeBase.isInstantiable(exprType)) {
         evaluator.addDiagnostic(
             getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(classType) }),
+            Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
             pattern.className
         );
         return NeverType.createNever();
     }
 
     return evaluator.mapSubtypesExpandTypeVars(
-        classType,
+        exprType,
         /* conditionFilter */ undefined,
         (expandedSubtype, unexpandedSubtype) => {
             if (isAnyOrUnknown(expandedSubtype)) {
@@ -572,7 +609,8 @@ function narrowTypeBasedOnClassPattern(
                                 arg,
                                 index,
                                 positionalArgNames,
-                                resultType
+                                resultType,
+                                isPositiveTest
                             );
 
                             if (isNever(narrowedArgType)) {
@@ -600,7 +638,8 @@ function narrowTypeOfClassPatternArgument(
     arg: PatternClassArgumentNode,
     argIndex: number,
     positionalArgNames: string[],
-    matchType: Type
+    matchType: Type,
+    isPositiveTest: boolean
 ) {
     let argName: string | undefined;
 
@@ -641,6 +680,10 @@ function narrowTypeOfClassPatternArgument(
         }
 
         if (!argType) {
+            if (!isPositiveTest) {
+                return matchType;
+            }
+
             // If the class type in question is "final", we know that no additional
             // attributes can be added by subtypes, so it's safe to eliminate this
             // type entirely.
@@ -652,7 +695,7 @@ function narrowTypeOfClassPatternArgument(
         }
     }
 
-    return narrowTypeBasedOnPattern(evaluator, argType, arg.pattern, /* isPositiveTest */ true);
+    return narrowTypeBasedOnPattern(evaluator, argType, arg.pattern, isPositiveTest);
 }
 
 function narrowTypeBasedOnValuePattern(
@@ -1154,7 +1197,8 @@ export function assignTypeToPatternTargets(
                                     arg,
                                     index,
                                     positionalArgNames,
-                                    ClassType.cloneAsInstantiable(expandedSubtype)
+                                    ClassType.cloneAsInstantiable(expandedSubtype),
+                                    /* isPositiveTest */ true
                                 );
                                 argTypes[index].push(narrowedArgType);
                             });
