@@ -37,7 +37,10 @@ def func2(a: List[Union[str, int]]):
 
 # This should generate an error because TypeGuard
 # has no type argument.
-def bad1(a: int) -> TypeGuard:
+def bad1(a: int, b: object) -> TypeGuard:
+    # This is a runtime use of TypeGuard and shouldn't generate an error.
+    if b is TypeGuard:
+        return True
     return True
 
 

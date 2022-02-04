@@ -12789,8 +12789,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // isn't a generic type and therefore doesn't have a typeParameter.
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
-    function createTypeGuardType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
-        if (!typeArgs || typeArgs.length !== 1) {
+    function createTypeGuardType(
+        errorNode: ParseNode,
+        classType: ClassType,
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
+    ): Type {
+        // If no type arguments are provided, the resulting type
+        // depends on whether we're evaluating a type annotation or
+        // we're in some other context.
+        if (!typeArgs) {
+            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                addError(Localizer.Diagnostic.typeGuardArgCount(), errorNode);
+            }
+
+            return classType;
+        } else if (typeArgs.length !== 1) {
             addError(Localizer.Diagnostic.typeGuardArgCount(), errorNode);
             return UnknownType.create();
         }
@@ -16777,7 +16791,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 case 'TypeGuard':
                 case 'StrictTypeGuard': {
-                    return createTypeGuardType(errorNode, classType, typeArgs);
+                    return createTypeGuardType(errorNode, classType, typeArgs, flags);
                 }
 
                 case 'Unpack': {
