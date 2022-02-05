@@ -2446,19 +2446,6 @@ class TypeVarTransformer {
                     return transformParamSpec(oldTypeArgType);
                 }
 
-                if (
-                    isTypeVar(oldTypeArgType) &&
-                    oldTypeArgType.details.isSynthesizedSelf &&
-                    oldTypeArgType.details.boundType
-                ) {
-                    const transformedSelf = this.apply(oldTypeArgType.details.boundType, recursionSet, recursionCount);
-
-                    if (transformedSelf !== oldTypeArgType.details.boundType) {
-                        specializationNeeded = true;
-                        return TypeVarType.cloneAsSpecializedSelf(oldTypeArgType, transformedSelf);
-                    }
-                }
-
                 let newTypeArgType = this.apply(oldTypeArgType, recursionSet, recursionCount);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
@@ -2565,10 +2552,7 @@ class TypeVarTransformer {
             }
         }
 
-        const declaredReturnType =
-            functionType.specializedTypes && functionType.specializedTypes.returnType
-                ? functionType.specializedTypes.returnType
-                : functionType.details.declaredReturnType;
+        const declaredReturnType = FunctionType.getSpecializedReturnType(functionType);
         const specializedReturnType = declaredReturnType
             ? this.apply(declaredReturnType, recursionSet, recursionCount)
             : undefined;
