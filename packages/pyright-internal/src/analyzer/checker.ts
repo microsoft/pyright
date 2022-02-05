@@ -467,14 +467,8 @@ export class Checker extends ParseTreeWalker {
             // Check for invalid use of ParamSpec P.args and P.kwargs.
             const paramSpecParams = functionTypeResult.functionType.details.parameters.filter((param) => {
                 if (param.typeAnnotation && isTypeVar(param.type) && isParamSpec(param.type)) {
-                    if (param.category !== ParameterCategory.Simple && param.name) {
-                        const paramAnnotation =
-                            param.typeAnnotation.nodeType === ParseNodeType.StringList
-                                ? param.typeAnnotation.typeAnnotation
-                                : param.typeAnnotation;
-                        if (paramAnnotation?.nodeType === ParseNodeType.MemberAccess) {
-                            return true;
-                        }
+                    if (param.category !== ParameterCategory.Simple && param.name && param.type.paramSpecAccess) {
+                        return true;
                     }
                 }
 

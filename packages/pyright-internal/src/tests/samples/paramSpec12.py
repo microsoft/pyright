@@ -1,6 +1,6 @@
 # This sample tests various error conditions for ParamSpec usage.
 
-from typing import Callable, TypeVar, ParamSpec
+from typing import Annotated, Callable, TypeVar, ParamSpec
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -17,6 +17,12 @@ def puts_p_into_scope(f: Callable[P, int]) -> None:
         pass
 
     def inner4(*args: "P.args", **kwargs: "P.kwargs") -> None:
+        pass
+
+    def inner5(*args: Annotated[P.args, ""], **kwargs: "P.kwargs") -> None:
+        pass
+
+    def inner6(*args: P.args, **kwargs: Annotated["P.kwargs", ""]) -> None:
         pass
 
     # This should generate two errors because P.kwargs cannot be

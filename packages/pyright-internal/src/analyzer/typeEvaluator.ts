@@ -13016,7 +13016,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
+    function createAnnotatedType(
+        errorNode: ParseNode,
+        typeArgs: TypeResult[] | undefined
+    ): Type {
         if (typeArgs && typeArgs.length < 2) {
             addError(Localizer.Diagnostic.annotatedTypeArgMissing(), errorNode);
         }
@@ -13025,12 +13028,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return AnyType.create();
         }
 
-        let typeArg0Type = typeArgs[0].type;
-        if (!validateTypeArg(typeArgs[0])) {
-            typeArg0Type = UnknownType.create();
-        }
-
-        return TypeBase.cloneForAnnotated(typeArg0Type);
+        return TypeBase.cloneForAnnotated(typeArgs[0].type);
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
