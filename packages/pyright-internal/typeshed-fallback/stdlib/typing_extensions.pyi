@@ -22,18 +22,17 @@ from typing import (  # noqa Y022
     Mapping,
     NewType as NewType,
     NoReturn as NoReturn,
-    Protocol as Protocol,
     Text as Text,
     Type as Type,
     TypeVar,
     ValuesView,
     _Alias,
     overload as overload,
-    runtime_checkable as runtime_checkable,
 )
 
 _T = TypeVar("_T")
 _F = TypeVar("_F", bound=Callable[..., Any])
+_TC = TypeVar("_TC", bound=Type[object])
 
 # unfortunately we have to duplicate this class definition from typing.pyi or we break pytype
 class _SpecialForm:
@@ -41,6 +40,15 @@ class _SpecialForm:
     if sys.version_info >= (3, 10):
         def __or__(self, other: Any) -> _SpecialForm: ...
         def __ror__(self, other: Any) -> _SpecialForm: ...
+
+# Do not import (and re-export) Protocol or runtime_checkable from
+# typing module because type checkers need to be able to distinguish
+# typing.Protocol and typing_extensions.Protocol so they can properly
+# warn users about potential runtime exceptions when using typing.Protocol
+# on older versions of Python.
+Protocol: _SpecialForm = ...
+
+def runtime_checkable(cls: _TC) -> _TC: ...
 
 # This alias for above is kept here for backwards compatibility.
 runtime = runtime_checkable
