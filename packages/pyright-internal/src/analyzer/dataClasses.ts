@@ -232,12 +232,17 @@ export function synthesizeDataClassMethods(
                                 }
                             }
 
-                            hasDefaultValue = statement.rightExpression.arguments.some(
+                            const defaultArg = statement.rightExpression.arguments.find(
                                 (arg) =>
                                     arg.name?.value === 'default' ||
                                     arg.name?.value === 'default_factory' ||
                                     arg.name?.value === 'factory'
                             );
+
+                            hasDefaultValue = !!defaultArg;
+                            if (defaultArg?.valueExpression) {
+                                defaultValueExpression = defaultArg.valueExpression;
+                            }
 
                             const aliasArg = statement.rightExpression.arguments.find(
                                 (arg) => arg.name?.value === 'alias'
