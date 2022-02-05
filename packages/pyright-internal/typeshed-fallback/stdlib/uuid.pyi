@@ -7,6 +7,7 @@ _FieldsType = tuple[int, int, int, int, int, int]
 
 if sys.version_info >= (3, 7):
     from enum import Enum
+
     class SafeUUID(Enum):
         safe: int
         unsafe: int
@@ -37,6 +38,7 @@ class UUID:
             int: _Int | None = ...,
             version: _Int | None = ...,
         ) -> None: ...
+
     @property
     def bytes(self) -> _Bytes: ...
     @property

@@ -6,6 +6,7 @@ from stripe import api_requestor as api_requestor
 class StripeObject(dict[Any, Any]):
     class ReprJSONEncoder(json.JSONEncoder):
         def default(self, obj): ...
+
     def __init__(
         self,
         id: Any | None = ...,

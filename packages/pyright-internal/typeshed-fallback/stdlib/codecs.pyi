@@ -35,8 +35,8 @@ class _IncrementalDecoder(Protocol):
     def __call__(self, errors: str = ...) -> IncrementalDecoder: ...
 
 # The type ignore on `encode` and `decode` is to avoid issues with overlapping overloads, for more details, see #300
-# mypy and pytype disagree about where the type ignore can and cannot go, so alias the long type
-_BytesToBytesEncodingT = Literal[
+# https://docs.python.org/3/library/codecs.html#binary-transforms
+_BytesToBytesEncoding = Literal[
     "base64",
     "base_64",
     "base64_codec",
@@ -54,17 +54,23 @@ _BytesToBytesEncodingT = Literal[
     "zlib",
     "zlib_codec",
 ]
+# https://docs.python.org/3/library/codecs.html#text-transforms
+_StrToStrEncoding = Literal["rot13", "rot_13"]
 
 @overload
-def encode(obj: bytes, encoding: _BytesToBytesEncodingT, errors: str = ...) -> bytes: ...
+def encode(obj: bytes, encoding: _BytesToBytesEncoding, errors: str = ...) -> bytes: ...
 @overload
-def encode(obj: str, encoding: Literal["rot13", "rot_13"] = ..., errors: str = ...) -> str: ...  # type: ignore[misc]
+def encode(obj: str, encoding: _StrToStrEncoding, errors: str = ...) -> str: ...  # type: ignore[misc]
 @overload
 def encode(obj: str, encoding: str = ..., errors: str = ...) -> bytes: ...
 @overload
-def decode(obj: bytes, encoding: _BytesToBytesEncodingT, errors: str = ...) -> bytes: ...  # type: ignore[misc]
+def decode(obj: bytes, encoding: _BytesToBytesEncoding, errors: str = ...) -> bytes: ...  # type: ignore[misc]
 @overload
-def decode(obj: str, encoding: Literal["rot13", "rot_13"] = ..., errors: str = ...) -> str: ...
+def decode(obj: str, encoding: _StrToStrEncoding, errors: str = ...) -> str: ...
+
+# hex is officially documented as a bytes to bytes encoding, but it appears to also work with str
+@overload
+def decode(obj: str, encoding: Literal["hex", "hex_codec"], errors: str = ...) -> bytes: ...
 @overload
 def decode(obj: bytes, encoding: str = ..., errors: str = ...) -> str: ...
 def lookup(__encoding: str) -> CodecInfo: ...

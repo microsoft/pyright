@@ -1,4 +1,5 @@
 import datetime
+from _typeshed import Self
 from collections.abc import Iterable, Sequence
 from typing import Callable, NoReturn
 from typing_extensions import Literal
@@ -26,7 +27,7 @@ class _NotEqualMixin:
 DirectionT = Literal["asc", "desc"]
 
 class IndexProperty(_NotEqualMixin):
-    def __new__(cls, name: str, direction: DirectionT) -> IndexProperty: ...
+    def __new__(cls: type[Self], name: str, direction: DirectionT) -> Self: ...
     @property
     def name(self) -> str: ...
     @property
@@ -35,7 +36,7 @@ class IndexProperty(_NotEqualMixin):
     def __hash__(self) -> int: ...
 
 class Index(_NotEqualMixin):
-    def __new__(cls, kind: str, properties: list[IndexProperty], ancestor: bool) -> Index: ...
+    def __new__(cls: type[Self], kind: str, properties: list[IndexProperty], ancestor: bool) -> Self: ...
     @property
     def kind(self) -> str: ...
     @property
@@ -57,7 +58,8 @@ class IndexState(_NotEqualMixin):
     def __hash__(self) -> int: ...
 
 class ModelAdapter:
-    def __new__(cls, *args, **kwargs) -> ModelAdapter: ...
+    # This actually returns NoReturn, but mypy can't handle that
+    def __new__(cls: type[Self], *args, **kwargs) -> Self: ...
 
 def make_connection(*args, **kwargs) -> NoReturn: ...
 
@@ -318,7 +320,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
         max_memcache_items: int | None = ...,
         force_writes: bool | None = ...,
         _options=...,
-    ) -> tasklets_module.Future: ...
+    ) -> Model | None: ...
     @classmethod
     def get_by_id_async(
         cls: type[Model],
@@ -342,7 +344,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
         max_memcache_items: int | None = ...,
         force_writes: bool | None = ...,
         _options=...,
-    ) -> Model | None: ...
+    ) -> tasklets_module.Future: ...
     @classmethod
     def get_or_insert(
         cls: type[Model],

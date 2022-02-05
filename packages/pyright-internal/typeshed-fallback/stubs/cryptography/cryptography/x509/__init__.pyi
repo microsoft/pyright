@@ -1,4 +1,5 @@
 import datetime
+from _typeshed import Self
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
@@ -325,10 +326,10 @@ class AuthorityKeyIdentifier(ExtensionType):
     ) -> None: ...
     @classmethod
     def from_issuer_public_key(
-        cls, public_key: RSAPublicKey | DSAPublicKey | EllipticCurvePublicKey | Ed25519PublicKey | Ed448PublicKey
-    ) -> AuthorityKeyIdentifier: ...
+        cls: type[Self], public_key: RSAPublicKey | DSAPublicKey | EllipticCurvePublicKey | Ed25519PublicKey | Ed448PublicKey
+    ) -> Self: ...
     @classmethod
-    def from_issuer_subject_key_identifier(cls, ski: SubjectKeyIdentifier) -> AuthorityKeyIdentifier: ...
+    def from_issuer_subject_key_identifier(cls: type[Self], ski: SubjectKeyIdentifier) -> Self: ...
 
 class SubjectKeyIdentifier(ExtensionType):
     @property
@@ -336,8 +337,8 @@ class SubjectKeyIdentifier(ExtensionType):
     def __init__(self, digest: bytes) -> None: ...
     @classmethod
     def from_public_key(
-        cls, public_key: RSAPublicKey | DSAPublicKey | EllipticCurvePublicKey | Ed25519PublicKey | Ed448PublicKey
-    ) -> SubjectKeyIdentifier: ...
+        cls: type[Self], public_key: RSAPublicKey | DSAPublicKey | EllipticCurvePublicKey | Ed25519PublicKey | Ed448PublicKey
+    ) -> Self: ...
 
 class AccessDescription:
     @property

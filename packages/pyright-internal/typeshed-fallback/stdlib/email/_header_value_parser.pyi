@@ -312,8 +312,10 @@ if sys.version_info >= (3, 8):
         token_type: str
         as_ew_allowed: bool
         def fold(self, policy: Policy) -> str: ...
+
     class MessageID(MsgID):
         token_type: str
+
     class InvalidMessageID(MessageID):
         token_type: str
 

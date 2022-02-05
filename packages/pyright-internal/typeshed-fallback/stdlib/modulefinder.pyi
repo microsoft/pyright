@@ -46,6 +46,7 @@ class ModuleFinder:
             excludes: Container[str] = ...,
             replace_paths: Sequence[tuple[str, str]] = ...,
         ) -> None: ...
+
     def msg(self, level: int, str: str, *args: Any) -> None: ...  # undocumented
     def msgin(self, *args: Any) -> None: ...  # undocumented
     def msgout(self, *args: Any) -> None: ...  # undocumented

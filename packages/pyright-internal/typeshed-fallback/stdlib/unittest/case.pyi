@@ -44,9 +44,11 @@ else:
     # this is generic over the logging watcher, but in lower versions
     # the watcher is hard-coded.
     _L = TypeVar("_L")
+
     class _LoggingWatcher(NamedTuple):
         records: list[logging.LogRecord]
         output: list[str]
+
     class _AssertLogsContext(_BaseTestCaseContext, Generic[_L]):
         LOGGING_FORMAT: ClassVar[str]
         test_case: TestCase
@@ -170,6 +172,7 @@ class TestCase:
         def assertNoLogs(
             self, logger: str | logging.Logger | None = ..., level: int | str | None = ...
         ) -> _AssertLogsContext[None]: ...
+
     @overload
     def assertAlmostEqual(
         self, first: float, second: float, places: int | None = ..., msg: Any = ..., delta: float | None = ...
@@ -219,15 +222,17 @@ class TestCase:
         def addCleanup(self, __function: Callable[_P, object], *args: _P.args, **kwargs: _P.kwargs) -> None: ...
     else:
         def addCleanup(self, function: Callable[_P, object], *args: _P.args, **kwargs: _P.kwargs) -> None: ...
+
     def doCleanups(self) -> None: ...
     if sys.version_info >= (3, 8):
         @classmethod
         def addClassCleanup(cls, __function: Callable[_P, object], *args: _P.args, **kwargs: _P.kwargs) -> None: ...
         @classmethod
         def doClassCleanups(cls) -> None: ...
+
     def _formatMessage(self, msg: str | None, standardMsg: str) -> str: ...  # undocumented
     def _getAssertEqualityFunc(self, first: Any, second: Any) -> Callable[..., None]: ...  # undocumented
-    if sys.version_info < (3, 11):
+    if sys.version_info < (3, 12):
         def failUnlessEqual(self, first: Any, second: Any, msg: Any = ...) -> None: ...
         def assertEquals(self, first: Any, second: Any, msg: Any = ...) -> None: ...
         def failIfEqual(self, first: Any, second: Any, msg: Any = ...) -> None: ...

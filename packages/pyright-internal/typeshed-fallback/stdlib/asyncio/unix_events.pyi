@@ -24,10 +24,13 @@ class AbstractChildWatcher:
 if sys.platform != "win32":
     class BaseChildWatcher(AbstractChildWatcher):
         def __init__(self) -> None: ...
+
     class SafeChildWatcher(BaseChildWatcher):
         def __enter__(self: Self) -> Self: ...
+
     class FastChildWatcher(BaseChildWatcher):
         def __enter__(self: Self) -> Self: ...
+
     class _UnixSelectorEventLoop(BaseSelectorEventLoop):
         if sys.version_info < (3, 7):
             async def create_unix_server(
@@ -39,6 +42,7 @@ if sys.platform != "win32":
                 backlog: int = ...,
                 ssl: _SSLContext = ...,
             ) -> Server: ...
+
     class _UnixDefaultEventLoopPolicy(BaseDefaultEventLoopPolicy):
         def get_child_watcher(self) -> AbstractChildWatcher: ...
         def set_child_watcher(self, watcher: AbstractChildWatcher | None) -> None: ...
@@ -49,12 +53,15 @@ if sys.platform != "win32":
     if sys.version_info >= (3, 8):
 
         from typing import Protocol
+
         class _Warn(Protocol):
             def __call__(
                 self, message: str, category: type[Warning] | None = ..., stacklevel: int = ..., source: Any | None = ...
             ) -> None: ...
+
         class MultiLoopChildWatcher(AbstractChildWatcher):
             def __enter__(self: Self) -> Self: ...
+
         class ThreadedChildWatcher(AbstractChildWatcher):
             def __enter__(self: Self) -> Self: ...
             def __del__(self, _warn: _Warn = ...) -> None: ...

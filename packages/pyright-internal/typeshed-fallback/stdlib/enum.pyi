@@ -46,6 +46,7 @@ class EnumMeta(ABCMeta):
         def __new__(metacls: type[Self], cls: str, bases: tuple[type, ...], classdict: _EnumDict, **kwds: Any) -> Self: ...  # type: ignore
     else:
         def __new__(metacls: type[Self], cls: str, bases: tuple[type, ...], classdict: _EnumDict) -> Self: ...  # type: ignore
+
     def __iter__(self: type[_T]) -> Iterator[_T]: ...
     def __reversed__(self: type[_T]) -> Iterator[_T]: ...
     def __contains__(self: type[Any], member: object) -> bool: ...
@@ -127,6 +128,7 @@ class IntEnum(int, Enum):
     else:
         @types.DynamicClassAttribute
         def value(self) -> int: ...
+
     def __new__(cls: type[Self], value: int | Self) -> Self: ...
 
 def unique(enumeration: _S) -> _S: ...
@@ -142,6 +144,7 @@ class auto(IntFlag):
     else:
         @types.DynamicClassAttribute
         def value(self) -> Any: ...
+
     def __new__(cls: type[Self]) -> Self: ...
 
 class Flag(Enum):
@@ -157,6 +160,7 @@ class Flag(Enum):
         def name(self) -> str | None: ...  # type: ignore[override]
         @types.DynamicClassAttribute
         def value(self) -> int: ...
+
     def __contains__(self: _T, other: _T) -> bool: ...
     def __bool__(self) -> bool: ...
     def __or__(self: Self, other: Self) -> Self: ...
@@ -179,6 +183,7 @@ if sys.version_info >= (3, 11):
         _value_: str
         @property
         def value(self) -> str: ...
+
     class FlagBoundary(StrEnum):
         STRICT: str
         CONFORM: str
@@ -188,6 +193,7 @@ if sys.version_info >= (3, 11):
     CONFORM = FlagBoundary.CONFORM
     EJECT = FlagBoundary.EJECT
     KEEP = FlagBoundary.KEEP
+
     class property(types.DynamicClassAttribute):
         def __set_name__(self, ownerclass: type[Enum], name: str) -> None: ...
         name: str

@@ -105,10 +105,12 @@ else:
     SIGWINCH: Signals
     SIGXCPU: Signals
     SIGXFSZ: Signals
+
     class ItimerError(IOError): ...
     ITIMER_PROF: int
     ITIMER_REAL: int
     ITIMER_VIRTUAL: int
+
     class Sigmasks(IntEnum):
         SIG_BLOCK: int
         SIG_UNBLOCK: int
@@ -147,6 +149,7 @@ else:
             def si_status(self) -> int: ...
             @property
             def si_band(self) -> int: ...
+
         def sigtimedwait(sigset: Iterable[int], timeout: float) -> struct_siginfo | None: ...
         def sigwaitinfo(sigset: Iterable[int]) -> struct_siginfo: ...
 

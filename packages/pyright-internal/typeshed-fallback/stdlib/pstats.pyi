@@ -8,6 +8,7 @@ _Selector = Union[str, float, int]
 
 if sys.version_info >= (3, 7):
     from enum import Enum
+
     class SortKey(str, Enum):
         CALLS: str
         CUMULATIVE: str

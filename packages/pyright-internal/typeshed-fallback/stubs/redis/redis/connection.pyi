@@ -1,3 +1,4 @@
+from _typeshed import Self
 from typing import Any, Mapping
 
 from .retry import Retry
@@ -178,7 +179,7 @@ class UnixDomainSocketConnection(Connection):
 
 class ConnectionPool:
     @classmethod
-    def from_url(cls, url: str, *, db: int = ..., decode_components: bool = ..., **kwargs) -> ConnectionPool: ...
+    def from_url(cls: type[Self], url: str, *, db: int = ..., decode_components: bool = ..., **kwargs) -> Self: ...
     connection_class: Any
     connection_kwargs: Any
     max_connections: Any

@@ -1,12 +1,16 @@
+from _collections_abc import Generator, dict_keys
 from _typeshed import Self
 from types import TracebackType
 from typing import Any
 from typing_extensions import Literal
 
+from .pooling import ServerPool
 from .server import Server
 
 SASL_AVAILABLE_MECHANISMS: Any
 CLIENT_STRATEGIES: Any
+
+_ServerSequence = set[Server] | list[Server] | tuple[Server, ...] | Generator[Server, None, None] | dict_keys[Server, Any]
 
 class Connection:
     connection_lock: Any
@@ -59,7 +63,7 @@ class Connection:
     post_send_search: Any
     def __init__(
         self,
-        server: Server | str,
+        server: Server | str | _ServerSequence | ServerPool,
         user: str | None = ...,
         password: str | None = ...,
         auto_bind: Literal["DEFAULT", "NONE", "NO_TLS", "TLS_BEFORE_BIND", "TLS_AFTER_BIND"] = ...,

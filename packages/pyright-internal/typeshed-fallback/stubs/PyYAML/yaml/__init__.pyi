@@ -1,14 +1,16 @@
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from typing import IO, Any, Pattern, TypeVar, overload
+from typing import Any, Pattern, TypeVar, overload
 
 from . import resolver as resolver  # Help mypy a bit; this is implied by loader and dumper
 from .constructor import BaseConstructor
 from .cyaml import *
 from .dumper import *
+from .emitter import _WriteStream
 from .error import *
 from .events import *
 from .loader import *
 from .nodes import *
+from .reader import _ReadStream
 from .representer import BaseRepresenter
 from .resolver import BaseResolver
 from .tokens import *
@@ -28,17 +30,17 @@ def scan(stream, Loader=...): ...
 def parse(stream, Loader=...): ...
 def compose(stream, Loader=...): ...
 def compose_all(stream, Loader=...): ...
-def load(stream: bytes | IO[bytes] | str | IO[str], Loader) -> Any: ...
-def load_all(stream: bytes | IO[bytes] | str | IO[str], Loader) -> Iterator[Any]: ...
-def full_load(stream: bytes | IO[bytes] | str | IO[str]) -> Any: ...
-def full_load_all(stream: bytes | IO[bytes] | str | IO[str]) -> Iterator[Any]: ...
-def safe_load(stream: bytes | IO[bytes] | str | IO[str]) -> Any: ...
-def safe_load_all(stream: bytes | IO[bytes] | str | IO[str]) -> Iterator[Any]: ...
-def unsafe_load(stream: bytes | IO[bytes] | str | IO[str]) -> Any: ...
-def unsafe_load_all(stream: bytes | IO[bytes] | str | IO[str]) -> Iterator[Any]: ...
+def load(stream: _ReadStream, Loader) -> Any: ...
+def load_all(stream: _ReadStream, Loader) -> Iterator[Any]: ...
+def full_load(stream: _ReadStream) -> Any: ...
+def full_load_all(stream: _ReadStream) -> Iterator[Any]: ...
+def safe_load(stream: _ReadStream) -> Any: ...
+def safe_load_all(stream: _ReadStream) -> Iterator[Any]: ...
+def unsafe_load(stream: _ReadStream) -> Any: ...
+def unsafe_load_all(stream: _ReadStream) -> Iterator[Any]: ...
 def emit(
     events,
-    stream=...,
+    stream: _WriteStream[Any] | None = ...,
     Dumper=...,
     canonical: bool | None = ...,
     indent: int | None = ...,
@@ -49,7 +51,7 @@ def emit(
 @overload
 def serialize_all(
     nodes,
-    stream: IO[str],
+    stream: _WriteStream[Any],
     Dumper=...,
     canonical: bool | None = ...,
     indent: int | None = ...,
@@ -81,7 +83,7 @@ def serialize_all(
 @overload
 def serialize(
     node,
-    stream: IO[str],
+    stream: _WriteStream[Any],
     Dumper=...,
     *,
     canonical: bool | None = ...,
@@ -115,7 +117,7 @@ def serialize(
 @overload
 def dump_all(
     documents: Sequence[Any],
-    stream: IO[str],
+    stream: _WriteStream[Any],
     Dumper=...,
     default_style: str | None = ...,
     default_flow_style: bool | None = ...,
@@ -153,7 +155,7 @@ def dump_all(
 @overload
 def dump(
     data: Any,
-    stream: IO[str],
+    stream: _WriteStream[Any],
     Dumper=...,
     *,
     default_style: str | None = ...,
@@ -193,7 +195,7 @@ def dump(
 @overload
 def safe_dump_all(
     documents: Sequence[Any],
-    stream: IO[str],
+    stream: _WriteStream[Any],
     *,
     default_style: str | None = ...,
     default_flow_style: bool | None = ...,
@@ -231,7 +233,7 @@ def safe_dump_all(
 @overload
 def safe_dump(
     data: Any,
-    stream: IO[str],
+    stream: _WriteStream[Any],
     *,
     default_style: str | None = ...,
     default_flow_style: bool | None = ...,

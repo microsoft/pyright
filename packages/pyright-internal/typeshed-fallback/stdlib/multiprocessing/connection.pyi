@@ -15,6 +15,7 @@ class _ConnectionBase:
         def __init__(self, handle: SupportsIndex, readable: bool = ..., writable: bool = ...) -> None: ...
     else:
         def __init__(self, handle: int, readable: bool = ..., writable: bool = ...) -> None: ...
+
     @property
     def closed(self) -> bool: ...  # undocumented
     @property

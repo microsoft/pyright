@@ -10,6 +10,7 @@ if sys.platform == "win32":
 
     windll: LibraryLoader[WinDLL]
     COORD = wintypes._COORD
+
     class CONSOLE_SCREEN_BUFFER_INFO(Structure):
         dwSize: COORD
         dwCursorPosition: COORD

@@ -50,7 +50,7 @@ class SessionRedirectMixin:
 _Data = Union[None, Text, bytes, Mapping[str, Any], Mapping[Text, Any], Iterable[tuple[Text, Optional[Text]]], IO[Any]]
 
 _Hook = Callable[[Response], Any]
-_Hooks = MutableMapping[Text, list[_Hook]]
+_Hooks = MutableMapping[Text, _Hook | list[_Hook]]
 _HooksInput = MutableMapping[Text, Union[Iterable[_Hook], _Hook]]
 
 _ParamsMappingKeyType = Union[Text, bytes, int, float]

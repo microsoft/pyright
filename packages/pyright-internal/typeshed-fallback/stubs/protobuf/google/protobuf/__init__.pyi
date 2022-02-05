@@ -1,1 +1,1 @@
-__version__: bytes
+__version__: str

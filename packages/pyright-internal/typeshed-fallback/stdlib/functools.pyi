@@ -106,6 +106,7 @@ if sys.version_info >= (3, 8):
         @overload
         def register(self, cls: type[Any], method: Callable[..., _T]) -> Callable[..., _T]: ...
         def __call__(self, *args: Any, **kwargs: Any) -> _T: ...
+
     class cached_property(Generic[_T]):
         func: Callable[[Any], _T]
         attrname: str | None

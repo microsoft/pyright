@@ -1,5 +1,6 @@
 import sys
 import types
+from _typeshed import Self
 from opcode import *  # `dis` re-exports it as a part of public API
 from typing import IO, Any, Callable, Iterator, NamedTuple, Union
 
@@ -54,7 +55,7 @@ class Bytecode:
     def info(self) -> str: ...
     def dis(self) -> str: ...
     @classmethod
-    def from_traceback(cls, tb: types.TracebackType) -> Bytecode: ...
+    def from_traceback(cls: type[Self], tb: types.TracebackType) -> Self: ...
 
 COMPILER_FLAG_NAMES: dict[int, str]
 

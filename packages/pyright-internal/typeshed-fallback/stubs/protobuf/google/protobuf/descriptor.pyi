@@ -42,20 +42,19 @@ class _NestedDescriptorBase(DescriptorBase):
         serialized_end=...,
         serialized_options=...,
     ) -> None: ...
-    def GetTopLevelContainingType(self): ...
     def CopyToProto(self, proto): ...
 
 class Descriptor(_NestedDescriptorBase):
     def __new__(
         cls,
-        name,
-        full_name,
-        filename,
-        containing_type,
-        fields,
-        nested_types,
-        enum_types,
-        extensions,
+        name=...,
+        full_name=...,
+        filename=...,
+        containing_type=...,
+        fields=...,
+        nested_types=...,
+        enum_types=...,
+        extensions=...,
         options=...,
         serialized_options=...,
         is_extendable=...,
@@ -162,9 +161,10 @@ class FieldDescriptor(DescriptorBase):
         extension_scope,
         options=...,
         serialized_options=...,
-        file=...,
         has_default_value=...,
         containing_oneof=...,
+        json_name=...,
+        file=...,
         create_key=...,
     ): ...
     name: Any
@@ -199,9 +199,10 @@ class FieldDescriptor(DescriptorBase):
         extension_scope,
         options=...,
         serialized_options=...,
-        file=...,
         has_default_value=...,
         containing_oneof=...,
+        json_name=...,
+        file=...,
         create_key=...,
     ) -> None: ...
     @staticmethod
@@ -267,10 +268,10 @@ class OneofDescriptor:
 class ServiceDescriptor(_NestedDescriptorBase):
     def __new__(
         cls,
-        name,
-        full_name,
-        index,
-        methods,
+        name=...,
+        full_name=...,
+        index=...,
+        methods=...,
         options=...,
         serialized_options=...,
         file=...,

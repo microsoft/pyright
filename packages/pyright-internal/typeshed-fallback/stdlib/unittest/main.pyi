@@ -47,6 +47,7 @@ class TestProgram:
         def createTests(self, from_discovery: bool = ..., Loader: unittest.loader.TestLoader | None = ...) -> None: ...
     else:
         def createTests(self) -> None: ...
+
     def runTests(self) -> None: ...  # undocumented
 
 main = TestProgram

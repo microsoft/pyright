@@ -35,8 +35,12 @@ from typing import (  # noqa Y022
 _T = TypeVar("_T")
 _F = TypeVar("_F", bound=Callable[..., Any])
 
+# unfortunately we have to duplicate this class definition from typing.pyi or we break pytype
 class _SpecialForm:
-    def __getitem__(self, typeargs: Any) -> Any: ...
+    def __getitem__(self, typeargs: Any) -> object: ...
+    if sys.version_info >= (3, 10):
+        def __or__(self, other: Any) -> _SpecialForm: ...
+        def __ror__(self, other: Any) -> _SpecialForm: ...
 
 # This alias for above is kept here for backwards compatibility.
 runtime = runtime_checkable
@@ -50,11 +54,6 @@ def final(f: _F) -> _F: ...
 Literal: _SpecialForm
 
 def IntVar(name: str) -> Any: ...  # returns a new TypeVar
-
-if sys.version_info < (3, 8):
-    # Technically in 3.6 this inherited from GenericMeta. But let's not reflect that, since
-    # type checkers tend to assume that Protocols all have the ABCMeta metaclass.
-    class _ProtocolMeta(abc.ABCMeta): ...
 
 # Internal mypy fallback type for all typed dicts (does not exist at runtime)
 class _TypedDict(Mapping[str, object], metaclass=abc.ABCMeta):
@@ -109,9 +108,11 @@ else:
     class ParamSpecArgs:
         __origin__: ParamSpec
         def __init__(self, origin: ParamSpec) -> None: ...
+
     class ParamSpecKwargs:
         __origin__: ParamSpec
         def __init__(self, origin: ParamSpec) -> None: ...
+
     class ParamSpec:
         __name__: str
         __bound__: type[Any] | None

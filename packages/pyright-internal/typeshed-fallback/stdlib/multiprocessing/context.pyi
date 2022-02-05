@@ -33,6 +33,7 @@ class BaseContext:
     if sys.version_info >= (3, 8):
         @staticmethod
         def parent_process() -> BaseProcess | None: ...
+
     @staticmethod
     def active_children() -> list[BaseProcess]: ...
     def cpu_count(self) -> int: ...
@@ -113,6 +114,7 @@ class BaseContext:
         def get_context(self, method: Literal["spawn"]) -> SpawnContext: ...
         @overload
         def get_context(self, method: str) -> BaseContext: ...
+
     def get_start_method(self, allow_none: bool = ...) -> str: ...
     def set_start_method(self, method: str | None, force: bool = ...) -> None: ...
     @property
@@ -140,20 +142,25 @@ if sys.platform != "win32":
         _start_method: str
         @staticmethod
         def _Popen(process_obj: BaseProcess) -> Any: ...
+
     class SpawnProcess(BaseProcess):
         _start_method: str
         @staticmethod
         def _Popen(process_obj: BaseProcess) -> SpawnProcess: ...
+
     class ForkServerProcess(BaseProcess):
         _start_method: str
         @staticmethod
         def _Popen(process_obj: BaseProcess) -> Any: ...
+
     class ForkContext(BaseContext):
         _name: str
         Process: type[ForkProcess]
+
     class SpawnContext(BaseContext):
         _name: str
         Process: type[SpawnProcess]
+
     class ForkServerContext(BaseContext):
         _name: str
         Process: type[ForkServerProcess]
@@ -163,6 +170,7 @@ else:
         _start_method: str
         @staticmethod
         def _Popen(process_obj: BaseProcess) -> Any: ...
+
     class SpawnContext(BaseContext):
         _name: str
         Process: type[SpawnProcess]

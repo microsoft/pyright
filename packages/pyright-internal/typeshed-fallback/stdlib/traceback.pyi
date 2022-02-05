@@ -1,5 +1,5 @@
 import sys
-from _typeshed import SupportsWrite
+from _typeshed import Self, SupportsWrite
 from types import FrameType, TracebackType
 from typing import IO, Any, Generator, Iterable, Iterator, Mapping, Optional, overload
 
@@ -98,14 +98,14 @@ class TracebackException:
         ) -> None: ...
         @classmethod
         def from_exception(
-            cls,
+            cls: type[Self],
             exc: BaseException,
             *,
             limit: int | None = ...,
             lookup_lines: bool = ...,
             capture_locals: bool = ...,
             compact: bool = ...,
-        ) -> TracebackException: ...
+        ) -> Self: ...
     else:
         def __init__(
             self,
@@ -120,8 +120,9 @@ class TracebackException:
         ) -> None: ...
         @classmethod
         def from_exception(
-            cls, exc: BaseException, *, limit: int | None = ..., lookup_lines: bool = ..., capture_locals: bool = ...
-        ) -> TracebackException: ...
+            cls: type[Self], exc: BaseException, *, limit: int | None = ..., lookup_lines: bool = ..., capture_locals: bool = ...
+        ) -> Self: ...
+
     def format(self, *, chain: bool = ...) -> Generator[str, None, None]: ...
     def format_exception_only(self) -> Generator[str, None, None]: ...
 

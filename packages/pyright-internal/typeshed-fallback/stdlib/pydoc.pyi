@@ -206,15 +206,6 @@ class Helper:
 
 help: Helper
 
-# See Python issue #11182: "remove the unused and undocumented pydoc.Scanner class"
-# class Scanner:
-#     roots = ...  # type: Any
-#     state = ...  # type: Any
-#     children = ...  # type: Any
-#     descendp = ...  # type: Any
-#     def __init__(self, roots, children, descendp) -> None: ...
-#     def next(self): ...
-
 class ModuleScanner:
     quit: bool
     def run(
