@@ -13016,10 +13016,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function createAnnotatedType(
-        errorNode: ParseNode,
-        typeArgs: TypeResult[] | undefined
-    ): Type {
+    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
         if (typeArgs && typeArgs.length < 2) {
             addError(Localizer.Diagnostic.annotatedTypeArgMissing(), errorNode);
         }
