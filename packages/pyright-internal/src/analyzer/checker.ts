@@ -393,8 +393,11 @@ export class Checker extends ParseTreeWalker {
 
                 // Allow unknown and missing param types if the param is named '_'.
                 if (param.name && param.name.value !== '_') {
-                    if (index < functionTypeResult.functionType.details.parameters.length) {
-                        const paramType = functionTypeResult.functionType.details.parameters[index].type;
+                    const functionTypeParam = functionTypeResult.functionType.details.parameters.find(
+                        (p) => p.name === param.name?.value
+                    );
+                    if (functionTypeParam) {
+                        const paramType = functionTypeParam.type;
 
                         if (
                             isUnknown(paramType) ||
