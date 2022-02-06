@@ -42,3 +42,18 @@ a1: Json = {"a": 1, "b": 3j}
 
 # This should generate an error
 a2: Json = [2, 3j]
+
+RecursiveTuple = Union[str | int, tuple["RecursiveTuple", ...]]
+
+
+b1: RecursiveTuple = (1, 1)
+b2: RecursiveTuple = (1, "1")
+b3: RecursiveTuple = (1, "1", 1, "2")
+b4: RecursiveTuple = (1, ("1", 1), "2")
+b5: RecursiveTuple = (1, ("1", 1), (1, (1, 2)))
+
+# This should generate an error
+b6: RecursiveTuple = (1, ("1", 1), (1, (1, [2])))
+
+# This should generate an error
+b6: RecursiveTuple = (1, [1])

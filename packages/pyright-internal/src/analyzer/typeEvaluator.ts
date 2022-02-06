@@ -6341,7 +6341,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return getTypeFromTupleInferred(node, /* useAny */ !!expectedType);
+        return getTypeFromTupleInferred(node);
     }
 
     function getTypeFromTupleExpected(node: TupleNode, expectedType: Type): TypeResult | undefined {
@@ -6411,10 +6411,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type, node };
     }
 
-    function getTypeFromTupleInferred(node: TupleNode, useAny: boolean): TypeResult {
-        const entryTypeResults = node.expressions.map((expr) =>
-            getTypeOfExpression(expr, useAny ? AnyType.create() : undefined)
-        );
+    function getTypeFromTupleInferred(node: TupleNode): TypeResult {
+        const entryTypeResults = node.expressions.map((expr) => getTypeOfExpression(expr));
         const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
 
         if (!tupleClassType || !isInstantiableClass(tupleClassType)) {
