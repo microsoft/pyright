@@ -8,6 +8,26 @@ When you add a type annotation to a variable or a parameter in Python, you are _
 If a variable or parameter has no type annotation, the type checker must assume that any value can be assigned to it. This eliminates the ability for a type checker to identify type incompatibilities.
 
 
+### Debugging Inferred Types
+
+When you want to know the type that the type checker has inferred for an expression, you can use the special `reveal_type()` function:
+
+```
+x = 1
+reveal_type(x)  # Type of "x" is "Literal[1]"
+```
+
+This function is always available and does not need to be imported. When you use Pyright within an IDE, you can also simply hover over an expression to see the inferred type.
+
+You can also see the inferred types of all local variables at once with the `reveal_locals()` function:
+
+```
+def f(x: int, y: str) -> None:
+    z = 1.0
+    reveal_locals()  # Type of "x" is "int". Type of "y" is "str". Type of "z" is "float".
+```
+
+
 ### Type Assignability
 When your code assigns a value to a symbol (in an assignment expression) or a parameter (in a call expression), the type checker first determines the type of the value being assigned. It then determines whether the target has a declared type. If so, it verifies that the type of the value is _assignable_ to the declared type.
 
