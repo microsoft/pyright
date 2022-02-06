@@ -1,6 +1,8 @@
 # This sample tests the type variable solving process when a
 # callable type is involved.
 
+# pyright: strict
+
 from typing import Callable, Dict, Literal, TypeVar
 
 
@@ -26,4 +28,11 @@ def func(v: Callable[[], _T]) -> _T:
     ...
 
 
-x: Dict[Animal, int] = func(lambda: {"cat": 0})
+x1: Dict[Animal, int] = func(lambda: {"cat": 0})
+
+
+def func1(factory: Callable[[], _T]) -> _T:
+    ...
+
+
+x2: set[int] = func1(lambda: set())

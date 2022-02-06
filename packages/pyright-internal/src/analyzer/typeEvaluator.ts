@@ -9338,12 +9338,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // is an overload function, skip it during the first pass
                             // because the selection of the proper overload may depend
                             // on type arguments supplied by other function arguments.
+                            // Set useNarrowBoundOnly to true the first time through
+                            // the loop if we're going to go through the loop multiple
+                            // times.
                             const argResult = validateArgType(
                                 argParam,
                                 typeVarMap,
                                 type.details.name,
                                 skipUnknownArgCheck,
                                 /* skipOverloadArg */ i === 0,
+                                /* useNarrowBoundOnly */ passCount > 1 && i === 0,
                                 typeCondition
                             );
 
@@ -9374,6 +9378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type.details.name,
                 skipUnknownArgCheck,
                 /* skipOverloadArg */ false,
+                /* useNarrowBoundOnly */ false,
                 typeCondition
             );
 
@@ -9641,6 +9646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             /* functionName */ '',
                             /* skipUnknownArgCheck */ false,
                             /* skipOverloadArg */ false,
+                            /* useNarrowBoundOnly */ false,
                             conditionFilter
                         )
                     ) {
@@ -9686,6 +9692,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         functionName: string,
         skipUnknownCheck: boolean,
         skipOverloadArg: boolean,
+        useNarrowBoundOnly: boolean,
         conditionFilter: TypeCondition[] | undefined
     ): ArgResult {
         let argType: Type | undefined;
@@ -9698,16 +9705,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // type. This causes problems for cases where the the call expression
             // result can influence the type of the TypeVar, such as in
             // the expression "min(1, max(2, 0.5))". We set useNarrowBoundOnly
-            // to true here because a wide bound on a TypeVar (if a narrow bound
-            // has not yet been established) will unnecessarily constrain the
-            // expected type.
+            // to true if this is the first pass through the parameter list because
+            // a wide bound on a TypeVar (if a narrow bound has not yet been established)
+            // will unnecessarily constrain the expected type.
             let expectedType: Type | undefined = isTypeVar(argParam.paramType)
                 ? undefined
                 : applySolvedTypeVars(
                       argParam.paramType,
                       typeVarMap,
                       /* unknownIfNotFound */ false,
-                      /* useNarrowBoundOnly */ true
+                      useNarrowBoundOnly
                   );
 
             // If the expected type is unknown, don't use an expected type. Instead,
@@ -14525,6 +14532,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         newMethodType.details.name,
                                         /* skipUnknownCheck */ true,
                                         /* skipOverloadArg */ true,
+                                        /* useNarrowBoundOnly */ false,
                                         /* conditionFilter */ undefined
                                     );
                                     paramMap.delete(arg.name.value);
