@@ -11445,7 +11445,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return getTypeFromDictionaryExpected(node, subtype);
                     });
 
-                    if (subtypeResult) {
+                    if (subtypeResult && canAssignType(subtype, subtypeResult.type)) {
                         matchingSubtype = subtype;
                     }
                 }
@@ -11813,7 +11813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return getTypeFromListOrSetExpected(node, subtype);
                     });
 
-                    if (subtypeResult) {
+                    if (subtypeResult && canAssignType(subtype, subtypeResult.type)) {
                         matchingSubtype = subtype;
                     }
                 }
