@@ -1220,7 +1220,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* allowSpeculativeCaching */ true
             );
 
-            if (expectedType && !isAnyOrUnknown(expectedType)) {
+            if (expectedType && !isAnyOrUnknown(expectedType) && !isNever(expectedType)) {
                 expectedTypeCache.set(node.id, expectedType);
             }
         }
@@ -6315,11 +6315,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the expected type is a union, recursively call for each of the subtypes
         // to find one that matches.
         let effectiveExpectedType = expectedType;
+        let expectedTypeContainsAny = expectedType && isAny(expectedType);
 
         if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
+                if (isAny(subtype)) {
+                    expectedTypeContainsAny = true;
+                }
+
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
                         return getTypeFromTupleExpected(node, subtype);
@@ -6341,7 +6346,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return getTypeFromTupleInferred(node);
+        const resultType = getTypeFromTupleInferred(node);
+
+        // If there was an expected type of Any, replace the resulting type
+        // with Any rather than return a type with unknowns.
+        if (expectedTypeContainsAny) {
+            resultType.type = AnyType.create();
+        }
+
+        return resultType;
     }
 
     function getTypeFromTupleExpected(node: TupleNode, expectedType: Type): TypeResult | undefined {
@@ -7113,13 +7126,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Also evaluate the types of each argument expression without regard to
             // the expectedType. We'll use this to determine whether we need to do
             // union expansion.
-            contextFreeArgTypes = argList.map((arg) =>
-                arg.type
-                    ? arg.type
-                    : arg.valueExpression
-                    ? getTypeOfExpression(arg.valueExpression).type
-                    : AnyType.create()
-            );
+            contextFreeArgTypes = argList.map((arg) => {
+                if (arg.type) {
+                    return arg.type;
+                }
+
+                if (arg.valueExpression) {
+                    const valueExpressionNode = arg.valueExpression;
+                    return useSpeculativeMode(valueExpressionNode, () => {
+                        return getTypeOfExpression(valueExpressionNode).type;
+                    });
+                }
+
+                return AnyType.create();
+            });
         });
 
         filteredMatchResults = sortOverloadsByBestMatch(filteredMatchResults);
@@ -9151,6 +9171,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !expectedType ||
             isAnyOrUnknown(expectedType) ||
+            isNever(expectedType) ||
             requiresSpecialization(expectedType) ||
             !type.details.declaredReturnType
         ) {
@@ -11463,7 +11484,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const result = getTypeFromDictionaryInferred(node, expectedType)!;
+        const result = getTypeFromDictionaryInferred(node, /* hasExpectedType */ !!expectedType);
         return { ...result, expectedTypeDiagAddendum };
     }
 
@@ -11495,7 +11516,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node,
                     keyTypes,
                     valueTypes,
-                    !!expectedType,
+                    /* forceStrictInference */ true,
                     /* expectedKeyType */ undefined,
                     /* expectedValueType */ undefined,
                     expectedTypedDictEntries,
@@ -11559,7 +11580,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node,
                 keyTypes,
                 valueTypes,
-                !!expectedType,
+                /* forceStrictInference */ true,
                 expectedKeyType,
                 expectedValueType,
                 undefined,
@@ -11590,12 +11611,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type, node, isIncomplete };
     }
 
-    // Attempts to infer the type of a dictionary statement. If an expectedType
-    // is provided, the resulting type must be compatible with the expected type.
-    // If this isn't possible, undefined is returned.
-    function getTypeFromDictionaryInferred(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
-        let keyType: Type = expectedType ? AnyType.create() : UnknownType.create();
-        let valueType: Type = expectedType ? AnyType.create() : UnknownType.create();
+    // Attempts to infer the type of a dictionary statement. If hasExpectedType
+    // is true, strict inference is used for the subexpressions.
+    function getTypeFromDictionaryInferred(node: DictionaryNode, hasExpectedType: boolean): TypeResult {
+        const fallbackType = hasExpectedType ? AnyType.create() : UnknownType.create();
+        let keyType: Type = fallbackType;
+        let valueType: Type = fallbackType;
 
         let keyTypes: Type[] = [];
         let valueTypes: Type[] = [];
@@ -11604,16 +11625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
 
         // Infer the key and value types if possible.
-        if (
-            getKeyAndValueTypesFromDictionary(
-                node,
-                keyTypes,
-                valueTypes,
-                !expectedType,
-                expectedType ? AnyType.create() : undefined,
-                expectedType ? AnyType.create() : undefined
-            )
-        ) {
+        if (getKeyAndValueTypesFromDictionary(node, keyTypes, valueTypes, /* forceStrictInference */ hasExpectedType)) {
             isIncomplete = true;
         }
 
@@ -11621,7 +11633,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         keyTypes = keyTypes.map((t) => stripLiteralValue(t));
         valueTypes = valueTypes.map((t) => stripLiteralValue(t));
 
-        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : expectedType ? AnyType.create() : UnknownType.create();
+        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : fallbackType;
 
         // If the value type differs and we're not using "strict inference mode",
         // we need to back off because we can't properly represent the mappings
@@ -11629,17 +11641,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // are the same type, we'll assume that all values in this dictionary should
         // be the same.
         if (valueTypes.length > 0) {
-            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || !!expectedType) {
+            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
                 valueType = combineTypes(valueTypes);
             } else {
-                valueType = areTypesSame(valueTypes, /* ignorePseudoGeneric */ true)
-                    ? valueTypes[0]
-                    : expectedType
-                    ? AnyType.create()
-                    : UnknownType.create();
+                valueType = areTypesSame(valueTypes, /* ignorePseudoGeneric */ true) ? valueTypes[0] : fallbackType;
             }
         } else {
-            valueType = expectedType ? AnyType.create() : UnknownType.create();
+            valueType = fallbackType;
             isEmptyContainer = true;
         }
 
@@ -11664,7 +11672,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node: DictionaryNode,
         keyTypes: Type[],
         valueTypes: Type[],
-        limitEntryCount: boolean,
+        forceStrictInference: boolean,
         expectedKeyType?: Type,
         expectedValueType?: Type,
         expectedTypedDictEntries?: Map<string, TypedDictEntry>,
@@ -11677,7 +11685,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                const keyTypeResult = getTypeOfExpression(entryNode.keyExpression, expectedKeyType);
+                const keyTypeResult = getTypeOfExpression(
+                    entryNode.keyExpression,
+                    expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined)
+                );
                 if (keyTypeResult.isIncomplete) {
                     isIncomplete = true;
                 }
@@ -11706,7 +11717,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         expectedTypedDictEntries.get(keyType.literalValue as string)!.valueType
                     );
                 } else {
-                    valueTypeResult = getTypeOfExpression(entryNode.valueExpression, expectedValueType);
+                    valueTypeResult = getTypeOfExpression(
+                        entryNode.valueExpression,
+                        expectedValueType ?? (forceStrictInference ? NeverType.createNever() : undefined)
+                    );
                 }
 
                 if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
@@ -11718,7 +11732,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
                 }
 
-                if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                if (forceStrictInference || index < maxEntriesToUseForInference) {
                     keyTypes.push(keyType);
                     valueTypes.push(valueType);
                 }
@@ -11747,7 +11761,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const specializedMapping = applySolvedTypeVars(mappingType, mappingTypeVarMap) as ClassType;
                             const typeArgs = specializedMapping.typeArguments;
                             if (typeArgs && typeArgs.length >= 2) {
-                                if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                                if (forceStrictInference || index < maxEntriesToUseForInference) {
                                     keyTypes.push(typeArgs[0]);
                                     valueTypes.push(typeArgs[1]);
                                 }
@@ -11779,7 +11793,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isClassInstance(dictEntryType) && isTupleClass(dictEntryType)) {
                     const typeArgs = dictEntryType.tupleTypeArguments?.map((t) => t.type);
                     if (typeArgs && typeArgs.length === 2) {
-                        if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                        if (forceStrictInference || index < maxEntriesToUseForInference) {
                             keyTypes.push(typeArgs[0]);
                             valueTypes.push(typeArgs[1]);
                         }
@@ -11789,7 +11803,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (addUnknown) {
-                if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                if (forceStrictInference || index < maxEntriesToUseForInference) {
                     keyTypes.push(UnknownType.create());
                     valueTypes.push(UnknownType.create());
                 }
@@ -11829,7 +11843,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return getTypeFromListOrSetInferred(node, expectedType);
+        return getTypeFromListOrSetInferred(node, /* hasExpectedType */ expectedType !== undefined);
     }
 
     // Attempts to determine the type of a list or set statement based on an expected type.
@@ -11900,30 +11914,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Attempts to infer the type of a list or set statement with no "expected type".
-    function getTypeFromListOrSetInferred(node: ListNode | SetNode, expectedType: Type | undefined): TypeResult {
+    function getTypeFromListOrSetInferred(node: ListNode | SetNode, hasExpectedType: boolean): TypeResult {
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
         let isEmptyContainer = false;
         let isIncomplete = false;
-
-        // If we received an expected entry type that of "object",
-        // allow Any rather than generating an "Unknown".
-        let expectedEntryType: Type | undefined;
-        if (expectedType) {
-            if (isAny(expectedType)) {
-                expectedEntryType = expectedType;
-            } else if (isClassInstance(expectedType) && ClassType.isBuiltIn(expectedType, 'object')) {
-                expectedEntryType = AnyType.create();
-            }
-        }
 
         let entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
             let entryTypeResult: TypeResult;
 
             if (entry.nodeType === ParseNodeType.ListComprehension) {
-                entryTypeResult = getElementTypeFromListComprehension(entry, expectedEntryType);
+                entryTypeResult = getElementTypeFromListComprehension(entry);
             } else {
-                entryTypeResult = getTypeOfExpression(entry, expectedEntryType);
+                entryTypeResult = getTypeOfExpression(
+                    entry,
+                    /* expectedType */ hasExpectedType ? NeverType.createNever() : undefined
+                );
             }
 
             if (entryTypeResult.isIncomplete) {
@@ -11937,7 +11943,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         entryTypes = entryTypes.map((t) => stripLiteralValue(t));
 
-        let inferredEntryType: Type = expectedType ? AnyType.create() : UnknownType.create();
+        let inferredEntryType: Type = hasExpectedType ? AnyType.create() : UnknownType.create();
         if (entryTypes.length > 0) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             // If there was an expected type or we're using strict list inference,
@@ -11945,7 +11951,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (
                 (builtInClassName === 'list' && fileInfo.diagnosticRuleSet.strictListInference) ||
                 (builtInClassName === 'set' && fileInfo.diagnosticRuleSet.strictSetInference) ||
-                !!expectedType
+                hasExpectedType
             ) {
                 inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
             } else {
