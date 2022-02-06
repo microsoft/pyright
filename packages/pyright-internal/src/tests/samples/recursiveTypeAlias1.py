@@ -1,6 +1,6 @@
 # This sample tests Pyright's handling of recursive type aliases.
 
-from typing import Dict, List, TypeVar, Union
+from typing import Dict, List, Mapping, TypeVar, Union
 
 MyTree = List[Union["MyTree", int]]
 
@@ -57,3 +57,23 @@ b6: RecursiveTuple = (1, ("1", 1), (1, (1, [2])))
 
 # This should generate an error
 b6: RecursiveTuple = (1, [1])
+
+
+RecursiveMapping = Union[str, int, Mapping[str, "RecursiveMapping"]]
+
+
+c1: RecursiveMapping = 1
+c2: RecursiveMapping = "1"
+c3: RecursiveMapping = {"1": "1"}
+c4: RecursiveMapping = {"1": "1", "2": 1}
+c5: RecursiveMapping = {"1": "1", "2": 1, "3": {}}
+c6: RecursiveMapping = {"1": "1", "2": 1, "3": {"0": "0", "1": "2", "2": {}}}
+
+# This should generate an error.
+c7: RecursiveMapping = {"1": [1]}
+
+# This should generate an error.
+c8: RecursiveMapping = {"1": "1", "2": 1, "3": [1, 2]}
+
+# This should generate an error.
+c9: RecursiveMapping = {"1": "1", "2": 1, "3": {"0": "0", "1": 1, "2": [1, 2, 3]}}
