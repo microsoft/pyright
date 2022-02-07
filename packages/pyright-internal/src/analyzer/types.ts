@@ -1719,7 +1719,7 @@ export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
     subtypes: UnionableType[];
     literalStrMap?: Map<string, UnionableType> | undefined;
-    literalIntMap?: Map<bigint, UnionableType> | undefined;
+    literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     typeAliasSources?: Set<UnionType>;
 }
 
@@ -1755,9 +1755,9 @@ export namespace UnionType {
             newType.condition === undefined
         ) {
             if (unionType.literalIntMap === undefined) {
-                unionType.literalIntMap = new Map<bigint, UnionableType>();
+                unionType.literalIntMap = new Map<bigint | number, UnionableType>();
             }
-            unionType.literalIntMap.set(BigInt(newType.literalValue as number | bigint), newType);
+            unionType.literalIntMap.set(newType.literalValue as number | bigint, newType);
         }
 
         unionType.flags &= newType.flags;
@@ -1779,7 +1779,7 @@ export namespace UnionType {
                 subtype.literalValue !== undefined &&
                 unionType.literalIntMap !== undefined
             ) {
-                return unionType.literalIntMap.has(BigInt(subtype.literalValue as number | bigint));
+                return unionType.literalIntMap.has(subtype.literalValue as number | bigint);
             }
         }
 
@@ -2684,7 +2684,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
             typeToAdd.literalValue !== undefined &&
             unionType.literalIntMap !== undefined
         ) {
-            if (!unionType.literalIntMap.has(BigInt(typeToAdd.literalValue as number | bigint))) {
+            if (!unionType.literalIntMap.has(typeToAdd.literalValue as number | bigint)) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;
