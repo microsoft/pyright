@@ -341,6 +341,16 @@ export function synthesizeDataClassMethods(
                         // Add the new entry to the full entry list.
                         insertIndex = fullDataClassEntries.findIndex((p) => p.name === variableName);
                         if (insertIndex >= 0) {
+                            const oldEntry = fullDataClassEntries[insertIndex];
+
+                            // While this isn't documented behavior, it appears that the dataclass implementation
+                            // causes overridden variables to "inherit" default values from parent classes.
+                            if (!dataClassEntry.hasDefault && oldEntry.hasDefault) {
+                                dataClassEntry.hasDefault = true;
+                                dataClassEntry.defaultValueExpression = oldEntry.defaultValueExpression;
+                                hasDefaultValue = true;
+                            }
+
                             fullDataClassEntries[insertIndex] = dataClassEntry;
                         } else {
                             fullDataClassEntries.push(dataClassEntry);

@@ -1,7 +1,7 @@
 # This sample tests the analyzer's ability to handle inherited
 # data classes.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 class C1:
@@ -63,3 +63,31 @@ class DC5(DC3):
     # aa replaces aa in DC3, and it's ordered
     # before the params with default values.
     aa: C2
+
+
+@dataclass
+class DC6:
+    a: int = 0
+
+
+@dataclass
+class DC7(DC6):
+    a: int
+
+    # This should generate an error because the default
+    # value for "a" is inherited from the base class.
+    b: str
+
+
+@dataclass
+class DC8:
+    a: int = field(default=0)
+
+
+@dataclass
+class DC9(DC8):
+    a: int
+
+    # This should generate an error because the default
+    # value for "a" is inherited from the base class.
+    b: str
