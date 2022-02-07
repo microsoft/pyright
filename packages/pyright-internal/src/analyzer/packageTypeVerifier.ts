@@ -98,7 +98,7 @@ export class PackageTypeVerifier {
                     )
                 );
             } else {
-                const pyTypedInfo = getPyTypedInfo(this._fileSystem, report.rootDirectory);
+                const pyTypedInfo = this._getDeepestPyTypedInfo(report.rootDirectory, packageNameParts);
                 if (!pyTypedInfo) {
                     commonDiagnostics.push(
                         new Diagnostic(DiagnosticCategory.Error, 'No py.typed file found', getEmptyRange())
@@ -182,6 +182,23 @@ export class PackageTypeVerifier {
             case SymbolCategory.Indeterminate:
                 return 'symbol';
         }
+    }
+
+    private _getDeepestPyTypedInfo(rootDirectory: string, packageNameParts: string[]) {
+        let subNameParts = [...packageNameParts];
+
+        // Find the deepest py.typed file that corresponds to the requested submodule.
+        while (subNameParts.length >= 1) {
+            const packageSubdir = combinePaths(rootDirectory, ...subNameParts.slice(1));
+            const pyTypedInfo = getPyTypedInfo(this._fileSystem, packageSubdir);
+            if (pyTypedInfo) {
+                return pyTypedInfo;
+            }
+
+            subNameParts = subNameParts.slice(0, subNameParts.length - 1);
+        }
+
+        return undefined;
     }
 
     private _resolveImport(moduleName: string) {
@@ -1206,7 +1223,13 @@ export class PackageTypeVerifier {
 
         if (importResult.isImportFound) {
             const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-            return getDirectoryPath(resolvedPath);
+            if (resolvedPath) {
+                getDirectoryPath(resolvedPath);
+            }
+
+            // If it's a namespace package with no __init__.py(i), use the package
+            // directory instead.
+            return importResult.packageDirectory || '';
         }
 
         return undefined;
