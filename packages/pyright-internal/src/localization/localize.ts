@@ -892,6 +892,7 @@ export namespace Localizer {
             new ParameterizedString<{ name1: string; name2: string }>(
                 getRawString('Diagnostic.unpackedTypeVarTupleExpected')
             );
+        export const unpackExpectedTypedDict = () => getRawString('Diagnostic.unpackExpectedTypedDict');
         export const unpackExpectedTypeVarTuple = () => getRawString('Diagnostic.unpackExpectedTypeVarTuple');
         export const unpackIllegalInComprehension = () => getRawString('Diagnostic.unpackIllegalInComprehension');
         export const unpackInAnnotation = () => getRawString('Diagnostic.unpackInAnnotation');

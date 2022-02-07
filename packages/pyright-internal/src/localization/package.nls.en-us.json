@@ -456,6 +456,7 @@
         "unpackedSubscriptIllegal": "Unpack operator in subscript requires Python 3.11 or newer",
         "unpackedTypedDictArgument": "Unable to match unpacked TypedDict argument to parameters",
         "unpackedTypeVarTupleExpected": "Expected unpacked TypeVarTuple; use Unpack[{name1}] or *{name2}",
+        "unpackExpectedTypedDict": "Expected TypedDict type argument for Unpack",
         "unpackExpectedTypeVarTuple": "Expected TypeVarTuple or Tuple as type argument for Unpack",
         "unpackIllegalInComprehension": "Unpack operation not allowed in comprehension",
         "unpackInAnnotation": "Unpack operator not allowed in type annotation",

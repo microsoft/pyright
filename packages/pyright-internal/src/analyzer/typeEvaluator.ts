@@ -1245,6 +1245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             associateTypeVarsWithScope: true,
             allowTypeVarTuple: paramCategory === ParameterCategory.VarArgList,
             disallowRecursiveTypeAlias: true,
+            allowUnpackedTypedDict: paramCategory === ParameterCategory.VarArgDictionary,
             allowUnpackedTuple: paramCategory === ParameterCategory.VarArgList,
         });
     }
@@ -1297,6 +1298,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (options?.disallowRecursiveTypeAlias) {
             evaluatorFlags |= EvaluatorFlags.DisallowRecursiveTypeAliasPlaceholder;
+        }
+
+        if (options?.allowUnpackedTypedDict) {
+            evaluatorFlags |= EvaluatorFlags.AllowUnpackedTypedDict;
         }
 
         if (options?.allowUnpackedTuple) {
@@ -13115,6 +13120,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
+        if ((flags & EvaluatorFlags.AllowUnpackedTypedDict) !== 0) {
+            if (isInstantiableClass(typeArgType) && ClassType.isTypedDictClass(typeArgType)) {
+                return ClassType.cloneForUnpacked(typeArgType);
+            }
+
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.unpackExpectedTypedDict(),
+                errorNode
+            );
+            return UnknownType.create();
+        }
+
         addDiagnostic(
             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
@@ -15251,6 +15270,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case ParameterCategory.VarArgDictionary: {
                 // Leave a ParamSpec alone.
                 if (isTypeVar(type) && type.paramSpecAccess) {
+                    return type;
+                }
+
+                // Is this an unpacked TypedDict? If so, return it unmodified.
+                if (isClassInstance(type) && ClassType.isTypedDictClass(type) && type.isUnpacked) {
                     return type;
                 }
 
@@ -22154,7 +22178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (srcParamInfo.param.name && srcParamInfo.param.category === ParameterCategory.Simple) {
                             const destParamInfo = destParamMap.get(srcParamInfo.param.name);
                             const paramDiag = diag?.createAddendum();
-                            const srcParamType = FunctionType.getEffectiveParameterType(srcType, srcParamInfo.index);
+                            const srcParamType = srcParamInfo.type;
 
                             if (!destParamInfo) {
                                 if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.hasDefault) {
@@ -22184,10 +22208,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     }
                                 }
                             } else {
-                                const destParamType = FunctionType.getEffectiveParameterType(
-                                    destType,
-                                    destParamInfo.index
-                                );
+                                const destParamType = destParamInfo.type;
                                 const specializedDestParamType = destTypeVarMap
                                     ? applySolvedTypeVars(destParamType, destTypeVarMap)
                                     : destParamType;

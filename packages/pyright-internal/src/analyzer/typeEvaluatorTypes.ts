@@ -128,6 +128,9 @@ export const enum EvaluatorFlags {
     // the interpreter (within a source file, not a stub) still
     // parses the expression and generates parse errors.
     InterpreterParsesStringLiteral = 1 << 22,
+
+    // Allow Unpack annotation for TypedDict.
+    AllowUnpackedTypedDict = 1 << 23,
 }
 
 export interface TypeArgumentResult {
@@ -257,6 +260,7 @@ export interface AnnotationTypeOptions {
     allowTypeVarTuple?: boolean;
     allowParamSpec?: boolean;
     disallowRecursiveTypeAlias?: boolean;
+    allowUnpackedTypedDict?: boolean;
     allowUnpackedTuple?: boolean;
     notParsedByInterpreter?: boolean;
 }

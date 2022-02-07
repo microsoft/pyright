@@ -694,11 +694,17 @@ export function printFunctionParts(
                     recursionTypes.length < maxTypeRecursionCount
                         ? printType(paramType, printTypeFlags, returnTypeCallback, recursionTypes)
                         : '';
+
                 if (!param.isNameSynthesized) {
                     paramString += ': ';
                 } else if (param.category === ParameterCategory.VarArgList && !isUnpacked(paramType)) {
                     paramString += '*';
                 }
+
+                if (param.category === ParameterCategory.VarArgDictionary && isUnpacked(paramType)) {
+                    paramString += '**';
+                }
+
                 paramString += paramTypeString;
 
                 if (isParamSpec(paramType)) {

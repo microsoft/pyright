@@ -343,14 +343,37 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
             }
         } else if (param.category === ParameterCategory.VarArgDictionary) {
             sawKeywordOnlySeparator = true;
-            if (result.kwargsIndex === undefined) {
-                result.kwargsIndex = result.params.length;
-            }
-            if (result.firstKeywordOnlyIndex === undefined) {
-                result.firstKeywordOnlyIndex = result.params.length;
-            }
 
-            addVirtualParameter(param, index);
+            // Is this an unpacked TypedDict? If so, expand the entries.
+            if (isClassInstance(param.type) && isUnpackedClass(param.type) && param.type.details.typedDictEntries) {
+                if (result.firstKeywordOnlyIndex === undefined) {
+                    result.firstKeywordOnlyIndex = result.params.length;
+                }
+
+                param.type.details.typedDictEntries.forEach((entry, name) => {
+                    addVirtualParameter(
+                        {
+                            category: ParameterCategory.Simple,
+                            name,
+                            type: entry.valueType,
+                            hasDeclaredType: true,
+                            hasDefault: !entry.isRequired,
+                        },
+                        index,
+                        entry.valueType
+                    );
+                });
+            } else {
+                if (result.kwargsIndex === undefined) {
+                    result.kwargsIndex = result.params.length;
+                }
+
+                if (result.firstKeywordOnlyIndex === undefined) {
+                    result.firstKeywordOnlyIndex = result.params.length;
+                }
+
+                addVirtualParameter(param, index);
+            }
         } else if (param.category === ParameterCategory.Simple) {
             if (param.name && !sawKeywordOnlySeparator) {
                 result.positionParamCount++;
