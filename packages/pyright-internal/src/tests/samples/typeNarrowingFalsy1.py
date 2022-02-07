@@ -1,6 +1,6 @@
 # This sample tests type narrowing for falsy and truthy values.
 
-from typing import List, Literal, Optional, Union
+from typing import Iterable, List, Literal, Optional, Union
 
 
 class A:
@@ -41,3 +41,10 @@ def func3(maybe_a: Optional[A]):
         reveal_type(maybe_a, expected_text="A")
     else:
         reveal_type(maybe_a, expected_text="None")
+
+
+def func4(foo: Iterable[int]) -> None:
+    if foo:
+        reveal_type(foo, expected_text="Iterable[int]")
+    else:
+        reveal_type(foo, expected_text="Iterable[int]")

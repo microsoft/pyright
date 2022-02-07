@@ -1451,6 +1451,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return type.literalValue === false;
                 }
 
+                // If this is a protocol class, don't make any assumptions about the absence
+                // of specific methods. These could be provided by a class that conforms
+                // to the protocol.
+                if (ClassType.isProtocolClass(type)) {
+                    return true;
+                }
+
                 const lenMethod = lookUpObjectMember(type, '__len__');
                 if (lenMethod) {
                     return true;
@@ -1526,6 +1533,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type.literalValue === ''
                 ) {
                     return false;
+                }
+
+                // If this is a protocol class, don't make any assumptions about the absence
+                // of specific methods. These could be provided by a class that conforms
+                // to the protocol.
+                if (ClassType.isProtocolClass(type)) {
+                    return true;
                 }
 
                 const boolMethod = lookUpObjectMember(type, '__bool__');
