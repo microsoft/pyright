@@ -125,14 +125,14 @@ test('NoReturn2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('NoReturn4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn4.py']);
+test('NoReturn3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn3.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('NoReturn5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn5.py']);
+test('NoReturn4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn4.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
