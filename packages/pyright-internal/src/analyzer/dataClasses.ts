@@ -582,13 +582,8 @@ function isDataclassFieldConstructor(type: Type, fieldDescriptorNames: string[])
 
 export function validateDataClassTransformDecorator(
     evaluator: TypeEvaluator,
-    node: ExpressionNode
+    node: CallNode
 ): DataClassBehaviors | undefined {
-    if (node.nodeType !== ParseNodeType.Call) {
-        // TODO - emit diagnostic
-        return undefined;
-    }
-
     const behaviors: DataClassBehaviors = {
         keywordOnlyParams: false,
         generateEq: true,
@@ -600,13 +595,8 @@ export function validateDataClassTransformDecorator(
 
     // Parse the arguments to the call.
     node.arguments.forEach((arg) => {
-        if (!arg.name) {
-            // TODO - emit diagnostic
-            return;
-        }
-
-        if (arg.argumentCategory !== ArgumentCategory.Simple) {
-            // TODO - emit diagnostic
+        if (!arg.name || arg.argumentCategory !== ArgumentCategory.Simple) {
+            evaluator.addError(Localizer.Diagnostic.dataClassTransformPositionalParam(), arg);
             return;
         }
 
@@ -614,7 +604,10 @@ export function validateDataClassTransformDecorator(
             case 'kw_only_default': {
                 const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
                 if (value === undefined) {
-                    // TODO - emit diagnostic
+                    evaluator.addError(
+                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                        arg.valueExpression
+                    );
                     return;
                 }
 
@@ -625,7 +618,10 @@ export function validateDataClassTransformDecorator(
             case 'eq_default': {
                 const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
                 if (value === undefined) {
-                    // TODO - emit diagnostic
+                    evaluator.addError(
+                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                        arg.valueExpression
+                    );
                     return;
                 }
 
@@ -636,7 +632,10 @@ export function validateDataClassTransformDecorator(
             case 'order_default': {
                 const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
                 if (value === undefined) {
-                    // TODO - emit diagnostic
+                    evaluator.addError(
+                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                        arg.valueExpression
+                    );
                     return;
                 }
 
@@ -657,7 +656,12 @@ export function validateDataClassTransformDecorator(
                             !isOverloadedFunction(entry.type)
                     )
                 ) {
-                    // TODO - emit diagnostic
+                    evaluator.addError(
+                        Localizer.Diagnostic.dataClassTransformFieldDescriptor().format({
+                            type: evaluator.printType(valueType),
+                        }),
+                        arg.valueExpression
+                    );
                     return;
                 }
 
@@ -675,7 +679,10 @@ export function validateDataClassTransformDecorator(
             }
 
             default:
-                // TODO - emit diagnostic
+                evaluator.addError(
+                    Localizer.Diagnostic.dataClassTransformUnknownArgument().format({ name: arg.name.value }),
+                    arg.valueExpression
+                );
                 break;
         }
     });

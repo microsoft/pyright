@@ -298,6 +298,14 @@ export namespace Localizer {
         export const dataClassPostInitType = () =>
             new ParameterizedString<{ fieldName: string }>(getRawString('Diagnostic.dataClassPostInitType'));
         export const dataClassSlotsOverwrite = () => getRawString('Diagnostic.dataClassSlotsOverwrite');
+        export const dataClassTransformExpectedBoolLiteral = () =>
+            getRawString('Diagnostic.dataClassTransformExpectedBoolLiteral');
+        export const dataClassTransformFieldDescriptor = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.dataClassTransformFieldDescriptor'));
+        export const dataClassTransformPositionalParam = () =>
+            getRawString('Diagnostic.dataClassTransformPositionalParam');
+        export const dataClassTransformUnknownArgument = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.dataClassTransformUnknownArgument'));
         export const declaredReturnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(
                 getRawString('Diagnostic.declaredReturnTypePartiallyUnknown')
