@@ -1524,13 +1524,8 @@ export function getCodeFlowEngine(
                 })?.type;
             }
 
-            // If it is a symbol from an outer execution scope or an alias, it
-            // is safe to infer its type.
-            if (decl.type === DeclarationType.Alias || symbolWithScope.isBeyondExecutionScope) {
-                return evaluator.getInferredTypeOfDeclaration(decl);
-            }
-
-            return undefined;
+            // Use the inferred type of the last declaration.
+            return evaluator.getInferredTypeOfDeclaration(decl);
         }
 
         if (node.nodeType === ParseNodeType.MemberAccess) {
