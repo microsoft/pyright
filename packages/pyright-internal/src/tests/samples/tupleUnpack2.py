@@ -39,3 +39,12 @@ def func7(v7: tuple[*tuple[bool, *tuple[int, float]]]):
 
 def func8(v8: Union[*tuple[*tuple[bool, *tuple[int, ...]]]]):
     reveal_type(v8, expected_text="bool | int")
+
+# This should generate an error because unpack isn't allowed for simple parameters.
+def func9(v9: *tuple[int, int]):
+    pass
+
+# This should generate an error because unpack isn't allowed for **kwargs parameters.
+def func10(**v10: *tuple[int, int]):
+    pass
+

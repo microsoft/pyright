@@ -604,7 +604,7 @@ export function printObjectTypeForClass(
                     }
                 });
 
-                if (type.isUnpackedTuple) {
+                if (type.isUnpacked) {
                     objName = '*' + objName;
                 }
 

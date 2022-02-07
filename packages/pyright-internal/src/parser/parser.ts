@@ -2633,7 +2633,7 @@ export class Parser {
         // that's surrounded by parens.
         if (exprListResult.list.length === 1 && !exprListResult.trailingComma) {
             if (exprListResult.list[0].nodeType === ParseNodeType.Unpack) {
-                this._addError(Localizer.Diagnostic.unpackNotAllowed(), exprListResult.list[0]);
+                this._addError(Localizer.Diagnostic.unpackOperatorNotAllowed(), exprListResult.list[0]);
             }
             return exprListResult.list[0];
         }

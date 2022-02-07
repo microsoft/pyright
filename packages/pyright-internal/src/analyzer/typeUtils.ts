@@ -36,7 +36,7 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
-    isUnpackedTuple,
+    isUnpackedClass,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     ModuleType,
@@ -280,7 +280,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     type.details.parameters.forEach((param, index) => {
         if (param.category === ParameterCategory.VarArgList) {
             // If this is an unpacked tuple, expand the entries.
-            if (param.name && isUnpackedTuple(param.type) && param.type.tupleTypeArguments) {
+            if (param.name && isUnpackedClass(param.type) && param.type.tupleTypeArguments) {
                 param.type.tupleTypeArguments.forEach((tupleArg, index) => {
                     const category =
                         isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
@@ -1826,7 +1826,7 @@ export function specializeTupleClass(
     );
 
     if (isUnpackedTuple) {
-        clonedClassType.isUnpackedTuple = true;
+        clonedClassType.isUnpacked = true;
     }
 
     return clonedClassType;
@@ -1877,7 +1877,7 @@ export function removeParamSpecVariadicsFromFunction(type: FunctionType): Functi
 }
 
 function _expandVariadicUnpackedUnion(type: Type) {
-    if (isClassInstance(type) && isTupleClass(type) && type.tupleTypeArguments && type.isUnpackedTuple) {
+    if (isClassInstance(type) && isTupleClass(type) && type.tupleTypeArguments && type.isUnpacked) {
         return combineTypes(type.tupleTypeArguments.map((t) => t.type));
     }
 
@@ -2606,11 +2606,7 @@ class TypeVarTransformer {
             ) {
                 variadicParamIndex = i;
 
-                if (
-                    isClassInstance(specializedType) &&
-                    isTupleClass(specializedType) &&
-                    specializedType.isUnpackedTuple
-                ) {
+                if (isClassInstance(specializedType) && isTupleClass(specializedType) && specializedType.isUnpacked) {
                     variadicTypesToUnpack = specializedType.tupleTypeArguments;
                 }
             }

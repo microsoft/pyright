@@ -1226,7 +1226,7 @@ test('TotalOrdering1', () => {
 test('TupleUnpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TupleUnpack2', () => {
@@ -1234,9 +1234,9 @@ test('TupleUnpack2', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 16);
+    TestUtils.validateResults(analysisResults1, 18);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 3);
+    TestUtils.validateResults(analysisResults2, 5);
 });

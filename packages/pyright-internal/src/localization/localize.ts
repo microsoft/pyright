@@ -896,6 +896,7 @@ export namespace Localizer {
         export const unpackInDict = () => getRawString('Diagnostic.unpackInDict');
         export const unpackInSet = () => getRawString('Diagnostic.unpackInSet');
         export const unpackNotAllowed = () => getRawString('Diagnostic.unpackNotAllowed');
+        export const unpackOperatorNotAllowed = () => getRawString('Diagnostic.unpackOperatorNotAllowed');
         export const unpackTuplesIllegal = () => getRawString('Diagnostic.unpackTuplesIllegal');
         export const unreachableCode = () => getRawString('Diagnostic.unreachableCode');
         export const unreachableExcept = () => getRawString('Diagnostic.unreachableExcept');

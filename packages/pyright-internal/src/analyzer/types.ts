@@ -460,7 +460,7 @@ export interface ClassType extends TypeBase {
     // We sometimes package multiple types into a tuple internally
     // for matching against a variadic type variable or another unpacked
     // tuple. We need to be able to distinguish this case from normal tuples.
-    isUnpackedTuple?: boolean | undefined;
+    isUnpacked?: boolean | undefined;
 
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
@@ -630,9 +630,9 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneForUnpackedTuple(classType: ClassType, isUnpacked = true): ClassType {
+    export function cloneForUnpacked(classType: ClassType, isUnpacked = true): ClassType {
         const newClassType = TypeBase.cloneType(classType);
-        newClassType.isUnpackedTuple = isUnpacked;
+        newClassType.isUnpacked = isUnpacked;
         return newClassType;
     }
 
@@ -2092,8 +2092,8 @@ export function isUnpackedVariadicTypeVar(type: Type): boolean {
     return type.category === TypeCategory.TypeVar && type.details.isVariadic && !!type.isVariadicUnpacked;
 }
 
-export function isUnpackedTuple(type: Type): type is ClassType {
-    if (!isClass(type) || !type.isUnpackedTuple) {
+export function isUnpackedClass(type: Type): type is ClassType {
+    if (!isClass(type) || !type.isUnpacked) {
         return false;
     }
 
@@ -2101,7 +2101,7 @@ export function isUnpackedTuple(type: Type): type is ClassType {
 }
 
 export function isUnpacked(type: Type): boolean {
-    return isUnpackedVariadicTypeVar(type) || isUnpackedTuple(type);
+    return isUnpackedVariadicTypeVar(type) || isUnpackedClass(type);
 }
 
 export function isParamSpec(type: Type): type is TypeVarType {

@@ -120,6 +120,9 @@ export const enum EvaluatorFlags {
 
     // Required and NotRequired are allowed in this context.
     RequiredAllowed = 1 << 20,
+
+    // Allow Unpack annotation for a tuple or TypeVarTuple.
+    AllowUnpackedTupleOrTypeVarTuple = 1 << 21,
 }
 
 export interface TypeArgumentResult {
@@ -249,6 +252,7 @@ export interface AnnotationTypeOptions {
     allowTypeVarTuple?: boolean;
     allowParamSpec?: boolean;
     disallowRecursiveTypeAlias?: boolean;
+    allowUnpackedTuple?: boolean;
 }
 
 export interface ExpectedTypeResult {
