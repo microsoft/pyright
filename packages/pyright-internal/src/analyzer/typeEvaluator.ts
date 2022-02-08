@@ -1138,8 +1138,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     typeResult = { type: TypeVarType.cloneForUnpacked(iterType), node };
                 } else {
-                    const type = getTypeFromIterator(iterType, /* isAsync */ false, node) || UnknownType.create();
-                    typeResult = { type, unpackedType: iterType, node, isIncomplete: iterTypeResult.isIncomplete };
+                    if (
+                        (flags & EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple) !== 0 &&
+                        isInstantiableClass(iterType) &&
+                        ClassType.isBuiltIn(iterType, 'tuple')
+                    ) {
+                        typeResult = { type: ClassType.cloneForUnpacked(iterType), node };
+                    } else {
+                        const type = getTypeFromIterator(iterType, /* isAsync */ false, node) || UnknownType.create();
+                        typeResult = { type, unpackedType: iterType, node, isIncomplete: iterTypeResult.isIncomplete };
+                    }
                 }
                 break;
             }

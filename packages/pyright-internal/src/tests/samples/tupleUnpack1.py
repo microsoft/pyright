@@ -48,3 +48,11 @@ def func9(v9: Unpack[tuple[int, int]]):
 # This should generate an error because unpack isn't allowed for **kwargs parameters.
 def func10(**v10: Unpack[tuple[int, int]]):
     pass
+
+
+def func11(*v11: Unpack[tuple[int, ...]]):
+    pass
+
+
+def func12(*v11: Unpack[tuple[int, int]]):
+    pass

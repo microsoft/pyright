@@ -48,3 +48,9 @@ def func9(v9: *tuple[int, int]):
 def func10(**v10: *tuple[int, int]):
     pass
 
+def func11(*v11: *tuple[int, ...]):
+    pass
+
+def func12(*v11: *tuple[int, int]):
+    pass
+
