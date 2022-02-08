@@ -253,6 +253,7 @@ export interface AnnotationTypeOptions {
     allowParamSpec?: boolean;
     disallowRecursiveTypeAlias?: boolean;
     allowUnpackedTuple?: boolean;
+    notParsedByInterpreter?: boolean;
 }
 
 export interface ExpectedTypeResult {

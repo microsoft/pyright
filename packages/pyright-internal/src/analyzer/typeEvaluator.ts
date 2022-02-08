@@ -1307,6 +1307,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             evaluatorFlags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple;
         }
 
+        if (options?.notParsedByInterpreter) {
+            evaluatorFlags |= EvaluatorFlags.NotParsedByInterpreter;
+        }
+
         if (isAnnotationEvaluationPostponed(fileInfo)) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
@@ -11434,6 +11438,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const returnAnnotationOptions: AnnotationTypeOptions = {};
         if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
             returnAnnotationOptions.associateTypeVarsWithScope = true;
+        }
+        if ((flags & EvaluatorFlags.NotParsedByInterpreter) !== 0) {
+            returnAnnotationOptions.notParsedByInterpreter = true;
         }
 
         let returnType = getTypeOfAnnotation(node.returnTypeAnnotation, returnAnnotationOptions);

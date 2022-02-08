@@ -9,7 +9,7 @@ A1 = (int) -> int
 
 A2: TypeAlias = "(int) -> int"
 
-def func1(a: "(int) -> int") -> "(...) -> int":
+def func1(a: "(int) -> (() -> None)") -> "(...) -> int":
     ...
 
 # This should generate an error when using versions of Python prior to 3.11.
