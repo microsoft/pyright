@@ -10910,10 +10910,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type: Type | undefined;
         let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
 
-        if (isNever(leftType) || isNever(rightType)) {
-            return NeverType.createNever();
-        }
-
         if (booleanOperatorMap[operator] !== undefined) {
             // If it's an AND or OR, we need to handle short-circuiting by
             // eliminating any known-truthy or known-falsy types.
@@ -10945,6 +10941,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 concreteLeftType = removeFalsinessFromType(concreteLeftType);
+            }
+
+            if (isNever(leftType) || isNever(rightType)) {
+                return NeverType.createNever();
             }
 
             // The "in" and "not in" operators make use of the __contains__
@@ -11030,6 +11030,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
         } else if (binaryOperatorMap[operator]) {
+            if (isNever(leftType) || isNever(rightType)) {
+                return NeverType.createNever();
+            }
+
             // Handle certain operations on certain homogenous literal types
             // using special-case math. For example, Literal[1, 2] + Literal[3, 4]
             // should result in Literal[4, 5, 6].
