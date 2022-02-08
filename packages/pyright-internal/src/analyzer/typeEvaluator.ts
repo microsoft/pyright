@@ -7610,18 +7610,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!returnType) {
             // There was no __init__ or __new__ method or we couldn't match the provided
-            // arguments to them. Do our best to specialize the instantiated class based
-            // on the expected type (if provided).
-            const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
-            if (expectedType) {
-                populateTypeVarMapBasedOnExpectedType(
-                    ClassType.cloneAsInstance(type),
-                    expectedType,
-                    typeVarMap,
-                    getTypeVarScopesForNode(errorNode)
-                );
+            // arguments to them.
+            if (!expectedType && type.typeArguments) {
+                // If there was no expected type but the type was already specialized,
+                // assume that we're constructing an instance of the specialized type.
+                returnType = convertToInstance(type);
+            } else {
+                // Do our best to specialize the instantiated class based on the expected
+                // type if provided.
+                const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
+
+                if (expectedType) {
+                    populateTypeVarMapBasedOnExpectedType(
+                        ClassType.cloneAsInstance(type),
+                        expectedType,
+                        typeVarMap,
+                        getTypeVarScopesForNode(errorNode)
+                    );
+                }
+
+                returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
             }
-            returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
         }
 
         if (!reportedErrors) {

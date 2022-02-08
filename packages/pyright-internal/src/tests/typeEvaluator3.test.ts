@@ -953,6 +953,12 @@ test('Constructor11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Constructor12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor12.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('InconsistentConstructor1', () => {
     const configOptions = new ConfigOptions('.');
 
