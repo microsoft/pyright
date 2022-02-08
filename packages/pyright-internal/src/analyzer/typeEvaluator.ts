@@ -5122,6 +5122,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     );
 
                                     if (callResult.argumentErrors) {
+                                        if (usage.method === 'set') {
+                                            if (
+                                                usage.setType &&
+                                                isFunction(boundMethodType) &&
+                                                boundMethodType.details.parameters.length >= 2
+                                            ) {
+                                                const setterType = FunctionType.getEffectiveParameterType(
+                                                    boundMethodType,
+                                                    1
+                                                );
+
+                                                diag?.addMessage(
+                                                    Localizer.DiagnosticAddendum.typeIncompatible().format({
+                                                        destType: printType(setterType),
+                                                        sourceType: printType(usage.setType),
+                                                    })
+                                                );
+                                            } else if (isOverloadedFunction(boundMethodType)) {
+                                                diag?.addMessage(
+                                                    Localizer.Diagnostic.noOverload().format({ name: accessMethodName })
+                                                );
+                                            }
+                                        }
+
                                         isTypeValid = false;
                                         return AnyType.create();
                                     }
