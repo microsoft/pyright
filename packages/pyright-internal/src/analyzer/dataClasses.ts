@@ -68,6 +68,7 @@ export function synthesizeDataClassMethods(
     node: ClassNode,
     classType: ClassType,
     skipSynthesizeInit: boolean,
+    hasExistingInitMethod: boolean,
     skipSynthesizeHash: boolean
 ) {
     assert(ClassType.isDataClass(classType));
@@ -387,7 +388,7 @@ export function synthesizeDataClassMethods(
     const symbolTable = classType.details.fields;
     const keywordOnlyParams: FunctionParameter[] = [];
 
-    if (!skipSynthesizeInit && allAncestorsKnown) {
+    if (!skipSynthesizeInit && !hasExistingInitMethod && allAncestorsKnown) {
         fullDataClassEntries.forEach((entry) => {
             if (entry.includeInInit) {
                 // If the type refers to Self of the parent class, we need to

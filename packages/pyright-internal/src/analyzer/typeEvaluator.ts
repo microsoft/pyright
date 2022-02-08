@@ -14357,19 +14357,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Synthesize dataclass methods.
         if (ClassType.isDataClass(classType)) {
-            let skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
+            const skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
+            let hasExistingInitMethod = skipSynthesizedInit;
+
+            // See if there's already a non-synthesized __init__ method.
+            // We shouldn't override it.
             if (!skipSynthesizedInit) {
-                // See if there's already a non-synthesized __init__ method.
-                // We shouldn't override it.
                 const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
                     const initSymbolType = getTypeOfMember(initSymbol);
                     if (isFunction(initSymbolType)) {
                         if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
-                            skipSynthesizedInit = true;
+                            hasExistingInitMethod = true;
                         }
                     } else {
-                        skipSynthesizedInit = true;
+                        hasExistingInitMethod = true;
                     }
                 }
             }
@@ -14383,7 +14385,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            synthesizeDataClassMethods(evaluatorInterface, node, classType, skipSynthesizedInit, skipSynthesizeHash);
+            synthesizeDataClassMethods(
+                evaluatorInterface,
+                node,
+                classType,
+                skipSynthesizedInit,
+                hasExistingInitMethod,
+                skipSynthesizeHash
+            );
         }
 
         // Build a complete list of all slots names defined by the class hierarchy.
