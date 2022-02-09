@@ -46,5 +46,6 @@ export interface AnalyzerFileInfo {
     isTypingExtensionsStubFile: boolean;
     isBuiltInStubFile: boolean;
     isInPyTypedPackage: boolean;
+    isIPythonMode: boolean;
     accessedSymbolMap: Map<number, true>;
 }

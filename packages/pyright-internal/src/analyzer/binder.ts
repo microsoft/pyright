@@ -1385,6 +1385,11 @@ export class Binder extends ParseTreeWalker {
         // Make sure this is within an async lambda or function.
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
+            if (this._fileInfo.isIPythonMode && enclosingFunction === undefined) {
+                // Top level await is allowed in ipython mode.
+                return true;
+            }
+
             // Allow if it's within a generator expression. Execution of
             // generator expressions is deferred and therefore can be
             // run within the context of an async function later.
