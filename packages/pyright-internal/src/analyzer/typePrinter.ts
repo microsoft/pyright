@@ -21,6 +21,7 @@ import {
     isParamSpec,
     isTypeSame,
     isTypeVar,
+    isUnpacked,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     removeNoneFromUnion,
@@ -695,6 +696,8 @@ export function printFunctionParts(
                         : '';
                 if (!param.isNameSynthesized) {
                     paramString += ': ';
+                } else if (param.category === ParameterCategory.VarArgList && !isUnpacked(paramType)) {
+                    paramString += '*';
                 }
                 paramString += paramTypeString;
 
