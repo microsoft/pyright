@@ -9170,8 +9170,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isTypeVar(paramType) && paramType.details.isVariadic) {
                     if (tupleClassType && isInstantiableClass(tupleClassType)) {
                         const tupleTypeArgs: TupleTypeArgument[] = variadicArgs.map((argParam) => {
+                            const argType = getTypeForArgument(argParam.argument).type;
+                            const containsVariadicTypeVar =
+                                isUnpackedVariadicTypeVar(argType) ||
+                                (isClassInstance(argType) &&
+                                    isTupleClass(argType) &&
+                                    argType.tupleTypeArguments &&
+                                    argType.tupleTypeArguments.some((arg) => isUnpackedVariadicTypeVar(arg.type)));
+
+                            if (
+                                containsVariadicTypeVar &&
+                                argParam.argument.argumentCategory !== ArgumentCategory.UnpackedList
+                            ) {
+                                addDiagnostic(
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.typeVarTupleMustBeUnpacked(),
+                                    argParam.argument.valueExpression ?? errorNode
+                                );
+                            }
+
                             return {
-                                type: stripLiteralValue(getTypeForArgument(argParam.argument).type),
+                                type: stripLiteralValue(argType),
                                 isUnbounded: argParam.argument.argumentCategory === ArgumentCategory.UnpackedList,
                             };
                         });

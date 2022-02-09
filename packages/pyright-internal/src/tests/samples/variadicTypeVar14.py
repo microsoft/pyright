@@ -8,7 +8,10 @@ Ts = TypeVarTuple('Ts')
 R = TypeVar('R')
 
 def call_with_params(func: Callable[[*Ts], R], *params: *Ts) -> R:
-    return func(params)
+    # This should generate an error because it's missing a *.
+    func(params)
+
+    return func(*params)
 
 def callback1(*args: int) -> int:
     ...
