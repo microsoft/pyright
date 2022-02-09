@@ -1,5 +1,5 @@
 /*
- * tokenizer.ipython.test.ts
+ * ipythonMode.test.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
@@ -10,6 +10,7 @@ import assert from 'assert';
 
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
+import { Localizer } from '../localization/localize';
 import { Comment, CommentType, Token } from '../parser/tokenizerTypes';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
@@ -212,6 +213,60 @@ test('ipython multiple magics 2', () => {
     `;
 
     testIPython(code);
+});
+
+test('top level await raises errors in regular mode', () => {
+    const code = `
+//// async def foo():
+////     pass
+//// 
+//// [|/*marker*/await foo();|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
+});
+
+test('top level await raises no errors in ipython mode', () => {
+    const code = `
+// @ipythonMode: true
+//// async def foo():
+////     pass
+//// 
+//// [|/*marker*/await foo();|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
+});
+
+test('await still raises errors when used in wrong context in ipython mode', () => {
+    const code = `
+// @ipythonMode: true
+//// async def foo():
+////     pass
+//// 
+//// def bar():
+////     [|/*marker*/await foo();|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
 });
 
 function testIPython(code: string, expectMagic = true) {
