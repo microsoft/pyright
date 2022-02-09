@@ -457,6 +457,7 @@
         "unpackedTypeVarTupleExpected": "Expected unpacked TypeVarTuple; use Unpack[{name1}] or *{name2}",
         "unpackExpectedTypeVarTuple": "Expected TypeVarTuple or Tuple as type argument for Unpack",
         "unpackIllegalInComprehension": "Unpack operation not allowed in comprehension",
+        "unpackInAnnotation": "Unpack operator not allowed in type annotation",
         "unpackInDict": "Unpack operation not allowed in dictionaries",
         "unpackInSet": "Unpack operator not allowed within a set",
         "unpackNotAllowed": "Unpack not allowed in this context",

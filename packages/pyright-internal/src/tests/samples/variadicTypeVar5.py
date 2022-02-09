@@ -70,17 +70,17 @@ c4_3 = c4(3j, "hi", 4)
 c5 = func1(callback5)
 reveal_type(c5, expected_text="(*_Xs@callback5) -> int")
 
-# This should generate an error.
 c6_1 = func1(callback6)
+reveal_type(c6_1, expected_text="(*Any) -> int")
 
-# This should generate an error.
 c6_2 = func2(callback6)
+reveal_type(c6_2, expected_text="(int, *Any) -> int")
 
-# This should generate an error.
 c7_1 = func1(callback7)
+reveal_type(c7_1, expected_text="(str, str, str, *Any) -> int")
 
-# This should generate an error.
 c7_2 = func2(callback7)
+reveal_type(c7_2, expected_text="(int, str, str, str, *Any) -> int")
 
 
 class CallbackA(Protocol[Unpack[_Xs]]):

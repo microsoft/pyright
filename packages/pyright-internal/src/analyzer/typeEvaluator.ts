@@ -180,6 +180,7 @@ import {
     isUnknown,
     isUnpacked,
     isUnpackedClass,
+    isUnpackedVariadicTypeVar,
     isVariadicTypeVar,
     LiteralValue,
     maxTypeRecursionCount,
@@ -21633,12 +21634,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        // Don't try to pack *args parameters. They are not allowed to be matched against
-        // a variadic type variable.
-        if (srcDetails.argsIndex !== undefined) {
-            return;
-        }
-
         let srcLastToPackIndex = srcDetails.params.findIndex(
             (p, i) => i >= destDetails.argsIndex! && p.source === ParameterSource.KeywordOnly
         );
@@ -21653,11 +21648,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const suffixLength = destFirstNonPositional - destDetails.argsIndex - 1;
         const srcPositionalsToPack = srcDetails.params.slice(destDetails.argsIndex, srcLastToPackIndex - suffixLength);
-        const srcTupleTypes: TupleTypeArgument[] = srcPositionalsToPack.map((entry) => {
-            return {
-                type: entry.type,
-                isUnbounded: entry.param.category === ParameterCategory.VarArgList,
-            };
+        const srcTupleTypes: TupleTypeArgument[] = [];
+        srcPositionalsToPack.forEach((entry) => {
+            if (entry.param.category === ParameterCategory.VarArgList) {
+                if (isUnpackedVariadicTypeVar(entry.type)) {
+                    srcTupleTypes.push({ type: entry.type, isUnbounded: false });
+                } else if (isUnpackedClass(entry.type) && entry.type.tupleTypeArguments) {
+                    srcTupleTypes.push(...entry.type.tupleTypeArguments);
+                } else {
+                    srcTupleTypes.push({ type: entry.type, isUnbounded: true });
+                }
+            } else {
+                srcTupleTypes.push({ type: entry.type, isUnbounded: false });
+            }
         });
 
         if (srcTupleTypes.length !== 1 || !isVariadicTypeVar(srcTupleTypes[0].type)) {
@@ -21699,13 +21702,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ),
             ];
 
-            if (srcDetails.kwargsIndex !== undefined) {
-                srcDetails.kwargsIndex -= srcPositionalsToPack.length - 1;
-            }
+            const argsIndex = srcDetails.params.findIndex(
+                (param) => param.param.category === ParameterCategory.VarArgList
+            );
+            srcDetails.argsIndex = argsIndex >= 0 ? argsIndex : undefined;
 
-            if (srcDetails.firstKeywordOnlyIndex !== undefined) {
-                srcDetails.firstKeywordOnlyIndex -= srcPositionalsToPack.length - 1;
-            }
+            const kwargsIndex = srcDetails.params.findIndex(
+                (param) => param.param.category === ParameterCategory.VarArgDictionary
+            );
+            srcDetails.kwargsIndex = kwargsIndex >= 0 ? kwargsIndex : undefined;
+
+            const firstKeywordOnlyIndex = srcDetails.params.findIndex(
+                (param) => param.source === ParameterSource.KeywordOnly
+            );
+            srcDetails.firstKeywordOnlyIndex = firstKeywordOnlyIndex >= 0 ? firstKeywordOnlyIndex : undefined;
         }
     }
 
@@ -21744,8 +21754,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ? !!srcType.details.paramSpec
                 : !!destType.details.paramSpec;
 
-        const destPositionalCount = destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
-        const srcPositionalCount = srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
+        const destPositionalCount =
+            destParamDetails.argsIndex ?? destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
+        const srcPositionalCount =
+            srcParamDetails.argsIndex ?? srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
         const positionalsToMatch = Math.min(destPositionalCount, srcPositionalCount);
 
         // Match positional parameters.
@@ -21938,10 +21950,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If both src and dest have an "*args" parameter, make sure
         // their types are compatible.
         if (srcParamDetails.argsIndex !== undefined && destParamDetails.argsIndex !== undefined) {
+            let destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
+            let srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
+
+            if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                if (!isUnpacked(destArgsType)) {
+                    destArgsType = ClassType.cloneForUnpacked(
+                        ClassType.cloneAsInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                [{ type: destArgsType, isUnbounded: true }],
+                                /* isTypeArgumentExplicit */ true,
+                                /* stripLiterals */ true
+                            )
+                        )
+                    );
+                }
+
+                if (!isUnpacked(srcArgsType)) {
+                    srcArgsType = ClassType.cloneForUnpacked(
+                        ClassType.cloneAsInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                [{ type: srcArgsType, isUnbounded: true }],
+                                /* isTypeArgumentExplicit */ true,
+                                /* stripLiterals */ true
+                            )
+                        )
+                    );
+                }
+            }
+
             if (
                 !canAssignFunctionParameter(
-                    destParamDetails.params[destParamDetails.argsIndex].type,
-                    srcParamDetails.params[srcParamDetails.argsIndex].type,
+                    destArgsType,
+                    srcArgsType,
                     destParamDetails.params[destParamDetails.argsIndex].index,
                     diag?.createAddendum(),
                     destTypeVarMap,

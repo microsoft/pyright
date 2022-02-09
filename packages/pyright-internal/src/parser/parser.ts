@@ -1858,7 +1858,7 @@ export class Parser {
         }
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
-            paramNode.typeAnnotation = this._parseTypeAnnotation();
+            paramNode.typeAnnotation = this._parseTypeAnnotation(paramType === ParameterCategory.VarArgList);
             paramNode.typeAnnotation.parent = paramNode;
             extendRange(paramNode, paramNode.typeAnnotation);
         }
@@ -3762,7 +3762,7 @@ export class Parser {
             starToken = nextToken;
         }
 
-        const typeAnnotation = this._parseTypeAnnotation();
+        const typeAnnotation = this._parseTypeAnnotation(/* allowUnpack */ true);
 
         return { category, typeAnnotation, starToken };
     }
@@ -4242,7 +4242,7 @@ export class Parser {
         return FunctionAnnotationNode.create(openParenToken, isParamListEllipsis, paramAnnotations, returnType);
     }
 
-    private _parseTypeAnnotation(): ExpressionNode {
+    private _parseTypeAnnotation(allowUnpack = false): ExpressionNode {
         // Temporary set a flag that indicates we're parsing a type annotation.
         const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
         this._isParsingTypeAnnotation = true;
@@ -4250,8 +4250,17 @@ export class Parser {
         // Allow unpack operators.
         const startToken = this._peekToken();
         const isUnpack = this._consumeTokenIfOperator(OperatorType.Multiply);
-        let result = this._parseTestExpression(/* allowAssignmentExpression */ false);
+
         if (isUnpack) {
+            if (!allowUnpack) {
+                this._addError(Localizer.Diagnostic.unpackInAnnotation(), startToken);
+            } else if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_11) {
+                this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), startToken);
+            }
+        }
+
+        let result = this._parseTestExpression(/* allowAssignmentExpression */ false);
+        if (isUnpack && allowUnpack) {
             result = UnpackNode.create(startToken, result);
         }
 

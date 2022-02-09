@@ -269,6 +269,9 @@ function applyPartialTransform(
         if (param.category === ParameterCategory.VarArgDictionary) {
             return false;
         }
+        if (param.category === ParameterCategory.VarArgList) {
+            return true;
+        }
         return !param.name || !paramMap.has(param.name);
     });
     const assignedKeywordParamList = updatedParamList.filter((param) => {

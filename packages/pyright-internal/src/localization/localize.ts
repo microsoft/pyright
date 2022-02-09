@@ -893,6 +893,7 @@ export namespace Localizer {
             );
         export const unpackExpectedTypeVarTuple = () => getRawString('Diagnostic.unpackExpectedTypeVarTuple');
         export const unpackIllegalInComprehension = () => getRawString('Diagnostic.unpackIllegalInComprehension');
+        export const unpackInAnnotation = () => getRawString('Diagnostic.unpackInAnnotation');
         export const unpackInDict = () => getRawString('Diagnostic.unpackInDict');
         export const unpackInSet = () => getRawString('Diagnostic.unpackInSet');
         export const unpackNotAllowed = () => getRawString('Diagnostic.unpackNotAllowed');

@@ -264,15 +264,22 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
     const addVirtualParameter = (param: FunctionParameter, index: number, typeOverride?: Type) => {
         if (param.name) {
+            let source: ParameterSource;
+            if (param.category === ParameterCategory.VarArgList) {
+                source = ParameterSource.PositionOnly;
+            } else if (sawKeywordOnlySeparator) {
+                source = ParameterSource.KeywordOnly;
+            } else if (positionOnlyIndex >= 0 && index < positionOnlyIndex) {
+                source = ParameterSource.PositionOnly;
+            } else {
+                source = ParameterSource.PositionOrKeyword;
+            }
+
             result.params.push({
                 param,
                 index,
                 type: typeOverride ?? FunctionType.getEffectiveParameterType(type, index),
-                source: sawKeywordOnlySeparator
-                    ? ParameterSource.KeywordOnly
-                    : positionOnlyIndex >= 0 && index < positionOnlyIndex
-                    ? ParameterSource.PositionOnly
-                    : ParameterSource.PositionOrKeyword,
+                source,
             });
         }
     };
@@ -2637,21 +2644,32 @@ class TypeVarTransformer {
         // Unpack the tuple and synthesize a new function in the process.
         const newFunctionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.SynthesizedMethod);
         let insertKeywordOnlySeparator = false;
+        let swallowPositionOnlySeparator = false;
 
         specializedParameters.parameterTypes.forEach((paramType, index) => {
             if (index === variadicParamIndex) {
+                let sawUnboundedEntry = false;
+
                 // Unpack the tuple into individual parameters.
                 variadicTypesToUnpack!.forEach((unpackedType) => {
                     FunctionType.addParameter(newFunctionType, {
-                        category: ParameterCategory.Simple,
+                        category: unpackedType.isUnbounded ? ParameterCategory.VarArgList : ParameterCategory.Simple,
                         name: `__p${newFunctionType.details.parameters.length}`,
                         isNameSynthesized: true,
                         type: unpackedType.type,
                         hasDeclaredType: true,
                     });
+
+                    if (unpackedType.isUnbounded) {
+                        sawUnboundedEntry = true;
+                    }
                 });
 
-                insertKeywordOnlySeparator = true;
+                if (sawUnboundedEntry) {
+                    swallowPositionOnlySeparator = true;
+                } else {
+                    insertKeywordOnlySeparator = true;
+                }
             } else {
                 const param = { ...functionType.details.parameters[index] };
 
@@ -2676,7 +2694,9 @@ class TypeVarTransformer {
                     param.name = `__p${newFunctionType.details.parameters.length}`;
                 }
 
-                FunctionType.addParameter(newFunctionType, param);
+                if (param.category !== ParameterCategory.Simple || param.name || !swallowPositionOnlySeparator) {
+                    FunctionType.addParameter(newFunctionType, param);
+                }
             }
         });
 

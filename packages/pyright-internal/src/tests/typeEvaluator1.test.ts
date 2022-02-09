@@ -1234,7 +1234,7 @@ test('TupleUnpack2', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 18);
+    TestUtils.validateResults(analysisResults1, 20);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
