@@ -77,6 +77,10 @@ const _userActivityBackoffTimeInMs = 250;
 const _gitDirectory = normalizeSlashes('/.git/');
 const _includeFileRegex = /\.pyi?$/;
 
+// How long since the last library activity should we wait until
+// re-analyzing the libraries? (10min)
+const _libraryActivityBackoffTimeInMs = 60 * 1000 * 10;
+
 export class AnalyzerService {
     private _hostFactory: HostFactory;
     private _instanceName: string;
@@ -557,7 +561,7 @@ export class AnalyzerService {
         }
 
         const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
-        const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.pytest_cache', '.git'];
+        const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.*'];
 
         if (commandLineOptions.pythonPath) {
             this._console.info(
@@ -1362,7 +1366,7 @@ export class AnalyzerService {
             // and reanalyze.
             this.invalidateAndForceReanalysis(/* rebuildUserFileIndexing */ false);
             this._scheduleReanalysis(false);
-        }, 1000);
+        }, _libraryActivityBackoffTimeInMs);
     }
 
     private _removeConfigFileWatcher() {
