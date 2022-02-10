@@ -19549,16 +19549,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount
                         )
                     ) {
-                        if (diag) {
-                            const childDiag = diag.createAddendum();
-                            childDiag.addMessage(
-                                Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
-                                    name: TypeVarType.getReadableName(destTypeParam),
-                                })
-                            );
-                            childDiag.addAddendum(assignmentDiag);
+                        // Don't report errors with type variables in "pseudo-random"
+                        // classes since these type variables are not real.
+                        if (!ClassType.isPseudoGenericClass(destType)) {
+                            if (diag) {
+                                const childDiag = diag.createAddendum();
+                                childDiag.addMessage(
+                                    Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
+                                        name: TypeVarType.getReadableName(destTypeParam),
+                                    })
+                                );
+                                childDiag.addAddendum(assignmentDiag);
+                            }
+                            return false;
                         }
-                        return false;
                     }
                 }
             }

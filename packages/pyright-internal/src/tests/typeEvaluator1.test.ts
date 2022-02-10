@@ -1240,3 +1240,9 @@ test('TupleUnpack2', () => {
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 5);
 });
+
+test('PseudoGeneric1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pseudoGeneric1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
