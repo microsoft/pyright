@@ -38,6 +38,7 @@ import {
     isClassInstance,
     isInstantiableClass,
     isNever,
+    isNoneInstance,
     isSameWithoutLiteralValue,
     isUnknown,
     NeverType,
@@ -400,6 +401,10 @@ function narrowTypeBasedOnLiteralPattern(
                 isLiteralType(subtype) &&
                 evaluator.canAssignType(literalType, subtype)
             ) {
+                return undefined;
+            }
+
+            if (isNoneInstance(subtype) && isNoneInstance(literalType)) {
                 return undefined;
             }
 

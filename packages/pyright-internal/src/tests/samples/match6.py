@@ -54,3 +54,11 @@ def test_union(value_to_match: int | float | str | complex | bool | None):
             reveal_type(value_to_match, expected_text="bool | Literal['True', 'False']")
 
 
+def test_none(value_to_match: int | None):
+    match value_to_match:
+        case None as a1:
+            reveal_type(a1, expected_text="None")
+
+        case a2:
+            reveal_type(a2, expected_text="int")
+
