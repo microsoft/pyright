@@ -519,6 +519,20 @@ test('Unpack3', () => {
     TestUtils.validateResults(analysisResults38, 0);
 });
 
+test('Unpack4', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unpack4.py'], configOptions);
+    TestUtils.validateResults(analysisResults38, 2);
+
+    // Analyze with Python 3.9 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['unpack4.py'], configOptions);
+    TestUtils.validateResults(analysisResults39, 1);
+});
+
 test('Lambda1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda1.py']);
 

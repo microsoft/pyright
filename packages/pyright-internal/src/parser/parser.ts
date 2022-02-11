@@ -285,7 +285,10 @@ export class Parser {
         } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
             parseTree = this._parseFunctionTypeAnnotation();
         } else {
-            const exprListResult = this._parseTestOrStarExpressionList(/* allowAssignmentExpression */ false);
+            const exprListResult = this._parseTestOrStarExpressionList(
+                /* allowAssignmentExpression */ false,
+                /* allowMultipleUnpack */ true
+            );
             if (exprListResult.parseError) {
                 parseTree = exprListResult.parseError;
             } else {
@@ -451,6 +454,7 @@ export class Parser {
             this._getKeywordToken(KeywordType.Match);
             const expression = this._parseTestOrStarListAsExpression(
                 /* allowAssignmentExpression */ true,
+                /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingPatternSubject,
                 Localizer.Diagnostic.expectedReturnExpr()
             );
@@ -469,6 +473,7 @@ export class Parser {
 
         const subjectExpression = this._parseTestOrStarListAsExpression(
             /* allowAssignmentExpression */ true,
+            /* allowMultipleUnpack */ true,
             ErrorExpressionCategory.MissingPatternSubject,
             Localizer.Diagnostic.expectedReturnExpr()
         );
@@ -1353,11 +1358,27 @@ export class Parser {
             );
             forSuite = SuiteNode.create(this._peekToken());
         } else {
-            seqExpr = this._parseTestListAsExpression(
+            seqExpr = this._parseTestOrStarListAsExpression(
+                /* allowAssignmentExpression */ false,
+                /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedInExpr()
             );
             forSuite = this._parseLoopSuite();
+
+            // Versions of Python earlier than 3.9 didn't allow unpack operators if the
+            // tuple wasn't enclosed in parentheses.
+            if (this._getLanguageVersion() < PythonVersion.V3_9 && !this._parseOptions.isStubFile) {
+                if (seqExpr.nodeType === ParseNodeType.Tuple && !seqExpr.enclosedInParens) {
+                    let sawStar = false;
+                    seqExpr.expressions.forEach((expr) => {
+                        if (expr.nodeType === ParseNodeType.Unpack && !sawStar) {
+                            this._addError(Localizer.Diagnostic.unpackOperatorNotAllowed(), expr);
+                            sawStar = true;
+                        }
+                    });
+                }
+            }
 
             if (this._consumeTokenIfKeyword(KeywordType.Else)) {
                 elseSuite = this._parseSuite(this._isInFunction);
@@ -2135,6 +2156,7 @@ export class Parser {
         if (!this._isNextTokenNeverExpression()) {
             const returnExpr = this._parseTestOrStarListAsExpression(
                 /* allowAssignmentExpression */ true,
+                /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedReturnExpr()
             );
@@ -2512,6 +2534,7 @@ export class Parser {
         if (!this._isNextTokenNeverExpression()) {
             exprList = this._parseTestOrStarListAsExpression(
                 /* allowAssignmentExpression */ true,
+                /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedYieldExpr()
             );
@@ -2687,6 +2710,7 @@ export class Parser {
 
     private _parseTestOrStarListAsExpression(
         allowAssignmentExpression: boolean,
+        allowMultipleUnpack: boolean,
         errorCategory: ErrorExpressionCategory,
         errorString: string
     ): ExpressionNode {
@@ -2694,7 +2718,7 @@ export class Parser {
             return this._handleExpressionParseError(errorCategory, errorString);
         }
 
-        const exprListResult = this._parseTestOrStarExpressionList(allowAssignmentExpression);
+        const exprListResult = this._parseTestOrStarExpressionList(allowAssignmentExpression, allowMultipleUnpack);
         if (exprListResult.parseError) {
             return exprListResult.parseError;
         }
@@ -2710,13 +2734,15 @@ export class Parser {
         return this._parseExpressionListGeneric(() => this._parseTestExpression(/* allowAssignmentExpression */ false));
     }
 
-    private _parseTestOrStarExpressionList(allowAssignmentExpression: boolean): ListResult<ExpressionNode> {
+    private _parseTestOrStarExpressionList(
+        allowAssignmentExpression: boolean,
+        allowMultipleUnpack: boolean
+    ): ListResult<ExpressionNode> {
         const exprListResult = this._parseExpressionListGeneric(() =>
             this._parseTestOrStarExpression(allowAssignmentExpression)
         );
 
-        if (!exprListResult.parseError) {
-            // Make sure that we don't have more than one star expression in the list.
+        if (!allowMultipleUnpack && !exprListResult.parseError) {
             let sawStar = false;
             for (const expr of exprListResult.list) {
                 if (expr.nodeType === ParseNodeType.Unpack) {
@@ -4084,6 +4110,7 @@ export class Parser {
     private _parseExpressionStatement(): ExpressionNode {
         let leftExpr = this._parseTestOrStarListAsExpression(
             /* allowAssignmentExpression */ false,
+            /* allowMultipleUnpack */ false,
             ErrorExpressionCategory.MissingExpression,
             Localizer.Diagnostic.expectedExpr()
         );
@@ -4121,6 +4148,7 @@ export class Parser {
                 this._tryParseYieldExpression() ||
                 this._parseTestOrStarListAsExpression(
                     /* allowAssignmentExpression */ false,
+                    /* allowMultipleUnpack */ true,
                     ErrorExpressionCategory.MissingExpression,
                     Localizer.Diagnostic.expectedAssignRightHandExpr()
                 );
@@ -4160,6 +4188,7 @@ export class Parser {
             this._tryParseYieldExpression() ||
             this._parseTestOrStarListAsExpression(
                 /* allowAssignmentExpression */ false,
+                /* allowMultipleUnpack */ true,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedAssignRightHandExpr()
             );
