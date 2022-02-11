@@ -335,7 +335,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             listStr =
                 listStr +
                 ' ' +
-                node.comprehensions
+                node.forIfNodes
                     .map((expr) => {
                         if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
                             return (
@@ -767,9 +767,9 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
                     // The iterable expression of the first subnode of a list comprehension
                     // is evaluated within the scope of its parent.
                     const isFirstIterableExpr =
-                        prevNode === curNode.comprehensions[0] &&
-                        curNode.comprehensions[0].nodeType === ParseNodeType.ListComprehensionFor &&
-                        curNode.comprehensions[0].iterableExpression === prevPrevNode;
+                        prevNode === curNode.forIfNodes[0] &&
+                        curNode.forIfNodes[0].nodeType === ParseNodeType.ListComprehensionFor &&
+                        curNode.forIfNodes[0].iterableExpression === prevPrevNode;
 
                     if (!isFirstIterableExpr) {
                         return curNode;

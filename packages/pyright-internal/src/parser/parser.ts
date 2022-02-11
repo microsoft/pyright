@@ -64,9 +64,9 @@ import {
     ImportNode,
     IndexNode,
     LambdaNode,
+    ListComprehensionForIfNode,
     ListComprehensionForNode,
     ListComprehensionIfNode,
-    ListComprehensionIterNode,
     ListComprehensionNode,
     ListNode,
     MatchNode,
@@ -1396,22 +1396,22 @@ export class Parser {
 
         const listCompNode = ListComprehensionNode.create(target);
 
-        const compList: ListComprehensionIterNode[] = [compFor];
+        const forIfList: ListComprehensionForIfNode[] = [compFor];
         while (true) {
             const compIter = this._tryParseCompForStatement() || this._tryParseCompIfStatement();
             if (!compIter) {
                 break;
             }
             compIter.parent = listCompNode;
-            compList.push(compIter);
+            forIfList.push(compIter);
         }
 
-        listCompNode.comprehensions = compList;
-        if (compList.length > 0) {
-            compList.forEach((comp) => {
+        listCompNode.forIfNodes = forIfList;
+        if (forIfList.length > 0) {
+            forIfList.forEach((comp) => {
                 comp.parent = listCompNode;
             });
-            extendRange(listCompNode, compList[compList.length - 1]);
+            extendRange(listCompNode, forIfList[forIfList.length - 1]);
         }
         return listCompNode;
     }

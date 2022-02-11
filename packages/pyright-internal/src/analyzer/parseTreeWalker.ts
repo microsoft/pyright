@@ -316,7 +316,7 @@ export class ParseTreeWalker {
 
             case ParseNodeType.ListComprehension:
                 if (this.visitListComprehension(node)) {
-                    return [node.expression, ...node.comprehensions];
+                    return [node.expression, ...node.forIfNodes];
                 }
                 break;
 

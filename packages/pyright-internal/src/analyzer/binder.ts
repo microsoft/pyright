@@ -1898,11 +1898,11 @@ export class Binder extends ParseTreeWalker {
 
             const falseLabel = this._createBranchLabel();
 
-            // We'll walk the comprehensions list twice. The first time we'll
+            // We'll walk the forIfNodes list twice. The first time we'll
             // bind targets of for statements. The second time we'll walk
             // expressions and create the control flow graph.
-            for (let i = 0; i < node.comprehensions.length; i++) {
-                const compr = node.comprehensions[i];
+            for (let i = 0; i < node.forIfNodes.length; i++) {
+                const compr = node.forIfNodes[i];
                 const addedSymbols = new Map<string, Symbol>();
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                     this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
@@ -1922,8 +1922,8 @@ export class Binder extends ParseTreeWalker {
                 }
             }
 
-            for (let i = 0; i < node.comprehensions.length; i++) {
-                const compr = node.comprehensions[i];
+            for (let i = 0; i < node.forIfNodes.length; i++) {
+                const compr = node.forIfNodes[i];
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                     this.walk(compr.iterableExpression);
 
@@ -2140,8 +2140,8 @@ export class Binder extends ParseTreeWalker {
 
         while (curNode) {
             if (curNode.nodeType === ParseNodeType.ListComprehension) {
-                if (ignoreOutermostIterable && curNode.comprehensions.length > 0) {
-                    const outermostCompr = curNode.comprehensions[0];
+                if (ignoreOutermostIterable && curNode.forIfNodes.length > 0) {
+                    const outermostCompr = curNode.forIfNodes[0];
                     if (prevNode === outermostCompr && outermostCompr.nodeType === ParseNodeType.ListComprehensionFor) {
                         if (prevPrevNode === outermostCompr.iterableExpression) {
                             return false;

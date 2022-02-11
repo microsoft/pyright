@@ -48,6 +48,7 @@ import {
     IndexNode,
     isExpressionNode,
     LambdaNode,
+    ListComprehensionForIfNode,
     ListComprehensionNode,
     ListNode,
     MatchNode,
@@ -12345,7 +12346,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         const elementType = elementTypeResult.type;
 
-        let isAsync = node.comprehensions.some((comp) => {
+        let isAsync = node.forIfNodes.some((comp) => {
             return (
                 (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) ||
                 (comp.nodeType === ParseNodeType.ListComprehensionIf &&
@@ -12429,6 +12430,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
+    function evaluateListComprehensionForIf(node: ListComprehensionForIfNode) {
+        let isIncomplete = false;
+
+        if (node.nodeType === ParseNodeType.ListComprehensionFor) {
+            const iterableTypeResult = getTypeOfExpression(node.iterableExpression);
+            if (iterableTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+            const iterableType = stripLiteralValue(iterableTypeResult.type);
+            const itemType =
+                getTypeFromIterator(iterableType, !!node.isAsync, node.iterableExpression) || UnknownType.create();
+
+            const targetExpr = node.targetExpression;
+            assignTypeToExpression(targetExpr, itemType, !!iterableTypeResult.isIncomplete, node.iterableExpression);
+        } else {
+            assert(node.nodeType === ParseNodeType.ListComprehensionIf);
+
+            // Evaluate the test expression to validate it and mark symbols
+            // as referenced. Don't bother doing this if we're in speculative
+            // mode because it doesn't affect the element type.
+            if (!speculativeTypeTracker.isSpeculative(node.testExpression)) {
+                getTypeOfExpression(node.testExpression);
+            }
+        }
+
+        return isIncomplete;
+    }
+
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
     function getElementTypeFromListComprehension(
@@ -12439,33 +12468,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
 
         // "Execute" the list comprehensions from start to finish.
-        for (const comprehension of node.comprehensions) {
-            if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
-                const iterableTypeResult = getTypeOfExpression(comprehension.iterableExpression);
-                if (iterableTypeResult.isIncomplete) {
-                    isIncomplete = true;
-                }
-                const iterableType = stripLiteralValue(iterableTypeResult.type);
-                const itemType =
-                    getTypeFromIterator(iterableType, !!comprehension.isAsync, comprehension.iterableExpression) ||
-                    UnknownType.create();
-
-                const targetExpr = comprehension.targetExpression;
-                assignTypeToExpression(
-                    targetExpr,
-                    itemType,
-                    !!iterableTypeResult.isIncomplete,
-                    comprehension.iterableExpression
-                );
-            } else {
-                assert(comprehension.nodeType === ParseNodeType.ListComprehensionIf);
-
-                // Evaluate the test expression to validate it and mark symbols
-                // as referenced. Don't bother doing this if we're in speculative
-                // mode because it doesn't affect the element type.
-                if (!speculativeTypeTracker.isSpeculative(comprehension.testExpression)) {
-                    getTypeOfExpression(comprehension.testExpression);
-                }
+        for (const forIfNode of node.forIfNodes) {
+            if (evaluateListComprehensionForIf(forIfNode)) {
+                isIncomplete = true;
             }
         }
 
@@ -16658,7 +16663,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 case ParseNodeType.ListComprehensionFor: {
                     const listComprehension = curNode.parent as ListComprehensionNode;
                     assert(listComprehension.nodeType === ParseNodeType.ListComprehension);
-                    evaluateTypesForExpressionInContext(listComprehension);
+                    if (curNode === listComprehension.expression) {
+                        evaluateTypesForExpressionInContext(listComprehension);
+                    } else {
+                        // Evaluate the individual iterations starting with the first
+                        // up to the curNode.
+                        for (const forIfNode of listComprehension.forIfNodes) {
+                            evaluateListComprehensionForIf(forIfNode);
+                            if (forIfNode === curNode) {
+                                break;
+                            }
+                        }
+                    }
                     return;
                 }
 

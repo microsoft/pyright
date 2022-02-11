@@ -298,7 +298,7 @@ export namespace ForNode {
     }
 }
 
-export type ListComprehensionIterNode = ListComprehensionForNode | ListComprehensionIfNode;
+export type ListComprehensionForIfNode = ListComprehensionForNode | ListComprehensionIfNode;
 
 export interface ListComprehensionForNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.ListComprehensionFor;
@@ -1126,7 +1126,7 @@ export namespace CallNode {
 export interface ListComprehensionNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.ListComprehension;
     expression: ParseNode;
-    comprehensions: ListComprehensionIterNode[];
+    forIfNodes: ListComprehensionForIfNode[];
     isParenthesized?: boolean;
 }
 
@@ -1138,7 +1138,7 @@ export namespace ListComprehensionNode {
             nodeType: ParseNodeType.ListComprehension,
             id: _nextNodeId++,
             expression,
-            comprehensions: [],
+            forIfNodes: [],
         };
 
         expression.parent = node;
