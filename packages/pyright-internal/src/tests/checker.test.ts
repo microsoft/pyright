@@ -125,11 +125,12 @@ test('NoReturn2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('NoReturn3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn3.py']);
+// This test is commented out for now because we needed to revert the fix.
+// test('NoReturn3', () => {
+//     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn3.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
-});
+//     TestUtils.validateResults(analysisResults, 0);
+// });
 
 test('NoReturn4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn4.py']);
