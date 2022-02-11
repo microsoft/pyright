@@ -3842,6 +3842,7 @@ export class Binder extends ParseTreeWalker {
             ['Self', true],
             ['NoReturn', true],
             ['Never', true],
+            ['LiteralString', true],
         ]);
 
         const assignedName = assignedNameNode.value;

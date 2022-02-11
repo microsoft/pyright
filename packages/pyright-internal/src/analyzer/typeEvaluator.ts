@@ -13610,6 +13610,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['Self', { alias: '', module: 'builtins' }],
             ['NoReturn', { alias: '', module: 'builtins' }],
             ['Never', { alias: '', module: 'builtins' }],
+            ['LiteralString', { alias: '', module: 'builtins' }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -16955,6 +16956,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 case 'Self': {
                     return createSelfType(classType, errorNode, typeArgs);
+                }
+
+                case 'LiteralString': {
+                    return createSpecialType(classType, typeArgs, 0);
                 }
             }
         }
@@ -20747,6 +20752,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         return false;
+                    }
+                }
+
+                if (ClassType.isBuiltIn(destType, 'LiteralString') && ClassType.isBuiltIn(concreteSrcType, 'str')) {
+                    if (concreteSrcType.literalValue !== undefined) {
+                        return true;
                     }
                 }
 

@@ -1246,3 +1246,9 @@ test('PseudoGeneric1', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('LiteralString1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literalString1.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});
