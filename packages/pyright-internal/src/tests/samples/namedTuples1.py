@@ -79,3 +79,12 @@ NamedTuple5()
 
 NamedTuple6 = namedtuple("NamedTuple6", "field1 field2 field3", defaults=[1, 2])
 NamedTuple6()
+
+
+def func1(dyn_str: str):
+    NamedTuple7 = namedtuple("NamedTuple7", dyn_str)
+
+    n = NamedTuple7()
+    a, b = n
+    reveal_type(a, expected_text="Any")
+    reveal_type(b, expected_text="Any")

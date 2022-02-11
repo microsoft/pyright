@@ -27,6 +27,7 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    combineTypes,
     FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
@@ -385,13 +386,20 @@ export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[]
         return;
     }
 
-    const updatedTupleClass = specializeTupleClass(
-        typedTupleClass,
-        typeArgs.map((t) => {
-            return { type: t, isUnbounded: false };
-        }),
-        isTypeArgumentExplicit
-    );
+    const tupleTypeArgs: TupleTypeArgument[] = [];
+
+    if (!isTypeArgumentExplicit) {
+        tupleTypeArgs.push({
+            type: typeArgs.length > 0 ? combineTypes(typeArgs) : UnknownType.create(),
+            isUnbounded: true,
+        });
+    } else {
+        typeArgs.forEach((t) => {
+            tupleTypeArgs.push({ type: t, isUnbounded: false });
+        });
+    }
+
+    const updatedTupleClass = specializeTupleClass(typedTupleClass, tupleTypeArgs, isTypeArgumentExplicit);
 
     // Create a copy of the NamedTuple class that overrides the normal MRO
     // entries with a version of Tuple that is specialized appropriately.
