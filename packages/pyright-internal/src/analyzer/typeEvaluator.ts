@@ -4435,6 +4435,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isAsymmetricDescriptor = true;
                     }
                 } else {
+                    // Handle the special case of LiteralString.
+                    if (
+                        ClassType.isBuiltIn(baseType, 'LiteralString') &&
+                        strClassType &&
+                        isInstantiableClass(strClassType)
+                    ) {
+                        baseType = ClassType.cloneAsInstance(strClassType);
+                    }
+
                     // Handle the special case of 'name' and 'value' members within an enum.
                     if (ClassType.isEnumClass(baseType)) {
                         const literalValue = baseType.literalValue;
@@ -20755,10 +20764,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                // Handle LiteralString special form.
                 if (ClassType.isBuiltIn(destType, 'LiteralString') && ClassType.isBuiltIn(concreteSrcType, 'str')) {
                     if (concreteSrcType.literalValue !== undefined) {
                         return true;
                     }
+                } else if (
+                    ClassType.isBuiltIn(concreteSrcType, 'LiteralString') &&
+                    ClassType.isBuiltIn(destType, 'str') &&
+                    destType.literalValue === undefined
+                ) {
+                    return true;
                 }
 
                 if (
