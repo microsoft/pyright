@@ -1,10 +1,12 @@
 from _typeshed import SupportsWrite
 from reprlib import Repr
 from types import MethodType, ModuleType, TracebackType
-from typing import IO, Any, AnyStr, Callable, Container, Mapping, MutableMapping, NoReturn, Optional
+from typing import IO, Any, AnyStr, Callable, Container, Mapping, MutableMapping, NoReturn, TypeVar
 
 # the return type of sys.exc_info(), used by ErrorDuringImport.__init__
-_Exc_Info = tuple[Optional[type[BaseException]], Optional[BaseException], Optional[TracebackType]]
+_Exc_Info = tuple[type[BaseException] | None, BaseException | None, TracebackType | None]
+
+_T = TypeVar("_T")
 
 __author__: str
 __date__: str
@@ -81,7 +83,7 @@ class HTMLDoc(Doc):
     ) -> str: ...
     def bigsection(self, title: str, *args: Any) -> str: ...
     def preformat(self, text: str) -> str: ...
-    def multicolumn(self, list: list[Any], format: Callable[[Any], str], cols: int = ...) -> str: ...
+    def multicolumn(self, list: list[_T], format: Callable[[_T], str], cols: int = ...) -> str: ...
     def grey(self, text: str) -> str: ...
     def namelink(self, name: str, *dicts: MutableMapping[str, str]) -> str: ...
     def classlink(self, object: object, modname: str) -> str: ...
@@ -211,7 +213,7 @@ class ModuleScanner:
     def run(
         self,
         callback: Callable[[str | None, str, str], None],
-        key: Any | None = ...,
+        key: str | None = ...,
         completer: Callable[[], None] | None = ...,
         onerror: Callable[[str], None] | None = ...,
     ) -> None: ...

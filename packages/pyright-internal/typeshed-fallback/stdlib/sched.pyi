@@ -1,5 +1,7 @@
 from typing import Any, Callable, NamedTuple
 
+__all__ = ["scheduler"]
+
 class Event(NamedTuple):
     time: float
     priority: Any
@@ -8,7 +10,10 @@ class Event(NamedTuple):
     kwargs: dict[str, Any]
 
 class scheduler:
-    def __init__(self, timefunc: Callable[[], float] = ..., delayfunc: Callable[[float], None] = ...) -> None: ...
+    timefunc: Callable[[], float]
+    delayfunc: Callable[[float], object]
+
+    def __init__(self, timefunc: Callable[[], float] = ..., delayfunc: Callable[[float], object] = ...) -> None: ...
     def enterabs(
         self,
         time: float,

@@ -53,9 +53,6 @@ def runtime_checkable(cls: _TC) -> _TC: ...
 # This alias for above is kept here for backwards compatibility.
 runtime = runtime_checkable
 Final: _SpecialForm
-Self: _SpecialForm
-Required: _SpecialForm
-NotRequired: _SpecialForm
 
 def final(f: _F) -> _F: ...
 
@@ -103,7 +100,7 @@ class SupportsIndex(Protocol, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __index__(self) -> int: ...
 
-# PEP 612 support for Python < 3.9
+# New things in 3.10
 if sys.version_info >= (3, 10):
     from typing import (
         Concatenate as Concatenate,
@@ -138,6 +135,26 @@ else:
     TypeGuard: _SpecialForm
     def is_typeddict(tp: object) -> bool: ...
 
+# New things in 3.11
+if sys.version_info >= (3, 11):
+    from typing import Never as Never, Self as Self, assert_never as assert_never, reveal_type as reveal_type
+else:
+    Self: _SpecialForm
+    Never: _SpecialForm
+    def reveal_type(__obj: _T) -> _T: ...
+    def assert_never(__arg: NoReturn) -> NoReturn: ...
+
+# Experimental (hopefully these will be in 3.11)
+Required: _SpecialForm
+NotRequired: _SpecialForm
+
+def dataclass_transform(
+    *,
+    eq_default: bool = ...,
+    order_default: bool = ...,
+    kw_only_default: bool = ...,
+    field_descriptors: tuple[type[Any] | Callable[..., Any], ...] = ...,
+) -> Callable[[_T], _T]: ...
 
 # Experimental types, not yet implemented in typing_extensions library.
 
@@ -149,8 +166,3 @@ class TypeVarTuple:
     def __init__(self, name: str) -> None: ...
 
 StrictTypeGuard: _SpecialForm = ...
-
-# reveal_type
-def reveal_type(obj: _T, /) -> _T: ...
-
-Never: _SpecialForm = ...

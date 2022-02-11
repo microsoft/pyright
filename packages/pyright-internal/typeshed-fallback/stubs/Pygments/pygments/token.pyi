@@ -1,4 +1,6 @@
+from _typeshed import Self
 from collections.abc import Mapping
+from typing import Any
 
 class _TokenType(tuple[str, ...]):
     parent: _TokenType | None
@@ -6,8 +8,8 @@ class _TokenType(tuple[str, ...]):
     subtypes: set[_TokenType]
     def __contains__(self, val: _TokenType) -> bool: ...  # type: ignore[override]
     def __getattr__(self, name: str) -> _TokenType: ...
-    def __copy__(self): ...
-    def __deepcopy__(self, memo): ...
+    def __copy__(self: Self) -> Self: ...
+    def __deepcopy__(self: Self, memo: Any) -> Self: ...
 
 Token: _TokenType
 Text: _TokenType
