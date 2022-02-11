@@ -88,3 +88,16 @@ def func1(dyn_str: str):
     a, b = n
     reveal_type(a, expected_text="Any")
     reveal_type(b, expected_text="Any")
+
+
+def func2():
+    NamedTuple8 = namedtuple("NamedTuple8", ("a", "b", "c"))
+    n1 = NamedTuple8(a=1, b=2, c=3)
+
+    a, b, c = n1
+    reveal_type(a, expected_text="Unknown")
+    reveal_type(b, expected_text="Unknown")
+    reveal_type(c, expected_text="Unknown")
+
+    # This should generate an error.
+    n2 = NamedTuple8(a=1, b=2)

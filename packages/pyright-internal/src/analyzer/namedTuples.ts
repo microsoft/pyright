@@ -196,13 +196,21 @@ export function createNamedTupleType(
                         entryTypes.push(entryType);
                     }
                 });
-            } else if (entriesArg.valueExpression && entriesArg.valueExpression.nodeType === ParseNodeType.List) {
+            } else if (
+                entriesArg.valueExpression?.nodeType === ParseNodeType.List ||
+                entriesArg.valueExpression?.nodeType === ParseNodeType.Tuple
+            ) {
                 const entryList = entriesArg.valueExpression;
                 const entryMap = new Map<string, string>();
-                const firstParamWithDefaultIndex =
-                    defaultArgCount === undefined ? 0 : Math.max(0, entryList.entries.length - defaultArgCount);
+                const entryExpressions =
+                    entriesArg.valueExpression?.nodeType === ParseNodeType.List
+                        ? entriesArg.valueExpression.entries
+                        : entriesArg.valueExpression.expressions;
 
-                entryList.entries.forEach((entry, index) => {
+                const firstParamWithDefaultIndex =
+                    defaultArgCount === undefined ? 0 : Math.max(0, entryExpressions.length - defaultArgCount);
+
+                entryExpressions.forEach((entry, index) => {
                     let entryTypeNode: ExpressionNode | undefined;
                     let entryType: Type | undefined;
                     let entryNameNode: ExpressionNode | undefined;
