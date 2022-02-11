@@ -74,6 +74,7 @@ Variables:
 
 Type annotations can be omitted in a few specific cases where the type is obvious from the context:
 
+* A class or instance variable does not require an annotation if the class inherits from another class that has provided an annotation for the variable of the same name. The type is inherited from the parent class in this case.
 * Constants that are assigned simple literal values (e.g. `RED = '#F00'` or `MAX_TIMEOUT = 50` or `room_temperature: Final = 20`). A constant is a symbol that is assigned only once and is either annotated with `Final` or is named in all-caps. A constant that is not assigned a simple literal value requires explicit annotations, preferably with a `Final` annotation (e.g. `WOODWINDS: Final[List[str]] = ['Oboe', 'Bassoon']`).
 * Enum values within an Enum class do not require annotations because they take on the type of the Enum class.
 * Type aliases do not require annotations. A type alias is a symbol that is defined at a module level with a single assignment where the assigned value is an instantiable type, as opposed to a class instance (e.g. `Foo = Callable[[Literal["a", "b"]], Union[int, str]]` or `Bar = Optional[MyGenericClass[int]]`).

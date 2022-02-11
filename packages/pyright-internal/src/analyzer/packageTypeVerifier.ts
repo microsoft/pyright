@@ -35,6 +35,7 @@ import { isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
 import {
     ClassType,
     FunctionType,
+    isClass,
     isInstantiableClass,
     isModule,
     isUnknown,
@@ -440,7 +441,8 @@ export class PackageTypeVerifier {
         scopeName: string,
         symbolTable: SymbolTable,
         scopeType: ScopeType,
-        publicSymbolMap: PublicSymbolMap
+        publicSymbolMap: PublicSymbolMap,
+        overrideSymbolCallback?: (name: string, symbol: Symbol) => Symbol
     ): boolean {
         if (this._shouldIgnoreType(report, scopeName)) {
             return true;
@@ -467,6 +469,9 @@ export class PackageTypeVerifier {
                     return;
                 }
 
+                if (overrideSymbolCallback) {
+                    symbol = overrideSymbolCallback(name, symbol);
+                }
                 const symbolType = this._program.getTypeForSymbol(symbol);
 
                 const typedDecls = symbol.getTypedDeclarations();
@@ -949,7 +954,24 @@ export class PackageTypeVerifier {
                 type.details.fullName,
                 type.details.fields,
                 ScopeType.Class,
-                publicSymbolMap
+                publicSymbolMap,
+                (name: string, symbol: Symbol) => {
+                    // If the symbol within this class is lacking a type declaration,
+                    // see if we can find a same-named symbol in a parent class with
+                    // a type declaration.
+                    if (!symbol.hasTypedDeclarations()) {
+                        for (const mroClass of type.details.mro.slice(1)) {
+                            if (isClass(mroClass)) {
+                                const overrideSymbol = mroClass.details.fields.get(name);
+                                if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
+                                    return overrideSymbol;
+                                }
+                            }
+                        }
+                    }
+
+                    return symbol;
+                }
             )
         ) {
             symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
