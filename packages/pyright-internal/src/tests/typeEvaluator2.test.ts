@@ -54,6 +54,12 @@ test('CallbackProtocol7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CallbackProtocol8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol8.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Assignment1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment1.py']);
 

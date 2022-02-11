@@ -21681,11 +21681,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             srcLastToPackIndex = srcDetails.params.length;
         }
 
-        let destFirstNonPositional = destDetails.params.length;
-        if (destDetails.kwargsIndex !== undefined && destDetails.kwargsIndex > destDetails.argsIndex) {
-            destFirstNonPositional = destDetails.kwargsIndex;
-        }
-
+        const destFirstNonPositional = destDetails.firstKeywordOnlyIndex ?? destDetails.params.length;
         const suffixLength = destFirstNonPositional - destDetails.argsIndex - 1;
         const srcPositionalsToPack = srcDetails.params.slice(destDetails.argsIndex, srcLastToPackIndex - suffixLength);
         const srcTupleTypes: TupleTypeArgument[] = [];
