@@ -17105,7 +17105,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Handle ParamSpec arguments and fill in any missing type arguments with Unknown.
-        const typeArgTypes: Type[] = [];
+        let typeArgTypes: Type[] = [];
         const fullTypeParams = ClassType.getTypeParameters(classType);
 
         // PEP 612 says that if the class has only one type parameter consisting
@@ -17204,11 +17204,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeArgTypes.push(UnknownType.create());
         });
 
-        typeArgTypes.forEach((typeArgType, index) => {
+        typeArgTypes = typeArgTypes.map((typeArgType, index) => {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
+                const adjustedTypeArgType = applyTypeArgToTypeVar(typeParameters[index], typeArgType, diag);
 
-                if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
+                if (adjustedTypeArgType) {
+                    typeArgType = adjustedTypeArgType;
+                } else {
                     // Avoid emitting this error for a partially-constructed class.
                     if (!isClassInstance(typeArgType) || !ClassType.isPartiallyConstructed(typeArgType)) {
                         const fileInfo = AnalyzerNodeInfo.getFileInfo(typeArgs![index].node);
@@ -17224,6 +17227,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             }
+
+            return typeArgType;
         });
 
         const specializedClass = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
@@ -22694,21 +22699,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Validates that the specified source type matches the constraints
-    // of the type variable.
-    function canAssignToTypeVar(
+    // of the type variable. If successful, it returns the constraint
+    // type that applies. If unsuccessful, it returns undefined.
+    function applyTypeArgToTypeVar(
         destType: TypeVarType,
         srcType: Type,
         diag: DiagnosticAddendum,
         flags = CanAssignFlags.Default,
         recursionCount = 0
-    ): boolean {
+    ): Type | undefined {
         if (recursionCount > maxTypeRecursionCount) {
-            return true;
+            return srcType;
         }
         recursionCount++;
 
         if (isAnyOrUnknown(srcType)) {
-            return true;
+            return srcType;
         }
 
         let effectiveSrcType: Type = srcType;
@@ -22723,7 +22729,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     recursionCount
                 )
             ) {
-                return true;
+                return srcType;
             }
 
             effectiveSrcType = makeTopLevelTypeVarsConcrete(srcType);
@@ -22752,21 +22758,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         })
                     );
                 }
-                return false;
+                return undefined;
             }
         }
 
         if (destType.details.isParamSpec) {
             if (isParamSpec(srcType)) {
-                return true;
+                return srcType;
             }
 
             if (isFunction(srcType) && FunctionType.isParamSpecValue(srcType)) {
-                return true;
+                return srcType;
             }
 
             if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'Concatenate')) {
-                return true;
+                return srcType;
             }
 
             diag.addMessage(
@@ -22776,18 +22782,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 })
             );
 
-            return false;
+            return undefined;
         }
 
         if (isTypeVar(srcType) && srcType.details.isParamSpec) {
             diag.addMessage(Localizer.Diagnostic.paramSpecContext());
-            return false;
+            return undefined;
         }
 
         // If there are no constraints, we're done.
         const constraints = destType.details.constraints;
         if (constraints.length === 0) {
-            return true;
+            return srcType;
         }
 
         if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
@@ -22806,10 +22812,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 })
             ) {
-                return true;
+                return srcType;
             }
         } else {
-            // Try to find a match among the constraints.
+            let bestConstraintSoFar: Type | undefined;
+
+            // Try to find the best (narrowest) match among the constraints.
             for (const constraint of constraints) {
                 if (
                     canAssignType(
@@ -22821,8 +22829,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         recursionCount
                     )
                 ) {
-                    return true;
+                    if (
+                        !bestConstraintSoFar ||
+                        canAssignType(
+                            bestConstraintSoFar,
+                            constraint,
+                            /* diag */ undefined,
+                            /* typeVarMap */ undefined,
+                            /* flags */ undefined,
+                            recursionCount
+                        )
+                    ) {
+                        bestConstraintSoFar = constraint;
+                    }
                 }
+            }
+
+            if (bestConstraintSoFar) {
+                return bestConstraintSoFar;
             }
         }
 
@@ -22833,7 +22857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             })
         );
 
-        return false;
+        return undefined;
     }
 
     function getAbstractMethods(classType: ClassType): AbstractMethod[] {

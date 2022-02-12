@@ -3,7 +3,7 @@
 from typing import Generic, Iterable, List, TypeVar
 
 
-class A(object):
+class A:
     pass
 
 
@@ -22,7 +22,7 @@ class Moo(Generic[_T1]):
     pass
 
 
-class Foo(object):
+class Foo:
     def __init__(self) -> None:
         ...
 
@@ -50,8 +50,7 @@ y.m2(a)
 
 y.m2(b)
 
-# This should generate an error:
-# Type argument 'C' cannot be assigned to type variable '_T1'
+
 def m3(c: Moo[C]):
     pass
 

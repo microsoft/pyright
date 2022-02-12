@@ -74,4 +74,4 @@ class Child2(Parent2[_T3]):
 
 def func6(var: Parent2[int]):
     if isinstance(var, Child2):
-        reveal_type(var, expected_text="Child2[int]")
+        reveal_type(var, expected_text="Child2[float]")
