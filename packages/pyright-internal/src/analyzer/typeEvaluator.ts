@@ -7702,11 +7702,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedSubtype: Type,
         typeVarMap: TypeVarMap
     ): Type | undefined {
-        const specializedType = applySolvedTypeVars(
-            ClassType.cloneAsInstance(type),
-            typeVarMap,
-            /* unknownIfNotFound */ true
-        );
+        const specializedType = applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarMap);
 
         if (!canAssignType(expectedSubtype, specializedType)) {
             return undefined;
