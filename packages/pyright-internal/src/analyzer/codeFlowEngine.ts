@@ -1490,6 +1490,37 @@ export function getCodeFlowEngine(
         return evaluator.getInferredTypeOfDeclaration(wildcardDecl) || UnknownType.create();
     }
 
+    function getDeclaredTypeOfSymbol(symbol: Symbol, isBeyondExecutionScope: boolean): Type | undefined {
+        const type = evaluator.getDeclaredTypeOfSymbol(symbol);
+        if (type) {
+            return type;
+        }
+
+        // There was no declared type. Before we give up, see if the
+        // symbol is a function parameter whose value can be inferred
+        // or an imported symbol.
+        const declarations = symbol.getDeclarations();
+        if (declarations.length === 0) {
+            return undefined;
+        }
+
+        const decl = declarations[declarations.length - 1];
+        if (decl.type === DeclarationType.Parameter) {
+            return evaluator.evaluateTypeForSubnode(decl.node.name!, () => {
+                evaluator.evaluateTypeOfParameter(decl.node);
+            })?.type;
+        }
+
+        // If it is a symbol from an outer execution scope or an alias, it
+        // is safe to infer its type. Calling this under other circumstances
+        // can result in extreme performance degradation and stack overflows.
+        if (decl.type === DeclarationType.Alias || isBeyondExecutionScope) {
+            return evaluator.getInferredTypeOfDeclaration(decl);
+        }
+
+        return undefined;
+    }
+
     // When we're evaluating a call to determine whether it returns NoReturn,
     // we don't want to do a full type evaluation, which would be expensive
     // and create circular dependencies in type evaluation. Instead, we do
@@ -1498,40 +1529,11 @@ export function getCodeFlowEngine(
     function getDeclaredCallBaseType(node: ExpressionNode): Type | undefined {
         if (node.nodeType === ParseNodeType.Name) {
             const symbolWithScope = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
-
             if (!symbolWithScope) {
                 return undefined;
             }
 
-            const symbol = symbolWithScope.symbol;
-            const type = evaluator.getDeclaredTypeOfSymbol(symbol);
-            if (type) {
-                return type;
-            }
-
-            // There was no declared type. Before we give up, see if the
-            // symbol is a function parameter whose value can be inferred
-            // or an imported symbol.
-            const declarations = symbol.getDeclarations();
-            if (declarations.length === 0) {
-                return undefined;
-            }
-
-            const decl = declarations[declarations.length - 1];
-            if (decl.type === DeclarationType.Parameter) {
-                return evaluator.evaluateTypeForSubnode(decl.node.name!, () => {
-                    evaluator.evaluateTypeOfParameter(decl.node);
-                })?.type;
-            }
-
-            // If it is a symbol from an outer execution scope or an alias, it
-            // is safe to infer its type. Calling this under other circumstances
-            // can result in extreme performance degradation and stack overflows.
-            if (decl.type === DeclarationType.Alias || symbolWithScope.isBeyondExecutionScope) {
-                return evaluator.getInferredTypeOfDeclaration(decl);
-            }
-
-            return undefined;
+            return getDeclaredTypeOfSymbol(symbolWithScope.symbol, symbolWithScope.isBeyondExecutionScope);
         }
 
         if (node.nodeType === ParseNodeType.MemberAccess) {
@@ -1557,7 +1559,10 @@ export function getCodeFlowEngine(
 
                 // We want to limit the evaluation to declared types only, so
                 // we use getDeclaredTypeOfSymbol rather than getEffectiveTypeOfSymbol.
-                return symbol ? evaluator.getDeclaredTypeOfSymbol(symbol) : undefined;
+                if (!symbol) {
+                    return undefined;
+                }
+                return getDeclaredTypeOfSymbol(symbol, /* isBeyondExecutionScope */ true);
             });
 
             if (!isNever(declaredTypeOfSymbol)) {
