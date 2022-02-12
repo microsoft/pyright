@@ -7,4 +7,4 @@ def func1(u):
     b: bool = True
 
     x = dict(b=b, u=u, x=[])
-    reveal_type(x, expected_text="dict[str, bool | list[Unknown]]")
+    reveal_type(x, expected_text="dict[str, bool | list[Any]]")

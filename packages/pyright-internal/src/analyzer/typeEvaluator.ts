@@ -9441,7 +9441,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const argResult = validateArgType(
                                 argParam,
                                 typeVarMap,
-                                type.details.name,
+                                type,
                                 skipUnknownArgCheck,
                                 /* skipOverloadArg */ i === 0,
                                 /* useNarrowBoundOnly */ passCount > 1 && i === 0,
@@ -9472,7 +9472,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const argResult = validateArgType(
                 argParam,
                 typeVarMap,
-                type.details.name,
+                type,
                 skipUnknownArgCheck,
                 /* skipOverloadArg */ false,
                 /* useNarrowBoundOnly */ false,
@@ -9740,7 +9740,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 errorNode: arg.valueExpression || errorNode,
                             },
                             typeVarMap,
-                            /* functionName */ '',
+                            /* functionType */ undefined,
                             /* skipUnknownArgCheck */ false,
                             /* skipOverloadArg */ false,
                             /* useNarrowBoundOnly */ false,
@@ -9786,7 +9786,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateArgType(
         argParam: ValidateArgTypeParams,
         typeVarMap: TypeVarMap,
-        functionName: string,
+        functionType: FunctionType | undefined,
         skipUnknownCheck: boolean,
         skipOverloadArg: boolean,
         useNarrowBoundOnly: boolean,
@@ -9796,6 +9796,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let expectedTypeDiag: DiagnosticAddendum | undefined;
         let isTypeIncomplete = false;
         let isCompatible = true;
+        const functionName = functionType?.details.name;
 
         if (argParam.argument.valueExpression) {
             // If the param type is a "bare" TypeVar, don't use it as an expected
@@ -9805,14 +9806,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // to true if this is the first pass through the parameter list because
             // a wide bound on a TypeVar (if a narrow bound has not yet been established)
             // will unnecessarily constrain the expected type.
-            let expectedType: Type | undefined = isTypeVar(argParam.paramType)
-                ? undefined
-                : applySolvedTypeVars(
-                      argParam.paramType,
-                      typeVarMap,
-                      /* unknownIfNotFound */ false,
-                      useNarrowBoundOnly
-                  );
+            let expectedType: Type | undefined =
+                isTypeVar(argParam.paramType) &&
+                functionType !== undefined &&
+                argParam.paramType.scopeId === functionType.details.typeVarScopeId
+                    ? undefined
+                    : applySolvedTypeVars(
+                          argParam.paramType,
+                          typeVarMap,
+                          /* unknownIfNotFound */ false,
+                          useNarrowBoundOnly
+                      );
 
             // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
@@ -14679,7 +14683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     validateArgType(
                                         argParam,
                                         new TypeVarMap(),
-                                        newMethodType.details.name,
+                                        newMethodType,
                                         /* skipUnknownCheck */ true,
                                         /* skipOverloadArg */ true,
                                         /* useNarrowBoundOnly */ false,
