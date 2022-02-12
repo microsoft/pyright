@@ -913,29 +913,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     (flags & EvaluatorFlags.EvaluateStringLiteralAsType) !== 0 && !isAnnotationLiteralValue(node);
 
                 if (expectingType) {
+                    let updatedFlags = flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType;
+
+                    // In most cases, annotations within a string are not parsed by the interpreter.
+                    // There are a few exceptions (e.g. the "bound" value for a TypeVar constructor).
+                    if ((flags & EvaluatorFlags.InterpreterParsesStringLiteral) === 0) {
+                        updatedFlags |= EvaluatorFlags.NotParsedByInterpreter;
+                    }
+
                     if (node.typeAnnotation) {
-                        typeResult = getTypeOfExpression(
-                            node.typeAnnotation,
-                            undefined,
-                            flags |
-                                EvaluatorFlags.AllowForwardReferences |
-                                EvaluatorFlags.NotParsedByInterpreter |
-                                EvaluatorFlags.ExpectingType
-                        );
+                        typeResult = getTypeOfExpression(node.typeAnnotation, undefined, updatedFlags);
                     } else if (!node.typeAnnotation && node.strings.length === 1) {
                         // We didn't know at parse time that this string node was going
                         // to be evaluated as a forward-referenced type. We need
                         // to re-invoke the parser at this stage.
                         const expr = parseStringAsTypeAnnotation(node);
                         if (expr) {
-                            typeResult = getTypeOfExpression(
-                                expr,
-                                undefined,
-                                flags |
-                                    EvaluatorFlags.AllowForwardReferences |
-                                    EvaluatorFlags.NotParsedByInterpreter |
-                                    EvaluatorFlags.ExpectingType
-                            );
+                            typeResult = getTypeOfExpression(expr, /* expectedType */ undefined, updatedFlags);
                         }
                     }
 
@@ -10114,7 +10108,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList[i].valueExpression || errorNode
                         );
                     } else {
-                        const argType = getTypeForArgumentExpectingType(argList[i]).type;
+                        const argType =
+                            argList[i].type ??
+                            getTypeForExpressionExpectingType(
+                                argList[i].valueExpression!,
+                                /* allowFinal */ undefined,
+                                /* allowRequired */ undefined,
+                                /* interpreterParsesStringLiteral */ true
+                            ).type;
                         if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
@@ -10151,7 +10152,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argList[i].valueExpression || errorNode
                     );
                 } else {
-                    const argType = getTypeForArgumentExpectingType(argList[i]).type;
+                    const argType =
+                        argList[i].type ??
+                        getTypeForExpressionExpectingType(
+                            argList[i].valueExpression!,
+                            /* allowFinal */ undefined,
+                            /* allowRequired */ undefined,
+                            /* interpreterParsesStringLiteral */ true
+                        ).type;
+
                     if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                         addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                     }
@@ -17258,7 +17267,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeForExpressionExpectingType(
         node: ExpressionNode,
         allowFinal = false,
-        allowRequired = false
+        allowRequired = false,
+        interpreterParsesStringLiteral = false
     ): TypeResult {
         let flags =
             EvaluatorFlags.ExpectingType |
@@ -17270,6 +17280,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         if (fileInfo.isStubFile) {
             flags |= EvaluatorFlags.AllowForwardReferences;
+        } else {
+            flags |= EvaluatorFlags.InterpreterParsesStringLiteral;
         }
 
         if (!allowFinal) {

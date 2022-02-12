@@ -123,6 +123,11 @@ export const enum EvaluatorFlags {
 
     // Allow Unpack annotation for a tuple or TypeVarTuple.
     AllowUnpackedTupleOrTypeVarTuple = 1 << 21,
+
+    // Even though an expression is enclosed in a string literal,
+    // the interpreter (within a source file, not a stub) still
+    // parses the expression and generates parse errors.
+    InterpreterParsesStringLiteral = 1 << 22,
 }
 
 export interface TypeArgumentResult {
