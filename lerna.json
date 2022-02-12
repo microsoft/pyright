@@ -2,7 +2,7 @@
     "packages": [
         "packages/*"
     ],
-    "version": "1.1.220",
+    "version": "1.1.221",
     "command": {
         "version": {
             "push": false,
