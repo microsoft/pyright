@@ -20328,27 +20328,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         recursionCount++;
 
-        // If the source and dest refer to the same recursive type alias, handle
+        // If the source and dest refer to the recursive type aliases, handle
         // the case specially to avoid recursing down both type aliases.
         if (
             isTypeVar(destType) &&
             destType.details.recursiveTypeAliasScopeId &&
-            destType.typeAliasInfo?.typeArguments &&
             isTypeVar(srcType) &&
-            srcType.details.recursiveTypeAliasScopeId &&
-            srcType.typeAliasInfo?.typeArguments &&
-            destType.details.recursiveTypeAliasScopeId === srcType.details.recursiveTypeAliasScopeId
+            srcType.details.recursiveTypeAliasScopeId
         ) {
-            let isAssignable = true;
-            const srcTypeArgs = srcType.typeAliasInfo.typeArguments;
-            destType.typeAliasInfo.typeArguments.forEach((destTypeArg, index) => {
-                const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
-                if (!canAssignType(destTypeArg, srcTypeArg, diag, typeVarMap, flags, recursionCount)) {
-                    isAssignable = false;
-                }
-            });
+            // Do the source and dest refer to the same recursive type alias?
+            if (
+                destType.typeAliasInfo?.typeArguments &&
+                srcType.typeAliasInfo?.typeArguments &&
+                destType.details.recursiveTypeAliasScopeId === srcType.details.recursiveTypeAliasScopeId
+            ) {
+                let isAssignable = true;
+                const srcTypeArgs = srcType.typeAliasInfo.typeArguments;
+                destType.typeAliasInfo.typeArguments.forEach((destTypeArg, index) => {
+                    const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
+                    if (!canAssignType(destTypeArg, srcTypeArg, diag, typeVarMap, flags, recursionCount)) {
+                        isAssignable = false;
+                    }
+                });
 
-            return isAssignable;
+                return isAssignable;
+            } else {
+                // Have we already recursed once?
+                if ((flags & CanAssignFlags.SkipRecursiveTypeCheck) !== 0) {
+                    return true;
+                }
+
+                // Note that we are comparing two recursive types and do
+                // not recursive more than once.
+                flags |= CanAssignFlags.SkipRecursiveTypeCheck;
+            }
         }
 
         // Transform recursive type aliases if necessary.

@@ -177,6 +177,11 @@ export const enum CanAssignFlags {
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 10,
+
+    // We're comparing type compatibility of two distinct recursive types.
+    // This has the potential of recursing infinitely. This flag allows us
+    // to detect the recursion after the first level of checking.
+    SkipRecursiveTypeCheck = 1 << 11,
 }
 
 export enum ParameterSource {
