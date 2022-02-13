@@ -38,6 +38,9 @@ class Container(Generic[T]):
         # is different from the current Container[T].
         return Container[T]()
 
+    def on_next(self, value: T):
+        pass
+
 
 class IntContainer(Container[int]):
     def increment(self):
@@ -62,3 +65,8 @@ class ContainerList(Generic[U]):
 
     def method2(self):
         Container[U].create()
+
+
+def default_if_empty(obv: Container[T], default_value: T = None) -> None:
+    # This should generate an error.
+    obv.on_next(default_value)

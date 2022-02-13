@@ -791,11 +791,11 @@ test('GenericTypes71', () => {
 
     configOptions.diagnosticRuleSet.strictParameterNoneValue = false;
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes71.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 
     configOptions.diagnosticRuleSet.strictParameterNoneValue = true;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes71.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('GenericTypes72', () => {

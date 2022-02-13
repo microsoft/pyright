@@ -15184,6 +15184,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !AnalyzerNodeInfo.getFileInfo(param).diagnosticRuleSet.strictParameterNoneValue
         ) {
             type = combineTypes([type, NoneType.createInstance()]);
+        } else if (isTypeVar(type) && param.defaultValue && type.scopeType === TypeVarScopeType.Function) {
+            // Handle the case where a default argument type is provided when the
+            // parameter is annotated with a "raw" function-scoped type variable, as in:
+            //   "def foo(value: T = 3)"
+            // In this case, we need to include the default value type in a union.
+            const defaultArgType = getTypeOfExpression(
+                param.defaultValue,
+                type,
+                EvaluatorFlags.ConvertEllipsisToAny
+            ).type;
+
+            if (!isAny(defaultArgType)) {
+                type = combineTypes([type, defaultArgType]);
+            }
         }
 
         return type;
