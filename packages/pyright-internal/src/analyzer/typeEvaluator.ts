@@ -6582,10 +6582,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.leftExpression.value === 'reveal_type'
             ) {
                 // Handle the implicit "reveal_type" call.
-                returnResult = getTypeFromRevealType(node);
+                returnResult = getTypeFromRevealType(node, expectedType);
             } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'reveal_type') {
                 // Handle the "typing.reveal_type" call.
-                returnResult = getTypeFromRevealType(node);
+                returnResult = getTypeFromRevealType(node, expectedType);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
@@ -6660,10 +6660,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return returnResult;
     }
 
-    function getTypeFromRevealType(node: CallNode): TypeResult {
+    function getTypeFromRevealType(node: CallNode, expectedType: Type | undefined): TypeResult {
         let arg0Value: ExpressionNode | undefined;
-        let expectedTypeNode: ExpressionNode | undefined;
-        let expectedType: Type | undefined;
+        let expectedRevealTypeNode: ExpressionNode | undefined;
+        let expectedRevealType: Type | undefined;
         let expectedTextNode: ExpressionNode | undefined;
         let expectedText: string | undefined;
 
@@ -6689,8 +6689,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     expectedText = expectedTextType.literalValue;
                 }
             } else if (arg.name.value === 'expected_type') {
-                expectedTypeNode = arg.valueExpression;
-                expectedType = convertToInstance(getTypeForArgumentExpectingType(arg).type);
+                expectedRevealTypeNode = arg.valueExpression;
+                expectedRevealType = convertToInstance(getTypeForArgumentExpectingType(arg).type);
             }
         });
 
@@ -6699,7 +6699,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { node, type: UnknownType.create() };
         }
 
-        const typeResult = getTypeOfExpression(arg0Value);
+        const typeResult = getTypeOfExpression(arg0Value, expectedType);
         const type = typeResult.type;
 
         const exprString = ParseTreeUtils.printExpression(arg0Value);
@@ -6717,15 +6717,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (expectedType) {
-            if (!isTypeSame(expectedType, type)) {
-                const expectedTypeText = printType(expectedType);
+        if (expectedRevealType) {
+            if (!isTypeSame(expectedRevealType, type)) {
+                const expectedRevealTypeText = printType(expectedRevealType);
                 addError(
                     Localizer.Diagnostic.revealTypeExpectedTypeMismatch().format({
-                        expected: expectedTypeText,
+                        expected: expectedRevealTypeText,
                         received: typeString,
                     }),
-                    expectedTypeNode ?? arg0Value
+                    expectedRevealTypeNode ?? arg0Value
                 );
             }
         }
