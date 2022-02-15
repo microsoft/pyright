@@ -1,29 +1,20 @@
 # This sample tests the handling of the dataclass_transform mechanism
 # when applied to a decorator function.
 
-from typing import Any, Callable, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, TypeVar, overload
+from typing_extensions import dataclass_transform
 
 _T = TypeVar("_T")
 
 
-def __dataclass_transform__(
-    *,
-    eq_default: bool = True,
-    order_default: bool = False,
-    kw_only_default: bool = False,
-    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
-) -> Callable[[_T], _T]:
-    return lambda a: a
-
-
 @overload
-@__dataclass_transform__(kw_only_default=True, order_default=True)
+@dataclass_transform(kw_only_default=True, order_default=True)
 def create_model(cls: _T) -> _T:
     ...
 
 
 @overload
-@__dataclass_transform__(kw_only_default=True, order_default=True)
+@dataclass_transform(kw_only_default=True, order_default=True)
 def create_model(
     *,
     frozen: bool = False,

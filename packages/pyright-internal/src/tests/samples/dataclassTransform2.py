@@ -1,19 +1,10 @@
 # This sample tests the handling of the dataclass_transform mechanism
 # when applied to a metaclass.
 
-from typing import Any, Callable, Optional, Tuple, TypeVar, Union
+from typing import Any, Optional, TypeVar
+from typing_extensions import dataclass_transform
 
 _T = TypeVar("_T")
-
-
-def __dataclass_transform__(
-    *,
-    eq_default: bool = True,
-    order_default: bool = False,
-    kw_only_default: bool = False,
-    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
-) -> Callable[[_T], _T]:
-    return lambda a: a
 
 
 class ModelField:
@@ -27,7 +18,7 @@ def model_field(
     ...
 
 
-@__dataclass_transform__(
+@dataclass_transform(
     kw_only_default=True,
     field_descriptors=(ModelField, model_field),
 )
