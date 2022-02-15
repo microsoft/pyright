@@ -390,6 +390,7 @@ export interface DataClassBehaviors {
     keywordOnlyParams: boolean;
     generateEq: boolean;
     generateOrder: boolean;
+    transformDescriptorTypes: boolean;
     fieldDescriptorNames: string[];
 }
 

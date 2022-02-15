@@ -53,6 +53,7 @@ import {
     convertToInstance,
     getTypeVarScopeId,
     isLiteralType,
+    lookUpObjectMember,
     populateTypeVarMapForSelfType,
     requiresSpecialization,
     specializeTupleClass,
@@ -400,6 +401,10 @@ export function synthesizeDataClassMethods(
                     effectiveType = applySolvedTypeVars(effectiveType, typeVarMap);
                 }
 
+                if (classType.details.dataClassBehaviors?.transformDescriptorTypes) {
+                    effectiveType = transformDescriptorType(evaluator, effectiveType);
+                }
+
                 const functionParam: FunctionParameter = {
                     category: ParameterCategory.Simple,
                     name: entry.alias || entry.name,
@@ -529,6 +534,37 @@ export function synthesizeDataClassMethods(
     );
 }
 
+// If the specified type is a descriptor — in particular, if it implements a
+// __set__ method, this method transforms the type into the input parameter
+// for the set method.
+function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
+    if (!isClassInstance(type)) {
+        return type;
+    }
+
+    const setMethodInfo = lookUpObjectMember(type, '__set__');
+    if (!setMethodInfo) {
+        return type;
+    }
+
+    const setMethodType = evaluator.getTypeOfMember(setMethodInfo);
+    if (!isFunction(setMethodType)) {
+        return type;
+    }
+
+    if (setMethodType.details.parameters.length < 2) {
+        return type;
+    }
+
+    const boundSetMethod = evaluator.bindFunctionToClassOrObject(type, setMethodType);
+    if (!boundSetMethod || !isFunction(boundSetMethod)) {
+        return type;
+    }
+
+    // The value parameter for a bound __set__ method is parameter index 1.
+    return FunctionType.getEffectiveParameterType(boundSetMethod, 1);
+}
+
 // Builds a sorted list of dataclass entries that are inherited by
 // the specified class. These entries must be unique and in reverse-MRO
 // order. Returns true if all of the class types in the hierarchy are
@@ -599,6 +635,7 @@ export function validateDataClassTransformDecorator(
         keywordOnlyParams: false,
         generateEq: true,
         generateOrder: false,
+        transformDescriptorTypes: false,
         fieldDescriptorNames: [],
     };
 
@@ -651,6 +688,20 @@ export function validateDataClassTransformDecorator(
                 }
 
                 behaviors.generateOrder = value;
+                break;
+            }
+
+            case 'transform_descriptor_types': {
+                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                if (value === undefined) {
+                    evaluator.addError(
+                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                        arg.valueExpression
+                    );
+                    return;
+                }
+
+                behaviors.transformDescriptorTypes = value;
                 break;
             }
 
@@ -723,6 +774,7 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
             keywordOnlyParams: false,
             generateEq: true,
             generateOrder: false,
+            transformDescriptorTypes: false,
             fieldDescriptorNames: ['dataclasses.field', 'dataclasses.Field'],
         };
     }
