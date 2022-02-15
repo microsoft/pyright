@@ -552,12 +552,8 @@ function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
         return type;
     }
 
-    if (setMethodType.details.parameters.length < 2) {
-        return type;
-    }
-
     const boundSetMethod = evaluator.bindFunctionToClassOrObject(type, setMethodType);
-    if (!boundSetMethod || !isFunction(boundSetMethod)) {
+    if (!boundSetMethod || !isFunction(boundSetMethod) || boundSetMethod.details.parameters.length < 2) {
         return type;
     }
 
