@@ -166,7 +166,9 @@ export function getTypeNarrowingCallback(
                 ) {
                     const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                        const classType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                        const classType = evaluator.makeTopLevelTypeVarsConcrete(
+                            evaluator.getTypeOfExpression(testExpression.rightExpression).type
+                        );
 
                         if (isInstantiableClass(classType)) {
                             return (type: Type) => {
