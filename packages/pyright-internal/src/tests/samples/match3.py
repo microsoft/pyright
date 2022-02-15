@@ -113,8 +113,8 @@ def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TIn
             reveal_type(value_to_match, expected_text="int* | int")
 
         case float() as a2:
-            reveal_type(a2, expected_text="int* | float")
-            reveal_type(value_to_match, expected_text="int* | float")
+            reveal_type(a2, expected_text="float")
+            reveal_type(value_to_match, expected_text="float")
 
         case str() as a3:
             reveal_type(a3, expected_text="str")
@@ -284,10 +284,6 @@ def func10(v: T4) -> Optional[T4]:
     match v:
         case str():
             reveal_type(v, expected_text='str*')
-            return v
-        
-        case float():
-            reveal_type(v, expected_text='int*')
             return v
         
         case int():

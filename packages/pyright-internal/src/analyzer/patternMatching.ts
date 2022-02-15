@@ -463,65 +463,69 @@ function narrowTypeBasedOnClassPattern(
         }
 
         const classInstance = convertToInstance(classType);
-        return mapSubtypes(type, (subtype) => {
-            if (!isClassInstance(subtype)) {
-                return subtype;
-            }
+        return evaluator.mapSubtypesExpandTypeVars(
+            type,
+            /* conditionFilter */ undefined,
+            (subjectSubtypeExpanded, subjectSubtypeUnexpanded) => {
+                if (!isClassInstance(subjectSubtypeExpanded)) {
+                    return subjectSubtypeUnexpanded;
+                }
 
-            if (!evaluator.canAssignType(classInstance, subtype)) {
-                return subtype;
-            }
+                if (!evaluator.canAssignType(classInstance, subjectSubtypeExpanded)) {
+                    return subjectSubtypeExpanded;
+                }
 
-            // If there are no arguments, we're done. We know that this match
-            // will never succeed.
-            if (pattern.arguments.length === 0) {
+                // If there are no arguments, we're done. We know that this match
+                // will never succeed.
+                if (pattern.arguments.length === 0) {
+                    return undefined;
+                }
+
+                // We might be able to narrow further based on arguments, but only
+                // if the types match exactly or the subtype is a final class and
+                // therefore cannot be subclassed.
+                if (!evaluator.canAssignType(subjectSubtypeExpanded, classInstance)) {
+                    if (!ClassType.isFinal(subjectSubtypeExpanded)) {
+                        return subjectSubtypeExpanded;
+                    }
+                }
+
+                if (
+                    pattern.arguments.length === 1 &&
+                    !pattern.arguments[0].name &&
+                    classPatternSpecialCases.some((className) => classType.details.fullName === className)
+                ) {
+                    return undefined;
+                }
+
+                // Are there any positional arguments? If so, try to get the mappings for
+                // these arguments by fetching the __match_args__ symbol from the class.
+                let positionalArgNames: string[] = [];
+                if (pattern.arguments.some((arg) => !arg.name)) {
+                    if (isClass(subjectSubtypeExpanded)) {
+                        positionalArgNames = getPositionalMatchArgNames(evaluator, subjectSubtypeExpanded);
+                    }
+                }
+
+                for (let index = 0; index < pattern.arguments.length; index++) {
+                    const narrowedArgType = narrowTypeOfClassPatternArgument(
+                        evaluator,
+                        pattern.arguments[index],
+                        index,
+                        positionalArgNames,
+                        subjectSubtypeExpanded,
+                        isPositiveTest
+                    );
+
+                    if (!isNever(narrowedArgType)) {
+                        return subjectSubtypeUnexpanded;
+                    }
+                }
+
+                // We've completely eliminated the type based on the arguments.
                 return undefined;
             }
-
-            // We might be able to narrow further based on arguments, but only
-            // if the types match exactly or the subtype is a final class and
-            // therefore cannot be subclassed.
-            if (!evaluator.canAssignType(subtype, classInstance)) {
-                if (!ClassType.isFinal(subtype)) {
-                    return subtype;
-                }
-            }
-
-            if (
-                pattern.arguments.length === 1 &&
-                !pattern.arguments[0].name &&
-                classPatternSpecialCases.some((className) => classType.details.fullName === className)
-            ) {
-                return undefined;
-            }
-
-            // Are there any positional arguments? If so, try to get the mappings for
-            // these arguments by fetching the __match_args__ symbol from the class.
-            let positionalArgNames: string[] = [];
-            if (pattern.arguments.some((arg) => !arg.name)) {
-                if (isClass(subtype)) {
-                    positionalArgNames = getPositionalMatchArgNames(evaluator, subtype);
-                }
-            }
-
-            for (let index = 0; index < pattern.arguments.length; index++) {
-                const narrowedArgType = narrowTypeOfClassPatternArgument(
-                    evaluator,
-                    pattern.arguments[index],
-                    index,
-                    positionalArgNames,
-                    subtype,
-                    isPositiveTest
-                );
-
-                if (!isNever(narrowedArgType)) {
-                    return subtype;
-                }
-            }
-
-            // We've completely eliminated the type based on the arguments.
-            return undefined;
-        });
+        );
     }
 
     if (!TypeBase.isInstantiable(exprType)) {
@@ -543,93 +547,103 @@ function narrowTypeBasedOnClassPattern(
             }
 
             if (isInstantiableClass(expandedSubtype)) {
-                return evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (matchSubtype) => {
-                    const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(matchSubtype);
+                return evaluator.mapSubtypesExpandTypeVars(
+                    type,
+                    /* conditionFilter */ undefined,
+                    (subjectSubtypeExpanded) => {
+                        if (isAnyOrUnknown(subjectSubtypeExpanded)) {
+                            return convertToInstance(unexpandedSubtype);
+                        }
 
-                    if (isAnyOrUnknown(concreteSubtype)) {
-                        return convertToInstance(unexpandedSubtype);
-                    }
+                        if (isClassInstance(subjectSubtypeExpanded)) {
+                            let resultType: Type;
 
-                    if (isClassInstance(concreteSubtype)) {
-                        let resultType: Type;
+                            if (
+                                evaluator.canAssignType(
+                                    expandedSubtype,
+                                    ClassType.cloneAsInstantiable(subjectSubtypeExpanded)
+                                )
+                            ) {
+                                resultType = subjectSubtypeExpanded;
+                            } else if (
+                                evaluator.canAssignType(
+                                    ClassType.cloneAsInstantiable(subjectSubtypeExpanded),
+                                    expandedSubtype
+                                )
+                            ) {
+                                resultType = addConditionToType(
+                                    convertToInstance(unexpandedSubtype),
+                                    getTypeCondition(subjectSubtypeExpanded)
+                                );
 
-                        if (evaluator.canAssignType(expandedSubtype, ClassType.cloneAsInstantiable(concreteSubtype))) {
-                            resultType = matchSubtype;
-                        } else if (
-                            evaluator.canAssignType(ClassType.cloneAsInstantiable(concreteSubtype), expandedSubtype)
-                        ) {
-                            resultType = addConditionToType(
-                                convertToInstance(unexpandedSubtype),
-                                getTypeCondition(matchSubtype)
-                            );
-
-                            // Try to retain the type arguments for the pattern class type.
-                            if (isInstantiableClass(unexpandedSubtype) && isClassInstance(matchSubtype)) {
-                                if (
-                                    ClassType.isSpecialBuiltIn(unexpandedSubtype) ||
-                                    unexpandedSubtype.details.typeParameters.length > 0
-                                ) {
-                                    const typeVarMap = new TypeVarMap(getTypeVarScopeId(unexpandedSubtype));
-                                    const unspecializedMatchType = ClassType.cloneForSpecialization(
-                                        unexpandedSubtype,
-                                        /* typeArguments */ undefined,
-                                        /* isTypeArgumentExplicit */ false
-                                    );
-
-                                    const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
+                                // Try to retain the type arguments for the pattern class type.
+                                if (isInstantiableClass(unexpandedSubtype) && isClassInstance(subjectSubtypeExpanded)) {
                                     if (
-                                        evaluator.populateTypeVarMapBasedOnExpectedType(
-                                            matchTypeInstance,
-                                            matchSubtype,
-                                            typeVarMap,
-                                            []
-                                        )
+                                        ClassType.isSpecialBuiltIn(unexpandedSubtype) ||
+                                        unexpandedSubtype.details.typeParameters.length > 0
                                     ) {
-                                        resultType = applySolvedTypeVars(
-                                            matchTypeInstance,
-                                            typeVarMap,
-                                            /* unknownIfNotFound */ true
-                                        ) as ClassType;
+                                        const typeVarMap = new TypeVarMap(getTypeVarScopeId(unexpandedSubtype));
+                                        const unspecializedMatchType = ClassType.cloneForSpecialization(
+                                            unexpandedSubtype,
+                                            /* typeArguments */ undefined,
+                                            /* isTypeArgumentExplicit */ false
+                                        );
+
+                                        const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
+                                        if (
+                                            evaluator.populateTypeVarMapBasedOnExpectedType(
+                                                matchTypeInstance,
+                                                subjectSubtypeExpanded,
+                                                typeVarMap,
+                                                []
+                                            )
+                                        ) {
+                                            resultType = applySolvedTypeVars(
+                                                matchTypeInstance,
+                                                typeVarMap,
+                                                /* unknownIfNotFound */ true
+                                            ) as ClassType;
+                                        }
                                     }
                                 }
+                            } else {
+                                return undefined;
                             }
-                        } else {
-                            return undefined;
-                        }
 
-                        // Are there any positional arguments? If so, try to get the mappings for
-                        // these arguments by fetching the __match_args__ symbol from the class.
-                        let positionalArgNames: string[] = [];
-                        if (pattern.arguments.some((arg) => !arg.name)) {
-                            positionalArgNames = getPositionalMatchArgNames(evaluator, expandedSubtype);
-                        }
-
-                        let isMatchValid = true;
-                        pattern.arguments.forEach((arg, index) => {
-                            // Narrow the arg pattern. It's possible that the actual type of the object
-                            // being matched is a subtype of the resultType, so it might contain additional
-                            // attributes that we don't know about.
-                            const narrowedArgType = narrowTypeOfClassPatternArgument(
-                                evaluator,
-                                arg,
-                                index,
-                                positionalArgNames,
-                                resultType,
-                                isPositiveTest
-                            );
-
-                            if (isNever(narrowedArgType)) {
-                                isMatchValid = false;
+                            // Are there any positional arguments? If so, try to get the mappings for
+                            // these arguments by fetching the __match_args__ symbol from the class.
+                            let positionalArgNames: string[] = [];
+                            if (pattern.arguments.some((arg) => !arg.name)) {
+                                positionalArgNames = getPositionalMatchArgNames(evaluator, expandedSubtype);
                             }
-                        });
 
-                        if (isMatchValid) {
-                            return resultType;
+                            let isMatchValid = true;
+                            pattern.arguments.forEach((arg, index) => {
+                                // Narrow the arg pattern. It's possible that the actual type of the object
+                                // being matched is a subtype of the resultType, so it might contain additional
+                                // attributes that we don't know about.
+                                const narrowedArgType = narrowTypeOfClassPatternArgument(
+                                    evaluator,
+                                    arg,
+                                    index,
+                                    positionalArgNames,
+                                    resultType,
+                                    isPositiveTest
+                                );
+
+                                if (isNever(narrowedArgType)) {
+                                    isMatchValid = false;
+                                }
+                            });
+
+                            if (isMatchValid) {
+                                return resultType;
+                            }
                         }
+
+                        return undefined;
                     }
-
-                    return undefined;
-                });
+                );
             }
 
             return undefined;
@@ -1178,8 +1192,8 @@ export function assignTypeToPatternTargets(
 
             evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (expandedSubtype) => {
                 if (isClassInstance(expandedSubtype)) {
-                    doForEachSubtype(type, (matchSubtype) => {
-                        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(matchSubtype);
+                    doForEachSubtype(type, (subjectSubtype) => {
+                        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subjectSubtype);
 
                         if (isAnyOrUnknown(concreteSubtype)) {
                             pattern.arguments.forEach((arg, index) => {

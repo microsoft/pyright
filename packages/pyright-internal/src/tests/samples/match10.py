@@ -52,3 +52,10 @@ def func6(subj: Color):
 
         case Color.green:
             pass
+
+
+class ClassA:
+    def method1(self) -> str:
+        match self:
+            case ClassA():
+                return ""
