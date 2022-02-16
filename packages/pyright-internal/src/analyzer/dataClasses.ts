@@ -465,7 +465,7 @@ export function synthesizeDataClassMethods(
         FunctionType.addParameter(operatorMethod, selfParam);
         FunctionType.addParameter(operatorMethod, {
             category: ParameterCategory.Simple,
-            name: 'x',
+            name: 'other',
             type: paramType,
             hasDeclaredType: true,
         });
