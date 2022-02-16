@@ -12,7 +12,7 @@ import { MessageChannel, MessagePort, parentPort, threadId, Worker, workerData }
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
-import { Indices, Program } from './analyzer/program';
+import { Indices, OpenFileOptions, Program } from './analyzer/program';
 import {
     BackgroundThreadBase,
     createConfigOptionsFrom,
@@ -108,12 +108,11 @@ export class BackgroundAnalysisBase {
         filePath: string,
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
-        isTracked: boolean,
-        ipythonMode: boolean
+        options: OpenFileOptions
     ) {
         this.enqueueRequest({
             requestType: 'setFileOpened',
-            data: { filePath, version, contents, isTracked, ipythonMode },
+            data: { filePath, version, contents, options },
         });
     }
 
@@ -413,8 +412,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'setFileOpened': {
-                const { filePath, version, contents, isTracked, ipythonMode } = msg.data;
-                this.program.setFileOpened(filePath, version, contents, isTracked, ipythonMode);
+                const { filePath, version, contents, options } = msg.data;
+                this.program.setFileOpened(filePath, version, contents, options);
                 break;
             }
 

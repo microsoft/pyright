@@ -20,7 +20,7 @@ import { Range } from '../common/textRange';
 import { IndexResults } from '../languageService/documentSymbolProvider';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
-import { Indices, MaxAnalysisTime, Program } from './program';
+import { Indices, MaxAnalysisTime, OpenFileOptions, Program } from './program';
 
 export class BackgroundAnalysisProgram {
     private _program: Program;
@@ -91,26 +91,19 @@ export class BackgroundAnalysisProgram {
         this._program.setAllowedThirdPartyImports(importNames);
     }
 
-    setFileOpened(
-        filePath: string,
-        version: number | null,
-        contents: string,
-        isTracked: boolean,
-        ipythonMode: boolean
-    ) {
-        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }], isTracked, ipythonMode);
-        this._program.setFileOpened(filePath, version, [{ text: contents }], isTracked, ipythonMode);
+    setFileOpened(filePath: string, version: number | null, contents: string, options: OpenFileOptions) {
+        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }], options);
+        this._program.setFileOpened(filePath, version, [{ text: contents }], options);
     }
 
     updateOpenFileContents(
         path: string,
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
-        isTracked: boolean,
-        ipythonMode: boolean
+        options: OpenFileOptions
     ) {
-        this._backgroundAnalysis?.setFileOpened(path, version, contents, isTracked, ipythonMode);
-        this._program.setFileOpened(path, version, contents, isTracked, ipythonMode);
+        this._backgroundAnalysis?.setFileOpened(path, version, contents, options);
+        this._program.setFileOpened(path, version, contents, options);
         this.markFilesDirty([path], true);
     }
 
