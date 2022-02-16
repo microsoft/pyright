@@ -7,6 +7,7 @@
  */
 
 import assert from 'assert';
+import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -267,6 +268,60 @@ test('await still raises errors when used in wrong context in ipython mode', () 
     const diagnostics = source.getDiagnostics(state.configOptions);
 
     assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
+});
+
+test('try implicitly load ipython display module but fail', async () => {
+    const code = `
+// @ipythonMode: true
+//// [|display/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('excluded', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    label: 'display',
+                    kind: CompletionItemKind.Function,
+                },
+            ],
+        },
+    });
+});
+
+test('implicitly load ipython display module', async () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: test.py
+// @ipythonMode: true
+//// [|display/*marker*/|]
+
+// @filename: IPython/__init__.py
+// @library: true
+//// 
+
+// @filename: IPython/display.py
+// @library: true
+//// def display(): pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    label: 'display',
+                    kind: CompletionItemKind.Function,
+                },
+            ],
+        },
+    });
 });
 
 function testIPython(code: string, expectMagic = true) {

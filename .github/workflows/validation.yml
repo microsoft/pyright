@@ -14,7 +14,7 @@ on:
 jobs:
   typecheck:
     if: github.repository == 'microsoft/pyright'
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: Typecheck
 
     steps:
@@ -41,7 +41,7 @@ jobs:
 
   style:
     if: github.repository == 'microsoft/pyright'
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: Style
 
     steps:
@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-10.15, windows-2019, ubuntu-18.04]
+        os: [macos-latest, windows-2019, ubuntu-latest]
 
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -108,7 +108,7 @@ jobs:
         working-directory: packages/pyright-internal
 
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: Build
     needs: typecheck
 
@@ -139,7 +139,7 @@ jobs:
         working-directory: packages/vscode-pyright
 
   required:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: Required
     needs:
       - typecheck

@@ -238,25 +238,34 @@ export class AnalyzerService {
         return false;
     }
 
-    setFileOpened(path: string, version: number | null, contents: string, ipythonMode = false) {
-        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, this.isTracked(path), ipythonMode);
-        this._scheduleReanalysis(false);
+    setFileOpened(
+        path: string,
+        version: number | null,
+        contents: string,
+        ipythonMode = false,
+        chainedFilePath?: string
+    ) {
+        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, {
+            isTracked: this.isTracked(path),
+            ipythonMode,
+            chainedFilePath,
+        });
+        this._scheduleReanalysis(/*requireTrackedFileUpdate*/ false);
     }
 
     updateOpenFileContents(
         path: string,
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
-        ipythonMode = false
+        ipythonMode = false,
+        chainedFilePath?: string
     ) {
-        this._backgroundAnalysisProgram.updateOpenFileContents(
-            path,
-            version,
-            contents,
-            this.isTracked(path),
-            ipythonMode
-        );
-        this._scheduleReanalysis(false);
+        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, {
+            isTracked: this.isTracked(path),
+            ipythonMode,
+            chainedFilePath,
+        });
+        this._scheduleReanalysis(/*requireTrackedFileUpdate*/ false);
     }
 
     test_setIndexing(
