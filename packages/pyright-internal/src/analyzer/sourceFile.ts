@@ -72,6 +72,7 @@ const _maxSourceFileSize = 50 * 1024 * 1024;
 interface ResolveImportResult {
     imports: ImportResult[];
     builtinsImportResult?: ImportResult | undefined;
+    ipythonDisplayImportResult?: ImportResult | undefined;
 }
 
 export class SourceFile {
@@ -172,6 +173,7 @@ export class SourceFile {
     // Information about implicit and explicit imports from this file.
     private _imports: ImportResult[] | undefined;
     private _builtinsImport: ImportResult | undefined;
+    private _ipythonDisplayImport: ImportResult | undefined;
 
     private _logTracker: LogTracker;
     readonly fileSystem: FileSystem;
@@ -390,6 +392,10 @@ export class SourceFile {
         return this._builtinsImport;
     }
 
+    getIPythonDisplayImport(): ImportResult | undefined {
+        return this._ipythonDisplayImport;
+    }
+
     getModuleSymbolTable(): SymbolTable | undefined {
         return this._moduleSymbolTable;
     }
@@ -447,7 +453,7 @@ export class SourceFile {
         this._cachedIndexResults = undefined;
     }
 
-    markReanalysisRequired(): void {
+    markReanalysisRequired(forceRebinding: boolean): void {
         // Keep the parse info, but reset the analysis to the beginning.
         this._isCheckingNeeded = true;
 
@@ -456,7 +462,8 @@ export class SourceFile {
         if (this._parseResults) {
             if (
                 this._parseResults.containsWildcardImport ||
-                AnalyzerNodeInfo.getDunderAllInfo(this._parseResults.parseTree) !== undefined
+                AnalyzerNodeInfo.getDunderAllInfo(this._parseResults.parseTree) !== undefined ||
+                forceRebinding
             ) {
                 // We don't need to rebuild index data since wildcard
                 // won't affect user file indices. User file indices
@@ -663,6 +670,7 @@ export class SourceFile {
 
                     this._imports = importResult.imports;
                     this._builtinsImport = importResult.builtinsImportResult;
+                    this._ipythonDisplayImport = importResult.ipythonDisplayImportResult;
 
                     this._parseDiagnostics = diagSink.fetchAndClear();
                 });
@@ -706,6 +714,7 @@ export class SourceFile {
                 };
                 this._imports = undefined;
                 this._builtinsImport = undefined;
+                this._ipythonDisplayImport = undefined;
 
                 const diagSink = new DiagnosticSink();
                 diagSink.addError(
@@ -1214,40 +1223,42 @@ export class SourceFile {
     ): ResolveImportResult {
         const imports: ImportResult[] = [];
 
+        const resolveAndAddIfNotSelf = (nameParts: string[], skipMissingImport = false) => {
+            const importResult = importResolver.resolveImport(this._filePath, execEnv, {
+                leadingDots: 0,
+                nameParts,
+                importedSymbols: undefined,
+            });
+
+            if (skipMissingImport && !importResult.isImportFound) {
+                return undefined;
+            }
+
+            // Avoid importing module from the module file itself.
+            if (importResult.resolvedPaths.length === 0 || importResult.resolvedPaths[0] !== this._filePath) {
+                imports.push(importResult);
+                return importResult;
+            }
+
+            return undefined;
+        };
+
         // Always include an implicit import of the builtins module.
         let builtinsImportResult: ImportResult | undefined;
 
         // If this is a project source file (not a stub), try to resolve
         // the __builtins__ stub first.
         if (!this._isThirdPartyImport && !this._isStubFile) {
-            builtinsImportResult = importResolver.resolveImport(this._filePath, execEnv, {
-                leadingDots: 0,
-                nameParts: ['__builtins__'],
-                importedSymbols: undefined,
-            });
-
-            if (builtinsImportResult && !builtinsImportResult.isImportFound) {
-                builtinsImportResult = undefined;
-            }
+            builtinsImportResult = resolveAndAddIfNotSelf(['__builtins__'], /*skipMissingImport*/ true);
         }
 
         if (!builtinsImportResult) {
-            builtinsImportResult = importResolver.resolveImport(this._filePath, execEnv, {
-                leadingDots: 0,
-                nameParts: ['builtins'],
-                importedSymbols: undefined,
-            });
+            builtinsImportResult = resolveAndAddIfNotSelf(['builtins']);
         }
 
-        // Avoid importing builtins from the builtins.pyi file itself.
-        if (
-            builtinsImportResult.resolvedPaths.length === 0 ||
-            builtinsImportResult.resolvedPaths[0] !== this.getFilePath()
-        ) {
-            imports.push(builtinsImportResult);
-        } else {
-            builtinsImportResult = undefined;
-        }
+        const ipythonDisplayImportResult = this._ipythonMode
+            ? resolveAndAddIfNotSelf(['IPython', 'display'])
+            : undefined;
 
         for (const moduleImport of moduleImports) {
             const importResult = importResolver.resolveImport(this._filePath, execEnv, {
@@ -1267,6 +1278,7 @@ export class SourceFile {
         return {
             imports,
             builtinsImportResult,
+            ipythonDisplayImportResult,
         };
     }
 
