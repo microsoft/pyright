@@ -102,7 +102,16 @@ export interface SourceFileInfo {
     isThirdPartyImport: boolean;
     isThirdPartyPyTypedPresent: boolean;
     diagnosticsVersion?: number | undefined;
+
     builtinsImport?: SourceFileInfo | undefined;
+    ipythonDisplayImport?: SourceFileInfo | undefined;
+
+    // Information about the chained source file
+    // Chained source file is not supposed to exist on file system but
+    // must exist in the program's source file list. Module level
+    // scope of the chained source file will be inserted before
+    // current file's scope.
+    chainedSourceFile?: SourceFileInfo | undefined;
 
     // Information about why the file is included in the program
     // and its relation to other source files in the program.
@@ -142,6 +151,12 @@ interface UpdateImportInfo {
 }
 
 export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvaluator) => void;
+
+export interface OpenFileOptions {
+    isTracked: boolean;
+    ipythonMode: boolean;
+    chainedFilePath: string | undefined;
+}
 
 // Container for all of the files that are being analyzed. Files
 // can fall into one or more of the following categories:
@@ -281,8 +296,7 @@ export class Program {
         filePath: string,
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
-        isTracked = false,
-        ipythonMode = false
+        options?: OpenFileOptions
     ) {
         let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
@@ -295,11 +309,17 @@ export class Program {
                 /* isInPyTypedPackage */ false,
                 this._console,
                 this._logTracker,
-                ipythonMode
+                options?.ipythonMode ?? false
             );
+
+            // ChainedSourceFile can only be set by open file. And once it is set,
+            // it can't be changed. It can only be removed (deleted). File from fs
+            // can't set chained source file.
+            const chainedFilePath = options?.chainedFilePath;
             sourceFileInfo = {
                 sourceFile,
-                isTracked: isTracked,
+                isTracked: options?.isTracked ?? false,
+                chainedSourceFile: chainedFilePath ? this._getSourceFileInfoFromPath(chainedFilePath) : undefined,
                 isOpenByClient: true,
                 isTypeshedFile: false,
                 isThirdPartyImport: false,
@@ -329,6 +349,13 @@ export class Program {
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.sourceFile.setClientVersion(null, []);
+
+            // There is no guarantee that content is saved before the file is closed.
+            // We need to mark the file dirty so we can re-analyze next time.
+            // This won't matter much for OpenFileOnly users, but it will matter for
+            // people who use diagnosticMode Workspace.
+            sourceFileInfo.sourceFile.markDirty();
+            this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
         }
 
         return this._removeUnneededFiles();
@@ -809,17 +836,35 @@ export class Program {
 
         this._parseFile(fileToAnalyze, content);
 
-        // We need to parse and bind the builtins import first.
+        const getScopeIfAvailable = (fileInfo: SourceFileInfo | undefined) => {
+            if (!fileInfo || fileInfo === fileToAnalyze) {
+                return undefined;
+            }
+
+            this._bindFile(fileInfo);
+            if (fileInfo.sourceFile.isFileDeleted()) {
+                return undefined;
+            }
+
+            const parseResults = fileInfo.sourceFile.getParseResults();
+            if (!parseResults) {
+                return undefined;
+            }
+
+            const scope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
+            assert(scope !== undefined);
+
+            return scope;
+        };
+
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport && fileToAnalyze.builtinsImport !== fileToAnalyze) {
-            this._bindFile(fileToAnalyze.builtinsImport);
-
-            // Get the builtins scope to pass to the binding pass.
-            const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
-            if (parseResults) {
-                builtinsScope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
-                assert(builtinsScope !== undefined);
-            }
+            // If it is not builtin module itself, we need to parse and bind
+            // the ipython display import if required. Otherwise, get builtin module.
+            builtinsScope =
+                getScopeIfAvailable(fileToAnalyze.chainedSourceFile) ??
+                getScopeIfAvailable(fileToAnalyze.ipythonDisplayImport) ??
+                getScopeIfAvailable(fileToAnalyze.builtinsImport);
         }
 
         fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope);
@@ -1071,16 +1116,23 @@ export class Program {
         firstSourceFile.sourceFile.addCircularDependency(circDep);
     }
 
-    private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo, markMap: Map<string, boolean>) {
+    private _markFileDirtyRecursive(
+        sourceFileInfo: SourceFileInfo,
+        markMap: Map<string, boolean>,
+        forceRebinding = false
+    ) {
         const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
 
         // Don't mark it again if it's already been visited.
         if (!markMap.has(filePath)) {
-            sourceFileInfo.sourceFile.markReanalysisRequired();
+            sourceFileInfo.sourceFile.markReanalysisRequired(forceRebinding);
             markMap.set(filePath, true);
 
             sourceFileInfo.importedBy.forEach((dep) => {
-                this._markFileDirtyRecursive(dep, markMap);
+                // Changes on chained source file can change symbols in the symbol table and
+                // dependencies on the dependent file. Force rebinding.
+                const forceRebinding = dep.chainedSourceFile === sourceFileInfo;
+                this._markFileDirtyRecursive(dep, markMap, forceRebinding);
             });
         }
     }
@@ -2309,6 +2361,22 @@ export class Program {
 
         // Create a map of unique imports, since imports can appear more than once.
         const newImportPathMap = new Map<string, UpdateImportInfo>();
+
+        // Add chained source file as import if it exists.
+        if (sourceFileInfo.chainedSourceFile) {
+            if (sourceFileInfo.chainedSourceFile.sourceFile.isFileDeleted()) {
+                sourceFileInfo.chainedSourceFile = undefined;
+            } else {
+                const filePath = sourceFileInfo.chainedSourceFile.sourceFile.getFilePath();
+                newImportPathMap.set(normalizePathCase(this._fs, filePath), {
+                    path: filePath,
+                    isTypeshedFile: false,
+                    isThirdPartyImport: false,
+                    isPyTypedPresent: false,
+                });
+            }
+        }
+
         imports.forEach((importResult) => {
             if (importResult.isImportFound) {
                 if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
@@ -2426,6 +2494,16 @@ export class Program {
         if (builtinsImport && builtinsImport.isImportFound) {
             const resolvedBuiltinsPath = builtinsImport.resolvedPaths[builtinsImport.resolvedPaths.length - 1];
             sourceFileInfo.builtinsImport = this._getSourceFileInfoFromPath(resolvedBuiltinsPath);
+        }
+
+        // Resolve the ipython display import for the file. This needs to be
+        // analyzed before the file can be analyzed.
+        sourceFileInfo.ipythonDisplayImport = undefined;
+        const ipythonDisplayImport = sourceFileInfo.sourceFile.getIPythonDisplayImport();
+        if (ipythonDisplayImport && ipythonDisplayImport.isImportFound) {
+            const resolvedIPythonDisplayPath =
+                ipythonDisplayImport.resolvedPaths[ipythonDisplayImport.resolvedPaths.length - 1];
+            sourceFileInfo.ipythonDisplayImport = this._getSourceFileInfoFromPath(resolvedIPythonDisplayPath);
         }
 
         return filesAdded;
