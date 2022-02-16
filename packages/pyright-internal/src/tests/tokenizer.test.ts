@@ -1516,3 +1516,19 @@ test('Constructor', () => {
     assert.equal(results.tokens.getItemAt(1).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(1).length, 11);
 });
+
+test('Normalization', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('ℝ 𝕽');
+    assert.equal(results.tokens.count, 2 + _implicitTokenCount);
+
+    let idToken = results.tokens.getItemAt(0) as IdentifierToken;
+    assert.equal(idToken.type, TokenType.Identifier);
+    assert.equal(idToken.length, 1);
+    assert.equal(idToken.value, 'R');
+
+    idToken = results.tokens.getItemAt(1) as IdentifierToken;
+    assert.equal(idToken.type, TokenType.Identifier);
+    assert.equal(idToken.length, 2);
+    assert.equal(idToken.value, 'R');
+});

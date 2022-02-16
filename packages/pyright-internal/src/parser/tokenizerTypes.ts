@@ -404,11 +404,14 @@ export interface IdentifierToken extends Token {
 
 export namespace IdentifierToken {
     export function create(start: number, length: number, value: string, comments: Comment[] | undefined) {
+        // Perform "NFKC normalization", as per the Python lexical spec.
+        const normalizedValue = value.normalize('NFKC');
+
         const token: IdentifierToken = {
             start,
             length,
             type: TokenType.Identifier,
-            value,
+            value: normalizedValue,
             comments,
         };
 
