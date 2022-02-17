@@ -10,7 +10,6 @@
 import { fail } from '../common/debug';
 import {
     ArgumentNode,
-    ArrowCallableNode,
     AssertNode,
     AssignmentExpressionNode,
     AssignmentNode,
@@ -572,12 +571,6 @@ export class ParseTreeWalker {
                 }
                 break;
 
-            case ParseNodeType.ArrowCallable:
-                if (this.visitArrowCallable(node)) {
-                    return [...node.parameters.map((param) => param.typeAnnotation), node.returnTypeAnnotation];
-                }
-                break;
-
             default:
                 fail('Unexpected node type');
                 break;
@@ -588,10 +581,6 @@ export class ParseTreeWalker {
 
     // Override these methods as necessary.
     visitArgument(node: ArgumentNode) {
-        return true;
-    }
-
-    visitArrowCallable(node: ArrowCallableNode) {
         return true;
     }
 

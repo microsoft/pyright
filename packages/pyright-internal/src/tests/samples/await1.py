@@ -1,7 +1,7 @@
 # This sample validates that the await keyword participates in
 # bidirectional type inference.
 
-from typing import TypeVar, Generic
+from typing import Callable, TypeVar, Generic
 
 T = TypeVar("T")
 AnyMsg = TypeVar("AnyMsg", bound="Msg")
@@ -15,7 +15,7 @@ class Request:
     id: int
 
 
-async def func1(check: "(AnyMsg) -> bool") -> AnyMsg:
+async def func1(check: "Callable[[AnyMsg], bool]") -> AnyMsg:
     ...
 
 

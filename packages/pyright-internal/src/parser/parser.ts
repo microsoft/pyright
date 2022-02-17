@@ -25,8 +25,6 @@ import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
     ArgumentNode,
-    ArrowCallableNode,
-    ArrowCallableParameter,
     AssertNode,
     AssignmentExpressionNode,
     AssignmentNode,
@@ -2846,14 +2844,6 @@ export class Parser {
 
     // or_test: and_test ('or' and_test)*
     private _parseOrTest(): ExpressionNode {
-        // Is the next expression possibly an arrow callable?
-        if (this._peekKeywordType() === KeywordType.Async || this._peekTokenType() === TokenType.OpenParenthesis) {
-            const possibleArrowCall = this._parseArrowCall();
-            if (possibleArrowCall) {
-                return possibleArrowCall;
-            }
-        }
-
         let leftExpr = this._parseAndTest();
         if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
@@ -3545,12 +3535,6 @@ export class Parser {
         }
 
         if (nextToken.type === TokenType.OpenParenthesis) {
-            const possibleArrowCall = this._parseArrowCall();
-            if (possibleArrowCall) {
-                this._addError(Localizer.Diagnostic.arrowCallableNeedsParen(), possibleArrowCall);
-                return possibleArrowCall;
-            }
-
             const possibleTupleNode = this._parseTupleAtom();
             if (
                 possibleTupleNode.nodeType === ParseNodeType.Tuple &&
@@ -3608,14 +3592,6 @@ export class Parser {
                 keywordToken.keywordType === KeywordType.None
             ) {
                 return ConstantNode.create(this._getNextToken() as KeywordToken);
-            }
-
-            if (keywordToken.keywordType === KeywordType.Async) {
-                const possibleArrowCall = this._parseArrowCall();
-                if (possibleArrowCall) {
-                    this._addError(Localizer.Diagnostic.arrowCallableNeedsParen(), possibleArrowCall);
-                    return possibleArrowCall;
-                }
             }
 
             // Make an identifier out of the keyword.
@@ -3683,114 +3659,6 @@ export class Parser {
         }
 
         return this._parseLambdaExpression(allowConditional);
-    }
-
-    // Attempts to parse an arrow call. If it is not a valid arrow call,
-    // it returns undefined without emitting any diagnostics. If it is
-    // an arrow call (as evidenced by a "->" token after the close paren),
-    // it returns an ArrowCallableNode. This method should be called when
-    // the next token is either an open paren or an "async" keyword.
-    // arrow_call: 'async'? '(' arrow_parameters ')' '->' test
-    private _parseArrowCall(): ArrowCallableNode | undefined {
-        let smellsLikeArrowCall = false;
-
-        // Do a lookahead operation to see if this smells like an arrow
-        // call. If not, it's probably a normal parenthesis or tuple
-        // expression.
-        const curTokenIndex = this._tokenIndex;
-        this._consumeTokenIfKeyword(KeywordType.Async);
-
-        if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-            let parenLevel = 1;
-            smellsLikeArrowCall = true;
-
-            while (parenLevel > 0) {
-                const nextToken = this._getNextToken();
-                if (nextToken.type === TokenType.OpenParenthesis) {
-                    parenLevel++;
-                } else if (nextToken.type === TokenType.CloseParenthesis) {
-                    parenLevel--;
-                } else if (nextToken.type === TokenType.EndOfStream) {
-                    smellsLikeArrowCall = false;
-                    break;
-                }
-            }
-
-            if (!this._consumeTokenIfType(TokenType.Arrow)) {
-                smellsLikeArrowCall = false;
-            }
-        }
-
-        this._tokenIndex = curTokenIndex;
-
-        if (!smellsLikeArrowCall) {
-            return undefined;
-        }
-
-        let asyncToken: Token | undefined = this._peekToken();
-        if (!this._consumeTokenIfKeyword(KeywordType.Async)) {
-            asyncToken = undefined;
-        }
-
-        const openParenToken = this._peekToken();
-        if (openParenToken.type !== TokenType.OpenParenthesis) {
-            return undefined;
-        }
-        this._getNextToken();
-
-        const arrowCallableParams = this._parseArrowCallableParameterList();
-
-        // Consume the close paren and arrow tokens.
-        this._getNextToken();
-        this._getNextToken();
-
-        const returnTypeAnnotation = this._parseTypeAnnotation();
-
-        return ArrowCallableNode.create(openParenToken, arrowCallableParams, returnTypeAnnotation, asyncToken);
-    }
-
-    private _parseArrowCallableParameterList(): ArrowCallableParameter[] {
-        const paramList: ArrowCallableParameter[] = [];
-
-        while (true) {
-            if (this._peekTokenType() === TokenType.CloseParenthesis) {
-                break;
-            }
-
-            const param = this._parseArrowCallableParameter();
-            if (!param) {
-                this._consumeTokensUntilType([TokenType.CloseParenthesis]);
-                break;
-            }
-
-            paramList.push(param);
-
-            const foundComma = this._consumeTokenIfType(TokenType.Comma);
-
-            if (!foundComma) {
-                break;
-            }
-        }
-
-        return paramList;
-    }
-
-    private _parseArrowCallableParameter(): ArrowCallableParameter {
-        const nextToken = this._peekToken();
-        let category = ParameterCategory.Simple;
-        let starToken: Token | undefined;
-
-        if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            category = ParameterCategory.VarArgList;
-            starToken = nextToken;
-        } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
-            category = ParameterCategory.VarArgDictionary;
-            starToken = nextToken;
-        }
-
-        const typeAnnotation = this._parseTypeAnnotation(/* allowUnpack */ true);
-
-        return { category, typeAnnotation, starToken };
     }
 
     // ('(' [yield_expr | testlist_comp] ')'

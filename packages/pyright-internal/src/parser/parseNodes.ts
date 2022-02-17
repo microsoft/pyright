@@ -104,7 +104,6 @@ export const enum ParseNodeType {
     PatternMappingExpandEntry,
     PatternValue,
     PatternClassArgument,
-    ArrowCallable,
 }
 
 export const enum ErrorExpressionCategory {
@@ -687,8 +686,7 @@ export type ExpressionNode =
     | ListNode
     | SetNode
     | DecoratorNode
-    | FunctionAnnotationNode
-    | ArrowCallableNode;
+    | FunctionAnnotationNode;
 
 export function isExpressionNode(node: ParseNode): node is ExpressionNode {
     switch (node.nodeType) {
@@ -720,7 +718,6 @@ export function isExpressionNode(node: ParseNode): node is ExpressionNode {
         case ParseNodeType.DictionaryExpandEntry:
         case ParseNodeType.List:
         case ParseNodeType.Set:
-        case ParseNodeType.ArrowCallable:
             return true;
 
         default:
@@ -2247,52 +2244,6 @@ export namespace PatternValueNode {
     }
 }
 
-export interface ArrowCallableParameter {
-    category: ParameterCategory;
-    typeAnnotation: ExpressionNode;
-    starToken?: Token;
-}
-
-export interface ArrowCallableNode extends ParseNodeBase {
-    readonly nodeType: ParseNodeType.ArrowCallable;
-    isAsync?: boolean;
-    parameters: ArrowCallableParameter[];
-    returnTypeAnnotation: ExpressionNode;
-}
-
-export namespace ArrowCallableNode {
-    export function create(
-        openParenToken: Token,
-        parameters: ArrowCallableParameter[],
-        returnTypeAnnotation: ExpressionNode,
-        asyncToken?: Token
-    ) {
-        const node: ArrowCallableNode = {
-            start: openParenToken.start,
-            length: openParenToken.length,
-            nodeType: ParseNodeType.ArrowCallable,
-            id: _nextNodeId++,
-            parameters,
-            returnTypeAnnotation,
-        };
-
-        if (asyncToken) {
-            node.isAsync = true;
-            extendRange(node, asyncToken);
-        }
-
-        extendRange(node, returnTypeAnnotation);
-
-        parameters.forEach((expr) => {
-            expr.typeAnnotation.parent = node;
-        });
-
-        returnTypeAnnotation.parent = node;
-
-        return node;
-    }
-}
-
 export type PatternAtomNode =
     | PatternSequenceNode
     | PatternLiteralNode
@@ -2306,7 +2257,6 @@ export type PatternAtomNode =
 export type ParseNode =
     | ErrorNode
     | ArgumentNode
-    | ArrowCallableNode
     | AssertNode
     | AssignmentExpressionNode
     | AssignmentNode

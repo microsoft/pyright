@@ -433,25 +433,6 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         case ParseNodeType.Set: {
             return node.entries.map((entry) => printExpression(entry, flags)).join(', ');
         }
-
-        case ParseNodeType.ArrowCallable: {
-            const paramsText = node.parameters.map((param) => {
-                let prefix = '';
-                if (param.category === ParameterCategory.VarArgList) {
-                    prefix = '*';
-                } else if (param.category === ParameterCategory.VarArgDictionary) {
-                    prefix = '**';
-                }
-
-                const typeText = printExpression(param.typeAnnotation);
-
-                return `${prefix}${typeText}`;
-            });
-
-            const optionalAsync = node.isAsync ? 'async ' : '';
-
-            return `${optionalAsync}(${paramsText.join(', ')}) -> ${printExpression(node.returnTypeAnnotation)}`;
-        }
     }
 
     return '<Expression>';
@@ -1762,9 +1743,6 @@ export function printParseNodeType(type: ParseNodeType) {
 
         case ParseNodeType.PatternClassArgument:
             return 'PatternClassArgument';
-
-        case ParseNodeType.ArrowCallable:
-            return 'ArrowCallable';
     }
 
     assertNever(type);

@@ -207,15 +207,6 @@ export namespace Localizer {
         export const argPositionalExpectedOne = () => getRawString('Diagnostic.argPositionalExpectedOne');
         export const argTypePartiallyUnknown = () => getRawString('Diagnostic.argTypePartiallyUnknown');
         export const argTypeUnknown = () => getRawString('Diagnostic.argTypeUnknown');
-        export const arrowCallableIllegal = () => getRawString('Diagnostic.arrowCallableIllegal');
-        export const arrowCallableNeedsParen = () => getRawString('Diagnostic.arrowCallableNeedsParen');
-        export const arrowCallableNotParamSpec = () => getRawString('Diagnostic.arrowCallableNotParamSpec');
-        export const arrowCallableNotVariadicTypeVar = () => getRawString('Diagnostic.arrowCallableNotVariadicTypeVar');
-        export const arrowCallableParamSpec = () => getRawString('Diagnostic.arrowCallableParamSpec');
-        export const arrowCallableParamSpecNotLast = () => getRawString('Diagnostic.arrowCallableParamSpecNotLast');
-        export const arrowCallableVariadicTypeVar = () => getRawString('Diagnostic.arrowCallableVariadicTypeVar');
-        export const arrowCallableVariadicTypeVarUnpacked = () =>
-            getRawString('Diagnostic.arrowCallableVariadicTypeVarUnpacked');
         export const assertAlwaysTrue = () => getRawString('Diagnostic.assertAlwaysTrue');
         export const assignmentExprContext = () => getRawString('Diagnostic.assignmentExprContext');
         export const assignmentExprComprehension = () =>

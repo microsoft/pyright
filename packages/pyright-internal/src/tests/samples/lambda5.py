@@ -2,7 +2,7 @@
 # bidirectional type inference and one or more of the parameters
 # corresponds to a generic type.
 
-from typing import TypeVar, Generic, Any
+from typing import Callable, TypeVar, Generic, Any
 
 T = TypeVar("T")
 MsgT = TypeVar("MsgT", bound="Msg[Any]")
@@ -16,7 +16,7 @@ class Request:
     ...
 
 
-def check(func: "(MsgT, int) -> object") -> MsgT:
+def check(func: "Callable[[MsgT, int], object]") -> MsgT:
     ...
 
 
