@@ -734,44 +734,43 @@ function narrowTypeBasedOnValuePattern(
                 evaluator.mapSubtypesExpandTypeVars(
                     subjectType,
                     getTypeCondition(valueSubtypeExpanded),
-                    (_, subjectSubtypeUnexpanded) => {
+                    (subjectSubtypeExpanded) => {
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
                             if (
-                                isClassInstance(subjectSubtypeUnexpanded) &&
-                                ClassType.isEnumClass(subjectSubtypeUnexpanded) &&
-                                !isLiteralType(subjectSubtypeUnexpanded) &&
-                                isClassInstance(valueSubtypeUnexpanded) &&
-                                isSameWithoutLiteralValue(subjectSubtypeUnexpanded, valueSubtypeUnexpanded) &&
-                                isLiteralType(valueSubtypeUnexpanded)
+                                isClassInstance(subjectSubtypeExpanded) &&
+                                ClassType.isEnumClass(subjectSubtypeExpanded) &&
+                                !isLiteralType(subjectSubtypeExpanded) &&
+                                isClassInstance(valueSubtypeExpanded) &&
+                                isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded) &&
+                                isLiteralType(valueSubtypeExpanded)
                             ) {
-                                const allEnumTypes = enumerateLiteralsForType(evaluator, subjectSubtypeUnexpanded);
+                                const allEnumTypes = enumerateLiteralsForType(evaluator, subjectSubtypeExpanded);
                                 if (allEnumTypes) {
                                     return combineTypes(
                                         allEnumTypes.filter(
-                                            (enumType) =>
-                                                !ClassType.isLiteralValueSame(valueSubtypeUnexpanded, enumType)
+                                            (enumType) => !ClassType.isLiteralValueSame(valueSubtypeExpanded, enumType)
                                         )
                                     );
                                 }
                             } else if (
-                                isClassInstance(subjectSubtypeUnexpanded) &&
-                                isClassInstance(valueSubtypeUnexpanded) &&
-                                ClassType.isLiteralValueSame(valueSubtypeUnexpanded, subjectSubtypeUnexpanded)
+                                isClassInstance(subjectSubtypeExpanded) &&
+                                isClassInstance(valueSubtypeExpanded) &&
+                                ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
                             ) {
                                 return undefined;
                             }
 
-                            return subjectSubtypeUnexpanded;
+                            return subjectSubtypeExpanded;
                         }
 
-                        if (isNever(valueSubtypeExpanded) || isNever(subjectSubtypeUnexpanded)) {
+                        if (isNever(valueSubtypeExpanded) || isNever(subjectSubtypeExpanded)) {
                             return NeverType.createNever();
                         }
 
-                        if (isAnyOrUnknown(valueSubtypeExpanded) || isAnyOrUnknown(subjectSubtypeUnexpanded)) {
+                        if (isAnyOrUnknown(valueSubtypeExpanded) || isAnyOrUnknown(subjectSubtypeExpanded)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
-                            return isUnknown(valueSubtypeExpanded) || isUnknown(subjectSubtypeUnexpanded)
+                            return isUnknown(valueSubtypeExpanded) || isUnknown(subjectSubtypeExpanded)
                                 ? UnknownType.create()
                                 : AnyType.create();
                         }
@@ -781,7 +780,7 @@ function narrowTypeBasedOnValuePattern(
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
                             evaluator.getTypeFromMagicMethodReturn(
                                 valueSubtypeExpanded,
-                                [subjectSubtypeUnexpanded],
+                                [subjectSubtypeExpanded],
                                 '__eq__',
                                 pattern.expression,
                                 /* expectedType */ undefined

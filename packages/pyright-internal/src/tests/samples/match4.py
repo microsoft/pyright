@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain value patterns.
 
-from enum import Enum
+from enum import Enum, auto
 from typing import Tuple, TypeVar, Union
 from http import HTTPStatus
 
@@ -84,3 +84,17 @@ def test_enum_narrowing(m: Union[Medal, Color, int]):
         case d1:
             reveal_type(d1, expected_text='int | Literal[Medal.bronze]')
             reveal_type(m, expected_text='int | Literal[Medal.bronze]')
+
+
+class Foo(Enum):
+    bar = auto()
+
+    def __str__(self) -> str:
+        match self:
+            case Foo.bar:
+                return "bar"
+
+            case x:
+                reveal_type(x, expected_text="Never")
+
+
