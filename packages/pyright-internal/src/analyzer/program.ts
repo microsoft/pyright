@@ -2089,12 +2089,17 @@ export class Program {
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
         if (typeCacheSize > 750000 || this._parsedFileCount > 1000) {
-            const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
+            const memoryUsage = process.memoryUsage();
 
-            // Don't allow the heap to get close to the 2GB limit imposed by
-            // the OS when running Node in a 32-bit process.
-            if (heapSizeInMb > 1536) {
-                this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
+            // If we use more than 90% of the available heap size, avoid a crash
+            // by emptying the type cache.
+            if (memoryUsage.heapUsed > memoryUsage.rss * 0.9) {
+                const heapSizeInMb = Math.round(memoryUsage.rss / (1024 * 1024));
+                const heapUsageInMb = Math.round(memoryUsage.heapUsed / (1024 * 1024));
+
+                this._console.info(
+                    `Emptying type cache to avoid heap overflow. Used ${heapUsageInMb}MB out of ${heapSizeInMb}MB`
+                );
                 this._createNewEvaluator();
                 this._discardCachedParseResults();
                 this._parsedFileCount = 0;
