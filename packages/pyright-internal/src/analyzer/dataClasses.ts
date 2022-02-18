@@ -547,7 +547,17 @@ function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
         return type;
     }
 
-    const setMethodType = evaluator.getTypeOfMember(setMethodInfo);
+    let setMethodType = evaluator.getTypeOfMember(setMethodInfo);
+
+    if (isOverloadedFunction(setMethodType)) {
+        // Find the implementation, not the overloaded signatures.
+        const setMethodImplType = setMethodType.overloads.find((func) => !FunctionType.isOverloaded(func));
+        if (!setMethodImplType) {
+            return type;
+        }
+        setMethodType = setMethodImplType;
+    }
+
     if (!isFunction(setMethodType)) {
         return type;
     }
