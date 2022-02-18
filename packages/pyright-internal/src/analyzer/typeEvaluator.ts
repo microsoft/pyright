@@ -8464,7 +8464,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let hasParamSpecArgsKwargs = false;
 
         if (varArgListParamIndex !== undefined && varArgDictParamIndex !== undefined) {
+            assert(paramDetails.params[varArgListParamIndex], 'varArgListParamIndex params entry is undefined');
             const varArgListParam = paramDetails.params[varArgListParamIndex].param;
+            assert(paramDetails.params[varArgDictParamIndex], 'varArgDictParamIndex params entry is undefined');
             const varArgDictParam = paramDetails.params[varArgDictParamIndex].param;
 
             if (
@@ -8573,6 +8575,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 break;
             }
 
+            assert(paramDetails.params[paramIndex], 'paramIndex params entry is undefined');
             const paramType = paramDetails.params[paramIndex].type;
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 if (!argList[argIndex].valueExpression) {
@@ -9029,6 +9032,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     isPositionalOnly: false,
                                 });
                             }
+                            assert(
+                                paramDetails.params[paramDetails.kwargsIndex],
+                                'paramDetails.kwargsIndex params entry is undefined'
+                            );
                             trySetActive(argList[argIndex], paramDetails.params[paramDetails.kwargsIndex].param);
                         } else {
                             addDiagnostic(
@@ -9160,6 +9167,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // into a tuple.
             if (
                 paramDetails.argsIndex !== undefined &&
+                paramDetails.argsIndex >= 0 &&
                 paramDetails.params[paramDetails.argsIndex].param.hasDeclaredType &&
                 !isVariadicTypeVarFullyMatched
             ) {
