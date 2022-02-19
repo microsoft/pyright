@@ -535,7 +535,7 @@ test('Classes5', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 23);
+    TestUtils.validateResults(analysisResults, 24);
 });
 
 test('Classes6', () => {
