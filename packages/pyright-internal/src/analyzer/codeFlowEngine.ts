@@ -1457,10 +1457,20 @@ export function getCodeFlowEngine(
 
         if (node.nodeType === ParseNodeType.Call) {
             const callType = getDeclaredCallBaseType(node.leftExpression);
-            if (callType && isInstantiableClass(callType)) {
-                cmType = convertToInstance(callType);
-            } else if (callType && isFunction(callType)) {
-                cmType = callType.details.declaredReturnType;
+            if (callType) {
+                if (isInstantiableClass(callType)) {
+                    cmType = convertToInstance(callType);
+                } else if (isFunction(callType)) {
+                    cmType = callType.details.declaredReturnType;
+                } else if (isOverloadedFunction(callType)) {
+                    // Handle the overloaded case. As a simple heuristic, we'll simply
+                    // look at the first overloaded signature and ignore the remainder.
+                    // This works for pytype.raises, which is a common case.
+                    const firstOverload = callType.overloads.find((overload) => FunctionType.isOverloaded(overload));
+                    if (firstOverload) {
+                        cmType = firstOverload.details.declaredReturnType;
+                    }
+                }
             }
         } else if (node.nodeType === ParseNodeType.Name) {
             cmType = evaluator.getDeclaredTypeForExpression(node);
