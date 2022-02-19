@@ -1,5 +1,5 @@
 # This sample tests the handling of if/elif chains that omit an else
-# statement. The "ghost" else statement should be assumed never taken if the
+# statement. The "implied else" statement should be assumed never taken if the
 # final if/elif test expression evaluates to Never in the negative case.
 
 from enum import Enum
@@ -92,3 +92,18 @@ def func9(a: Union[str, int], b: Union[str, int]) -> bool:
             return False
         elif isinstance(b, int):
             return False
+
+
+def func10(foo: list[str]) -> bool:
+    i = 0
+    x: int | None = None
+
+    while i < 5:
+        foo[i]
+
+        if x is None:
+            return False
+        reveal_type(x, expected_text="Never")
+        i = x
+
+    return True

@@ -718,53 +718,62 @@ export function getCodeFlowEngine(
                     if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
                         if (conditionalFlowNode.reference) {
-                            // Make sure the reference type has a declared type. If not,
-                            // don't bother trying to infer its type because that would be
-                            // too expensive.
-                            const symbolWithScope = evaluator.lookUpSymbolRecursive(
-                                conditionalFlowNode.reference,
-                                conditionalFlowNode.reference.value,
-                                /* honorCodeFlow */ false
-                            );
-                            if (symbolWithScope && symbolWithScope.symbol.getTypedDeclarations().length > 0) {
-                                // Before calling getTypeNarrowingCallback, set the type
-                                // of this flow node in the cache to prevent recursion.
-                                setCacheEntry(
-                                    curFlowNode,
-                                    reference ? undefined : initialType,
-                                    /* isIncomplete */ true
+                            // Don't allow apply if the conditional expression references the expression
+                            // we're already narrowing. This case will be handled by the TrueCondition
+                            // or FalseCondition node.
+                            if (createKeyForReference(conditionalFlowNode.reference) !== referenceKey) {
+                                // Make sure the reference type has a declared type. If not,
+                                // don't bother trying to infer its type because that would be
+                                // too expensive.
+                                const symbolWithScope = evaluator.lookUpSymbolRecursive(
+                                    conditionalFlowNode.reference,
+                                    conditionalFlowNode.reference.value,
+                                    /* honorCodeFlow */ false
                                 );
-
-                                try {
-                                    const typeNarrowingCallback = getTypeNarrowingCallback(
-                                        evaluator,
-                                        conditionalFlowNode.reference,
-                                        conditionalFlowNode.expression,
-                                        !!(
-                                            conditionalFlowNode.flags &
-                                            (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
-                                        )
+                                if (symbolWithScope && symbolWithScope.symbol.getTypedDeclarations().length > 0) {
+                                    // Before calling getTypeNarrowingCallback, set the type
+                                    // of this flow node in the cache to prevent recursion.
+                                    setCacheEntry(
+                                        curFlowNode,
+                                        reference ? undefined : initialType,
+                                        /* isIncomplete */ true
                                     );
 
-                                    if (typeNarrowingCallback) {
-                                        const refTypeInfo = evaluator.getTypeOfExpression(
-                                            conditionalFlowNode.reference!
+                                    try {
+                                        const typeNarrowingCallback = getTypeNarrowingCallback(
+                                            evaluator,
+                                            conditionalFlowNode.reference,
+                                            conditionalFlowNode.expression,
+                                            !!(
+                                                conditionalFlowNode.flags &
+                                                (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition)
+                                            )
                                         );
-                                        const narrowedType =
-                                            typeNarrowingCallback(refTypeInfo.type) || refTypeInfo.type;
 
-                                        // If the narrowed type is "never", don't allow further exploration.
-                                        if (isNever(narrowedType)) {
-                                            return setCacheEntry(curFlowNode, undefined, !!refTypeInfo.isIncomplete);
+                                        if (typeNarrowingCallback) {
+                                            const refTypeInfo = evaluator.getTypeOfExpression(
+                                                conditionalFlowNode.reference!
+                                            );
+                                            const narrowedType =
+                                                typeNarrowingCallback(refTypeInfo.type) || refTypeInfo.type;
+
+                                            // If the narrowed type is "never", don't allow further exploration.
+                                            if (isNever(narrowedType)) {
+                                                return setCacheEntry(
+                                                    curFlowNode,
+                                                    undefined,
+                                                    !!refTypeInfo.isIncomplete
+                                                );
+                                            }
                                         }
-                                    }
 
-                                    deleteCacheEntry(curFlowNode);
-                                } catch (e) {
-                                    // We don't use finally here because the debugger
-                                    // doesn't handle it well during single stepping.
-                                    deleteCacheEntry(curFlowNode);
-                                    throw e;
+                                        deleteCacheEntry(curFlowNode);
+                                    } catch (e) {
+                                        // We don't use finally here because the debugger
+                                        // doesn't handle it well during single stepping.
+                                        deleteCacheEntry(curFlowNode);
+                                        throw e;
+                                    }
                                 }
                             }
                         }
