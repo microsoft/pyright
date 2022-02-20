@@ -2340,7 +2340,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         lookupInfo.symbolTable.forEach((symbol, name) => {
-            if (!symbol.isExternallyHidden()) {
+            if (!symbol.isExternallyHidden() && !isPrivateOrProtectedName(name)) {
                 namesToImport!.push(name);
             }
         });

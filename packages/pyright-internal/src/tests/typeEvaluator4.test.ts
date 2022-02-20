@@ -148,7 +148,7 @@ test('Import4', () => {
 
 test('Import6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import6.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Import7', () => {
