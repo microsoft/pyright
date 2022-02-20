@@ -45,6 +45,9 @@ let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 
 const pythonPathChangedListenerMap = new Map<string, string>();
 
+// Request a heap size of 3GB. This is reasonable for modern systems.
+const defaultHeapSize = 3072;
+
 export function activate(context: ExtensionContext) {
     // See if Pylance is installed. If so, don't activate the Pyright extension.
     // Doing so will generate "command already registered" errors and redundant
@@ -63,11 +66,17 @@ export function activate(context: ExtensionContext) {
     cancellationStrategy = new FileBasedCancellationStrategy();
 
     const bundlePath = context.asAbsolutePath(path.join('dist', 'server.js'));
-    const debugOptions = { execArgv: ['--nolazy', '--inspect=6600'] };
+    const runOptions = { execArgv: [`--max-old-space-size=${defaultHeapSize}`] };
+    const debugOptions = { execArgv: ['--nolazy', '--inspect=6600', `--max-old-space-size=${defaultHeapSize}`] };
 
     // If the extension is launched in debug mode, then the debug server options are used.
     const serverOptions: ServerOptions = {
-        run: { module: bundlePath, transport: TransportKind.ipc, args: cancellationStrategy.getCommandLineArguments() },
+        run: {
+            module: bundlePath,
+            transport: TransportKind.ipc,
+            args: cancellationStrategy.getCommandLineArguments(),
+            options: runOptions,
+        },
         // In debug mode, use the non-bundled code if it's present. The production
         // build includes only the bundled package, so we don't want to crash if
         // someone starts the production extension in debug mode.
