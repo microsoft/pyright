@@ -4426,11 +4426,19 @@ export class Checker extends ParseTreeWalker {
                             const isBaseClassVar = baseClassAndSymbol.symbol.isClassVar();
                             let isClassVar = symbol.isClassVar();
 
-                            // If the subclass doesn't redeclare the type but simply assigns
-                            // it without declaring its type, we won't consider it an instance
-                            // variable.
                             if (isBaseClassVar && !isClassVar) {
+                                // If the subclass doesn't redeclare the type but simply assigns
+                                // it without declaring its type, we won't consider it an instance
+                                // variable.
                                 if (!symbol.hasTypedDeclarations()) {
+                                    isClassVar = true;
+                                }
+
+                                // If the subclass is declaring an inner class, we'll consider that
+                                // to be a ClassVar.
+                                if (
+                                    symbol.getTypedDeclarations().every((decl) => decl.type === DeclarationType.Class)
+                                ) {
                                     isClassVar = true;
                                 }
                             }

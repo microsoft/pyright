@@ -1,7 +1,7 @@
 # This sample tests the reportIncompatibleVariableOverride
 # configuration option.
 
-from typing import ClassVar, Final, List, Optional, Union
+from typing import ClassVar, Final, List, Optional, Protocol, Type, Union
 
 
 class ParentClass1:
@@ -207,3 +207,22 @@ class SublassTuple1(ParentClass2):
 class SublassTuple2(ParentClass2):
     # This should generate an error.
     cv_decl_1, cv_decl_2, cv_decl_3 = (3, 4.5, None)
+
+
+class ConfigBase:
+    ...
+
+
+class ParentClass3(Protocol):
+    Config1: ClassVar[Type[ConfigBase]]
+    Config2: ClassVar[Type[ConfigBase]]
+
+
+class ChildClass3(ParentClass3):
+    class Config1(ConfigBase):
+        ...
+
+    # This should generate an error if reportIncompatibleVariableOverride
+    # is enabled.
+    class Config2:
+        ...

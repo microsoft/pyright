@@ -183,7 +183,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `issubclass(x, T)` (where T is a type or a tuple of types)
 * `callable(x)`
 * `f(x)` (where f is a user-defined type guard as defined in [PEP 647](https://www.python.org/dev/peps/pep-0647/))
-* `bool(x)` (where x is any expression that is statically verifiable to be thruthy or falsy in all cases).
+* `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsy in all cases).
 * `x` (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are constant numbers (e.g. `a[2]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
