@@ -48,3 +48,8 @@ call_with_params(callback3, 1, "hi", "hi", 2)
 # This should generate an error.
 call_with_params(callback3, 1, 1, 2)
 
+
+class Foo:
+    @classmethod
+    def foo(cls, *shape: *Ts) -> tuple[*Ts]:
+        ...

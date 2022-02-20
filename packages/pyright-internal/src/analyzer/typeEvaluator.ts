@@ -21954,7 +21954,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If both src and dest have an "*args" parameter, make sure
         // their types are compatible.
-        if (srcParamDetails.argsIndex !== undefined && destParamDetails.argsIndex !== undefined) {
+        if (
+            srcParamDetails.argsIndex !== undefined &&
+            destParamDetails.argsIndex !== undefined &&
+            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType)
+        ) {
             let destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
             let srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
 
