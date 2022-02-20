@@ -21536,7 +21536,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     specializedDestType,
                     /* diag */ undefined,
                     destTypeVarMap,
-                    flags | CanAssignFlags.ReverseTypeVarMatching | CanAssignFlags.IgnoreTypeVarScope,
+                    flags |
+                        CanAssignFlags.ReverseTypeVarMatching |
+                        CanAssignFlags.IgnoreTypeVarScope |
+                        CanAssignFlags.RetainLiteralsForTypeVar,
                     recursionCount
                 );
 
