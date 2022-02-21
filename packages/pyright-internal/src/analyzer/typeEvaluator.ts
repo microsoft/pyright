@@ -18006,7 +18006,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         decls.forEach((decl, index) => {
             let considerDecl = declIndexToConsider === undefined || index === declIndexToConsider;
-            
+
             if (usageNode !== undefined) {
                 if (decl.type !== DeclarationType.Alias) {
                     // Is the declaration in the same execution scope as the "usageNode" node?
