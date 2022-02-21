@@ -10370,6 +10370,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 fileInfo.lines
                             ),
                             moduleName: fileInfo.moduleName,
+                            isInExceptSuite: false,
                         };
                         newSymbol.addDeclaration(declaration);
                         classFields.set(entryName, newSymbol);
@@ -17990,10 +17991,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let includesVariableDecl = false;
         let includesSpeculativeResult = false;
 
-        decls.forEach((decl, index) => {
-            // If useLastDecl is true, consider only the last declaration.
-            let considerDecl = !useLastDecl || index === decls.length - 1;
+        let declIndexToConsider: number | undefined;
 
+        // If the caller has requested that we use only the last decl, we
+        // will use only the last one, but we'll ignore decls that are in
+        // except clauses.
+        if (useLastDecl) {
+            decls.forEach((decl, index) => {
+                if (!decl.isInExceptSuite) {
+                    declIndexToConsider = index;
+                }
+            });
+        }
+
+        decls.forEach((decl, index) => {
+            let considerDecl = declIndexToConsider === undefined || index === declIndexToConsider;
+            
             if (usageNode !== undefined) {
                 if (decl.type !== DeclarationType.Alias) {
                     // Is the declaration in the same execution scope as the "usageNode" node?

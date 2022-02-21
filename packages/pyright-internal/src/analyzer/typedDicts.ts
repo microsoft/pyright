@@ -165,6 +165,7 @@ export function createTypedDictType(
                         fileInfo.lines
                     ),
                     moduleName: fileInfo.moduleName,
+                    isInExceptSuite: false,
                 };
                 newSymbol.addDeclaration(declaration);
 
@@ -213,6 +214,7 @@ export function createTypedDictType(
                         fileInfo.lines
                     ),
                     moduleName: fileInfo.moduleName,
+                    isInExceptSuite: false,
                 };
                 newSymbol.addDeclaration(declaration);
 

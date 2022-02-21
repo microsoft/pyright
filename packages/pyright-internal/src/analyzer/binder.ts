@@ -208,6 +208,9 @@ export class Binder extends ParseTreeWalker {
     // static analyzer doesn't understand.
     private _usesUnsupportedDunderAllForm = false;
 
+    // Are we currently binding code located within an except block?
+    private _isInExceptSuite = false;
+
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
         flags: FlowFlags.Unreachable,
@@ -395,6 +398,7 @@ export class Binder extends ParseTreeWalker {
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
+            isInExceptSuite: this._isInExceptSuite,
         };
 
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
@@ -444,6 +448,7 @@ export class Binder extends ParseTreeWalker {
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
+            isInExceptSuite: this._isInExceptSuite,
         };
 
         if (symbol) {
@@ -506,6 +511,7 @@ export class Binder extends ParseTreeWalker {
                                     this._fileInfo.lines
                                 ),
                                 moduleName: this._fileInfo.moduleName,
+                                isInExceptSuite: this._isInExceptSuite,
                             };
 
                             symbol.addDeclaration(paramDeclaration);
@@ -577,6 +583,7 @@ export class Binder extends ParseTreeWalker {
                                     this._fileInfo.lines
                                 ),
                                 moduleName: this._fileInfo.moduleName,
+                                isInExceptSuite: this._isInExceptSuite,
                             };
 
                             symbol.addDeclaration(paramDeclaration);
@@ -1203,12 +1210,16 @@ export class Binder extends ParseTreeWalker {
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
                     moduleName: this._fileInfo.moduleName,
+                    isInExceptSuite: this._isInExceptSuite,
                 };
                 symbol.addDeclaration(declaration);
             }
         }
 
+        const wasInExceptSuite = this._isInExceptSuite;
+        this._isInExceptSuite = true;
         this.walk(node.exceptSuite);
+        this._isInExceptSuite = wasInExceptSuite;
 
         if (node.name) {
             // The exception name is implicitly unbound at the end of
@@ -1592,6 +1603,7 @@ export class Binder extends ParseTreeWalker {
                                     usesLocalName: false,
                                     symbolName: name,
                                     moduleName: this._fileInfo.moduleName,
+                                    isInExceptSuite: this._isInExceptSuite,
                                 };
                                 localSymbol.addDeclaration(aliasDecl);
                                 names.push(name);
@@ -1612,6 +1624,7 @@ export class Binder extends ParseTreeWalker {
                                             range: getEmptyRange(),
                                             usesLocalName: false,
                                             moduleName: this._fileInfo.moduleName,
+                                            isInExceptSuite: this._isInExceptSuite,
                                         };
 
                                         const aliasDecl: AliasDeclaration = {
@@ -1624,6 +1637,7 @@ export class Binder extends ParseTreeWalker {
                                             submoduleFallback,
                                             range: getEmptyRange(),
                                             moduleName: this._fileInfo.moduleName,
+                                            isInExceptSuite: this._isInExceptSuite,
                                         };
 
                                         localSymbol.addDeclaration(aliasDecl);
@@ -1698,6 +1712,7 @@ export class Binder extends ParseTreeWalker {
                             range: getEmptyRange(),
                             usesLocalName: false,
                             moduleName: this._fileInfo.moduleName,
+                            isInExceptSuite: this._isInExceptSuite,
                         };
 
                         // Handle the case of "from . import X" within an __init__ file.
@@ -1722,6 +1737,7 @@ export class Binder extends ParseTreeWalker {
                         submoduleFallback,
                         range: getEmptyRange(),
                         moduleName: this._fileInfo.moduleName,
+                        isInExceptSuite: this._isInExceptSuite,
                         isNativeLib: importInfo?.isNativeLib,
                     };
 
@@ -2052,6 +2068,7 @@ export class Binder extends ParseTreeWalker {
                         this._fileInfo.lines
                     ),
                     moduleName: this._fileInfo.moduleName,
+                    isInExceptSuite: this._isInExceptSuite,
                 };
                 symbol.addDeclaration(declaration);
             }
@@ -2124,6 +2141,7 @@ export class Binder extends ParseTreeWalker {
                     this._fileInfo.lines
                 ),
                 moduleName: this._fileInfo.moduleName,
+                isInExceptSuite: this._isInExceptSuite,
             };
             symbol.addDeclaration(declaration);
         }
@@ -2172,6 +2190,7 @@ export class Binder extends ParseTreeWalker {
                 path: this._fileInfo.filePath,
                 range: convertOffsetsToRange(target.start, TextRange.getEnd(target), this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
+                isInExceptSuite: this._isInExceptSuite,
             };
             symbol.addDeclaration(declaration);
         }
@@ -2254,6 +2273,7 @@ export class Binder extends ParseTreeWalker {
                     path: importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1],
                     loadSymbolsFromPath: false,
                     moduleName: importInfo.importName,
+                    isInExceptSuite: this._isInExceptSuite,
                     range: getEmptyRange(),
                     firstNamePart: firstNamePartValue,
                     usesLocalName: !!importAlias,
@@ -2322,6 +2342,7 @@ export class Binder extends ParseTreeWalker {
                 usesLocalName: !!importAlias,
                 moduleName: '',
                 isUnresolved: true,
+                isInExceptSuite: this._isInExceptSuite,
             };
             symbol.addDeclaration(newDecl);
         }
@@ -3138,6 +3159,7 @@ export class Binder extends ParseTreeWalker {
                 path: this._fileInfo.filePath,
                 range: getEmptyRange(),
                 moduleName: this._fileInfo.moduleName,
+                isInExceptSuite: this._isInExceptSuite,
             });
             symbol.setIsIgnoredForProtocolMatch();
         }
@@ -3212,6 +3234,7 @@ export class Binder extends ParseTreeWalker {
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
+                        isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
@@ -3263,6 +3286,7 @@ export class Binder extends ParseTreeWalker {
                             this._fileInfo.lines
                         ),
                         moduleName: this._fileInfo.moduleName,
+                        isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
                     };
                     symbol.addDeclaration(declaration);
@@ -3376,6 +3400,7 @@ export class Binder extends ParseTreeWalker {
                         typeAnnotationNode,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
+                        isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
@@ -3452,6 +3477,7 @@ export class Binder extends ParseTreeWalker {
                             this._fileInfo.lines
                         ),
                         moduleName: this._fileInfo.moduleName,
+                        isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
                     };
                     symbol.addDeclaration(declaration);
@@ -3863,6 +3889,7 @@ export class Binder extends ParseTreeWalker {
                     this._fileInfo.lines
                 ),
                 moduleName: this._fileInfo.moduleName,
+                isInExceptSuite: this._isInExceptSuite,
             });
         }
         return true;

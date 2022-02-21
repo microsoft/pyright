@@ -1518,7 +1518,8 @@ export function getCodeFlowEngine(
         // There was no declared type. Before we give up, see if the
         // symbol is a function parameter whose value can be inferred
         // or an imported symbol.
-        const declarations = symbol.getDeclarations();
+        // Use the last declaration that is not within an except suite.
+        const declarations = symbol.getDeclarations().filter((decl) => !decl.isInExceptSuite);
         if (declarations.length === 0) {
             return undefined;
         }

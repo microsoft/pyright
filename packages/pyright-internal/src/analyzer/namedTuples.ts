@@ -190,6 +190,7 @@ export function createNamedTupleType(
                                 fileInfo.lines
                             ),
                             moduleName: fileInfo.moduleName,
+                            isInExceptSuite: false,
                         };
                         newSymbol.addDeclaration(declaration);
                         classFields.set(entryName, newSymbol);
@@ -281,6 +282,7 @@ export function createNamedTupleType(
                                 fileInfo.lines
                             ),
                             moduleName: fileInfo.moduleName,
+                            isInExceptSuite: false,
                         };
                         newSymbol.addDeclaration(declaration);
                     }

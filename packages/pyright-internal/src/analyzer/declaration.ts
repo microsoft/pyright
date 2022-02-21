@@ -59,6 +59,10 @@ export interface DeclarationBase {
     // because a source file can be accessed via different
     // import names in some cases).
     moduleName: string;
+
+    // The declaration is within an except clause of a try
+    // statement. We may want to ignore such declarations.
+    isInExceptSuite: boolean;
 }
 
 export interface IntrinsicDeclaration extends DeclarationBase {
