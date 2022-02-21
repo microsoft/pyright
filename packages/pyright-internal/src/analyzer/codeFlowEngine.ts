@@ -50,6 +50,7 @@ import {
     ClassType,
     combineTypes,
     FunctionType,
+    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
@@ -1576,12 +1577,13 @@ export function getCodeFlowEngine(
                     symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
                 }
 
+                if (!symbol) {
+                    return UnknownType.create();
+                }
+
                 // We want to limit the evaluation to declared types only, so
                 // we use getDeclaredTypeOfSymbol rather than getEffectiveTypeOfSymbol.
-                if (!symbol) {
-                    return undefined;
-                }
-                return getDeclaredTypeOfSymbol(symbol, /* isBeyondExecutionScope */ true);
+                return getDeclaredTypeOfSymbol(symbol, /* isBeyondExecutionScope */ true) ?? UnknownType.create();
             });
 
             if (!isNever(declaredTypeOfSymbol)) {
