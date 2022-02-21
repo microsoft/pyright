@@ -50,7 +50,6 @@ import {
     ClassType,
     combineTypes,
     FunctionType,
-    isAnyOrUnknown,
     isClass,
     isClassInstance,
     isFunction,
