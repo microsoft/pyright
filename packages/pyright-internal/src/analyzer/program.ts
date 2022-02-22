@@ -2164,7 +2164,10 @@ export class Program {
                 // they are no longer referenced.
                 fileInfo.imports.forEach((importedFile) => {
                     const indexToRemove = importedFile.importedBy.findIndex((fi) => fi === fileInfo);
-                    assert(indexToRemove >= 0);
+                    if (indexToRemove < 0) {
+                        return;
+                    }
+
                     importedFile.importedBy.splice(indexToRemove, 1);
 
                     // See if we need to remove the imported file because it
