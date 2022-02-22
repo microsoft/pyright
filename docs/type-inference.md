@@ -191,6 +191,40 @@ def func2(p_int: int, p_str: str, p_flt: float):
     var2 = func1(p_str, p_flt, p_int)
 ```
 
+### Parameter Type Inference
+
+Input parameters for functions and methods typically require type annotations. There are several cases where Pyright may be able to infer a parameter’s type if it is unannotated.
+
+For instance methods, the first parameter (named `self` by convention) is inferred to be type `Self`.
+
+For class methods, the first parameter (named `cls` by convention) is inferred to be type `type[Self]`.
+
+For other unannotated parameters within a method, Pyright looks for a method of the same name implemented in a base class. If the corresponding method in the base class has the same signature (the same number of parameters with the same names), no overloads, and annotated parameter types, the type annotation from this method is “inherited” for the corresponding parameter in the child class method.
+
+```python
+class Parent:
+    def method1(self, a: int, b: str) -> float:
+        ...
+
+
+class Child(Parent):
+    def method1(self, a, b):
+        return a
+
+reveal_type(Child.method1)  # (self: Child, a: int, b: int) -> int
+```
+
+When parameter types are inherited from a base class method, the return type is not inherited. Instead, normal return type inference techniques are used.
+
+If the type of an unannotated parameter cannot be inferred using any of the above techniques and the parameter has a default argument expression associated with it, the parameter type is inferred from the default argument type. If the default argument is `None`, the inferred type is `Unknown | None`.
+
+```python
+def func(a, b=0, c=None):
+    pass
+
+reveal_type(func)  # (a: Unknown, b: int, c: Unknown | None) -> None
+```
+
 ### Literals
 
 Python 3.8 introduced support for _literal types_. This allows a type checker like Pyright to track specific literal values of str, bytes, int, bool, and enum values. As with other types, literal types can be declared.

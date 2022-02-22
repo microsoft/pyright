@@ -14890,15 +14890,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 paramsArePositionOnly = false;
             }
 
+            // If there was no annotation for the parameter, infer its type if possible.
+            let isTypeInferred = false;
+            if (!paramType) {
+                isTypeInferred = true;
+                paramType = inferParameterType(node, functionType.details.flags, index, containingClassType);
+            }
+
             const functionParam: FunctionParameter = {
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
                 defaultValueExpression: param.defaultValue,
                 defaultType: defaultValueType,
-                type: paramType || UnknownType.create(),
+                type: paramType ?? UnknownType.create(),
                 typeAnnotation: paramTypeNode,
                 hasDeclaredType: !!paramTypeNode,
+                isTypeInferred,
             };
 
             FunctionType.addParameter(functionType, functionParam);
@@ -14917,25 +14925,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 category: ParameterCategory.Simple,
                 type: UnknownType.create(),
             });
-        }
-
-        if (containingClassType) {
-            // If the first parameter doesn't have an explicit type annotation,
-            // provide a type if it's an instance, class or constructor method.
-            if (functionType.details.parameters.length > 0) {
-                const typeAnnotation = getTypeAnnotationForParameter(node, 0);
-                if (!typeAnnotation) {
-                    const inferredParamType = inferFirstParamType(functionType.details.flags, containingClassType);
-                    if (inferredParamType) {
-                        functionType.details.parameters[0].type = inferredParamType;
-                        if (!isAnyOrUnknown(inferredParamType)) {
-                            functionType.details.parameters[0].isTypeInferred = true;
-                        }
-
-                        paramTypes[0] = inferredParamType;
-                    }
-                }
-            }
         }
 
         // Update the types for the nodes associated with the parameters.
@@ -15095,14 +15084,77 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
     }
 
-    // Synthesizes the "self" or "cls" parameter type if they are not explicitly annotated.
-    function inferFirstParamType(flags: FunctionTypeFlags, containingClassType: ClassType): Type | undefined {
-        if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
-            if (containingClassType) {
-                const hasClsParam =
-                    (flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) !== 0;
-                return synthesizeTypeVarForSelfCls(containingClassType, hasClsParam);
+    // Attempts to infer an unannotated parameter type from available context.
+    function inferParameterType(
+        functionNode: FunctionNode,
+        functionFlags: FunctionTypeFlags,
+        paramIndex: number,
+        containingClassType: ClassType | undefined
+    ) {
+        // Is the function a method within a class? If so, see if a base class
+        // defines the same method and provides annotations.
+        if (containingClassType) {
+            if (paramIndex === 0) {
+                if ((functionFlags & FunctionTypeFlags.StaticMethod) === 0) {
+                    const hasClsParam =
+                        (functionFlags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) !== 0;
+                    return synthesizeTypeVarForSelfCls(containingClassType, hasClsParam);
+                }
             }
+
+            const methodName = functionNode.name.value;
+            const baseClassMemberInfo = lookUpClassMember(
+                containingClassType,
+                methodName,
+                ClassMemberLookupFlags.SkipOriginalClass
+            );
+
+            if (baseClassMemberInfo) {
+                const memberDecls = baseClassMemberInfo.symbol.getDeclarations();
+                if (memberDecls.length === 1 && memberDecls[0].type === DeclarationType.Function) {
+                    const baseClassMethodNode = memberDecls[0].node;
+
+                    // Does the signature match exactly with the exception of annotations?
+                    if (
+                        baseClassMethodNode.parameters.length === functionNode.parameters.length &&
+                        baseClassMethodNode.parameters.every((param, index) => {
+                            const overrideParam = functionNode.parameters[index];
+                            return (
+                                overrideParam.name?.value === param.name?.value &&
+                                overrideParam.category === param.category
+                            );
+                        })
+                    ) {
+                        const baseClassParam = baseClassMethodNode.parameters[paramIndex];
+                        const baseClassParamAnnotation =
+                            baseClassParam.typeAnnotation ?? baseClassParam.typeAnnotationComment;
+                        if (baseClassParamAnnotation) {
+                            return getTypeOfParameterAnnotation(
+                                baseClassParamAnnotation,
+                                functionNode.parameters[paramIndex].category
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // If the parameter has a default argument value, we may be able to infer its
+        // type from this information.
+        const paramValueExpr = functionNode.parameters[paramIndex].defaultValue;
+        if (paramValueExpr) {
+            const defaultValueType = getTypeOfExpression(
+                paramValueExpr,
+                /* expectedType */ undefined,
+                EvaluatorFlags.ConvertEllipsisToAny
+            ).type;
+
+            if (isNoneInstance(defaultValueType)) {
+                // Infer Optional[Unknown] in this case.
+                return combineTypes([NoneType.createInstance(), UnknownType.create()]);
+            }
+
+            return stripLiteralValue(defaultValueType);
         }
 
         return undefined;
@@ -16489,19 +16541,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        // We may be able to infer the type of the first parameter.
-        if (paramIndex === 0) {
-            const containingClassNode = ParseTreeUtils.getEnclosingClass(functionNode, /* stopAtFunction */ true);
-            if (containingClassNode) {
-                const classInfo = getTypeOfClass(containingClassNode);
-                if (classInfo) {
-                    const functionFlags = getFunctionFlagsFromDecorators(functionNode, /* isInClass */ true);
-                    // If the first parameter doesn't have an explicit type annotation,
-                    // provide a type if it's an instance, class or constructor method.
-                    const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType);
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(functionNode, /* stopAtFunction */ true);
+        if (containingClassNode) {
+            const classInfo = getTypeOfClass(containingClassNode);
+
+            if (classInfo) {
+                // See if the function is a method in a child class. We may be able to
+                // infer the type of the parameter from a method of the same name in
+                // a parent class if it has an annotated type.
+                const functionFlags = getFunctionFlagsFromDecorators(functionNode, /* isInClass */ true);
+                const inferredParamType = inferParameterType(
+                    functionNode,
+                    functionFlags,
+                    paramIndex,
+                    classInfo.classType
+                );
+
+                if (inferredParamType) {
                     writeTypeCache(
                         node.name!,
-                        inferredParamType || UnknownType.create(),
+                        transformVariadicParamType(node, node.category, inferredParamType),
                         EvaluatorFlags.None,
                         /* isIncomplete */ false
                     );

@@ -1250,3 +1250,9 @@ test('LiteralString1', () => {
 
     TestUtils.validateResults(analysisResults, 6);
 });
+
+test('ParamInference1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramInference1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
