@@ -211,7 +211,7 @@ class Child(Parent):
     def method1(self, a, b):
         return a
 
-reveal_type(Child.method1)  # (self: Child, a: int, b: int) -> int
+reveal_type(Child.method1)  # (self: Child, a: int, b: str) -> int
 ```
 
 When parameter types are inherited from a base class method, the return type is not inherited. Instead, normal return type inference techniques are used.
