@@ -1569,10 +1569,7 @@ export function getCodeFlowEngine(
                 let symbol: Symbol | undefined;
                 if (isModule(subtype)) {
                     symbol = ModuleType.getField(subtype, memberName);
-                } else if (isInstantiableClass(subtype)) {
-                    const classMemberInfo = lookUpClassMember(subtype, memberName);
-                    symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
-                } else if (isClassInstance(subtype)) {
+                } else if (isClass(subtype)) {
                     const classMemberInfo = lookUpClassMember(subtype, memberName);
                     symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
                 }
@@ -1583,7 +1580,9 @@ export function getCodeFlowEngine(
 
                 // We want to limit the evaluation to declared types only, so
                 // we use getDeclaredTypeOfSymbol rather than getEffectiveTypeOfSymbol.
-                return getDeclaredTypeOfSymbol(symbol, /* isBeyondExecutionScope */ true) ?? UnknownType.create();
+                // Set isBeyondExecutionScope to false so we don't attempt to infer
+                // the symbol type. This can lead to very bad performance.
+                return getDeclaredTypeOfSymbol(symbol, /* isBeyondExecutionScope */ false) ?? UnknownType.create();
             });
 
             if (!isNever(declaredTypeOfSymbol)) {
