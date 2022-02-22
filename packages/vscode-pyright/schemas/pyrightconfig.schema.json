@@ -123,7 +123,7 @@
       "$id": "#/properties/strictParameterNoneValue",
       "type": "boolean",
       "title": "Allow implicit Optional when default parameter value is None",
-      "default": false
+      "default": true
     },
     "enableTypeIgnoreComments": {
       "$id": "#/properties/enableTypeIgnoreComments",

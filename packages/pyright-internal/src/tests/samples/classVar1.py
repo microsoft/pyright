@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of ClassVar
 # as described in PEP 526.
 
-from typing import Any, ClassVar, Dict
+from typing import Any, ClassVar, Dict, Optional
 
 
 class MyDescriptor:
@@ -18,7 +18,7 @@ class Starship:
     stats: ClassVar[Dict[str, int]] = {}
     desc: ClassVar[MyDescriptor] = MyDescriptor()
 
-    def __init__(self, damage: int, captain: str = None):
+    def __init__(self, damage: int, captain: Optional[str] = None):
         self.damage = damage
         if captain:
             self.captain = captain  # Else keep the default
