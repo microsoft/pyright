@@ -16451,7 +16451,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function evaluateTypeOfParameter(node: ParameterNode): void {
-        assert(node.name !== undefined);
+        // If this parameter has no name, we have nothing to do.
+        if (!node.name) {
+            return;
+        }
 
         // We need to handle lambdas differently from functions because
         // the former never have parameter type annotations but can
