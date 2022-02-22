@@ -167,6 +167,13 @@ async function processArgs(): Promise<ExitStatus> {
         return ExitStatus.NoErrors;
     }
 
+    for (const [arg, value] of Object.entries(args)) {
+        if (value === null) {
+            console.error(`'${arg}' option requires a value`);
+            return ExitStatus.ParameterError;
+        }
+    }
+
     if (args.outputjson) {
         const incompatibleArgs = ['stats', 'verbose', 'createstub', 'dependencies'];
         for (const arg of incompatibleArgs) {
