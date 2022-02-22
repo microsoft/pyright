@@ -354,8 +354,10 @@ export class Program {
             // We need to mark the file dirty so we can re-analyze next time.
             // This won't matter much for OpenFileOnly users, but it will matter for
             // people who use diagnosticMode Workspace.
-            sourceFileInfo.sourceFile.markDirty();
-            this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
+            if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
+                sourceFileInfo.sourceFile.markDirty();
+                this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
+            }
         }
 
         return this._removeUnneededFiles();
