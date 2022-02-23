@@ -347,7 +347,7 @@ export interface TypeEvaluator {
         usageNode?: NameNode,
         useLastDecl?: boolean
     ) => EffectiveTypeResult;
-    getInferredTypeOfDeclaration: (decl: Declaration) => Type | undefined;
+    getInferredTypeOfDeclaration: (symbol: Symbol, decl: Declaration) => Type | undefined;
     getDeclaredTypeForExpression: (expression: ExpressionNode, usage?: EvaluatorUsage) => Type | undefined;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
     getFunctionInferredReturnType: (type: FunctionType, args?: ValidateArgTypeParams[]) => Type;

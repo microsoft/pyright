@@ -114,6 +114,12 @@ interface TypeBase {
 
     // Used only for conditional (constrained) types
     condition?: TypeCondition[] | undefined;
+
+    // This type is inferred within a py.typed source file and could be
+    // inferred differently by other type checkers. We don't model this
+    // with a TypeFlags because we don't want an ambiguous and unambiguous
+    // type to be seen as distinct when comparing types.
+    isAmbiguous?: boolean;
 }
 
 export namespace TypeBase {
@@ -135,6 +141,10 @@ export namespace TypeBase {
 
     export function setSpecialForm(type: TypeBase) {
         return (type.flags |= TypeFlags.SpecialForm);
+    }
+
+    export function isAmbiguous(type: TypeBase) {
+        return !!type.isAmbiguous;
     }
 
     export function cloneType<T extends TypeBase>(type: T): T {
@@ -177,6 +187,16 @@ export namespace TypeBase {
 
         const typeClone = cloneType(type);
         typeClone.condition = condition;
+        return typeClone;
+    }
+
+    export function cloneForAmbiguousType(type: Type) {
+        if (type.isAmbiguous) {
+            return type;
+        }
+
+        const typeClone = cloneType(type);
+        typeClone.isAmbiguous = true;
         return typeClone;
     }
 }

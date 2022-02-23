@@ -1509,7 +1509,7 @@ export function getCodeFlowEngine(
             return UnknownType.create();
         }
 
-        return evaluator.getInferredTypeOfDeclaration(wildcardDecl) || UnknownType.create();
+        return evaluator.getInferredTypeOfDeclaration(symbolWithScope!.symbol, wildcardDecl) || UnknownType.create();
     }
 
     function getDeclaredTypeOfSymbol(symbol: Symbol, isBeyondExecutionScope: boolean): Type | undefined {
@@ -1538,7 +1538,7 @@ export function getCodeFlowEngine(
         // is safe to infer its type. Calling this under other circumstances
         // can result in extreme performance degradation and stack overflows.
         if (decl.type === DeclarationType.Alias || isBeyondExecutionScope) {
-            return evaluator.getInferredTypeOfDeclaration(decl);
+            return evaluator.getInferredTypeOfDeclaration(symbol, decl);
         }
 
         return undefined;

@@ -74,6 +74,10 @@ export interface ClassMember {
 
     // True if member has declared type, false if inferred
     isTypeDeclared: boolean;
+
+    // True if member lookup skipped an undeclared (inferred) type
+    // in a subclass before finding a declared type in a base class
+    skippedUndeclaredType: boolean;
 }
 
 export const enum ClassMemberLookupFlags {
@@ -925,6 +929,7 @@ function getProtocolSymbolsRecursive(classType: ClassType, symbolMap: Map<string
                 isInstanceMember: symbol.isInstanceMember(),
                 isClassVar: symbol.isClassVar(),
                 isTypeDeclared: symbol.hasTypedDeclarations(),
+                skippedUndeclaredType: false,
             });
         }
     });
@@ -964,6 +969,7 @@ export function lookUpClassMember(
 // (self) -> Iterator[str].
 export function* getClassMemberIterator(classType: Type, memberName: string, flags = ClassMemberLookupFlags.Default) {
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
+    let skippedUndeclaredType = false;
 
     if (isClass(classType)) {
         let classFlags = ClassIteratorFlags.Default;
@@ -993,6 +999,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                         isClassVar: true,
                         classType: UnknownType.create(),
                         isTypeDeclared: false,
+                        skippedUndeclaredType: false,
                     };
                     yield cm;
                 }
@@ -1017,8 +1024,11 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                             isClassVar: symbol.isClassVar(),
                             classType: specializedMroClass,
                             isTypeDeclared: hasDeclaredType,
+                            skippedUndeclaredType,
                         };
                         yield cm;
+                    } else {
+                        skippedUndeclaredType = true;
                     }
                 }
             }
@@ -1048,8 +1058,11 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                         isClassVar: symbol.isClassVar(),
                         classType: specializedMroClass,
                         isTypeDeclared: hasDeclaredType,
+                        skippedUndeclaredType,
                     };
                     yield cm;
+                } else {
+                    skippedUndeclaredType = true;
                 }
             }
         }
@@ -1062,6 +1075,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
             isClassVar: true,
             classType: UnknownType.create(),
             isTypeDeclared: false,
+            skippedUndeclaredType: false,
         };
         yield cm;
     }
@@ -1134,6 +1148,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                     isInstanceMember: symbol.isInstanceMember(),
                     isClassVar: symbol.isClassVar(),
                     isTypeDeclared: true,
+                    skippedUndeclaredType: false,
                 });
             }
         });

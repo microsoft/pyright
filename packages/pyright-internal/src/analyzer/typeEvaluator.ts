@@ -530,7 +530,6 @@ const maxOverloadUnionExpansionCount = 64;
 const verifyTypeCacheEvaluatorFlags = false;
 
 export interface EvaluatorOptions {
-    disableInferenceForPyTypedSources: boolean;
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
     minimumLoggingThreshold: number;
@@ -14717,7 +14716,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (fileInfo.isStubFile) {
             functionFlags |= FunctionTypeFlags.StubDefinition;
-        } else if (fileInfo.isInPyTypedPackage && evaluatorOptions.disableInferenceForPyTypedSources) {
+        } else if (fileInfo.isInPyTypedPackage) {
             functionFlags |= FunctionTypeFlags.PyTypedDefinition;
         }
 
@@ -15171,10 +15170,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const baseClassParamAnnotation =
                             baseClassParam.typeAnnotation ?? baseClassParam.typeAnnotationComment;
                         if (baseClassParamAnnotation) {
-                            return getTypeOfParameterAnnotation(
+                            let inferredParamType = getTypeOfParameterAnnotation(
                                 baseClassParamAnnotation,
                                 functionNode.parameters[paramIndex].category
                             );
+
+                            const fileInfo = AnalyzerNodeInfo.getFileInfo(functionNode);
+                            if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
+                                inferredParamType = TypeBase.cloneForAmbiguousType(inferredParamType);
+                            }
+
+                            return inferredParamType;
                         }
                     }
                 }
@@ -15191,21 +15197,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.ConvertEllipsisToAny
             ).type;
 
+            let inferredParamType: Type | undefined;
             if (isNoneInstance(defaultValueType)) {
                 // Infer Optional[Unknown] in this case.
-                return combineTypes([NoneType.createInstance(), UnknownType.create()]);
+                inferredParamType = combineTypes([NoneType.createInstance(), UnknownType.create()]);
+            } else {
+                // Do not infer certain types like tuple because it's likely to be
+                // more restrictive (narrower) than intended.
+                if (
+                    !isClassInstance(defaultValueType) ||
+                    !ClassType.isBuiltIn(defaultValueType, ['tuple', 'list', 'set', 'dict'])
+                ) {
+                    inferredParamType = stripLiteralValue(defaultValueType);
+                }
             }
 
-            // Do not infer certain types like tuple because it's likely to be
-            // more restrictive (narrower) than intended.
-            if (
-                isClassInstance(defaultValueType) &&
-                ClassType.isBuiltIn(defaultValueType, ['tuple', 'list', 'set', 'dict'])
-            ) {
-                return undefined;
+            if (inferredParamType) {
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(functionNode);
+                if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
+                    inferredParamType = TypeBase.cloneForAmbiguousType(inferredParamType);
+                }
             }
 
-            return stripLiteralValue(defaultValueType);
+            return inferredParamType;
         }
 
         return undefined;
@@ -16332,7 +16346,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return getInferredTypeOfDeclaration(aliasDecl);
+        return getInferredTypeOfDeclaration(symbolWithScope.symbol, aliasDecl);
     }
 
     // In some cases, an expression must be evaluated in the context of another
@@ -17853,7 +17867,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function getInferredTypeOfDeclaration(decl: Declaration): Type | undefined {
+    function getInferredTypeOfDeclaration(symbol: Symbol, decl: Declaration): Type | undefined {
         const resolvedDecl = resolveAliasDeclaration(
             decl,
             /* resolveLocalNames */ true,
@@ -17939,29 +17953,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If this is part of a "py.typed" package, don't fall back on type inference
         // unless it's marked Final, is a constant, or is a declared type alias.
         const fileInfo = AnalyzerNodeInfo.getFileInfo(resolvedDecl.node);
-        let isSpeculativeTypeAliasFromPyTypedFile = false;
+        let isUnambiguousType = !fileInfo.isInPyTypedPackage || fileInfo.isStubFile;
 
-        if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile && evaluatorOptions.disableInferenceForPyTypedSources) {
-            if (resolvedDecl.type !== DeclarationType.Variable) {
-                return UnknownType.create();
-            }
-
-            // Special-case variables within an enum class. These are effectively
-            // constants, so we'll treat them as such.
-            const enclosingClass = ParseTreeUtils.getEnclosingClass(resolvedDecl.node, /* stopAtFunction */ true);
-            let isEnumValue = false;
-            if (enclosingClass) {
-                const classTypeInfo = getTypeOfClass(enclosingClass);
-                if (classTypeInfo && ClassType.isEnumClass(classTypeInfo.classType)) {
-                    isEnumValue = true;
+        // If this is a py.typed package, determine if this is a case where an unannotated
+        // variable is considered "unambiguous" because all type checkers are almost
+        // guaranteed to infer its type the same.
+        if (!isUnambiguousType) {
+            if (resolvedDecl.type === DeclarationType.Variable) {
+                // Special-case variables within an enum class. These are effectively
+                // constants, so we'll treat them as unambiguous.
+                const enclosingClass = ParseTreeUtils.getEnclosingClass(resolvedDecl.node, /* stopAtFunction */ true);
+                if (enclosingClass) {
+                    const classTypeInfo = getTypeOfClass(enclosingClass);
+                    if (classTypeInfo && ClassType.isEnumClass(classTypeInfo.classType)) {
+                        isUnambiguousType = true;
+                    }
                 }
-            }
 
-            if (!resolvedDecl.isFinal && !resolvedDecl.isConstant && !isEnumValue) {
-                if (!resolvedDecl.typeAliasName) {
-                    return UnknownType.create();
-                } else if (!resolvedDecl.typeAliasAnnotation) {
-                    isSpeculativeTypeAliasFromPyTypedFile = true;
+                if (resolvedDecl.isFinal || resolvedDecl.isConstant) {
+                    isUnambiguousType = true;
                 }
             }
         }
@@ -18013,10 +18023,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         resolvedDecl.typeAliasName,
                         resolvedDecl.node
                     );
-                } else if (isSpeculativeTypeAliasFromPyTypedFile) {
-                    if (decl.type !== DeclarationType.Variable || !decl.isInferenceAllowedInPyTyped) {
-                        return UnknownType.create();
+
+                    isUnambiguousType = true;
+                }
+            }
+
+            // Determine whether we need to mark the annotation as ambiguous.
+            if (inferredType && fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
+                if (!isUnambiguousType) {
+                    // See if this particular inference can be considered "unambiguous".
+                    // Any symbol that is assigned more than once is considered ambiguous.
+                    if (isUnambiguousInference(symbol, decl, inferredType)) {
+                        isUnambiguousType = true;
                     }
+                }
+
+                if (!isUnambiguousType) {
+                    inferredType = TypeBase.cloneForAmbiguousType(inferredType);
                 }
             }
 
@@ -18024,6 +18047,68 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return undefined;
+    }
+
+    // Applies some heuristics to determine whether it's likely that all Python
+    // type checkers will infer the same type.
+    function isUnambiguousInference(symbol: Symbol, decl: Declaration, inferredType: Type): boolean {
+        const nonSlotsDecls = symbol.getDeclarations().filter((decl) => {
+            return decl.type !== DeclarationType.Variable || !decl.isInferenceAllowedInPyTyped;
+        });
+
+        // Any symbol with more than one assignment is considered ambiguous.
+        if (nonSlotsDecls.length > 1) {
+            return false;
+        }
+
+        if (decl.type !== DeclarationType.Variable) {
+            return false;
+        }
+
+        // If there are no non-slots declarations, don't mark the inferred type as ambiguous.
+        if (nonSlotsDecls.length === 0) {
+            return true;
+        }
+
+        // TypeVar definitions don't require a declaration.
+        if (isTypeVar(inferredType)) {
+            return true;
+        }
+
+        let assignmentNode: AssignmentNode | undefined;
+
+        const parentNode = decl.node.parent;
+        if (parentNode) {
+            // Is this a simple assignment (x = y) or an assignment of an instance variable (self.x = y)?
+            if (parentNode.nodeType === ParseNodeType.Assignment) {
+                assignmentNode = parentNode;
+            } else if (
+                parentNode.nodeType === ParseNodeType.MemberAccess &&
+                parentNode.parent?.nodeType === ParseNodeType.Assignment
+            ) {
+                assignmentNode = parentNode.parent;
+            }
+        }
+
+        if (!assignmentNode) {
+            return false;
+        }
+
+        const assignedType = getTypeOfExpression(assignmentNode.rightExpression).type;
+
+        // Assume that literal values will always result in the same inferred type.
+        if (isClassInstance(assignedType) && isLiteralType(assignedType)) {
+            return true;
+        }
+
+        // If the assignment is a simple name corresponding to an unambiguous
+        // type, we'll assume the resulting variable will receive the same
+        // unambiguous type.
+        if (assignmentNode.rightExpression.nodeType === ParseNodeType.Name && !TypeBase.isAmbiguous(assignedType)) {
+            return true;
+        }
+
+        return false;
     }
 
     // If the specified declaration is an alias declaration that points to a symbol,
@@ -18134,7 +18219,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (considerDecl) {
-                const isTypeAlias = isExplicitTypeAliasDeclaration(decl) || isPossibleTypeAliasDeclaration(decl);
+                const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(decl);
+                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasDeclaration(decl);
 
                 // If this is a type alias, evaluate it outside of the recursive symbol
                 // resolution check so we can evaluate the full assignment statement.
@@ -18157,7 +18243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (pushSymbolResolution(symbol, decl)) {
                     try {
-                        let type = getInferredTypeOfDeclaration(decl);
+                        let type = getInferredTypeOfDeclaration(symbol, decl);
 
                         if (!popSymbolResolution(symbol)) {
                             isIncomplete = true;
@@ -18177,7 +18263,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 // If the symbol is constant, we can retain the literal
                                 // value. Otherwise, strip literal values to widen the type.
-                                if (TypeBase.isInstance(type) && !isTypeAlias && !isConstant && !isFinalVar) {
+                                if (TypeBase.isInstance(type) && !isExplicitTypeAlias && !isConstant && !isFinalVar) {
                                     type = stripLiteralValue(type);
                                 }
                             }
@@ -18362,8 +18448,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
 
-        // Don't attempt to infer the return type for a stub file or a py.typed module.
-        if (FunctionType.isStubDefinition(type) || FunctionType.isPyTypedDefinition(type)) {
+        // Don't attempt to infer the return type for a stub file.
+        if (FunctionType.isStubDefinition(type)) {
             return UnknownType.create();
         }
 

@@ -615,14 +615,6 @@ export class ConfigOptions {
         this.projectRoot = projectRoot;
         this.typeCheckingMode = typeCheckingMode;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
-
-        // If type checking mode is off, allow inference for py.typed sources
-        // since there is little or no downside and possible upside of discovering
-        // more type information in this case. If type checking is enabled, using
-        // type inference in this case can result in false positive errors.
-        if (typeCheckingMode === 'off') {
-            this.disableInferenceForPyTypedSources = false;
-        }
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -684,10 +676,6 @@ export class ConfigOptions {
 
     // Minimum threshold for type eval logging
     typeEvaluationTimeThreshold = 50;
-
-    // Avoid using type inference for files within packages that claim
-    // to contain type annotations?
-    disableInferenceForPyTypedSources = true;
 
     // Current type checking mode.
     typeCheckingMode?: string;
@@ -899,9 +887,6 @@ export class ConfigOptions {
 
         this.typeCheckingMode = configTypeCheckingMode || typeCheckingMode;
         const defaultSettings = ConfigOptions.getDiagnosticRuleSet(this.typeCheckingMode);
-        if (this.typeCheckingMode === 'off') {
-            this.disableInferenceForPyTypedSources = false;
-        }
 
         // Start with the default values for all rules in the rule set.
         this.diagnosticRuleSet = { ...defaultSettings };
