@@ -1077,7 +1077,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeResult.type,
                     /* isTypeIncomplete */ false,
                     node.rightExpression,
-                    /* ignoreEmptyContainers */ true
+                    /* ignoreEmptyContainers */ true,
+                    /* allowAssignmentToFinalVar */ true
                 );
                 break;
             }
@@ -2594,6 +2595,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: Type,
         isTypeIncomplete: boolean,
         srcExpression?: ParseNode,
+        allowAssignmentToFinalVar = false,
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
         const nameValue = nameNode.value;
@@ -2687,6 +2689,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         nameNode
                     );
                 }
+            } else if (varDecl.isFinal && !allowAssignmentToFinalVar) {
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.finalReassigned().format({ name: nameValue }),
+                    nameNode
+                );
             }
         }
 
@@ -2725,11 +2734,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (classTypeResults && isInstantiableClass(classTypeResults.classType)) {
                     if (isClassInstance(baseType)) {
                         if (ClassType.isSameGenericClass(baseType, classTypeResults.classType)) {
-                            assignTypeToMemberVariable(target, type, isTypeIncomplete, true, srcExpr);
+                            assignTypeToMemberVariable(
+                                target,
+                                type,
+                                isTypeIncomplete,
+                                /* isInstanceMember */ true,
+                                srcExpr
+                            );
                         }
                     } else if (isInstantiableClass(baseType)) {
                         if (ClassType.isSameGenericClass(baseType, classTypeResults.classType)) {
-                            assignTypeToMemberVariable(target, type, isTypeIncomplete, false, srcExpr);
+                            assignTypeToMemberVariable(
+                                target,
+                                type,
+                                isTypeIncomplete,
+                                /* isInstanceMember */ false,
+                                srcExpr
+                            );
                         }
                     }
 
@@ -3259,6 +3280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isTypeIncomplete: boolean,
         srcExpr: ExpressionNode,
         ignoreEmptyContainers = false,
+        allowAssignmentToFinalVar = false,
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
         // Is the source expression a TypeVar() call?
@@ -3309,7 +3331,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
 
-                assignTypeToNameNode(target, type, isTypeIncomplete, srcExpr, expectedTypeDiagAddendum);
+                assignTypeToNameNode(
+                    target,
+                    type,
+                    isTypeIncomplete,
+                    srcExpr,
+                    allowAssignmentToFinalVar,
+                    expectedTypeDiagAddendum
+                );
                 break;
             }
 
@@ -3381,6 +3410,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* isIncomplete */ false,
                     srcExpr,
                     ignoreEmptyContainers,
+                    allowAssignmentToFinalVar,
                     expectedTypeDiagAddendum
                 );
                 break;
@@ -13778,6 +13808,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isIncomplete,
             node.rightExpression,
             /* ignoreEmptyContainers */ true,
+            /* allowAssignmentToFinalVar */ true,
             expectedTypeDiagAddendum
         );
 
