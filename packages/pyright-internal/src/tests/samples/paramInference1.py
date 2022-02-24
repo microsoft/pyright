@@ -19,3 +19,9 @@ def func2(a, b=0, c=None):
     reveal_type(a, expected_text="Unknown")
     reveal_type(b, expected_text="int")
     reveal_type(c, expected_text="Unknown | None")
+
+
+def func3(a=(1, 2), b=[1,2], c={1: 2}):
+    reveal_type(a, expected_text="Unknown")
+    reveal_type(b, expected_text="Unknown")
+    reveal_type(c, expected_text="Unknown")

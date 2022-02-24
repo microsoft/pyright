@@ -15185,6 +15185,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return combineTypes([NoneType.createInstance(), UnknownType.create()]);
             }
 
+            // Do not infer certain types like tuple because it's likely to be
+            // more restrictive (narrower) than intended.
+            if (
+                isClassInstance(defaultValueType) &&
+                ClassType.isBuiltIn(defaultValueType, ['tuple', 'list', 'set', 'dict'])
+            ) {
+                return undefined;
+            }
+
             return stripLiteralValue(defaultValueType);
         }
 
