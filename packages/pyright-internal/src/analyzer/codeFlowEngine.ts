@@ -443,6 +443,7 @@ export function getCodeFlowEngine(
                             // suppression. If not, none of its antecedents are reachable.
                             const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
                             if (
+                                !contextMgrNode.isInTrySuite &&
                                 !contextMgrNode.expressions.some((expr) =>
                                     isExceptionContextManager(expr, contextMgrNode.isAsync)
                                 )
