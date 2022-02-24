@@ -656,7 +656,7 @@ test('TypePromotions1', () => {
 test('Index1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['index1.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('ProtocolModule2', () => {

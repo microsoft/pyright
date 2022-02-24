@@ -5379,7 +5379,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__getattribute__',
                 { method: 'get' },
                 /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass
+                MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
             )?.type;
 
             if (!getAttrType) {
@@ -5389,7 +5389,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     '__getattr__',
                     { method: 'get' },
                     /* diag */ undefined,
-                    MemberAccessFlags.SkipObjectBaseClass
+                    MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
                 )?.type;
             }
 
@@ -5423,7 +5423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__setattr__',
                 { method: 'get' },
                 /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass
+                MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
             )?.type;
             if (setAttrType) {
                 // The type doesn't matter for a set usage. We just need
@@ -5438,7 +5438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__detattr__',
                 { method: 'get' },
                 /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass
+                MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
             )?.type;
             if (delAttrType) {
                 // The type doesn't matter for a delete usage. We just need
@@ -5863,7 +5863,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             getIndexAccessMagicMethodName(usage),
                             /* usage */ undefined,
                             /* diag */ undefined,
-                            /* memberAccessFlags */ MemberAccessFlags.ConsiderMetaclassOnly
+                            MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
                         );
                         if (itemMethodType) {
                             return getTypeFromIndexedObjectOrClass(node, concreteSubtype, usage).type;
@@ -6044,14 +6044,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
         const itemMethodType = isClassInstance(baseType)
-            ? getTypeFromObjectMember(node, baseType, magicMethodName)?.type
+            ? getTypeFromObjectMember(
+                  node,
+                  baseType,
+                  magicMethodName,
+                  /* usage */ undefined,
+                  /* diag */ undefined,
+                  MemberAccessFlags.SkipAttributeAccessOverride
+              )?.type
             : getTypeFromClassMember(
                   node,
                   baseType,
                   magicMethodName,
                   /* usage */ undefined,
                   /* diag */ undefined,
-                  /* memberAccessFlags */ MemberAccessFlags.ConsiderMetaclassOnly
+                  MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
               )?.type;
 
         if (!itemMethodType) {

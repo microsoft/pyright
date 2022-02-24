@@ -81,3 +81,17 @@ class ClassD(Generic[TD]):
 
 def func2(container: ClassD[TD], value: TD):
     container[1] = value
+
+
+class ClassE:
+    def __getattr__(self, s: str) -> Any:
+        raise NotImplementedError()
+
+
+e = ClassE()
+
+# This should generate an error
+v_e = e["test"]
+
+# This should generate an error
+e["test"] = 3
