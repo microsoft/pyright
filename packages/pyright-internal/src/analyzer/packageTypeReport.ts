@@ -23,10 +23,13 @@ export enum SymbolCategory {
     TypeAlias,
 }
 
+// The order of these is important. Status values with higher numbers are
+// considered "worse" than status values with lower numbers.
 export const enum TypeKnownStatus {
-    Known,
-    PartiallyUnknown,
-    Unknown,
+    Known = 0, // Type is fully known (declared)
+    Ambiguous = 1, // Type is inferred and potentially ambiguous (may differ by type checker)
+    PartiallyUnknown = 2, // Part of the type is unknown
+    Unknown = 3, // The type is completely unknown
 }
 
 export interface SymbolInfo {

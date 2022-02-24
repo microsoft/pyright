@@ -13,13 +13,11 @@ These recommendations are intended to provide the following benefits:
 ## Inlined Type Annotations and Type Stubs
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) documents several ways type information can be delivered for a library: inlined type annotations, type stub files included in the package, a separate companion type stub package, and type stubs in the typeshed repository. Some of these options fall short on delivering the benefits above. We therefore provide the following more specific guidance to library authors.
 
-*All libraries should include inlined type annotations for the functions, classes, methods, and constants that comprise the public interface for the library.*
+All libraries should include inlined type annotations for the functions, classes, methods, and constants that comprise the public interface for the library.
 
 Inlined type annotations should be included directly within the source code that ships with the package. Of the options listed in PEP 561, inlined type annotations offer the most benefits. They typically require the least effort to add and maintain, they are always consistent with the implementation, and docstrings and default parameter values are readily available, allowing language servers to enhance the development experience.
 
-There are cases where inlined type annotations are not possible — most notably when a library’s exposed functionality is implemented in a language other than Python.
-
-*Libraries that expose symbols implemented in languages other than Python should include stub (“.pyi”) files that describe the types for those symbols. These stubs should also contain docstrings and default parameter values.*
+There are cases where inlined type annotations are not possible — most notably when a library’s exposed functionality is implemented in a language other than Python. Libraries that expose symbols implemented in languages other than Python should include stub (“.pyi”) files that describe the types for those symbols. These stubs should also contain docstrings and default parameter values.
 
 In many existing type stubs (such as those found in typeshed), default parameter values are replaced with with “...” and all docstrings are removed. We recommend that default values and docstrings remain within the type stub file so language servers can display this information to developers.
 
@@ -74,7 +72,6 @@ Variables:
 
 Type annotations can be omitted in a few specific cases where the type is obvious from the context:
 
-* A class or instance variable does not require an annotation if the class inherits from another class that has provided an annotation for the variable of the same name. The type is inherited from the parent class in this case.
 * Constants that are assigned simple literal values (e.g. `RED = '#F00'` or `MAX_TIMEOUT = 50` or `room_temperature: Final = 20`). A constant is a symbol that is assigned only once and is either annotated with `Final` or is named in all-caps. A constant that is not assigned a simple literal value requires explicit annotations, preferably with a `Final` annotation (e.g. `WOODWINDS: Final[List[str]] = ['Oboe', 'Bassoon']`).
 * Enum values within an Enum class do not require annotations because they take on the type of the Enum class.
 * Type aliases do not require annotations. A type alias is a symbol that is defined at a module level with a single assignment where the assigned value is an instantiable type, as opposed to a class instance (e.g. `Foo = Callable[[Literal["a", "b"]], Union[int, str]]` or `Bar = Optional[MyGenericClass[int]]`).
@@ -82,14 +79,26 @@ Type annotations can be omitted in a few specific cases where the type is obviou
 * The return type for an `__init__` method does not need to be specified, since it is always `None`.
 * The following module-level symbols do not require type annotations: `__all__`,`__author__`, `__copyright__`, `__email__`, `__license__`, `__title__`, `__uri__`, `__version__`.
 * The following class-level symbols do not require type annotations: `__class__`, `__dict__`, `__doc__`, `__module__`, `__slots__`.
+* A variable is assigned in only one location using a simple assignment expression and the right-hand side of the assignment is a literal value (e.g. `1`, `3.14`, `"hi"`, or `MyEnum.Value`) or an identifier that has a known type that doesn't depend on type narrowing logic.
 
-### Examples of known and unknown types
+
+### Ambiguous Types
+
+When a symbol is missing a type annotation, a type checker may be able to infer its type based on contextual information. However, type inference rules are not standardized and differ between type checkers. A symbol is said to have an “ambiguous type” if its type may be inferred differently between different Python type checkers. This can lead to a bad experience for consumers of the library.
+
+Ambiguous types can be avoided by providing explicit type annotations.
+
+
+### Examples of known, ambiguous and unknown types
 ```python
 
-# Variable with unknown type
+# Variable with known type (unambiguous because it uses a literal assignment)
+a = 3
+
+# Variable with ambiguous type
 a = [3, 4, 5]
 
-# Variable with known type
+# Variable with known (declared) type
 a: List[int] = [3, 4, 5]
 
 # Type alias with partially unknown type (because type
@@ -148,7 +157,7 @@ class MyClass:
 # Class with partially unknown type
 class MyClass:
     # Missing type annotation for class variable
-    height = 2.0
+    height = None
 
     # Missing input parameter annotations
     def __init__(self, name, age):
@@ -161,9 +170,9 @@ class MyClass:
         ...
 
 # Class with partially unknown type
-class BaseClass:
+class BaseClass1:
     # Missing type annotation
-    height = 2.0
+    height: = 2.0
 
     # Missing type annotation
     def get_stuff(self):
@@ -171,11 +180,20 @@ class BaseClass:
 
 # Class with known type (because it overrides all symbols
 # exposed by BaseClass that have incomplete types)
-class DerivedClass(BaseClass):
+class DerivedClass1(BaseClass1):
     height: float
 
     def get_stuff(self) -> str:
         ...
+
+# Class with known type
+class BaseClass2:
+    height: float = 2.0
+
+# Class with ambiguous type
+class DerivedClass2(BaseClass2):
+    # Missing type annotation, could be inferred as float or int
+    height = 1
 
 # Class with partially unknown type because base class
 # (dict) is generic, and type arguments are not specified.
@@ -189,7 +207,7 @@ Pyright provides a feature that allows library authors to verify type completene
 
 `pyright --verifytypes <lib>`
 
-Pyright will analyze the library, identify all symbols that comprise the interface to the library and emit errors for any symbols whose types are unknown. It also produces a “type completeness score” which is the percentage of symbols with known types.
+Pyright will analyze the library, identify all symbols that comprise the interface to the library and emit errors for any symbols whose types are ambiguous or unknown. It also produces a “type completeness score” which is the percentage of symbols with known types.
 
 To see additional details (including a full list of symbols in the library), append the `--verbose` option.
 

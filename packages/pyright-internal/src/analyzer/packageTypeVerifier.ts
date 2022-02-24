@@ -38,6 +38,7 @@ import {
     isClass,
     isInstantiableClass,
     isModule,
+    isTypeSame,
     isUnknown,
     ModuleType,
     Type,
@@ -342,7 +343,7 @@ export class PackageTypeVerifier {
                 const parseTree = sourceFile.getParseResults()!.parseTree;
                 const moduleScope = getScopeForNode(parseTree)!;
 
-                this._verifySymbolsInSymbolTable(
+                this._getTypeKnownStatusForSymbolTable(
                     report,
                     module.name,
                     moduleScope.symbolTable,
@@ -436,19 +437,19 @@ export class PackageTypeVerifier {
         return report.ignoreExternal && !fullTypeName.startsWith(report.packageName);
     }
 
-    private _verifySymbolsInSymbolTable(
+    private _getTypeKnownStatusForSymbolTable(
         report: PackageTypeReport,
         scopeName: string,
         symbolTable: SymbolTable,
         scopeType: ScopeType,
         publicSymbolMap: PublicSymbolMap,
         overrideSymbolCallback?: (name: string, symbol: Symbol) => Symbol
-    ): boolean {
+    ): TypeKnownStatus {
         if (this._shouldIgnoreType(report, scopeName)) {
-            return true;
+            return TypeKnownStatus.Known;
         }
 
-        let isKnown = true;
+        let knownStatus = TypeKnownStatus.Known;
 
         symbolTable.forEach((symbol, name) => {
             if (
@@ -469,10 +470,29 @@ export class PackageTypeVerifier {
                     return;
                 }
 
+                let symbolType = this._program.getTypeForSymbol(symbol);
+
+                let usesAmbiguousOverride = false;
+                let baseSymbolType: Type | undefined;
+                let childSymbolType: Type | undefined;
+
                 if (overrideSymbolCallback) {
-                    symbol = overrideSymbolCallback(name, symbol);
+                    const baseTypeSymbol = overrideSymbolCallback(name, symbol);
+
+                    if (baseTypeSymbol !== symbol) {
+                        childSymbolType = symbolType;
+                        baseSymbolType = this._program.getTypeForSymbol(baseTypeSymbol);
+
+                        // If the inferred type is ambiguous or the declared base class type is
+                        // not the same type as the inferred type, mark it as ambiguous because
+                        // different type checkers will get different results.
+                        if (TypeBase.isAmbiguous(childSymbolType) || !isTypeSame(baseSymbolType, childSymbolType)) {
+                            usesAmbiguousOverride = true;
+                        }
+
+                        symbolType = baseSymbolType;
+                    }
                 }
-                const symbolType = this._program.getTypeForSymbol(symbol);
 
                 const typedDecls = symbol.getTypedDeclarations();
                 const primaryDecl = typedDecls.length > 0 ? typedDecls[typedDecls.length - 1] : undefined;
@@ -514,31 +534,79 @@ export class PackageTypeVerifier {
                     this._addSymbol(report, symbolInfo);
 
                     if (!this._isSymbolTypeImplied(scopeType, name)) {
-                        this._validateSymbolType(report, symbolInfo, symbolType, declRange, declPath, publicSymbolMap);
+                        this._getSymbolTypeKnownStatus(
+                            report,
+                            symbolInfo,
+                            symbolType,
+                            declRange,
+                            declPath,
+                            publicSymbolMap
+                        );
                     }
                 }
 
-                if (symbolInfo.typeKnownStatus !== TypeKnownStatus.Known) {
-                    isKnown = false;
+                if (usesAmbiguousOverride) {
+                    const decls = symbol.getDeclarations();
+                    const primaryDecl = decls.length > 0 ? decls[decls.length - 1] : undefined;
+                    const declRange = primaryDecl?.range || getEmptyRange();
+                    const declPath = primaryDecl?.path || '';
+
+                    const extraInfo = new DiagnosticAddendum();
+                    if (baseSymbolType) {
+                        extraInfo.addMessage(
+                            `Type declared in base class is "${this._program.printType(
+                                baseSymbolType,
+                                /* expandTypeAlias */ false
+                            )}"`
+                        );
+                    }
+
+                    if (childSymbolType) {
+                        extraInfo.addMessage(
+                            `Type inferred in child class is "${this._program.printType(
+                                childSymbolType,
+                                /* expandTypeAlias */ false
+                            )}"`
+                        );
+
+                        if (TypeBase.isAmbiguous(childSymbolType)) {
+                            extraInfo.addMessage(
+                                'Inferred child class type is missing type annotation and could be inferred differently by type checkers'
+                            );
+                        }
+                    }
+
+                    this._addSymbolError(
+                        symbolInfo,
+                        `Ambiguous base class override` + extraInfo.getString(),
+                        declRange,
+                        declPath
+                    );
+                    symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
+                        symbolInfo.typeKnownStatus,
+                        TypeKnownStatus.Ambiguous
+                    );
                 }
+
+                knownStatus = this._updateKnownStatusIfWorse(knownStatus, symbolInfo.typeKnownStatus);
             }
         });
 
-        return isKnown;
+        return knownStatus;
     }
 
     // Determines whether the type for the symbol in question is fully known.
     // If not, it adds diagnostics to the symbol information and updates the
     // typeKnownStatus field.
-    private _validateSymbolType(
+    private _getSymbolTypeKnownStatus(
         report: PackageTypeReport,
         symbolInfo: SymbolInfo,
         type: Type,
         declRange: Range,
         declFilePath: string,
         publicSymbolMap: PublicSymbolMap
-    ): boolean {
-        let isKnown = true;
+    ): TypeKnownStatus {
+        let knownStatus = TypeKnownStatus.Known;
 
         if (type.typeAliasInfo && type.typeAliasInfo.typeArguments) {
             type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
@@ -549,7 +617,7 @@ export class PackageTypeVerifier {
                         declRange,
                         declFilePath
                     );
-                    isKnown = false;
+                    knownStatus = TypeKnownStatus.Unknown;
                 } else if (isPartlyUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
@@ -559,9 +627,24 @@ export class PackageTypeVerifier {
                         declRange,
                         declFilePath
                     );
-                    isKnown = false;
+                    knownStatus = TypeKnownStatus.PartiallyUnknown;
                 }
             });
+        }
+
+        if (TypeBase.isAmbiguous(type) && !isUnknown(type)) {
+            const ambiguousDiag = new DiagnosticAddendum();
+            ambiguousDiag.addMessage(
+                `Inferred type is "${this._program.printType(type, /* expandTypeAlias */ false)}"`
+            );
+            this._addSymbolError(
+                symbolInfo,
+                'Type is missing type annotation and could be inferred differently by type checkers' +
+                    ambiguousDiag.getString(),
+                declRange,
+                declFilePath
+            );
+            knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Ambiguous);
         }
 
         switch (type.category) {
@@ -570,7 +653,7 @@ export class PackageTypeVerifier {
             case TypeCategory.None:
             case TypeCategory.Never:
             case TypeCategory.TypeVar:
-                return isKnown;
+                break;
 
             case TypeCategory.Unknown: {
                 this._addSymbolError(
@@ -581,30 +664,32 @@ export class PackageTypeVerifier {
                     declRange,
                     declFilePath
                 );
-                symbolInfo.typeKnownStatus = TypeKnownStatus.Unknown;
-                return false;
+                knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
+                break;
             }
 
             case TypeCategory.Union: {
                 doForEachSubtype(type, (subtype) => {
-                    if (
-                        !this._validateSymbolType(report, symbolInfo, subtype, declRange, declFilePath, publicSymbolMap)
-                    ) {
-                        isKnown = false;
-                    }
+                    knownStatus = this._updateKnownStatusIfWorse(
+                        knownStatus,
+                        this._getSymbolTypeKnownStatus(
+                            report,
+                            symbolInfo,
+                            subtype,
+                            declRange,
+                            declFilePath,
+                            publicSymbolMap
+                        )
+                    );
                 });
-
-                if (!isKnown) {
-                    symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
-                }
-
-                return isKnown;
+                break;
             }
 
             case TypeCategory.OverloadedFunction: {
                 for (const overload of type.overloads) {
-                    if (
-                        !this._validateSymbolType(
+                    knownStatus = this._updateKnownStatusIfWorse(
+                        knownStatus,
+                        this._getSymbolTypeKnownStatus(
                             report,
                             symbolInfo,
                             overload,
@@ -612,28 +697,27 @@ export class PackageTypeVerifier {
                             declFilePath,
                             publicSymbolMap
                         )
-                    ) {
-                        isKnown = false;
-                    }
+                    );
                 }
-
-                if (!isKnown) {
-                    symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
-                }
-                return isKnown;
+                break;
             }
 
             case TypeCategory.Function: {
                 if (!this._shouldIgnoreType(report, type.details.fullName)) {
-                    if (
-                        !this._validateFunctionType(report, type, publicSymbolMap, symbolInfo, declRange, declFilePath)
-                    ) {
-                        symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
-                        isKnown = false;
-                    }
+                    knownStatus = this._updateKnownStatusIfWorse(
+                        knownStatus,
+                        this._getFunctionTypeKnownStatus(
+                            report,
+                            type,
+                            publicSymbolMap,
+                            symbolInfo,
+                            declRange,
+                            declFilePath
+                        )
+                    );
                 }
 
-                return isKnown;
+                break;
             }
 
             case TypeCategory.Class: {
@@ -650,8 +734,9 @@ export class PackageTypeVerifier {
                             return;
                         }
 
-                        if (
-                            !this._validateSymbolType(
+                        knownStatus = this._updateKnownStatusIfWorse(
+                            knownStatus,
+                            this._getSymbolTypeKnownStatus(
                                 report,
                                 symbolInfo,
                                 accessType,
@@ -659,12 +744,10 @@ export class PackageTypeVerifier {
                                 '',
                                 publicSymbolMap
                             )
-                        ) {
-                            isKnown = false;
-                        }
+                        );
                     });
 
-                    return isKnown;
+                    break;
                 }
 
                 if (!this._shouldIgnoreType(report, type.details.fullName)) {
@@ -685,7 +768,7 @@ export class PackageTypeVerifier {
                                 declRange,
                                 declFilePath
                             );
-                            isKnown = false;
+                            knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                         } else if (isPartlyUnknown(typeArg)) {
                             const diag = new DiagnosticAddendum();
                             diag.addMessage(`Type is ${this._program.printType(typeArg, /* expandTypeAlias */ false)}`);
@@ -697,16 +780,12 @@ export class PackageTypeVerifier {
                                 declRange,
                                 declFilePath
                             );
-                            isKnown = false;
+                            knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                         }
                     });
                 }
 
-                if (!isKnown) {
-                    symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
-                }
-
-                return isKnown;
+                break;
             }
 
             case TypeCategory.Module: {
@@ -719,20 +798,21 @@ export class PackageTypeVerifier {
                             declRange,
                             declFilePath
                         );
-                        isKnown = false;
+                        knownStatus = this._updateKnownStatusIfWorse(knownStatus, moduleSymbol.typeKnownStatus);
                     }
                 }
 
-                if (!isKnown) {
-                    symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
-                }
-
-                return isKnown;
+                break;
             }
         }
+
+        // Downgrade the symbol's type known status info.
+        symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(symbolInfo.typeKnownStatus, knownStatus);
+
+        return knownStatus;
     }
 
-    private _validateFunctionType(
+    private _getFunctionTypeKnownStatus(
         report: PackageTypeReport,
         type: FunctionType,
         publicSymbolMap: PublicSymbolMap,
@@ -740,8 +820,8 @@ export class PackageTypeVerifier {
         declRange?: Range,
         declFilePath?: string,
         diag?: DiagnosticAddendum
-    ): boolean {
-        let isKnown = true;
+    ): TypeKnownStatus {
+        let knownStatus = TypeKnownStatus.Known;
 
         // If the file path wasn't provided, try to get it from the type.
         if (type.details.declaration && !declFilePath) {
@@ -774,7 +854,7 @@ export class PackageTypeVerifier {
                                 `Type annotation for parameter "${param.name}" is missing`
                             );
                         }
-                        isKnown = false;
+                        knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                     }
                 } else if (isUnknown(param.type)) {
                     if (symbolInfo) {
@@ -788,13 +868,21 @@ export class PackageTypeVerifier {
                             diag.createAddendum().addMessage(`Type of parameter "${param.name}" is unknown`);
                         }
                     }
-                    isKnown = false;
+                    knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                 } else {
                     const extraInfo = new DiagnosticAddendum();
-                    if (!this._isTypeKnown(report, param.type, publicSymbolMap, extraInfo.createAddendum())) {
+                    const paramKnownStatus = this._getTypeKnownStatus(
+                        report,
+                        param.type,
+                        publicSymbolMap,
+                        extraInfo.createAddendum()
+                    );
+
+                    if (paramKnownStatus !== TypeKnownStatus.Known) {
                         extraInfo.addMessage(
                             `Parameter type is "${this._program.printType(param.type, /* expandTypeAlias */ false)}"`
                         );
+
                         if (symbolInfo) {
                             this._addSymbolError(
                                 symbolInfo,
@@ -803,12 +891,14 @@ export class PackageTypeVerifier {
                                 declFilePath || ''
                             );
                         }
+
                         if (diag) {
                             const subDiag = diag.createAddendum();
                             subDiag.addMessage(`Type of parameter "${param.name}" is partially unknown`);
                             subDiag.addAddendum(extraInfo);
                         }
-                        isKnown = false;
+
+                        knownStatus = this._updateKnownStatusIfWorse(knownStatus, paramKnownStatus);
                     }
                 }
             }
@@ -824,23 +914,24 @@ export class PackageTypeVerifier {
                         declFilePath || ''
                     );
                 }
-                isKnown = false;
+                knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
             } else {
                 const extraInfo = new DiagnosticAddendum();
-                if (
-                    !this._isTypeKnown(
-                        report,
-                        type.details.declaredReturnType,
-                        publicSymbolMap,
-                        extraInfo.createAddendum()
-                    )
-                ) {
+                const returnTypeKnownStatus = this._getTypeKnownStatus(
+                    report,
+                    type.details.declaredReturnType,
+                    publicSymbolMap,
+                    extraInfo.createAddendum()
+                );
+
+                if (returnTypeKnownStatus !== TypeKnownStatus.Known) {
                     extraInfo.addMessage(
                         `Return type is "${this._program.printType(
                             type.details.declaredReturnType,
                             /* expandTypeAlias */ false
                         )}"`
                     );
+
                     if (symbolInfo) {
                         this._addSymbolError(
                             symbolInfo,
@@ -849,12 +940,14 @@ export class PackageTypeVerifier {
                             declFilePath || ''
                         );
                     }
+
                     if (diag) {
                         const subDiag = diag.createAddendum();
                         subDiag.addMessage(`Return type is partially unknown`);
                         subDiag.addAddendum(extraInfo);
                     }
-                    isKnown = false;
+
+                    knownStatus = this._updateKnownStatusIfWorse(knownStatus, returnTypeKnownStatus);
                 }
             }
         } else {
@@ -871,7 +964,7 @@ export class PackageTypeVerifier {
                 if (diag) {
                     diag.createAddendum().addMessage(`Return type annotation is missing`);
                 }
-                isKnown = false;
+                knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
             }
         }
 
@@ -904,11 +997,11 @@ export class PackageTypeVerifier {
             report.missingDefaultParamCount++;
         }
 
-        if (!isKnown && symbolInfo) {
-            symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
+        if (symbolInfo) {
+            symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(symbolInfo.typeKnownStatus, knownStatus);
         }
 
-        return isKnown;
+        return knownStatus;
     }
 
     private _getSymbolForClass(
@@ -948,43 +1041,54 @@ export class PackageTypeVerifier {
             report.missingClassDocStringCount++;
         }
 
-        if (
-            !this._verifySymbolsInSymbolTable(
-                report,
-                type.details.fullName,
-                type.details.fields,
-                ScopeType.Class,
-                publicSymbolMap,
-                (name: string, symbol: Symbol) => {
-                    // If the symbol within this class is lacking a type declaration,
-                    // see if we can find a same-named symbol in a parent class with
-                    // a type declaration.
-                    if (!symbol.hasTypedDeclarations()) {
-                        for (const mroClass of type.details.mro.slice(1)) {
-                            if (isClass(mroClass)) {
-                                const overrideSymbol = mroClass.details.fields.get(name);
-                                if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
-                                    return overrideSymbol;
-                                }
+        const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
+            report,
+            type.details.fullName,
+            type.details.fields,
+            ScopeType.Class,
+            publicSymbolMap,
+            (name: string, symbol: Symbol) => {
+                // If the symbol within this class is lacking a type declaration,
+                // see if we can find a same-named symbol in a parent class with
+                // a type declaration.
+                if (!symbol.hasTypedDeclarations()) {
+                    for (const mroClass of type.details.mro.slice(1)) {
+                        if (isClass(mroClass)) {
+                            const overrideSymbol = mroClass.details.fields.get(name);
+                            if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
+                                return overrideSymbol;
                             }
                         }
                     }
-
-                    return symbol;
                 }
-            )
-        ) {
-            symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
-        }
+
+                return symbol;
+            }
+        );
+
+        symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
+            symbolInfo.typeKnownStatus,
+            symbolTableTypeKnownStatus
+        );
 
         // Add information for the metaclass.
         if (type.details.effectiveMetaclass) {
             if (!isInstantiableClass(type.details.effectiveMetaclass)) {
                 this._addSymbolError(symbolInfo, `Type of metaclass unknown`, getEmptyRange(), '');
-                symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
+                symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
+                    symbolInfo.typeKnownStatus,
+                    TypeKnownStatus.PartiallyUnknown
+                );
             } else {
                 const diag = new DiagnosticAddendum();
-                if (!this._isTypeKnown(report, type.details.effectiveMetaclass, publicSymbolMap, diag)) {
+                const metaclassKnownStatus = this._getTypeKnownStatus(
+                    report,
+                    type.details.effectiveMetaclass,
+                    publicSymbolMap,
+                    diag
+                );
+
+                if (metaclassKnownStatus !== TypeKnownStatus.Known) {
                     this._addSymbolError(
                         symbolInfo,
                         `Type of metaclass "${type.details.effectiveMetaclass}" is partially unknown` +
@@ -992,7 +1096,10 @@ export class PackageTypeVerifier {
                         getEmptyRange(),
                         ''
                     );
-                    symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
+                    symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
+                        symbolInfo.typeKnownStatus,
+                        metaclassKnownStatus
+                    );
                 }
             }
         }
@@ -1001,7 +1108,10 @@ export class PackageTypeVerifier {
         type.details.baseClasses.forEach((baseClass) => {
             if (!isInstantiableClass(baseClass)) {
                 this._addSymbolError(symbolInfo, `Type of base class unknown`, getEmptyRange(), '');
-                symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
+                symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
+                    symbolInfo.typeKnownStatus,
+                    TypeKnownStatus.PartiallyUnknown
+                );
             } else {
                 // Handle "tuple" specially. Even though it's a generic class, it
                 // doesn't require a type argument.
@@ -1010,14 +1120,20 @@ export class PackageTypeVerifier {
                 }
 
                 const diag = new DiagnosticAddendum();
-                if (!this._isTypeKnown(report, baseClass, publicSymbolMap, diag)) {
+                const baseClassTypeStatus = this._getTypeKnownStatus(report, baseClass, publicSymbolMap, diag);
+
+                if (baseClassTypeStatus !== TypeKnownStatus.Known) {
                     this._addSymbolError(
                         symbolInfo,
                         `Type of base class "${baseClass.details.fullName}" is partially unknown` + diag.getString(),
                         getEmptyRange(),
                         ''
                     );
-                    symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
+
+                    symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
+                        symbolInfo.typeKnownStatus,
+                        baseClassTypeStatus
+                    );
                 }
             }
         });
@@ -1050,22 +1166,29 @@ export class PackageTypeVerifier {
 
         this._addSymbol(report, symbolInfo);
 
-        if (
-            !this._verifySymbolsInSymbolTable(report, type.moduleName, type.fields, ScopeType.Module, publicSymbolMap)
-        ) {
-            symbolInfo.typeKnownStatus = TypeKnownStatus.PartiallyUnknown;
-        }
+        const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
+            report,
+            type.moduleName,
+            type.fields,
+            ScopeType.Module,
+            publicSymbolMap
+        );
+
+        symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
+            symbolInfo.typeKnownStatus,
+            symbolTableTypeKnownStatus
+        );
 
         return symbolInfo;
     }
 
-    private _isTypeKnown(
+    private _getTypeKnownStatus(
         report: PackageTypeReport,
         type: Type,
         publicSymbolMap: PublicSymbolMap,
         diag: DiagnosticAddendum
-    ): boolean {
-        let isKnown = true;
+    ): TypeKnownStatus {
+        let knownStatus = TypeKnownStatus.Known;
 
         if (type.typeAliasInfo && type.typeAliasInfo.typeArguments) {
             type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
@@ -1073,16 +1196,20 @@ export class PackageTypeVerifier {
                     diag.addMessage(
                         `Type argument ${index + 1} for type alias "${type.typeAliasInfo!.name}" has unknown type`
                     );
-                    isKnown = false;
+                    knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                 } else if (isPartlyUnknown(typeArg)) {
                     diag.addMessage(
                         `Type argument ${index + 1} for type alias "${
                             type.typeAliasInfo!.name
                         }" has partially unknown type`
                     );
-                    isKnown = false;
+                    knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                 }
             });
+        }
+
+        if (TypeBase.isAmbiguous(type)) {
+            knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Ambiguous);
         }
 
         switch (type.category) {
@@ -1091,36 +1218,40 @@ export class PackageTypeVerifier {
             case TypeCategory.None:
             case TypeCategory.Never:
             case TypeCategory.TypeVar:
-                return isKnown;
+                break;
 
             case TypeCategory.Unknown: {
-                return false;
+                knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
+                break;
             }
 
             case TypeCategory.Union: {
                 doForEachSubtype(type, (subtype) => {
-                    if (!this._isTypeKnown(report, subtype, publicSymbolMap, diag.createAddendum())) {
-                        isKnown = false;
-                    }
+                    knownStatus = this._updateKnownStatusIfWorse(
+                        knownStatus,
+                        this._getTypeKnownStatus(report, subtype, publicSymbolMap, diag.createAddendum())
+                    );
                 });
 
-                return isKnown;
+                break;
             }
 
             case TypeCategory.OverloadedFunction: {
                 for (const overload of type.overloads) {
-                    if (!this._isTypeKnown(report, overload, publicSymbolMap, diag.createAddendum())) {
-                        isKnown = false;
-                    }
+                    knownStatus = this._updateKnownStatusIfWorse(
+                        knownStatus,
+                        this._getTypeKnownStatus(report, overload, publicSymbolMap, diag.createAddendum())
+                    );
                 }
 
-                return isKnown;
+                break;
             }
 
             case TypeCategory.Function: {
                 if (!this._shouldIgnoreType(report, type.details.fullName)) {
-                    if (
-                        !this._validateFunctionType(
+                    knownStatus = this._updateKnownStatusIfWorse(
+                        knownStatus,
+                        this._getFunctionTypeKnownStatus(
                             report,
                             type,
                             publicSymbolMap,
@@ -1129,12 +1260,10 @@ export class PackageTypeVerifier {
                             /* declFilePath */ undefined,
                             diag
                         )
-                    ) {
-                        isKnown = false;
-                    }
+                    );
                 }
 
-                return isKnown;
+                break;
             }
 
             case TypeCategory.Class: {
@@ -1153,30 +1282,30 @@ export class PackageTypeVerifier {
                             diag.addMessage(
                                 `Type argument ${index + 1} for class "${type.details.name}" has unknown type`
                             );
-                            isKnown = false;
+                            knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                         } else if (isPartlyUnknown(typeArg)) {
                             diag.addMessage(
                                 `Type argument ${index + 1} for class "${type.details.name}" has partially unknown type`
                             );
-                            isKnown = false;
+                            knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                         }
                     });
                 }
 
-                return isKnown;
+                break;
             }
 
             case TypeCategory.Module: {
                 if (!this._shouldIgnoreType(report, type.moduleName)) {
                     const moduleSymbol = this._getSymbolForModule(report, type, publicSymbolMap);
-                    if (moduleSymbol.typeKnownStatus !== TypeKnownStatus.Known) {
-                        isKnown = false;
-                    }
+                    knownStatus = this._updateKnownStatusIfWorse(knownStatus, moduleSymbol.typeKnownStatus);
                 }
 
-                return isKnown;
+                break;
             }
         }
+
+        return knownStatus;
     }
 
     private _getSymbolCategory(symbol: Symbol, type: Type): SymbolCategory {
@@ -1304,5 +1433,10 @@ export class PackageTypeVerifier {
             diagnostic: new Diagnostic(DiagnosticCategory.Warning, message, declRange),
             filePath: declFilePath,
         });
+    }
+
+    private _updateKnownStatusIfWorse(currentStatus: TypeKnownStatus, newStatus: TypeKnownStatus) {
+        // Is the current status worse than the current status.
+        return newStatus > currentStatus ? newStatus : currentStatus;
     }
 }
