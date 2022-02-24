@@ -8163,13 +8163,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         // The one-parameter form of "type" returns the class
                                         // for the specified object.
                                         const argType = getTypeForArgument(argList[0]).type;
-                                        if (
-                                            isClassInstance(argType) ||
-                                            (isTypeVar(argType) && TypeBase.isInstance(argType)) ||
-                                            isNoneInstance(argType)
-                                        ) {
-                                            return convertToInstantiable(stripLiteralValue(argType));
-                                        }
+                                        return mapSubtypes(argType, (subtype) => {
+                                            if (
+                                                isClassInstance(subtype) ||
+                                                (isTypeVar(subtype) && TypeBase.isInstance(subtype)) ||
+                                                isNoneInstance(subtype)
+                                            ) {
+                                                return convertToInstantiable(stripLiteralValue(subtype));
+                                            }
+
+                                            return AnyType.create();
+                                        });
                                     } else if (argList.length >= 2) {
                                         // The two-parameter form of "type" returns a new class type
                                         // built from the specified base types.
