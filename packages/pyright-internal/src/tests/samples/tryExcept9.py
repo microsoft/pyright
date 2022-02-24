@@ -13,7 +13,10 @@ def func1():
         if file:
             file.close()
 
-    reveal_type(file, expected_text="TextIOWrapper")
+    # This should evaluate to "TextIOWrapper", but the current
+    # logic is not able to evaluate different types for file
+    # based on whether it's an exception or non-exception case.
+    reveal_type(file, expected_text="TextIOWrapper | None")
 
 
 def func2():

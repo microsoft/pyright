@@ -839,11 +839,13 @@ export function getCodeFlowEngine(
                                 isInitialTypeIncomplete
                             );
 
-                            // Mark the result as incomplete even if the result of the recursive
-                            // call indicated it was complete. This will prevent the type from
-                            // being permanently cached. We want to cache the type only if
-                            // we're evaluating the "gate closed" path.
-                            return setCacheEntry(curFlowNode, flowTypeResult.type, /* isIncomplete */ true);
+                            // We want to cache the type only if we're evaluating the "gate closed" path.
+                            deleteCacheEntry(curFlowNode);
+
+                            return {
+                                type: flowTypeResult.type,
+                                isIncomplete: flowTypeResult.isIncomplete,
+                            };
                         } catch (e) {
                             deleteCacheEntry(curFlowNode);
                             throw e;
