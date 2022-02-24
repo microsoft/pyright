@@ -62,3 +62,15 @@ class Protocol5(Protocol):
 # not implemented.
 class Concrete5(Protocol5):
     pass
+
+
+class Protocol6(Protocol):
+    x: int
+
+
+class Mixin:
+    x = 3
+
+
+class Concrete6(Mixin, Protocol6):
+    pass

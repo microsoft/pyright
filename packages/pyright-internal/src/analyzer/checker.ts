@@ -3379,6 +3379,12 @@ export class Checker extends ParseTreeWalker {
 
         const diagAddendum = new DiagnosticAddendum();
 
+        const isSymbolImplemented = (name: string) => {
+            return classType.details.mro.some((mroClass) => {
+                return isClass(mroClass) && !ClassType.isProtocolClass(mroClass) && mroClass.details.fields.has(name);
+            });
+        };
+
         classType.details.baseClasses.forEach((baseClass) => {
             if (!isClass(baseClass) || !ClassType.isProtocolClass(baseClass)) {
                 return;
@@ -3399,7 +3405,7 @@ export class Checker extends ParseTreeWalker {
                     if (!decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
                         // This is a variable declaration that is not implemented in the
                         // protocol base class. Make sure it's implemented in the derived class.
-                        if (!classType.details.fields.has(name)) {
+                        if (!isSymbolImplemented(name)) {
                             diagAddendum.addMessage(
                                 Localizer.DiagnosticAddendum.missingProtocolMember().format({
                                     name,
@@ -3411,7 +3417,7 @@ export class Checker extends ParseTreeWalker {
                 } else if (decls[0].type === DeclarationType.Function) {
                     if (ParseTreeUtils.isSuiteEmpty(decls[0].node.suite) && decls[0]) {
                         if (getFileExtension(decls[0].path).toLowerCase() !== '.pyi') {
-                            if (!classType.details.fields.has(name)) {
+                            if (!isSymbolImplemented(name)) {
                                 diagAddendum.addMessage(
                                     Localizer.DiagnosticAddendum.missingProtocolMember().format({
                                         name,
