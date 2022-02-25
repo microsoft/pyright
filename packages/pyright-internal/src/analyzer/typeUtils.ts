@@ -367,7 +367,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         entry.valueType
                     );
                 });
-            } else {
+            } else if (param.name) {
                 if (result.kwargsIndex === undefined) {
                     result.kwargsIndex = result.params.length;
                 }
