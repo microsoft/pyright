@@ -100,6 +100,7 @@ test('Builtins1', () => {
         'Warning',
         'WindowsError',
         'ZeroDivisionError',
+        '__build_class__',
         '__import__',
         '__loader__',
         '__name__',
