@@ -3235,6 +3235,11 @@ export class Parser {
                 }
 
                 atomExpression = indexNode;
+
+                if (atomExpression.maxChildDepth !== undefined && atomExpression.maxChildDepth >= maxChildNodeDepth) {
+                    atomExpression = ErrorNode.create(atomExpression, ErrorExpressionCategory.MaxDepthExceeded);
+                    this._addError(Localizer.Diagnostic.maxParseDepthExceeded(), atomExpression);
+                }
             } else if (this._consumeTokenIfType(TokenType.Dot)) {
                 // Is it a member access?
                 const memberName = this._getTokenIfIdentifier();
@@ -3247,6 +3252,11 @@ export class Parser {
                     );
                 }
                 atomExpression = MemberAccessNode.create(atomExpression, NameNode.create(memberName));
+
+                if (atomExpression.maxChildDepth !== undefined && atomExpression.maxChildDepth >= maxChildNodeDepth) {
+                    atomExpression = ErrorNode.create(atomExpression, ErrorExpressionCategory.MaxDepthExceeded);
+                    this._addError(Localizer.Diagnostic.maxParseDepthExceeded(), atomExpression);
+                }
             } else {
                 break;
             }

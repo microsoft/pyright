@@ -79,6 +79,12 @@ test('MaxParseDepth1', () => {
     assert.strictEqual(diagSink.getErrors().length, 1);
 });
 
+test('MaxParseDepth2', () => {
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseSampleFile('maxParseDepth2.py', diagSink);
+    assert.strictEqual(diagSink.getErrors().length, 2);
+});
+
 test('ModuleName range', () => {
     const code = `
 //// from [|/*marker*/...|] import A

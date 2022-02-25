@@ -1175,6 +1175,8 @@ export namespace IndexNode {
 
         extendRange(node, closeBracketToken);
 
+        node.maxChildDepth = 1 + (baseExpression.maxChildDepth ?? 0);
+
         return node;
     }
 }
@@ -1267,6 +1269,8 @@ export namespace MemberAccessNode {
         memberName.parent = node;
 
         extendRange(node, memberName);
+
+        node.maxChildDepth = 1 + (leftExpression.maxChildDepth ?? 0);
 
         return node;
     }
