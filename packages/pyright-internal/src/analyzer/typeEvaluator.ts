@@ -21041,7 +21041,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If it's a class, use the constructor for type compatibility checking.
             if (isInstantiableClass(concreteSrcType) && concreteSrcType.literalValue === undefined) {
-                const constructor = createFunctionFromConstructor(concreteSrcType);
+                const constructor = createFunctionFromConstructor(concreteSrcType, recursionCount);
                 if (constructor) {
                     concreteSrcType = constructor;
                 }
@@ -21558,7 +21558,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Synthesize a function that represents the constructor for this class
     // taking into consideration the __init__ and __new__ methods.
-    function createFunctionFromConstructor(classType: ClassType): FunctionType | OverloadedFunctionType | undefined {
+    function createFunctionFromConstructor(
+        classType: ClassType,
+        recursionCount = 0
+    ): FunctionType | OverloadedFunctionType | undefined {
         // Use the __init__ method if available. It's usually more detailed.
         const initInfo = lookUpClassMember(
             classType,
@@ -21571,9 +21574,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const objectType = ClassType.cloneAsInstance(classType);
 
             const convertInitToConstructor = (initSubtype: FunctionType) => {
-                let constructorFunction = bindFunctionToClassOrObject(objectType, initSubtype) as
-                    | FunctionType
-                    | undefined;
+                let constructorFunction = bindFunctionToClassOrObject(
+                    objectType,
+                    initSubtype,
+                    /* memberClass */ undefined,
+                    /* errorNode */ undefined,
+                    recursionCount
+                ) as FunctionType | undefined;
                 if (constructorFunction) {
                     constructorFunction = FunctionType.clone(constructorFunction);
                     constructorFunction.details.declaredReturnType = objectType;
