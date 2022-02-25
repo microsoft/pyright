@@ -1,7 +1,6 @@
 import ssl
 import sys
 from _typeshed import FileDescriptorLike
-from abc import ABCMeta
 from asyncio.events import AbstractEventLoop, AbstractServer, Handle, TimerHandle
 from asyncio.futures import Future
 from asyncio.protocols import BaseProtocol
@@ -14,6 +13,10 @@ from typing_extensions import Literal
 
 if sys.version_info >= (3, 7):
     from contextvars import Context
+
+    __all__ = ("BaseEventLoop",)
+else:
+    __all__ = ["BaseEventLoop"]
 
 _T = TypeVar("_T")
 _ProtocolT = TypeVar("_ProtocolT", bound=BaseProtocol)
@@ -33,6 +36,10 @@ class Server(AbstractServer):
             backlog: int,
             ssl_handshake_timeout: float | None,
         ) -> None: ...
+        def get_loop(self) -> AbstractEventLoop: ...
+        def is_serving(self) -> bool: ...
+        async def start_serving(self) -> None: ...
+        async def serve_forever(self) -> None: ...
     else:
         def __init__(self, loop: AbstractEventLoop, sockets: list[socket]) -> None: ...
     if sys.version_info >= (3, 8):
@@ -43,8 +50,10 @@ class Server(AbstractServer):
         def sockets(self) -> list[socket]: ...
     else:
         sockets: list[socket] | None
+    def close(self) -> None: ...
+    async def wait_closed(self) -> None: ...
 
-class BaseEventLoop(AbstractEventLoop, metaclass=ABCMeta):
+class BaseEventLoop(AbstractEventLoop):
     def run_forever(self) -> None: ...
     # Can't use a union, see mypy issue  # 1873.
     @overload

@@ -2,6 +2,11 @@ import sys
 from _typeshed import Self
 from typing import Iterable, TextIO
 
+if sys.version_info >= (3, 8):
+    __all__ = ["shlex", "split", "quote", "join"]
+else:
+    __all__ = ["shlex", "split", "quote"]
+
 def split(s: str, comments: bool = ..., posix: bool = ...) -> list[str]: ...
 
 if sys.version_info >= (3, 8):

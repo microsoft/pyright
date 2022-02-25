@@ -1,5 +1,7 @@
 from typing import Any, Callable
+from typing_extensions import final
 
+@final
 class make_encoder:
     sort_keys: Any
     skipkeys: Any
@@ -23,6 +25,7 @@ class make_encoder:
     ) -> None: ...
     def __call__(self, obj: object, _current_indent_level: int) -> Any: ...
 
+@final
 class make_scanner:
     object_hook: Any
     object_pairs_hook: Any

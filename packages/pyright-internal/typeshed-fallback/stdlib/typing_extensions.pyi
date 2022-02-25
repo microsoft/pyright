@@ -145,12 +145,17 @@ else:
     def assert_never(__arg: NoReturn) -> NoReturn: ...
 
 # Experimental (hopefully these will be in 3.11)
-
-# PEP 655
 Required: _SpecialForm
 NotRequired: _SpecialForm
+LiteralString: _SpecialForm
+Unpack: _SpecialForm
 
-# PEP 681
+@final
+class TypeVarTuple:
+    __name__: str
+    def __init__(self, name: str) -> None: ...
+    def __iter__(self) -> Any: ...  # Unpack[Self]
+
 def dataclass_transform(
     *,
     eq_default: bool = ...,
@@ -160,16 +165,6 @@ def dataclass_transform(
 ) -> Callable[[_T], _T]: ...
 
 # Types not yet implemented in typing_extensions library
-
-# PEP 646
-Unpack: _SpecialForm = ...
-
-class TypeVarTuple:
-    __name__: str
-    def __init__(self, name: str) -> None: ...
-
-# PEP 675
-LiteralString: _SpecialForm = ...
 
 # Proposed extension to PEP 647
 StrictTypeGuard: _SpecialForm = ...

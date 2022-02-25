@@ -4,6 +4,30 @@ from typing import Any, AnyStr, Callable, Generic, Mapping, NamedTuple, Sequence
 if sys.version_info >= (3, 9):
     from types import GenericAlias
 
+__all__ = [
+    "urlparse",
+    "urlunparse",
+    "urljoin",
+    "urldefrag",
+    "urlsplit",
+    "urlunsplit",
+    "urlencode",
+    "parse_qs",
+    "parse_qsl",
+    "quote",
+    "quote_plus",
+    "quote_from_bytes",
+    "unquote",
+    "unquote_plus",
+    "unquote_to_bytes",
+    "DefragResult",
+    "ParseResult",
+    "SplitResult",
+    "DefragResultBytes",
+    "ParseResultBytes",
+    "SplitResultBytes",
+]
+
 _Str = Union[bytes, str]
 
 uses_relative: list[str]

@@ -16,6 +16,63 @@ from .unix_events import AbstractChildWatcher
 if sys.version_info >= (3, 7):
     from contextvars import Context
 
+if sys.version_info >= (3, 8):
+    __all__ = (
+        "AbstractEventLoopPolicy",
+        "AbstractEventLoop",
+        "AbstractServer",
+        "Handle",
+        "TimerHandle",
+        "get_event_loop_policy",
+        "set_event_loop_policy",
+        "get_event_loop",
+        "set_event_loop",
+        "new_event_loop",
+        "get_child_watcher",
+        "set_child_watcher",
+        "_set_running_loop",
+        "get_running_loop",
+        "_get_running_loop",
+    )
+
+elif sys.version_info >= (3, 7):
+    __all__ = (
+        "AbstractEventLoopPolicy",
+        "AbstractEventLoop",
+        "AbstractServer",
+        "Handle",
+        "TimerHandle",
+        "SendfileNotAvailableError",
+        "get_event_loop_policy",
+        "set_event_loop_policy",
+        "get_event_loop",
+        "set_event_loop",
+        "new_event_loop",
+        "get_child_watcher",
+        "set_child_watcher",
+        "_set_running_loop",
+        "get_running_loop",
+        "_get_running_loop",
+    )
+
+else:
+    __all__ = [
+        "AbstractEventLoopPolicy",
+        "AbstractEventLoop",
+        "AbstractServer",
+        "Handle",
+        "TimerHandle",
+        "get_event_loop_policy",
+        "set_event_loop_policy",
+        "get_event_loop",
+        "set_event_loop",
+        "new_event_loop",
+        "get_child_watcher",
+        "set_child_watcher",
+        "_set_running_loop",
+        "_get_running_loop",
+    ]
+
 _T = TypeVar("_T")
 _ProtocolT = TypeVar("_ProtocolT", bound=BaseProtocol)
 _Context = dict[str, Any]
@@ -55,19 +112,31 @@ class TimerHandle(Handle):
     if sys.version_info >= (3, 7):
         def when(self) -> float: ...
 
+    def __lt__(self, other: TimerHandle) -> bool: ...
+    def __le__(self, other: TimerHandle) -> bool: ...
+    def __gt__(self, other: TimerHandle) -> bool: ...
+    def __ge__(self, other: TimerHandle) -> bool: ...
+    def __eq__(self, other: object) -> bool: ...
+
 class AbstractServer:
+    @abstractmethod
     def close(self) -> None: ...
     if sys.version_info >= (3, 7):
         async def __aenter__(self: Self) -> Self: ...
         async def __aexit__(self, *exc: Any) -> None: ...
+        @abstractmethod
         def get_loop(self) -> AbstractEventLoop: ...
+        @abstractmethod
         def is_serving(self) -> bool: ...
+        @abstractmethod
         async def start_serving(self) -> None: ...
+        @abstractmethod
         async def serve_forever(self) -> None: ...
 
+    @abstractmethod
     async def wait_closed(self) -> None: ...
 
-class AbstractEventLoop(metaclass=ABCMeta):
+class AbstractEventLoop:
     slow_callback_duration: float
     @abstractmethod
     def run_forever(self) -> None: ...
@@ -89,12 +158,25 @@ class AbstractEventLoop(metaclass=ABCMeta):
     @abstractmethod
     async def shutdown_asyncgens(self) -> None: ...
     # Methods scheduling callbacks.  All these return Handles.
-    @abstractmethod
-    def call_soon(self, callback: Callable[..., Any], *args: Any) -> Handle: ...
-    @abstractmethod
-    def call_later(self, delay: float, callback: Callable[..., Any], *args: Any) -> TimerHandle: ...
-    @abstractmethod
-    def call_at(self, when: float, callback: Callable[..., Any], *args: Any) -> TimerHandle: ...
+    if sys.version_info >= (3, 9):  # "context" added in 3.9.10/3.10.2
+        @abstractmethod
+        def call_soon(self, callback: Callable[..., Any], *args: Any, context: Context | None = ...) -> Handle: ...
+        @abstractmethod
+        def call_later(
+            self, delay: float, callback: Callable[..., Any], *args: Any, context: Context | None = ...
+        ) -> TimerHandle: ...
+        @abstractmethod
+        def call_at(
+            self, when: float, callback: Callable[..., Any], *args: Any, context: Context | None = ...
+        ) -> TimerHandle: ...
+    else:
+        @abstractmethod
+        def call_soon(self, callback: Callable[..., Any], *args: Any) -> Handle: ...
+        @abstractmethod
+        def call_later(self, delay: float, callback: Callable[..., Any], *args: Any) -> TimerHandle: ...
+        @abstractmethod
+        def call_at(self, when: float, callback: Callable[..., Any], *args: Any) -> TimerHandle: ...
+
     @abstractmethod
     def time(self) -> float: ...
     # Future methods
@@ -115,8 +197,13 @@ class AbstractEventLoop(metaclass=ABCMeta):
     @abstractmethod
     def get_task_factory(self) -> Callable[[AbstractEventLoop, Generator[Any, None, _T]], Future[_T]] | None: ...
     # Methods for interacting with threads
-    @abstractmethod
-    def call_soon_threadsafe(self, callback: Callable[..., Any], *args: Any) -> Handle: ...
+    if sys.version_info >= (3, 9):  # "context" added in 3.9.10/3.10.2
+        @abstractmethod
+        def call_soon_threadsafe(self, callback: Callable[..., Any], *args: Any, context: Context | None = ...) -> Handle: ...
+    else:
+        @abstractmethod
+        def call_soon_threadsafe(self, callback: Callable[..., Any], *args: Any) -> Handle: ...
+
     @abstractmethod
     def run_in_executor(self, executor: Any, func: Callable[..., _T], *args: Any) -> Future[_T]: ...
     @abstractmethod
@@ -473,7 +560,7 @@ class AbstractEventLoop(metaclass=ABCMeta):
         @abstractmethod
         async def shutdown_default_executor(self) -> None: ...
 
-class AbstractEventLoopPolicy(metaclass=ABCMeta):
+class AbstractEventLoopPolicy:
     @abstractmethod
     def get_event_loop(self) -> AbstractEventLoop: ...
     @abstractmethod

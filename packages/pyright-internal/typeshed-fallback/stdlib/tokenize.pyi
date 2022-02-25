@@ -4,6 +4,11 @@ from builtins import open as _builtin_open
 from token import *
 from typing import Any, Callable, Generator, Iterable, NamedTuple, Pattern, Sequence, TextIO, Union
 
+if sys.version_info >= (3, 8):
+    from token import EXACT_TOKEN_TYPES as EXACT_TOKEN_TYPES
+else:
+    EXACT_TOKEN_TYPES: dict[str, int]
+
 if sys.version_info < (3, 7):
     COMMENT: int
     NL: int

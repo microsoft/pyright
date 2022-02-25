@@ -2,6 +2,8 @@ from _typeshed import Self
 from types import TracebackType
 from typing import Iterator, MutableMapping, Union
 
+__all__ = ["error", "open"]
+
 _KeyType = Union[str, bytes]
 _ValueType = Union[str, bytes]
 

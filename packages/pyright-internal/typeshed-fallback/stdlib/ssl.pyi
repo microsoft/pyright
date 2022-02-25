@@ -3,7 +3,7 @@ import socket
 import sys
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
 from typing import Any, Callable, ClassVar, Iterable, NamedTuple, Optional, Union, overload
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal, TypedDict, final
 
 _PCTRTT = tuple[tuple[str, str], ...]
 _PCTRTTT = tuple[_PCTRTT, ...]
@@ -471,6 +471,7 @@ class SSLObject:
     if sys.version_info >= (3, 8):
         def verify_client_post_handshake(self) -> None: ...
 
+@final
 class MemoryBIO:
     pending: int
     eof: bool
@@ -478,6 +479,7 @@ class MemoryBIO:
     def write(self, __buf: bytes) -> int: ...
     def write_eof(self) -> None: ...
 
+@final
 class SSLSession:
     id: bytes
     time: int

@@ -5,6 +5,62 @@ from collections.abc import Callable, Iterable, MutableSequence, Sequence, Set a
 from fractions import Fraction
 from typing import Any, ClassVar, NoReturn, TypeVar
 
+if sys.version_info >= (3, 9):
+    __all__ = [
+        "Random",
+        "SystemRandom",
+        "betavariate",
+        "choice",
+        "choices",
+        "expovariate",
+        "gammavariate",
+        "gauss",
+        "getrandbits",
+        "getstate",
+        "lognormvariate",
+        "normalvariate",
+        "paretovariate",
+        "randbytes",
+        "randint",
+        "random",
+        "randrange",
+        "sample",
+        "seed",
+        "setstate",
+        "shuffle",
+        "triangular",
+        "uniform",
+        "vonmisesvariate",
+        "weibullvariate",
+    ]
+else:
+    __all__ = [
+        "Random",
+        "seed",
+        "random",
+        "uniform",
+        "randint",
+        "choice",
+        "sample",
+        "randrange",
+        "shuffle",
+        "normalvariate",
+        "lognormvariate",
+        "expovariate",
+        "vonmisesvariate",
+        "gammavariate",
+        "triangular",
+        "gauss",
+        "betavariate",
+        "paretovariate",
+        "weibullvariate",
+        "getstate",
+        "setstate",
+        "getrandbits",
+        "choices",
+        "SystemRandom",
+    ]
+
 _T = TypeVar("_T")
 
 class Random(_random.Random):

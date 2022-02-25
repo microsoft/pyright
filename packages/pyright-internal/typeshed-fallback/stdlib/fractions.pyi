@@ -2,12 +2,15 @@ import sys
 from _typeshed import Self
 from decimal import Decimal
 from numbers import Integral, Rational, Real
-from typing import Union, overload
+from typing import Any, Union, overload
 from typing_extensions import Literal
 
 _ComparableNum = Union[int, float, Decimal, Real]
 
-if sys.version_info < (3, 9):
+if sys.version_info >= (3, 9):
+    __all__ = ["Fraction"]
+else:
+    __all__ = ["Fraction", "gcd"]
     @overload
     def gcd(a: int, b: int) -> int: ...
     @overload
@@ -135,6 +138,8 @@ class Fraction(Rational):
     def __le__(self, other: _ComparableNum) -> bool: ...
     def __ge__(self, other: _ComparableNum) -> bool: ...
     def __bool__(self) -> bool: ...
+    def __copy__(self: Self) -> Self: ...
+    def __deepcopy__(self: Self, memo: Any) -> Self: ...
     if sys.version_info >= (3, 11):
         def __int__(self) -> int: ...
     # Not actually defined within fractions.py, but provides more useful

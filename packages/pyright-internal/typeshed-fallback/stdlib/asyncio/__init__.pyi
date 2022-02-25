@@ -107,6 +107,9 @@ if sys.version_info >= (3, 7):
         current_task as current_task,
     )
 
+if sys.version_info >= (3, 11):
+    from .taskgroups import TaskGroup as TaskGroup
+
 DefaultEventLoopPolicy: type[AbstractEventLoopPolicy]
 
 if sys.platform == "win32":

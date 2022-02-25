@@ -9,6 +9,24 @@ from types import TracebackType
 from typing import IO, Protocol, overload
 from typing_extensions import Literal
 
+__all__ = [
+    "TarFile",
+    "TarInfo",
+    "is_tarfile",
+    "TarError",
+    "ReadError",
+    "CompressionError",
+    "StreamError",
+    "ExtractError",
+    "HeaderError",
+    "ENCODING",
+    "USTAR_FORMAT",
+    "GNU_FORMAT",
+    "PAX_FORMAT",
+    "DEFAULT_FORMAT",
+    "open",
+]
+
 class _Fileobj(Protocol):
     def read(self, __size: int) -> bytes: ...
     def write(self, __b: bytes) -> object: ...

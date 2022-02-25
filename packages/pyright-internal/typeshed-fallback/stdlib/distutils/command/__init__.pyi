@@ -1,3 +1,5 @@
+import sys
+
 from . import (
     bdist_dumb as bdist_dumb,
     bdist_rpm as bdist_rpm,
@@ -16,6 +18,9 @@ from . import (
     sdist as sdist,
     upload as upload,
 )
+
+if sys.version_info < (3, 10):
+    from . import bdist_wininst as bdist_wininst
 
 __all__ = [
     "build",

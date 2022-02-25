@@ -8,6 +8,22 @@ from typing_extensions import Literal
 if sys.version_info >= (3, 9):
     from types import GenericAlias
 
+__all__ = [
+    "NamedTemporaryFile",
+    "TemporaryFile",
+    "SpooledTemporaryFile",
+    "TemporaryDirectory",
+    "mkstemp",
+    "mkdtemp",
+    "mktemp",
+    "TMP_MAX",
+    "gettempprefix",
+    "tempdir",
+    "gettempdir",
+    "gettempprefixb",
+    "gettempdirb",
+]
+
 # global variables
 TMP_MAX: int
 tempdir: str | None
@@ -295,7 +311,7 @@ class SpooledTemporaryFile(IO[AnyStr]):
     def __enter__(self: Self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
-    ) -> bool | None: ...
+    ) -> None: ...
     # These methods are copied from the abstract methods of IO, because
     # SpooledTemporaryFile implements IO.
     # See also https://github.com/python/typeshed/pull/2452#issuecomment-420657918.
@@ -308,7 +324,7 @@ class SpooledTemporaryFile(IO[AnyStr]):
     def readlines(self, hint: int = ...) -> list[AnyStr]: ...
     def seek(self, offset: int, whence: int = ...) -> int: ...
     def tell(self) -> int: ...
-    def truncate(self, size: int | None = ...) -> int: ...
+    def truncate(self, size: int | None = ...) -> None: ...  # type: ignore[override]
     def write(self, s: AnyStr) -> int: ...
     def writelines(self, iterable: Iterable[AnyStr]) -> None: ...
     def __iter__(self) -> Iterator[AnyStr]: ...

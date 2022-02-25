@@ -22,6 +22,150 @@ from typing import (
 )
 from typing_extensions import Literal, ParamSpec, final
 
+if sys.version_info >= (3, 10):
+    __all__ = [
+        "FunctionType",
+        "LambdaType",
+        "CodeType",
+        "MappingProxyType",
+        "SimpleNamespace",
+        "CellType",
+        "GeneratorType",
+        "CoroutineType",
+        "AsyncGeneratorType",
+        "MethodType",
+        "BuiltinFunctionType",
+        "BuiltinMethodType",
+        "WrapperDescriptorType",
+        "MethodWrapperType",
+        "MethodDescriptorType",
+        "ClassMethodDescriptorType",
+        "ModuleType",
+        "TracebackType",
+        "FrameType",
+        "GetSetDescriptorType",
+        "MemberDescriptorType",
+        "new_class",
+        "resolve_bases",
+        "prepare_class",
+        "DynamicClassAttribute",
+        "coroutine",
+        "GenericAlias",
+        "UnionType",
+        "EllipsisType",
+        "NoneType",
+        "NotImplementedType",
+    ]
+elif sys.version_info >= (3, 9):
+    __all__ = [
+        "FunctionType",
+        "LambdaType",
+        "CodeType",
+        "MappingProxyType",
+        "SimpleNamespace",
+        "CellType",
+        "GeneratorType",
+        "CoroutineType",
+        "AsyncGeneratorType",
+        "MethodType",
+        "BuiltinFunctionType",
+        "BuiltinMethodType",
+        "WrapperDescriptorType",
+        "MethodWrapperType",
+        "MethodDescriptorType",
+        "ClassMethodDescriptorType",
+        "ModuleType",
+        "TracebackType",
+        "FrameType",
+        "GetSetDescriptorType",
+        "MemberDescriptorType",
+        "new_class",
+        "resolve_bases",
+        "prepare_class",
+        "DynamicClassAttribute",
+        "coroutine",
+        "GenericAlias",
+    ]
+elif sys.version_info >= (3, 8):
+    __all__ = [
+        "FunctionType",
+        "LambdaType",
+        "CodeType",
+        "MappingProxyType",
+        "SimpleNamespace",
+        "CellType",
+        "GeneratorType",
+        "CoroutineType",
+        "AsyncGeneratorType",
+        "MethodType",
+        "BuiltinFunctionType",
+        "BuiltinMethodType",
+        "WrapperDescriptorType",
+        "MethodWrapperType",
+        "MethodDescriptorType",
+        "ClassMethodDescriptorType",
+        "ModuleType",
+        "TracebackType",
+        "FrameType",
+        "GetSetDescriptorType",
+        "MemberDescriptorType",
+        "new_class",
+        "resolve_bases",
+        "prepare_class",
+        "DynamicClassAttribute",
+        "coroutine",
+    ]
+elif sys.version_info >= (3, 7):
+    __all__ = [
+        "FunctionType",
+        "LambdaType",
+        "CodeType",
+        "MappingProxyType",
+        "SimpleNamespace",
+        "GeneratorType",
+        "CoroutineType",
+        "AsyncGeneratorType",
+        "MethodType",
+        "BuiltinFunctionType",
+        "BuiltinMethodType",
+        "WrapperDescriptorType",
+        "MethodWrapperType",
+        "MethodDescriptorType",
+        "ClassMethodDescriptorType",
+        "ModuleType",
+        "TracebackType",
+        "FrameType",
+        "GetSetDescriptorType",
+        "MemberDescriptorType",
+        "new_class",
+        "resolve_bases",
+        "prepare_class",
+        "DynamicClassAttribute",
+        "coroutine",
+    ]
+else:
+    __all__ = [
+        "FunctionType",
+        "LambdaType",
+        "CodeType",
+        "MappingProxyType",
+        "SimpleNamespace",
+        "GeneratorType",
+        "CoroutineType",
+        "AsyncGeneratorType",
+        "MethodType",
+        "BuiltinFunctionType",
+        "ModuleType",
+        "TracebackType",
+        "FrameType",
+        "GetSetDescriptorType",
+        "MemberDescriptorType",
+        "new_class",
+        "prepare_class",
+        "DynamicClassAttribute",
+        "coroutine",
+    ]
+
 # Note, all classes "defined" here require special handling.
 
 _T1 = TypeVar("_T1")
@@ -174,7 +318,7 @@ class CodeType:
 class MappingProxyType(Mapping[_KT, _VT_co], Generic[_KT, _VT_co]):
     __hash__: None  # type: ignore[assignment]
     def __init__(self, mapping: SupportsKeysAndGetItem[_KT, _VT_co]) -> None: ...
-    def __getitem__(self, k: _KT) -> _VT_co: ...
+    def __getitem__(self, __k: _KT) -> _VT_co: ...
     def __iter__(self) -> Iterator[_KT]: ...
     def __len__(self) -> int: ...
     def copy(self) -> dict[_KT, _VT_co]: ...
@@ -190,9 +334,9 @@ class MappingProxyType(Mapping[_KT, _VT_co], Generic[_KT, _VT_co]):
 class SimpleNamespace:
     __hash__: None  # type: ignore[assignment]
     def __init__(self, **kwargs: Any) -> None: ...
-    def __getattribute__(self, name: str) -> Any: ...
-    def __setattr__(self, name: str, value: Any) -> None: ...
-    def __delattr__(self, name: str) -> None: ...
+    def __getattribute__(self, __name: str) -> Any: ...
+    def __setattr__(self, __name: str, __value: Any) -> None: ...
+    def __delattr__(self, __name: str) -> None: ...
 
 class ModuleType:
     __name__: str
@@ -214,6 +358,8 @@ class GeneratorType(Generator[_T_co, _T_contra, _V_co]):
     gi_frame: FrameType
     gi_running: bool
     gi_yieldfrom: GeneratorType[_T_co, _T_contra, Any] | None
+    __name__: str
+    __qualname__: str
     def __iter__(self) -> GeneratorType[_T_co, _T_contra, _V_co]: ...
     def __next__(self) -> _T_co: ...
     def close(self) -> None: ...
@@ -231,16 +377,18 @@ class AsyncGeneratorType(AsyncGenerator[_T_co, _T_contra]):
     ag_frame: FrameType
     ag_running: bool
     ag_code: CodeType
+    __name__: str
+    __qualname__: str
     def __aiter__(self) -> AsyncGeneratorType[_T_co, _T_contra]: ...
-    async def __anext__(self) -> _T_co: ...
-    async def asend(self, __val: _T_contra) -> _T_co: ...
+    def __anext__(self) -> Coroutine[Any, Any, _T_co]: ...
+    def asend(self, __val: _T_contra) -> Coroutine[Any, Any, _T_co]: ...
     @overload
     async def athrow(
         self, __typ: type[BaseException], __val: BaseException | object = ..., __tb: TracebackType | None = ...
     ) -> _T_co: ...
     @overload
     async def athrow(self, __typ: BaseException, __val: None = ..., __tb: TracebackType | None = ...) -> _T_co: ...
-    async def aclose(self) -> None: ...
+    def aclose(self) -> Coroutine[Any, Any, None]: ...
     if sys.version_info >= (3, 9):
         def __class_getitem__(cls, __item: Any) -> GenericAlias: ...
 
@@ -301,7 +449,7 @@ if sys.version_info >= (3, 7):
         __qualname__: str
         __objclass__: type
         def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
-        def __get__(self, obj: Any, type: type = ...) -> Any: ...
+        def __get__(self, __obj: Any, __type: type = ...) -> Any: ...
 
     @final
     class MethodWrapperType:
@@ -310,8 +458,8 @@ if sys.version_info >= (3, 7):
         __qualname__: str
         __objclass__: type
         def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
-        def __eq__(self, other: object) -> bool: ...
-        def __ne__(self, other: object) -> bool: ...
+        def __eq__(self, __other: object) -> bool: ...
+        def __ne__(self, __other: object) -> bool: ...
 
     @final
     class MethodDescriptorType:
@@ -366,18 +514,20 @@ class FrameType:
 @final
 class GetSetDescriptorType:
     __name__: str
+    __qualname__: str
     __objclass__: type
     def __get__(self, __obj: Any, __type: type = ...) -> Any: ...
     def __set__(self, __instance: Any, __value: Any) -> None: ...
-    def __delete__(self, obj: Any) -> None: ...
+    def __delete__(self, __obj: Any) -> None: ...
 
 @final
 class MemberDescriptorType:
     __name__: str
+    __qualname__: str
     __objclass__: type
     def __get__(self, __obj: Any, __type: type = ...) -> Any: ...
     def __set__(self, __instance: Any, __value: Any) -> None: ...
-    def __delete__(self, obj: Any) -> None: ...
+    def __delete__(self, __obj: Any) -> None: ...
 
 if sys.version_info >= (3, 7):
     def new_class(
@@ -436,5 +586,5 @@ if sys.version_info >= (3, 10):
     @final
     class UnionType:
         __args__: tuple[Any, ...]
-        def __or__(self, obj: Any) -> UnionType: ...
-        def __ror__(self, obj: Any) -> UnionType: ...
+        def __or__(self, __obj: Any) -> UnionType: ...
+        def __ror__(self, __obj: Any) -> UnionType: ...

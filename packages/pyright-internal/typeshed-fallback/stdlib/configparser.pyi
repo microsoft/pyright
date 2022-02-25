@@ -4,6 +4,30 @@ from collections.abc import Callable, ItemsView, Iterable, Iterator, Mapping, Mu
 from typing import Any, ClassVar, Optional, Pattern, TypeVar, overload
 from typing_extensions import Literal
 
+__all__ = [
+    "NoSectionError",
+    "DuplicateOptionError",
+    "DuplicateSectionError",
+    "NoOptionError",
+    "InterpolationError",
+    "InterpolationDepthError",
+    "InterpolationMissingOptionError",
+    "InterpolationSyntaxError",
+    "ParsingError",
+    "MissingSectionHeaderError",
+    "ConfigParser",
+    "SafeConfigParser",
+    "RawConfigParser",
+    "Interpolation",
+    "BasicInterpolation",
+    "ExtendedInterpolation",
+    "LegacyInterpolation",
+    "SectionProxy",
+    "ConverterMapping",
+    "DEFAULTSECT",
+    "MAX_INTERPOLATION_DEPTH",
+]
+
 # Internal type aliases
 _section = Mapping[str, str]
 _parser = MutableMapping[str, _section]
@@ -80,6 +104,7 @@ class RawConfigParser(_parser):
     def __setitem__(self, section: str, options: _section) -> None: ...
     def __delitem__(self, section: str) -> None: ...
     def __iter__(self) -> Iterator[str]: ...
+    def __contains__(self, key: object) -> bool: ...
     def defaults(self) -> _section: ...
     def sections(self) -> list[str]: ...
     def add_section(self, section: str) -> None: ...
@@ -138,8 +163,8 @@ class RawConfigParser(_parser):
 
 class ConfigParser(RawConfigParser): ...
 
-if sys.version_info < (3, 11):
-    class SafeConfigParser(ConfigParser): ...
+if sys.version_info < (3, 12):
+    class SafeConfigParser(ConfigParser): ...  # deprecated alias
 
 class SectionProxy(MutableMapping[str, str]):
     def __init__(self, parser: RawConfigParser, name: str) -> None: ...

@@ -6,6 +6,14 @@ from typing import Callable, Protocol
 from typing_extensions import Literal
 
 if sys.platform == "win32":
+    if sys.version_info >= (3, 7):
+        __all__ = ("pipe", "Popen", "PIPE", "PipeHandle")
+    else:
+        __all__ = ["socketpair", "pipe", "Popen", "PIPE", "PipeHandle"]
+        import socket
+
+        socketpair = socket.socketpair
+
     class _WarnFunction(Protocol):
         def __call__(
             self, message: str, category: type[Warning] = ..., stacklevel: int = ..., source: PipeHandle = ...

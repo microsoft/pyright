@@ -4,6 +4,65 @@ from decimal import Decimal
 from fractions import Fraction
 from typing import Any, Hashable, Iterable, NamedTuple, Sequence, SupportsFloat, TypeVar, Union
 
+if sys.version_info >= (3, 10):
+    __all__ = [
+        "NormalDist",
+        "StatisticsError",
+        "correlation",
+        "covariance",
+        "fmean",
+        "geometric_mean",
+        "harmonic_mean",
+        "linear_regression",
+        "mean",
+        "median",
+        "median_grouped",
+        "median_high",
+        "median_low",
+        "mode",
+        "multimode",
+        "pstdev",
+        "pvariance",
+        "quantiles",
+        "stdev",
+        "variance",
+    ]
+elif sys.version_info >= (3, 8):
+    __all__ = [
+        "NormalDist",
+        "StatisticsError",
+        "fmean",
+        "geometric_mean",
+        "harmonic_mean",
+        "mean",
+        "median",
+        "median_grouped",
+        "median_high",
+        "median_low",
+        "mode",
+        "multimode",
+        "pstdev",
+        "pvariance",
+        "quantiles",
+        "stdev",
+        "variance",
+    ]
+else:
+    __all__ = [
+        "StatisticsError",
+        "pstdev",
+        "pvariance",
+        "stdev",
+        "variance",
+        "median",
+        "median_low",
+        "median_high",
+        "median_grouped",
+        "mean",
+        "mode",
+        "harmonic_mean",
+    ]
+
 # Most functions in this module accept homogeneous collections of one of these types
 _Number = Union[float, Decimal, Fraction]
 _NumberT = TypeVar("_NumberT", float, Decimal, Fraction)
@@ -13,8 +72,13 @@ _HashableT = TypeVar("_HashableT", bound=Hashable)
 
 class StatisticsError(ValueError): ...
 
-if sys.version_info >= (3, 8):
+if sys.version_info >= (3, 11):
+    def fmean(data: Iterable[SupportsFloat], weights: Iterable[SupportsFloat] | None = ...) -> float: ...
+
+elif sys.version_info >= (3, 8):
     def fmean(data: Iterable[SupportsFloat]) -> float: ...
+
+if sys.version_info >= (3, 8):
     def geometric_mean(data: Iterable[SupportsFloat]) -> float: ...
 
 def mean(data: Iterable[_NumberT]) -> _NumberT: ...
@@ -67,6 +131,7 @@ if sys.version_info >= (3, 8):
         if sys.version_info >= (3, 9):
             def zscore(self, x: float) -> float: ...
 
+        def __eq__(self, x2: object) -> bool: ...
         def __add__(self, x2: float | NormalDist) -> NormalDist: ...
         def __sub__(self, x2: float | NormalDist) -> NormalDist: ...
         def __mul__(self, x2: float) -> NormalDist: ...
@@ -85,4 +150,11 @@ if sys.version_info >= (3, 10):
     class LinearRegression(NamedTuple):
         slope: float
         intercept: float
+
+if sys.version_info >= (3, 11):
+    def linear_regression(
+        __regressor: Sequence[_Number], __dependent_variable: Sequence[_Number], *, proportional: bool = ...
+    ) -> LinearRegression: ...
+
+elif sys.version_info >= (3, 10):
     def linear_regression(__regressor: Sequence[_Number], __dependent_variable: Sequence[_Number]) -> LinearRegression: ...

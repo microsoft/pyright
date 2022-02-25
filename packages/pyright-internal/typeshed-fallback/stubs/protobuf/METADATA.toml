@@ -1,4 +1,2 @@
 version = "3.19.*"
-python2 = true
-requires = ["types-futures"]
 extra_description = "Generated with aid from mypy-protobuf v3.2.0"

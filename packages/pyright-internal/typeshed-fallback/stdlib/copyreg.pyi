@@ -15,4 +15,5 @@ def add_extension(module: Hashable, name: Hashable, code: SupportsInt) -> None: 
 def remove_extension(module: Hashable, name: Hashable, code: int) -> None: ...
 def clear_extension_cache() -> None: ...
 
-dispatch_table: dict[type, Callable[[type], str | _Reduce[type]]]  # undocumented
+_DispatchTableType = dict[type, Callable[[type], str | _Reduce[type]]]  # imported by multiprocessing.reduction
+dispatch_table: _DispatchTableType  # undocumented

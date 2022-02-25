@@ -11,6 +11,11 @@ from multiprocessing.sharedctypes import SynchronizedArray, SynchronizedBase
 from typing import Any, TypeVar, Union, overload
 from typing_extensions import Literal
 
+if sys.version_info >= (3, 8):
+    __all__ = ()
+else:
+    __all__: list[str] = []
+
 _LockLike = Union[synchronize.Lock, synchronize.RLock]
 _CT = TypeVar("_CT", bound=_CData)
 

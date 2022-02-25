@@ -14,6 +14,22 @@ from _weakref import (
     ref as ref,
 )
 
+__all__ = [
+    "ref",
+    "proxy",
+    "getweakrefcount",
+    "getweakrefs",
+    "WeakKeyDictionary",
+    "ReferenceType",
+    "ProxyType",
+    "CallableProxyType",
+    "ProxyTypes",
+    "WeakValueDictionary",
+    "WeakSet",
+    "WeakMethod",
+    "finalize",
+]
+
 _T = TypeVar("_T")
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -27,6 +43,8 @@ ProxyTypes: tuple[type[Any], ...]
 class WeakMethod(ref[_CallableT], Generic[_CallableT]):
     def __new__(cls: type[Self], meth: _CallableT, callback: Callable[[_CallableT], object] | None = ...) -> Self: ...
     def __call__(self) -> _CallableT | None: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
 
 class WeakValueDictionary(MutableMapping[_KT, _VT]):
     @overload
@@ -44,6 +62,8 @@ class WeakValueDictionary(MutableMapping[_KT, _VT]):
     def __contains__(self, o: object) -> bool: ...
     def __iter__(self) -> Iterator[_KT]: ...
     def copy(self) -> WeakValueDictionary[_KT, _VT]: ...
+    __copy__ = copy
+    def __deepcopy__(self: Self, memo: Any) -> Self: ...
     # These are incompatible with Mapping
     def keys(self) -> Iterator[_KT]: ...  # type: ignore[override]
     def values(self) -> Iterator[_VT]: ...  # type: ignore[override]
@@ -82,6 +102,8 @@ class WeakKeyDictionary(MutableMapping[_KT, _VT]):
     def __contains__(self, o: object) -> bool: ...
     def __iter__(self) -> Iterator[_KT]: ...
     def copy(self) -> WeakKeyDictionary[_KT, _VT]: ...
+    __copy__ = copy
+    def __deepcopy__(self: Self, memo: Any) -> Self: ...
     # These are incompatible with Mapping
     def keys(self) -> Iterator[_KT]: ...  # type: ignore[override]
     def values(self) -> Iterator[_VT]: ...  # type: ignore[override]
