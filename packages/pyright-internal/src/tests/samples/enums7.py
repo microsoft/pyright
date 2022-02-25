@@ -32,6 +32,7 @@ class ExtraColor(NonEnum, Color):
 
 # This should generate an error because reassignment of enum
 # values is not allowed.
+# Note: A change to typeshed's enum.pyi breaks this test.
 Color.red = "new"
 
 
