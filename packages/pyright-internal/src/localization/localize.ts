@@ -810,9 +810,17 @@ export namespace Localizer {
             new ParameterizedString<{ leftType: string; rightType: string; operator: string }>(
                 getRawString('Diagnostic.typeNotSupportBinaryOperator')
             );
+        export const typeNotSupportBinaryOperatorBidirectional = () =>
+            new ParameterizedString<{ leftType: string; rightType: string; expectedType: string; operator: string }>(
+                getRawString('Diagnostic.typeNotSupportBinaryOperatorBidirectional')
+            );
         export const typeNotSupportUnaryOperator = () =>
             new ParameterizedString<{ type: string; operator: string }>(
                 getRawString('Diagnostic.typeNotSupportUnaryOperator')
+            );
+        export const typeNotSupportUnaryOperatorBidirectional = () =>
+            new ParameterizedString<{ type: string; expectedType: string; operator: string }>(
+                getRawString('Diagnostic.typeNotSupportUnaryOperatorBidirectional')
             );
         export const typePartiallyUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typePartiallyUnknown'));

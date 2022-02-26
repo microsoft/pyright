@@ -10651,15 +10651,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (!type) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeNotSupportUnaryOperator().format({
-                            operator: ParseTreeUtils.printOperator(node.operator),
-                            type: printType(exprType),
-                        }),
-                        node
-                    );
+
+                    if (expectedType) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeNotSupportUnaryOperatorBidirectional().format({
+                                operator: ParseTreeUtils.printOperator(node.operator),
+                                type: printType(exprType),
+                                expectedType: printType(expectedType)
+                            }),
+                            node
+                        );
+                    } else {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeNotSupportUnaryOperator().format({
+                                operator: ParseTreeUtils.printOperator(node.operator),
+                                type: printType(exprType),
+                            }),
+                            node
+                        );
+                    }
                     type = UnknownType.create();
                 }
             }
@@ -11374,13 +11388,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
 
                                 if (!resultType) {
-                                    diag.addMessage(
-                                        Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                                            operator: ParseTreeUtils.printOperator(operator),
-                                            leftType: printType(leftSubtypeExpanded),
-                                            rightType: printType(rightSubtypeExpanded),
-                                        })
-                                    );
+                                    if (expectedType) {
+                                        diag.addMessage(
+                                            Localizer.Diagnostic.typeNotSupportBinaryOperatorBidirectional().format({
+                                                operator: ParseTreeUtils.printOperator(operator),
+                                                leftType: printType(leftSubtypeExpanded),
+                                                rightType: printType(rightSubtypeExpanded),
+                                                expectedType: printType(expectedType)
+                                            })
+                                        );
+                                    } else {
+                                        diag.addMessage(
+                                            Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                                operator: ParseTreeUtils.printOperator(operator),
+                                                leftType: printType(leftSubtypeExpanded),
+                                                rightType: printType(rightSubtypeExpanded),
+                                            })
+                                        );
+                                    }
                                 }
                                 return resultType;
                             }
