@@ -156,7 +156,6 @@ export interface FlowPostFinally extends FlowNode {
 export interface FlowPostContextManagerLabel extends FlowLabel {
     expressions: ExpressionNode[];
     isAsync: boolean;
-    isInTrySuite: boolean;
 }
 
 export function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {

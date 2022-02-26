@@ -1796,8 +1796,7 @@ export class Binder extends ParseTreeWalker {
 
         const contextManagerExceptionTarget = this._createContextManagerLabel(
             node.withItems.map((item) => item.expression),
-            !!node.isAsync,
-            this._currentExceptTargets.length > 0
+            !!node.isAsync
         );
         this._addAntecedent(contextManagerExceptionTarget, this._currentFlowNode!);
 
@@ -2432,7 +2431,7 @@ export class Binder extends ParseTreeWalker {
         this._currentFlowNode! = flowNode;
     }
 
-    private _createContextManagerLabel(expressions: ExpressionNode[], isAsync: boolean, isInTrySuite: boolean) {
+    private _createContextManagerLabel(expressions: ExpressionNode[], isAsync: boolean) {
         const flowNode: FlowPostContextManagerLabel = {
             flags: FlowFlags.PostContextManager | FlowFlags.BranchLabel,
             id: getUniqueFlowNodeId(),
@@ -2440,7 +2439,6 @@ export class Binder extends ParseTreeWalker {
             expressions,
             affectedExpressions: undefined,
             isAsync,
-            isInTrySuite,
         };
         return flowNode;
     }
