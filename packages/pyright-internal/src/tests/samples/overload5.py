@@ -262,3 +262,31 @@ def func17(a: int, b: List[_T1]) -> _T1:
 
 def func17(*args: Any, **kwargs: Any) -> Any:
     pass
+
+
+class ClassA(Generic[_T1]):
+    @overload
+    def __call__(self, f: _T1) -> _T1:
+        ...
+
+    @overload
+    def __call__(self, f: _T1 | None) -> _T1:
+        ...
+
+    def __call__(self, f: _T1 | None) -> _T1:
+        ...
+
+
+class ClassB:
+    # This should generate an error because the overload is overlapping.
+    @overload
+    def __call__(self, f: _T1) -> _T1:
+        ...
+
+    # This should generate an error because the overload is overlapped.
+    @overload
+    def __call__(self, f: _T1 | None) -> _T1:
+        ...
+
+    def __call__(self, f: _T1 | None) -> _T1:
+        ...

@@ -1726,7 +1726,7 @@ export class Checker extends ParseTreeWalker {
             functionType,
             prevOverload,
             /* diag */ undefined,
-            /* typeVarMap */ undefined,
+            /* typeVarMap */ new TypeVarMap(getTypeVarScopeId(functionType)),
             CanAssignFlags.SkipSolveTypeVars |
                 CanAssignFlags.SkipFunctionReturnTypeCheck |
                 CanAssignFlags.OverloadOverlapCheck

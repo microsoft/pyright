@@ -19790,6 +19790,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        if ((flags & CanAssignFlags.SkipSolveTypeVars) !== 0) {
+            return canAssignType(
+                makeTopLevelTypeVarsConcrete(destType),
+                makeTopLevelTypeVarsConcrete(srcType),
+                diag,
+                /* typeVarMap */ undefined,
+                flags,
+                recursionCount
+            );
+        }
+
         if (destType.details.isParamSpec) {
             return canAssignTypeToParamSpec(destType, srcType, diag, typeVarMap, recursionCount);
         }
@@ -20564,35 +20575,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If we're using ReverseTypeVarMatching and the source is a TypeVar,
             // the logic below will handle this case.
             if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 || !isTypeVar(srcType)) {
-                if (flags & CanAssignFlags.SkipSolveTypeVars) {
-                    return canAssignType(
-                        makeTopLevelTypeVarsConcrete(destType),
-                        makeTopLevelTypeVarsConcrete(srcType),
+                if (
+                    !canAssignTypeToTypeVar(
+                        destType,
+                        srcType,
                         diag,
-                        /* typeVarMap */ undefined,
+                        typeVarMap ?? new TypeVarMap(),
                         originalFlags,
                         recursionCount
-                    );
-                } else {
-                    if (
-                        !canAssignTypeToTypeVar(
-                            destType,
-                            srcType,
-                            diag,
-                            typeVarMap ?? new TypeVarMap(),
-                            originalFlags,
-                            recursionCount
-                        )
-                    ) {
-                        return false;
-                    }
-
-                    if (isAnyOrUnknown(srcType) && (flags & CanAssignFlags.OverloadOverlapCheck) !== 0) {
-                        return false;
-                    }
-
-                    return true;
+                    )
+                ) {
+                    return false;
                 }
+
+                if (isAnyOrUnknown(srcType) && (flags & CanAssignFlags.OverloadOverlapCheck) !== 0) {
+                    return false;
+                }
+
+                return true;
             }
         }
 
@@ -22793,7 +22793,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             overrideParamType,
                             baseParamType,
                             diag.createAddendum(),
-                            /* typeVarMap */ undefined,
+                            new TypeVarMap(getTypeVarScopeId(overrideMethod)),
                             CanAssignFlags.SkipSolveTypeVars
                         )
                     ) {
@@ -22817,7 +22817,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 baseReturnType,
                 overrideReturnType,
                 diag.createAddendum(),
-                /* typeVarMap */ undefined,
+                new TypeVarMap(getTypeVarScopeId(baseMethod)),
                 CanAssignFlags.SkipSolveTypeVars
             )
         ) {
