@@ -10659,7 +10659,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             Localizer.Diagnostic.typeNotSupportUnaryOperatorBidirectional().format({
                                 operator: ParseTreeUtils.printOperator(node.operator),
                                 type: printType(exprType),
-                                expectedType: printType(expectedType)
+                                expectedType: printType(expectedType),
                             }),
                             node
                         );
@@ -11394,7 +11394,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                                 operator: ParseTreeUtils.printOperator(operator),
                                                 leftType: printType(leftSubtypeExpanded),
                                                 rightType: printType(rightSubtypeExpanded),
-                                                expectedType: printType(expectedType)
+                                                expectedType: printType(expectedType),
                                             })
                                         );
                                     } else {
