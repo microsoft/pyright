@@ -1109,6 +1109,8 @@ export namespace CallNode {
 
         leftExpression.parent = node;
 
+        node.maxChildDepth = 1 + (leftExpression.maxChildDepth ?? 0);
+
         if (argList.length > 0) {
             argList.forEach((arg) => {
                 arg.parent = node;

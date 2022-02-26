@@ -3188,6 +3188,11 @@ export class Parser {
 
                 atomExpression = callNode;
 
+                if (atomExpression.maxChildDepth !== undefined && atomExpression.maxChildDepth >= maxChildNodeDepth) {
+                    atomExpression = ErrorNode.create(atomExpression, ErrorExpressionCategory.MaxDepthExceeded);
+                    this._addError(Localizer.Diagnostic.maxParseDepthExceeded(), atomExpression);
+                }
+
                 // If the argument list wasn't terminated, break out of the loop
                 if (!isArgListTerminated) {
                     break;

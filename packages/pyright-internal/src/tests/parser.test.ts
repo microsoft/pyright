@@ -82,7 +82,7 @@ test('MaxParseDepth1', () => {
 test('MaxParseDepth2', () => {
     const diagSink = new DiagnosticSink();
     TestUtils.parseSampleFile('maxParseDepth2.py', diagSink);
-    assert.strictEqual(diagSink.getErrors().length, 2);
+    assert.strictEqual(diagSink.getErrors().length, 4);
 });
 
 test('ModuleName range', () => {
