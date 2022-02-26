@@ -22471,23 +22471,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const effectiveSrcType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
 
                 if (effectiveDestType.details.paramSpec) {
+                    const requiredMatchParamCount = effectiveDestType.details.parameters.filter((p) => {
+                        if (!p.name) {
+                            return false;
+                        }
+                        if (p.category === ParameterCategory.Simple && isParamSpec(p.type)) {
+                            return false;
+                        }
+                        return true;
+                    }).length;
+                    let matchedParamCount = 0;
+                    const remainingParams: ParamSpecEntry[] = [];
+
+                    // If there are parameters in the source that are not matched
+                    // to parameters in the dest, assume these are concatenated on
+                    // to the ParamSpec.
+                    effectiveSrcType.details.parameters.forEach((p, index) => {
+                        if (matchedParamCount < requiredMatchParamCount) {
+                            if (p.name) {
+                                matchedParamCount++;
+                            }
+                        } else if (!p.name && p.category === ParameterCategory.Simple && remainingParams.length === 0) {
+                            // Don't bother pushing a position-only separator if it
+                            // is the first remaining param.
+                        } else {
+                            remainingParams.push({
+                                category: p.category,
+                                name: p.name,
+                                isNameSynthesized: p.isNameSynthesized,
+                                hasDefault: !!p.hasDefault,
+                                type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
+                            });
+                        }
+                    });
+
                     typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
-                        parameters: effectiveSrcType.details.parameters
-                            .map((p, index) => {
-                                const paramSpecEntry: ParamSpecEntry = {
-                                    category: p.category,
-                                    name: p.name,
-                                    isNameSynthesized: p.isNameSynthesized,
-                                    hasDefault: !!p.hasDefault,
-                                    type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
-                                };
-                                return paramSpecEntry;
-                            })
-                            .slice(
-                                // Skip position-only and keyword-only separators.
-                                effectiveDestType.details.parameters.filter((p) => p.name).length,
-                                effectiveSrcType.details.parameters.length
-                            ),
+                        parameters: remainingParams,
                         typeVarScopeId: effectiveSrcType.details.typeVarScopeId,
                         docString: effectiveSrcType.details.docString,
                         flags: effectiveSrcType.details.flags,
