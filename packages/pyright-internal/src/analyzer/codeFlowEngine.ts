@@ -442,11 +442,12 @@ export function getCodeFlowEngine(
                             // Determine whether any of the context managers support exception
                             // suppression. If not, none of its antecedents are reachable.
                             const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
-                            if (
-                                !contextMgrNode.expressions.some((expr) =>
-                                    isExceptionContextManager(expr, contextMgrNode.isAsync)
-                                )
-                            ) {
+                            const contextManagerSwallowsExceptions = contextMgrNode.expressions.some((expr) =>
+                                isExceptionContextManager(expr, contextMgrNode.isAsync)
+                            );
+
+                            if (contextManagerSwallowsExceptions === contextMgrNode.blockIfSwallowsExceptions) {
+                                // Do not explore any further along this code flow path.
                                 return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                             }
                         }

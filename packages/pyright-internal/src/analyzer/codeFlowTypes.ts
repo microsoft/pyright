@@ -156,6 +156,12 @@ export interface FlowPostFinally extends FlowNode {
 export interface FlowPostContextManagerLabel extends FlowLabel {
     expressions: ExpressionNode[];
     isAsync: boolean;
+
+    // If the context manager swallows exceptions and this value
+    // is true, block any code flow analysis along this path. Conversely,
+    // if the context manager does not swallow exceptions and this
+    // value is false, block any code flow analysis along this path.
+    blockIfSwallowsExceptions: boolean;
 }
 
 export function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {

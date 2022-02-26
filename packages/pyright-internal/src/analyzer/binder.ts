@@ -1785,27 +1785,40 @@ export class Binder extends ParseTreeWalker {
         //         |<--------------------|
         //    (with suite)<--------------|
         //         ^                     |
-        //         |        ContextManagerExceptionTarget
+        //         |    ContextManagerSwallowExceptionTarget
         //         |                     ^
-        //         |           PostContextManagerLabel
+        //         |          PostContextManagerLabel
         //         |                     ^
         //         |---------------------|
         //         |
         //   (after with)
         //
+        // In addition to the ContextManagerSwallowExceptionTarget, we'll create
+        // a second target called ContextManagerForwardExceptionTarget that forwards
+        // exceptions to existing exception targets if they exist.
 
-        const contextManagerExceptionTarget = this._createContextManagerLabel(
+        const contextManagerSwallowExceptionTarget = this._createContextManagerLabel(
             node.withItems.map((item) => item.expression),
-            !!node.isAsync
+            !!node.isAsync,
+            /* blockIfSwallowsExceptions */ false
         );
-        this._addAntecedent(contextManagerExceptionTarget, this._currentFlowNode!);
+        this._addAntecedent(contextManagerSwallowExceptionTarget, this._currentFlowNode!);
+
+        const contextManagerForwardExceptionTarget = this._createContextManagerLabel(
+            node.withItems.map((item) => item.expression),
+            !!node.isAsync,
+            /* blockIfSwallowsExceptions */ true
+        );
+        this._currentExceptTargets.forEach((exceptionTarget) => {
+            this._addAntecedent(exceptionTarget, contextManagerForwardExceptionTarget);
+        });
 
         const preWithSuiteNode = this._currentFlowNode!;
         const postContextManagerLabel = this._createBranchLabel(preWithSuiteNode);
-        this._addAntecedent(postContextManagerLabel, contextManagerExceptionTarget!);
+        this._addAntecedent(postContextManagerLabel, contextManagerSwallowExceptionTarget!);
 
         postContextManagerLabel.affectedExpressions = this._trackCodeFlowExpressions(() => {
-            this._useExceptTargets([contextManagerExceptionTarget], () => {
+            this._useExceptTargets([contextManagerSwallowExceptionTarget, contextManagerForwardExceptionTarget], () => {
                 this.walk(node.suite);
             });
 
@@ -2431,7 +2444,11 @@ export class Binder extends ParseTreeWalker {
         this._currentFlowNode! = flowNode;
     }
 
-    private _createContextManagerLabel(expressions: ExpressionNode[], isAsync: boolean) {
+    private _createContextManagerLabel(
+        expressions: ExpressionNode[],
+        isAsync: boolean,
+        blockIfSwallowsExceptions: boolean
+    ) {
         const flowNode: FlowPostContextManagerLabel = {
             flags: FlowFlags.PostContextManager | FlowFlags.BranchLabel,
             id: getUniqueFlowNodeId(),
@@ -2439,6 +2456,7 @@ export class Binder extends ParseTreeWalker {
             expressions,
             affectedExpressions: undefined,
             isAsync,
+            blockIfSwallowsExceptions,
         };
         return flowNode;
     }
