@@ -1519,6 +1519,23 @@ export function getGeneratorYieldType(declaredReturnType: Type, isAsync: boolean
     return isLegalGeneratorType ? yieldType : undefined;
 }
 
+export function isEffectivelyInstantiable(type: Type): boolean {
+    if (TypeBase.isInstantiable(type)) {
+        return true;
+    }
+
+    // Handle the special case of 'type', which is instantiable.
+    if (isClassInstance(type) && ClassType.isBuiltIn(type, 'type')) {
+        return true;
+    }
+
+    if (isUnion(type)) {
+        return type.subtypes.every((subtype) => isEffectivelyInstantiable(subtype));
+    }
+
+    return false;
+}
+
 export function convertToInstance(type: Type): Type {
     let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {

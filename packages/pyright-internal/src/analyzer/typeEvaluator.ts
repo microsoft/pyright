@@ -234,6 +234,7 @@ import {
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     getUnionSubtypeCount,
+    isEffectivelyInstantiable,
     isEllipsisType,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -20065,7 +20066,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
 
         if (TypeBase.isInstantiable(destType)) {
-            if (TypeBase.isInstantiable(adjSrcType)) {
+            if (isEffectivelyInstantiable(adjSrcType)) {
                 adjSrcType = convertToInstance(adjSrcType);
             } else {
                 if (diag) {
