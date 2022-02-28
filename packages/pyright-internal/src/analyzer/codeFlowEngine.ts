@@ -549,6 +549,16 @@ export function getCodeFlowEngine(
                             cacheEntry.incompleteSubtypes.some((subtype) => subtype.isPending);
                         const visitCount = incrementFlowNodeVisitCount(curFlowNode);
 
+                        // If every subtype is already pending evaluation, do not bother
+                        // trying to further evaluate. Instead, unwind the stack and allow
+                        // the existing evaluations to complete.
+                        if (isRecursive && cacheEntry.incompleteSubtypes?.every((subtype) => subtype.isPending)) {
+                            return {
+                                type: cacheEntry.type,
+                                isIncomplete: true,
+                            };
+                        }
+
                         loopNode.antecedents.forEach((antecedent, index) => {
                             cacheEntry = getCacheEntry(curFlowNode)!;
 
@@ -656,7 +666,7 @@ export function getCodeFlowEngine(
                             // it. Otherwise we might end up resolving the cycle with a type
                             // that includes an undesirable unknown.
                             // Note that we return isIncomplete = false here but do not
-                            // save the cached entry for next time. This is because the
+                            // save the cached entry for next time.
                             return {
                                 type: cacheEntry?.type ? removeUnknownFromUnion(cacheEntry.type) : undefined,
                                 isIncomplete: false,
