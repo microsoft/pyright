@@ -72,7 +72,8 @@ def func7(*args: Any, param0: int, param1: int, param2: str):
 
     func6(param0, param2=param2)
 
-    # This should generate an error because param0 has no match.
+    # This should generate two errors because param0 has no match
+    # and param2 is missing.
     func6(param0, param1=param1)
 
 

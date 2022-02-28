@@ -8533,27 +8533,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // If there are keyword arguments present, they may target one or
-        // more parameters that are positional. In this case, we will limit
-        // the number of positional parameters.
-        argList.forEach((arg) => {
-            if (arg.name) {
-                const keywordParamIndex = paramDetails.params.findIndex(
-                    (paramInfo) =>
-                        paramInfo.param.name === arg.name!.value &&
-                        paramInfo.param.category === ParameterCategory.Simple
-                );
+        // If there are keyword arguments present after a *args argument,
+        // the keyword arguments may target one or more parameters that are positional.
+        // In this case, we will limit the number of positional parameters so the
+        // *args doesn't consume them all.
+        if (argList.some((arg) => arg.argumentCategory === ArgumentCategory.UnpackedList)) {
+            argList.forEach((arg) => {
+                if (arg.name) {
+                    const keywordParamIndex = paramDetails.params.findIndex(
+                        (paramInfo) =>
+                            paramInfo.param.name === arg.name!.value &&
+                            paramInfo.param.category === ParameterCategory.Simple
+                    );
 
-                // Is this a parameter that can be interpreted as either a keyword or a positional?
-                // If so, we'll treat it as a keyword parameter in this case because it's being
-                // targeted by a keyword argument.
-                if (keywordParamIndex >= 0 && keywordParamIndex >= positionalOnlyLimitIndex) {
-                    if (positionParamLimitIndex < 0 || keywordParamIndex < positionParamLimitIndex) {
-                        positionParamLimitIndex = keywordParamIndex;
+                    // Is this a parameter that can be interpreted as either a keyword or a positional?
+                    // If so, we'll treat it as a keyword parameter in this case because it's being
+                    // targeted by a keyword argument.
+                    if (keywordParamIndex >= 0 && keywordParamIndex >= positionalOnlyLimitIndex) {
+                        if (positionParamLimitIndex < 0 || keywordParamIndex < positionParamLimitIndex) {
+                            positionParamLimitIndex = keywordParamIndex;
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         // If we didn't see any special cases, then all parameters are positional.
         if (positionParamLimitIndex < 0) {
