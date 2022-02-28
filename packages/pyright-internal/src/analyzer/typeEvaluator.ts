@@ -2113,15 +2113,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (symbol) {
             let declaredType = getDeclaredTypeOfSymbol(symbol);
             if (declaredType) {
-                // If it's a property, we need to get the fset type.
-                if (isProperty(declaredType)) {
-                    const setterInfo = lookUpClassMember(declaredType as ClassType, 'fset');
+                // If it's a descriptor, we need to get the setter type.
+                if (isClassInstance(declaredType)) {
+                    const setterInfo = lookUpClassMember(declaredType, '__set__');
                     const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
-                    if (!setter || !isFunction(setter) || setter.details.parameters.length < 2) {
-                        return undefined;
-                    }
+                    if (setter && isFunction(setter) && setter.details.parameters.length >= 2) {
+                        declaredType = setter.details.parameters[1].type;
 
-                    declaredType = setter.details.parameters[1].type;
+                        if (isAnyOrUnknown(declaredType)) {
+                            return undefined;
+                        }
+                    }
                 }
 
                 if (classOrObjectBase) {

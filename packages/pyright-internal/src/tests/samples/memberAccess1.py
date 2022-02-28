@@ -1,7 +1,8 @@
 # This sample validates that member access magic functions
 # like __get__ and __set__ are handled correctly.
 
-from typing import Any, Generic, Type, TypeVar, overload
+from contextlib import ExitStack
+from typing import Any, ContextManager, Generic, Optional, Type, TypeVar, overload
 from functools import cached_property
 
 _T = TypeVar("_T")
@@ -17,7 +18,7 @@ class Column(Generic[_T]):
         ...
 
 
-class Foo:
+class ClassA:
     bar = Column[str]()
 
     @classmethod
@@ -25,18 +26,18 @@ class Foo:
         a: Column[str] = cls.bar
 
 
-reveal_type(Foo.bar, expected_text="Column[str]")
-reveal_type(Foo().bar, expected_text="str")
+reveal_type(ClassA.bar, expected_text="Column[str]")
+reveal_type(ClassA().bar, expected_text="str")
 
 
-class Foo2:
+class ClassB:
     @cached_property
     def baz(self) -> int:
         return 3
 
 
-c: cached_property[int] = Foo2.baz
-d: int = Foo2().baz
+c: cached_property[int] = ClassB.baz
+d: int = ClassB().baz
 
 
 class Factory:
@@ -44,8 +45,26 @@ class Factory:
         return cls()
 
 
-class SomeClass:
+class ClassC:
     instance: Factory
 
 
-reveal_type(SomeClass.instance, expected_text="SomeClass")
+reveal_type(ClassC.instance, expected_text="ClassC")
+
+
+class GenericDescriptor(Generic[_T]):
+    value: _T
+
+    def __get__(self, instance: Optional[object], cls: Type[object]) -> _T:
+        ...
+
+    def __set__(self, instance: object, value: _T) -> None:
+        ...
+
+
+class ClassD:
+    abc: GenericDescriptor[str] = GenericDescriptor()
+    stack: ExitStack
+
+    def test(self, value: ContextManager[str]) -> None:
+        self.abc = self.stack.enter_context(value)
