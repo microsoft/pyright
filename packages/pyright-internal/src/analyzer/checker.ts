@@ -4030,92 +4030,102 @@ export class Checker extends ParseTreeWalker {
                     continue;
                 }
 
-                for (
-                    let symbolMapOverrideIndex = 0;
-                    symbolMapOverrideIndex < symbolMapBaseIndex;
-                    symbolMapOverrideIndex++
-                ) {
-                    const overrideSymbolMap = symbolMaps[symbolMapOverrideIndex];
+                for (let overrideIndex = 0; overrideIndex < symbolMapBaseIndex; overrideIndex++) {
+                    const overrideSymbolMap = symbolMaps[overrideIndex];
                     const overrideClassAndSymbol = overrideSymbolMap.get(name);
 
                     if (overrideClassAndSymbol) {
-                        let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
-                        if (isClass(baseClassAndSymbol.classType)) {
-                            baseType = partiallySpecializeType(baseType, baseClassAndSymbol.classType);
-                        }
-                        let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideClassAndSymbol.symbol);
-                        if (isClass(overrideClassAndSymbol.classType)) {
-                            overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
-                        }
+                        this._validateMultipleInheritanceSymbolOverride(
+                            baseClassAndSymbol,
+                            overrideClassAndSymbol,
+                            classType,
+                            name,
+                            baseClasses[symbolMapBaseIndex],
+                            baseClasses[overrideIndex],
+                            errorNode
+                        );
+                    }
+                }
+            }
+        }
+    }
 
-                        if (isFunction(baseType) || isOverloadedFunction(baseType)) {
-                            const diagAddendum = new DiagnosticAddendum();
-                            let overrideFunction: FunctionType | undefined;
+    private _validateMultipleInheritanceSymbolOverride(
+        baseClassAndSymbol: ClassMember,
+        overrideClassAndSymbol: ClassMember,
+        classType: ClassType,
+        memberName: string,
+        baseClass1: ClassType,
+        baseClass2: ClassType,
+        errorNode: ParseNode
+    ) {
+        let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
+        if (isClass(baseClassAndSymbol.classType)) {
+            baseType = partiallySpecializeType(baseType, baseClassAndSymbol.classType);
+        }
+        let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideClassAndSymbol.symbol);
+        if (isClass(overrideClassAndSymbol.classType)) {
+            overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
+        }
 
-                            if (isFunction(overrideType)) {
-                                overrideFunction = overrideType;
-                            } else if (isOverloadedFunction(overrideType)) {
-                                // Use the last overload.
-                                overrideFunction = overrideType.overloads[overrideType.overloads.length - 1];
+        if (isFunction(baseType) || isOverloadedFunction(baseType)) {
+            const diagAddendum = new DiagnosticAddendum();
+            let overrideFunction: FunctionType | undefined;
 
-                                // If the last overload isn't an implementation, skip the check for this symbol.
-                                if (FunctionType.isOverloaded(overrideFunction)) {
-                                    continue;
-                                }
-                            }
+            if (isFunction(overrideType)) {
+                overrideFunction = overrideType;
+            } else if (isOverloadedFunction(overrideType)) {
+                // Use the last overload.
+                overrideFunction = overrideType.overloads[overrideType.overloads.length - 1];
 
-                            if (overrideFunction) {
-                                if (
-                                    !this._evaluator.canOverrideMethod(
-                                        baseType,
-                                        overrideFunction,
-                                        diagAddendum,
-                                        /* enforceParamNameMatch */ true
-                                    )
-                                ) {
-                                    const decl = overrideFunction.details.declaration;
-                                    if (decl && decl.type === DeclarationType.Function) {
-                                        const diag = this._evaluator.addDiagnostic(
-                                            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                                            DiagnosticRule.reportIncompatibleMethodOverride,
-                                            Localizer.Diagnostic.baseClassMethodTypeIncompatible().format({
-                                                classType: classType.details.name,
-                                                name,
-                                            }) + diagAddendum.getString(),
-                                            errorNode
-                                        );
+                // If the last overload isn't an implementation, skip the check for this symbol.
+                if (FunctionType.isOverloaded(overrideFunction)) {
+                    return;
+                }
+            }
 
-                                        const overrideDecl = getLastTypedDeclaredForSymbol(
-                                            overrideClassAndSymbol.symbol
-                                        );
-                                        const baseDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+            if (overrideFunction) {
+                if (
+                    !this._evaluator.canOverrideMethod(
+                        baseType,
+                        overrideFunction,
+                        diagAddendum,
+                        /* enforceParamNameMatch */ true
+                    )
+                ) {
+                    const decl = overrideFunction.details.declaration;
+                    if (decl && decl.type === DeclarationType.Function) {
+                        const diag = this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                            DiagnosticRule.reportIncompatibleMethodOverride,
+                            Localizer.Diagnostic.baseClassMethodTypeIncompatible().format({
+                                classType: classType.details.name,
+                                name: memberName,
+                            }) + diagAddendum.getString(),
+                            errorNode
+                        );
 
-                                        if (diag && overrideDecl && baseDecl) {
-                                            diag.addRelatedInfo(
-                                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
-                                                    baseClass: this._evaluator.printType(
-                                                        convertToInstance(baseClasses[symbolMapOverrideIndex])
-                                                    ),
-                                                    type: this._evaluator.printType(overrideType),
-                                                }),
-                                                overrideDecl.path,
-                                                overrideDecl.range
-                                            );
+                        const overrideDecl = getLastTypedDeclaredForSymbol(overrideClassAndSymbol.symbol);
+                        const baseDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
 
-                                            diag.addRelatedInfo(
-                                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
-                                                    baseClass: this._evaluator.printType(
-                                                        convertToInstance(baseClasses[symbolMapBaseIndex])
-                                                    ),
-                                                    type: this._evaluator.printType(baseType),
-                                                }),
-                                                baseDecl.path,
-                                                baseDecl.range
-                                            );
-                                        }
-                                    }
-                                }
-                            }
+                        if (diag && overrideDecl && baseDecl) {
+                            diag.addRelatedInfo(
+                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
+                                    baseClass: this._evaluator.printType(convertToInstance(baseClass1)),
+                                    type: this._evaluator.printType(overrideType),
+                                }),
+                                overrideDecl.path,
+                                overrideDecl.range
+                            );
+
+                            diag.addRelatedInfo(
+                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
+                                    baseClass: this._evaluator.printType(convertToInstance(baseClass2)),
+                                    type: this._evaluator.printType(baseType),
+                                }),
+                                baseDecl.path,
+                                baseDecl.range
+                            );
                         }
                     }
                 }
