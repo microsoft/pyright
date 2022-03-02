@@ -22632,6 +22632,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // that the caller has already verified that the assignedType is assignable
     // to the declaredType.
     function replaceTypeArgsWithAny(declaredType: ClassType, assignedType: ClassType): ClassType | undefined {
+        // If this is a tuple with defined tuple type arguments, don't overwrite them.
+        if (assignedType.tupleTypeArguments) {
+            return undefined;
+        }
+
         if (
             assignedType.details.typeParameters.length > 0 &&
             assignedType.typeArguments &&

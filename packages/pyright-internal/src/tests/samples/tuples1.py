@@ -173,6 +173,10 @@ def func13(
     # This should generate two errors.
     v12 = d[2]
 
+    v13: tuple[()] = ()
+    # This should generate an error.
+    v13[0]
+
 
 # Test for construction using the tuple constructor
 def func14():
