@@ -343,6 +343,7 @@ interface MatchArgsToParamsResult {
 interface ArgResult {
     isCompatible: boolean;
     isTypeIncomplete?: boolean | undefined;
+    condition?: TypeCondition[];
     skippedOverloadArg?: boolean;
 }
 
@@ -9521,6 +9522,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeVarMap.lock();
         }
 
+        let condition: TypeCondition[] = [];
         matchResults.argParams.forEach((argParam) => {
             const argResult = validateArgType(
                 argParam,
@@ -9538,6 +9540,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (argResult.isTypeIncomplete) {
                 isTypeIncomplete = true;
+            }
+
+            if (argResult.condition) {
+                condition = TypeCondition.combine(condition, argResult.condition) ?? [];
             }
         });
 
@@ -9557,7 +9563,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Calculate the return type.
-        const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams);
+        let returnType = getFunctionEffectiveReturnType(type, matchResults.argParams);
+
+        if (condition.length > 0) {
+            returnType = TypeBase.cloneForCondition(returnType, condition);
+        }
 
         // Determine whether the expression being evaluated is within the current TypeVar
         // scope. If not, then the expression is invoking a function in another scope,
@@ -9945,12 +9955,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
+        const condition = argType.condition;
+
         let diag = new DiagnosticAddendum();
 
         // Handle the case where we're assigning a *args or **kwargs argument
         // to a *P.args or **P.kwargs parameter.
         if (isParamSpec(argParam.paramType) && argParam.paramType.paramSpecAccess !== undefined) {
-            return { isCompatible, isTypeIncomplete };
+            return { isCompatible, isTypeIncomplete, condition };
         }
 
         // If we are asked to skip overload arguments, determine whether the argument
@@ -9958,7 +9970,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // an overloaded callback protocol.
         if (skipOverloadArg) {
             if (isOverloadedFunction(argType)) {
-                return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+                return { isCompatible, isTypeIncomplete, skippedOverloadArg: true, condition };
             }
 
             const concreteParamType = makeTopLevelTypeVarsConcrete(argParam.paramType);
@@ -9966,7 +9978,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isInstantiableClass(argType)) {
                     const constructor = createFunctionFromConstructor(argType);
                     if (constructor && isOverloadedFunction(constructor)) {
-                        return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+                        return { isCompatible, isTypeIncomplete, skippedOverloadArg: true, condition };
                     }
                 }
 
@@ -9975,7 +9987,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (callMember) {
                         const memberType = getTypeOfMember(callMember);
                         if (isOverloadedFunction(memberType)) {
-                            return { isCompatible, isTypeIncomplete, skippedOverloadArg: true };
+                            return { isCompatible, isTypeIncomplete, skippedOverloadArg: true, condition };
                         }
                     }
                 }
@@ -10040,7 +10052,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            return { isCompatible: false, isTypeIncomplete };
+            return { isCompatible: false, isTypeIncomplete, condition };
         }
 
         if (!skipUnknownCheck) {
@@ -10119,7 +10131,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { isCompatible, isTypeIncomplete };
+        return { isCompatible, isTypeIncomplete, condition };
     }
 
     function createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
