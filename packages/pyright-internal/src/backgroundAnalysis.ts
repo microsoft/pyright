@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * run analyzer from background thread
+ * run analyzer from background thread.
  */
 
 import { Worker } from 'worker_threads';
