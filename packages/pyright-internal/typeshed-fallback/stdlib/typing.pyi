@@ -1215,6 +1215,8 @@ if sys.version_info >= (3, 7):
         __forward_evaluated__: bool
         __forward_value__: Any | None
         __forward_is_argument__: bool
+        __forward_is_class__: bool
+        __forward_module__: Any | None
         if sys.version_info >= (3, 9):
             # The module and is_class arguments were added in later Python 3.9 versions.
             def __init__(self, arg: str, is_argument: bool = ..., module: Any | None = ..., *, is_class: bool = ...) -> None: ...

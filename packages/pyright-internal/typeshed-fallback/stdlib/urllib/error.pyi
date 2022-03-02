@@ -9,6 +9,8 @@ class URLError(IOError):
     def __init__(self, reason: str | BaseException, filename: str | None = ...) -> None: ...
 
 class HTTPError(URLError, addinfourl):
+    @property
+    def reason(self) -> str: ...  # type: ignore[override]
     code: int
     def __init__(self, url: str, code: int, msg: str, hdrs: Message, fp: IO[bytes] | None) -> None: ...
 

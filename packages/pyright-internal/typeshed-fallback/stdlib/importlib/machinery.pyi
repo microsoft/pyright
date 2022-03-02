@@ -22,7 +22,8 @@ class ModuleSpec:
     submodule_search_locations: list[str] | None
     loader_state: Any
     cached: str | None
-    parent: str | None
+    @property
+    def parent(self) -> str | None: ...
     has_location: bool
     def __eq__(self, other: object) -> bool: ...
 

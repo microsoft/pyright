@@ -95,8 +95,6 @@ class EnumMeta(ABCMeta):
     def __members__(self: type[_EnumMemberT]) -> types.MappingProxyType[str, _EnumMemberT]: ...
     def __len__(self) -> int: ...
     def __bool__(self) -> Literal[True]: ...
-    def __setattr__(self, name: str, value: Any) -> None: ...
-    def __delattr__(self, name: str) -> None: ...
     if sys.version_info >= (3, 11):
         # Simple value lookup
         @overload  # type: ignore[override]
@@ -136,17 +134,19 @@ if sys.version_info >= (3, 11):
     # In 3.11 `EnumMeta` metaclass is renamed to `EnumType`, but old name also exists.
     EnumType = EnumMeta
 
+    class property(types.DynamicClassAttribute):
+        def __set_name__(self, ownerclass: type[Enum], name: str) -> None: ...
+        name: str
+        clsname: str
+    _magic_enum_attr = property
+else:
+    _magic_enum_attr = types.DynamicClassAttribute
+
 class Enum(metaclass=EnumMeta):
-    if sys.version_info >= (3, 11):
-        @property
-        def name(self) -> str: ...
-        @property
-        def value(self) -> Any: ...
-    else:
-        @types.DynamicClassAttribute
-        def name(self) -> str: ...
-        @types.DynamicClassAttribute
-        def value(self) -> Any: ...
+    @_magic_enum_attr
+    def name(self) -> str: ...
+    @_magic_enum_attr
+    def value(self) -> Any: ...
     _name_: str
     _value_: Any
     if sys.version_info >= (3, 7):
@@ -165,20 +165,15 @@ class Enum(metaclass=EnumMeta):
 
 if sys.version_info >= (3, 11):
     class ReprEnum(Enum): ...
-
-if sys.version_info >= (3, 11):
-    class IntEnum(int, ReprEnum):
-        _value_: int
-        @property
-        def value(self) -> int: ...
-        def __new__(cls: type[Self], value: int) -> Self: ...
-
+    _IntEnumBase = ReprEnum
 else:
-    class IntEnum(int, Enum):
-        _value_: int
-        @types.DynamicClassAttribute
-        def value(self) -> int: ...
-        def __new__(cls: type[Self], value: int) -> Self: ...
+    _IntEnumBase = Enum
+
+class IntEnum(int, _IntEnumBase):
+    _value_: int
+    @_magic_enum_attr
+    def value(self) -> int: ...
+    def __new__(cls: type[Self], value: int) -> Self: ...
 
 def unique(enumeration: _EnumerationT) -> _EnumerationT: ...
 
@@ -187,29 +182,17 @@ _auto_null: Any
 # subclassing IntFlag so it picks up all implemented base functions, best modeling behavior of enum.auto()
 class auto(IntFlag):
     _value_: Any
-    if sys.version_info >= (3, 11):
-        @property
-        def value(self) -> Any: ...
-    else:
-        @types.DynamicClassAttribute
-        def value(self) -> Any: ...
-
+    @_magic_enum_attr
+    def value(self) -> Any: ...
     def __new__(cls: type[Self]) -> Self: ...
 
 class Flag(Enum):
     _name_: str | None  # type: ignore[assignment]
     _value_: int
-    if sys.version_info >= (3, 11):
-        @property
-        def name(self) -> str | None: ...  # type: ignore[override]
-        @property
-        def value(self) -> int: ...
-    else:
-        @types.DynamicClassAttribute
-        def name(self) -> str | None: ...  # type: ignore[override]
-        @types.DynamicClassAttribute
-        def value(self) -> int: ...
-
+    @_magic_enum_attr
+    def name(self) -> str | None: ...  # type: ignore[override]
+    @_magic_enum_attr
+    def value(self) -> int: ...
     def __contains__(self: Self, other: Self) -> bool: ...
     def __bool__(self) -> bool: ...
     def __or__(self: Self, other: Self) -> Self: ...
@@ -230,7 +213,7 @@ if sys.version_info >= (3, 11):
     class StrEnum(str, ReprEnum):
         def __new__(cls: type[Self], value: str) -> Self: ...
         _value_: str
-        @property
+        @_magic_enum_attr
         def value(self) -> str: ...
 
     class EnumCheck(StrEnum):
@@ -255,10 +238,6 @@ if sys.version_info >= (3, 11):
     EJECT = FlagBoundary.EJECT
     KEEP = FlagBoundary.KEEP
 
-    class property(types.DynamicClassAttribute):
-        def __set_name__(self, ownerclass: type[Enum], name: str) -> None: ...
-        name: str
-        clsname: str
     def global_str(self: Enum) -> str: ...
     def global_enum(cls: _EnumerationT, update_str: bool = ...) -> _EnumerationT: ...
     def global_enum_repr(self: Enum) -> str: ...

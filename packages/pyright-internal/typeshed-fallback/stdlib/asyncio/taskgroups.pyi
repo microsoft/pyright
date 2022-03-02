@@ -6,6 +6,8 @@ from typing import Any, Coroutine, Generator, TypeVar
 
 from .tasks import Task
 
+__all__ = ["TaskGroup"]
+
 _T = TypeVar("_T")
 
 class TaskGroup:

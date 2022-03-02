@@ -307,7 +307,8 @@ class SSLSocket(socket.socket):
     server_side: bool
     server_hostname: str | None
     session: SSLSession | None
-    session_reused: bool | None
+    @property
+    def session_reused(self) -> bool | None: ...
     if sys.version_info >= (3, 7):
         def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     else:
@@ -441,10 +442,13 @@ class SSLContext:
 
 class SSLObject:
     context: SSLContext
-    server_side: bool
-    server_hostname: str | None
+    @property
+    def server_side(self) -> bool: ...
+    @property
+    def server_hostname(self) -> str | None: ...
     session: SSLSession | None
-    session_reused: bool
+    @property
+    def session_reused(self) -> bool: ...
     if sys.version_info >= (3, 7):
         def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     else:

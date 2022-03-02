@@ -298,7 +298,7 @@ class BaseEventLoop(AbstractEventLoop):
             self, protocol_factory: Callable[[], _ProtocolT], sock: socket, *, ssl: _SSLContext = ...
         ) -> tuple[BaseTransport, _ProtocolT]: ...
     if sys.version_info >= (3, 11):
-        async def create_datagram_endpoint(
+        async def create_datagram_endpoint(  # type: ignore[override]
             self,
             protocol_factory: Callable[[], _ProtocolT],
             local_addr: tuple[str, int] | None = ...,

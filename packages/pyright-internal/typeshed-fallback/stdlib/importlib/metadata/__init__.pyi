@@ -42,7 +42,9 @@ if sys.version_info >= (3, 10):
     from importlib.metadata._meta import PackageMetadata as PackageMetadata
     def packages_distributions() -> Mapping[str, list[str]]: ...
 
-class PackageNotFoundError(ModuleNotFoundError): ...
+class PackageNotFoundError(ModuleNotFoundError):
+    @property
+    def name(self) -> str: ...  # type: ignore[override]
 
 class _EntryPointBase(NamedTuple):
     name: str
