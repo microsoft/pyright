@@ -107,3 +107,27 @@ def func10(foo: list[str]) -> bool:
         i = x
 
     return True
+
+
+class A:
+    pass
+
+
+class B(A):
+    pass
+
+
+def func11(val: A | B):
+    if not (isinstance(val, A) or isinstance(val, B)):
+        raise Exception
+
+
+reveal_type(func11(A()), expected_text="None")
+
+
+def func12(val: A | B):
+    if isinstance(val, A) or isinstance(val, B):
+        raise Exception
+
+
+reveal_type(func12(A()), expected_text="NoReturn")

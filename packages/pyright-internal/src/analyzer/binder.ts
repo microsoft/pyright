@@ -2502,7 +2502,12 @@ export class Binder extends ParseTreeWalker {
             node.nodeType === ParseNodeType.BinaryOperation &&
             (node.operator === OperatorType.And || node.operator === OperatorType.Or)
         ) {
-            if (node.operator === OperatorType.And) {
+            let isAnd = node.operator === OperatorType.And;
+            if (isPositiveTest) {
+                isAnd = !isAnd;
+            }
+
+            if (isAnd) {
                 // In the And case, we need to gate the synthesized else clause if both
                 // of the operands evaluate to never once they are narrowed.
                 const savedCurrentFlowNode = this._currentFlowNode;
