@@ -22745,14 +22745,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diag: DiagnosticAddendum,
         enforceParamNames = true
     ): boolean {
-        // If we're overriding an overloaded method, uses the last overload.
+        // If we're overriding an overloaded method, uses the implementation.
         if (isOverloadedFunction(baseMethod)) {
-            baseMethod = baseMethod.overloads[baseMethod.overloads.length - 1];
+            const implementation = baseMethod.overloads.find((overload) => !FunctionType.isOverloaded(overload));
 
             // If the overloaded method doesn't have an implementation, skip the check.
-            if (FunctionType.isOverloaded(baseMethod)) {
+            if (!implementation) {
                 return true;
             }
+
+            baseMethod = implementation;
         }
 
         // If we're overriding a non-method with a method, report it as an error.
