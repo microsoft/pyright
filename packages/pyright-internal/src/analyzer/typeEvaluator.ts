@@ -14021,7 +14021,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6) {
                             if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                 classType.details.flags |=
-                                    ClassTypeFlags.DataClass | ClassTypeFlags.ReadOnlyInstanceVariables;
+                                    ClassTypeFlags.DataClass |
+                                    ClassTypeFlags.SkipSynthesizedDataClassEq |
+                                    ClassTypeFlags.ReadOnlyInstanceVariables;
                             }
                         }
 
