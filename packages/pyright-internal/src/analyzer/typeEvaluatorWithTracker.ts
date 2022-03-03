@@ -86,8 +86,8 @@ export function createTypeEvaluatorWithTracker(
         isAsymmetricDescriptorAssignment: typeEvaluator.isAsymmetricDescriptorAssignment,
         suppressDiagnostics: (node, callback) =>
             run('suppressDiagnostics', () => typeEvaluator.suppressDiagnostics(node, callback)),
-        getDeclarationsForNameNode: (n) =>
-            run('getDeclarationsForNameNode', () => typeEvaluator.getDeclarationsForNameNode(n), n),
+        getDeclarationsForNameNode: (n, s) =>
+            run('getDeclarationsForNameNode', () => typeEvaluator.getDeclarationsForNameNode(n, s), n),
         getTypeForDeclaration: (n) => run('getTypeForDeclaration', () => typeEvaluator.getTypeForDeclaration(n), n),
         resolveAliasDeclaration: (d, l, h) =>
             run('resolveAliasDeclaration', () => typeEvaluator.resolveAliasDeclaration(d, l, h), d),

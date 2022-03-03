@@ -40,7 +40,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         evaluator: TypeEvaluator,
         cancellationToken: CancellationToken,
         startingNode?: ParseNode,
-        treatModuleInImportAndFromImportSame = false
+        treatModuleInImportAndFromImportSame = false,
+        skipUnreachableCode = true
     ): CollectionResult[] {
         const symbolName = node.value;
         const declarations = this.getDeclarationsForNode(
@@ -61,7 +62,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             evaluator,
             cancellationToken,
             startingNode,
-            treatModuleInImportAndFromImportSame
+            treatModuleInImportAndFromImportSame,
+            skipUnreachableCode
         );
 
         return collector.collect();
@@ -107,7 +109,8 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken,
         private _startingNode: ParseNode,
-        private _treatModuleInImportAndFromImportSame = false
+        private _treatModuleInImportAndFromImportSame = false,
+        private _skipUnreachableCode = true
     ) {
         super();
 
@@ -122,7 +125,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     override walk(node: ParseNode) {
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+        if (!this._skipUnreachableCode || !AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         }
     }
@@ -136,7 +139,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         if (this._declarations.length > 0) {
-            const declarations = DocumentSymbolCollector._getDeclarationsForNode(node, this._evaluator);
+            const declarations = DocumentSymbolCollector._getDeclarationsForNode(
+                node,
+                this._evaluator,
+                this._skipUnreachableCode
+            );
 
             if (declarations && declarations.length > 0) {
                 // Does this name share a declaration with the symbol of interest?
@@ -263,11 +270,15 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         declarations.push(itemToAdd);
     }
 
-    private static _getDeclarationsForNode(node: NameNode, evaluator: TypeEvaluator): Declaration[] {
+    private static _getDeclarationsForNode(
+        node: NameNode,
+        evaluator: TypeEvaluator,
+        skipUnreachableCode = true
+    ): Declaration[] {
         // This can handle symbols brought in by wildcard as long as declarations symbol collector
         // compare against point to actual alias declaration, not one that use local name (ex, import alias)
         if (node.parent?.nodeType !== ParseNodeType.ModuleName) {
-            let decls = evaluator.getDeclarationsForNameNode(node) || [];
+            let decls = evaluator.getDeclarationsForNameNode(node, skipUnreachableCode) || [];
 
             if (node.parent?.nodeType === ParseNodeType.ImportFromAs) {
                 // Make sure we get the decl for this specific from import statement
@@ -295,7 +306,9 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                     continue;
                 }
 
-                decls.push(...(evaluator.getDeclarationsForNameNode(node.module.nameParts[0]) || []));
+                decls.push(
+                    ...(evaluator.getDeclarationsForNameNode(node.module.nameParts[0], skipUnreachableCode) || [])
+                );
             }
 
             return decls;

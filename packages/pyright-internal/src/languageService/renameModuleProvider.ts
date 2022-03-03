@@ -199,7 +199,7 @@ export class RenameModuleProvider {
                 );
 
                 importResolver
-                    .getSourceFilesFromStub(moduleFilePath, execEnv, /*mapCompiled*/ false)
+                    .getSourceFilesFromStub(moduleFilePath, execEnv, /* mapCompiled */ false)
                     .forEach((p) => declarations!.push(createSynthesizedAliasDeclaration(p)));
             }
         }
@@ -277,11 +277,12 @@ export class RenameModuleProvider {
             this._evaluator!,
             this._token,
             parseResults.parseTree,
-            /*treatModuleImportAndFromImportSame*/ true
+            /* treatModuleImportAndFromImportSame */ true,
+            /* skipUnreachableCode */ false
         );
 
         // See if we need to insert new import statement
-        const importStatements = getTopLevelImports(parseResults.parseTree, /*includeImplicitImports*/ true);
+        const importStatements = getTopLevelImports(parseResults.parseTree, /* includeImplicitImports */ true);
 
         // See whether we have existing import statement for the same module
         // ex) import [moduleName] or from ... import [moduleName]
@@ -486,7 +487,7 @@ export class RenameModuleProvider {
         const declarations = DocumentSymbolCollector.getDeclarationsForNode(
             nameToBind,
             this._evaluator,
-            /*resolveLocalName*/ false,
+            /* resolveLocalName */ false,
             this._token
         );
         if (declarations.length === 0) {
@@ -499,7 +500,8 @@ export class RenameModuleProvider {
             this._evaluator!,
             this._token,
             parseResults.parseTree,
-            /*treatModuleImportAndFromImportSame*/ true
+            /* treatModuleImportAndFromImportSame */ true,
+            /* skipUnreachableCode */ false
         );
 
         for (const result of collector.collect()) {
@@ -529,7 +531,8 @@ export class RenameModuleProvider {
             this._evaluator!,
             this._token,
             parseResults.parseTree,
-            /*treatModuleImportAndFromImportSame*/ true
+            /* treatModuleImportAndFromImportSame */ true,
+            /* skipUnreachableCode */ false
         );
 
         // We only support simple rename of folder. Change all occurrence of the old folder name
@@ -546,7 +549,8 @@ export class RenameModuleProvider {
             this._evaluator!,
             this._token,
             parseResults.parseTree,
-            /*treatModuleImportAndFromImportSame*/ true
+            /* treatModuleImportAndFromImportSame */ true,
+            /* skipUnreachableCode */ false
         );
 
         const nameRemoved = new Set<number>();
@@ -598,7 +602,7 @@ export class RenameModuleProvider {
             }
 
             importStatements =
-                importStatements ?? getTopLevelImports(parseResults.parseTree, /*includeImplicitImports*/ false);
+                importStatements ?? getTopLevelImports(parseResults.parseTree, /* includeImplicitImports */ false);
 
             // For now, this won't merge absolute and relative path "from import"
             // statement.
@@ -613,8 +617,8 @@ export class RenameModuleProvider {
                         this._fs,
                         this._newModuleFilePath,
                         this._newModuleFilePath,
-                        /*ignoreFolderStructure*/ false,
-                        /*sourceIsFile*/ true
+                        /* ignoreFolderStructure */ false,
+                        /* sourceIsFile */ true
                     ),
                     edit.itemsToMove.map((i) => {
                         return { name: i.name.value, alias: i.alias?.value };
@@ -759,7 +763,7 @@ export class RenameModuleProvider {
                 }
 
                 importStatements =
-                    importStatements ?? getTopLevelImports(parseResults.parseTree, /*includeImplicitImports*/ false);
+                    importStatements ?? getTopLevelImports(parseResults.parseTree, /* includeImplicitImports */ false);
 
                 // For now, this won't merge absolute and relative path "from import"
                 // statement.
@@ -834,7 +838,7 @@ export class RenameModuleProvider {
 
                     importStatements =
                         importStatements ??
-                        getTopLevelImports(parseResults.parseTree, /*includeImplicitImports*/ false);
+                        getTopLevelImports(parseResults.parseTree, /* includeImplicitImports */ false);
 
                     // ex) from xxx import yyy, [zzz] to
                     //     from xxx import yyy
@@ -884,7 +888,7 @@ export class RenameModuleProvider {
             const decls = DocumentSymbolCollector.getDeclarationsForNode(
                 nodeFound,
                 this._evaluator,
-                /*resolveLocalName*/ false,
+                /* resolveLocalName */ false,
                 this._token
             ).filter((d) => isAliasDeclaration(d)) as AliasDeclaration[];
 
@@ -962,8 +966,8 @@ export class RenameModuleProvider {
                 this._fs,
                 result.src,
                 result.dest,
-                /*ignoreFolderStructure*/ false,
-                /*sourceIsFile*/ true
+                /* ignoreFolderStructure */ false,
+                /* sourceIsFile */ true
             );
 
             newNames.push({ moduleName, newModuleName, itemsToMove: result.itemsToMove });

@@ -17569,8 +17569,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
-        if (AnalyzerNodeInfo.isCodeUnreachable(node)) {
+    function getDeclarationsForNameNode(node: NameNode, skipUnreachableCode = true): Declaration[] | undefined {
+        if (skipUnreachableCode && AnalyzerNodeInfo.isCodeUnreachable(node)) {
             return undefined;
         }
 

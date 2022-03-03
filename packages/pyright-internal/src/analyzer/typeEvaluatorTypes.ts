@@ -309,7 +309,7 @@ export interface TypeEvaluator {
     isAsymmetricDescriptorAssignment: (node: ParseNode) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
 
-    getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
+    getDeclarationsForNameNode: (node: NameNode, skipUnreachableCode?: boolean) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
     resolveAliasDeclaration: (
         declaration: Declaration,

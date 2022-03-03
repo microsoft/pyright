@@ -69,7 +69,8 @@ export class FindReferencesTreeWalker {
             this._evaluator,
             this._cancellationToken,
             rootNode,
-            /* treat module in import and from import same */ true
+            /* treatModuleInImportAndFromImportSame */ true,
+            /* skipUnreachableCode */ false
         );
 
         const results: DocumentRange[] = [];
