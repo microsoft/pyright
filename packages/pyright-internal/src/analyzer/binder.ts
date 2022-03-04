@@ -227,7 +227,7 @@ export class Binder extends ParseTreeWalker {
 
     // Estimates the overall complexity of the code flow graph for
     // the current function.
-    private _functionCodeFlowComplexity = 0;
+    private _codeFlowComplexity = 0;
 
     constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
         super();
@@ -267,10 +267,11 @@ export class Binder extends ParseTreeWalker {
 
                 this._walkStatementsAndReportUnreachable(node.statements);
 
-                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-
                 // Associate the code flow node at the end of the module with the module.
                 AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
+
+                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
+                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
             }
         );
 
@@ -495,7 +496,7 @@ export class Binder extends ParseTreeWalker {
             this._deferBinding(() => {
                 // Create a start node for the function.
                 this._currentFlowNode = this._createStartFlowNode();
-                this._functionCodeFlowComplexity = 0;
+                this._codeFlowComplexity = 0;
 
                 node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
@@ -541,7 +542,7 @@ export class Binder extends ParseTreeWalker {
                 AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
 
                 AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._functionCodeFlowComplexity);
+                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
             });
         });
 
@@ -1387,7 +1388,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Try blocks are expensive to analyze, so add to the complexity metric.
-        this._functionCodeFlowComplexity += 4;
+        this._codeFlowComplexity += 4;
 
         return false;
     }
@@ -2485,7 +2486,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Add one to the code flow complexity for each antecedent.
-        this._functionCodeFlowComplexity += node.antecedents.length;
+        this._codeFlowComplexity += node.antecedents.length;
 
         return node;
     }
@@ -3061,11 +3062,11 @@ export class Binder extends ParseTreeWalker {
     private _bindLoopStatement(preLoopLabel: FlowLabel, postLoopLabel: FlowLabel, callback: () => void) {
         const savedContinueTarget = this._currentContinueTarget;
         const savedBreakTarget = this._currentBreakTarget;
-        const savedCodeFlowComplexity = this._functionCodeFlowComplexity;
+        const savedCodeFlowComplexity = this._codeFlowComplexity;
 
         this._currentContinueTarget = preLoopLabel;
         this._currentBreakTarget = postLoopLabel;
-        this._functionCodeFlowComplexity = 1;
+        this._codeFlowComplexity = 1;
 
         preLoopLabel.affectedExpressions = this._trackCodeFlowExpressions(callback);
 
@@ -3075,7 +3076,7 @@ export class Binder extends ParseTreeWalker {
         // For each loop, double the complexity of the complexity of the
         // contained code flow. This reflects the fact that nested loops
         // are very expensive to analyze.
-        this._functionCodeFlowComplexity = this._functionCodeFlowComplexity * 2 + savedCodeFlowComplexity;
+        this._codeFlowComplexity = this._codeFlowComplexity * 2 + savedCodeFlowComplexity;
     }
 
     private _addAntecedent(label: FlowLabel, antecedent: FlowNode) {

@@ -161,12 +161,12 @@ export function setCodeFlowExpressions(node: ExecutionScopeNode, expressions: Se
     analyzerNode.codeFlowExpressions = expressions;
 }
 
-export function getCodeFlowComplexity(node: FunctionNode) {
+export function getCodeFlowComplexity(node: ExecutionScopeNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
     return analyzerNode.codeFlowComplexity ?? 0;
 }
 
-export function setCodeFlowComplexity(node: FunctionNode, complexity: number) {
+export function setCodeFlowComplexity(node: ExecutionScopeNode, complexity: number) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.codeFlowComplexity = complexity;
 }
