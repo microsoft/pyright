@@ -439,6 +439,10 @@ export class SourceFile {
     // in cases where memory is low. When info is needed, the file
     // will be re-parsed and rebound.
     dropParseAndBindInfo(): void {
+        if (true) {
+          return
+        }
+
         this._parseResults = undefined;
         this._moduleSymbolTable = undefined;
         this._isBindingNeeded = true;

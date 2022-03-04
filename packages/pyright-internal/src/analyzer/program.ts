@@ -529,6 +529,7 @@ export class Program {
 
     indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken): number {
         if (!this._configOptions.indexing) {
+            console.log('Not indexing...');
             return 0;
         }
 
@@ -548,9 +549,12 @@ export class Program {
             let count = 0;
             for (const sourceFileInfo of this._sourceFileList) {
                 if (!this._isUserCode(sourceFileInfo) || !sourceFileInfo.sourceFile.isIndexingRequired()) {
+                    // TODO(lsif): Probably want some other way to skip files still though... :)
+                    console.log('Skipping', sourceFileInfo.sourceFile.getFilePath());
                     continue;
                 }
 
+                console.log('Binding...', sourceFileInfo.sourceFile.getFilePath());
                 this._bindFile(sourceFileInfo);
                 const results = sourceFileInfo.sourceFile.index({ indexingForAutoImportMode: false }, token);
                 if (results) {
@@ -2089,7 +2093,7 @@ export class Program {
     private _handleMemoryHighUsage() {
         // Skip this, we wanna keep everything
         if (_isLsifMode) {
-          return
+            return;
         }
 
         const typeCacheSize = this._evaluator!.getTypeCacheSize();
@@ -2125,7 +2129,7 @@ export class Program {
     }
 
     private _isUserCode(fileInfo: SourceFileInfo | undefined) {
-        return fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
+        return fileInfo && (fileInfo.isTracked || fileInfo.isThirdPartyImport)  && !fileInfo.isTypeshedFile;
     }
 
     // Wrapper function that should be used when invoking this._evaluator

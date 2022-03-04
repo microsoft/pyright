@@ -38,6 +38,7 @@ import {
 } from 'pyright-internal/analyzer/parseTreeUtils';
 import { ClassType, isClass, isClassInstance, isFunction, Type } from 'pyright-internal/analyzer/types';
 import { DefinitionFilter, DefinitionProvider } from 'pyright-internal/languageService/definitionProvider';
+import { Declaration } from 'pyright-internal/analyzer/declaration';
 
 // TODO:
 // - [ ] Emit definitions for all class
@@ -80,7 +81,7 @@ export class TreeVisitor extends ParseTreeWalker {
         this.symbols = new Map();
         this.imports = new Map();
 
-        console.log("Visiting:", document.relative_path);
+        console.log('Visiting:', document.relative_path);
     }
 
     override visitModule(node: ModuleNode): boolean {
@@ -139,7 +140,7 @@ export class TreeVisitor extends ParseTreeWalker {
 
     // `import requests`
     override visitImport(node: ImportNode): boolean {
-        console.log("Hitting Import", getImportInfo(node));
+        // console.log('Hitting Import', getImportInfo(node));
         // this.program.addTrackedFiles([], true, true)
 
         // this.evaluator.getImportInfo
@@ -182,9 +183,9 @@ export class TreeVisitor extends ParseTreeWalker {
         // this.program
         // this.evaluator
         //
-        if (node.token.value !== "get") {
-            return true
-        }
+        // if (node.token.value !== "get") {
+        //     return true
+        // }
 
         if (false) {
             const sourceFile = this.program.getSourceFile(this.filepath)!;
@@ -198,42 +199,47 @@ export class TreeVisitor extends ParseTreeWalker {
                 {} as any
             );
         } else {
-            console.log('========================');
-            console.log(
-                'Definitions:',
-                node.value,
-                '->',
-                this.program.getDefinitionsForPosition(
-                    this.filepath,
-                    convertOffsetToPosition(node.start, this.fileInfo!.lines),
-                    DefinitionFilter.All,
-                    {
-                        isCancellationRequested: false,
-                        onCancellationRequested: Event.None,
-                    }
-                )
-            );
-
-            console.log('Declarations:', node.value, '->', this.evaluator.getDeclarationsForNameNode(node));
+            // console.log(
+            //     'Definitions:',
+            //     node.value,
+            //     '->',
+            //     this.program.getDefinitionsForPosition(
+            //         this.filepath,
+            //         convertOffsetToPosition(node.start, this.fileInfo!.lines),
+            //         DefinitionFilter.All,
+            //         {
+            //             isCancellationRequested: false,
+            //             onCancellationRequested: Event.None,
+            //         }
+            //     )
+            // );
+            // console.log('Declarations:', node.value, '->', this.evaluator.getDeclarationsForNameNode(node));
             // console.log("Declarations:", node.value, "->", this.program.getTypeForSymbol());
         }
 
         const decls = this.evaluator.getDeclarationsForNameNode(node) || [];
+        if (node.token.value === 'get') {
+            console.log('Declarations:', decls);
+        }
         if (decls.length > 0) {
             const dec = decls[0];
 
             if (!dec.node) {
-                console.log('Skipping:', node.value, '->', nameNodeToRange(node, this.fileInfo!.lines));
+                // console.log('Skipping:', node.value, '->', nameNodeToRange(node, this.fileInfo!.lines));
                 return true;
             }
 
             if (this.imports.has(dec.node.id)) {
-                // TODO: ExpressionNode cast is required?
-                const thingy = this.evaluator.getType(dec.node as ExpressionNode);
+                throw 'oh no no, i do not remember how this happens';
 
-                if (thingy) {
-                    this.pushTypeReference(node, thingy!);
-                }
+                // TODO: ExpressionNode cast is required?
+                try {
+                    const thingy = this.evaluator.getType(dec.node as ExpressionNode);
+
+                    if (thingy) {
+                        this.pushTypeReference(node, thingy!);
+                    }
+                } catch (e) {}
 
                 // this.document.occurrences.push(
                 //     new lsif_typed.Occurrence({
@@ -261,6 +267,18 @@ export class TreeVisitor extends ParseTreeWalker {
                 return true;
             }
 
+            if (node.token.value == 'get') {
+                this.document.occurrences.push(
+                    new lsif_typed.Occurrence({
+                        symbol_roles: lsif_typed.SymbolRole.ReadAccess,
+                        symbol: this.declarationToSymbol(dec).value,
+                        range: nameNodeToRange(node, this.fileInfo!.lines).toLsif(),
+                    })
+                );
+
+                return true;
+            }
+
             const symbol = this.getLsifSymbol(dec.node);
             const symbol_roles =
                 dec.node.id == node.id ? lsif_typed.SymbolRole.Definition : lsif_typed.SymbolRole.ReadAccess;
@@ -281,7 +299,7 @@ export class TreeVisitor extends ParseTreeWalker {
         }
 
         if (node && (isImportModuleName(node) || isFromImportModuleName(node))) {
-            console.log('Import Thingy:', node);
+            // console.log('Import Thingy:', node);
             return true;
         }
 
@@ -316,6 +334,10 @@ export class TreeVisitor extends ParseTreeWalker {
         this.symbols.set(node.id, newSymbol);
 
         return newSymbol;
+    }
+
+    private declarationToSymbol(declaration: Declaration): LsifSymbol {
+      return LsifSymbol.global(LsifSymbol.package(declaration.moduleName, '2.3'), Descriptor.method('get', ''))
     }
 
     private makeLsifSymbol(node: ParseNodeBase): LsifSymbol {
@@ -374,14 +396,23 @@ export class TreeVisitor extends ParseTreeWalker {
                     Descriptor.term('FuncAnnotation')
                 );
 
-            default:
+            case ParseNodeType.ImportAs:
+            case ParseNodeType.ImportFrom:
+            case ParseNodeType.ImportFromAs:
+                // TODO:
                 return LsifSymbol.empty();
+
+            case ParseNodeType.If:
+                return LsifSymbol.empty();
+
+            default:
+                throw 'Unhandled: ' + node.nodeType;
         }
     }
 
     // Take a `Type` from pyright and turn that into an LSIF symbol.
     private typeToSymbol(node: NameNode, typeObj: Type): LsifSymbol {
-        console.log(node, typeObj);
+        // console.log(node, typeObj);
 
         if (isFunction(typeObj)) {
             const decl = typeObj.details.declaration;
@@ -391,7 +422,7 @@ export class TreeVisitor extends ParseTreeWalker {
 
             return LsifSymbol.global(this.getLsifSymbol(decl.node), Descriptor.term(node.value));
         } else if (isClass(typeObj)) {
-            console.log('SourceFile:', typeObj.details);
+            // console.log('SourceFile:', typeObj.details);
 
             let sourceFile = typeObj.details.moduleName.split('.');
             // let module =
