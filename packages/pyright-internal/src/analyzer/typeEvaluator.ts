@@ -18277,6 +18277,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let declIndexToConsider: number | undefined;
 
+        // Limit the number of declarations to explore.
+        const maxDeclsToConsider = 16;
+        if (decls.length > maxDeclsToConsider) {
+            return {
+                type: UnknownType.create(),
+                isIncomplete: false,
+                includesVariableDecl: false,
+                isRecursiveDefinition: false,
+            };
+        }
+
         // If the caller has requested that we use only the last decl, we
         // will use only the last one, but we'll ignore decls that are in
         // except clauses.
