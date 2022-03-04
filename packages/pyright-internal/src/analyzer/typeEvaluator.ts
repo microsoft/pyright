@@ -2407,7 +2407,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getEffectiveTypeOfSymbol(symbol);
     }
 
+    function checkCodeFlowTooComplex(node: ParseNode): boolean {
+        const scopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(scopeNode);
+
+        const maxCodeComplexity = 10000;
+        if (codeComplexity > maxCodeComplexity) {
+            let errorRange: TextRange = scopeNode;
+            if (scopeNode.nodeType === ParseNodeType.Function) {
+                errorRange = scopeNode.name;
+            } else if (scopeNode.nodeType === ParseNodeType.Module) {
+                errorRange = { start: 0, length: 0 };
+            }
+
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            addDiagnosticForTextRange(
+                fileInfo,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                errorRange
+            );
+
+            return true;
+        }
+
+        return false;
+    }
+
     function isNodeReachable(node: ParseNode, sourceNode?: ParseNode): boolean {
+        if (checkCodeFlowTooComplex(node)) {
+            return true;
+        }
+
         const flowNode = AnalyzerNodeInfo.getFlowNode(node);
         if (!flowNode) {
             if (node.parent) {
@@ -2429,6 +2461,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const returnFlowNode = AnalyzerNodeInfo.getAfterFlowNode(node);
         if (!returnFlowNode) {
             return false;
+        }
+
+        if (checkCodeFlowTooComplex(node)) {
+            return true;
         }
 
         if (!codeFlowEngine.isFlowNodeReachable(returnFlowNode)) {
@@ -2460,6 +2496,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Determines whether there is a code flow path from sourceNode to sinkNode.
     function isFlowPathBetweenNodes(sourceNode: ParseNode, sinkNode: ParseNode, allowSelf = true) {
+        if (checkCodeFlowTooComplex(sourceNode)) {
+            return true;
+        }
+
         const sourceFlowNode = AnalyzerNodeInfo.getFlowNode(sourceNode);
         const sinkFlowNode = AnalyzerNodeInfo.getFlowNode(sinkNode);
         if (!sourceFlowNode || !sinkFlowNode) {
@@ -16873,6 +16913,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: undefined, isIncomplete: false };
         }
 
+        if (checkCodeFlowTooComplex(reference)) {
+            return { type: undefined, isIncomplete: true };
+        }
+
         // Is there an code flow analyzer cached for this execution scope?
         let analyzer: CodeFlowAnalyzer | undefined;
 
@@ -18504,7 +18548,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const functionNode = type.details.declaration.node;
 
                 // Skip return type inference if we are in "skip unannotated function" mode.
-                if (evaluatorOptions.analyzeUnannotatedFunctions) {
+                if (evaluatorOptions.analyzeUnannotatedFunctions && !checkCodeFlowTooComplex(functionNode.suite)) {
                     const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
                     // For very complex functions that have no annotated parameter types,

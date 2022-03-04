@@ -55,6 +55,7 @@
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
         "classVarWithTypeVar": "\"ClassVar\" type cannot include type variables",
         "clsSelfParamTypeMismatch": "Type of parameter \"{name}\" must be a supertype of its class \"{classType}\"",
+        "codeTooComplexToAnalyze": "Code is too complex to analyze; reduce complexity by refactoring into subroutines",
         "comparisonAlwaysFalse": "Condition will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "comparisonAlwaysTrue": "Condition will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
