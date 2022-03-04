@@ -318,12 +318,6 @@ interface ValidateTypeArgsOptions {
     allowUnpackedTuples?: boolean;
 }
 
-interface EffectiveTypeCacheEntry {
-    usageNodeId: number | undefined;
-    useLastDecl: boolean;
-    result: EffectiveTypeResult;
-}
-
 interface MatchArgsToParamsResult {
     overload: FunctionType;
     overloadIndex: number;
@@ -549,7 +543,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const asymmetricDescriptorAssignmentCache = new Set<number>();
     const expectedTypeCache = new Map<number, Type>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
-    const effectiveTypeCache = new Map<number, EffectiveTypeCacheEntry[]>();
+    const effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     const suppressedNodeStack: ParseNode[] = [];
     const incompleteTypeTracker = new IncompleteTypeTracker();
     const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
@@ -18219,11 +18213,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Look in the cache to see if we've computed this already.
         let cacheEntries = effectiveTypeCache.get(symbol.id);
         const usageNodeId = usageNode ? usageNode.id : undefined;
+        const effectiveTypeCacheKey = `${usageNodeId === undefined ? '.' : usageNodeId.toString()}${
+            useLastDecl ? '*' : ''
+        }`;
         if (cacheEntries) {
-            for (const entry of cacheEntries) {
-                if (entry.usageNodeId === usageNodeId && entry.useLastDecl === useLastDecl) {
-                    return entry.result;
-                }
+            const result = cacheEntries.get(effectiveTypeCacheKey);
+            if (result) {
+                return result;
             }
         }
 
@@ -18343,15 +18339,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!includesSpeculativeResult) {
                 // Add the entry to the cache so we don't need to compute it next time.
                 if (!cacheEntries) {
-                    cacheEntries = [];
+                    cacheEntries = new Map<string, EffectiveTypeResult>();
                     effectiveTypeCache.set(symbol.id, cacheEntries);
                 }
 
-                cacheEntries.push({
-                    usageNodeId,
-                    useLastDecl,
-                    result,
-                });
+                cacheEntries.set(effectiveTypeCacheKey, result);
             }
 
             return result;
