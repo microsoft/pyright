@@ -6684,15 +6684,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (callResult.argumentErrors) {
                     returnResult.typeErrors = true;
-
-                    // If there was an expected type specified, the argument errors
-                    // might be due to a mismatch with the expected type. We may need
-                    // to evaluate it with a different expected type (e.g. if there are
-                    // overloads involved). Mark the type as incomplete so the return
-                    // type doesn't get cached.
-                    if (expectedType) {
-                        returnResult.isIncomplete = true;
-                    }
                 }
 
                 if (callResult.isTypeIncomplete) {
@@ -6707,27 +6698,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             returnResult.isIncomplete = true;
         }
 
-        // Touch all of the args so they're marked accessed even if there were errors.
-        // We skip this if it's a TypeVar() call in the typing.pyi module because
-        // this results in a cyclical type resolution problem whereby we try to
-        // retrieve the str class, which inherits from Sequence, which inherits from
-        // Iterable, which uses a TypeVar. Without this, Iterable and Sequence classes
-        // have invalid type parameters.
-        const isCyclicalTypeVarCall =
-            isInstantiableClass(baseTypeResult.type) &&
-            ClassType.isBuiltIn(baseTypeResult.type, 'TypeVar') &&
-            AnalyzerNodeInfo.getFileInfo(node).isTypingStubFile;
+        // Don't bother evaluating the arguments if we're speculatively evaluating the call.
+        if (!speculativeTypeTracker.isSpeculative(node)) {
+            // Touch all of the args so they're marked accessed even if there were errors.
+            // We skip this if it's a TypeVar() call in the typing.pyi module because
+            // this results in a cyclical type resolution problem whereby we try to
+            // retrieve the str class, which inherits from Sequence, which inherits from
+            // Iterable, which uses a TypeVar. Without this, Iterable and Sequence classes
+            // have invalid type parameters.
+            const isCyclicalTypeVarCall =
+                isInstantiableClass(baseTypeResult.type) &&
+                ClassType.isBuiltIn(baseTypeResult.type, 'TypeVar') &&
+                AnalyzerNodeInfo.getFileInfo(node).isTypingStubFile;
 
-        if (!isCyclicalTypeVarCall) {
-            argList.forEach((arg) => {
-                if (
-                    arg.valueExpression &&
-                    arg.valueExpression.nodeType !== ParseNodeType.StringList &&
-                    !isTypeCached(arg.valueExpression)
-                ) {
-                    getTypeOfExpression(arg.valueExpression);
-                }
-            });
+            if (!isCyclicalTypeVarCall) {
+                argList.forEach((arg) => {
+                    if (
+                        arg.valueExpression &&
+                        arg.valueExpression.nodeType !== ParseNodeType.StringList &&
+                        !isTypeCached(arg.valueExpression)
+                    ) {
+                        getTypeOfExpression(arg.valueExpression);
+                    }
+                });
+            }
         }
 
         return returnResult;
