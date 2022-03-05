@@ -12976,35 +12976,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (enclosingFunction) {
             const functionFlags = getFunctionFlagsFromDecorators(enclosingFunction, /* isInClass */ true);
 
-            // Check for static methods.
-            if (functionFlags & FunctionTypeFlags.StaticMethod) {
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.selfTypeContext(),
-                    errorNode
-                );
+            const isInnerFunction = !!ParseTreeUtils.getEnclosingFunction(enclosingFunction);
+            if (!isInnerFunction) {
+                // Check for static methods.
+                if (functionFlags & FunctionTypeFlags.StaticMethod) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.selfTypeContext(),
+                        errorNode
+                    );
 
-                return UnknownType.create();
-            }
+                    return UnknownType.create();
+                }
 
-            if (enclosingFunction.parameters.length > 0) {
-                const firstParamTypeAnnotation = getTypeAnnotationForParameter(enclosingFunction, 0);
-                if (
-                    firstParamTypeAnnotation &&
-                    !ParseTreeUtils.isNodeContainedWithin(errorNode, firstParamTypeAnnotation)
-                ) {
-                    const annotationType = getTypeOfAnnotation(firstParamTypeAnnotation, {
-                        associateTypeVarsWithScope: true,
-                        disallowRecursiveTypeAlias: true,
-                    });
-                    if (!isTypeVar(annotationType) || !annotationType.details.isSynthesizedSelf) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.selfTypeWithTypedSelfOrCls(),
-                            errorNode
-                        );
+                if (enclosingFunction.parameters.length > 0) {
+                    const firstParamTypeAnnotation = getTypeAnnotationForParameter(enclosingFunction, 0);
+                    if (
+                        firstParamTypeAnnotation &&
+                        !ParseTreeUtils.isNodeContainedWithin(errorNode, firstParamTypeAnnotation)
+                    ) {
+                        const annotationType = getTypeOfAnnotation(firstParamTypeAnnotation, {
+                            associateTypeVarsWithScope: true,
+                            disallowRecursiveTypeAlias: true,
+                        });
+                        if (!isTypeVar(annotationType) || !annotationType.details.isSynthesizedSelf) {
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.selfTypeWithTypedSelfOrCls(),
+                                errorNode
+                            );
+                        }
                     }
                 }
             }

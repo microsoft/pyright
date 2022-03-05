@@ -1,6 +1,6 @@
 # This sample tests various error conditions for the Self type
 
-from typing import Generic, Type, TypeVar
+from typing import Callable, Generic, Type, TypeVar
 from typing_extensions import Self
 
 
@@ -82,3 +82,12 @@ class B:
         # This should generate an error because Self can't be used in
         # a static method.
         x: Self
+
+
+class C:
+    @classmethod
+    def outer(cls) -> Callable[[int, Self], Self]:
+        def inner(_: int, bar: Self) -> Self:
+            return bar
+
+        return inner
