@@ -978,8 +978,8 @@ export function isMatchingExpression(reference: ExpressionNode, expression: Expr
             return false;
         }
 
-        if (reference.items[0].valueExpression.nodeType === ParseNodeType.Number) {
-            const referenceNumberNode = reference.items[0].valueExpression;
+        const expr = reference.items[0].valueExpression;
+        if (expr.nodeType === ParseNodeType.Number) {
             const subscriptNode = expression.items[0].valueExpression;
             if (
                 subscriptNode.nodeType !== ParseNodeType.Number ||
@@ -989,11 +989,30 @@ export function isMatchingExpression(reference: ExpressionNode, expression: Expr
                 return false;
             }
 
-            return referenceNumberNode.value === subscriptNode.value;
+            return expr.value === subscriptNode.value;
         }
 
-        if (reference.items[0].valueExpression.nodeType === ParseNodeType.StringList) {
-            const referenceStringListNode = reference.items[0].valueExpression;
+        if (
+            expr.nodeType === ParseNodeType.UnaryOperation &&
+            expr.operator === OperatorType.Subtract &&
+            expr.expression.nodeType === ParseNodeType.Number
+        ) {
+            const subscriptNode = expression.items[0].valueExpression;
+            if (
+                subscriptNode.nodeType !== ParseNodeType.UnaryOperation ||
+                subscriptNode.operator !== OperatorType.Subtract ||
+                subscriptNode.expression.nodeType !== ParseNodeType.Number ||
+                subscriptNode.expression.isImaginary ||
+                !subscriptNode.expression.isInteger
+            ) {
+                return false;
+            }
+
+            return expr.expression.value === subscriptNode.expression.value;
+        }
+
+        if (expr.nodeType === ParseNodeType.StringList) {
+            const referenceStringListNode = expr;
             const subscriptNode = expression.items[0].valueExpression;
             if (
                 referenceStringListNode.strings.length === 1 &&

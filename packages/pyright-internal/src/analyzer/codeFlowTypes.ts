@@ -29,6 +29,7 @@ import {
     StringNode,
     SuiteNode,
 } from '../parser/parseNodes';
+import { OperatorType } from '../parser/tokenizerTypes';
 
 export enum FlowFlags {
     Unreachable = 1 << 0, // Unreachable code
@@ -188,12 +189,18 @@ export function isCodeFlowSupportedForReference(reference: ExpressionNode): bool
         const subscriptNode = reference.items[0].valueExpression;
         const isIntegerIndex =
             subscriptNode.nodeType === ParseNodeType.Number && !subscriptNode.isImaginary && subscriptNode.isInteger;
+        const isNegativeIntegerIndex =
+            subscriptNode.nodeType === ParseNodeType.UnaryOperation &&
+            subscriptNode.operator === OperatorType.Subtract &&
+            subscriptNode.expression.nodeType === ParseNodeType.Number &&
+            !subscriptNode.expression.isImaginary &&
+            subscriptNode.expression.isInteger;
         const isStringIndex =
             subscriptNode.nodeType === ParseNodeType.StringList &&
             subscriptNode.strings.length === 1 &&
             subscriptNode.strings[0].nodeType === ParseNodeType.String;
 
-        if (!isIntegerIndex && !isStringIndex) {
+        if (!isIntegerIndex && !isNegativeIntegerIndex && !isStringIndex) {
             return false;
         }
 
@@ -213,12 +220,19 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
     } else if (reference.nodeType === ParseNodeType.Index) {
         const leftKey = createKeyForReference(reference.baseExpression as CodeFlowReferenceExpressionNode);
         assert(reference.items.length === 1);
-        if (reference.items[0].valueExpression.nodeType === ParseNodeType.Number) {
-            key = `${leftKey}[${(reference.items[0].valueExpression as NumberNode).value.toString()}]`;
-        } else if (reference.items[0].valueExpression.nodeType === ParseNodeType.StringList) {
-            const valExpr = reference.items[0].valueExpression;
+        const expr = reference.items[0].valueExpression;
+        if (expr.nodeType === ParseNodeType.Number) {
+            key = `${leftKey}[${(expr as NumberNode).value.toString()}]`;
+        } else if (expr.nodeType === ParseNodeType.StringList) {
+            const valExpr = expr;
             assert(valExpr.strings.length === 1 && valExpr.strings[0].nodeType === ParseNodeType.String);
             key = `${leftKey}["${(valExpr.strings[0] as StringNode).value}"]`;
+        } else if (
+            expr.nodeType === ParseNodeType.UnaryOperation &&
+            expr.operator === OperatorType.Subtract &&
+            expr.expression.nodeType === ParseNodeType.Number
+        ) {
+            key = `${leftKey}[-${(expr.expression as NumberNode).value.toString()}]`;
         } else {
             fail('createKeyForReference received unexpected index type');
         }

@@ -36,11 +36,17 @@ def func1(v1: List[Optional[complex]]):
         foo.val = []
         reveal_type(foo.val[0][2], expected_text="str | None")
 
+    if v1[-1]:
+        reveal_type(v1[-1], expected_text="complex")
+
 
 def func2(v1: List[Union[Dict[str, str], List[str]]]):
     if isinstance(v1[0], dict):
         reveal_type(v1[0], expected_text="Dict[str, str]")
         reveal_type(v1[1], expected_text="Dict[str, str] | List[str]")
+
+    if isinstance(v1[-1], list):
+        reveal_type(v1[-1], expected_text="List[str]")
 
 
 def func3():
