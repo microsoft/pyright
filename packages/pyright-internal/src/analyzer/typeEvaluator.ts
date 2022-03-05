@@ -22817,19 +22817,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let canOverride = true;
 
-        // Verify that the param count matches exactly or that the override
+        // Verify that the positional param count matches exactly or that the override
         // adds only params that preserve the original signature.
         let foundParamCountMismatch = false;
-        if (overrideParamDetails.params.length < baseParamDetails.params.length) {
+        if (overrideParamDetails.positionParamCount < baseParamDetails.positionParamCount) {
             if (overrideParamDetails.argsIndex === undefined && overrideParamDetails.kwargsIndex === undefined) {
                 foundParamCountMismatch = true;
             }
-        } else if (overrideParamDetails.params.length > baseParamDetails.params.length) {
+        } else if (overrideParamDetails.positionParamCount > baseParamDetails.positionParamCount) {
             // Verify that all of the override parameters that extend the
             // signature are either *args, **kwargs or parameters with
             // default values.
 
-            for (let i = baseParamDetails.params.length; i < overrideParamDetails.params.length; i++) {
+            for (let i = baseParamDetails.positionParamCount; i < overrideParamDetails.positionParamCount; i++) {
                 const overrideParam = overrideParamDetails.params[i].param;
 
                 if (
@@ -22844,7 +22844,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (foundParamCountMismatch) {
             diag.addMessage(
-                Localizer.DiagnosticAddendum.overrideParamCount().format({
+                Localizer.DiagnosticAddendum.overridePositionalParamCount().format({
                     baseCount: baseParamDetails.params.length,
                     overrideCount: overrideParamDetails.params.length,
                 })
@@ -22852,9 +22852,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             canOverride = false;
         }
 
-        const paramCount = Math.min(baseParamDetails.params.length, overrideParamDetails.params.length);
+        const positionalParamCount = Math.min(
+            baseParamDetails.positionParamCount,
+            overrideParamDetails.positionParamCount
+        );
 
-        for (let i = 0; i < paramCount; i++) {
+        for (let i = 0; i < positionalParamCount; i++) {
             // If the first parameter is a "self" or "cls" parameter, skip the
             // test because these are allowed to violate the Liskov substitution
             // principle.
@@ -22899,8 +22902,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             } else {
-                const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
-                const overrideParamType = FunctionType.getEffectiveParameterType(overrideMethod, i);
+                const baseParamType = baseParamDetails.params[i].type;
+                const overrideParamType = overrideParamDetails.params[i].type;
 
                 const baseIsSynthesizedTypeVar = isTypeVar(baseParamType) && baseParamType.details.isSynthesized;
                 const overrideIsSynthesizedTypeVar =
@@ -22929,6 +22932,104 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Check for a *args match.
+        if (baseParamDetails.argsIndex !== undefined) {
+            if (overrideParamDetails.argsIndex === undefined) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.overrideParamNameMissing().format({
+                        name: baseParamDetails.params[baseParamDetails.argsIndex].param.name ?? '?',
+                    })
+                );
+                canOverride = false;
+            } else {
+                const overrideParamType = overrideParamDetails.params[overrideParamDetails.argsIndex].type;
+                const baseParamType = baseParamDetails.params[baseParamDetails.argsIndex].type;
+
+                if (
+                    !canAssignType(
+                        overrideParamType,
+                        baseParamType,
+                        diag.createAddendum(),
+                        new TypeVarMap(getTypeVarScopeId(overrideMethod)),
+                        CanAssignFlags.SkipSolveTypeVars
+                    )
+                ) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.overrideParamKeywordType().format({
+                            name: overrideParamDetails.params[overrideParamDetails.argsIndex].param.name ?? '?',
+                            baseType: printType(baseParamType),
+                            overrideType: printType(overrideParamType),
+                        })
+                    );
+                    canOverride = false;
+                }
+            }
+        }
+
+        // Now check any keyword-only parameters.
+        const baseKwOnlyParams = baseParamDetails.params.filter(
+            (paramInfo) =>
+                paramInfo.source === ParameterSource.KeywordOnly &&
+                paramInfo.param.category === ParameterCategory.Simple
+        );
+        const overrideWkOnlyParams = overrideParamDetails.params.filter(
+            (paramInfo) =>
+                paramInfo.source === ParameterSource.KeywordOnly &&
+                paramInfo.param.category === ParameterCategory.Simple
+        );
+
+        baseKwOnlyParams.forEach((paramInfo) => {
+            const overrideParamInfo = overrideWkOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
+
+            if (!overrideParamInfo) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.overrideParamNameMissing().format({
+                        name: paramInfo.param.name ?? '?',
+                    })
+                );
+                canOverride = false;
+            } else {
+                if (
+                    !canAssignType(
+                        overrideParamInfo.type,
+                        paramInfo.type,
+                        diag.createAddendum(),
+                        new TypeVarMap(getTypeVarScopeId(overrideMethod)),
+                        CanAssignFlags.SkipSolveTypeVars
+                    )
+                ) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.overrideParamKeywordType().format({
+                            name: paramInfo.param.name ?? '?',
+                            baseType: printType(paramInfo.type),
+                            overrideType: printType(overrideParamInfo.type),
+                        })
+                    );
+                    canOverride = false;
+                }
+            }
+        });
+
+        // Verify that any keyword-only parameters added by the overload are compatible
+        // with the **kwargs in the base.
+        overrideWkOnlyParams.forEach((paramInfo) => {
+            const baseParamInfo = baseKwOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
+
+            if (!baseParamInfo) {
+                if (baseParamDetails.kwargsIndex === undefined) {
+                    if (!paramInfo.param.hasDefault) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.overrideParamNameExtra().format({
+                                name: paramInfo.param.name ?? '?',
+                            })
+                        );
+                        canOverride = false;
+                    }
+                }
+            }
+        });
+
+        // Now check the return type.
         const baseReturnType = getFunctionEffectiveReturnType(baseMethod);
         const overrideReturnType = getFunctionEffectiveReturnType(overrideMethod);
         if (

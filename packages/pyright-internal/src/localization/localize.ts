@@ -1049,14 +1049,18 @@ export namespace Localizer {
         export const overloadWithImplementation = () => getRawString('DiagnosticAddendum.overloadWithImplementation');
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
         export const overriddenSymbol = () => getRawString('DiagnosticAddendum.overriddenSymbol');
-        export const overrideParamCount = () =>
-            new ParameterizedString<{ baseCount: number; overrideCount: number }>(
-                getRawString('DiagnosticAddendum.overrideParamCount')
+        export const overrideParamKeywordType = () =>
+            new ParameterizedString<{ name: string; baseType: string; overrideType: string }>(
+                getRawString('DiagnosticAddendum.overrideParamKeywordType')
             );
         export const overrideParamName = () =>
             new ParameterizedString<{ index: number; baseName: string; overrideName: string }>(
                 getRawString('DiagnosticAddendum.overrideParamName')
             );
+        export const overrideParamNameExtra = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overrideParamNameExtra'));
+        export const overrideParamNameMissing = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overrideParamNameMissing'));
         export const overrideParamNamePositionOnly = () =>
             new ParameterizedString<{ index: number; baseName: string }>(
                 getRawString('DiagnosticAddendum.overrideParamNamePositionOnly')
@@ -1064,6 +1068,10 @@ export namespace Localizer {
         export const overrideParamType = () =>
             new ParameterizedString<{ index: number; baseType: string; overrideType: string }>(
                 getRawString('DiagnosticAddendum.overrideParamType')
+            );
+        export const overridePositionalParamCount = () =>
+            new ParameterizedString<{ baseCount: number; overrideCount: number }>(
+                getRawString('DiagnosticAddendum.overridePositionalParamCount')
             );
         export const overrideReturnType = () =>
             new ParameterizedString<{ baseType: string; overrideType: string }>(

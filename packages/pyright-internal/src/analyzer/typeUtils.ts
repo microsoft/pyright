@@ -266,7 +266,6 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         }
 
         result.positionOnlyParamCount++;
-        result.positionParamCount++;
     }
 
     let sawKeywordOnlySeparator = false;

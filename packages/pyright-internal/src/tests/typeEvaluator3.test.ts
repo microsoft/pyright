@@ -500,19 +500,6 @@ test('Classes1', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Classes2', () => {
-    const configOptions = new ConfigOptions('.');
-
-    // By default, optional diagnostics are ignored.
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
-
-    // Turn on errors.
-    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
-    analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 22);
-});
-
 test('Classes3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes3.py']);
 
@@ -556,16 +543,42 @@ test('Classes8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Classes9', () => {
+test('MethodOverride1', () => {
     const configOptions = new ConfigOptions('.');
 
     // By default, optional diagnostics are ignored.
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py'], configOptions);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
-    analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py'], configOptions);
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 22);
+});
+
+test('MethodOverride2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('MethodOverride3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 3);
 });
 

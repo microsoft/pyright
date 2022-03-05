@@ -1,5 +1,5 @@
 # This sample tests the reportIncompatibleMethodOverride
-# configuration option.
+# diagnostic check.
 
 from typing import (
     Any,
