@@ -1466,6 +1466,12 @@ export class Checker extends ParseTreeWalker {
             return !isTypeSame(leftType, rightType);
         }
 
+        const isLeftCallable = isFunction(leftType) || isOverloadedFunction(leftType);
+        const isRightCallable = isFunction(rightType) || isOverloadedFunction(rightType);
+        if (isLeftCallable !== isRightCallable) {
+            return false;
+        }
+
         if (isInstantiableClass(leftType) || (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'type'))) {
             if (
                 isInstantiableClass(rightType) ||
@@ -1519,6 +1525,12 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator.canAssignType(genericRightType, genericLeftType)
                 ) {
                     return true;
+                }
+
+                // Assume that if the types are disjoint and built-in classes that they
+                // will never be comparable.
+                if (ClassType.isBuiltIn(leftType) && ClassType.isBuiltIn(rightType)) {
+                    return false;
                 }
             }
 
