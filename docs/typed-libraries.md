@@ -25,7 +25,11 @@ In many existing type stubs (such as those found in typeshed), default parameter
 ## Library Interface
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) indicates that a “py.typed” marker file must be included in the package if the author wishes to support type checking of their code.
 
-If a “py.typed” module is present, a type checker will treat all modules within that package (i.e. all files that end in “.py” or “.pyi”) as importable unless the file name begins with an underscore. These modules comprise the supported interface for the library.
+If a “py.typed” module is present, a type checker will treat all modules within that package (i.e. all files that end in “.py” or “.pyi”) as importable unless the module is marked private. There are two ways to mark a module private: (1) the module's filename begins with an underscore; (2) the module in inside a sub-package marked private. For example:
+
+* foo._bar (_bar is private)
+* foo._bar.baz (_bar and baz are private)
+* foo._bar.baz.bop (_bar, baz, and bop are private)
 
 Each module exposes a set of symbols. Some of these symbols are considered “private” — implementation details that are not part of the library’s interface. Type checkers like pyright use the following rules to determine which symbols are visible outside of the package.
 
