@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain sequence patterns.
 
-from typing import Any, Generic, List, Protocol, Tuple, TypeVar, Union
+from typing import Any, Generic, List, Literal, Protocol, Tuple, TypeVar, Union
 
 def test_unknown(value_to_match):
     match value_to_match:
@@ -104,24 +104,24 @@ def test_open_ended_tuple(value_to_match: Tuple[str, ...]):
 
 def test_definite_tuple(value_to_match: Tuple[int, str, float, complex]):
     match value_to_match:
-        case a1, a2, a3, a4:
+        case a1, a2, a3, a4 if value_to_match[0] == 0:
             reveal_type(a1, expected_text="int")
             reveal_type(a2, expected_text="str")
             reveal_type(a3, expected_text="float")
             reveal_type(a4, expected_text="complex")
             reveal_type(value_to_match, expected_text="tuple[int, str, float, complex]")
 
-        case *b1, b2:
+        case *b1, b2 if value_to_match[0] == 0:
             reveal_type(b1, expected_text="list[int | str | float]")
             reveal_type(b2, expected_text="complex")
             reveal_type(value_to_match, expected_text="Tuple[int, str, float, complex]")
 
-        case c1, *c2:
+        case c1, *c2 if value_to_match[0] == 0:
             reveal_type(c1, expected_text="int")
             reveal_type(c2, expected_text="list[str | float | complex]")
             reveal_type(value_to_match, expected_text="Tuple[int, str, float, complex]")
 
-        case d1, *d2, d3:
+        case d1, *d2, d3 if value_to_match[0] == 0:
             reveal_type(d1, expected_text="int")
             reveal_type(d2, expected_text="list[str | float]")
             reveal_type(d3, expected_text="complex")
@@ -146,24 +146,24 @@ def test_definite_tuple(value_to_match: Tuple[int, str, float, complex]):
 
 def test_union(value_to_match: Union[Tuple[complex, complex], Tuple[int, str, float, complex], List[str], Tuple[float, ...], Any]):
     match value_to_match:
-        case a1, a2, a3, a4:
+        case a1, a2, a3, a4 if value_to_match[0] == 0:
             reveal_type(a1, expected_text="int | str | float | Any")
             reveal_type(a2, expected_text="str | float | Any")
             reveal_type(a3, expected_text="float | str | Any")
             reveal_type(a4, expected_text="complex | str | float | Any")
             reveal_type(value_to_match, expected_text="tuple[int, str, float, complex] | List[str] | tuple[float, float, float, float] | Any")
 
-        case *b1, b2:
+        case *b1, b2 if value_to_match[0] == 0:
             reveal_type(b1, expected_text="list[complex] | list[int | str | float] | list[str] | list[float] | list[Any]")
             reveal_type(b2, expected_text="complex | str | float | Any")
             reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Any")
 
-        case c1, *c2:
+        case c1, *c2 if value_to_match[0] == 0:
             reveal_type(c1, expected_text="complex | int | str | float | Any")
             reveal_type(c2, expected_text="list[complex] | list[str | float | complex] | list[str] | list[float] | list[Any]")
             reveal_type(value_to_match, expected_text="Tuple[complex, complex] | Tuple[int, str, float, complex] | List[str] | Tuple[float, ...] | Any")
 
-        case d1, *d2, d3:
+        case d1, *d2, d3 if value_to_match[0] == 0:
             reveal_type(d1, expected_text="complex | int | str | float | Any")
             reveal_type(d2, expected_text="list[str | float] | list[str] | list[float] | list[Any]")
             reveal_type(d3, expected_text="complex | str | float | Any")
@@ -309,3 +309,32 @@ def test_illegal_type_alias(m: object):
         # exception at runtime.
         case BOrC(a=i):
             pass
+
+def test_negative_narrowing1(subj: tuple[Literal[0]] | tuple[Literal[1]]):
+    match subj:
+        case (1,*a) | (*a):
+            reveal_type(subj, expected_text="tuple[Literal[1]] | tuple[Literal[0]]")
+            reveal_type(a, expected_text="list[int]")
+
+        case b:
+            reveal_type(subj, expected_text="Never")
+            reveal_type(b, expected_text="Never")
+
+
+def test_negative_narrowing2(subj: tuple[int, ...]):
+    match subj:
+        case (1,*a):
+            reveal_type(subj, expected_text="tuple[int, ...]")
+            reveal_type(a, expected_text="list[int]")
+
+        case (b,):
+            reveal_type(subj, expected_text="tuple[int]")
+            reveal_type(b, expected_text="int")
+
+        case (*c,):
+            reveal_type(subj, expected_text="tuple[int, ...]")
+            reveal_type(c, expected_text="list[int]")
+
+        case d:
+            reveal_type(subj, expected_text="Never")
+            reveal_type(d, expected_text="Never")
