@@ -509,14 +509,6 @@ function narrowTypeBasedOnClassPattern(
                     }
                 }
 
-                if (
-                    pattern.arguments.length === 1 &&
-                    !pattern.arguments[0].name &&
-                    classPatternSpecialCases.some((className) => classType.details.fullName === className)
-                ) {
-                    return undefined;
-                }
-
                 // Are there any positional arguments? If so, try to get the mappings for
                 // these arguments by fetching the __match_args__ symbol from the class.
                 let positionalArgNames: string[] = [];

@@ -328,3 +328,21 @@ def func12(subj: int, flt_cls: type[float], union_val: float | int):
         case union_val():
             pass
 
+
+def func13(subj: tuple[Literal[0]]):
+    match subj:
+        case tuple((1,)) as a:
+            reveal_type(subj, expected_text="Never")
+            reveal_type(a, expected_text="Never")
+        
+        case tuple((0,0)) as b:
+            reveal_type(subj, expected_text="Never")
+            reveal_type(b, expected_text="Never")
+        
+        case tuple((0,)) as c:
+            reveal_type(subj, expected_text="tuple[Literal[0]]")
+            reveal_type(c, expected_text="tuple[Literal[0]]")
+        
+        case d:
+            reveal_type(subj, expected_text="Never")
+            reveal_type(d, expected_text="Never")
