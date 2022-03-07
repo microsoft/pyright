@@ -532,6 +532,7 @@ export function getCodeFlowEngine(
                         // See if we've been here before. If so, there will be an incomplete cache entry.
                         let cacheEntry = getCacheEntry(curFlowNode);
                         let typeAtStart: Type | undefined;
+                        let isRecursive = false;
 
                         if (cacheEntry === undefined) {
                             // We haven't been here before, so create a new incomplete cache entry.
@@ -542,22 +543,29 @@ export function getCodeFlowEngine(
                             );
                         } else {
                             typeAtStart = cacheEntry.type;
+
+                            isRecursive =
+                                cacheEntry.incompleteSubtypes !== undefined &&
+                                cacheEntry.incompleteSubtypes.some((subtype) => subtype.isPending);
+
+                            // If every subtype is already pending evaluation, do not bother
+                            // trying to further evaluate. Instead, unwind the stack and allow
+                            // the existing evaluations to complete.
+                            if (
+                                cacheEntry.incompleteSubtypes &&
+                                cacheEntry.incompleteSubtypes.length === loopNode.antecedents.length &&
+                                cacheEntry.incompleteSubtypes.every(
+                                    (subtype) => subtype.isPending || !subtype.isIncomplete
+                                )
+                            ) {
+                                return {
+                                    type: cacheEntry.type,
+                                    isIncomplete: true,
+                                };
+                            }
                         }
 
-                        const isRecursive =
-                            cacheEntry.incompleteSubtypes !== undefined &&
-                            cacheEntry.incompleteSubtypes.some((subtype) => subtype.isPending);
                         const visitCount = incrementFlowNodeVisitCount(curFlowNode);
-
-                        // If every subtype is already pending evaluation, do not bother
-                        // trying to further evaluate. Instead, unwind the stack and allow
-                        // the existing evaluations to complete.
-                        if (isRecursive && cacheEntry.incompleteSubtypes?.every((subtype) => subtype.isPending)) {
-                            return {
-                                type: cacheEntry.type,
-                                isIncomplete: true,
-                            };
-                        }
 
                         loopNode.antecedents.forEach((antecedent, index) => {
                             cacheEntry = getCacheEntry(curFlowNode)!;
