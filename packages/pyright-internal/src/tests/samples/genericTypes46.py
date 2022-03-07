@@ -37,3 +37,30 @@ def func4(xs: Sequence[Optional[_T3]]) -> Iterator[_T3]:
 def func5(xs: Sequence[Optional[_T2]]) -> Iterator[_T2]:
     # This should generate two errors.
     return func3(xs)
+
+
+class A:
+    ...
+
+
+class B(A):
+    ...
+
+
+_T4 = TypeVar("_T4", A, B)
+_T5 = TypeVar("_T5", B, A)
+
+
+def func6(t: type[_T4]) -> type[_T4]:
+    return t
+
+
+def func7(t: type[_T5]) -> type[_T5]:
+    return t
+
+
+val6 = func6(B)
+val7 = func7(B)
+
+reveal_type(val6, expected_text="Type[B]")
+reveal_type(val7, expected_text="Type[B]")

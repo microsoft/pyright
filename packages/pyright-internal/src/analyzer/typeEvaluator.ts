@@ -19989,7 +19989,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (
                                 !constrainedSubtype ||
                                 canAssignType(
-                                    constrainedSubtype,
+                                    TypeBase.isInstantiable(destType)
+                                        ? convertToInstantiable(constrainedSubtype)
+                                        : constrainedSubtype,
                                     adjustedConstraint,
                                     /* diag */ undefined,
                                     /* typeVarMap */ undefined,
