@@ -68,6 +68,7 @@ import {
 } from './types';
 import {
     ClassMemberLookupFlags,
+    containsUnknown,
     convertToInstance,
     doForEachSubtype,
     isTypeAliasPlaceholder,
@@ -566,6 +567,8 @@ export function getCodeFlowEngine(
                         }
 
                         const visitCount = incrementFlowNodeVisitCount(curFlowNode);
+                        let sawCompleteUnknown = false;
+                        let sawIncompleteUnknown = false;
 
                         loopNode.antecedents.forEach((antecedent, index) => {
                             cacheEntry = getCacheEntry(curFlowNode)!;
@@ -603,6 +606,13 @@ export function getCodeFlowEngine(
 
                                     if (flowTypeResult.isIncomplete) {
                                         sawIncomplete = true;
+                                        if (flowTypeResult.type && containsUnknown(flowTypeResult.type)) {
+                                            sawIncompleteUnknown = true;
+                                        }
+                                    } else {
+                                        if (flowTypeResult.type && containsUnknown(flowTypeResult.type)) {
+                                            sawCompleteUnknown = true;
+                                        }
                                     }
 
                                     cacheEntry = setIncompleteSubtype(
@@ -673,17 +683,23 @@ export function getCodeFlowEngine(
                             // If there is an "Unknown" type within a union type, remove
                             // it. Otherwise we might end up resolving the cycle with a type
                             // that includes an undesirable unknown.
+
+                            let effectiveType = cacheEntry.type;
+                            if (effectiveType && sawIncompleteUnknown && !sawCompleteUnknown) {
+                                const typeWithoutUnknown = removeUnknownFromUnion(effectiveType);
+                                if (!isNever(typeWithoutUnknown)) {
+                                    effectiveType = typeWithoutUnknown;
+                                }
+                            }
+
                             // Note that we return isIncomplete = false here but do not
                             // save the cached entry for next time.
-                            return {
-                                type: cacheEntry?.type ? removeUnknownFromUnion(cacheEntry.type) : undefined,
-                                isIncomplete: false,
-                            };
+                            return { type: effectiveType, isIncomplete: false };
                         }
 
                         // We have made it all the way through all the antecedents, and we can
                         // mark the type as complete.
-                        return setCacheEntry(curFlowNode, cacheEntry!.type, /* isIncomplete */ false);
+                        return setCacheEntry(curFlowNode, cacheEntry.type, /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
