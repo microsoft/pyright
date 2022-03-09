@@ -97,8 +97,6 @@ export const maxTypeRecursionCount = 14;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
-const maxTypeAliasSources = 256;
-
 interface TypeAliasInfo {
     name: string;
     fullName: string;
@@ -2587,26 +2585,18 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
 
     // Expand all union types.
     let expandedTypes: Type[] = [];
-    const typeAliasSources: UnionType[] = [];
+    const typeAliasSources = new Set<UnionType>();
+
     for (const subtype of subtypes) {
         if (isUnion(subtype)) {
-            // Use the faster push call for the common case where the number
-            // of subtypes is sufficiently small. For really large arrays, we
-            // risk overflowing the stack, so we'll use a slower loop.
-            if (subtype.subtypes.length < 256) {
-                expandedTypes.push(...subtype.subtypes);
-            } else {
-                subtype.subtypes.forEach((subtype) => {
-                    expandedTypes.push(subtype);
-                });
-            }
+            expandedTypes = expandedTypes.concat(subtype.subtypes);
 
             if (subtype.typeAliasInfo) {
-                typeAliasSources.push(subtype);
+                typeAliasSources.add(subtype);
             } else if (subtype.typeAliasSources) {
-                if (subtype.typeAliasSources.size + typeAliasSources.length < maxTypeAliasSources) {
-                    typeAliasSources.push(...subtype.typeAliasSources);
-                }
+                subtype.typeAliasSources.forEach((subtype) => {
+                    typeAliasSources.add(subtype);
+                });
             }
         } else {
             expandedTypes.push(subtype);
@@ -2643,11 +2633,8 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     }
 
     const newUnionType = UnionType.create();
-    if (typeAliasSources.length > 0) {
-        newUnionType.typeAliasSources = new Set<UnionType>();
-        typeAliasSources.forEach((source) => {
-            newUnionType.typeAliasSources!.add(source);
-        });
+    if (typeAliasSources.size > 0) {
+        newUnionType.typeAliasSources = typeAliasSources;
     }
 
     let hitMaxSubtypeCount = false;

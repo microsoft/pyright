@@ -369,7 +369,7 @@ export class SourceFile {
         }
 
         // Now add in the "unnecessary type ignore" diagnostics.
-        diagList.push(...unnecessaryTypeIgnoreDiags);
+        diagList = diagList.concat(unnecessaryTypeIgnoreDiags);
 
         // If we're not returning any diagnostics, filter out all of
         // the errors and warnings, leaving only the unreachable code
