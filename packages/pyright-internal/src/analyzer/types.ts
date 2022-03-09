@@ -97,6 +97,8 @@ export const maxTypeRecursionCount = 14;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
+const maxTypeAliasSources = 256;
+
 interface TypeAliasInfo {
     name: string;
     fullName: string;
@@ -2588,11 +2590,23 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     const typeAliasSources: UnionType[] = [];
     for (const subtype of subtypes) {
         if (isUnion(subtype)) {
-            expandedTypes.push(...subtype.subtypes);
+            // Use the faster push call for the common case where the number
+            // of subtypes is sufficiently small. For really large arrays, we
+            // risk overflowing the stack, so we'll use a slower loop.
+            if (subtype.subtypes.length < 256) {
+                expandedTypes.push(...subtype.subtypes);
+            } else {
+                subtype.subtypes.forEach((subtype) => {
+                    expandedTypes.push(subtype);
+                });
+            }
+
             if (subtype.typeAliasInfo) {
                 typeAliasSources.push(subtype);
             } else if (subtype.typeAliasSources) {
-                typeAliasSources.push(...subtype.typeAliasSources);
+                if (subtype.typeAliasSources.size + typeAliasSources.length < maxTypeAliasSources) {
+                    typeAliasSources.push(...subtype.typeAliasSources);
+                }
             }
         } else {
             expandedTypes.push(subtype);
