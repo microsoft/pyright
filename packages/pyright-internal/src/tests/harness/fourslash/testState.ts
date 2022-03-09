@@ -642,7 +642,9 @@ export class TestState {
 
     async verifyCodeActions(
         map: {
-            [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
+            [marker: string]: {
+                codeActions: { title: string; kind: string; command?: Command; edit?: WorkspaceEdit[] }[];
+            };
         },
         verifyCodeActionCount?: boolean
     ): Promise<any> {
@@ -666,11 +668,14 @@ export class TestState {
             }
 
             for (const expected of map[name].codeActions) {
-                const expectedCommand = {
-                    title: expected.command.title,
-                    command: expected.command.command,
-                    arguments: convertToString(expected.command.arguments),
-                };
+                let expectedCommand: Command | undefined;
+                if (expected.command) {
+                    expectedCommand = {
+                        title: expected.command.title,
+                        command: expected.command.command,
+                        arguments: convertToString(expected.command.arguments),
+                    };
+                }
 
                 const matches = codeActions.filter((a) => {
                     const actualCommand = a.command
@@ -681,10 +686,13 @@ export class TestState {
                           }
                         : undefined;
 
+                    const actualEdit = a.edit;
+
                     return (
                         a.title === expected.title &&
                         a.kind! === expected.kind &&
-                        this._deepEqual(actualCommand, expectedCommand)
+                        this._deepEqual(actualCommand, expectedCommand) &&
+                        this._deepEqual(actualEdit, expected.edit)
                     );
                 });
 
