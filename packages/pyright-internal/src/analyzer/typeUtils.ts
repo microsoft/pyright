@@ -2351,6 +2351,8 @@ class TypeVarTransformer {
         }
         recursionCount++;
 
+        type = this._transformGenericTypeAlias(type, recursionSet, recursionCount);
+
         // Shortcut the operation if possible.
         if (!requiresSpecialization(type)) {
             return type;
@@ -2487,6 +2489,32 @@ class TypeVarTransformer {
 
     transformUnion(type: UnionType): Type {
         return type;
+    }
+
+    private _transformGenericTypeAlias(type: Type, recursionSet: Set<string>, recursionCount: number) {
+        if (!type.typeAliasInfo || !type.typeAliasInfo.typeParameters || !type.typeAliasInfo.typeArguments) {
+            return type;
+        }
+
+        let requiresUpdate = false;
+        const newTypeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
+            const updatedType = this.apply(typeArg, recursionSet, recursionCount);
+            if (type !== updatedType) {
+                requiresUpdate = true;
+            }
+            return updatedType;
+        });
+
+        return requiresUpdate
+            ? TypeBase.cloneForTypeAlias(
+                  type,
+                  type.typeAliasInfo.name,
+                  type.typeAliasInfo.fullName,
+                  type.typeAliasInfo.typeVarScopeId,
+                  type.typeAliasInfo.typeParameters,
+                  newTypeArgs
+              )
+            : type;
     }
 
     private _transformTypeVarsInClassType(
