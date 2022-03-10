@@ -226,6 +226,10 @@ export namespace Localizer {
             new ParameterizedString<{ classType: string; name: string }>(
                 getRawString('Diagnostic.baseClassMethodTypeIncompatible')
             );
+        export const baseClassVariableTypeIncompatible = () =>
+            new ParameterizedString<{ classType: string; name: string }>(
+                getRawString('Diagnostic.baseClassVariableTypeIncompatible')
+            );
         export const baseClassUnknown = () => getRawString('Diagnostic.baseClassUnknown');
         export const bindTypeMismatch = () =>
             new ParameterizedString<{ type: string; methodName: string; paramName: string }>(

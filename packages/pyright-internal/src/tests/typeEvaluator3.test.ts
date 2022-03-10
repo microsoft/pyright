@@ -519,10 +519,10 @@ test('Classes5', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 11);
 
-    // Turn on errors.
+    // Turn on reportIncompatibleVariableOverride.
     configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 24);
+    TestUtils.validateResults(analysisResults, 28);
 });
 
 test('Classes6', () => {

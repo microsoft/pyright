@@ -3987,11 +3987,15 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    // Validates that any methods in multiple base classes are compatible with each other.
+    // Validates that any methods and variables in multiple base classes are
+    // compatible with each other.
     private _validateMultipleInheritanceCompatibility(classType: ClassType, errorNode: ParseNode) {
-        // Skip this check if reportIncompatibleMethodOverride is disabled because it's
-        // a relatively expensive check.
-        if (this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride === 'none') {
+        // Skip this check if reportIncompatibleMethodOverride and reportIncompatibleVariableOverride
+        // are disabled because it's a relatively expensive check.
+        if (
+            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride === 'none' &&
+            this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride === 'none'
+        ) {
             return;
         }
 
@@ -4071,15 +4075,20 @@ export class Checker extends ParseTreeWalker {
         baseClass2: ClassType,
         errorNode: ParseNode
     ) {
-        let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
-        if (isClass(baseClassAndSymbol.classType)) {
-            baseType = partiallySpecializeType(baseType, baseClassAndSymbol.classType);
+        if (!isClass(baseClassAndSymbol.classType) || !isClass(overrideClassAndSymbol.classType)) {
+            return;
         }
 
-        let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideClassAndSymbol.symbol);
-        if (isClass(overrideClassAndSymbol.classType)) {
-            overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
-        }
+        let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
+        baseType = partiallySpecializeType(baseType, baseClassAndSymbol.classType);
+
+        const overrideSymbol = overrideClassAndSymbol.symbol;
+        let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideSymbol);
+        overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
+
+        let diag: Diagnostic | undefined;
+        const overrideDecl = getLastTypedDeclaredForSymbol(overrideClassAndSymbol.symbol);
+        const baseDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
 
         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
             const diagAddendum = new DiagnosticAddendum();
@@ -4108,7 +4117,7 @@ export class Checker extends ParseTreeWalker {
                 ) {
                     const decl = overrideFunction.details.declaration;
                     if (decl && decl.type === DeclarationType.Function) {
-                        const diag = this._evaluator.addDiagnostic(
+                        diag = this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
                             DiagnosticRule.reportIncompatibleMethodOverride,
                             Localizer.Diagnostic.baseClassMethodTypeIncompatible().format({
@@ -4117,32 +4126,63 @@ export class Checker extends ParseTreeWalker {
                             }) + diagAddendum.getString(),
                             errorNode
                         );
-
-                        const overrideDecl = getLastTypedDeclaredForSymbol(overrideClassAndSymbol.symbol);
-                        const baseDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-
-                        if (diag && overrideDecl && baseDecl) {
-                            diag.addRelatedInfo(
-                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
-                                    baseClass: this._evaluator.printType(convertToInstance(baseClass1)),
-                                    type: this._evaluator.printType(overrideType),
-                                }),
-                                overrideDecl.path,
-                                overrideDecl.range
-                            );
-
-                            diag.addRelatedInfo(
-                                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
-                                    baseClass: this._evaluator.printType(convertToInstance(baseClass2)),
-                                    type: this._evaluator.printType(baseType),
-                                }),
-                                baseDecl.path,
-                                baseDecl.range
-                            );
-                        }
                     }
                 }
             }
+        } else if (isProperty(baseType)) {
+            // Handle properties specially.
+            if (!isProperty(overrideType)) {
+                const decls = overrideSymbol.getDeclarations();
+                if (decls.length > 0) {
+                    diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                        DiagnosticRule.reportIncompatibleVariableOverride,
+                        Localizer.Diagnostic.baseClassVariableTypeIncompatible().format({
+                            classType: childClassType.details.name,
+                            name: memberName,
+                        }),
+                        errorNode
+                    );
+                }
+            } else {
+                // TODO - check types of property methods fget, fset, fdel.
+            }
+        } else {
+            // This check can be expensive, so don't perform it if the corresponding
+            // rule is disabled.
+            if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
+                if (!isAnyOrUnknown(baseType) && !isAnyOrUnknown(overrideType) && !isTypeSame(baseType, overrideType)) {
+                    diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                        DiagnosticRule.reportIncompatibleVariableOverride,
+                        Localizer.Diagnostic.baseClassVariableTypeIncompatible().format({
+                            classType: childClassType.details.name,
+                            name: memberName,
+                        }),
+                        errorNode
+                    );
+                }
+            }
+        }
+
+        if (diag && overrideDecl && baseDecl) {
+            diag.addRelatedInfo(
+                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
+                    baseClass: this._evaluator.printType(convertToInstance(baseClass1)),
+                    type: this._evaluator.printType(overrideType),
+                }),
+                overrideDecl.path,
+                overrideDecl.range
+            );
+
+            diag.addRelatedInfo(
+                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
+                    baseClass: this._evaluator.printType(convertToInstance(baseClass2)),
+                    type: this._evaluator.printType(baseType),
+                }),
+                baseDecl.path,
+                baseDecl.range
+            );
         }
     }
 

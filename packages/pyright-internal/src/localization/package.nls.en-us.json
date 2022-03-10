@@ -33,6 +33,7 @@
         "baseClassFinal": "Base class \"{type}\" is marked final and cannot be subclassed",
         "baseClassInvalid": "Argument to class must be a base class",
         "baseClassMethodTypeIncompatible": "Base classes for class \"{classType}\" define method \"{name}\" in incompatible way",
+        "baseClassVariableTypeIncompatible": "Base classes for class \"{classType}\" define variable \"{name}\" in incompatible way",
         "baseClassUnknown": "Base class type is unknown, obscuring type of derived class",
         "bindTypeMismatch": "Could not bind method \"{methodName}\" because \"{type}\" is not assignable to parameter \"{paramName}\"",
         "breakOutsideLoop": "\"break\" can be used only within a loop",
