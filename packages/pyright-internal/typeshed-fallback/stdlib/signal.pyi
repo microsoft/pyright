@@ -176,3 +176,7 @@ if sys.version_info >= (3, 7):
 
 else:
     def set_wakeup_fd(fd: int) -> int: ...
+
+if sys.version_info >= (3, 9):
+    if sys.platform == "linux":
+        def pidfd_send_signal(__pidfd: int, __sig: int, __siginfo: None = ..., __flags: int = ...) -> None: ...

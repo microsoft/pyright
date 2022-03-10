@@ -13,8 +13,10 @@ _T = TypeVar("_T", int, float, str)
 typecodes: str
 
 class array(MutableSequence[_T], Generic[_T]):
-    typecode: _TypeCode
-    itemsize: int
+    @property
+    def typecode(self) -> _TypeCode: ...
+    @property
+    def itemsize(self) -> int: ...
     @overload
     def __init__(self: array[int], __typecode: _IntTypeCode, __initializer: bytes | Iterable[_T] = ...) -> None: ...
     @overload

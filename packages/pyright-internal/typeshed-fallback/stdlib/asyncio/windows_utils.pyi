@@ -2,7 +2,7 @@ import subprocess
 import sys
 from _typeshed import Self
 from types import TracebackType
-from typing import Callable, Protocol
+from typing import Any, AnyStr, Callable, Protocol
 from typing_extensions import Literal
 
 if sys.platform == "win32":
@@ -36,3 +36,28 @@ if sys.platform == "win32":
         def handle(self) -> int: ...
         def fileno(self) -> int: ...
         def close(self, *, CloseHandle: Callable[[int], None] = ...) -> None: ...
+
+    class Popen(subprocess.Popen[AnyStr]):
+        stdin: PipeHandle | None  # type: ignore[assignment]
+        stdout: PipeHandle | None  # type: ignore[assignment]
+        stderr: PipeHandle | None  # type: ignore[assignment]
+        # For simplicity we omit the full overloaded __new__ signature of
+        # subprocess.Popen. The arguments are mostly the same, but
+        # subprocess.Popen takes other positional-or-keyword arguments before
+        # stdin.
+        def __new__(
+            cls: type[Self],
+            args: subprocess._CMD,
+            stdin: subprocess._FILE | None = ...,
+            stdout: subprocess._FILE | None = ...,
+            stderr: subprocess._FILE | None = ...,
+            **kwds: Any,
+        ) -> Self: ...
+        def __init__(
+            self,
+            args: subprocess._CMD,
+            stdin: subprocess._FILE | None = ...,
+            stdout: subprocess._FILE | None = ...,
+            stderr: subprocess._FILE | None = ...,
+            **kwds: Any,
+        ) -> None: ...

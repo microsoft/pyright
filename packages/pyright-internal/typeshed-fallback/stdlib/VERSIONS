@@ -262,6 +262,7 @@ timeit: 2.7-
 tkinter: 3.0-
 token: 2.7-
 tokenize: 2.7-
+tomllib: 3.11-
 trace: 2.7-
 traceback: 2.7-
 tracemalloc: 3.4-

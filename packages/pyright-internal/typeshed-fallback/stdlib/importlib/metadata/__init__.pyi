@@ -77,7 +77,7 @@ class EntryPoint(_EntryPointBase):
 if sys.version_info >= (3, 10):
     class EntryPoints(list[EntryPoint]):  # use as list is deprecated since 3.10
         # int argument is deprecated since 3.10
-        def __getitem__(self, item: int | str) -> EntryPoint: ...  # type: ignore[override]
+        def __getitem__(self, name: int | str) -> EntryPoint: ...  # type: ignore[override]
         def select(
             self,
             *,

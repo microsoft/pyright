@@ -100,6 +100,10 @@ class _ntuple_diskusage(NamedTuple):
     free: int
 
 def disk_usage(path: int | StrOrBytesPath) -> _ntuple_diskusage: ...
+
+# While chown can be imported on Windows, it doesn't actually work;
+# see https://bugs.python.org/issue33140. We keep it here because it's
+# in __all__.
 @overload
 def chown(path: StrOrBytesPath, user: str | int, group: None = ...) -> None: ...
 @overload

@@ -19,7 +19,7 @@ class DHParameters(metaclass=ABCMeta):
 
 DHParametersWithSerialization = DHParameters
 
-class DHParameterNumbers(object):
+class DHParameterNumbers:
     @property
     def p(self) -> int: ...
     @property
@@ -46,7 +46,7 @@ class DHPrivateKeyWithSerialization(DHPrivateKey):
     @abstractmethod
     def private_numbers(self) -> DHPrivateNumbers: ...
 
-class DHPrivateNumbers(object):
+class DHPrivateNumbers:
     @property
     def public_numbers(self) -> DHPublicNumbers: ...
     @property
@@ -67,7 +67,7 @@ class DHPublicKey(metaclass=ABCMeta):
 
 DHPublicKeyWithSerialization = DHPublicKey
 
-class DHPublicNumbers(object):
+class DHPublicNumbers:
     @property
     def parameter_numbers(self) -> DHParameterNumbers: ...
     @property

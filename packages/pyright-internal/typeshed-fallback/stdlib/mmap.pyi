@@ -1,6 +1,5 @@
 import sys
-from _typeshed import ReadableBuffer
-from contextlib import AbstractContextManager
+from _typeshed import ReadableBuffer, Self
 from typing import Iterable, Iterator, NoReturn, Sized, overload
 
 ACCESS_DEFAULT: int
@@ -27,7 +26,7 @@ if sys.platform != "win32":
 
     PAGESIZE: int
 
-class mmap(AbstractContextManager[mmap], Iterable[int], Sized):
+class mmap(Iterable[int], Sized):
     if sys.platform == "win32":
         def __init__(self, fileno: int, length: int, tagname: str | None = ..., access: int = ..., offset: int = ...) -> None: ...
     else:
@@ -70,6 +69,8 @@ class mmap(AbstractContextManager[mmap], Iterable[int], Sized):
     # Doesn't actually exist, but the object is actually iterable because it has __getitem__ and
     # __len__, so we claim that there is also an __iter__ to help type checkers.
     def __iter__(self) -> Iterator[int]: ...
+    def __enter__(self: Self) -> Self: ...
+    def __exit__(self, *args: object) -> None: ...
 
 if sys.version_info >= (3, 8) and sys.platform != "win32":
     MADV_NORMAL: int

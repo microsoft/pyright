@@ -1,7 +1,8 @@
 from _typeshed import Self
+from contextlib import AbstractContextManager
 from stat import S_IMODE as S_IMODE
 from types import TracebackType
-from typing import IO, Any, Callable, ContextManager, Sequence, Text, Union
+from typing import IO, Any, Callable, Sequence, Union
 from typing_extensions import Literal
 
 import paramiko
@@ -32,7 +33,7 @@ class CnOpts:
     def get_hostkey(self, host: str) -> paramiko.PKey: ...
 
 _Callback = Callable[[int, int], Any]
-_Path = Union[Text, bytes]
+_Path = Union[str, bytes]
 
 class Connection:
     def __init__(
@@ -75,7 +76,7 @@ class Connection:
         confirm: bool = ...,
     ) -> paramiko.SFTPAttributes: ...
     def execute(self, command: str) -> list[str]: ...
-    def cd(self, remotepath: _Path | None = ...) -> ContextManager[None]: ...  # noqa: F811
+    def cd(self, remotepath: _Path | None = ...) -> AbstractContextManager[None]: ...  # noqa: F811
     def chdir(self, remotepath: _Path) -> None: ...
     def cwd(self, remotepath: _Path) -> None: ...
     def chmod(self, remotepath: _Path, mode: int = ...) -> None: ...
