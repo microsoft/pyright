@@ -19861,7 +19861,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Verify that we are solving for the scope associated with this
         // type variable.
         if (!typeVarMap.hasSolveForScope(destType.scopeId)) {
-            if (isAnyOrUnknown(srcType)) {
+            if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
                 return true;
             }
 

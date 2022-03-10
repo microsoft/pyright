@@ -707,6 +707,10 @@ export namespace ClassType {
         return true;
     }
 
+    export function derivesFromAnyOrUnknown(classType: ClassType) {
+        return classType.details.mro.some((mroClass) => !isClass(mroClass));
+    }
+
     export function supportsAbstractMethods(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.SupportsAbstractMethods);
     }
