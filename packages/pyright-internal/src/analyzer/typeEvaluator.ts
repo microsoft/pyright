@@ -16853,7 +16853,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const oldIncompleteCache = incompleteTypeCache;
         try {
-            incompleteTypeCache = new Map<number, CachedType>();
+            // If there isn't already an incompleteTypeCache allocated, allocate
+            // one now. We'll use this same cache for nested calls, but we'll
+            // abandon it once the last nested call completes.
+            if (!incompleteTypeCache) {
+                incompleteTypeCache = new Map<number, CachedType>();
+            }
             callback();
             subnodeType = readTypeCache(subnode, undefined);
             if (subnodeType) {
