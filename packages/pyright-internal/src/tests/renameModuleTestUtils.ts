@@ -9,7 +9,7 @@
 import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 
-import { createMapFromItems } from '../common/collectionUtils';
+import { appendArray, createMapFromItems } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -33,9 +33,12 @@ export function testMoveSymbolAtPosition(
 
     const ranges: Range[] = [];
     if (text !== undefined) {
-        ranges.push(...state.getRangesByText().get(text)!);
+        appendArray(ranges, state.getRangesByText().get(text)!);
     } else {
-        ranges.push(...state.getRanges().filter((r) => !!r.marker?.data));
+        appendArray(
+            ranges,
+            state.getRanges().filter((r) => !!r.marker?.data)
+        );
     }
 
     assert.strictEqual(actions.edits.length, ranges.length);
@@ -55,9 +58,12 @@ export function testRenameModule(
 
     const ranges: Range[] = [];
     if (text !== undefined) {
-        ranges.push(...state.getRangesByText().get(text)!);
+        appendArray(ranges, state.getRangesByText().get(text)!);
     } else {
-        ranges.push(...state.getRanges().filter((r) => !!r.marker?.data));
+        appendArray(
+            ranges,
+            state.getRanges().filter((r) => !!r.marker?.data)
+        );
     }
 
     assert.strictEqual(edits.length, ranges.length);

@@ -10,7 +10,7 @@
 
 import type { Dirent } from 'fs';
 
-import { flatten, getMapValues, getOrAdd } from '../common/collectionUtils';
+import { appendArray, flatten, getMapValues, getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
@@ -638,7 +638,7 @@ export class ImportResolver {
             roots.push(execEnv.root);
         }
 
-        roots.push(...execEnv.extraPaths);
+        appendArray(roots, execEnv.extraPaths);
 
         if (this._configOptions.stubPath) {
             roots.push(this._configOptions.stubPath);
@@ -654,7 +654,7 @@ export class ImportResolver {
             }
         } else {
             const thirdPartyPaths = this._getThirdPartyTypeshedPackageRoots(execEnv, importFailureInfo);
-            roots.push(...thirdPartyPaths);
+            appendArray(roots, thirdPartyPaths);
         }
 
         const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
@@ -664,7 +664,7 @@ export class ImportResolver {
 
         const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
         if (pythonSearchPaths.length > 0) {
-            roots.push(...pythonSearchPaths);
+            appendArray(roots, pythonSearchPaths);
         }
 
         return roots;

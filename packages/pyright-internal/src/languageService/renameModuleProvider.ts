@@ -45,7 +45,7 @@ import {
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { getOrAdd, removeArrayElements } from '../common/collectionUtils';
+import { appendArray, getOrAdd, removeArrayElements } from '../common/collectionUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { isString } from '../common/core';
 import { assert, assertNever } from '../common/debug';
@@ -1088,7 +1088,7 @@ export class RenameModuleProvider {
 
     getEdits(): FileEditAction[] {
         const edits: FileEditAction[] = [];
-        this._results.forEach((v) => edits.push(...v));
+        this._results.forEach((v) => appendArray(edits, v));
 
         return edits;
     }

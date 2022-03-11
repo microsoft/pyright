@@ -7,6 +7,7 @@
  * Collection of functions that operate on Type objects.
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
@@ -2634,7 +2635,7 @@ class TypeVarTransformer {
                         isTupleClass(newTypeArgType) &&
                         newTypeArgType.tupleTypeArguments
                     ) {
-                        newVariadicTypeArgs!.push(...newTypeArgType.tupleTypeArguments);
+                        appendArray(newVariadicTypeArgs!, newTypeArgType.tupleTypeArguments);
                     } else {
                         newVariadicTypeArgs!.push({ type: newTypeArgType, isUnbounded: oldTypeArgType.isUnbounded });
                     }

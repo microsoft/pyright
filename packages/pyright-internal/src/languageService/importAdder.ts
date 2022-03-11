@@ -44,7 +44,7 @@ import { ScopeType } from '../analyzer/scope';
 import { getScopeForNode } from '../analyzer/scopeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { addIfUnique, createMapFromItems, getOrAdd, removeArrayElements } from '../common/collectionUtils';
+import { addIfUnique, appendArray, createMapFromItems, getOrAdd, removeArrayElements } from '../common/collectionUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
 import { getDirectoryPath } from '../common/pathUtils';
@@ -121,7 +121,7 @@ export class ImportAdder {
         const newNameInfo: ImportNameWithModuleInfo[] = [];
         for (const moduleAndInfo of createMapFromItems(importNameInfo, (i) => i.module.moduleName)) {
             if (!this._tryProcessExistingImports(moduleAndInfo, importStatements, parseResults, edits)) {
-                newNameInfo.push(...moduleAndInfo[1]);
+                appendArray(newNameInfo, moduleAndInfo[1]);
                 continue;
             }
         }
@@ -167,7 +167,7 @@ export class ImportAdder {
                                 n.node.imports.some((i) => i.name.value === m.name && i.alias?.value === m.alias)
                         )
                 );
-                edits.push(...getTextEditsForAutoImportSymbolAddition(info, imported[0], parseResults));
+                appendArray(edits, getTextEditsForAutoImportSymbolAddition(info, imported[0], parseResults));
                 return true;
             }
 

@@ -8,6 +8,7 @@
  * classes.
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -472,7 +473,7 @@ export function synthesizeTypedDictClassMethods(
                     /* defaultTypeMatchesField */ false
                 )
             );
-            popOverloads.push(...createPopMethods(nameLiteralType, entry.valueType));
+            appendArray(popOverloads, createPopMethods(nameLiteralType, entry.valueType));
             setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
         });
 

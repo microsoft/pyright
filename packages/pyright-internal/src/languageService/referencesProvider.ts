@@ -15,6 +15,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -48,7 +49,7 @@ export class ReferencesResult {
             this._reporter(locs);
         }
 
-        this._locations.push(...locs);
+        appendArray(this._locations, locs);
     }
 }
 

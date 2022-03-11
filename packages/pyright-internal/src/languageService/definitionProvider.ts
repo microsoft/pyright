@@ -20,6 +20,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isOverloadedFunction, TypeCategory } from '../analyzer/types';
 import { doForEachSubtype } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
@@ -109,7 +110,7 @@ export class DefinitionProvider {
 
                 doForEachSubtype(type, (subtype) => {
                     if (subtype?.category === TypeCategory.Class) {
-                        declarations.push(...sourceMapper.findClassDeclarationsByType(filePath, subtype));
+                        appendArray(declarations, sourceMapper.findClassDeclarationsByType(filePath, subtype));
                     }
                 });
 

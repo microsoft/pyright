@@ -17,6 +17,7 @@
  */
 
 import { Commands } from '../commands/commands';
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
 import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
@@ -2371,7 +2372,7 @@ export class Binder extends ParseTreeWalker {
                 return lookupInfo.dunderAllNames;
             }
 
-            namesToImport.push(...lookupInfo.dunderAllNames);
+            appendArray(namesToImport, lookupInfo.dunderAllNames);
         }
 
         lookupInfo.symbolTable.forEach((symbol, name) => {

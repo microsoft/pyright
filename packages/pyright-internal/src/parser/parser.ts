@@ -13,6 +13,7 @@
 
 import Char from 'typescript-char';
 
+import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
@@ -3637,7 +3638,7 @@ export class Parser {
         const expr = ErrorNode.create(this._peekToken(), category, childNode);
         const stopTokens = [TokenType.NewLine];
         if (additionalStopTokens) {
-            stopTokens.push(...additionalStopTokens);
+            appendArray(stopTokens, additionalStopTokens);
         }
         this._consumeTokensUntilType(stopTokens);
         return expr;

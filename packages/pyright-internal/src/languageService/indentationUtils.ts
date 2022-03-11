@@ -16,6 +16,7 @@ import {
     getTokenAt,
     isDocString,
 } from '../analyzer/parseTreeUtils';
+import { appendArray } from '../common/collectionUtils';
 import { convertOffsetToPosition, convertTextRangeToRange } from '../common/positionUtils';
 import { Range, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -89,7 +90,7 @@ export function reindentSpan(
             .indentation;
 
     if (previousInfo.multilineDocComment) {
-        texts.push(..._reindentLinesFromText(parseResults, previousInfo, indentDelta));
+        appendArray(texts, _reindentLinesFromText(parseResults, previousInfo, indentDelta));
     } else {
         if (indentFirstToken) {
             texts.push(_createIndentationString(parseResults, indentation));
@@ -108,7 +109,7 @@ export function reindentSpan(
             );
 
             if (info.multilineDocComment) {
-                texts.push(..._reindentLinesFromText(parseResults, info, indentDelta));
+                appendArray(texts, _reindentLinesFromText(parseResults, info, indentDelta));
             } else {
                 // Put indentation for the first token on the line.
                 texts.push(
@@ -673,7 +674,7 @@ function _convertTokenStreams(parseResults: ParseResults, span: TextRange) {
         previousInfo = info;
     }
 
-    tokenInfoArray.push(...additionalTokens);
+    appendArray(tokenInfoArray, additionalTokens);
     tokenInfoArray.sort((a, b) => a.start - b.start);
 
     // Update firstTokenOnLine and multilineDocComment

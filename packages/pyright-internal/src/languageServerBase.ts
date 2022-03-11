@@ -80,7 +80,7 @@ import { AnalyzerService, configFileNames } from './analyzer/service';
 import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter, CancellationProvider } from './common/cancellationUtils';
-import { getNestedProperty } from './common/collectionUtils';
+import { appendArray, getNestedProperty } from './common/collectionUtils';
 import {
     DiagnosticSeverityOverrides,
     DiagnosticSeverityOverridesMap,
@@ -729,7 +729,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const locations: Location[] = [];
             const reporter: ReferenceCallback = resultReporter
                 ? (locs) => resultReporter.report(convert(locs))
-                : (locs) => locations.push(...convert(locs));
+                : (locs) => appendArray(locations, convert(locs));
 
             workspace.serviceInstance.reportReferencesForPosition(
                 filePath,
@@ -777,7 +777,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         const reporter: WorkspaceSymbolCallback = resultReporter
             ? (symbols) => resultReporter.report(symbols)
-            : (symbols) => symbolList.push(...symbols);
+            : (symbols) => appendArray(symbolList, symbols);
 
         for (const workspace of this._workspaceMap.values()) {
             await workspace.isInitialized.promise;

@@ -11,6 +11,7 @@ import { isAbsolute } from 'path';
 
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
+import { appendArray } from './collectionUtils';
 import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
@@ -1130,7 +1131,7 @@ export class ConfigOptions {
                 const path = resolvePaths(this.projectRoot, p);
                 paths.push(path);
                 if (isDirectory(fs, path)) {
-                    paths.push(...getPathsFromPthFiles(fs, path));
+                    appendArray(paths, getPathsFromPthFiles(fs, path));
                 }
             }
         }

@@ -36,6 +36,7 @@ import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importR
 import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService, configFileNames } from '../../../analyzer/service';
+import { appendArray } from '../../../common/collectionUtils';
 import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
@@ -1291,7 +1292,7 @@ export class TestState {
                 fileName,
                 position,
                 true,
-                (locs) => actual.push(...locs),
+                (locs) => appendArray(actual, locs),
                 CancellationToken.None
             );
 

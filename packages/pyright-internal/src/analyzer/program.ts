@@ -20,7 +20,7 @@ import {
 } from 'vscode-languageserver-types';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
-import { removeArrayElements } from '../common/collectionUtils';
+import { appendArray, removeArrayElements } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
@@ -1230,7 +1230,7 @@ export class Program {
                 const info = nameMap?.get(writtenWord);
                 if (info) {
                     // No scope filter is needed since we only do exact match.
-                    results.push(...autoImporter.getAutoImportCandidatesForAbbr(writtenWord, info, token));
+                    appendArray(results, autoImporter.getAutoImportCandidatesForAbbr(writtenWord, info, token));
                 }
 
                 results.push(

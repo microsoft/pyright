@@ -18,6 +18,7 @@ import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
@@ -5639,7 +5640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (variadicTypeResults.length !== 1 || !variadicTypeResults[0].isEmptyTupleShorthand) {
                             variadicTypeResults.forEach((typeResult) => {
                                 if (isUnpackedClass(typeResult.type) && typeResult.type.tupleTypeArguments) {
-                                    variadicTypes.push(...typeResult.type.tupleTypeArguments);
+                                    appendArray(variadicTypes, typeResult.type.tupleTypeArguments);
                                 } else {
                                     variadicTypes.push({
                                         type: convertToInstance(typeResult.type),
@@ -6611,7 +6612,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!typeArgs) {
                     entryTypes.push({ type: UnknownType.create(), isUnbounded: true });
                 } else {
-                    entryTypes.push(...typeArgs);
+                    appendArray(entryTypes, typeArgs);
                 }
             } else {
                 entryTypes.push({ type: typeResult.type, isUnbounded: !!typeResult.unpackedType });
@@ -13292,7 +13293,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
                         }
                     } else if (isUnpackedClass(typeArg.type) && typeArg.type.tupleTypeArguments) {
-                        tupleTypeArgTypes.push(...typeArg.type.tupleTypeArguments);
+                        appendArray(tupleTypeArgTypes, typeArg.type.tupleTypeArguments);
                     } else {
                         tupleTypeArgTypes.push({ type: typeArgTypes[index], isUnbounded: false });
                     }
@@ -14479,7 +14480,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (baseClass.details.inheritedSlotsNames === undefined) {
                             isLimitedToSlots = false;
                         } else {
-                            extendedSlotsNames.push(...baseClass.details.inheritedSlotsNames);
+                            appendArray(extendedSlotsNames, baseClass.details.inheritedSlotsNames);
                         }
                     }
                 } else {
@@ -15634,7 +15635,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else if (isOverloadedFunction(prevDeclDeclTypeInfo.decoratedType)) {
                             // If the previous declaration was itself an overloaded function,
                             // copy the entries from it.
-                            overloadedTypes.push(...prevDeclDeclTypeInfo.decoratedType.overloads);
+                            appendArray(overloadedTypes, prevDeclDeclTypeInfo.decoratedType.overloads);
                         }
                     }
                 }
@@ -17643,7 +17644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return decl.type === DeclarationType.Alias && decl.node === node.parent;
                     });
 
-                    declarations.push(...getDeclarationsWithUsesLocalNameRemoved(declsForThisImport));
+                    appendArray(declarations, getDeclarationsWithUsesLocalNameRemoved(declsForThisImport));
                 }
             }
         } else if (
@@ -17698,9 +17699,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // which includes every assignment of that symbol.
                         const typedDecls = symbol.getTypedDeclarations();
                         if (typedDecls.length > 0) {
-                            declarations.push(...typedDecls);
+                            appendArray(declarations, typedDecls);
                         } else {
-                            declarations.push(...symbol.getDeclarations());
+                            appendArray(declarations, symbol.getDeclarations());
                         }
                     }
                 });
@@ -17765,7 +17766,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             } else if (ClassType.isDataClass(baseType)) {
                                 const lookupResults = lookUpClassMember(baseType, paramName);
                                 if (lookupResults) {
-                                    declarations.push(...lookupResults.symbol.getDeclarations());
+                                    appendArray(declarations, lookupResults.symbol.getDeclarations());
                                 }
                             }
                         }
@@ -17790,7 +17791,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
 
             if (symbolWithScope) {
-                declarations.push(...symbolWithScope.symbol.getDeclarations());
+                appendArray(declarations, symbolWithScope.symbol.getDeclarations());
             }
         }
 
@@ -21981,7 +21982,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isUnpackedVariadicTypeVar(entry.type)) {
                     srcTupleTypes.push({ type: entry.type, isUnbounded: false });
                 } else if (isUnpackedClass(entry.type) && entry.type.tupleTypeArguments) {
-                    srcTupleTypes.push(...entry.type.tupleTypeArguments);
+                    appendArray(srcTupleTypes, entry.type.tupleTypeArguments);
                 } else {
                     srcTupleTypes.push({ type: entry.type, isUnbounded: true });
                 }

@@ -8,6 +8,7 @@
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { isDefined } from '../common/core';
 import { getAnyExtensionFromPath } from '../common/pathUtils';
@@ -284,7 +285,7 @@ export class SourceMapper {
             (decl, cache, result) => {
                 if (isFunctionDeclaration(decl)) {
                     if (this._isStubThatShouldBeMappedToImplementation(decl.path)) {
-                        result.push(...this._findFunctionOrTypeAliasDeclarations(decl, cache));
+                        appendArray(result, this._findFunctionOrTypeAliasDeclarations(decl, cache));
                     } else {
                         result.push(decl);
                     }
@@ -426,7 +427,7 @@ export class SourceMapper {
     ) {
         if (isVariableDeclaration(decl)) {
             if (this._isStubThatShouldBeMappedToImplementation(decl.path)) {
-                result.push(...this._findVariableDeclarations(decl, recursiveDeclCache));
+                appendArray(result, this._findVariableDeclarations(decl, recursiveDeclCache));
             } else {
                 result.push(decl);
             }
@@ -449,13 +450,13 @@ export class SourceMapper {
     ) {
         if (isClassDeclaration(decl)) {
             if (this._isStubThatShouldBeMappedToImplementation(decl.path)) {
-                result.push(...this._findClassOrTypeAliasDeclarations(decl, recursiveDeclCache));
+                appendArray(result, this._findClassOrTypeAliasDeclarations(decl, recursiveDeclCache));
             } else {
                 result.push(decl);
             }
         } else if (isFunctionDeclaration(decl)) {
             if (this._isStubThatShouldBeMappedToImplementation(decl.path)) {
-                result.push(...this._findFunctionOrTypeAliasDeclarations(decl, recursiveDeclCache));
+                appendArray(result, this._findFunctionOrTypeAliasDeclarations(decl, recursiveDeclCache));
             } else {
                 result.push(decl);
             }
@@ -502,7 +503,7 @@ export class SourceMapper {
         );
 
         for (const sourceFile of sourceFiles) {
-            result.push(...this._findClassDeclarationsByName(sourceFile, fullClassName, recursiveDeclCache));
+            appendArray(result, this._findClassDeclarationsByName(sourceFile, fullClassName, recursiveDeclCache));
         }
     }
 
@@ -510,7 +511,7 @@ export class SourceMapper {
         const sourceFiles: SourceFile[] = [];
 
         if (this._isStubThatShouldBeMappedToImplementation(filePath)) {
-            sourceFiles.push(...this._getBoundSourceFilesFromStubFile(filePath));
+            appendArray(sourceFiles, this._getBoundSourceFilesFromStubFile(filePath));
         } else {
             const sourceFile = this._boundSourceGetter(filePath);
             if (sourceFile) {

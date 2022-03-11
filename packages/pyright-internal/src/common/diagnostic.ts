@@ -8,6 +8,7 @@
  */
 
 import { Commands } from '../commands/commands';
+import { appendArray } from './collectionUtils';
 import { DiagnosticLevel } from './configOptions';
 import { Range } from './textRange';
 
@@ -173,7 +174,7 @@ export class DiagnosticAddendum {
         let childLines: string[] = [];
         for (const addendum of this._childAddenda) {
             const maxDepthRemaining = this._messages.length > 0 ? maxDepth - 1 : maxDepth;
-            childLines.push(...addendum._getLinesRecursive(maxDepthRemaining, maxLineCount, recursionCount + 1));
+            appendArray(childLines, addendum._getLinesRecursive(maxDepthRemaining, maxLineCount, recursionCount + 1));
 
             // If the number of lines exceeds our max line count, don't bother adding more.
             if (childLines.length >= maxLineCount) {

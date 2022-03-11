@@ -9,6 +9,7 @@
  * PEP 634.
  */
 
+import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
@@ -195,7 +196,10 @@ function narrowTypeBasedOnSequencePattern(
                         !isUnboundedTupleClass(narrowedEntryType) &&
                         narrowedEntryType.tupleTypeArguments
                     ) {
-                        narrowedEntryTypes.push(...narrowedEntryType.tupleTypeArguments.map((t) => t.type));
+                        appendArray(
+                            narrowedEntryTypes,
+                            narrowedEntryType.tupleTypeArguments.map((t) => t.type)
+                        );
                     } else {
                         narrowedEntryTypes.push(narrowedEntryType);
                         canNarrowTuple = false;

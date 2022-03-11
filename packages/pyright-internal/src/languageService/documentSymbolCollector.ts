@@ -24,6 +24,7 @@ import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { TypeCategory } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { appendArray } from '../common/collectionUtils';
 import { TextRange } from '../common/textRange';
 import { ImportAsNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
 
@@ -344,7 +345,10 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 // ex) import X or from .X import ... in init file and etc.
                 const symbolWithScope = ScopeUtils.getScopeForNode(node)?.lookUpSymbolRecursive(importName);
                 if (symbolWithScope && moduleName.nameParts.length === 1) {
-                    decls.push(...symbolWithScope.symbol.getDeclarations().filter((d) => isAliasDeclaration(d)));
+                    appendArray(
+                        decls,
+                        symbolWithScope.symbol.getDeclarations().filter((d) => isAliasDeclaration(d))
+                    );
 
                     // If symbols are re-used, then find one that belong to this import statement.
                     if (decls.length > 1) {

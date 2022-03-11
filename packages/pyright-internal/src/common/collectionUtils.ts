@@ -57,6 +57,22 @@ export function append<T>(to: T[] | undefined, value: T | undefined): T[] | unde
     return to;
 }
 
+/**
+ * Safely pushes the values of one array onto another array. This is the
+ * same as receiver.push(...elementsToPush) except that it doesn't risk overflowing
+ * the stack if elementsToPush is very large.
+ */
+export function appendArray<T>(to: T[], elementsToPush: T[]) {
+    if (elementsToPush.length < 256) {
+        to.push(...elementsToPush);
+        return;
+    }
+
+    for (const elem of elementsToPush) {
+        to.push(elem);
+    }
+}
+
 /** Works like Array.prototype.find, returning `undefined` if no element satisfying the predicate is found. */
 export function find<T, U extends T>(
     array: readonly T[],
