@@ -3471,13 +3471,24 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If the class derives from Any, we can't reliably apply the check.
+        if (ClassType.derivesFromAnyOrUnknown(classType)) {
+            return;
+        }
+
         // Collect the list of init-only variables in the order they were declared.
         const initOnlySymbolMap = new Map<string, Symbol>();
-        classType.details.fields.forEach((symbol, name) => {
-            if (symbol.isInitVar()) {
-                initOnlySymbolMap.set(name, symbol);
+        for (let i = classType.details.mro.length - 1; i >= 0; i--) {
+            const mroClass = classType.details.mro[i];
+
+            if (isClass(mroClass) && ClassType.isDataClass(mroClass)) {
+                mroClass.details.fields.forEach((symbol, name) => {
+                    if (symbol.isInitVar()) {
+                        initOnlySymbolMap.set(name, symbol);
+                    }
+                });
             }
-        });
+        }
 
         const postInitType = this._evaluator.getTypeOfMember(postInitMember);
         if (

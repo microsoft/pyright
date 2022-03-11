@@ -41,3 +41,21 @@ class D:
     # This should generate an error because the type is incompatible.
     def __post_init__(self, iterable: Iterable[str]) -> None:
         ...
+
+
+@dataclass
+class E:
+    _name: InitVar[str] = field()
+    name: str = field(init=False)
+
+    def __post_init__(self, _name: str):
+        ...
+
+
+@dataclass
+class F(E):
+    _age: InitVar[int] = field()
+    age: int = field(init=False)
+
+    def __post_init__(self, _name: str, _age: int):
+        ...
