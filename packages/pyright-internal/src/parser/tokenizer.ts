@@ -146,10 +146,13 @@ export interface TokenizerOutput {
     lines: TextRangeCollection<TextRange>;
 
     // Map of all line numbers that end in a "type: ignore" comment.
-    typeIgnoreLines: Map<number, TextRange>;
+    typeIgnoreLines: Map<number, IgnoreComment>;
+
+    // Map of all line numbers that end in a "pyright: ignore" comment.
+    pyrightIgnoreLines: Map<number, IgnoreComment>;
 
     // Program starts with a "type: ignore" comment.
-    typeIgnoreAll: TextRange | undefined;
+    typeIgnoreAll: IgnoreComment | undefined;
 
     // Line-end sequence ('/n', '/r', or '/r/n').
     predominantEndOfLineSequence: string;
@@ -174,6 +177,16 @@ interface IndentInfo {
     isTabPresent: boolean;
 }
 
+export interface IgnoreCommentRule {
+    text: string;
+    range: TextRange;
+}
+
+export interface IgnoreComment {
+    range: TextRange;
+    rulesList: IgnoreCommentRule[] | undefined;
+}
+
 export class Tokenizer {
     private _cs = new CharacterStream('');
     private _tokens: Token[] = [];
@@ -181,8 +194,9 @@ export class Tokenizer {
     private _parenDepth = 0;
     private _lineRanges: TextRange[] = [];
     private _indentAmounts: IndentInfo[] = [];
-    private _typeIgnoreAll: TextRange | undefined;
-    private _typeIgnoreLines = new Map<number, TextRange>();
+    private _typeIgnoreAll: IgnoreComment | undefined;
+    private _typeIgnoreLines = new Map<number, IgnoreComment>();
+    private _pyrightIgnoreLines = new Map<number, IgnoreComment>();
     private _comments: Comment[] | undefined;
 
     // Total times CR, CR/LF, and LF are used to terminate
@@ -300,6 +314,7 @@ export class Tokenizer {
             lines: new TextRangeCollection(this._lineRanges),
             typeIgnoreLines: this._typeIgnoreLines,
             typeIgnoreAll: this._typeIgnoreAll,
+            pyrightIgnoreLines: this._pyrightIgnoreLines,
             predominantEndOfLineSequence,
             predominantTabSequence,
             predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? "'" : '"',
@@ -1071,25 +1086,60 @@ export class Tokenizer {
         const value = this._cs.getText().substr(start, length);
         const comment = Comment.create(start, length, value);
 
-        // We include "[" in the regular expression because mypy supports
-        // ignore comments of the form ignore[errorCode, ...]. We'll treat
-        // these as regular ignore statements (as though no errorCodes were
-        // included).
-        const regexMatch = value.match(/^\s*type:\s*ignore(\s|\[|$)/);
-        if (regexMatch) {
-            const textRange: TextRange = { start, length: regexMatch[0].length };
-            if (regexMatch[0].endsWith('[')) {
-                textRange.length--;
-            }
+        const typeIgnoreRegexMatch = value.match(/^\s*type:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
+        if (typeIgnoreRegexMatch) {
+            const textRange: TextRange = { start, length: typeIgnoreRegexMatch[0].length };
+            const ignoreComment: IgnoreComment = {
+                range: textRange,
+                rulesList: this._getIgnoreCommentRulesList(start, typeIgnoreRegexMatch),
+            };
 
             if (this._tokens.findIndex((t) => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
-                this._typeIgnoreAll = textRange;
+                this._typeIgnoreAll = ignoreComment;
             } else {
-                this._typeIgnoreLines.set(this._lineRanges.length, textRange);
+                this._typeIgnoreLines.set(this._lineRanges.length, ignoreComment);
             }
         }
 
+        const pyrightIgnoreRegexMatch = value.match(/^\s*pyright:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
+        if (pyrightIgnoreRegexMatch) {
+            const textRange: TextRange = { start, length: pyrightIgnoreRegexMatch[0].length };
+            const ignoreComment: IgnoreComment = {
+                range: textRange,
+                rulesList: this._getIgnoreCommentRulesList(start, pyrightIgnoreRegexMatch),
+            };
+            this._pyrightIgnoreLines.set(this._lineRanges.length, ignoreComment);
+        }
+
         this._addComments(comment);
+    }
+
+    // Extracts the individual rules within a "type: ignore [x, y, z]" comment.
+    private _getIgnoreCommentRulesList(start: number, match: RegExpMatchArray): IgnoreCommentRule[] | undefined {
+        if (match.length < 3 || match[2] === undefined) {
+            return undefined;
+        }
+
+        const splitElements = match[2].split(',');
+        const commentRules: IgnoreCommentRule[] = [];
+        let currentOffset = start + match[0].indexOf('[') + 1;
+
+        for (const element of splitElements) {
+            const frontTrimmed = element.trimStart();
+            currentOffset += element.length - frontTrimmed.length;
+            const endTrimmed = frontTrimmed.trimEnd();
+
+            if (endTrimmed.length > 0) {
+                commentRules.push({
+                    range: { start: currentOffset, length: endTrimmed.length },
+                    text: endTrimmed,
+                });
+            }
+
+            currentOffset += frontTrimmed.length + 1;
+        }
+
+        return commentRules;
     }
 
     private _addComments(comment: Comment) {

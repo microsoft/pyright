@@ -885,6 +885,9 @@ export namespace Localizer {
             new ParameterizedString<{ testType: string; classType: string }>(
                 getRawString('Diagnostic.unnecessaryIsSubclassAlways')
             );
+        export const unnecessaryPyrightIgnore = () => getRawString('Diagnostic.unnecessaryPyrightIgnore');
+        export const unnecessaryPyrightIgnoreRule = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unnecessaryPyrightIgnoreRule'));
         export const unnecessaryTypeIgnore = () => getRawString('Diagnostic.unnecessaryTypeIgnore');
         export const unpackArgCount = () => getRawString('Diagnostic.unpackArgCount');
         export const unpackedArgInTypeArgument = () => getRawString('Diagnostic.unpackedArgInTypeArgument');

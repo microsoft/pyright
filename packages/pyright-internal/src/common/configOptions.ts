@@ -278,8 +278,8 @@ export interface DiagnosticRuleSet {
     // and is not used in any way.
     reportUnusedCoroutine: DiagnosticLevel;
 
-    // Report cases where the removal of a "# type: ignore" comment would
-    // have no effect.
+    // Report cases where the removal of a "# type: ignore" or "# pyright: ignore"
+    // comment would have no effect.
     reportUnnecessaryTypeIgnoreComment: DiagnosticLevel;
 
     // Report cases where the a "match" statement is not exhaustive in

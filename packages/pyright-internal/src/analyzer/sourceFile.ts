@@ -46,6 +46,7 @@ import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/
 import { Localizer } from '../localization/localize';
 import { ModuleNode, NameNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { IgnoreComment } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -146,8 +147,9 @@ export class SourceFile {
     private _parseDiagnostics: Diagnostic[] = [];
     private _bindDiagnostics: Diagnostic[] = [];
     private _checkerDiagnostics: Diagnostic[] = [];
-    private _typeIgnoreLines = new Map<number, TextRange>();
-    private _typeIgnoreAll: TextRange | undefined;
+    private _typeIgnoreLines = new Map<number, IgnoreComment>();
+    private _typeIgnoreAll: IgnoreComment | undefined;
+    private _pyrightIgnoreLines = new Map<number, IgnoreComment>();
 
     // Settings that control which diagnostics should be output.
     private _diagnosticRuleSet = getBasicDiagnosticRuleSet();
@@ -259,6 +261,7 @@ export class SourceFile {
         let diagList = [...this._parseDiagnostics, ...this._bindDiagnostics, ...this._checkerDiagnostics];
         const prefilteredDiagList = diagList;
         const typeIgnoreLinesClone = new Map(this._typeIgnoreLines);
+        const pyrightIgnoreLinesClone = new Map(this._pyrightIgnoreLines);
 
         // Filter the diagnostics based on "type: ignore" lines.
         if (this._diagnosticRuleSet.enableTypeIgnoreComments) {
@@ -276,6 +279,55 @@ export class SourceFile {
                     return true;
                 });
             }
+        }
+
+        // Filter the diagnostics based on "pyright: ignore" lines.
+        if (this._pyrightIgnoreLines.size > 0) {
+            diagList = diagList.filter((d) => {
+                if (d.category !== DiagnosticCategory.UnusedCode && d.category !== DiagnosticCategory.Deprecated) {
+                    for (let line = d.range.start.line; line <= d.range.end.line; line++) {
+                        const pyrightIgnoreComment = this._pyrightIgnoreLines.get(line);
+                        if (pyrightIgnoreComment) {
+                            if (!pyrightIgnoreComment.rulesList) {
+                                pyrightIgnoreLinesClone.delete(line);
+                                return false;
+                            }
+
+                            const diagRule = d.getRule();
+                            if (!diagRule) {
+                                // If there's no diagnostic rule, it won't match
+                                // against a rules list.
+                                return true;
+                            }
+
+                            // Did we find this rule in the list?
+                            if (pyrightIgnoreComment.rulesList.find((rule) => rule.text === diagRule)) {
+                                // Update the pyrightIgnoreLinesClone to remove this rule.
+                                const oldClone = pyrightIgnoreLinesClone.get(line);
+                                if (oldClone?.rulesList) {
+                                    const filteredRulesList = oldClone.rulesList.filter(
+                                        (rule) => rule.text !== diagRule
+                                    );
+                                    if (filteredRulesList.length === 0) {
+                                        pyrightIgnoreLinesClone.delete(line);
+                                    } else {
+                                        pyrightIgnoreLinesClone.set(line, {
+                                            range: oldClone.range,
+                                            rulesList: filteredRulesList,
+                                        });
+                                    }
+                                }
+
+                                return false;
+                            }
+
+                            return true;
+                        }
+                    }
+                }
+
+                return true;
+            });
         }
 
         const unnecessaryTypeIgnoreDiags: Diagnostic[] = [];
@@ -296,27 +348,61 @@ export class SourceFile {
                         diagCategory,
                         Localizer.Diagnostic.unnecessaryTypeIgnore(),
                         convertOffsetsToRange(
-                            this._typeIgnoreAll.start,
-                            this._typeIgnoreAll.start + this._typeIgnoreAll.length,
+                            this._typeIgnoreAll.range.start,
+                            this._typeIgnoreAll.range.start + this._typeIgnoreAll.range.length,
                             this._parseResults!.tokenizerOutput.lines!
                         )
                     )
                 );
             }
 
-            typeIgnoreLinesClone.forEach((textRange) => {
+            typeIgnoreLinesClone.forEach((ignoreComment) => {
                 if (this._parseResults?.tokenizerOutput.lines) {
                     unnecessaryTypeIgnoreDiags.push(
                         new Diagnostic(
                             diagCategory,
                             Localizer.Diagnostic.unnecessaryTypeIgnore(),
                             convertOffsetsToRange(
-                                textRange.start,
-                                textRange.start + textRange.length,
+                                ignoreComment.range.start,
+                                ignoreComment.range.start + ignoreComment.range.length,
                                 this._parseResults!.tokenizerOutput.lines!
                             )
                         )
                     );
+                }
+            });
+
+            pyrightIgnoreLinesClone.forEach((ignoreComment) => {
+                if (this._parseResults?.tokenizerOutput.lines) {
+                    if (!ignoreComment.rulesList) {
+                        unnecessaryTypeIgnoreDiags.push(
+                            new Diagnostic(
+                                diagCategory,
+                                Localizer.Diagnostic.unnecessaryPyrightIgnore(),
+                                convertOffsetsToRange(
+                                    ignoreComment.range.start,
+                                    ignoreComment.range.start + ignoreComment.range.length,
+                                    this._parseResults!.tokenizerOutput.lines!
+                                )
+                            )
+                        );
+                    } else {
+                        ignoreComment.rulesList.forEach((unusedRule) => {
+                            unnecessaryTypeIgnoreDiags.push(
+                                new Diagnostic(
+                                    diagCategory,
+                                    Localizer.Diagnostic.unnecessaryPyrightIgnoreRule().format({
+                                        name: unusedRule.text,
+                                    }),
+                                    convertOffsetsToRange(
+                                        unusedRule.range.start,
+                                        unusedRule.range.start + unusedRule.range.length,
+                                        this._parseResults!.tokenizerOutput.lines!
+                                    )
+                                )
+                            );
+                        });
+                    }
                 }
             });
         }
@@ -659,6 +745,7 @@ export class SourceFile {
                 this._parseResults = parseResults;
                 this._typeIgnoreLines = this._parseResults.tokenizerOutput.typeIgnoreLines;
                 this._typeIgnoreAll = this._parseResults.tokenizerOutput.typeIgnoreAll;
+                this._pyrightIgnoreLines = this._parseResults.tokenizerOutput.pyrightIgnoreLines;
 
                 // Resolve imports.
                 timingStats.resolveImportsTime.timeOperation(() => {
@@ -704,7 +791,8 @@ export class SourceFile {
                         tokens: new TextRangeCollection<Token>([]),
                         lines: new TextRangeCollection<TextRange>([]),
                         typeIgnoreAll: undefined,
-                        typeIgnoreLines: new Map<number, TextRange>(),
+                        typeIgnoreLines: new Map<number, IgnoreComment>(),
+                        pyrightIgnoreLines: new Map<number, IgnoreComment>(),
                         predominantEndOfLineSequence: '\n',
                         predominantTabSequence: '    ',
                         predominantSingleQuoteCharacter: "'",

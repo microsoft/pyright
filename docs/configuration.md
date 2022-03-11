@@ -50,7 +50,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **strictParameterNoneValue** [boolean]: PEP 484 indicates that when a function parameter is assigned a default value of None, its type should implicitly be Optional even if the explicit type is not. When enabled, this rule requires that parameter type annotations use Optional explicitly in this case. The default value for this setting is 'true'.
 
-**enableTypeIgnoreComments** [boolean]: PEP 484 defines support for "# type: ignore" comments. This switch enables or disables support for these comments. The default value for this setting is 'true'.
+**enableTypeIgnoreComments** [boolean]: PEP 484 defines support for "# type: ignore" comments. This switch enables or disables support for these comments. The default value for this setting is 'true'. This does not affect "# pyright: ignore" comments.
 
 **reportGeneralTypeIssues** [boolean or string, optional]: Generate or suppress diagnostics for general type inconsistencies, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors. The default value for this setting is 'error'.
 
@@ -164,7 +164,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportUnusedCoroutine** [boolean or string, optional]: Generate or suppress diagnostics for call statements whose return value is not used in any way and is a Coroutine. This identifies a common error where an `await` keyword is mistakenly omitted. The default value for this setting is 'error'.
 
-**reportUnnecessaryTypeIgnoreComment** [boolean or string, optional]: Generate or suppress diagnostics for a '# type: ignore' comment that would have no effect if removed. The default value for this setting is 'none'.
+**reportUnnecessaryTypeIgnoreComment** [boolean or string, optional]: Generate or suppress diagnostics for a '# type: ignore' or '# pyright: ignore' comment that would have no effect if removed. The default value for this setting is 'none'.
 
 **reportMatchNotExhaustive** [boolean or string, optional]: Generate or suppress diagnostics for a 'match' statement that does not provide cases that exhaustively match against all potential types of the target expression. The default value for this setting is 'none'.
 

@@ -36,3 +36,10 @@ Diagnostic levels are also supported.
 # pyright: reportPrivateUsage=warning, reportOptionalCall=error
 ```
 
+## Line-level Diagnostic Suppression
+
+PEP 484 defines a special comment `# type: ignore` that can be used at the end of a line to suppress all diagnostics emitted by a type checker on that line. Pyright supports this mechanism.
+
+Pyright also supports a `# pyright: ignore` comment at the end of a line to suppress all Pyright diagnostics on that line. This can be useful if you use multiple type checkers on your source base and want to limit suppression of diagnostics to Pyright only.
+
+The `# pyright: ignore` comment accepts an optional list of comma-delimited diagnostic rule names surrounded by square brackets. If such a list is present, only diagnostics within those diagnostic rule categories are suppressed on that line. For example, `# pyright: ignore [reportPrivateUsage, reportGeneralTypeIssues]` would suppress diagnostics related to those two categories but no others.

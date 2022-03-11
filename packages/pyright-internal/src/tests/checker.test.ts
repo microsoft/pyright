@@ -305,6 +305,24 @@ test('TypeIgnore5', () => {
     TestUtils.validateResults(analysisResults, 0, 1);
 });
 
+test('PyrightIgnore1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightIgnore1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('PyrightIgnore2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightIgnore2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment = 'warning';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightIgnore2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 2, 3);
+});
+
 test('DuplicateImports1', () => {
     const configOptions = new ConfigOptions('.');
 
