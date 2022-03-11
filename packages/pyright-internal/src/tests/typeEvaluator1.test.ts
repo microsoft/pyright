@@ -1144,6 +1144,12 @@ test('Slots2', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('Slots3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['slots3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Parameters1', () => {
     const configOptions = new ConfigOptions('.');
 

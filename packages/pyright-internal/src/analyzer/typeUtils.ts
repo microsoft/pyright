@@ -805,6 +805,26 @@ export function isProperty(type: Type) {
     return isClassInstance(type) && ClassType.isPropertyClass(type);
 }
 
+export function isMaybeDescriptorInstance(type: Type, requireSetter = false): boolean {
+    if (isUnion(type)) {
+        return type.subtypes.some((subtype) => isMaybeDescriptorInstance(subtype));
+    }
+
+    if (!isClassInstance(type)) {
+        return false;
+    }
+
+    if (!type.details.fields.has('__get__')) {
+        return false;
+    }
+
+    if (requireSetter && !type.details.fields.has('__set__')) {
+        return false;
+    }
+
+    return true;
+}
+
 export function isTupleClass(type: ClassType) {
     return ClassType.isBuiltIn(type, 'tuple');
 }

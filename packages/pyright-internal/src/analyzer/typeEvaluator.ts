@@ -238,6 +238,7 @@ import {
     isEllipsisType,
     isLiteralType,
     isLiteralTypeOrUnion,
+    isMaybeDescriptorInstance,
     isOptionalType,
     isPartlyUnknown,
     isProperty,
@@ -2877,8 +2878,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             memberClass.details.localSlotsNames.length > 0 &&
                             !memberClass.details.inheritedSlotsNames.some((name) => name === memberName)
                         ) {
-                            const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
-                            if (!declaredType || !isProperty(declaredType)) {
+                            const symbolType = getEffectiveTypeOfSymbol(memberInfo.symbol);
+                            if (
+                                !isAnyOrUnknown(symbolType) &&
+                                !isMaybeDescriptorInstance(symbolType, /* requireSetter */ true)
+                            ) {
                                 addDiagnostic(
                                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
