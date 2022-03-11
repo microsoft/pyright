@@ -1459,11 +1459,11 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (isModule(leftType) || isModule(rightType)) {
-            return !isTypeSame(leftType, rightType);
+            return isTypeSame(leftType, rightType);
         }
 
         if (isNoneInstance(leftType) || isNoneInstance(rightType)) {
-            return !isTypeSame(leftType, rightType);
+            return isTypeSame(leftType, rightType);
         }
 
         const isLeftCallable = isFunction(leftType) || isOverloadedFunction(leftType);
