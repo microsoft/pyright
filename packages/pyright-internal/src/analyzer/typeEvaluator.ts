@@ -13704,8 +13704,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
+        let flags: EvaluatorFlags = EvaluatorFlags.None;
+        if (fileInfo.isStubFile) {
+            // An assignment of ellipsis means "Any" within a type stub file.
+            flags |= EvaluatorFlags.ConvertEllipsisToUnknown;
+        }
+
+        if (
+            node.rightExpression.nodeType === ParseNodeType.Name ||
+            node.rightExpression.nodeType === ParseNodeType.MemberAccess
+        ) {
+            // Don't specialize a generic class on assignment (e.g. "x = list"
+            // or "x = collections.OrderedDict") because we may want to later
+            // specialize it (e.g. "x[int]").
+            flags |= EvaluatorFlags.DoNotSpecialize;
+        }
+
+        if (isDeclaredTypeAlias(node.leftExpression)) {
+            flags |=
+                EvaluatorFlags.ExpectingType |
+                EvaluatorFlags.EvaluateStringLiteralAsType |
+                EvaluatorFlags.ParamSpecDisallowed |
+                EvaluatorFlags.TypeVarTupleDisallowed;
+            flags &= ~EvaluatorFlags.DoNotSpecialize;
+        }
+
         // Is this type already cached?
-        let rightHandType = readTypeCache(node.rightExpression, EvaluatorFlags.None);
+        let rightHandType = readTypeCache(node.rightExpression, flags);
         let isIncomplete = false;
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
 
@@ -13723,33 +13748,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Determine whether there is a declared type.
                 const declaredType = getDeclaredTypeForExpression(node.leftExpression, { method: 'set' });
 
-                let flags: EvaluatorFlags = EvaluatorFlags.None;
-                if (fileInfo.isStubFile) {
-                    // An assignment of ellipsis means "Any" within a type stub file.
-                    flags |= EvaluatorFlags.ConvertEllipsisToUnknown;
-                }
-
-                if (
-                    node.rightExpression.nodeType === ParseNodeType.Name ||
-                    node.rightExpression.nodeType === ParseNodeType.MemberAccess
-                ) {
-                    // Don't specialize a generic class on assignment (e.g. "x = list"
-                    // or "x = collections.OrderedDict") because we may want to later
-                    // specialize it (e.g. "x[int]").
-                    flags |= EvaluatorFlags.DoNotSpecialize;
-                }
-
                 let typeAliasNameNode: NameNode | undefined;
                 let isSpeculativeTypeAlias = false;
 
                 if (isDeclaredTypeAlias(node.leftExpression)) {
-                    flags |=
-                        EvaluatorFlags.ExpectingType |
-                        EvaluatorFlags.EvaluateStringLiteralAsType |
-                        EvaluatorFlags.ParamSpecDisallowed |
-                        EvaluatorFlags.TypeVarTupleDisallowed;
-                    flags &= ~EvaluatorFlags.DoNotSpecialize;
-
                     typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
                 } else if (node.leftExpression.nodeType === ParseNodeType.Name) {
                     const symbolWithScope = lookUpSymbolRecursive(
