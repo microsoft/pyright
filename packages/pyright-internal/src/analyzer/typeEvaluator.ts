@@ -21412,18 +21412,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // For union sources, all of the types need to be assignable to the dest.
         let isIncompatible = false;
-        doForEachSubtype(srcType, (subtype) => {
+        doForEachSubtype(srcType, (subtype, subtypeIndex) => {
             if (!canAssignType(destType, subtype, /* diag */ undefined, typeVarMap, flags, recursionCount)) {
-                // That didn't work, so try again with concrete versions.
+                const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+                // Determine if the current subtype is subsumed by another subtype
+                // in the same union. If so, we can ignore this.
+                let isSubtypeSubsumed = false;
+                doForEachSubtype(srcType, (innerSubtype, innerSubtypeIndex) => {
+                    if (isSubtypeSubsumed || subtypeIndex === innerSubtypeIndex) {
+                        return;
+                    }
+
+                    if (
+                        canAssignType(
+                            innerSubtype,
+                            concreteSubtype,
+                            /* diag */ undefined,
+                            /* typeVarMap */ undefined,
+                            /* flags */ undefined,
+                            recursionCount
+                        )
+                    ) {
+                        isSubtypeSubsumed = true;
+                    }
+                });
+
+                // Try again with a concrete version of the subtype.
                 if (
-                    !canAssignType(
-                        destType,
-                        makeTopLevelTypeVarsConcrete(subtype),
-                        diag?.createAddendum(),
-                        typeVarMap,
-                        flags,
-                        recursionCount
-                    )
+                    !isSubtypeSubsumed &&
+                    !canAssignType(destType, concreteSubtype, diag?.createAddendum(), typeVarMap, flags, recursionCount)
                 ) {
                     isIncompatible = true;
                 }

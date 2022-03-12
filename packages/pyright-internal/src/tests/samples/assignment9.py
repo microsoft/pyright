@@ -1,6 +1,6 @@
 # This sample tests assignment when the types are invariant and the
-# destination is a union that contains subtypes which are subclasses
-# of each other.
+# source or destination are unions that contains subtypes which are 
+# subclasses of each other.
 
 from datetime import datetime
 from typing import List, Union
@@ -18,3 +18,8 @@ v2: List[Union[int, float]] = float_list
 
 # This should generate an error.
 v3: List[Union[int, float, datetime]] = float_list
+
+
+v4: List[FloatSubclass | float] = []
+v5: List[float] = v4
+
