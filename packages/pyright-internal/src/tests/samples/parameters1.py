@@ -10,3 +10,7 @@ class A:
     def method2(self, x, y):
         # type: (int, int) -> int
         ...
+
+
+def g(__p: int, x: int, y: str):
+    ...

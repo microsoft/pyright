@@ -430,7 +430,7 @@ export class Checker extends ParseTreeWalker {
 
                         let hasAnnotation = false;
 
-                        if (functionTypeResult.functionType.details.parameters[index].typeAnnotation) {
+                        if (functionTypeParam.typeAnnotation) {
                             hasAnnotation = true;
                         } else {
                             // See if this is a "self" and "cls" parameter. They are exempt from this rule.
