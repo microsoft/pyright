@@ -1335,6 +1335,19 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
                 if (destType.details.declaredReturnType) {
                     setTypeArgumentsRecursive(destType.details.declaredReturnType, srcType, typeVarMap, recursionCount);
                 }
+
+                if (destType.details.paramSpec) {
+                    // Fill in an empty signature for a ParamSpec if the source is Any or Unknown.
+                    if (!typeVarMap.hasTypeVar(destType.details.paramSpec) && isAnyOrUnknown(srcType)) {
+                        typeVarMap.setParamSpec(destType.details.paramSpec, {
+                            flags: FunctionTypeFlags.None,
+                            parameters: FunctionType.getDefaultParameters(),
+                            typeVarScopeId: undefined,
+                            docString: undefined,
+                            paramSpec: undefined,
+                        });
+                    }
+                }
             }
             break;
 

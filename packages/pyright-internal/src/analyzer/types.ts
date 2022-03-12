@@ -1406,18 +1406,26 @@ export namespace FunctionType {
     }
 
     export function addDefaultParameters(functionType: FunctionType, useUnknown = false) {
-        FunctionType.addParameter(functionType, {
-            category: ParameterCategory.VarArgList,
-            name: 'args',
-            type: useUnknown ? UnknownType.create() : AnyType.create(),
-            hasDeclaredType: !useUnknown,
+        getDefaultParameters(useUnknown).forEach((param) => {
+            FunctionType.addParameter(functionType, param);
         });
-        FunctionType.addParameter(functionType, {
-            category: ParameterCategory.VarArgDictionary,
-            name: 'kwargs',
-            type: useUnknown ? UnknownType.create() : AnyType.create(),
-            hasDeclaredType: !useUnknown,
-        });
+    }
+
+    export function getDefaultParameters(useUnknown = false): FunctionParameter[] {
+        return [
+            {
+                category: ParameterCategory.VarArgList,
+                name: 'args',
+                type: useUnknown ? UnknownType.create() : AnyType.create(),
+                hasDeclaredType: !useUnknown,
+            },
+            {
+                category: ParameterCategory.VarArgDictionary,
+                name: 'kwargs',
+                type: useUnknown ? UnknownType.create() : AnyType.create(),
+                hasDeclaredType: !useUnknown,
+            },
+        ];
     }
 
     // Indicates whether the input signature consists of (*args: Any, **kwargs: Any).
