@@ -13,12 +13,12 @@ class ClassA:
 
 a = ClassA()
 b = ClassA()
-a < b
-a <= b
-a > b
-a >= b
-a == b
-a != b
+v1 = a < b
+v2 = a <= b
+v3 = a > b
+v4 = a >= b
+v5 = a == b
+v6 = a != b
 
 # This should generate an error because it doesn't declare
 # any of the required ordering functions.

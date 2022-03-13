@@ -21,4 +21,4 @@ def func2(a: _T) -> bool | _T:
 
 y = func2(None)
 if y is not True:
-    y or func2(False)
+    z = y or func2(False)

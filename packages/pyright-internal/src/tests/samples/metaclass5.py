@@ -28,6 +28,6 @@ def func1(a: Foo):
     reveal_type(type(a) == Foo, expected_text="str")
 
     # This should generate an error
-    str + str
+    x = str + str
 
     reveal_type(Foo + Foo, expected_text="int")

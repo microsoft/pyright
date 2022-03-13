@@ -279,6 +279,9 @@ export interface DiagnosticRuleSet {
     // and is not used in any way.
     reportUnusedCoroutine: DiagnosticLevel;
 
+    // Report cases where a simple expression result is not used in any way.
+    reportUnusedExpression: DiagnosticLevel;
+
     // Report cases where the removal of a "# type: ignore" or "# pyright: ignore"
     // comment would have no effect.
     reportUnnecessaryTypeIgnoreComment: DiagnosticLevel;
@@ -373,6 +376,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnsupportedDunderAll,
         DiagnosticRule.reportUnusedCallResult,
         DiagnosticRule.reportUnusedCoroutine,
+        DiagnosticRule.reportUnusedExpression,
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
     ];
@@ -452,6 +456,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'none',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'none',
+        reportUnusedExpression: 'none',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
     };
@@ -527,6 +532,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExpression: 'warning',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
     };
@@ -602,6 +608,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'error',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExpression: 'error',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
     };

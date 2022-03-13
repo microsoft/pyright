@@ -3,6 +3,8 @@
 # errors, but it should exhibit good recovery, preferably
 # emitting one error per instance, not a cascade of errors.
 
+# pyright: reportUnusedExpression=false
+
 # This should generate an error.
 print 3 + 3
 

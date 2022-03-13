@@ -396,6 +396,24 @@ test('Strings1', () => {
     TestUtils.validateResults(analysisResults2, 2);
 });
 
+test('UnusedExpression1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, this is a warning.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedExpression1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 9);
+
+    // Disable it.
+    configOptions.diagnosticRuleSet.reportUnusedExpression = 'none';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedExpression1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Enable it as an error.
+    configOptions.diagnosticRuleSet.reportUnusedExpression = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedExpression1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 9);
+});
+
 // For now, this functionality is disabled.
 
 // test('Deprecated1', () => {

@@ -468,6 +468,7 @@
         "unsupportedDunderAllOperation": "Operation on \"__all__\" is not supported, so exported symbol list may be incorrect",
         "unusedCallResult": "Result of call expression is of type \"{type}\" and is not used; assign to variable \"_\" if this is intentional",
         "unusedCoroutine": "Result of async function call is not used; use \"await\" or assign result to variable",
+        "unusedExpression": "Expression value is unused",
         "varAnnotationIllegal": "Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions",
         "variadicTypeArgsTooMany": "Type argument list can have at most one unpacked TypeVarTuple or Tuple",
         "variadicTypeParamTooManyAlias": "Type alias can have at most one TypeVarTuple type parameter but received multiple ({names})",

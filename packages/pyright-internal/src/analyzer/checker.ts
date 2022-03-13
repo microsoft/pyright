@@ -267,6 +267,8 @@ export class Checker extends ParseTreeWalker {
                 // through lazy analysis. This will mark referenced symbols as
                 // accessed and report any errors associated with it.
                 this._evaluator.getType(statement);
+
+                this._reportUnusedExpression(statement);
             }
         });
 
@@ -1315,6 +1317,28 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _reportUnusedExpression(node: ParseNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportUnusedExpression === 'none') {
+            return;
+        }
+
+        const simpleExpressionTypes = [
+            ParseNodeType.UnaryOperation,
+            ParseNodeType.BinaryOperation,
+            ParseNodeType.Number,
+            ParseNodeType.Constant
+        ];
+
+        if (simpleExpressionTypes.some((nodeType) => nodeType === node.nodeType)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnusedExpression,
+                DiagnosticRule.reportUnusedExpression,
+                Localizer.Diagnostic.unusedExpression(),
+                node
+            );
+        }
     }
 
     private _validateExhaustiveMatch(node: MatchNode) {

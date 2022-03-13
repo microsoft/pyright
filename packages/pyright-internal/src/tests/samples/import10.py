@@ -8,4 +8,4 @@ import unresolved_import
 
 def test_zero_division():
     with unresolved_import.raises(ZeroDivisionError):
-        1 / 0
+        v = 1 / 0

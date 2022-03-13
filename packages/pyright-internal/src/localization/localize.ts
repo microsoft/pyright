@@ -914,6 +914,7 @@ export namespace Localizer {
         export const unusedCallResult = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unusedCallResult'));
         export const unusedCoroutine = () => getRawString('Diagnostic.unusedCoroutine');
+        export const unusedExpression = () => getRawString('Diagnostic.unusedExpression');
         export const varAnnotationIllegal = () => getRawString('Diagnostic.varAnnotationIllegal');
         export const variadicTypeArgsTooMany = () => getRawString('Diagnostic.variadicTypeArgsTooMany');
         export const variadicTypeParamTooManyAlias = () =>

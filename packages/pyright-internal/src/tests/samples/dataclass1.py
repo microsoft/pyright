@@ -33,7 +33,7 @@ d4 = DataTuple(id=1, aid=Other(), name=None)
 id = d1.id
 
 h4: Hashable = d4
-d3 == d4
+v = d3 == d4
 
 # This should generate an error because the name argument
 # is the incorrect type.

@@ -40,7 +40,7 @@ def func2(v1: Optional[int]):
     if v1 is not None:
 
         def func2_inner1():
-            v1 + 5
+            x = v1 + 5
 
             def func2_inner2():
                 lambda: v1 + 5

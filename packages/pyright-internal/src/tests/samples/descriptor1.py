@@ -37,7 +37,7 @@ def func1(obj: A) -> Literal[3]:
 
     obj.prop1 = 3
 
-    obj.prop1 + 1
+    v1 = obj.prop1 + 1
     return obj.prop1
 
 
@@ -100,7 +100,7 @@ def func4(obj: B) -> Literal[3]:
 
     obj.desc1 = 3
 
-    obj.desc1 + 1
+    v1 = obj.desc1 + 1
     return obj.desc1
 
 

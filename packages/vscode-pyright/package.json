@@ -729,6 +729,17 @@
                                 "error"
                             ]
                         },
+                        "reportUnusedExpression": {
+                            "type": "string",
+                            "description": "Diagnostics for simple expressions whose value is not used in any way.",
+                            "default": "warning",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportUnnecessaryTypeIgnoreComment": {
                             "type": "string",
                             "description": "Diagnostics for '# type: ignore' comments that have no effect.",
