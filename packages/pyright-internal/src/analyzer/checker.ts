@@ -1328,7 +1328,7 @@ export class Checker extends ParseTreeWalker {
             ParseNodeType.UnaryOperation,
             ParseNodeType.BinaryOperation,
             ParseNodeType.Number,
-            ParseNodeType.Constant
+            ParseNodeType.Constant,
         ];
 
         if (simpleExpressionTypes.some((nodeType) => nodeType === node.nodeType)) {
