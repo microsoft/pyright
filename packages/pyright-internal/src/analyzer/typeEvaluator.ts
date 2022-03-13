@@ -11872,9 +11872,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
                 } else {
-                    const mappingType = getTypingType(node, 'Mapping');
+                    // Verify that the type supports the `keys` and `__getitem__` methods.
+                    // This protocol is defined in the _typeshed stub. If we can't find
+                    // it there, fall back on typing.Mapping.
+                    let mappingType = getTypeshedType(node, 'SupportsKeysAndGetItem');
+                    if (!mappingType) {
+                        mappingType = getTypingType(node, 'Mapping');
+                    }
                     if (mappingType && isInstantiableClass(mappingType)) {
                         const mappingTypeVarMap = new TypeVarMap(getTypeVarScopeId(mappingType));
+
+                        // Self-specialize the class.
+                        mappingType = ClassType.cloneForSpecialization(
+                            mappingType,
+                            mappingType.details.typeParameters,
+                            /* isTypeArgumentExplicit */ true
+                        );
+
                         if (
                             canAssignType(
                                 ClassType.cloneAsInstance(mappingType),
