@@ -59,3 +59,9 @@ class ClassA:
         match self:
             case ClassA():
                 return ""
+
+
+def func7() -> int:
+    match [10]:
+        case [*values]:
+            return values[0]

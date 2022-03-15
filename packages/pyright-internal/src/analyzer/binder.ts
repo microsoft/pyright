@@ -2041,12 +2041,12 @@ export class Binder extends ParseTreeWalker {
         // statements are matched.
         if (isSubjectNarrowable) {
             this._createFlowNarrowForPattern(node.subjectExpression, node);
+        }
 
-            // Create an "implied else" to conditionally gate code flow based on
-            // whether the narrowed type of the subject expression is Never at this point.
-            if (!foundIrrefutableCase) {
-                this._createFlowExhaustedMatch(node);
-            }
+        // Create an "implied else" to conditionally gate code flow based on
+        // whether the narrowed type of the subject expression is Never at this point.
+        if (!foundIrrefutableCase) {
+            this._createFlowExhaustedMatch(node);
         }
 
         this._addAntecedent(postMatchLabel, this._currentFlowNode!);
