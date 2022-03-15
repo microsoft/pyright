@@ -8,7 +8,7 @@ class Pbkdf2DigestHandler(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gen
     checksum_chars: Any
     default_salt_size: ClassVar[int]
     max_salt_size: int
-    default_rounds: Any
+    default_rounds: int
     min_rounds: int
     max_rounds: int
     rounds_cost: str
@@ -16,9 +16,26 @@ class Pbkdf2DigestHandler(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gen
     def from_string(cls, hash): ...
     def to_string(self): ...
 
-pbkdf2_sha1: Any
-pbkdf2_sha256: Any
-pbkdf2_sha512: Any
+# dynamically created by create_pbkdf2_hash()
+class pbkdf2_sha1(Pbkdf2DigestHandler):
+    name: str
+    ident: str
+    checksum_size: int
+    encoded_checksum_size: int
+
+# dynamically created by create_pbkdf2_hash()
+class pbkdf2_sha256(Pbkdf2DigestHandler):
+    name: str
+    ident: str
+    checksum_size: int
+    encoded_checksum_size: int
+
+# dynamically created by create_pbkdf2_hash()
+class pbkdf2_sha512(Pbkdf2DigestHandler):
+    name: str
+    ident: str
+    checksum_size: int
+    encoded_checksum_size: int
 
 ldap_pbkdf2_sha1: PrefixWrapper
 ldap_pbkdf2_sha256: PrefixWrapper
