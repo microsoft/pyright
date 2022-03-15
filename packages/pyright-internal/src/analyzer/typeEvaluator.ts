@@ -5776,6 +5776,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const diag = new DiagnosticAddendum();
         typeParameters.forEach((param, index) => {
             if (param.details.isParamSpec && index < typeArgs.length) {
+                const typeArgType = typeArgs[index].type;
+
                 if (typeArgs[index].typeList) {
                     const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
                     TypeBase.setSpecialForm(functionType);
@@ -5790,9 +5792,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
 
                     canAssignTypeToTypeVar(param, functionType, diag, typeVarMap);
-                } else if (isParamSpec(typeArgs[index].type)) {
-                    canAssignTypeToTypeVar(param, convertToInstance(typeArgs[index].type), diag, typeVarMap);
-                } else if (isEllipsisType(typeArgs[index].type)) {
+                } else if (isParamSpec(typeArgType)) {
+                    canAssignTypeToTypeVar(param, convertToInstance(typeArgType), diag, typeVarMap);
+                } else if (isInstantiableClass(typeArgType) && ClassType.isBuiltIn(typeArgType, 'Concatenate')) {
+                    const concatTypeArgs = typeArgType.typeArguments;
+                    const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
+
+                    if (concatTypeArgs && concatTypeArgs.length > 0) {
+                        concatTypeArgs.forEach((typeArg, index) => {
+                            if (index === concatTypeArgs.length - 1) {
+                                // Add a position-only separator
+                                FunctionType.addParameter(functionType, {
+                                    category: ParameterCategory.Simple,
+                                    isNameSynthesized: false,
+                                    type: UnknownType.create(),
+                                });
+
+                                if (isParamSpec(typeArg)) {
+                                    functionType.details.paramSpec = typeArg;
+                                }
+                            } else {
+                                FunctionType.addParameter(functionType, {
+                                    category: ParameterCategory.Simple,
+                                    name: `__p${index}`,
+                                    isNameSynthesized: true,
+                                    hasDeclaredType: true,
+                                    type: typeArg,
+                                });
+                            }
+                        });
+                    }
+
+                    canAssignTypeToTypeVar(param, functionType, diag, typeVarMap);
+                } else if (isEllipsisType(typeArgType)) {
                     const functionType = FunctionType.createInstantiable(
                         '',
                         '',
@@ -20506,7 +20538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (existingEntry) {
                 // Verify that the existing entry matches the new entry.
                 if (
-                    !existingEntry.paramSpec &&
+                    existingEntry.paramSpec === srcType.details.paramSpec &&
                     existingEntry.parameters.length === parameters.length &&
                     !existingEntry.parameters.some((existingParam, index) => {
                         const newParam = parameters[index];
@@ -20533,7 +20565,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeVarScopeId: srcType.details.typeVarScopeId,
                         flags: srcType.details.flags,
                         docString: srcType.details.docString,
-                        paramSpec: undefined,
+                        paramSpec: srcType.details.paramSpec,
                     });
                 }
                 return true;

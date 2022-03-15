@@ -1,7 +1,17 @@
 # This sample tests cases where a ParamSpec is used as a type parameter
 # for a generic type alias, a generic function, and a generic class.
 
-from typing import Callable, Concatenate, Generic, List, ParamSpec, TypeVar
+import asyncio
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    Coroutine,
+    Generic,
+    List,
+    ParamSpec,
+    TypeVar,
+)
 
 
 _P = ParamSpec("_P")
@@ -72,3 +82,31 @@ def remote(func: Callable[_P, _R]) -> RemoteFunction[_P, _R]:
 
 v4 = remote(func2)
 reveal_type(v4, expected_text="RemoteFunction[(a: str, b: List[int]), str]")
+
+
+Coro = Coroutine[Any, Any, _T]
+CoroFunc = Callable[_P, Coro[_T]]
+
+
+class ClassA:
+    ...
+
+
+CheckFunc = CoroFunc[Concatenate[ClassA, _P], bool]
+
+
+async def my_check_func(obj: ClassA, a: int, b: str) -> bool:
+    print(a, b)
+    return str(a) == b
+
+
+async def takes_check_func(
+    check_func: CheckFunc[_P], *args: _P.args, **kwargs: _P.kwargs
+):
+    await check_func(ClassA(), *args, **kwargs)
+
+
+asyncio.run(takes_check_func(my_check_func, 1, "2"))
+
+# This should generate an error because the signature doesn't match.
+asyncio.run(takes_check_func(my_check_func, 1, 2))
