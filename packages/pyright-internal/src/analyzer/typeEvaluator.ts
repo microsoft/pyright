@@ -3851,15 +3851,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isTypeVar(type) && (flags & EvaluatorFlags.ExpectingType) === 0 && type.details.name === name) {
-            // A TypeVar in contexts where we're not expecting a type is
-            // simply a TypeVar or TypeVarTuple object.
-            const typeVarType = type.details.isVariadic
-                ? getTypingType(node, 'TypeVarTuple')
-                : getTypingType(node, 'TypeVar');
-            if (typeVarType && isInstantiableClass(typeVarType)) {
-                type = ClassType.cloneAsInstance(typeVarType);
-            } else {
-                type = UnknownType.create();
+            // Handle the special case of a PEP 604 union. These can appear within
+            // an implied type alias where we are not expecting a type.
+            const isPep604Union =
+                node.parent?.nodeType === ParseNodeType.BinaryOperation &&
+                node.parent.operator === OperatorType.BitwiseOr;
+
+            if (!isPep604Union) {
+                // A TypeVar in contexts where we're not expecting a type is
+                // simply a TypeVar or TypeVarTuple object.
+                const typeVarType = type.details.isVariadic
+                    ? getTypingType(node, 'TypeVarTuple')
+                    : getTypingType(node, 'TypeVar');
+                if (typeVarType && isInstantiableClass(typeVarType)) {
+                    type = ClassType.cloneAsInstance(typeVarType);
+                } else {
+                    type = UnknownType.create();
+                }
             }
         }
 
@@ -10844,15 +10852,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !customMetaclassSupportsMethod(rightType, '__ror__')
         ) {
             let adjustedRightType = rightType;
-            if (!isNoneInstance(leftType) && isNoneInstance(rightType) && TypeBase.isInstance(rightType)) {
+            let adjustedLeftType = leftType;
+            if (!isNoneInstance(leftType) && isNoneInstance(rightType)) {
                 // Handle the special case where "None" is being added to the union
                 // with something else. Even though "None" will normally be interpreted
                 // as the None singleton object in contexts where a type annotation isn't
                 // assumed, we'll allow it here.
                 adjustedRightType = NoneType.createType();
+            } else if (!isNoneInstance(rightType) && isNoneInstance(leftType)) {
+                adjustedLeftType = NoneType.createType();
             }
 
-            if (isUnionableType([leftType, adjustedRightType])) {
+            if (isUnionableType([adjustedLeftType, adjustedRightType])) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                 const unionNotationSupported =
                     fileInfo.isStubFile ||
@@ -10861,20 +10872,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!unionNotationSupported) {
                     // If the left type is Any, we can't say for sure whether this
                     // is an illegal syntax or a valid application of the "|" operator.
-                    if (!isAnyOrUnknown(leftType)) {
+                    if (!isAnyOrUnknown(adjustedLeftType)) {
                         addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
                     }
                 }
 
-                const newUnion = combineTypes([leftType, adjustedRightType]);
+                const newUnion = combineTypes([adjustedLeftType, adjustedRightType]);
                 if (isUnion(newUnion)) {
                     TypeBase.setSpecialForm(newUnion);
                 }
 
-                return {
-                    type: newUnion,
-                    node,
-                };
+                return { type: newUnion, node };
             }
         }
 

@@ -69,3 +69,11 @@ a_or_str: "ClassA.ClassA_A | str"
 b_or_str: "ClassA.ClassA_B | str"
 b_or_str_Union: Union[ClassA.ClassA_B, str]
 c_or_str: "ClassA.ClassA_C | str"
+
+Alias1 = None | str
+Alias2 = str | None
+
+_T = TypeVar("_T")
+
+Alias3 = _T | str
+Alias4 = str | _T

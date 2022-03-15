@@ -627,7 +627,7 @@ test('Unions1', () => {
     // Analyze with Python 3.9 settings. This will generate errors.
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_9, 7);
+    TestUtils.validateResults(analysisResults3_9, 11);
 
     // Analyze with Python 3.10 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
