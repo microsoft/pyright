@@ -25,7 +25,6 @@ _T = TypeVar("_T")
 
 
 def func2(cls: Type[_T]) -> _T:
-    # This should generate an error
     y = cls(1, "")
 
     x = cls()

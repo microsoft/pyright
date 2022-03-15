@@ -8423,6 +8423,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (functionResult.argumentErrors) {
                                     argumentErrors = true;
                                 }
+
+                                if (
+                                    isTypeVar(unexpandedSubtype) &&
+                                    TypeBase.isInstantiable(unexpandedSubtype) &&
+                                    isClass(expandedSubtype) &&
+                                    ClassType.isBuiltIn(expandedSubtype, 'type')
+                                ) {
+                                    // Handle the case where a Type[T] is being called. We presume this
+                                    // will instantiate an object of type T.
+                                    return convertToInstance(unexpandedSubtype);
+                                }
+
                                 return functionResult.returnType || UnknownType.create();
                             }
 
