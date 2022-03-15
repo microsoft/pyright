@@ -116,8 +116,8 @@ export function synthesizeDataClassMethods(
     }
 
     // Maintain a list of "type evaluators".
-    type TypeEvaluator = () => Type;
-    const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: TypeEvaluator }[] = [];
+    type GetTypeFunction = () => Type;
+    const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: GetTypeFunction }[] = [];
     let sawKeywordOnlySeparator = false;
 
     node.suite.statements.forEach((statementList) => {
@@ -125,7 +125,7 @@ export function synthesizeDataClassMethods(
             statementList.statements.forEach((statement) => {
                 let variableNameNode: NameNode | undefined;
                 let aliasName: string | undefined;
-                let variableTypeEvaluator: TypeEvaluator | undefined;
+                let variableTypeEvaluator: GetTypeFunction | undefined;
                 let hasDefaultValue = false;
                 let isKeywordOnly = ClassType.isDataClassKeywordOnlyParams(classType) || sawKeywordOnlySeparator;
                 let defaultValueExpression: ExpressionNode | undefined;
