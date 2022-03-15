@@ -9,8 +9,6 @@ import * as lsif from '../lsif';
 import { Input } from '../lsif-typescript/Input';
 import { formatSnapshot, index as lsifIndex, writeSnapshot } from '../lib';
 
-const lsif_typed = lsif.lib.codeintel.lsif_typed;
-
 function isUpdateSnapshot(): boolean {
     return true || process.argv.includes('--update-snapshots');
 }
@@ -29,10 +27,11 @@ describe('indexer', () => {
         it(`Snapshot for: ${snapshotDirectory}`, () => {
             const projectRoot = join(inputDirectory, snapshotDirectory);
 
-            const index = new lsif.lib.codeintel.lsif_typed.Index();
+            const index = new lsif.lib.codeintel.lsiftyped.Index();
             lsifIndex({
+                workspaceRoot: projectRoot,
                 projectRoot,
-                project: path.relative('.', projectRoot),
+                version: "0.1",
                 writeIndex: (partialIndex: any): void => {
                     if (partialIndex.metadata) {
                         index.metadata = partialIndex.metadata;

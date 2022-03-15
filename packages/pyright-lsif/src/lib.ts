@@ -6,12 +6,23 @@ import { lib } from './lsif';
 import { Input } from './lsif-typescript/Input';
 import { Range } from './lsif-typescript/Range';
 
-export const lsif_typed = lib.codeintel.lsif_typed;
+export const lsiftyped = lib.codeintel.lsiftyped;
 
 export interface Options {
+    /**
+     * The directory where to generate the dump.lsif-typed file.
+     *
+     * All `Document.relative_path` fields will be relative paths to this directory.
+     */
+    workspaceRoot: string;
+
+    /** The directory containing a tsconfig.json file. */
     projectRoot: string;
-    project: string;
-    writeIndex: (index: lib.codeintel.lsif_typed.Index) => void;
+
+    /** Version **/
+    version: string;
+
+    writeIndex: (index: lib.codeintel.lsiftyped.Index) => void;
 }
 
 export function index(options: Options) {
@@ -19,9 +30,9 @@ export function index(options: Options) {
     indexer.index();
 }
 
-const packageName = "lsif-pyright pypi";
+const packageName = 'lsif-pyright pypi';
 
-export function formatSnapshot(input: Input, document: lib.codeintel.lsif_typed.Document): string {
+export function formatSnapshot(input: Input, document: lib.codeintel.lsiftyped.Document): string {
     const out: string[] = [];
     document.occurrences.sort(occurrencesByLine);
     let occurrenceIndex = 0;
@@ -54,7 +65,7 @@ export function formatSnapshot(input: Input, document: lib.codeintel.lsif_typed.
             }
             out.push('^'.repeat(length));
             out.push(' ');
-            const isDefinition = (occurrence.symbol_roles & lsif_typed.SymbolRole.Definition) > 0;
+            const isDefinition = (occurrence.symbol_roles & lsiftyped.SymbolRole.Definition) > 0;
             out.push(isDefinition ? 'definition' : 'reference');
             out.push(' ');
             const symbol = occurrence.symbol.startsWith(packageName)
@@ -76,6 +87,6 @@ export function writeSnapshot(outputPath: string, obtained: string): void {
     fs.writeFileSync(outputPath, obtained);
 }
 
-function occurrencesByLine(a: lib.codeintel.lsif_typed.Occurrence, b: lib.codeintel.lsif_typed.Occurrence): number {
+function occurrencesByLine(a: lib.codeintel.lsiftyped.Occurrence, b: lib.codeintel.lsiftyped.Occurrence): number {
     return Range.fromLsif(a.range).compare(Range.fromLsif(b.range));
 }

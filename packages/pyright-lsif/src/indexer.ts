@@ -10,8 +10,7 @@ import { TreeVisitor } from './treeVisitor';
 import { FullAccessHost } from 'pyright-internal/common/fullAccessHost';
 import { glob } from 'glob';
 import * as url from 'url';
-import { lsif_typed, Options } from './lib';
-import { lib } from './lsif';
+import { lsiftyped, Options } from './lib';
 import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 
 export interface Config {}
@@ -22,7 +21,6 @@ export class Indexer {
 
     constructor(public readonly config: Config, public options: Options) {
         const fs = createFromRealFileSystem();
-        fs.chdir(options.projectRoot);
 
         const configOptions = new ConfigOptions(options.projectRoot);
         configOptions.checkOnlyOpenFiles = false;
@@ -41,11 +39,13 @@ export class Indexer {
     public index(): void {
         // Emit metadata
         this.options.writeIndex(
-            new lsif_typed.Index({
-                metadata: new lsif_typed.Metadata({
+            new lsiftyped.Index({
+                metadata: new lsiftyped.Metadata({
                     // TODO: Might need to change project -> projectRoot
-                    project_root: url.pathToFileURL(this.options.project).toString(),
-                    tool_info: new lsif_typed.ToolInfo({
+                    //
+                    project_root: url.pathToFileURL(this.options.workspaceRoot).toString(),
+                    text_document_encoding: lsiftyped.TextEncoding.UTF8,
+                    tool_info: new lsiftyped.ToolInfo({
                         name: 'lsif-pyright',
                         // TODO: import __version__
                         version: require('package.json').version,
@@ -63,7 +63,7 @@ export class Indexer {
 
         const typeEvaluator = this.program.evaluator;
 
-        // let visitors: lib.codeintel.lsif_typed.Document[] = [];
+        // let visitors: lib.codeintel.lsiftyped.Document[] = [];
         let sourceFiles: SourceFile[] = [];
         this.program.indexWorkspace(
             (filepath: string, _results: IndexResults) => {
@@ -111,17 +111,23 @@ export class Indexer {
 
         sourceFiles.forEach((sourceFile) => {
             const filepath = sourceFile.getFilePath();
-            let doc = new lsif_typed.Document({
-                relative_path: path.relative(this.options.projectRoot, filepath),
+            let doc = new lsiftyped.Document({
+                relative_path: path.relative(this.options.workspaceRoot, filepath),
             });
 
             const parseResults = sourceFile.getParseResults();
             const tree = parseResults?.parseTree;
-            let visitor = new TreeVisitor(sourceFile.getFilePath(), this.program, typeEvaluator!, doc);
+            let visitor = new TreeVisitor(
+                sourceFile.getFilePath(),
+                this.program,
+                typeEvaluator!,
+                doc,
+                this.options.version
+            );
             visitor.walk(tree!);
 
             this.options.writeIndex(
-                new lsif_typed.Index({
+                new lsiftyped.Index({
                     documents: [doc],
                 })
             );
