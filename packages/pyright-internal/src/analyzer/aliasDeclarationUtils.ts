@@ -18,10 +18,11 @@ export interface ResolvedAliasInfo {
 }
 
 // If the specified declaration is an alias declaration that points to a symbol,
-// it resolves the alias and looks up the symbol, then returns the first declaration
-// associated with that symbol. It does this recursively if necessary. If a symbol
-// lookup fails, undefined is returned. If resolveLocalNames is true, the method
-// resolves aliases through local renames ("as" clauses found in import statements).
+// it resolves the alias and looks up the symbol, then returns the a declaration
+// (typically the last) associated with that symbol. It does this recursively if
+// necessary. If a symbol lookup fails, undefined is returned. If resolveLocalNames
+// is true, the method resolves aliases through local renames ("as" clauses found
+// in import statements).
 export function resolveAliasDeclaration(
     importLookup: ImportLookup,
     declaration: Declaration,
@@ -97,12 +98,23 @@ export function resolveAliasDeclaration(
         // Prefer declarations with specified types. If we don't have any of those,
         // fall back on declarations with inferred types.
         let declarations = symbol.getTypedDeclarations();
+
+        // Try not to use declarations within an except suite even if it's a typed
+        // declaration. These are typically used for fallback exception handling.
+        declarations = declarations.filter((decl) => !decl.isInExceptSuite);
+
         if (declarations.length === 0) {
             declarations = symbol.getDeclarations();
+            declarations = declarations.filter((decl) => !decl.isInExceptSuite);
+        }
 
-            if (declarations.length === 0) {
-                return undefined;
-            }
+        if (declarations.length === 0) {
+            // Use declarations within except clauses if there are no alternatives.
+            declarations = symbol.getDeclarations();
+        }
+
+        if (declarations.length === 0) {
+            return undefined;
         }
 
         // Prefer the last unvisited declaration in the list. This ensures that
