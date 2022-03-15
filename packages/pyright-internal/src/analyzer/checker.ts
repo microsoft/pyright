@@ -4166,7 +4166,7 @@ export class Checker extends ParseTreeWalker {
             }
         } else if (isProperty(baseType)) {
             // Handle properties specially.
-            if (!isProperty(overrideType)) {
+            if (!isProperty(overrideType) && !isAnyOrUnknown(overrideType)) {
                 const decls = overrideSymbol.getDeclarations();
                 if (decls.length > 0) {
                     diag = this._evaluator.addDiagnostic(
