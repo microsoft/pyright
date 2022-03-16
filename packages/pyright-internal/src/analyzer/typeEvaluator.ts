@@ -23008,6 +23008,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         canOverride = false;
                     }
                 }
+            } else if (
+                i < overrideParamDetails.positionOnlyParamCount &&
+                i >= baseParamDetails.positionOnlyParamCount
+            ) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
+                        index: i + 1,
+                        baseName: baseParam.name || '*',
+                    })
+                );
+                canOverride = false;
             } else {
                 const baseParamType = baseParamDetails.params[i].type;
                 const overrideParamType = overrideParamDetails.params[i].type;

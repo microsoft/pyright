@@ -98,6 +98,9 @@ class ParentClass:
     def __private_method1(self, a: int):
         return 1
 
+    def my_method22(self, a: str, b: int, c: float, d: bool) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -190,6 +193,10 @@ class ChildClass(ParentClass):
 
     def __private_method1(self):
         return 1
+
+    # This should generate an error.
+    def my_method22(self, a: str, b: int, c: float, d: bool, /) -> None:
+        ...
 
 
 class A:
