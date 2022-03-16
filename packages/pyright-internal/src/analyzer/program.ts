@@ -1469,6 +1469,7 @@ export class Program {
             const content = sourceFileInfo.sourceFile.getFileContent() ?? '';
             if (
                 options.indexingForAutoImportMode &&
+                !options.forceIndexing &&
                 !sourceFileInfo.sourceFile.isStubFile() &&
                 !sourceFileInfo.sourceFile.isThirdPartyPyTypedPresent()
             ) {
@@ -1860,16 +1861,30 @@ export class Program {
                 return undefined;
             }
 
-            if (
+            // We have 2 different cases
+            // Single file mode.
+            // 1. rename on default workspace (ex, standalone file mode).
+            // 2. rename local symbols.
+            // 3. rename symbols defined in the non user open file.
+            //
+            // and Multi file mode.
+            // 1. rename public symbols defined in user files on regular workspace (ex, open folder mode).
+            const userFile = this._isUserCode(sourceFileInfo);
+            const singleFileMode =
+                isDefaultWorkspace ||
+                (userFile && !referencesResult.requiresGlobalSearch) ||
+                (!userFile &&
+                    sourceFileInfo.isOpenByClient &&
+                    referencesResult.declarations.every(
+                        (d) => this._getSourceFileInfoFromPath(d.path) === sourceFileInfo
+                    ));
+            const multiFileMode =
                 !isDefaultWorkspace &&
-                referencesResult.declarations.some((d) => !this._isUserCode(this._getSourceFileInfoFromPath(d.path)))
-            ) {
-                // Some declarations come from non-user code, so do not allow rename.
-                return undefined;
-            }
+                referencesResult.declarations.every((d) => this._isUserCode(this._getSourceFileInfoFromPath(d.path)));
 
-            // Do we need to do a global search as well?
-            if (referencesResult.requiresGlobalSearch && !isDefaultWorkspace) {
+            if (singleFileMode) {
+                sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
+            } else if (multiFileMode) {
                 for (const curSourceFileInfo of this._sourceFileList) {
                     // Make sure we only add user code to the references to prevent us
                     // from accidentally changing third party library or type stub.
@@ -1883,12 +1898,12 @@ export class Program {
                     // for situations where we need to discard the type cache.
                     this._handleMemoryHighUsage();
                 }
-            } else if (isDefaultWorkspace || this._isUserCode(sourceFileInfo)) {
-                sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
+            } else {
+                // Rename is not allowed.
+                return undefined;
             }
 
             const editActions: FileEditAction[] = [];
-
             referencesResult.locations.forEach((loc) => {
                 editActions.push({
                     filePath: loc.path,
