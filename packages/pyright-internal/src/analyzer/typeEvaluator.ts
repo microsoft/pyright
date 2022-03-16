@@ -5955,9 +5955,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Setting the value of an indexed class will always result
                     // in an exception.
                     if (usage.method === 'set') {
-                        addError(Localizer.Diagnostic.genericClassAssigned(), node.baseExpression);
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.genericClassAssigned(),
+                            node.baseExpression
+                        );
                     } else if (usage.method === 'del') {
-                        addError(Localizer.Diagnostic.genericClassDeleted(), node.baseExpression);
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.genericClassDeleted(),
+                            node.baseExpression
+                        );
                     }
 
                     if (ClassType.isSpecialBuiltIn(concreteSubtype, 'Literal')) {
@@ -6025,7 +6035,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (concreteSubtype.typeArguments) {
-                        addError(
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.classAlreadySpecialized().format({
                                 type: printType(convertToInstance(concreteSubtype), /* expandTypeAlias */ true),
                             }),
