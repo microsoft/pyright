@@ -587,5 +587,6 @@ export interface AnalysisResponse {
 }
 
 export interface IndexOptions {
-    packageDepths: [string, number][];
+    // forceIndexing means it will include symbols not shown in __all__ for py file.
+    packageDepths: [moduleName: string, maxDepth: number, forceIndexing: boolean][];
 }

@@ -94,7 +94,7 @@ export interface TextChange {
 export interface HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory;
 
-    runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean): void;
+    runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean, options?: string): void;
     getCodeActionsForPosition(
         workspace: WorkspaceServiceInstance,
         filePath: string,
@@ -194,8 +194,9 @@ export class TestState {
         const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
         const indexerWithoutStdLib = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexerWithoutStdLib]);
         if (indexer || indexerWithoutStdLib) {
+            const indexerOptions = testData.globalOptions[GlobalMetadataOptionNames.indexerOptions];
             configOptions.indexing = true;
-            this._hostSpecificFeatures.runIndexer(this.workspace, indexerWithoutStdLib);
+            this._hostSpecificFeatures.runIndexer(this.workspace, indexerWithoutStdLib, indexerOptions);
         }
 
         if (this._files.length > 0) {
@@ -1812,10 +1813,12 @@ export class TestState {
         // directly set files to track rather than using fileSpec from config
         // to discover those files from file system
         service.test_program.setTrackedFiles(
-            this._files.filter((path) => {
-                const fileExtension = getFileExtension(path).toLowerCase();
-                return fileExtension === '.py' || fileExtension === '.pyi';
-            })
+            this._files
+                .filter((path) => {
+                    const fileExtension = getFileExtension(path).toLowerCase();
+                    return fileExtension === '.py' || fileExtension === '.pyi';
+                })
+                .filter((path) => service.isTracked(path))
         );
 
         return service;

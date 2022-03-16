@@ -1071,7 +1071,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return callItems;
     }
 
-    protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams) {
+    protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = false) {
         const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
 
         if (!(this.fs as PyrightFileSystem).addUriMap(params.textDocument.uri, filePath)) {
@@ -1080,10 +1080,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
 
         const workspace = await this.getWorkspaceForFile(filePath);
-        workspace.serviceInstance.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
+        workspace.serviceInstance.setFileOpened(
+            filePath,
+            params.textDocument.version,
+            params.textDocument.text,
+            ipythonMode
+        );
     }
 
-    protected async onDidChangeTextDocument(params: DidChangeTextDocumentParams) {
+    protected async onDidChangeTextDocument(params: DidChangeTextDocumentParams, ipythonMode = false) {
         this.recordUserInteractionTime();
 
         const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
@@ -1093,7 +1098,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
 
         const workspace = await this.getWorkspaceForFile(filePath);
-        workspace.serviceInstance.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges);
+        workspace.serviceInstance.updateOpenFileContents(
+            filePath,
+            params.textDocument.version,
+            params.contentChanges,
+            ipythonMode
+        );
     }
 
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {

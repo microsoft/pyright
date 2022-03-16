@@ -14,6 +14,7 @@ export const enum GlobalMetadataOptionNames {
     typeshed = 'typeshed',
     indexer = 'indexer',
     indexerWithoutStdLib = 'indexerwithoutstdlib',
+    indexerOptions = 'indexeroptions',
 }
 
 /** Any option name not belong to this will become global option */
