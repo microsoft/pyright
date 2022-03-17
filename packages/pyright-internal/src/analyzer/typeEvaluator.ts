@@ -19262,30 +19262,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                     typesAreConsistent = false;
                 } else {
-                    let declaredType = getDeclaredTypeOfSymbol(symbol);
-                    if (declaredType) {
+                    let destMemberType = getDeclaredTypeOfSymbol(symbol);
+                    if (destMemberType) {
                         const srcMemberType = getEffectiveTypeOfSymbol(memberSymbol);
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
-                            if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                            if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
                                 const boundDeclaredType = bindFunctionToClassOrObject(
                                     ClassType.cloneAsInstance(destType),
-                                    declaredType,
+                                    destMemberType,
                                     destType,
                                     /* errorNode */ undefined,
                                     recursionCount
                                 );
                                 if (boundDeclaredType) {
-                                    declaredType = boundDeclaredType;
+                                    destMemberType = boundDeclaredType;
                                 }
                             }
                         }
+
+                        destMemberType = partiallySpecializeType(destMemberType, destType);
 
                         const subDiag = diag?.createAddendum();
 
                         if (
                             !canAssignType(
-                                declaredType,
+                                destMemberType,
                                 srcMemberType,
                                 subDiag?.createAddendum(),
                                 genericDestTypeVarMap,

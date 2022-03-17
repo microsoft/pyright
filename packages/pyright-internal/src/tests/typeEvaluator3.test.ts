@@ -678,6 +678,12 @@ test('ProtocolModule2', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('ProtocolModule4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolModule4.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('VariadicTypeVar1', () => {
     const configOptions = new ConfigOptions('.');
 
