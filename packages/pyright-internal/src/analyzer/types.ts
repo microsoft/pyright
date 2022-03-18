@@ -1296,8 +1296,7 @@ export namespace FunctionType {
                     (FunctionTypeFlags.ClassMethod |
                         FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
-                        FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck |
-                        FunctionTypeFlags.ParamSpecValue)) |
+                        FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck)) |
                 FunctionTypeFlags.SynthesizedMethod;
 
             if (FunctionType.isParamSpecValue(type)) {
