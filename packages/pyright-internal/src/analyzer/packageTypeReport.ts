@@ -10,6 +10,7 @@
  */
 
 import { Diagnostic, DiagnosticWithinFile } from '../common/diagnostic';
+import { ScopeType } from './scope';
 
 export enum SymbolCategory {
     Indeterminate,
@@ -41,6 +42,7 @@ export interface SymbolInfo {
     typeKnownStatus: TypeKnownStatus;
     referenceCount: number;
     diagnostics: DiagnosticWithinFile[];
+    scopeType: ScopeType;
 }
 
 export interface ModuleInfo {

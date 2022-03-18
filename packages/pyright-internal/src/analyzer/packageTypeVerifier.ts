@@ -529,6 +529,7 @@ export class PackageTypeVerifier {
                         typeKnownStatus: TypeKnownStatus.Known,
                         referenceCount: 1,
                         diagnostics: [],
+                        scopeType,
                     };
 
                     this._addSymbol(report, symbolInfo);
@@ -836,6 +837,7 @@ export class PackageTypeVerifier {
                     // we're able to synthesize these.
                     const isSynthesized =
                         index === 0 &&
+                        symbolInfo?.scopeType === ScopeType.Class &&
                         (FunctionType.isClassMethod(type) ||
                             FunctionType.isInstanceMethod(type) ||
                             FunctionType.isConstructorMethod(type));
@@ -1025,6 +1027,7 @@ export class PackageTypeVerifier {
             typeKnownStatus: TypeKnownStatus.Known,
             referenceCount: 1,
             diagnostics: [],
+            scopeType: ScopeType.Class,
         };
 
         this._addSymbol(report, symbolInfo);
@@ -1162,6 +1165,7 @@ export class PackageTypeVerifier {
             typeKnownStatus: TypeKnownStatus.Known,
             referenceCount: 1,
             diagnostics: [],
+            scopeType: ScopeType.Module,
         };
 
         this._addSymbol(report, symbolInfo);
