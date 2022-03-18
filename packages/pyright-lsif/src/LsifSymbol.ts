@@ -7,7 +7,10 @@ export class LsifSymbol extends TypescriptLsifSymbol {
     }
 
     public static override package(name: string, version: string): TypescriptLsifSymbol {
+        name = name.replace(/\./, '/');
+        name = name.trim();
+
         // @ts-ignore
-        return new TypescriptLsifSymbol(`lsif-pyright pypi ${name} ${version}`);
+        return new TypescriptLsifSymbol(`lsif-pyright pypi ${name} ${version} `);
     }
 }

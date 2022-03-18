@@ -41,16 +41,11 @@ export function main(): void {
                 process.chdir(workspaceRoot);
                 if (workspaceVersion === '') {
                   // Default to current git hash
-                  workspaceVersion = child_process.execSync('git rev-parse HEAD').toString();
+                  workspaceVersion = child_process.execSync('git rev-parse HEAD').toString().trim();
                 }
 
                 const lsifIndex = new lib.codeintel.lsiftyped.Index();
 
-                // const inputDirectory = path.join('/home/tjdevries/git/sam.py/');
-                // const outputDirectory = path.join('/home/tjdevries/tmp/', 'snapshots', 'output');
-                // const snapshotDirectory = path.relative('.', path.join(inputDirectory, 'poetry_project'));
-                // const projectRoot = path.join(inputDirectory, path.relative(inputDirectory, snapshotDirectory));
-                // const projectRoot = path.join(inputDirectory);
 
                 console.log('Indexing:', projectRoot, '@', workspaceVersion);
 
@@ -71,21 +66,20 @@ export function main(): void {
                 console.log('Writing to: ', path.join(projectRoot, 'dump.lsif-typed'));
                 fs.writeFileSync(path.join(projectRoot, 'dump.lsif-typed'), lsifIndex.serializeBinary());
 
-                // for (const doc of lsifIndex.documents) {
-                //     if (doc.relative_path.startsWith('..')) {
-                //         console.log('Skipping Doc:', doc.relative_path);
-                //         continue;
-                //     }
-                //
-                //     const inputPath = path.join(projectRoot, doc.relative_path);
-                //     const input = Input.fromFile(inputPath);
-                //     const obtained = formatSnapshot(input, doc);
-                //     const relativeToInputDirectory = path.relative(inputDirectory, inputPath);
-                //     const outputPath = path.resolve(outputDirectory, relativeToInputDirectory);
-                //     writeSnapshot(outputPath, obtained);
-                // }
+                const outputDirectory = path.join('/home/tjdevries/tmp/', 'snapshots', 'output');
+                for (const doc of lsifIndex.documents) {
+                    if (doc.relative_path.startsWith('..')) {
+                        console.log('Skipping Doc:', doc.relative_path);
+                        continue;
+                    }
 
-                console.log('Done!');
+                    const inputPath = path.join(projectRoot, doc.relative_path);
+                    const input = Input.fromFile(inputPath);
+                    const obtained = formatSnapshot(input, doc);
+                    const relativeToInputDirectory = path.relative(projectRoot, inputPath);
+                    const outputPath = path.resolve(outputDirectory, relativeToInputDirectory);
+                    writeSnapshot(outputPath, obtained);
+                }
             }
         )
         .help().argv;

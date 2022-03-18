@@ -50,6 +50,7 @@ export function formatSnapshot(input: Input, document: lib.codeintel.lsiftyped.D
                 // Skip multiline occurrences for now.
                 continue;
             }
+
             const range = Range.fromLsif(occurrence.range);
             out.push('#');
 
@@ -71,7 +72,7 @@ export function formatSnapshot(input: Input, document: lib.codeintel.lsiftyped.D
             const symbol = occurrence.symbol.startsWith(packageName)
                 ? occurrence.symbol.slice(packageName.length)
                 : occurrence.symbol;
-            out.push(symbol);
+            out.push(symbol.replace("\n", "|"));
             out.push('\n');
         }
     }
@@ -84,7 +85,7 @@ export function writeSnapshot(outputPath: string, obtained: string): void {
         recursive: true,
     });
     // eslint-disable-next-line no-sync
-    fs.writeFileSync(outputPath, obtained);
+    fs.writeFileSync(outputPath, obtained, { flag: 'w' });
 }
 
 function occurrencesByLine(a: lib.codeintel.lsiftyped.Occurrence, b: lib.codeintel.lsiftyped.Occurrence): number {
