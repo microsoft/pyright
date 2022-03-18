@@ -1263,8 +1263,6 @@ export namespace FunctionType {
             type.details.docString
         );
 
-        newFunction.specializedTypes = type.specializedTypes;
-
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
 
@@ -1304,7 +1302,11 @@ export namespace FunctionType {
             }
 
             // Update the specialized parameter types as well.
-            if (newFunction.specializedTypes) {
+            if (type.specializedTypes) {
+                newFunction.specializedTypes = {
+                    parameterTypes: [...type.specializedTypes.parameterTypes],
+                    returnType: type.specializedTypes.returnType,
+                };
                 paramSpecValue.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
                 });
