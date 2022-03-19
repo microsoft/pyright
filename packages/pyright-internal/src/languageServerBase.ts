@@ -59,6 +59,8 @@ import {
     ReferenceParams,
     RemoteWindow,
     RenameParams,
+    SemanticTokensParams,
+    SemanticTokensRangeParams,
     SignatureHelp,
     SignatureHelpParams,
     SymbolInformation,
@@ -123,6 +125,7 @@ import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
 import { RenameProvider } from './languageService/renameProvider';
+import { SemanticTokensProvider, providedTokenModifiers, providedTokenTypes } from './languageService/semanticTokensProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
@@ -655,6 +658,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         callHierarchy.onIncomingCalls(async (params, token) => this.onCallHierarchyIncomingCalls(params, token));
         callHierarchy.onOutgoingCalls(async (params, token) => this.onCallHierarchyOutgoingCalls(params, token));
 
+        const semanticTokens = this.connection.languages.semanticTokens;
+        semanticTokens.on(async (params, token) => this.onSemanticTokens(params, token));
+        semanticTokens.onRange(async (params, token) => this.onSemanticTokensRange(params, token));
+
         this.connection.onDidOpenTextDocument(async (params) => this.onDidOpenTextDocument(params));
         this.connection.onDidChangeTextDocument(async (params) => this.onDidChangeTextDocument(params));
         this.connection.onDidCloseTextDocument(async (params) => this.onDidCloseTextDocument(params));
@@ -765,6 +772,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                         supported: true,
                         changeNotifications: true,
                     },
+                },
+                semanticTokensProvider: {
+                    legend: {
+                        tokenTypes: providedTokenTypes,
+                        tokenModifiers: providedTokenModifiers,
+                    },
+                    full: true,
+                    range: true,
+                    workDoneProgress: true,
                 },
             },
         };
@@ -1157,6 +1173,22 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         return workspace.service.run((program) => {
             return new CallHierarchyProvider(program, uri, params.item.range.start, token).getOutgoingCalls();
+        }, token);
+    }
+
+    protected async onSemanticTokens(params: SemanticTokensParams, token: CancellationToken) {
+        const uri = this.decodeUri(params.textDocument.uri);
+        const workspace = await this.getWorkspaceForFile(uri);
+        return workspace.service.run((program) => {
+            return new SemanticTokensProvider(program, uri, token).getSemanticTokens();
+        }, token);
+    }
+
+    protected async onSemanticTokensRange(params: SemanticTokensRangeParams, token: CancellationToken) {
+        const uri = this.decodeUri(params.textDocument.uri);
+        const workspace = await this.getWorkspaceForFile(uri);
+        return workspace.service.run((program) => {
+            return new SemanticTokensProvider(program, uri, token).getSemanticTokensForRange(params.range);
         }, token);
     }
 
