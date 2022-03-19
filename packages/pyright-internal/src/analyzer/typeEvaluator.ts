@@ -19952,10 +19952,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
-            // If we're in "reverse type var matching" mode, don't generate
+            // If we're in "ignore type var scope" mode, don't generate
             // an error in this path.
             if ((flags & CanAssignFlags.IgnoreTypeVarScope) !== 0) {
                 return true;
+            }
+
+            // If we're in "reverse type var" mode, simply make sure that
+            // the concrete type is assignable.
+            if (isContravariant) {
+                if (
+                    canAssignType(
+                        makeTopLevelTypeVarsConcrete(destType),
+                        makeTopLevelTypeVarsConcrete(srcType),
+                        /* diag */ undefined,
+                        /* typeVarMap */ undefined,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    return true;
+                }
             }
 
             isTypeVarInScope = false;
@@ -20434,13 +20451,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !canAssignType(
                             makeConcrete ? makeTopLevelTypeVarsConcrete(curWideTypeBound) : curWideTypeBound,
                             newNarrowTypeBound,
-                            /* diag */ undefined,
+                            diag?.createAddendum(),
                             typeVarMap,
                             flags & CanAssignFlags.IgnoreTypeVarScope,
                             recursionCount
                         )
                     ) {
-                        if (diag) {
+                        if (diag && diagAddendum) {
                             diag.addMessage(
                                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
                                     sourceType: printType(adjSrcType),
