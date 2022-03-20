@@ -70,6 +70,8 @@ export function createProperty(
     );
 
     propertyClass.details.typeVarScopeId = decoratorType.details.typeVarScopeId;
+    const objectType = evaluator.getBuiltInType(decoratorNode, 'object');
+    propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
     // Clone the symbol table of the old class type.
@@ -105,7 +107,7 @@ export function createProperty(
     FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
         name: 'self',
-        type: propertyObject,
+        type: AnyType.create(),
         hasDeclaredType: true,
     });
     FunctionType.addParameter(getFunction1, {
@@ -136,7 +138,7 @@ export function createProperty(
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
         name: 'self',
-        type: propertyObject,
+        type: AnyType.create(),
         hasDeclaredType: true,
     });
 
@@ -249,6 +251,8 @@ export function clonePropertyWithSetter(
         classType.details.effectiveMetaclass
     );
     propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
+    const objectType = evaluator.getBuiltInType(errorNode, 'object');
+    propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
@@ -327,6 +331,8 @@ export function clonePropertyWithDeleter(
         classType.details.effectiveMetaclass
     );
     propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
+    const objectType = evaluator.getBuiltInType(errorNode, 'object');
+    propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
@@ -349,7 +355,7 @@ export function clonePropertyWithDeleter(
     FunctionType.addParameter(delFunction, {
         category: ParameterCategory.Simple,
         name: 'self',
-        type: prop,
+        type: AnyType.create(),
         hasDeclaredType: true,
     });
     let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
