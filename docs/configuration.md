@@ -283,11 +283,9 @@ The following table lists the default severity levels for each diagnostic rule w
 | strictSetInference                        | false      | false      | true       |
 | strictParameterNoneValue                  | true       | true       | true       |
 | enableTypeIgnoreComments                  | true       | true       | true       |
-| :---------------------------------------- | :--------- | :--------- | :--------- |
 | reportMissingModuleSource                 | "warning"  | "warning"  | "warning"  |
 | reportMissingImports                      | "warning"  | "error"    | "error"    |
 | reportUndefinedVariable                   | "warning"  | "error"    | "error"    |
-| :---------------------------------------- | :--------- | :--------- | :--------- |
 | reportAssertAlwaysTrue                    | "none"     | "warning"  | "error"    |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "error"    |
 | reportInvalidTypeVarUse                   | "none"     | "warning"  | "error"    |
@@ -307,7 +305,6 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportPrivateImportUsage                  | "none"     | "error"    | "error"    |
 | reportUnboundVariable                     | "none"     | "error"    | "error"    |
 | reportUnusedCoroutine                     | "none"     | "error"    | "error"    |
-| :---------------------------------------- | :--------- | :--------- | :--------- |
 | reportConstantRedefinition                | "none"     | "none"     | "error"    |
 | reportDuplicateImport                     | "none"     | "none"     | "error"    |
 | reportFunctionMemberAccess                | "none"     | "none"     | "error"    |
