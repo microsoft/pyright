@@ -22598,7 +22598,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             });
 
-            // If both src and dest have a "*kwargs" parameter, make sure their types are compatible.
+            // If both src and dest have a "**kwargs" parameter, make sure their types are compatible.
             if (srcParamDetails.kwargsIndex !== undefined && destParamDetails.kwargsIndex !== undefined) {
                 if (
                     !canAssignFunctionParameter(

@@ -2130,7 +2130,7 @@ export class Checker extends ParseTreeWalker {
 
                                     if (diagnostic && overload.details.declaration) {
                                         diagnostic.addRelatedInfo(
-                                            Localizer.DiagnosticAddendum.overloadMethod(),
+                                            Localizer.DiagnosticAddendum.overloadSignature(),
                                             overload.details.declaration?.path ?? primaryDecl.path,
                                             overload.details.declaration?.range ?? primaryDecl.range
                                         );

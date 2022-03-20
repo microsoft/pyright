@@ -1051,7 +1051,7 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
         export const orPatternMissingName = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.orPatternMissingName'));
-        export const overloadMethod = () => getRawString('DiagnosticAddendum.overloadMethod');
+        export const overloadSignature = () => getRawString('DiagnosticAddendum.overloadSignature');
         export const overloadNotAssignable = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));
         export const overloadWithImplementation = () => getRawString('DiagnosticAddendum.overloadWithImplementation');
