@@ -305,3 +305,18 @@ def func14(
     target: Callable[..., Awaitable[_T14]] | Callable[..., _T14]
 ) -> Wrapper1[_T14]:
     ...
+
+
+@overload
+def func15(client_id: str, client_secret: str, /) -> None:
+    ...
+
+
+@overload
+def func15(client_id: str, client_secret: str) -> None:
+    ...
+
+
+# This should generate an error because some of the keyword arguments are not present.
+def func15(*creds: str) -> None:
+    pass

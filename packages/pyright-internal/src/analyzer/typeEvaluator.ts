@@ -22362,19 +22362,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
                         }
                         canAssign = false;
-                    } else if (
-                        !canAssignFunctionParameter(
-                            destParamType,
-                            srcArgsType,
-                            paramIndex,
-                            diag?.createAddendum(),
-                            destTypeVarMap,
-                            srcTypeVarMap,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        canAssign = false;
+                    } else {
+                        if (
+                            !canAssignFunctionParameter(
+                                destParamType,
+                                srcArgsType,
+                                paramIndex,
+                                diag?.createAddendum(),
+                                destTypeVarMap,
+                                srcTypeVarMap,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            canAssign = false;
+                        }
+
+                        if (
+                            destParamDetails.params[paramIndex].source !== ParameterSource.PositionOnly &&
+                            srcParamDetails.kwargsIndex === undefined
+                        ) {
+                            if (diag) {
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.namedParamMissingInSource().format({
+                                        name: destParamDetails.params[paramIndex].param.name ?? '',
+                                    })
+                                );
+                            }
+                            canAssign = false;
+                        }
                     }
                 }
             } else {
