@@ -2413,7 +2413,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const scopeNode = ParseTreeUtils.getExecutionScopeNode(node);
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(scopeNode);
 
-        const maxCodeComplexity = 10000;
+        // The following number is chosen somewhat arbitrarily. We need to cut
+        // off code flow analysis at some point for code flow graphs that are too
+        // complex. Otherwise we risk overflowing the stack or incurring extremely
+        // long analysis times. This number has been tuned empirically.
+        const maxCodeComplexity = 8000;
+
         if (codeComplexity > maxCodeComplexity) {
             let errorRange: TextRange = scopeNode;
             if (scopeNode.nodeType === ParseNodeType.Function) {
