@@ -2877,18 +2877,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Check for an attempt to write to an instance variable that is
                 // not defined by __slots__.
                 if (isThisClass && isInstanceMember) {
-                    if (memberClass?.details.inheritedSlotsNames && memberClass?.details.localSlotsNames) {
+                    if (memberClass?.details.inheritedSlotsNames && memberClass.details.localSlotsNames) {
                         // Skip this check if the local slots is specified but empty because this pattern
                         // is used in a legitimate manner for mix-in classes.
                         if (
                             memberClass.details.localSlotsNames.length > 0 &&
                             !memberClass.details.inheritedSlotsNames.some((name) => name === memberName)
                         ) {
-                            const symbolType = getEffectiveTypeOfSymbol(memberInfo.symbol);
-                            if (
-                                !isAnyOrUnknown(symbolType) &&
-                                !isMaybeDescriptorInstance(symbolType, /* requireSetter */ true)
-                            ) {
+                            // Determine whether the assignment corresponds to a descriptor
+                            // that was assigned as a class variable. If so, then slots will not
+                            // apply in this case.
+                            const classMemberDetails = lookUpClassMember(memberClass, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
+                            let isPotentiallyDescriptor = false;
+
+                            if (classMemberDetails) {
+                                const classMemberSymbolType = getEffectiveTypeOfSymbol(classMemberDetails.symbol);
+                                if (
+                                    isAnyOrUnknown(classMemberSymbolType) ||
+                                    isUnbound(classMemberSymbolType) ||
+                                    isMaybeDescriptorInstance(classMemberSymbolType)
+                                ) {
+                                    isPotentiallyDescriptor = true;
+                                }
+                            }
+
+                            if (!isPotentiallyDescriptor) {
                                 addDiagnostic(
                                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,

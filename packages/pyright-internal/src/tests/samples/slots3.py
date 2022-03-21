@@ -22,3 +22,14 @@ class ClassA:
     def __init__(self, foo: int) -> None:
         self.foo = foo
 
+
+class ClassBParent:
+    __slots__ = ("bar1",)
+    foo = MyDescriptor(slot="_foo_descriptor")
+
+
+class ClassB(ClassBParent):
+    __slots__ = ("bar2",)
+
+    def repro(self, foo: int) -> None:
+        self.foo = foo
