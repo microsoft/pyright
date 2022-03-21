@@ -332,6 +332,12 @@ test('RevealedType1', () => {
     TestUtils.validateResults(analysisResults, 2, 0, 7);
 });
 
+test('AssertType1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assertType1.py']);
+
+    TestUtils.validateResults(analysisResults, 11);
+});
+
 test('NameBindings1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBindings1.py']);
 

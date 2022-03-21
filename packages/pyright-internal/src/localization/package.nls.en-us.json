@@ -20,6 +20,8 @@
         "argTypePartiallyUnknown": "Argument type is partially unknown",
         "argTypeUnknown": "Argument type is unknown",
         "assertAlwaysTrue": "Assert expression always evaluates to true",
+        "assertTypeArgs": "\"assert_type\" expects two positional arguments",
+        "assertTypeTypeMismatch": "\"assert_type\" mismatch: expected \"{expected}\" but received \"{received}\"",
         "assignmentExprContext": "Assignment expression must be within module, function or lambda",
         "assignmentExprComprehension": "Assignment expression target \"{name}\" cannot use same name as comprehension for target",
         "assignmentInProtocol": "Instance or class variables within a Protocol class must be explicitly declared within the class body",

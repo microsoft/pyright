@@ -6738,6 +6738,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'reveal_type') {
                 // Handle the "typing.reveal_type" call.
                 returnResult = getTypeFromRevealType(node, expectedType);
+            } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'assert_type') {
+                // Handle the "typing.assert_type" call.
+                returnResult = getTypeFromAssertType(node, expectedType);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
@@ -6804,6 +6807,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return returnResult;
+    }
+
+    function getTypeFromAssertType(node: CallNode, expectedType: Type | undefined): TypeResult {
+        if (
+            node.arguments.length !== 2 ||
+            node.arguments[0].argumentCategory !== ArgumentCategory.Simple ||
+            node.arguments[0].name !== undefined ||
+            node.arguments[0].argumentCategory !== ArgumentCategory.Simple ||
+            node.arguments[1].name !== undefined
+        ) {
+            addError(Localizer.Diagnostic.assertTypeArgs(), node);
+            return { node, type: UnknownType.create() };
+        }
+
+        const arg0TypeResult = getTypeOfExpression(node.arguments[0].valueExpression, expectedType);
+        if (arg0TypeResult.isIncomplete) {
+            return { node, type: UnknownType.create(), isIncomplete: true };
+        }
+
+        const assertedType = convertToInstance(getTypeForArgumentExpectingType(node.arguments[1]).type);
+
+        if (!isTypeSame(assertedType, arg0TypeResult.type)) {
+            addError(
+                Localizer.Diagnostic.assertTypeTypeMismatch().format({
+                    expected: printType(assertedType),
+                    received: printType(arg0TypeResult.type),
+                }),
+                node.arguments[0].valueExpression
+            );
+        }
+
+        return { node, type: arg0TypeResult.type };
     }
 
     function getTypeFromRevealType(node: CallNode, expectedType: Type | undefined): TypeResult {

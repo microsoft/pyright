@@ -166,5 +166,7 @@ def dataclass_transform(
 
 # Types not yet implemented in typing_extensions library
 
+def assert_type(val: _T, typ: Any, /) -> _T: ...
+
 # Proposed extension to PEP 647
 StrictTypeGuard: _SpecialForm = ...

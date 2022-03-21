@@ -208,6 +208,11 @@ export namespace Localizer {
         export const argTypePartiallyUnknown = () => getRawString('Diagnostic.argTypePartiallyUnknown');
         export const argTypeUnknown = () => getRawString('Diagnostic.argTypeUnknown');
         export const assertAlwaysTrue = () => getRawString('Diagnostic.assertAlwaysTrue');
+        export const assertTypeArgs = () => getRawString('Diagnostic.assertTypeArgs');
+        export const assertTypeTypeMismatch = () =>
+            new ParameterizedString<{ expected: string; received: string }>(
+                getRawString('Diagnostic.assertTypeTypeMismatch')
+            );
         export const assignmentExprContext = () => getRawString('Diagnostic.assignmentExprContext');
         export const assignmentExprComprehension = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.assignmentExprComprehension'));
