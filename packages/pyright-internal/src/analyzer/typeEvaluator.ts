@@ -73,7 +73,7 @@ import {
 import { ParseOptions, Parser } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import * as DeclarationUtils from './aliasDeclarationUtils';
-import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CodeFlowAnalyzer, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
 import {
@@ -1222,14 +1222,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return typeResult;
-    }
-
-    function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
-        return (
-            fileInfo.futureImports.get('annotations') !== undefined ||
-            fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_11 ||
-            fileInfo.isStubFile
-        );
     }
 
     function getTypeOfParameterAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParameterCategory) {

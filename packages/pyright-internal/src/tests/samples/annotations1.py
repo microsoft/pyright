@@ -2,6 +2,7 @@
 # python source file (as opposed to a stub file).
 
 from typing import Optional, Union
+import uuid
 
 
 class ClassA:
@@ -76,3 +77,13 @@ class ClassD:
 # This should generate an error because modules are not allowed in
 # type annotations.
 z: typing
+
+
+class ClassG:
+    uuid = uuid.uuid4()
+
+
+class ClassH:
+    # This should generate an error because uuid refers to the local
+    # symbol in this case.
+    uuid: uuid.UUID = uuid.uuid4()

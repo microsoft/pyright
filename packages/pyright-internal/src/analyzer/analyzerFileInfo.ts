@@ -10,6 +10,7 @@
 
 import { DiagnosticRuleSet, ExecutionEnvironment } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
@@ -48,4 +49,12 @@ export interface AnalyzerFileInfo {
     isInPyTypedPackage: boolean;
     isIPythonMode: boolean;
     accessedSymbolMap: Map<number, true>;
+}
+
+export function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
+    return (
+        fileInfo.futureImports.get('annotations') !== undefined ||
+        fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_11 ||
+        fileInfo.isStubFile
+    );
 }

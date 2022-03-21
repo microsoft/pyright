@@ -79,7 +79,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookupResult, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -711,6 +711,20 @@ export class Binder extends ParseTreeWalker {
             this._addTypeDeclarationForVariable(node.leftExpression, node.typeAnnotationComment);
         }
 
+        // If there is a type annotation associated with the assignment and annotation evaluations are
+        // not deferred, the Python interpreter creates an entry in the local symbol table (presumably
+        // to store the __annotation__ attribute) before it evaluates the RHS of the assignment. This
+        // can affect the evaluation of the RHS if the name of the symbol is the same as a name that
+        // is defined in an outer scope.
+        let createdAssignmentTargetFlowNodes = false;
+        if (
+            node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+            !isAnnotationEvaluationPostponed(this._fileInfo)
+        ) {
+            this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
+            createdAssignmentTargetFlowNodes = true;
+        }
+
         this.walk(node.rightExpression);
 
         let isPossibleTypeAlias = true;
@@ -730,7 +744,10 @@ export class Binder extends ParseTreeWalker {
 
         this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression, isPossibleTypeAlias);
 
-        this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
+        // If we didn't create assignment target flow nodes above, do so now.
+        if (!createdAssignmentTargetFlowNodes) {
+            this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
+        }
 
         // Is this an assignment to dunder all?
         if (this._currentScope.type === ScopeType.Module) {
