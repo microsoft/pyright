@@ -101,6 +101,18 @@ class ParentClass:
     def my_method22(self, a: str, b: int, c: float, d: bool) -> None:
         ...
 
+    def my_method23(self, a: str = "") -> None:
+        ...
+
+    def my_method24(self, a: str) -> None:
+        ...
+
+    def my_method25(self, *, a: str = "") -> None:
+        ...
+
+    def my_method26(self, *, a: str) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -196,6 +208,20 @@ class ChildClass(ParentClass):
 
     # This should generate an error.
     def my_method22(self, a: str, b: int, c: float, d: bool, /) -> None:
+        ...
+
+    # This should generate an error because a is missing a default value.
+    def my_method23(self, a: str) -> None:
+        ...
+
+    def my_method24(self, a: str = "") -> None:
+        ...
+
+    # This should generate an error because a is missing a default value.
+    def my_method25(self, *, a: str) -> None:
+        ...
+
+    def my_method26(self, *, a: str = "") -> None:
         ...
 
 

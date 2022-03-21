@@ -23082,6 +23082,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         canOverride = false;
                     }
                 }
+
+                if (baseParamDetails.params[i].param.hasDefault && !overrideParamDetails.params[i].param.hasDefault) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.overrideParamNoDefault().format({
+                            index: i + 1,
+                        })
+                    );
+                    canOverride = false;
+                }
             }
         }
 
@@ -23156,6 +23165,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             name: paramInfo.param.name ?? '?',
                             baseType: printType(paramInfo.type),
                             overrideType: printType(overrideParamInfo.type),
+                        })
+                    );
+                    canOverride = false;
+                }
+
+                if (paramInfo.param.hasDefault && !overrideParamInfo.param.hasDefault) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.overrideParamKeywordNoDefault().format({
+                            name: overrideParamInfo.param.name ?? '?',
                         })
                     );
                     canOverride = false;
