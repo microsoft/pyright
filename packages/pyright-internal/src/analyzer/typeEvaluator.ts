@@ -2887,7 +2887,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Determine whether the assignment corresponds to a descriptor
                             // that was assigned as a class variable. If so, then slots will not
                             // apply in this case.
-                            const classMemberDetails = lookUpClassMember(memberClass, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
+                            const classMemberDetails = lookUpClassMember(
+                                memberClass,
+                                memberName,
+                                ClassMemberLookupFlags.SkipInstanceVariables
+                            );
                             let isPotentiallyDescriptor = false;
 
                             if (classMemberDetails) {
