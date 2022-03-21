@@ -1,9 +1,9 @@
 import datetime
 from _typeshed import Self
-from typing import Any, Iterator, Text, Union
+from typing import Any, Iterator, Text
 from typing_extensions import Literal
 
-_RetType = Union[type[float], type[datetime.datetime]]
+_RetType = type[float | datetime.datetime]
 
 class CroniterError(ValueError): ...
 class CroniterBadCronError(CroniterError): ...

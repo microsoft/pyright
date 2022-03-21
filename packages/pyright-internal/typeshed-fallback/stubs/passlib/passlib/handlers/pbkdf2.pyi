@@ -3,7 +3,7 @@ from typing import Any, ClassVar
 import passlib.utils.handlers as uh
 from passlib.utils.handlers import PrefixWrapper
 
-class Pbkdf2DigestHandler(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class Pbkdf2DigestHandler(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore[misc]
     setting_kwds: Any
     checksum_chars: Any
     default_salt_size: ClassVar[int]
@@ -41,7 +41,7 @@ ldap_pbkdf2_sha1: PrefixWrapper
 ldap_pbkdf2_sha256: PrefixWrapper
 ldap_pbkdf2_sha512: PrefixWrapper
 
-class cta_pbkdf2_sha1(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class cta_pbkdf2_sha1(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     ident: Any
@@ -56,7 +56,7 @@ class cta_pbkdf2_sha1(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Generic
     def from_string(cls, hash): ...
     def to_string(self): ...
 
-class dlitz_pbkdf2_sha1(uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class dlitz_pbkdf2_sha1(uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     ident: Any
@@ -71,7 +71,7 @@ class dlitz_pbkdf2_sha1(uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: i
     def from_string(cls, hash): ...
     def to_string(self): ...
 
-class atlassian_pbkdf2_sha1(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class atlassian_pbkdf2_sha1(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     name: str
     setting_kwds: Any
     ident: Any
@@ -82,7 +82,7 @@ class atlassian_pbkdf2_sha1(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler)
     def from_string(cls, hash): ...
     def to_string(self): ...
 
-class grub_pbkdf2_sha512(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class grub_pbkdf2_sha512(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     ident: Any

@@ -123,4 +123,17 @@ class S3Connection(AWSAuthConnection):
     def lookup(self, bucket_name, validate: bool = ..., headers: dict[str, str] | None = ...): ...
     def create_bucket(self, bucket_name, headers: dict[str, str] | None = ..., location: Any = ..., policy: Any | None = ...): ...
     def delete_bucket(self, bucket, headers: dict[str, str] | None = ...): ...
-    def make_request(self, method, bucket: str = ..., key: str = ..., headers: Any | None = ..., data: str = ..., query_args: Any | None = ..., sender: Any | None = ..., override_num_retries: Any | None = ..., retry_handler: Any | None = ..., *args, **kwargs): ...  # type: ignore # https://github.com/python/mypy/issues/1237
+    def make_request(  # type: ignore[override]
+        self,
+        method,
+        bucket: str = ...,
+        key: str = ...,
+        headers: Any | None = ...,
+        data: str = ...,
+        query_args: Any | None = ...,
+        sender: Any | None = ...,
+        override_num_retries: Any | None = ...,
+        retry_handler: Any | None = ...,
+        *args,
+        **kwargs,
+    ): ...

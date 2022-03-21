@@ -2,11 +2,11 @@ import sys
 from _typeshed import StrOrBytesPath
 from asyncio.events import AbstractEventLoop
 from os import stat_result
-from typing import Any, Sequence, Union, overload
+from typing import Any, Sequence, overload
 
 from . import ospath as path
 
-_FdOrAnyPath = Union[int, StrOrBytesPath]
+_FdOrAnyPath = int | StrOrBytesPath
 
 async def stat(
     path: _FdOrAnyPath,  # noqa: F811

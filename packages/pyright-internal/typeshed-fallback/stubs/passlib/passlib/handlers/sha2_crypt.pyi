@@ -2,7 +2,7 @@ from typing import Any
 
 import passlib.utils.handlers as uh
 
-class _SHA2_Common(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class _SHA2_Common(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     setting_kwds: Any
     checksum_chars: Any
     max_salt_size: int

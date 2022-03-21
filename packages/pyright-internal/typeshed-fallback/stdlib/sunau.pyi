@@ -1,9 +1,9 @@
 import sys
 from _typeshed import Self
-from typing import IO, Any, NamedTuple, NoReturn, Union, overload
+from typing import IO, Any, NamedTuple, NoReturn, overload
 from typing_extensions import Literal
 
-_File = Union[str, IO[bytes]]
+_File = str | IO[bytes]
 
 class Error(Exception): ...
 

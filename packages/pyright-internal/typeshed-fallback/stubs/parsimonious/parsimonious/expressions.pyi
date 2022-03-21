@@ -27,14 +27,14 @@ class Expression(StrAndRepr):
 
 class Literal(Expression):
     literal: str
-    identity_tuple: tuple[str, str]  # type: ignore
+    identity_tuple: tuple[str, str]  # type: ignore[assignment]
     def __init__(self, literal: str, name: str = ...) -> None: ...
 
 class TokenMatcher(Literal): ...
 
 class Regex(Expression):
     re: Pattern[str]
-    identity_tuple: tuple[str, Pattern[str]]  # type: ignore
+    identity_tuple: tuple[str, Pattern[str]]  # type: ignore[assignment]
     def __init__(
         self,
         pattern: str,

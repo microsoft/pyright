@@ -4,7 +4,7 @@ import passlib.utils.handlers as uh
 from passlib.handlers.bcrypt import _wrapped_bcrypt
 from passlib.ifc import DisabledHash
 
-class DjangoSaltedHash(uh.HasSalt, uh.GenericHandler):  # type: ignore
+class DjangoSaltedHash(uh.HasSalt, uh.GenericHandler):
     setting_kwds: Any
     default_salt_size: ClassVar[int]
     max_salt_size: Any
@@ -14,7 +14,7 @@ class DjangoSaltedHash(uh.HasSalt, uh.GenericHandler):  # type: ignore
     def from_string(cls, hash): ...
     def to_string(self): ...
 
-class DjangoVariableHash(uh.HasRounds, DjangoSaltedHash):  # type: ignore
+class DjangoVariableHash(uh.HasRounds, DjangoSaltedHash):  # type: ignore[misc]
     setting_kwds: Any
     min_rounds: int
     @classmethod
@@ -64,7 +64,7 @@ class django_pbkdf2_sha1(django_pbkdf2_sha256):
 
 django_argon2: Any
 
-class django_des_crypt(uh.TruncateMixin, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class django_des_crypt(uh.TruncateMixin, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     django_name: str
     setting_kwds: Any
@@ -80,7 +80,7 @@ class django_des_crypt(uh.TruncateMixin, uh.HasSalt, uh.GenericHandler):  # type
     def from_string(cls, hash): ...
     def to_string(self): ...
 
-class django_disabled(DisabledHash, uh.StaticHandler):  # type: ignore
+class django_disabled(DisabledHash, uh.StaticHandler):
     name: str
     suffix_length: int
     @classmethod

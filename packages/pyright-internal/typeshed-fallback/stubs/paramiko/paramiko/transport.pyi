@@ -2,7 +2,7 @@ from logging import Logger
 from socket import socket
 from threading import Condition, Event, Lock, Thread
 from types import ModuleType
-from typing import Any, Callable, Iterable, Protocol, Sequence, Union
+from typing import Any, Callable, Iterable, Protocol, Sequence
 
 from paramiko.auth_handler import AuthHandler, _InteractiveCallback
 from paramiko.channel import Channel
@@ -15,7 +15,7 @@ from paramiko.ssh_gss import _SSH_GSSAuth
 from paramiko.util import ClosingContextManager
 
 _Addr = tuple[str, int]
-_SocketLike = Union[str, _Addr, socket, Channel]
+_SocketLike = str | _Addr | socket | Channel
 
 class _KexEngine(Protocol):
     def start_kex(self) -> None: ...

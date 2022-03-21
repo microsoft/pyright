@@ -1,13 +1,13 @@
 import builtins
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
-from typing import Any, Generic, TypeVar, Union, overload
+from typing import Any, Generic, TypeVar, overload
 from typing_extensions import Literal
 
 from ..client import _CommandOptions, _Key, _Value
 
 _ScoreCastFuncReturn = TypeVar("_ScoreCastFuncReturn")
-_StrType = TypeVar("_StrType", bound=Union[str, bytes])
+_StrType = TypeVar("_StrType", bound=str | bytes)
 
 class ACLCommands(Generic[_StrType]):
     def acl_cat(self, category: str | None = ..., **kwargs: _CommandOptions) -> list[str]: ...

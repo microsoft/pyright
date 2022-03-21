@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import passlib.utils.handlers as uh
 
-class scrypt(uh.ParallelismMixin, uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.HasManyIdents, uh.GenericHandler):  # type: ignore
+class scrypt(uh.ParallelismMixin, uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.HasManyIdents, uh.GenericHandler):  # type: ignore[misc]
     backends: ClassVar[tuple[str, ...]]
     name: str
     setting_kwds: Any

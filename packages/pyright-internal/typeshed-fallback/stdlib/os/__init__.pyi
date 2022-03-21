@@ -32,7 +32,6 @@ from typing import (
     Protocol,
     Sequence,
     TypeVar,
-    Union,
     overload,
     runtime_checkable,
 )
@@ -382,7 +381,7 @@ def listdir(path: BytesPath) -> list[bytes]: ...
 @overload
 def listdir(path: int) -> list[str]: ...
 
-_FdOrAnyPath = Union[int, StrOrBytesPath]
+_FdOrAnyPath = int | StrOrBytesPath
 
 @final
 class DirEntry(Generic[AnyStr]):
@@ -832,17 +831,17 @@ def execlpe(file: StrOrBytesPath, __arg0: StrOrBytesPath, *args: Any) -> NoRetur
 # Not separating out PathLike[str] and PathLike[bytes] here because it doesn't make much difference
 # in practice, and doing so would explode the number of combinations in this already long union.
 # All these combinations are necessary due to list being invariant.
-_ExecVArgs = Union[
-    tuple[StrOrBytesPath, ...],
-    list[bytes],
-    list[str],
-    list[PathLike[Any]],
-    list[Union[bytes, str]],
-    list[Union[bytes, PathLike[Any]]],
-    list[Union[str, PathLike[Any]]],
-    list[Union[bytes, str, PathLike[Any]]],
-]
-_ExecEnv = Union[Mapping[bytes, Union[bytes, str]], Mapping[str, Union[bytes, str]]]
+_ExecVArgs = (
+    tuple[StrOrBytesPath, ...]
+    | list[bytes]
+    | list[str]
+    | list[PathLike[Any]]
+    | list[bytes | str]
+    | list[bytes | PathLike[Any]]
+    | list[str | PathLike[Any]]
+    | list[bytes | str | PathLike[Any]]
+)
+_ExecEnv = Mapping[bytes, bytes | str] | Mapping[str, bytes | str]
 
 def execv(__path: StrOrBytesPath, __argv: _ExecVArgs) -> NoReturn: ...
 def execve(path: _FdOrAnyPath, argv: _ExecVArgs, env: _ExecEnv) -> NoReturn: ...

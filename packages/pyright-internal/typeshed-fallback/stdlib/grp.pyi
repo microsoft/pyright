@@ -1,11 +1,11 @@
 import sys
 from _typeshed import structseq
-from typing import Any, Optional
+from typing import Any
 from typing_extensions import final
 
 if sys.platform != "win32":
     @final
-    class struct_group(structseq[Any], tuple[str, Optional[str], int, list[str]]):
+    class struct_group(structseq[Any], tuple[str, str | None, int, list[str]]):
         @property
         def gr_name(self) -> str: ...
         @property

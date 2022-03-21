@@ -1,5 +1,5 @@
 import sys
-from typing import Protocol, Union
+from typing import Protocol
 
 MSG_DISCONNECT: int
 MSG_IGNORE: int
@@ -109,7 +109,7 @@ else:
 class _SupportsAsBytes(Protocol):
     def asbytes(self) -> bytes: ...
 
-_LikeBytes = Union[bytes, str, _SupportsAsBytes]
+_LikeBytes = bytes | str | _SupportsAsBytes
 
 def asbytes(s: _LikeBytes) -> bytes: ...
 

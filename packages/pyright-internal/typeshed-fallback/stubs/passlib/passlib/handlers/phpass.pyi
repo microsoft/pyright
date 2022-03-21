@@ -2,7 +2,7 @@ from typing import Any
 
 import passlib.utils.handlers as uh
 
-class phpass(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class phpass(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     checksum_chars: Any

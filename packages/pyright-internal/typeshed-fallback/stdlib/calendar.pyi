@@ -1,7 +1,7 @@
 import datetime
 import sys
 from time import struct_time
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Iterable, Sequence
 from typing_extensions import Literal
 
 __all__ = [
@@ -31,7 +31,7 @@ __all__ = [
     "weekheader",
 ]
 
-_LocaleType = tuple[Optional[str], Optional[str]]
+_LocaleType = tuple[str | None, str | None]
 
 class IllegalMonthError(ValueError):
     def __init__(self, month: int) -> None: ...

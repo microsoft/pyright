@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import passlib.utils.handlers as uh
 
-class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     checksum_chars: Any

@@ -1,7 +1,7 @@
 import threading
 from _typeshed import Self, SupportsItems
 from datetime import datetime, timedelta
-from typing import Any, Callable, ClassVar, Generic, Iterable, Iterator, Mapping, Pattern, Sequence, TypeVar, Union, overload
+from typing import Any, Callable, ClassVar, Generic, Iterable, Iterator, Mapping, Pattern, Sequence, TypeVar, overload
 from typing_extensions import Literal
 
 from .commands import CoreCommands, RedisModuleCommands, SentinelCommands
@@ -9,11 +9,11 @@ from .connection import ConnectionPool, _ConnectionPoolOptions
 from .lock import Lock
 from .retry import Retry
 
-_Value = Union[bytes, float, int, str]
-_Key = Union[str, bytes]
+_Value = bytes | float | int | str
+_Key = str | bytes
 
 # Lib returns str or bytes depending on value of decode_responses
-_StrType = TypeVar("_StrType", bound=Union[str, bytes])
+_StrType = TypeVar("_StrType", bound=str | bytes)
 
 _VT = TypeVar("_VT")
 _T = TypeVar("_T")

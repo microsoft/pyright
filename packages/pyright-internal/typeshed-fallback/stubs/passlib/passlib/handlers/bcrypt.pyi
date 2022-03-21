@@ -2,7 +2,7 @@ from typing import Any
 
 import passlib.utils.handlers as uh
 
-class _BcryptCommon(uh.SubclassBackendMixin, uh.TruncateMixin, uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class _BcryptCommon(uh.SubclassBackendMixin, uh.TruncateMixin, uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     checksum_size: int
@@ -34,7 +34,7 @@ class _PyBcryptBackend(_BcryptCommon): ...
 class _OsCryptBackend(_BcryptCommon): ...
 class _BuiltinBackend(_BcryptCommon): ...
 
-class bcrypt(_NoBackend, _BcryptCommon):  # type: ignore
+class bcrypt(_NoBackend, _BcryptCommon):  # type: ignore[misc]
     backends: Any
 
 class _wrapped_bcrypt(bcrypt):

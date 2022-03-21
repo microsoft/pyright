@@ -2,7 +2,7 @@ from typing import Any
 
 import passlib.utils.handlers as uh
 
-class des_crypt(uh.TruncateMixin, uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class des_crypt(uh.TruncateMixin, uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     checksum_chars: Any
@@ -16,7 +16,7 @@ class des_crypt(uh.TruncateMixin, uh.HasManyBackends, uh.HasSalt, uh.GenericHand
     def to_string(self): ...
     backends: Any
 
-class bsdi_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class bsdi_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     checksum_size: int
@@ -35,7 +35,7 @@ class bsdi_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler
     def using(cls, **kwds): ...
     backends: Any
 
-class bigcrypt(uh.HasSalt, uh.GenericHandler):  # type: ignore
+class bigcrypt(uh.HasSalt, uh.GenericHandler):
     name: str
     setting_kwds: Any
     checksum_chars: Any
@@ -46,7 +46,7 @@ class bigcrypt(uh.HasSalt, uh.GenericHandler):  # type: ignore
     def from_string(cls, hash): ...
     def to_string(self): ...
 
-class crypt16(uh.TruncateMixin, uh.HasSalt, uh.GenericHandler):  # type: ignore
+class crypt16(uh.TruncateMixin, uh.HasSalt, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     checksum_size: int

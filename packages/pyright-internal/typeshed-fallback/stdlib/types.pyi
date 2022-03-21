@@ -7,6 +7,7 @@ from typing import (
     AsyncGenerator,
     Awaitable,
     Callable,
+    ClassVar,
     Coroutine,
     Generator,
     Generic,
@@ -178,7 +179,7 @@ _V_co = TypeVar("_V_co", covariant=True)
 
 @final
 class _Cell:
-    __hash__: None  # type: ignore[assignment]
+    __hash__: ClassVar[None]  # type: ignore[assignment]
     cell_contents: Any
 
 # Make sure this class definition stays roughly in line with `builtins.function`
@@ -340,7 +341,7 @@ class CodeType:
 
 @final
 class MappingProxyType(Mapping[_KT, _VT_co], Generic[_KT, _VT_co]):
-    __hash__: None  # type: ignore[assignment]
+    __hash__: ClassVar[None]  # type: ignore[assignment]
     def __init__(self, mapping: SupportsKeysAndGetItem[_KT, _VT_co]) -> None: ...
     def __getitem__(self, __k: _KT) -> _VT_co: ...
     def __iter__(self) -> Iterator[_KT]: ...
@@ -356,7 +357,7 @@ class MappingProxyType(Mapping[_KT, _VT_co], Generic[_KT, _VT_co]):
         def __ror__(self, __value: Mapping[_T1, _T2]) -> dict[_KT | _T1, _VT_co | _T2]: ...
 
 class SimpleNamespace:
-    __hash__: None  # type: ignore[assignment]
+    __hash__: ClassVar[None]  # type: ignore[assignment]
     def __init__(self, **kwargs: Any) -> None: ...
     def __getattribute__(self, __name: str) -> Any: ...
     def __setattr__(self, __name: str, __value: Any) -> None: ...

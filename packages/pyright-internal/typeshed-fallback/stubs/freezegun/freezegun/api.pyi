@@ -1,10 +1,10 @@
 from collections.abc import Awaitable, Callable, Iterator, Sequence
 from datetime import date, datetime, timedelta
 from numbers import Real
-from typing import Any, TypeVar, Union, overload
+from typing import Any, TypeVar, overload
 
 _T = TypeVar("_T")
-_Freezable = Union[str, datetime, date, timedelta]
+_Freezable = str | datetime | date | timedelta
 
 class TickingDateTimeFactory:
     def __init__(self, time_to_freeze: datetime, start: datetime) -> None: ...

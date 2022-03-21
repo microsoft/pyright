@@ -3,7 +3,7 @@ import socket
 import ssl
 import sys
 from _typeshed import Self
-from typing import IO, Any, Iterable, NamedTuple, Union
+from typing import IO, Any, Iterable, NamedTuple
 from typing_extensions import Literal
 
 __all__ = [
@@ -18,7 +18,7 @@ __all__ = [
     "NNTP_SSL",
 ]
 
-_File = Union[IO[bytes], bytes, str, None]
+_File = IO[bytes] | bytes | str | None
 
 class NNTPError(Exception):
     response: str

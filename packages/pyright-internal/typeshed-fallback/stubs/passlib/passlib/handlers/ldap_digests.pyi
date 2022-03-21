@@ -25,7 +25,7 @@ class _Base64DigestHelper(uh.StaticHandler):
     ident: Any
     checksum_chars: Any
 
-class _SaltedBase64DigestHelper(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class _SaltedBase64DigestHelper(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     setting_kwds: Any
     checksum_chars: Any
     ident: Any

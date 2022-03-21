@@ -1,5 +1,5 @@
 from _typeshed import SupportsWrite
-from typing import Any, Callable, Iterable, Optional, Text, TypeVar, Union
+from typing import Any, Callable, Iterable, Text, TypeVar
 
 from .descriptor import FieldDescriptor
 from .descriptor_pool import DescriptorPool
@@ -10,9 +10,9 @@ _M = TypeVar("_M", bound=Message)  # message type (of self)
 class Error(Exception): ...
 
 class ParseError(Error):
-    def __init__(self, message: Optional[str] = ..., line: Optional[int] = ..., column: Optional[int] = ...) -> None: ...
-    def GetLine(self) -> Optional[int]: ...
-    def GetColumn(self) -> Optional[int]: ...
+    def __init__(self, message: str | None = ..., line: int | None = ..., column: int | None = ...) -> None: ...
+    def GetLine(self) -> int | None: ...
+    def GetColumn(self) -> int | None: ...
 
 class TextWriter:
     def __init__(self, as_utf8: bool) -> None: ...
@@ -20,7 +20,7 @@ class TextWriter:
     def getvalue(self) -> str: ...
     def close(self) -> None: ...
 
-_MessageFormatter = Callable[[Message, int, bool], Optional[Text]]
+_MessageFormatter = Callable[[Message, int, bool], Text | None]
 
 def MessageToString(
     message: Message,
@@ -29,12 +29,12 @@ def MessageToString(
     use_short_repeated_primitives: bool = ...,
     pointy_brackets: bool = ...,
     use_index_order: bool = ...,
-    float_format: Optional[str] = ...,
-    double_format: Optional[str] = ...,
+    float_format: str | None = ...,
+    double_format: str | None = ...,
     use_field_number: bool = ...,
-    descriptor_pool: Optional[DescriptorPool] = ...,
+    descriptor_pool: DescriptorPool | None = ...,
     indent: int = ...,
-    message_formatter: Optional[_MessageFormatter] = ...,
+    message_formatter: _MessageFormatter | None = ...,
     print_unknown_fields: bool = ...,
     force_colon: bool = ...,
 ) -> str: ...
@@ -45,10 +45,10 @@ def MessageToBytes(
     use_short_repeated_primitives: bool = ...,
     pointy_brackets: bool = ...,
     use_index_order: bool = ...,
-    float_format: Optional[str] = ...,
-    double_format: Optional[str] = ...,
+    float_format: str | None = ...,
+    double_format: str | None = ...,
     use_field_number: bool = ...,
-    descriptor_pool: Optional[DescriptorPool] = ...,
+    descriptor_pool: DescriptorPool | None = ...,
     indent: int = ...,
     message_formatter: _MessageFormatter = ...,
     print_unknown_fields: bool = ...,
@@ -63,11 +63,11 @@ def PrintMessage(
     use_short_repeated_primitives: bool = ...,
     pointy_brackets: bool = ...,
     use_index_order: bool = ...,
-    float_format: Optional[str] = ...,
-    double_format: Optional[str] = ...,
+    float_format: str | None = ...,
+    double_format: str | None = ...,
     use_field_number: bool = ...,
-    descriptor_pool: Optional[DescriptorPool] = ...,
-    message_formatter: Optional[_MessageFormatter] = ...,
+    descriptor_pool: DescriptorPool | None = ...,
+    message_formatter: _MessageFormatter | None = ...,
     print_unknown_fields: bool = ...,
     force_colon: bool = ...,
 ) -> None: ...
@@ -81,9 +81,9 @@ def PrintField(
     use_short_repeated_primitives: bool = ...,
     pointy_brackets: bool = ...,
     use_index_order: bool = ...,
-    float_format: Optional[str] = ...,
-    double_format: Optional[str] = ...,
-    message_formatter: Optional[_MessageFormatter] = ...,
+    float_format: str | None = ...,
+    double_format: str | None = ...,
+    message_formatter: _MessageFormatter | None = ...,
     print_unknown_fields: bool = ...,
     force_colon: bool = ...,
 ) -> None: ...
@@ -97,9 +97,9 @@ def PrintFieldValue(
     use_short_repeated_primitives: bool = ...,
     pointy_brackets: bool = ...,
     use_index_order: bool = ...,
-    float_format: Optional[str] = ...,
-    double_format: Optional[str] = ...,
-    message_formatter: Optional[_MessageFormatter] = ...,
+    float_format: str | None = ...,
+    double_format: str | None = ...,
+    message_formatter: _MessageFormatter | None = ...,
     print_unknown_fields: bool = ...,
     force_colon: bool = ...,
 ) -> None: ...
@@ -112,11 +112,11 @@ class _Printer:
     use_short_repeated_primitives: bool = ...
     pointy_brackets: bool = ...
     use_index_order: bool = ...
-    float_format: Optional[str] = ...
-    double_format: Optional[str] = ...
+    float_format: str | None = ...
+    double_format: str | None = ...
     use_field_number: bool = ...
-    descriptor_pool: Optional[DescriptorPool] = ...
-    message_formatter: Optional[_MessageFormatter] = ...
+    descriptor_pool: DescriptorPool | None = ...
+    message_formatter: _MessageFormatter | None = ...
     print_unknown_fields: bool = ...
     force_colon: bool = ...
     def __init__(
@@ -128,11 +128,11 @@ class _Printer:
         use_short_repeated_primitives: bool = ...,
         pointy_brackets: bool = ...,
         use_index_order: bool = ...,
-        float_format: Optional[str] = ...,
-        double_format: Optional[str] = ...,
+        float_format: str | None = ...,
+        double_format: str | None = ...,
         use_field_number: bool = ...,
-        descriptor_pool: Optional[DescriptorPool] = ...,
-        message_formatter: Optional[_MessageFormatter] = ...,
+        descriptor_pool: DescriptorPool | None = ...,
+        message_formatter: _MessageFormatter | None = ...,
         print_unknown_fields: bool = ...,
         force_colon: bool = ...,
     ) -> None: ...
@@ -141,44 +141,44 @@ class _Printer:
     def PrintFieldValue(self, field: FieldDescriptor, value: Any) -> None: ...
 
 def Parse(
-    text: Union[Text, bytes],
+    text: Text | bytes,
     message: _M,
     allow_unknown_extension: bool = ...,
     allow_field_number: bool = ...,
-    descriptor_pool: Optional[DescriptorPool] = ...,
+    descriptor_pool: DescriptorPool | None = ...,
     allow_unknown_field: bool = ...,
 ) -> _M: ...
 def Merge(
-    text: Union[Text, bytes],
+    text: Text | bytes,
     message: _M,
     allow_unknown_extension: bool = ...,
     allow_field_number: bool = ...,
-    descriptor_pool: Optional[DescriptorPool] = ...,
+    descriptor_pool: DescriptorPool | None = ...,
     allow_unknown_field: bool = ...,
 ) -> _M: ...
 def MergeLines(
-    lines: Iterable[Union[Text, bytes]],
+    lines: Iterable[Text | bytes],
     message: _M,
     allow_unknown_extension: bool = ...,
     allow_field_number: bool = ...,
-    descriptor_pool: Optional[DescriptorPool] = ...,
+    descriptor_pool: DescriptorPool | None = ...,
     allow_unknown_field: bool = ...,
 ) -> _M: ...
 
 class _Parser:
     allow_unknown_extension: bool = ...
     allow_field_number: bool = ...
-    descriptor_pool: Optional[DescriptorPool] = ...
+    descriptor_pool: DescriptorPool | None = ...
     allow_unknown_field: bool = ...
     def __init__(
         self,
         allow_unknown_extension: bool = ...,
         allow_field_number: bool = ...,
-        descriptor_pool: Optional[DescriptorPool] = ...,
+        descriptor_pool: DescriptorPool | None = ...,
         allow_unknown_field: bool = ...,
     ) -> None: ...
-    def ParseLines(self, lines: Iterable[Union[Text, bytes]], message: _M) -> _M: ...
-    def MergeLines(self, lines: Iterable[Union[Text, bytes]], message: _M) -> _M: ...
+    def ParseLines(self, lines: Iterable[Text | bytes], message: _M) -> _M: ...
+    def MergeLines(self, lines: Iterable[Text | bytes], message: _M) -> _M: ...
 
 _ParseError = ParseError
 

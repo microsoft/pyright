@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import passlib.utils.handlers as uh
 
-class scram(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class scram(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     ident: Any

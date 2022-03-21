@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import passlib.utils.handlers as uh
 
-class fshp(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class fshp(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore[misc]
     name: str
     setting_kwds: Any
     checksum_chars: Any

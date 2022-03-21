@@ -1,9 +1,9 @@
-from typing import Any, Pattern, Union
+from typing import Any, Pattern
 
 from yaml.error import MarkedYAMLError
 from yaml.nodes import ScalarNode
 
-_Scalar = Union[str, int, float, bool, None]
+_Scalar = str | int | float | bool | None
 
 class ConstructorError(MarkedYAMLError): ...
 

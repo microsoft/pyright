@@ -2,7 +2,7 @@ from typing import Any
 
 import passlib.utils.handlers as uh
 
-class cisco_pix(uh.HasUserContext, uh.StaticHandler):  # type: ignore
+class cisco_pix(uh.HasUserContext, uh.StaticHandler):
     name: str
     truncate_size: int
     truncate_error: bool

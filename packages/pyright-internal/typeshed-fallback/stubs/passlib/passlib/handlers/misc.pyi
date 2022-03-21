@@ -3,7 +3,7 @@ from typing import Any
 import passlib.utils.handlers as uh
 from passlib.ifc import DisabledHash
 
-class unix_fallback(DisabledHash, uh.StaticHandler):  # type: ignore
+class unix_fallback(DisabledHash, uh.StaticHandler):
     name: str
     context_kwds: Any
     @classmethod
@@ -13,7 +13,7 @@ class unix_fallback(DisabledHash, uh.StaticHandler):  # type: ignore
     @classmethod
     def verify(cls, secret, hash, enable_wildcard: bool = ...): ...  # type: ignore[override]
 
-class unix_disabled(DisabledHash, uh.MinimalHandler):  # type: ignore
+class unix_disabled(DisabledHash, uh.MinimalHandler):
     name: str
     setting_kwds: Any
     context_kwds: Any

@@ -12,7 +12,6 @@ from typing import (  # noqa Y027
     Generator,
     Generic,
     Iterator,
-    Optional,
     Protocol,
     TypeVar,
     overload,
@@ -87,11 +86,11 @@ if sys.version_info >= (3, 7):
 
 _T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
-_T_io = TypeVar("_T_io", bound=Optional[IO[str]])
+_T_io = TypeVar("_T_io", bound=IO[str] | None)
 _F = TypeVar("_F", bound=Callable[..., Any])
 _P = ParamSpec("_P")
 
-_ExitFunc = Callable[[Optional[type[BaseException]], Optional[BaseException], Optional[TracebackType]], Optional[bool]]
+_ExitFunc = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], bool | None]
 _CM_EF = TypeVar("_CM_EF", AbstractContextManager[Any], _ExitFunc)
 
 class ContextDecorator:
@@ -155,7 +154,7 @@ class closing(AbstractContextManager[_SupportsCloseT]):
 
 if sys.version_info >= (3, 10):
     class _SupportsAclose(Protocol):
-        async def aclose(self) -> object: ...
+        def aclose(self) -> Awaitable[object]: ...
     _SupportsAcloseT = TypeVar("_SupportsAcloseT", bound=_SupportsAclose)
 
     class aclosing(AbstractAsyncContextManager[_SupportsAcloseT]):
@@ -190,7 +189,7 @@ class ExitStack(AbstractContextManager[ExitStack]):
     ) -> bool: ...
 
 if sys.version_info >= (3, 7):
-    _ExitCoroFunc = Callable[[Optional[type[BaseException]], Optional[BaseException], Optional[TracebackType]], Awaitable[bool]]
+    _ExitCoroFunc = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], Awaitable[bool]]
     _ACM_EF = TypeVar("_ACM_EF", AbstractAsyncContextManager[Any], _ExitCoroFunc)
 
     class AsyncExitStack(AbstractAsyncContextManager[AsyncExitStack]):

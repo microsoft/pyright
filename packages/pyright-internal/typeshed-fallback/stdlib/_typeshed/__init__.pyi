@@ -7,7 +7,7 @@ import ctypes
 import mmap
 import sys
 from os import PathLike
-from typing import AbstractSet, Any, Container, Generic, Iterable, Protocol, TypeVar, Union
+from typing import AbstractSet, Any, Awaitable, Container, Generic, Iterable, Protocol, TypeVar
 from typing_extensions import Final, Literal, final
 
 _KT = TypeVar("_KT")
@@ -33,7 +33,7 @@ class SupportsNext(Protocol[_T_co]):
 
 # stable
 class SupportsAnext(Protocol[_T_co]):
-    async def __anext__(self) -> _T_co: ...
+    def __anext__(self) -> Awaitable[_T_co]: ...
 
 # Comparison protocols
 
@@ -51,7 +51,7 @@ class SupportsDunderGE(Protocol):
 
 class SupportsAllComparisons(SupportsDunderLT, SupportsDunderGT, SupportsDunderLE, SupportsDunderGE, Protocol): ...
 
-SupportsRichComparison = Union[SupportsDunderLT, SupportsDunderGT]
+SupportsRichComparison = SupportsDunderLT | SupportsDunderGT
 SupportsRichComparisonT = TypeVar("SupportsRichComparisonT", bound=SupportsRichComparison)  # noqa: Y001
 
 class SupportsDivMod(Protocol[_T_contra, _T_co]):
@@ -88,9 +88,9 @@ class SupportsItemAccess(SupportsGetItem[_KT_contra, _VT], Protocol[_KT_contra, 
     def __delitem__(self, __v: _KT_contra) -> None: ...
 
 # These aliases are simple strings in Python 2.
-StrPath = Union[str, PathLike[str]]  # stable
-BytesPath = Union[bytes, PathLike[bytes]]  # stable
-StrOrBytesPath = Union[str, bytes, PathLike[str], PathLike[bytes]]  # stable
+StrPath = str | PathLike[str]  # stable
+BytesPath = bytes | PathLike[bytes]  # stable
+StrOrBytesPath = str | bytes | PathLike[str] | PathLike[bytes]  # stable
 
 OpenTextModeUpdating = Literal[
     "r+",
@@ -128,7 +128,7 @@ OpenTextModeUpdating = Literal[
 ]
 OpenTextModeWriting = Literal["w", "wt", "tw", "a", "at", "ta", "x", "xt", "tx"]
 OpenTextModeReading = Literal["r", "rt", "tr", "U", "rU", "Ur", "rtU", "rUt", "Urt", "trU", "tUr", "Utr"]
-OpenTextMode = Union[OpenTextModeUpdating, OpenTextModeWriting, OpenTextModeReading]
+OpenTextMode = OpenTextModeUpdating | OpenTextModeWriting | OpenTextModeReading
 OpenBinaryModeUpdating = Literal[
     "rb+",
     "r+b",
@@ -157,14 +157,14 @@ OpenBinaryModeUpdating = Literal[
 ]
 OpenBinaryModeWriting = Literal["wb", "bw", "ab", "ba", "xb", "bx"]
 OpenBinaryModeReading = Literal["rb", "br", "rbU", "rUb", "Urb", "brU", "bUr", "Ubr"]
-OpenBinaryMode = Union[OpenBinaryModeUpdating, OpenBinaryModeReading, OpenBinaryModeWriting]
+OpenBinaryMode = OpenBinaryModeUpdating | OpenBinaryModeReading | OpenBinaryModeWriting
 
 # stable
 class HasFileno(Protocol):
     def fileno(self) -> int: ...
 
 FileDescriptor = int  # stable
-FileDescriptorLike = Union[int, HasFileno]  # stable
+FileDescriptorLike = int | HasFileno  # stable
 
 # stable
 class SupportsRead(Protocol[_T_co]):
@@ -186,9 +186,9 @@ ReadOnlyBuffer = bytes  # stable
 # Anything that implements the read-write buffer interface.
 # The buffer interface is defined purely on the C level, so we cannot define a normal Protocol
 # for it. Instead we have to list the most common stdlib buffer classes in a Union.
-WriteableBuffer = Union[bytearray, memoryview, array.array[Any], mmap.mmap, ctypes._CData]  # stable
+WriteableBuffer = bytearray | memoryview | array.array[Any] | mmap.mmap | ctypes._CData  # stable
 # Same as _WriteableBuffer, but also includes read-only buffer types (like bytes).
-ReadableBuffer = Union[ReadOnlyBuffer, WriteableBuffer]  # stable
+ReadableBuffer = ReadOnlyBuffer | WriteableBuffer  # stable
 
 # stable
 if sys.version_info >= (3, 10):

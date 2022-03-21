@@ -7,14 +7,14 @@ from _typeshed import (
     StrOrBytesPath,
 )
 from asyncio import AbstractEventLoop
-from typing import Any, Callable, Union, overload
+from typing import Any, Callable, overload
 from typing_extensions import Literal
 
 from ..base import AiofilesContextManager
 from .binary import AsyncBufferedIOBase, AsyncBufferedReader, AsyncFileIO, _UnknownAsyncBinaryIO
 from .text import AsyncTextIOWrapper
 
-_OpenFile = Union[StrOrBytesPath, int]
+_OpenFile = StrOrBytesPath | int
 _Opener = Callable[[str, int], int]
 
 # Text mode: always returns AsyncTextIOWrapper

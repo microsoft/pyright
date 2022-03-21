@@ -1,12 +1,12 @@
 from _typeshed import StrOrBytesPath
 from datetime import datetime
-from typing import Any, Callable, Iterable, Sequence, Union
+from typing import Any, Callable, Iterable, Sequence
 
 from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey, DSAPublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.x509 import Certificate, CertificateRevocationList, CertificateSigningRequest
 
-_Key = Union[DSAPrivateKey, DSAPublicKey, RSAPrivateKey, RSAPublicKey]
+_Key = DSAPrivateKey | DSAPublicKey | RSAPrivateKey | RSAPublicKey
 
 FILETYPE_PEM: int
 FILETYPE_ASN1: int

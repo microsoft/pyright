@@ -2,7 +2,7 @@ from typing import Any
 
 import passlib.utils.handlers as uh
 
-class mssql2000(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class mssql2000(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     name: str
     setting_kwds: Any
     checksum_size: int
@@ -16,7 +16,7 @@ class mssql2000(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: i
     @classmethod
     def verify(cls, secret, hash): ...
 
-class mssql2005(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):  # type: ignore
+class mssql2005(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     name: str
     setting_kwds: Any
     checksum_size: int

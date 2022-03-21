@@ -1,5 +1,5 @@
 import sys
-from typing import Any, AnyStr, Callable, Generic, Mapping, NamedTuple, Sequence, Union, overload
+from typing import Any, AnyStr, Callable, Generic, Mapping, NamedTuple, Sequence, overload
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -28,7 +28,7 @@ __all__ = [
     "SplitResultBytes",
 ]
 
-_Str = Union[bytes, str]
+_Str = bytes | str
 
 uses_relative: list[str]
 uses_netloc: list[str]

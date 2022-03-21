@@ -275,7 +275,7 @@ class AsyncMockMixin(Base):
 class AsyncMagicMixin(MagicMixin):
     def __init__(self, *args: Any, **kw: Any) -> None: ...
 
-class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock): ...  # type: ignore # argument disparities between base classes
+class AsyncMock(AsyncMockMixin, AsyncMagicMixin, Mock): ...
 
 class MagicProxy(Base):
     name: str

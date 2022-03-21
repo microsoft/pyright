@@ -1,6 +1,6 @@
 from _typeshed import Self
 from collections.abc import Iterator
-from typing import Any, Callable, Generic, Iterable, Pattern, TypeVar, Union, overload
+from typing import Any, Callable, Generic, Iterable, Pattern, TypeVar, overload
 
 from . import BeautifulSoup
 from .builder import TreeBuilder
@@ -19,19 +19,19 @@ class AttributeValueWithCharsetSubstitution(str): ...
 
 class CharsetMetaAttributeValue(AttributeValueWithCharsetSubstitution):
     def __new__(cls, original_value): ...
-    def encode(self, encoding: str) -> str: ...  # type: ignore  # incompatible with str
+    def encode(self, encoding: str) -> str: ...  # type: ignore[override]  # incompatible with str
 
 class ContentMetaAttributeValue(AttributeValueWithCharsetSubstitution):
     CHARSET_RE: Pattern[str]
     def __new__(cls, original_value): ...
-    def encode(self, encoding: str) -> str: ...  # type: ignore  # incompatible with str
+    def encode(self, encoding: str) -> str: ...  # type: ignore[override]  # incompatible with str
 
 _PageElementT = TypeVar("_PageElementT", bound=PageElement)
 # The wrapping Union[] can be removed once mypy fully supports | in type aliases.
-_SimpleStrainable = Union[str, bool, None, bytes, Pattern[str], Callable[[str], bool], Callable[[Tag], bool]]
-_Strainable = Union[_SimpleStrainable, Iterable[_SimpleStrainable]]
-_SimpleNormalizedStrainable = Union[str, bool, None, Pattern[str], Callable[[str], bool], Callable[[Tag], bool]]
-_NormalizedStrainable = Union[_SimpleNormalizedStrainable, Iterable[_SimpleNormalizedStrainable]]
+_SimpleStrainable = str | bool | None | bytes | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
+_Strainable = _SimpleStrainable | Iterable[_SimpleStrainable]
+_SimpleNormalizedStrainable = str | bool | None | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
+_NormalizedStrainable = _SimpleNormalizedStrainable | Iterable[_SimpleNormalizedStrainable]
 
 class PageElement:
     parent: Tag | None

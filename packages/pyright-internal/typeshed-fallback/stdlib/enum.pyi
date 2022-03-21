@@ -4,7 +4,7 @@ from _typeshed import Self
 from abc import ABCMeta
 from builtins import property as _builtins_property
 from collections.abc import Iterable, Iterator, Mapping
-from typing import Any, TypeVar, Union, overload
+from typing import Any, TypeVar, overload
 from typing_extensions import Literal
 
 if sys.version_info >= (3, 11):
@@ -52,7 +52,7 @@ _EnumerationT = TypeVar("_EnumerationT", bound=type[Enum])
 # <enum 'Foo'>
 # >>> Enum('Foo', names={'RED': 1, 'YELLOW': 2})
 # <enum 'Foo'>
-_EnumNames = Union[str, Iterable[str], Iterable[Iterable[Union[str, Any]]], Mapping[str, Any]]
+_EnumNames = str | Iterable[str] | Iterable[Iterable[str | Any]] | Mapping[str, Any]
 
 class _EnumDict(dict[str, Any]):
     def __init__(self) -> None: ...
