@@ -90,103 +90,24 @@ export function createProperty(
     propertyClass.isAsymmetricDescriptor = false;
 
     // Fill in the fget method.
-    const fgetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fget);
+    const fgetSymbol = Symbol.createWithType(
+        SymbolFlags.ClassMember,
+        FunctionType.cloneWithNewFlags(fget, fget.details.flags | FunctionTypeFlags.StaticMethod)
+    );
     fields.set('fget', fgetSymbol);
 
     if (FunctionType.isClassMethod(fget)) {
         propertyClass.details.flags |= ClassTypeFlags.ClassProperty;
     }
 
+    // Update the __set__ and __set__ methods if present.
+    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+
     // Fill in the __get__ method with an overload.
-    const getFunction1 = FunctionType.createInstance(
-        '__get__',
-        '',
-        '',
-        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-    );
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: NoneType.createInstance(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'objtype',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
-    });
-    getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
-        ? FunctionType.getSpecializedReturnType(fget)
-        : propertyObject;
-    getFunction1.details.declaration = fget.details.declaration;
-
-    const getFunction2 = FunctionType.createInstance(
-        '__get__',
-        '',
-        '',
-        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-    );
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
-
-    const objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: objType,
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'objtype',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
-    });
-    getFunction2.details.declaredReturnType = FunctionType.getSpecializedReturnType(fget);
-    getFunction2.details.declaration = fget.details.declaration;
-
-    // Override the scope ID since we're using parameter types from the
-    // decorated function.
-    getFunction2.details.typeVarScopeId = getTypeVarScopeId(fget);
-
-    const getFunctionOverload = OverloadedFunctionType.create([getFunction1, getFunction2]);
-    const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunctionOverload);
-    fields.set('__get__', getSymbol);
+    addGetMethodToPropertySymbolTable(propertyObject, fget);
 
     // Fill in the getter, setter and deleter methods.
-    ['getter', 'setter', 'deleter'].forEach((accessorName) => {
-        const accessorFunction = FunctionType.createInstance(accessorName, '', '', FunctionTypeFlags.SynthesizedMethod);
-        FunctionType.addParameter(accessorFunction, {
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-        });
-        FunctionType.addParameter(accessorFunction, {
-            category: ParameterCategory.Simple,
-            name: 'accessor',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-        });
-        accessorFunction.details.declaredReturnType = propertyObject;
-        const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
-        fields.set(accessorName, accessorSymbol);
-    });
+    addDecoratorMethodsToPropertySymbolTable(propertyObject);
 
     return propertyObject;
 }
@@ -267,44 +188,20 @@ export function clonePropertyWithSetter(
     });
 
     // Fill in the fset method.
-    const fsetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fset);
+    const fsetSymbol = Symbol.createWithType(
+        SymbolFlags.ClassMember,
+        FunctionType.cloneWithNewFlags(fset, fset.details.flags | FunctionTypeFlags.StaticMethod)
+    );
     fields.set('fset', fsetSymbol);
 
+    // Update the __get__ and __delete__ methods if present.
+    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+
     // Fill in the __set__ method.
-    const setFunction = FunctionType.createInstance('__set__', '', '', FunctionTypeFlags.SynthesizedMethod);
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: prop,
-        hasDeclaredType: true,
-    });
-    let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
-    if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
-        objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
-    }
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: combineTypes([objType, NoneType.createInstance()]),
-        hasDeclaredType: true,
-    });
-    setFunction.details.declaredReturnType = NoneType.createInstance();
-    let setParamType: Type = UnknownType.create();
-    if (
-        fset.details.parameters.length >= 2 &&
-        fset.details.parameters[1].category === ParameterCategory.Simple &&
-        fset.details.parameters[1].name
-    ) {
-        setParamType = fset.details.parameters[1].type;
-    }
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'value',
-        type: setParamType,
-        hasDeclaredType: true,
-    });
-    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
-    fields.set('__set__', setSymbol);
+    addSetMethodToPropertySymbolTable(propertyObject, fset, evaluator);
+
+    // Fill in the getter, setter and deleter methods.
+    addDecoratorMethodsToPropertySymbolTable(propertyObject);
 
     return propertyObject;
 }
@@ -347,10 +244,140 @@ export function clonePropertyWithDeleter(
     });
 
     // Fill in the fdel method.
-    const fdelSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fdel);
+    const fdelSymbol = Symbol.createWithType(
+        SymbolFlags.ClassMember,
+        FunctionType.cloneWithNewFlags(fdel, fdel.details.flags | FunctionTypeFlags.StaticMethod)
+    );
     fields.set('fdel', fdelSymbol);
 
+    // Update the __get__ and __set__ methods if present.
+    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+
     // Fill in the __delete__ method.
+    addDelMethodToPropertySymbolTable(propertyObject, fdel, evaluator);
+
+    // Fill in the getter, setter and deleter methods.
+    addDecoratorMethodsToPropertySymbolTable(propertyObject);
+
+    return propertyObject;
+}
+
+function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: FunctionType) {
+    const fields = propertyObject.details.fields;
+
+    const getFunction1 = FunctionType.createInstance(
+        '__get__',
+        '',
+        '',
+        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+    );
+    FunctionType.addParameter(getFunction1, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction1, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: NoneType.createInstance(),
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction1, {
+        category: ParameterCategory.Simple,
+        name: 'objtype',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+        hasDefault: true,
+        defaultType: AnyType.create(),
+    });
+    getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
+        ? FunctionType.getSpecializedReturnType(fget)
+        : propertyObject;
+    getFunction1.details.declaration = fget.details.declaration;
+
+    const getFunction2 = FunctionType.createInstance(
+        '__get__',
+        '',
+        '',
+        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+    );
+    FunctionType.addParameter(getFunction2, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+
+    const objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
+    FunctionType.addParameter(getFunction2, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: objType,
+        hasDeclaredType: true,
+    });
+    FunctionType.addParameter(getFunction2, {
+        category: ParameterCategory.Simple,
+        name: 'objtype',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+        hasDefault: true,
+        defaultType: AnyType.create(),
+    });
+    getFunction2.details.declaredReturnType = FunctionType.getSpecializedReturnType(fget);
+    getFunction2.details.declaration = fget.details.declaration;
+
+    // Override the scope ID since we're using parameter types from the
+    // decorated function.
+    getFunction2.details.typeVarScopeId = getTypeVarScopeId(fget);
+
+    const getFunctionOverload = OverloadedFunctionType.create([getFunction1, getFunction2]);
+    const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunctionOverload);
+    fields.set('__get__', getSymbol);
+}
+
+function addSetMethodToPropertySymbolTable(propertyObject: ClassType, fset: FunctionType, evaluator: TypeEvaluator) {
+    const fields = propertyObject.details.fields;
+
+    const setFunction = FunctionType.createInstance('__set__', '', '', FunctionTypeFlags.SynthesizedMethod);
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'self',
+        type: AnyType.create(),
+        hasDeclaredType: true,
+    });
+    let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
+    if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
+        objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
+    }
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'obj',
+        type: combineTypes([objType, NoneType.createInstance()]),
+        hasDeclaredType: true,
+    });
+    setFunction.details.declaredReturnType = NoneType.createInstance();
+    let setParamType: Type = UnknownType.create();
+    if (
+        fset.details.parameters.length >= 2 &&
+        fset.details.parameters[1].category === ParameterCategory.Simple &&
+        fset.details.parameters[1].name
+    ) {
+        setParamType = fset.details.parameters[1].type;
+    }
+    FunctionType.addParameter(setFunction, {
+        category: ParameterCategory.Simple,
+        name: 'value',
+        type: setParamType,
+        hasDeclaredType: true,
+    });
+    const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
+    fields.set('__set__', setSymbol);
+}
+
+function addDelMethodToPropertySymbolTable(propertyObject: ClassType, fdel: FunctionType, evaluator: TypeEvaluator) {
+    const fields = propertyObject.details.fields;
+
     const delFunction = FunctionType.createInstance('__delete__', '', '', FunctionTypeFlags.SynthesizedMethod);
     FunctionType.addParameter(delFunction, {
         category: ParameterCategory.Simple,
@@ -371,8 +398,52 @@ export function clonePropertyWithDeleter(
     delFunction.details.declaredReturnType = NoneType.createInstance();
     const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
     fields.set('__delete__', delSymbol);
+}
 
-    return propertyObject;
+function updateGetSetDelMethodForClonedProperty(propertyObject: ClassType, evaluator: TypeEvaluator) {
+    const fields = propertyObject.details.fields;
+
+    const fgetSymbol = fields.get('fget');
+    const fgetType = fgetSymbol?.getSynthesizedType();
+    if (fgetType && isFunction(fgetType)) {
+        addGetMethodToPropertySymbolTable(propertyObject, fgetType);
+    }
+
+    const fsetSymbol = fields.get('fset');
+    const fsetType = fsetSymbol?.getSynthesizedType();
+    if (fsetType && isFunction(fsetType)) {
+        addSetMethodToPropertySymbolTable(propertyObject, fsetType, evaluator);
+    }
+
+    const fdelSymbol = fields.get('fdel');
+    const fdelType = fdelSymbol?.getSynthesizedType();
+    if (fdelType && isFunction(fdelType)) {
+        addDelMethodToPropertySymbolTable(propertyObject, fdelType, evaluator);
+    }
+}
+
+function addDecoratorMethodsToPropertySymbolTable(propertyObject: ClassType) {
+    const fields = propertyObject.details.fields;
+
+    // Fill in the getter, setter and deleter methods.
+    ['getter', 'setter', 'deleter'].forEach((accessorName) => {
+        const accessorFunction = FunctionType.createInstance(accessorName, '', '', FunctionTypeFlags.SynthesizedMethod);
+        FunctionType.addParameter(accessorFunction, {
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: AnyType.create(),
+            hasDeclaredType: true,
+        });
+        FunctionType.addParameter(accessorFunction, {
+            category: ParameterCategory.Simple,
+            name: 'accessor',
+            type: AnyType.create(),
+            hasDeclaredType: true,
+        });
+        accessorFunction.details.declaredReturnType = propertyObject;
+        const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
+        fields.set(accessorName, accessorSymbol);
+    });
 }
 
 export function canAssignProperty(

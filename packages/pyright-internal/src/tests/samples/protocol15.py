@@ -17,7 +17,7 @@ class Proto(Protocol):
 
 class Concrete:
     @property
-    def f(self) -> "Concrete":
+    def f(self: T) -> T:
         return self
 
     def m(self, item: T, callback: Callable[[T], str]) -> str:
