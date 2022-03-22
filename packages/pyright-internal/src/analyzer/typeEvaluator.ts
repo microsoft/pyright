@@ -2075,7 +2075,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 /* treatConstructorAsClassMember */ false
                             );
                             if (boundFunction && isFunction(boundFunction)) {
-                                if (boundFunction.details.parameters.length === 2) {
+                                if (boundFunction.details.parameters.length >= 2) {
                                     const paramType = FunctionType.getEffectiveParameterType(boundFunction, 1);
                                     if (!isAnyOrUnknown(paramType)) {
                                         return paramType;
@@ -12423,6 +12423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // For now, use only the first expected type.
         const expectedFunctionType = expectedFunctionTypes.length > 0 ? expectedFunctionTypes[0] : undefined;
+        let paramsArePositionOnly = true;
 
         node.parameters.forEach((param, index) => {
             let paramType: Type = UnknownType.create();
@@ -12444,6 +12445,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 getTypeOfExpression(param.defaultValue, undefined, EvaluatorFlags.ConvertEllipsisToAny);
             }
 
+            // Determine whether we need to insert an implied position-only parameter.
+            // This is needed when a function's parameters are named using the old-style
+            // way of specifying position-only parameters.
+            if (index >= 0) {
+                let isImplicitPositionOnlyParam = false;
+
+                if (param.category === ParameterCategory.Simple && param.name) {
+                    if (isPrivateName(param.name.value)) {
+                        isImplicitPositionOnlyParam = true;
+                    }
+                } else {
+                    paramsArePositionOnly = false;
+                }
+
+                if (
+                    paramsArePositionOnly &&
+                    !isImplicitPositionOnlyParam &&
+                    functionType.details.parameters.length > 0
+                ) {
+                    // Insert an implicit "position-only parameter" separator.
+                    FunctionType.addParameter(functionType, {
+                        category: ParameterCategory.Simple,
+                        type: UnknownType.create(),
+                    });
+                }
+
+                if (!isImplicitPositionOnlyParam) {
+                    paramsArePositionOnly = false;
+                }
+            }
+
             const functionParam: FunctionParameter = {
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
@@ -12454,6 +12486,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
             FunctionType.addParameter(functionType, functionParam);
         });
+
+        if (paramsArePositionOnly && functionType.details.parameters.length > 0) {
+            // Insert an implicit "position-only parameter" separator.
+            FunctionType.addParameter(functionType, {
+                category: ParameterCategory.Simple,
+                type: UnknownType.create(),
+            });
+        }
 
         const expectedReturnType = expectedFunctionType
             ? getFunctionEffectiveReturnType(expectedFunctionType)
@@ -15012,6 +15052,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
 
         let paramsArePositionOnly = true;
+        const isFirstParamClsOrSelf =
+            containingClassType &&
+            (FunctionType.isClassMethod(functionType) ||
+                FunctionType.isInstanceMethod(functionType) ||
+                FunctionType.isConstructorMethod(functionType));
+        const firstNonClsSelfParamIndex = isFirstParamClsOrSelf ? 1 : 0;
 
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
@@ -15020,13 +15066,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let paramTypeNode: ExpressionNode | undefined;
 
             if (param.name) {
-                if (
-                    index === 0 &&
-                    containingClassType &&
-                    (FunctionType.isClassMethod(functionType) ||
-                        FunctionType.isInstanceMethod(functionType) ||
-                        FunctionType.isConstructorMethod(functionType))
-                ) {
+                if (index === 0 && isFirstParamClsOrSelf) {
                     // Mark "self/cls" as accessed.
                     markParamAccessed(param);
                 } else if (FunctionType.isAbstractMethod(functionType)) {
@@ -15126,20 +15166,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 paramType = annotatedType;
             }
 
-            const isPositionOnlyParam =
-                param.category === ParameterCategory.Simple && param.name && isPrivateName(param.name.value);
-            const isPositionOnlySeparator = param.category === ParameterCategory.Simple && !param.name;
+            // Determine whether we need to insert an implied position-only parameter.
+            // This is needed when a function's parameters are named using the old-style
+            // way of specifying position-only parameters.
+            if (index >= firstNonClsSelfParamIndex) {
+                let isImplicitPositionOnlyParam = false;
 
-            if (index > 0 && paramsArePositionOnly && !isPositionOnlyParam && !isPositionOnlySeparator) {
-                // Insert an implicit "position-only parameter" separator.
-                FunctionType.addParameter(functionType, {
-                    category: ParameterCategory.Simple,
-                    type: UnknownType.create(),
-                });
-            }
+                if (param.category === ParameterCategory.Simple && param.name) {
+                    if (isPrivateName(param.name.value)) {
+                        isImplicitPositionOnlyParam = true;
+                    }
+                } else {
+                    paramsArePositionOnly = false;
+                }
 
-            if (!isPositionOnlyParam || isPositionOnlySeparator) {
-                paramsArePositionOnly = false;
+                if (
+                    paramsArePositionOnly &&
+                    !isImplicitPositionOnlyParam &&
+                    functionType.details.parameters.length > firstNonClsSelfParamIndex
+                ) {
+                    // Insert an implicit "position-only parameter" separator.
+                    FunctionType.addParameter(functionType, {
+                        category: ParameterCategory.Simple,
+                        type: UnknownType.create(),
+                    });
+                }
+
+                if (!isImplicitPositionOnlyParam) {
+                    paramsArePositionOnly = false;
+                }
             }
 
             // If there was no annotation for the parameter, infer its type if possible.
@@ -15171,7 +15226,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        if (paramsArePositionOnly && functionType.details.parameters.length > 0) {
+        if (paramsArePositionOnly && functionType.details.parameters.length > firstNonClsSelfParamIndex) {
             // Insert an implicit "position-only parameter" separator.
             FunctionType.addParameter(functionType, {
                 category: ParameterCategory.Simple,

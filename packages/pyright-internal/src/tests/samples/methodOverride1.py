@@ -113,6 +113,12 @@ class ParentClass:
     def my_method26(self, *, a: str) -> None:
         ...
 
+    def my_method27(self, a: object, /) -> None:
+        ...
+
+    def my_method28(self, __a: object) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -222,6 +228,12 @@ class ChildClass(ParentClass):
         ...
 
     def my_method26(self, *, a: str = "") -> None:
+        ...
+
+    def my_method27(self, __a: object) -> None:
+        ...
+
+    def my_method28(self, a: object, /) -> None:
         ...
 
 
