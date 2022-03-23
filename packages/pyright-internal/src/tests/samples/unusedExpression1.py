@@ -29,3 +29,6 @@ not t
 
 # This should generate a diagnostic.
 None
+
+# This should generate a diagnostic.
+t
