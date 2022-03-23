@@ -1,5 +1,7 @@
 # This sample tests the Python 3.8 assignment expressions.
 
+# pyright: reportUnusedExpression=false
+
 import re
 
 def foo(x: float):
