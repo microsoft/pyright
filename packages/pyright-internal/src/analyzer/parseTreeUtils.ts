@@ -95,6 +95,12 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
         if (child) {
             const containingChild = findNodeByOffset(child, offset);
             if (containingChild) {
+                // For augmented assignments, prefer the dest expression, which is a clone
+                // of the left expression but is used to hold the type of the operation result.
+                if (node.nodeType === ParseNodeType.AugmentedAssignment && containingChild === node.leftExpression) {
+                    return node.destExpression;
+                }
+
                 return containingChild;
             }
         }
