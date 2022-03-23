@@ -148,13 +148,13 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _classNestCount = 0;
     private _functionNestCount = 0;
     private _ifNestCount = 0;
-    private _emittedSuite = false;
-    private _emitDocString = true;
+    protected _emittedSuite = false;
+    protected _emitDocString = true;
     private _trackedImportAs = new Map<string, TrackedImportAs>();
     private _trackedImportFrom = new Map<string, TrackedImportFrom>();
     private _accessedImportedSymbols = new Map<string, boolean>();
 
-    constructor(private _stubPath: string, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
+    constructor(private _stubPath: string, private _sourceFile: SourceFile, protected _evaluator: TypeEvaluator) {
         super();
 
         // As a heuristic, we'll include all of the import statements

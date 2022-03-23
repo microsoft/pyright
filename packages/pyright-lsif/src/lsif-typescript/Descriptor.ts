@@ -68,4 +68,3 @@ function escapedName(desc: Descriptor): string {
 function isSimpleIdentifier(name: string): boolean {
   return /^[\w$+-]+$/i.test(name)
 }
-

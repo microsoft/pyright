@@ -12,14 +12,17 @@ import { glob } from 'glob';
 import * as url from 'url';
 import { lsiftyped, Options } from './lib';
 import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
+import { Counter } from './lsif-typescript/Counter';
 
 export interface Config {}
 
 export class Indexer {
     program: Program;
     importResolver: ImportResolver;
+    counter: Counter;
 
     constructor(public readonly config: Config, public options: Options) {
+        this.counter = new Counter();
         const fs = createFromRealFileSystem();
 
         const configOptions = new ConfigOptions(options.projectRoot);
@@ -41,8 +44,6 @@ export class Indexer {
         this.options.writeIndex(
             new lsiftyped.Index({
                 metadata: new lsiftyped.Metadata({
-                    // TODO: Might need to change project -> projectRoot
-                    //
                     project_root: url.pathToFileURL(this.options.workspaceRoot).toString(),
                     text_document_encoding: lsiftyped.TextEncoding.UTF8,
                     tool_info: new lsiftyped.ToolInfo({
@@ -117,13 +118,10 @@ export class Indexer {
 
             const parseResults = sourceFile.getParseResults();
             const tree = parseResults?.parseTree;
-            let visitor = new TreeVisitor(
-                sourceFile.getFilePath(),
-                this.program,
-                typeEvaluator!,
-                doc,
-                this.options.version
-            );
+
+            // TODO: Do I need this?
+            // this.program,
+            let visitor = new TreeVisitor(sourceFile, typeEvaluator!, doc, this.options.version, this.counter);
             visitor.walk(tree!);
 
             this.options.writeIndex(
