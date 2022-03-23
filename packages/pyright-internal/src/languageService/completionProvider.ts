@@ -2887,39 +2887,37 @@ export class CompletionMap {
     }
 
     static matchKindAndImportText(
-        existing: CompletionItem | CompletionItem[],
+        completionItemOrItems: CompletionItem | CompletionItem[],
         kind?: CompletionItemKind,
         autoImportText?: string
     ): boolean {
-        if (!existing) {
-            return false;
-        }
-
-        if (!Array.isArray(existing)) {
-            return existing.kind === kind && existing.data?.autoImport === autoImportText;
+        if (!Array.isArray(completionItemOrItems)) {
+            return (
+                completionItemOrItems.kind === kind &&
+                _getCompletionData(completionItemOrItems)?.autoImportText === autoImportText
+            );
         } else {
-            return !!existing.find((c) => c.kind === kind && c.data.autoImport === autoImportText);
+            return !!completionItemOrItems.find(
+                (c) => c.kind === kind && _getCompletionData(c)?.autoImportText === autoImportText
+            );
         }
     }
 
-    static labelOnlyIgnoringAutoImports(
-        existing: CompletionItem | CompletionItem[],
-        _kind?: CompletionItemKind,
-        _autoImportText?: string
-    ): boolean {
-        if (!existing) {
-            return false;
-        }
-
-        if (Array.isArray(existing)) {
-            if (existing.find((c) => !c.data?.autoImport)) {
+    static labelOnlyIgnoringAutoImports(completionItemOrItems: CompletionItem | CompletionItem[]): boolean {
+        if (!Array.isArray(completionItemOrItems)) {
+            if (!_getCompletionData(completionItemOrItems)?.autoImportText) {
                 return true;
             }
         } else {
-            if (!existing.data?.autoImport) {
+            if (completionItemOrItems.find((c) => !_getCompletionData(c)?.autoImportText)) {
                 return true;
             }
         }
+
         return false;
     }
+}
+
+function _getCompletionData(completionItem: CompletionItem): CompletionItemData | undefined {
+    return completionItem.data;
 }

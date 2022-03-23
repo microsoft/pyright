@@ -332,7 +332,7 @@ export class Binder extends ParseTreeWalker {
         const importResult = AnalyzerNodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
 
-        if (!importResult || importResult.isNativeLib) {
+        if (importResult.isNativeLib) {
             return true;
         }
 
@@ -365,26 +365,6 @@ export class Binder extends ParseTreeWalker {
                     moduleName: importResult.importName,
                 };
                 diagnostic.addAction(createTypeStubAction);
-            }
-        }
-
-        // Type stub found, but source is missing.
-        if (
-            importResult.isStubFile &&
-            importResult.importType !== ImportType.BuiltIn &&
-            importResult.nonStubImportResult &&
-            !importResult.nonStubImportResult.isImportFound
-        ) {
-            // Don't report this for stub files.
-            if (!this._fileInfo.isStubFile) {
-                this._addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
-                    DiagnosticRule.reportMissingModuleSource,
-                    Localizer.Diagnostic.importSourceResolveFailure().format({
-                        importName: importResult.importName,
-                    }),
-                    node
-                );
             }
         }
 

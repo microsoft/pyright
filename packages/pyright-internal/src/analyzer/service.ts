@@ -427,6 +427,15 @@ export class AnalyzerService {
         return this._program.renameModule(filePath, newFilePath, token);
     }
 
+    canRenameSymbolAtPosition(
+        filePath: string,
+        position: Position,
+        isDefaultWorkspace: boolean,
+        token: CancellationToken
+    ): Range | undefined {
+        return this._program.canRenameSymbolAtPosition(filePath, position, isDefaultWorkspace, token);
+    }
+
     renameSymbolAtPosition(
         filePath: string,
         position: Position,

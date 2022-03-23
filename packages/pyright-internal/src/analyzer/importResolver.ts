@@ -64,9 +64,23 @@ export interface ModuleNameAndType {
 }
 
 export function createImportedModuleDescriptor(moduleName: string): ImportedModuleDescriptor {
+    if (moduleName.length === 0) {
+        return { leadingDots: 0, nameParts: [], importedSymbols: [] };
+    }
+
+    let startIndex = 0;
+    let leadingDots = 0;
+    for (; startIndex < moduleName.length; startIndex++) {
+        if (moduleName[startIndex] !== '.') {
+            break;
+        }
+
+        leadingDots++;
+    }
+
     return {
-        leadingDots: 0,
-        nameParts: moduleName.split('.'),
+        leadingDots,
+        nameParts: moduleName.slice(startIndex).split('.'),
         importedSymbols: [],
     };
 }
@@ -324,6 +338,10 @@ export class ImportResolver {
         }
 
         return suggestions;
+    }
+
+    getConfigOption() {
+        return this._configOptions;
     }
 
     private _getCompletionSuggestionsStrict(
@@ -1826,6 +1844,39 @@ export class ImportResolver {
             /* allowPartial */ false,
             /* allowNativeLib */ true
         );
+
+        if (absImport && absImport.isStubFile) {
+            // If we found a stub for a relative import, only search
+            // the same folder for the real module. Otherwise, it will
+            // error out on runtime.
+            absImport.nonStubImportResult = this.resolveAbsoluteImport(
+                directory,
+                execEnv,
+                moduleDescriptor,
+                importName,
+                importFailureInfo,
+                /* allowPartial */ false,
+                /* allowNativeLib */ true,
+                /* useStubPackage */ false,
+                /* allowPyi */ false
+            ) || {
+                importName,
+                isRelative: true,
+                isImportFound: false,
+                isPartlyResolved: false,
+                isNamespacePackage: false,
+                isStubPackage: false,
+                importFailureInfo,
+                resolvedPaths: [],
+                importType: ImportType.Local,
+                isStubFile: false,
+                isNativeLib: false,
+                implicitImports: [],
+                filteredImplicitImports: [],
+                nonStubImportResult: undefined,
+            };
+        }
+
         return this.filterImplicitImports(absImport, moduleDescriptor.importedSymbols);
     }
 

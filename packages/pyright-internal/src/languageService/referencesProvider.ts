@@ -10,12 +10,14 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { Declaration } from '../analyzer/declaration';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
+import { assertNever } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -118,34 +120,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        // Does this symbol require search beyond the current file? Determine whether
-        // the symbol is declared within an evaluation scope that is within the current
-        // file and cannot be imported directly from other modules.
-        const requiresGlobalSearch = declarations.some((decl) => {
-            // If the declaration is outside of this file, a global search is needed.
-            if (decl.path !== filePath) {
-                return true;
-            }
-
-            const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
-
-            // If the declaration is at the module level or a class level, it can be seen
-            // outside of the current module, so a global search is needed.
-            if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) {
-                return true;
-            }
-
-            // If the name node is a member variable, we need to do a global search.
-            if (
-                decl.node?.parent?.nodeType === ParseNodeType.MemberAccess &&
-                decl.node === decl.node.parent.memberName
-            ) {
-                return true;
-            }
-
-            return false;
-        });
-
+        const requiresGlobalSearch = isVisibleOutside(evaluator, filePath, node, declarations);
         return new ReferencesResult(requiresGlobalSearch, node, node.value, declarations, reporter);
     }
 
@@ -196,5 +171,106 @@ export class ReferencesProvider {
         );
 
         referencesResult.addLocations(...refTreeWalker.findReferences());
+    }
+}
+
+function isVisibleOutside(
+    evaluator: TypeEvaluator,
+    currentFilePath: string,
+    node: NameNode,
+    declarations: Declaration[]
+) {
+    const result = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
+    if (result && !isExternallyVisible(result.symbol)) {
+        return false;
+    }
+
+    // A symbol's effective external visibility check is not enough to determine whether
+    // the symbol is visible to the outside. Something like the local variable inside
+    // a function will still say it is externally visible even if it can't be accessed from another module.
+    // So, we also need to determine whether the symbol is declared within an evaluation scope
+    // that is within the current file and cannot be imported directly from other modules.
+    return declarations.some((decl) => {
+        // If the declaration is outside of this file, a global search is needed.
+        if (decl.path !== currentFilePath) {
+            return true;
+        }
+
+        const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
+
+        // If the declaration is at the module level or a class level, it can be seen
+        // outside of the current module, so a global search is needed.
+        if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) {
+            return true;
+        }
+
+        // If the name node is a member variable, we need to do a global search.
+        if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.memberName) {
+            return true;
+        }
+
+        return false;
+    });
+
+    function isExternallyVisible(symbol: Symbol): boolean {
+        // Return true if the symbol is visible outside of current module. false if not.
+        if (symbol.isExternallyHidden()) {
+            return false;
+        }
+
+        return symbol.getDeclarations().reduce<boolean>((isVisible, decl) => {
+            if (!isVisible) {
+                return false;
+            }
+
+            switch (decl.type) {
+                case DeclarationType.Alias:
+                case DeclarationType.Intrinsic:
+                case DeclarationType.SpecialBuiltInClass:
+                    return isVisible;
+
+                case DeclarationType.Class:
+                case DeclarationType.Function:
+                    return isVisible && isContainerExternallyVisible(decl.node.name);
+
+                case DeclarationType.Parameter:
+                    return isVisible && isContainerExternallyVisible(decl.node.name!);
+
+                case DeclarationType.Variable: {
+                    if (decl.node.nodeType === ParseNodeType.Name) {
+                        return isVisible && isContainerExternallyVisible(decl.node);
+                    }
+
+                    // Symbol without name is not visible outside.
+                    return false;
+                }
+
+                default:
+                    assertNever(decl);
+            }
+        }, /* visible */ true);
+    }
+
+    function isContainerExternallyVisible(node: NameNode) {
+        const scopingNode = ParseTreeUtils.getEvaluationScopeNode(node);
+        switch (scopingNode.nodeType) {
+            case ParseNodeType.Class:
+            case ParseNodeType.Function: {
+                const name = scopingNode.name;
+                const result = evaluator.lookUpSymbolRecursive(name, name.value, /* honorCodeFlow */ false);
+                return result ? isExternallyVisible(result.symbol) : true;
+            }
+
+            case ParseNodeType.Lambda:
+            case ParseNodeType.ListComprehension:
+                // Symbols in this scope can't be visible outside.
+                return false;
+
+            case ParseNodeType.Module:
+                return true;
+
+            default:
+                assertNever(scopingNode);
+        }
     }
 }

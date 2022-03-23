@@ -23,7 +23,7 @@ import { OperationCanceledException, throwIfCancellationRequested } from '../com
 import { appendArray, removeArrayElements } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { assert } from '../common/debug';
+import { assert, assertNever } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
@@ -40,7 +40,7 @@ import {
     normalizePathCase,
     stripFileExtension,
 } from '../common/pathUtils';
-import { convertPositionToOffset, convertRangeToTextRange } from '../common/positionUtils';
+import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
 import { computeCompletionSimilarity } from '../common/stringUtils';
 import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
@@ -1000,7 +1000,7 @@ export class Program {
             }
 
             if (!this._disableChecker) {
-                fileToCheck.sourceFile.check(this._evaluator!);
+                fileToCheck.sourceFile.check(this._importResolver, this._evaluator!);
             }
 
             // For very large programs, we may need to discard the evaluator and
@@ -1803,6 +1803,35 @@ export class Program {
         });
     }
 
+    canRenameSymbolAtPosition(
+        filePath: string,
+        position: Position,
+        isDefaultWorkspace: boolean,
+        token: CancellationToken
+    ): Range | undefined {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
+
+            this._bindFile(sourceFileInfo);
+            const referencesResult = this._getReferenceResult(sourceFileInfo, filePath, position, token);
+            if (!referencesResult) {
+                return undefined;
+            }
+
+            const renameMode = this._getRenameSymbolMode(sourceFileInfo, referencesResult, isDefaultWorkspace);
+            if (renameMode === 'none') {
+                return undefined;
+            }
+
+            // Return the range of the symbol.
+            const parseResult = sourceFileInfo.sourceFile.getParseResults()!;
+            return convertTextRangeToRange(referencesResult.nodeAtOffset, parseResult.tokenizerOutput.lines);
+        });
+    }
+
     renameSymbolAtPosition(
         filePath: string,
         position: Position,
@@ -1818,89 +1847,46 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-                this._createSourceMapper(execEnv),
-                position,
-                this._evaluator!,
-                undefined,
-                token
-            );
-
+            const referencesResult = this._getReferenceResult(sourceFileInfo, filePath, position, token);
             if (!referencesResult) {
                 return undefined;
             }
 
-            // We only allow renaming module alias, filter out any other alias decls.
-            removeArrayElements(referencesResult.declarations, (d) => {
-                if (!isAliasDeclaration(d)) {
-                    return false;
-                }
+            const renameMode = this._getRenameSymbolMode(sourceFileInfo, referencesResult, isDefaultWorkspace);
+            switch (renameMode) {
+                case 'singleFileMode':
+                    sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
+                    break;
 
-                // We must have alias and decl node that point to import statement.
-                if (!d.usesLocalName || !d.node) {
-                    return true;
-                }
+                case 'multiFileMode': {
+                    for (const curSourceFileInfo of this._sourceFileList) {
+                        // Make sure we only add user code to the references to prevent us
+                        // from accidentally changing third party library or type stub.
+                        if (this._isUserCode(curSourceFileInfo)) {
+                            // Make sure searching symbol name exists in the file.
+                            const content = curSourceFileInfo.sourceFile.getFileContent() ?? '';
+                            if (content.indexOf(referencesResult.symbolName) < 0) {
+                                continue;
+                            }
 
-                // d.node can't be ImportFrom if usesLocalName is true.
-                // but we are doing this for type checker.
-                if (d.node.nodeType === ParseNodeType.ImportFrom) {
-                    return true;
-                }
+                            this._bindFile(curSourceFileInfo, content);
+                            curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
+                        }
 
-                // Check alias and what we are renaming is same thing.
-                if (d.node.alias?.value !== referencesResult.symbolName) {
-                    return true;
-                }
-
-                return false;
-            });
-
-            if (referencesResult.declarations.length === 0) {
-                // There is no symbol we can rename.
-                return undefined;
-            }
-
-            // We have 2 different cases
-            // Single file mode.
-            // 1. rename on default workspace (ex, standalone file mode).
-            // 2. rename local symbols.
-            // 3. rename symbols defined in the non user open file.
-            //
-            // and Multi file mode.
-            // 1. rename public symbols defined in user files on regular workspace (ex, open folder mode).
-            const userFile = this._isUserCode(sourceFileInfo);
-            const singleFileMode =
-                isDefaultWorkspace ||
-                (userFile && !referencesResult.requiresGlobalSearch) ||
-                (!userFile &&
-                    sourceFileInfo.isOpenByClient &&
-                    referencesResult.declarations.every(
-                        (d) => this._getSourceFileInfoFromPath(d.path) === sourceFileInfo
-                    ));
-            const multiFileMode =
-                !isDefaultWorkspace &&
-                referencesResult.declarations.every((d) => this._isUserCode(this._getSourceFileInfoFromPath(d.path)));
-
-            if (singleFileMode) {
-                sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
-            } else if (multiFileMode) {
-                for (const curSourceFileInfo of this._sourceFileList) {
-                    // Make sure we only add user code to the references to prevent us
-                    // from accidentally changing third party library or type stub.
-                    if (this._isUserCode(curSourceFileInfo)) {
-                        this._bindFile(curSourceFileInfo);
-
-                        curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
+                        // This operation can consume significant memory, so check
+                        // for situations where we need to discard the type cache.
+                        this._handleMemoryHighUsage();
                     }
-
-                    // This operation can consume significant memory, so check
-                    // for situations where we need to discard the type cache.
-                    this._handleMemoryHighUsage();
+                    break;
                 }
-            } else {
-                // Rename is not allowed.
-                return undefined;
+
+                case 'none':
+                    // Rename is not allowed.
+                    // ex) rename symbols from libraries.
+                    return undefined;
+
+                default:
+                    assertNever(renameMode);
             }
 
             const editActions: FileEditAction[] = [];
@@ -2059,6 +2045,91 @@ export class Program {
 
     test_createSourceMapper(execEnv: ExecutionEnvironment) {
         return this._createSourceMapper(execEnv, /*mapCompiled*/ false);
+    }
+
+    private _getRenameSymbolMode(
+        sourceFileInfo: SourceFileInfo,
+        referencesResult: ReferencesResult,
+        isDefaultWorkspace: boolean
+    ) {
+        // We have 2 different cases
+        // Single file mode.
+        // 1. rename on default workspace (ex, standalone file mode).
+        // 2. rename local symbols.
+        // 3. rename symbols defined in the non user open file.
+        //
+        // and Multi file mode.
+        // 1. rename public symbols defined in user files on regular workspace (ex, open folder mode).
+        const userFile = this._isUserCode(sourceFileInfo);
+        if (
+            isDefaultWorkspace ||
+            (userFile && !referencesResult.requiresGlobalSearch) ||
+            (!userFile &&
+                sourceFileInfo.isOpenByClient &&
+                referencesResult.declarations.every((d) => this._getSourceFileInfoFromPath(d.path) === sourceFileInfo))
+        ) {
+            return 'singleFileMode';
+        }
+
+        if (referencesResult.declarations.every((d) => this._isUserCode(this._getSourceFileInfoFromPath(d.path)))) {
+            return 'multiFileMode';
+        }
+
+        // Rename is not allowed.
+        // ex) rename symbols from libraries.
+        return 'none';
+    }
+
+    private _getReferenceResult(
+        sourceFileInfo: SourceFileInfo,
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ) {
+        const execEnv = this._configOptions.findExecEnvironment(filePath);
+        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
+            this._createSourceMapper(execEnv),
+            position,
+            this._evaluator!,
+            undefined,
+            token
+        );
+
+        if (!referencesResult) {
+            return undefined;
+        }
+
+        // We only allow renaming module alias, filter out any other alias decls.
+        removeArrayElements(referencesResult.declarations, (d) => {
+            if (!isAliasDeclaration(d)) {
+                return false;
+            }
+
+            // We must have alias and decl node that point to import statement.
+            if (!d.usesLocalName || !d.node) {
+                return true;
+            }
+
+            // d.node can't be ImportFrom if usesLocalName is true.
+            // but we are doing this for type checker.
+            if (d.node.nodeType === ParseNodeType.ImportFrom) {
+                return true;
+            }
+
+            // Check alias and what we are renaming is same thing.
+            if (d.node.alias?.value !== referencesResult.symbolName) {
+                return true;
+            }
+
+            return false;
+        });
+
+        if (referencesResult.declarations.length === 0) {
+            // There is no symbol we can rename.
+            return undefined;
+        }
+
+        return referencesResult;
     }
 
     private _processModuleReferences(

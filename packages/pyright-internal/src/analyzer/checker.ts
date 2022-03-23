@@ -51,11 +51,13 @@ import {
     ListNode,
     MatchNode,
     MemberAccessNode,
+    ModuleNameNode,
     ModuleNode,
     NameNode,
     NonlocalNode,
     ParameterCategory,
     ParseNode,
+    ParseNodeArray,
     ParseNodeType,
     PatternClassNode,
     RaiseNode,
@@ -82,15 +84,17 @@ import { getUnescapedString, UnescapeError, UnescapeErrorType } from '../parser/
 import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { Declaration, DeclarationType } from './declaration';
+import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
-import { ImportType } from './importResult';
-import { getTopLevelImports } from './importStatementUtils';
+import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { ImportResult, ImportType } from './importResult';
+import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
+import { isStubFile } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -208,21 +212,21 @@ const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
 ]);
 
 export class Checker extends ParseTreeWalker {
-    private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
-    private readonly _evaluator: TypeEvaluator;
     private _isUnboundCheckSuppressed = false;
 
     // A list of all nodes that are defined within the module that
     // have their own scopes.
     private _scopedNodes: AnalyzerNodeInfo.ScopedNode[] = [];
 
-    constructor(node: ModuleNode, evaluator: TypeEvaluator) {
+    constructor(
+        private _importResolver: ImportResolver,
+        private _evaluator: TypeEvaluator,
+        private _moduleNode: ModuleNode
+    ) {
         super();
 
-        this._moduleNode = node;
-        this._fileInfo = AnalyzerNodeInfo.getFileInfo(node)!;
-        this._evaluator = evaluator;
+        this._fileInfo = AnalyzerNodeInfo.getFileInfo(_moduleNode)!;
     }
 
     check() {
@@ -243,6 +247,8 @@ export class Checker extends ParseTreeWalker {
         this._validateSymbolTables();
 
         this._reportDuplicateImports();
+
+        MissingModuleSourceReporter.report(this._importResolver, this._evaluator, this._fileInfo, this._moduleNode);
     }
 
     override walk(node: ParseNode) {
@@ -5050,5 +5056,119 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         });
+    }
+}
+
+class MissingModuleSourceReporter extends ParseTreeWalker {
+    static report(
+        importResolver: ImportResolver,
+        evaluator: TypeEvaluator,
+        fileInfo: AnalyzerFileInfo,
+        node: ModuleNode
+    ) {
+        if (fileInfo.isStubFile) {
+            // Don't report this for stub files.
+            return;
+        }
+
+        new MissingModuleSourceReporter(importResolver, evaluator, fileInfo).walk(node);
+    }
+
+    private constructor(
+        private _importResolver: ImportResolver,
+        private _evaluator: TypeEvaluator,
+        private _fileInfo: AnalyzerFileInfo
+    ) {
+        super();
+    }
+
+    override visitNode(node: ParseNode): ParseNodeArray {
+        // Optimization. don't walk into expressions which can't
+        // have import statement as child nodes.
+        if (isExpressionNode(node)) {
+            return [];
+        }
+
+        return super.visitNode(node);
+    }
+
+    override visitModuleName(node: ModuleNameNode): boolean {
+        const importResult = AnalyzerNodeInfo.getImportInfo(node);
+        assert(importResult !== undefined);
+
+        this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node);
+        return false;
+    }
+
+    override visitImportFromAs(node: ImportFromAsNode): boolean {
+        const decls = this._evaluator.getDeclarationsForNameNode(node.name);
+        if (!decls) {
+            return false;
+        }
+
+        for (const decl of decls) {
+            if (!isAliasDeclaration(decl) || !decl.submoduleFallback || decl.node !== node) {
+                // If it is not implicitly imported module, move to next.
+                continue;
+            }
+
+            const resolvedAlias = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+            if (!resolvedAlias?.path || !isStubFile(resolvedAlias.path)) {
+                continue;
+            }
+
+            const importResult = this._getImportResult(node, resolvedAlias.path);
+            if (!importResult) {
+                continue;
+            }
+
+            this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node.name);
+            break;
+        }
+
+        return false;
+    }
+
+    private _getImportResult(node: ImportFromAsNode, filePath: string) {
+        const execEnv = this._importResolver.getConfigOption().findExecEnvironment(filePath);
+        const moduleNameNode = (node.parent as ImportFromNode).module;
+
+        // Handle both absolute and relative imports.
+        const moduleName =
+            moduleNameNode.leadingDots === 0
+                ? this._importResolver.getModuleNameForImport(filePath, execEnv).moduleName
+                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.filePath, filePath);
+
+        if (!moduleName) {
+            return undefined;
+        }
+
+        return this._importResolver.resolveImport(
+            this._fileInfo.filePath,
+            execEnv,
+            createImportedModuleDescriptor(moduleName)
+        );
+    }
+
+    private _addMissingModuleSourceDiagnosticIfNeeded(importResult: ImportResult, node: ParseNode) {
+        if (
+            importResult.isNativeLib ||
+            !importResult.isStubFile ||
+            importResult.importType === ImportType.BuiltIn ||
+            !importResult.nonStubImportResult ||
+            importResult.nonStubImportResult.isImportFound
+        ) {
+            return;
+        }
+
+        // Type stub found, but source is missing.
+        this._evaluator.addDiagnostic(
+            this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
+            DiagnosticRule.reportMissingModuleSource,
+            Localizer.Diagnostic.importSourceResolveFailure().format({
+                importName: importResult.importName,
+            }),
+            node
+        );
     }
 }

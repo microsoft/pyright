@@ -662,6 +662,7 @@ export class AutoImporter {
     private _shouldExclude(name: string) {
         return this._excludes.has(name, CompletionMap.labelOnlyIgnoringAutoImports);
     }
+
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
         if (this._shouldExclude(name)) {
             return true;

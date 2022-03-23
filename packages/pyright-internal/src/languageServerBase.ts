@@ -53,6 +53,7 @@ import {
     Location,
     MarkupKind,
     ParameterInformation,
+    PrepareRenameParams,
     PublishDiagnosticsParams,
     ReferenceParams,
     RemoteWindow,
@@ -97,7 +98,7 @@ import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/
 import { Host } from './common/host';
 import { convertPathToUri } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
-import { DocumentRange, Position } from './common/textRange';
+import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
 import { convertWorkspaceEdits } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
@@ -465,6 +466,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._connection.onCompletionResolve(async (params, token) => this.onCompletionResolve(params, token));
 
+        this._connection.onPrepareRename(async (params, token) => this.onPrepareRenameRequest(params, token));
         this._connection.onRenameRequest(async (params, token) => this.onRenameRequest(params, token));
 
         const callHierarchy = this._connection.languages.callHierarchy;
@@ -552,7 +554,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 workspaceSymbolProvider: { workDoneProgress: true },
                 hoverProvider: { workDoneProgress: true },
                 documentHighlightProvider: { workDoneProgress: true },
-                renameProvider: { workDoneProgress: true },
+                renameProvider: { prepareProvider: true, workDoneProgress: true },
                 completionProvider: {
                     triggerCharacters: this.client.hasVisualStudioExtensionsCapability ? ['.', '[', '@'] : ['.', '['],
                     resolveProvider: true,
@@ -968,6 +970,27 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this.resolveWorkspaceCompletionItem(workspace, completionItemData.filePath, params, token);
         }
         return params;
+    }
+
+    protected async onPrepareRenameRequest(
+        params: PrepareRenameParams,
+        token: CancellationToken
+    ): Promise<Range | { range: Range; placeholder: string } | null> {
+        const { filePath, position } = this._uriParser.decodeTextDocumentPosition(params.textDocument, params.position);
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return null;
+        }
+
+        const renameRange = workspace.serviceInstance.canRenameSymbolAtPosition(
+            filePath,
+            position,
+            workspace.rootPath === '',
+            token
+        );
+
+        return renameRange ? renameRange : null;
     }
 
     protected async onRenameRequest(
