@@ -1087,7 +1087,13 @@ export class TestState {
                 for (let i = 0; i < expectedCompletions.length; i++) {
                     const expected = expectedCompletions[i];
                     const actualIndex = result.completionList.items.findIndex(
-                        (a) => a.label === expected.label && (expected.kind ? a.kind === expected.kind : true)
+                        (a) =>
+                            a.label === expected.label &&
+                            (expected.kind ? a.kind === expected.kind : true) &&
+                            (expected.detail ? a.detail === expected.detail : true) &&
+                            (expected.documentation && MarkupContent.is(a.documentation)
+                                ? a.documentation.value === expected.documentation
+                                : true)
                     );
                     if (actualIndex >= 0) {
                         if (verifyMode === 'excluded') {

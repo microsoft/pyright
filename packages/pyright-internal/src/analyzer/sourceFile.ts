@@ -1208,7 +1208,7 @@ export class SourceFile {
         });
     }
 
-    check(evaluator: TypeEvaluator) {
+    check(importResolver: ImportResolver, evaluator: TypeEvaluator) {
         assert(!this.isParseRequired(), 'Check called before parsing');
         assert(!this.isBindingRequired(), 'Check called before binding');
         assert(!this._isBindingInProgress, 'Check called while binding in progress');
@@ -1218,7 +1218,7 @@ export class SourceFile {
         return this._logTracker.log(`checking: ${this._getPathForLogging(this._filePath)}`, () => {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
-                    const checker = new Checker(this._parseResults!.parseTree, evaluator);
+                    const checker = new Checker(importResolver, evaluator, this._parseResults!.parseTree);
                     checker.check();
                     this._isCheckingNeeded = false;
 
