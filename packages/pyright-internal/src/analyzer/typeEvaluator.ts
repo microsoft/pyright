@@ -10329,7 +10329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             getTypeForExpressionExpectingType(
                                 argList[i].valueExpression!,
                                 /* allowFinal */ undefined,
-                                /* allowRequired */ undefined,
+                                /* allowRequired */ undefined
                             ).type;
                         if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
@@ -10372,7 +10372,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         getTypeForExpressionExpectingType(
                             argList[i].valueExpression!,
                             /* allowFinal */ undefined,
-                            /* allowRequired */ undefined,
+                            /* allowRequired */ undefined
                         ).type;
 
                     if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
@@ -17587,7 +17587,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeForExpressionExpectingType(
         node: ExpressionNode,
         allowFinal = false,
-        allowRequired = false,
+        allowRequired = false
     ): TypeResult {
         let flags =
             EvaluatorFlags.ExpectingType |
