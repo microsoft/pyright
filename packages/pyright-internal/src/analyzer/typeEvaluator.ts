@@ -2481,6 +2481,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // may not be reachable if we apply "never narrowing".
     function isFlowNodeReachableUsingNeverNarrowing(node: ParseNode, flowNode: FlowNode) {
         const analyzer = getCodeFlowAnalyzerForNode(node.id);
+
+        if (checkCodeFlowTooComplex(node)) {
+            return true;
+        }
+
         const codeFlowResult = getTypeFromCodeFlow(
             analyzer,
             flowNode,
