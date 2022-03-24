@@ -2409,7 +2409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // off code flow analysis at some point for code flow graphs that are too
         // complex. Otherwise we risk overflowing the stack or incurring extremely
         // long analysis times. This number has been tuned empirically.
-        const maxCodeComplexity = 8000;
+        const maxCodeComplexity = 1024;
 
         if (codeComplexity > maxCodeComplexity) {
             let errorRange: TextRange = scopeNode;

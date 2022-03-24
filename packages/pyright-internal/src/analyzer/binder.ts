@@ -1385,9 +1385,6 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = isAfterElseAndExceptsReachable ? postFinallyNode : Binder._unreachableFlowNode;
         }
 
-        // Try blocks are expensive to analyze, so add to the complexity metric.
-        this._codeFlowComplexity += 4;
-
         return false;
     }
 
@@ -2483,8 +2480,10 @@ export class Binder extends ParseTreeWalker {
             return node.antecedents[0];
         }
 
-        // Add one to the code flow complexity for each antecedent.
-        this._codeFlowComplexity += node.antecedents.length;
+        // The cyclomatic complexity is the number of edges minus the
+        // number of nodes in the graph. Add n-1 where n is the number
+        // of antecedents (edges) and 1 represents the label node.
+        this._codeFlowComplexity += node.antecedents.length - 1;
 
         return node;
     }
@@ -3060,21 +3059,14 @@ export class Binder extends ParseTreeWalker {
     private _bindLoopStatement(preLoopLabel: FlowLabel, postLoopLabel: FlowLabel, callback: () => void) {
         const savedContinueTarget = this._currentContinueTarget;
         const savedBreakTarget = this._currentBreakTarget;
-        const savedCodeFlowComplexity = this._codeFlowComplexity;
 
         this._currentContinueTarget = preLoopLabel;
         this._currentBreakTarget = postLoopLabel;
-        this._codeFlowComplexity = 1;
 
         preLoopLabel.affectedExpressions = this._trackCodeFlowExpressions(callback);
 
         this._currentContinueTarget = savedContinueTarget;
         this._currentBreakTarget = savedBreakTarget;
-
-        // For each loop, double the complexity of the complexity of the
-        // contained code flow. This reflects the fact that nested loops
-        // are very expensive to analyze.
-        this._codeFlowComplexity = this._codeFlowComplexity * 2 + savedCodeFlowComplexity;
     }
 
     private _addAntecedent(label: FlowLabel, antecedent: FlowNode) {
