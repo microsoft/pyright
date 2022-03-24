@@ -1231,7 +1231,20 @@ export class ImportResolver {
                 // We will treat typings files as "local" rather than "third party".
                 typingsImport.importType = ImportType.Local;
                 typingsImport.isLocalTypingsFile = true;
-                return typingsImport;
+
+                // If it's a namespace package that didn't resolve to a file, make sure that
+                // the imported symbols are present in the implicit imports. If not, we'll
+                // skip the typings import and continue searching.
+                if (
+                    typingsImport.isNamespacePackage &&
+                    !typingsImport.resolvedPaths[typingsImport.resolvedPaths.length - 1]
+                ) {
+                    if (this._isNamespacePackageResolved(moduleDescriptor, typingsImport.implicitImports)) {
+                        return typingsImport;
+                    }
+                } else {
+                    return typingsImport;
+                }
             }
         }
 
