@@ -32,7 +32,13 @@ import {
     Type,
     UnknownType,
 } from './types';
-import { CanAssignFlags, computeMroLinearization, getTypeVarScopeId, isProperty } from './typeUtils';
+import {
+    CanAssignFlags,
+    computeMroLinearization,
+    getTypeVarScopeId,
+    isProperty,
+    partiallySpecializeType,
+} from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
 export function validatePropertyMethod(evaluator: TypeEvaluator, method: FunctionType, errorNode: ParseNode) {
@@ -89,6 +95,9 @@ export function createProperty(
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
     propertyClass.isAsymmetricDescriptor = false;
 
+    // Update the __set__ and __delete__ methods if present.
+    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+
     // Fill in the fget method.
     const fgetSymbol = Symbol.createWithType(
         SymbolFlags.ClassMember,
@@ -99,9 +108,6 @@ export function createProperty(
     if (FunctionType.isClassMethod(fget)) {
         propertyClass.details.flags |= ClassTypeFlags.ClassProperty;
     }
-
-    // Update the __set__ and __set__ methods if present.
-    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
 
     // Fill in the __get__ method with an overload.
     addGetMethodToPropertySymbolTable(propertyObject, fget);
@@ -187,15 +193,15 @@ export function clonePropertyWithSetter(
         }
     });
 
+    // Update the __get__ and __delete__ methods if present.
+    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+
     // Fill in the fset method.
     const fsetSymbol = Symbol.createWithType(
         SymbolFlags.ClassMember,
         FunctionType.cloneWithNewFlags(fset, fset.details.flags | FunctionTypeFlags.StaticMethod)
     );
     fields.set('fset', fsetSymbol);
-
-    // Update the __get__ and __delete__ methods if present.
-    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
 
     // Fill in the __set__ method.
     addSetMethodToPropertySymbolTable(propertyObject, fset, evaluator);
@@ -243,15 +249,15 @@ export function clonePropertyWithDeleter(
         }
     });
 
+    // Update the __get__ and __set__ methods if present.
+    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
+
     // Fill in the fdel method.
     const fdelSymbol = Symbol.createWithType(
         SymbolFlags.ClassMember,
         FunctionType.cloneWithNewFlags(fdel, fdel.details.flags | FunctionTypeFlags.StaticMethod)
     );
     fields.set('fdel', fdelSymbol);
-
-    // Update the __get__ and __set__ methods if present.
-    updateGetSetDelMethodForClonedProperty(propertyObject, evaluator);
 
     // Fill in the __delete__ method.
     addDelMethodToPropertySymbolTable(propertyObject, fdel, evaluator);
@@ -481,7 +487,7 @@ export function canAssignProperty(
 
         if (destAccessType && isFunction(destAccessType)) {
             const srcAccessSymbol = srcPropertyType.details.fields.get(accessorInfo.name);
-            const srcAccessType = srcAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(srcAccessSymbol) : undefined;
+            let srcAccessType = srcAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(srcAccessSymbol) : undefined;
 
             if (!srcAccessType || !isFunction(srcAccessType)) {
                 if (diag) {
@@ -490,6 +496,8 @@ export function canAssignProperty(
                 isAssignable = false;
                 return;
             }
+
+            srcAccessType = partiallySpecializeType(srcAccessType, srcClass) as FunctionType;
 
             const boundDestAccessType = evaluator.bindFunctionToClassOrObject(
                 objectToBind,
