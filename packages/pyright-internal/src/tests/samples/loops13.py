@@ -10,3 +10,4 @@ for x in nums[1:]:
     candidates = max_product * x, min_product * x
     min_product = min(candidates)
     max_product = max(candidates)
+    reveal_type(candidates, expected_text="tuple[int, int]")

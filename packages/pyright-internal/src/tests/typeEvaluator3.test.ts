@@ -245,6 +245,24 @@ test('Loops16', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Loops17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops17.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loops18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops18.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loops19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops19.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ForLoop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop1.py']);
 

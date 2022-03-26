@@ -255,6 +255,7 @@ import {
     ParameterSource,
     partiallySpecializeType,
     populateTypeVarMapForSelfType,
+    preserveUnknown,
     removeParamSpecVariadicsFromFunction,
     removeParamSpecVariadicsFromSignature,
     requiresSpecialization,
@@ -1158,7 +1159,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         typeResult = { type: ClassType.cloneForUnpacked(iterType), node };
                     } else {
-                        const type = getTypeFromIterator(iterType, /* isAsync */ false, node) || UnknownType.create();
+                        const type =
+                            getTypeFromIterator(iterType, /* isAsync */ false, node) ??
+                            UnknownType.create(!!iterTypeResult.isIncomplete);
                         typeResult = { type, unpackedType: iterType, node, isIncomplete: iterTypeResult.isIncomplete };
                     }
                 }
@@ -3792,9 +3795,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If we're using code flow analysis, pass the usage node so we consider
             // only the assignment nodes that are reachable from this usage.
             const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(symbol, useCodeFlowAnalysis ? node : undefined);
-            const effectiveType = transformPossibleRecursiveTypeAlias(effectiveTypeInfo.type);
+            let effectiveType = transformPossibleRecursiveTypeAlias(effectiveTypeInfo.type);
 
             if (effectiveTypeInfo.isIncomplete) {
+                if (isUnbound(effectiveType)) {
+                    effectiveType = UnknownType.create(/* isIncomplete */ true);
+                }
                 isIncomplete = true;
             }
 
@@ -4319,7 +4325,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isTypeAliasPlaceholder(baseTypeResult.type)) {
             return {
                 node,
-                type: UnknownType.create(),
+                type: UnknownType.create(/* isIncomplete */ true),
                 isIncomplete: true,
             };
         }
@@ -4405,7 +4411,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the base type was incomplete and unbound, don't proceed
         // because false positive errors will be generated.
         if (baseTypeResult.isIncomplete && isUnbound(baseTypeResult.type)) {
-            return { type: UnknownType.create(), node, isIncomplete: true };
+            return { type: UnknownType.create(/* isIncomplete */ true), node, isIncomplete: true };
         }
 
         // Handle the special case where the expression is an actual
@@ -4454,7 +4460,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const paramNode = ParseTreeUtils.getEnclosingParameter(node);
                         if (!paramNode || paramNode.category !== ParameterCategory.VarArgList) {
                             addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
-                            return { type: UnknownType.create(), node, isIncomplete };
+                            return { type: UnknownType.create(isIncomplete), node, isIncomplete };
                         }
                         return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'args'), node, isIncomplete };
                     }
@@ -4463,7 +4469,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const paramNode = ParseTreeUtils.getEnclosingParameter(node);
                         if (!paramNode || paramNode.category !== ParameterCategory.VarArgDictionary) {
                             addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
-                            return { type: UnknownType.create(), node, isIncomplete };
+                            return { type: UnknownType.create(isIncomplete), node, isIncomplete };
                         }
                         return { type: TypeVarType.cloneForParamSpecAccess(baseType, 'kwargs'), node, isIncomplete };
                     }
@@ -4476,7 +4482,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             node
                         );
                     }
-                    return { type: UnknownType.create(), node, isIncomplete };
+                    return { type: UnknownType.create(isIncomplete), node, isIncomplete };
                 }
 
                 if (flags & EvaluatorFlags.ExpectingType) {
@@ -4492,11 +4498,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     }
 
-                    return { type: UnknownType.create(), node, isIncomplete };
+                    return { type: UnknownType.create(isIncomplete), node, isIncomplete };
                 }
 
                 if (baseType.details.recursiveTypeAliasName) {
-                    return { type: UnknownType.create(), node, isIncomplete: true };
+                    return { type: UnknownType.create(/* isIncomplete */ true), node, isIncomplete: true };
                 }
 
                 return getTypeFromMemberAccessWithBaseType(
@@ -4638,7 +4644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // that error will be reported within the module and should not
                     // leak into other modules that import it.
                     if (isUnbound(type)) {
-                        type = UnknownType.create();
+                        type = UnknownType.create(/* isIncomplete */ true);
                     }
 
                     if (symbol.isPrivateMember()) {
@@ -5183,7 +5189,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Provide "value" argument.
                             argList.push({
                                 argumentCategory: ArgumentCategory.Simple,
-                                type: usage.setType || UnknownType.create(),
+                                type: usage.setType ?? UnknownType.create(),
                             });
                         }
 
@@ -5301,7 +5307,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                     // For set or delete, always return Any.
                                     return usage.method === 'get'
-                                        ? callResult.returnType || UnknownType.create()
+                                        ? callResult.returnType ?? UnknownType.create()
                                         : AnyType.create();
                                 }
 
@@ -6420,7 +6426,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             node,
-            type: callResult.returnType || UnknownType.create(),
+            type: callResult.returnType ?? UnknownType.create(),
             isIncomplete: !!callResult.isTypeIncomplete,
         };
     }
@@ -6489,7 +6495,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             // Set the node's type so it isn't reevaluated later.
-            setTypeForNode(node.items[0].valueExpression);
+            setTypeForNode(node.items[0].valueExpression, UnknownType.create());
         } else {
             node.items.forEach((arg, index) => {
                 const typeResult = getTypeArgTypeResult(arg.valueExpression, index);
@@ -6542,7 +6548,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
 
             // Set the node's type so it isn't reevaluated later.
-            setTypeForNode(node);
+            setTypeForNode(node, UnknownType.create());
         } else {
             typeResult = getTypeOfExpression(node, /* expectedType */ undefined, adjustedFlags);
 
@@ -6793,7 +6799,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     expectedType
                 );
 
-                returnResult.type = callResult.returnType || UnknownType.create();
+                returnResult.type = callResult.returnType ?? UnknownType.create();
 
                 if (callResult.argumentErrors) {
                     returnResult.typeErrors = true;
@@ -6854,7 +6860,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const arg0TypeResult = getTypeOfExpression(node.arguments[0].valueExpression, expectedType);
         if (arg0TypeResult.isIncomplete) {
-            return { node, type: UnknownType.create(), isIncomplete: true };
+            return { node, type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
 
         const assertedType = convertToInstance(getTypeForArgumentExpectingType(node.arguments[1]).type);
@@ -8215,7 +8221,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 expandedSubtype,
                                 {
                                     argumentErrors: functionResult.argumentErrors,
-                                    returnType: functionResult.returnType ?? UnknownType.create(),
+                                    returnType: functionResult.returnType ?? UnknownType.create(isTypeIncomplete),
                                     isTypeIncomplete,
                                 }
                             );
@@ -8298,7 +8304,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 expandedSubtype,
                                 {
                                     argumentErrors: functionResult.argumentErrors,
-                                    returnType: functionResult.returnType ?? UnknownType.create(),
+                                    returnType: functionResult.returnType ?? UnknownType.create(isTypeIncomplete),
                                     isTypeIncomplete,
                                 }
                             );
@@ -8312,7 +8318,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
 
-                        return functionResult.returnType || UnknownType.create();
+                        return functionResult.returnType ?? UnknownType.create();
                     }
 
                     case TypeCategory.Class: {
@@ -8575,7 +8581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     return convertToInstance(unexpandedSubtype);
                                 }
 
-                                return functionResult.returnType || UnknownType.create();
+                                return functionResult.returnType ?? UnknownType.create();
                             }
 
                             if (!memberType || !isAnyOrUnknown(memberType)) {
@@ -8623,7 +8629,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argumentErrors = true;
                         }
 
-                        return callResult.returnType || UnknownType.create();
+                        return callResult.returnType ?? UnknownType.create();
                     }
 
                     case TypeCategory.Module: {
@@ -11158,12 +11164,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     getTypeCondition(leftSubtypeExpanded),
                     (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                         if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
-                            // If either type is "Unknown" (versus Any), propagate the Unknown.
-                            if (isUnknown(leftSubtypeUnexpanded) || isUnknown(rightSubtypeUnexpanded)) {
-                                return UnknownType.create();
-                            } else {
-                                return AnyType.create();
-                            }
+                            return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
                         }
 
                         const magicMethodName = operatorMap[node.operator][0];
@@ -11308,12 +11309,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             getTypeCondition(rightSubtypeExpanded),
                             (leftSubtype) => {
                                 if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
-                                    // If either type is "Unknown" (versus Any), propagate the Unknown.
-                                    if (isUnknown(leftSubtype) || isUnknown(rightSubtypeUnexpanded)) {
-                                        return UnknownType.create();
-                                    } else {
-                                        return AnyType.create();
-                                    }
+                                    return preserveUnknown(leftSubtype, rightSubtypeExpanded);
                                 }
 
                                 let returnType = getTypeFromMagicMethodReturn(
@@ -11494,12 +11490,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             getTypeCondition(leftSubtypeExpanded),
                             (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                                 if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
-                                    // If either type is "Unknown" (versus Any), propagate the Unknown.
-                                    if (isUnknown(leftSubtypeUnexpanded) || isUnknown(rightSubtypeUnexpanded)) {
-                                        return UnknownType.create();
-                                    } else {
-                                        return AnyType.create();
-                                    }
+                                    return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
                                 }
 
                                 // Special-case __add__ for tuples when the types for both tuples are known.
@@ -12390,7 +12381,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle old-style (pre-await) Coroutines as a special case.
             returnedType = UnknownType.create();
         } else {
-            const iterableType = getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+            const iterableType = getTypeFromIterable(yieldFromType, /* isAsync */ false, node) ?? UnknownType.create();
 
             // Does the iterable return a Generator?
             generatorTypeArgs = getGeneratorTypeArgs(iterableType);
@@ -12657,7 +12648,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
             const iterableType = stripLiteralValue(iterableTypeResult.type);
             const itemType =
-                getTypeFromIterator(iterableType, !!node.isAsync, node.iterableExpression) || UnknownType.create();
+                getTypeFromIterator(iterableType, !!node.isAsync, node.iterableExpression) ?? UnknownType.create();
 
             const targetExpr = node.targetExpression;
             assignTypeToExpression(targetExpr, itemType, !!iterableTypeResult.isIncomplete, node.iterableExpression);
@@ -16018,7 +16009,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (isNodeReachable(returnNode)) {
                                     if (returnNode.returnExpression) {
                                         const returnType = getTypeOfExpression(returnNode.returnExpression).type;
-                                        inferredReturnTypes.push(returnType || UnknownType.create());
+                                        inferredReturnTypes.push(returnType ?? UnknownType.create());
                                     } else {
                                         inferredReturnTypes.push(NoneType.createInstance());
                                     }
@@ -16060,12 +16051,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                                 /* isAsync */ false,
                                                 yieldNode
                                             );
-                                            inferredYieldTypes.push(yieldType || UnknownType.create());
+                                            inferredYieldTypes.push(yieldType ?? UnknownType.create());
                                         }
                                     } else {
                                         if (yieldNode.expression) {
                                             const yieldType = getTypeOfExpression(yieldNode.expression).type;
-                                            inferredYieldTypes.push(yieldType || UnknownType.create());
+                                            inferredYieldTypes.push(yieldType ?? UnknownType.create());
                                         } else {
                                             inferredYieldTypes.push(NoneType.createInstance());
                                         }
@@ -16160,7 +16151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const iteratorTypeResult = getTypeOfExpression(node.iterableExpression);
         const iteratedType =
-            getTypeFromIterator(iteratorTypeResult.type, !!node.isAsync, node.iterableExpression) ||
+            getTypeFromIterator(iteratorTypeResult.type, !!node.isAsync, node.iterableExpression) ??
             UnknownType.create();
 
         assignTypeToExpression(
@@ -16196,7 +16187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    getTypeFromIterator(exceptionType, /* isAsync */ false, errorNode) || UnknownType.create();
+                    getTypeFromIterator(exceptionType, /* isAsync */ false, errorNode) ?? UnknownType.create();
 
                 return mapSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
@@ -16375,7 +16366,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Look up the symbol to find the alias declaration.
-        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) || UnknownType.create();
+        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) ?? UnknownType.create();
 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created.
@@ -16550,7 +16541,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const symbolNameNode = node.module.nameParts[0];
 
         // Look up the symbol to find the alias declaration.
-        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) || UnknownType.create();
+        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) ?? UnknownType.create();
 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created.
@@ -18312,7 +18303,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return (
                         evaluateTypeForSubnode(resolvedDecl.inferredTypeSource!, () => {
                             evaluateTypesForStatement(resolvedDecl.inferredTypeSource!);
-                        })?.type || UnknownType.create()
+                        })?.type ?? UnknownType.create()
                     );
                 });
                 if (enumMemberType) {
@@ -18472,7 +18463,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (symbol.hasTypedDeclarations()) {
             const declaredType = getDeclaredTypeOfSymbol(symbol, usageNode);
             return {
-                type: declaredType || UnknownType.create(),
+                type: declaredType ?? UnknownType.create(),
                 isIncomplete: false,
                 includesVariableDecl: symbol
                     .getTypedDeclarations()

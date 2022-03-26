@@ -464,6 +464,21 @@ export function areTypesSame(types: Type[], ignorePseudoGeneric: boolean): boole
     return true;
 }
 
+// If either type is "Unknown" (versus Any), propagate the Unknown. Preserve
+// the incomplete flag on the unknown if present. The caller should verify that
+// one or the other type is Unknown or Any.
+export function preserveUnknown(type1: Type, type2: Type): AnyType | UnknownType {
+    if (isUnknown(type1) && type1.isIncomplete) {
+        return type1;
+    } else if (isUnknown(type2) && type2.isIncomplete) {
+        return type2;
+    } else if (isUnknown(type1) || isUnknown(type2)) {
+        return UnknownType.create();
+    } else {
+        return AnyType.create();
+    }
+}
+
 // Determines whether the specified type is a type that can be
 // combined with other types for a union.
 export function isUnionableType(subtypes: Type[]): boolean {

@@ -24,6 +24,7 @@ export interface IncompleteSubtypeInfo {
     type: Type | undefined;
     isIncomplete: boolean;
     isPending: boolean;
+    evaluationCount: number;
 }
 
 export interface IncompleteType {
@@ -35,13 +36,6 @@ export interface IncompleteType {
     // Array of incomplete subtypes that have been computed so far
     // (used for loops)
     incompleteSubtypes: IncompleteSubtypeInfo[];
-
-    // Number of times this type has been encountered when recursively
-    // attempting to compute a type.
-    recursiveVisitCount?: number;
-
-    // Number of times this type has been evaluated as the same.
-    recursiveConvergenceCount?: number;
 
     // Tracks whether something has changed since this cache entry
     // was written that might change the incomplete type; if this

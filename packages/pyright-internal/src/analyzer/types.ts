@@ -219,17 +219,23 @@ export namespace UnboundType {
 
 export interface UnknownType extends TypeBase {
     category: TypeCategory.Unknown;
+    isIncomplete: boolean;
 }
 
 export namespace UnknownType {
     const _instance: UnknownType = {
         category: TypeCategory.Unknown,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
+        isIncomplete: false,
+    };
+    const _incompleteInstance: UnknownType = {
+        category: TypeCategory.Unknown,
+        flags: TypeFlags.Instantiable | TypeFlags.Instance,
+        isIncomplete: true,
     };
 
-    export function create() {
-        // All Unknown objects are the same, so use a shared instance.
-        return _instance;
+    export function create(isIncomplete = false) {
+        return isIncomplete ? _incompleteInstance : _instance;
     }
 }
 
@@ -2516,6 +2522,10 @@ export function isTypeSame(
 // returning only the known types.
 export function removeUnknownFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => isUnknown(t));
+}
+
+export function removeIncompleteUnknownFromUnion(type: Type): Type {
+    return removeFromUnion(type, (t: Type) => isUnknown(t) && t.isIncomplete);
 }
 
 // If the type is a union, remove an "unbound" type from the union,
