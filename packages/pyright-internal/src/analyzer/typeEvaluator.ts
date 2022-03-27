@@ -527,6 +527,9 @@ const maxOverloadUnionExpansionCount = 64;
 // from the type cache.
 const verifyTypeCacheEvaluatorFlags = false;
 
+// This debugging option prints each expression and its evaluated type.
+const printExpressionTypes = false;
+
 export interface EvaluatorOptions {
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
@@ -562,6 +565,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
     let incompleteTypeCache: TypeCache | undefined;
+    let printExpressionSpaceCount = 0;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
@@ -830,13 +834,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is this type already cached?
         const cachedType = readTypeCache(node, flags);
         if (cachedType) {
+            if (printExpressionTypes) {
+                console.log(
+                    `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
+                        node
+                    )}): Cached ${printType(cachedType)}`
+                );
+            }
             return { type: cachedType, node };
         } else {
             // Is it cached in the speculative type cache?
             const speculativeCachedType = speculativeTypeTracker.getSpeculativeType(node, expectedType);
             if (speculativeCachedType) {
+                if (printExpressionTypes) {
+                    console.log(
+                        `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
+                            node
+                        )}): Speculative ${printType(speculativeCachedType)}`
+                    );
+                }
                 return { type: speculativeCachedType, node };
             }
+        }
+
+        if (printExpressionTypes) {
+            console.log(
+                `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(node)}): Pre`
+            );
+            printExpressionSpaceCount++;
         }
 
         // This is a frequently-called routine, so it's a good place to call
@@ -1219,6 +1244,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (expectedType && !isAnyOrUnknown(expectedType) && !isNever(expectedType)) {
                 expectedTypeCache.set(node.id, expectedType);
             }
+        }
+
+        if (printExpressionTypes) {
+            printExpressionSpaceCount--;
+            console.log(
+                `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
+                    node
+                )}): Post ${printType(typeResult.type)}${typeResult.isIncomplete ? ' Incomplete' : ''}`
+            );
         }
 
         return typeResult;
@@ -23838,6 +23872,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return codeFlowEngine.narrowConstrainedTypeVar(flowNode, typeVar);
+    }
+
+    function getPrintExpressionTypesSpaces() {
+        return '                                                                 '.substring(
+            0,
+            printExpressionSpaceCount
+        );
+    }
+
+    function getLineNum(node: ParseNode) {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const range = convertOffsetsToRange(node.start, node.start + node.length, fileInfo.lines);
+        return (range.start.line + 1).toString();
     }
 
     const evaluatorInterface: TypeEvaluator = {
