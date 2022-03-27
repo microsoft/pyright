@@ -18844,6 +18844,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
         const functionNode = type.details.declaration.node;
+        const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
+
+        if (codeFlowComplexity >= maxReturnTypeInferenceCodeFlowComplexity) {
+            return undefined;
+        }
 
         // If an arg hasn't been matched to a specific named parameter,
         // it's an unpacked value that corresponds to multiple parameters.
