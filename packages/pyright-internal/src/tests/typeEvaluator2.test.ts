@@ -879,13 +879,13 @@ test('GenericTypes83', () => {
 test('GenericTypes84', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes84.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('GenericTypes85', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes85.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Protocol1', () => {
