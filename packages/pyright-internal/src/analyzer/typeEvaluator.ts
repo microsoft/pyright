@@ -19044,6 +19044,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         treatSourceAsInstantiable: boolean,
         recursionCount: number
     ): boolean {
+        if ((flags & CanAssignFlags.EnforceInvariance) !== 0) {
+            return isTypeSame(destType, srcType);
+        }
+
         const destClassFields = destType.details.fields;
 
         // Strip the type arguments off the dest protocol if they are provided.
