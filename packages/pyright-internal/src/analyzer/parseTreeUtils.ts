@@ -1174,9 +1174,7 @@ export function isWithinLoop(node: ParseNode): boolean {
                 return true;
             }
 
-            case ParseNodeType.Function:
-            case ParseNodeType.Module:
-            case ParseNodeType.Class: {
+            case ParseNodeType.Module: {
                 break;
             }
         }

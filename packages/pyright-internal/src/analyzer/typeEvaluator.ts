@@ -11037,7 +11037,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Don't use literal math if either of the operand types are
         // incomplete because we may be evaluating types within a loop,
         // so the literal values may change each time.
-        const isLiteralMathAllowed = !leftTypeResult.isIncomplete && !rightTypeResult.isIncomplete;
+        const isLiteralMathAllowed = !ParseTreeUtils.isWithinLoop(node);
         let type = validateBinaryOperation(
             node.operator,
             leftType,
