@@ -401,9 +401,9 @@ export function synthesizeDataClassMethods(
                     effectiveType = applySolvedTypeVars(effectiveType, typeVarMap);
                 }
 
-                if (classType.details.dataClassBehaviors?.transformDescriptorTypes) {
-                    effectiveType = transformDescriptorType(evaluator, effectiveType);
-                }
+                // Is the field type a descriptor object? If so, we need to extract the corresponding
+                // type of the __init__ method parameter from the __set__ method.
+                effectiveType = transformDescriptorType(evaluator, effectiveType);
 
                 const functionParam: FunctionParameter = {
                     category: ParameterCategory.Simple,
@@ -631,7 +631,6 @@ export function validateDataClassTransformDecorator(
         keywordOnlyParams: false,
         generateEq: true,
         generateOrder: false,
-        transformDescriptorTypes: false,
         fieldDescriptorNames: [],
     };
 
@@ -684,20 +683,6 @@ export function validateDataClassTransformDecorator(
                 }
 
                 behaviors.generateOrder = value;
-                break;
-            }
-
-            case 'transform_descriptor_types': {
-                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
-                if (value === undefined) {
-                    evaluator.addError(
-                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
-                        arg.valueExpression
-                    );
-                    return;
-                }
-
-                behaviors.transformDescriptorTypes = value;
                 break;
             }
 
@@ -770,7 +755,6 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
             keywordOnlyParams: false,
             generateEq: true,
             generateOrder: false,
-            transformDescriptorTypes: false,
             fieldDescriptorNames: ['dataclasses.field', 'dataclasses.Field'],
         };
     }

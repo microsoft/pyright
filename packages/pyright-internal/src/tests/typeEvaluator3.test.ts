@@ -1191,12 +1191,6 @@ test('DataclassTransform4', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('DataclassTransform5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform5.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
 test('Async1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['async1.py']);
 
