@@ -23871,10 +23871,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getPrintExpressionTypesSpaces() {
-        return '                                                                 '.substring(
-            0,
-            printExpressionSpaceCount
-        );
+        return ' '.repeat(printExpressionSpaceCount);
     }
 
     function getLineNum(node: ParseNode) {

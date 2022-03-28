@@ -237,17 +237,18 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 exprString += 'f';
             }
 
+            const maxStringLength = 32;
             if (node.token.flags & StringTokenFlags.Triplicate) {
                 if (node.token.flags & StringTokenFlags.SingleQuote) {
-                    exprString += `'''${node.token.escapedValue}'''`;
+                    exprString += `'''${node.token.escapedValue.substring(0, maxStringLength)}'''`;
                 } else {
-                    exprString += `"""${node.token.escapedValue}"""`;
+                    exprString += `"""${node.token.escapedValue.substring(0, maxStringLength)}"""`;
                 }
             } else {
                 if (node.token.flags & StringTokenFlags.SingleQuote) {
-                    exprString += `'${node.token.escapedValue}'`;
+                    exprString += `'${node.token.escapedValue.substring(0, maxStringLength)}'`;
                 } else {
-                    exprString += `"${node.token.escapedValue}"`;
+                    exprString += `"${node.token.escapedValue.substring(0, maxStringLength)}"`;
                 }
             }
 
