@@ -123,7 +123,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName, isSingleDunderName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
-import { CachedType, IncompleteTypeTracker, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
+import { CachedType, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
 import {
     assignToTypedDict,
     canAssignTypedDict,
@@ -551,7 +551,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     const suppressedNodeStack: ParseNode[] = [];
-    const incompleteTypeTracker = new IncompleteTypeTracker();
     const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
@@ -672,8 +671,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 speculativeTypeTracker.addSpeculativeType(node, type, expectedType);
             }
         }
-
-        incompleteTypeTracker.trackEntry(typeCacheToUse, node.id);
     }
 
     function deleteTypeCacheEntry(node: ParseNode) {
@@ -2523,8 +2520,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        const codeFlowResult = getTypeFromCodeFlow(
-            analyzer,
+        const codeFlowResult = analyzer.getTypeFromCodeFlow(
             flowNode,
             /* reference */ undefined,
             /* targetSymbolId */ undefined,
@@ -2612,8 +2608,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function isDiagnosticSuppressedForNode(node: ParseNode) {
         return (
             suppressedNodeStack.some((suppressedNode) => ParseTreeUtils.isNodeContainedWithin(node, suppressedNode)) ||
-            speculativeTypeTracker.isSpeculative(node) ||
-            incompleteTypeTracker.isUndoTrackingEnabled()
+            speculativeTypeTracker.isSpeculative(node)
         );
     }
 
@@ -3695,7 +3690,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol, node: ParseNode) {
-        if (!speculativeTypeTracker.isSpeculative(node) && !incompleteTypeTracker.isUndoTrackingEnabled()) {
+        if (!speculativeTypeTracker.isSpeculative(node)) {
             fileInfo.accessedSymbolMap.set(symbol.id, true);
         }
     }
@@ -9866,13 +9861,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
             // not reported as unaccessed.
-            if (!incompleteTypeTracker.isUndoTrackingEnabled()) {
-                argList.forEach((arg) => {
-                    if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
-                        getTypeOfExpression(arg.valueExpression);
-                    }
-                });
-            }
+            argList.forEach((arg) => {
+                if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
+                    getTypeOfExpression(arg.valueExpression);
+                }
+            });
 
             return {
                 argumentErrors: true,
@@ -10191,7 +10184,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
             if (
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues !== 'none' &&
-                !isDiagnosticSuppressedForNode(argParam.errorNode)
+                !isDiagnosticSuppressedForNode(argParam.errorNode) &&
+                !isTypeIncomplete
             ) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
                 const argTypeText = printType(argType);
@@ -17154,49 +17148,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: undefined, isIncomplete: false };
         }
 
-        return getTypeFromCodeFlow(
-            analyzer,
-            flowNode!,
-            reference,
-            targetSymbolId,
-            initialType,
-            isInitialTypeIncomplete
-        );
-    }
-
-    function getTypeFromCodeFlow(
-        analyzer: CodeFlowAnalyzer,
-        flowNode: FlowNode,
-        reference: CodeFlowReferenceExpressionNode | undefined,
-        targetSymbolId: number | undefined,
-        initialType: Type | undefined,
-        isInitialTypeIncomplete: boolean
-    ): FlowNodeTypeResult {
-        incompleteTypeTracker.enterTrackingScope();
-        let codeFlowResult: FlowNodeTypeResult;
-
-        try {
-            codeFlowResult = analyzer.getTypeFromCodeFlow(
-                flowNode!,
-                reference,
-                targetSymbolId,
-                initialType,
-                isInitialTypeIncomplete
-            );
-
-            incompleteTypeTracker.exitTrackingScope();
-        } catch (e) {
-            // We don't use a finally clause here because the debugger doesn't
-            // handle it well when stepping through the code.
-            incompleteTypeTracker.exitTrackingScope();
-            throw e;
-        }
-
-        if (codeFlowResult.isIncomplete) {
-            incompleteTypeTracker.enableUndoTracking();
-        }
-
-        return codeFlowResult;
+        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, initialType, isInitialTypeIncomplete);
     }
 
     // Specializes the specified (potentially generic) class type using
