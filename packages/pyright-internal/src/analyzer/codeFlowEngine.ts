@@ -13,7 +13,7 @@
 
 import { assert, fail } from '../common/debug';
 import { CallNode, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { getImportInfo } from './analyzerNodeInfo';
+import { getCodeFlowComplexity, getImportInfo } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
@@ -1346,10 +1346,7 @@ export function getCodeFlowEngine(
                                 break;
                             }
 
-                            if (
-                                !foundRaiseNotImplemented &&
-                                !evaluator.isAfterNodeReachable(functionType.details.declaration.node)
-                            ) {
+                            if (!foundRaiseNotImplemented && !isAfterNodeReachable(evaluator, functionType)) {
                                 noReturnTypeCount++;
                             }
                         }
@@ -1365,6 +1362,23 @@ export function getCodeFlowEngine(
         callIsNoReturnCache.set(node.id, callIsNoReturn);
 
         return callIsNoReturn;
+    }
+
+    function isAfterNodeReachable(evaluator: TypeEvaluator, functionType: FunctionType) {
+        if (!functionType.details.declaration) {
+            return true;
+        }
+
+        // Don't bother analyzing the function for NoReturn if it is extremely
+        // complex. It's highly unlikely that it will be NoReturn in this case,
+        // and it can be extremely expensive to compute.
+        const codeFlowComplexity = getCodeFlowComplexity(functionType.details.declaration.node);
+        const maxCodeFlowComplexity = 32;
+        if (codeFlowComplexity > maxCodeFlowComplexity) {
+            return true;
+        }
+
+        return evaluator.isAfterNodeReachable(functionType.details.declaration.node);
     }
 
     // Performs a cursory analysis to determine whether the expression

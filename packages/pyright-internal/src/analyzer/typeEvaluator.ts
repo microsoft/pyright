@@ -2436,7 +2436,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function checkCodeFlowTooComplex(node: ParseNode): boolean {
-        const scopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+        const scopeNode = node.nodeType === ParseNodeType.Function ? node : ParseTreeUtils.getExecutionScopeNode(node);
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(scopeNode);
 
         // The following number is chosen somewhat arbitrarily. We need to cut
