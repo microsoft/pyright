@@ -35,7 +35,9 @@ import { isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
 import {
     ClassType,
     FunctionType,
+    FunctionTypeFlags,
     isClass,
+    isFunction,
     isInstantiableClass,
     isModule,
     isTypeSame,
@@ -729,10 +731,21 @@ export class PackageTypeVerifier {
 
                     accessors.forEach((accessorName) => {
                         const accessSymbol = propertyClass.details.fields.get(accessorName);
-                        const accessType = accessSymbol ? this._program.getTypeForSymbol(accessSymbol) : undefined;
+                        let accessType = accessSymbol ? this._program.getTypeForSymbol(accessSymbol) : undefined;
 
                         if (!accessType) {
                             return;
+                        }
+
+                        if (isFunction(accessType)) {
+                            // The processing for fget, fset and fdel mark the methods as "static" so they
+                            // work properly when accessed directly from the property object. We need
+                            // to remove this flag here so the method is seen as an instance method rather than
+                            // static. Otherwise we'll incorrectly report that "self" is not annotated.
+                            accessType = FunctionType.cloneWithNewFlags(
+                                accessType,
+                                accessType.details.flags & ~FunctionTypeFlags.StaticMethod
+                            );
                         }
 
                         knownStatus = this._updateKnownStatusIfWorse(
