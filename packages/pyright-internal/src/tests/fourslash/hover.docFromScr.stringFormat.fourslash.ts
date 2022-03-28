@@ -25,7 +25,7 @@
 //// [|/*marker14*/singleQuotesWithTripleDouble|]= '"""'
 //// [|/*marker15*/singleTripleQuoteWithSingleAndDoubleQuote|]= ''' '"' '''
 
-//// # multiline
+//// # multiline (truncated)
 //// const [|/*marker16*/html|] = '''<!DOCTYPE html><html lang="en">\n<head><title>Title</title></head></html>'''
 //// const [|/*marker17*/htmlWithSingleQuotes|] = '''<!DOCTYPE html><html lang="en">\n<head><title>Title's</title></head></html>'''
 //// const [|/*marker18*/htmlWithTripleEscapedQuotes|] = '''<!DOCTYPE html><html lang="en">\n<head><title>Title\'\'\'s</title></head></html>'''
@@ -46,7 +46,7 @@ helper.verifyHover('markdown', {
     marker13: `\`\`\`python\n(variable) singleQuotesWithDouble: Literal['"']\n\`\`\``,
     marker14: `\`\`\`python\n(variable) singleQuotesWithTripleDouble: Literal['"""']\n\`\`\``,
     marker15: `\`\`\`python\n(variable) singleTripleQuoteWithSingleAndDoubleQuote: Literal[' \\'"\\' ']\n\`\`\``,
-    marker16: `\`\`\`python\n(variable) html: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title</title></head></html>']\n\`\`\``,
-    marker17: `\`\`\`python\n(variable) htmlWithSingleQuotes: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title\\'s</title></head></html>']\n\`\`\``,
-    marker18: `\`\`\`python\n(variable) htmlWithTripleEscapedQuotes: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title\\'\\'\\'s</title></head></html>']\n\`\`\``,
+    marker16: `\`\`\`python\n(variable) html: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title…']\n\`\`\``,
+    marker17: `\`\`\`python\n(variable) htmlWithSingleQuotes: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title…']\n\`\`\``,
+    marker18: `\`\`\`python\n(variable) htmlWithTripleEscapedQuotes: Literal['<!DOCTYPE html><html lang="en">\\n<head><title>Title…']\n\`\`\``,
 });
