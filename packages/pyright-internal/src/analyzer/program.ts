@@ -2177,13 +2177,14 @@ export class Program {
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
         if (typeCacheSize > 750000 || this._parsedFileCount > 1000) {
-            const memoryUsage = getHeapStatistics();
+            const memoryUsage = process.memoryUsage();
+            const heapStats = getHeapStatistics()
 
             // If we use more than 90% of the available heap size, avoid a crash
             // by emptying the type cache.
-            if (memoryUsage.used_heap_size > memoryUsage.heap_size_limit * 0.9) {
-                const heapSizeInMb = Math.round(memoryUsage.heap_size_limit / (1024 * 1024));
-                const heapUsageInMb = Math.round(memoryUsage.used_heap_size / (1024 * 1024));
+            if (memoryUsage.rss > heapStats.total_available_size * 0.9) {
+                const heapSizeInMb = Math.round(heapStats.heap_size_limit / (1024 * 1024));
+                const heapUsageInMb = Math.round(heapStats.used_heap_size / (1024 * 1024));
 
                 this._console.info(
                     `Emptying type cache to avoid heap overflow. Used ${heapUsageInMb}MB out of ${heapSizeInMb}MB`
