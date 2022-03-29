@@ -13,6 +13,8 @@ import * as url from 'url';
 import { lsiftyped, Options } from './lib';
 import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 import { Counter } from './lsif-typescript/Counter';
+import { getTypeShedFallbackPath } from 'pyright-internal/analyzer/pythonPathUtils';
+import { PyrightFileSystem } from 'pyright-internal/pyrightFileSystem';
 
 export interface Config {}
 
@@ -23,23 +25,30 @@ export class Indexer {
 
     constructor(public readonly config: Config, public options: Options) {
         this.counter = new Counter();
-        const fs = createFromRealFileSystem();
 
         const configOptions = new ConfigOptions(options.projectRoot);
         configOptions.checkOnlyOpenFiles = false;
         configOptions.indexing = true;
 
+        const fs = new PyrightFileSystem(createFromRealFileSystem());
+        configOptions.typeshedPath = getTypeShedFallbackPath(fs);
+
         const host = new FullAccessHost(fs);
         this.importResolver = new ImportResolver(fs, configOptions, host);
-        // importResolver.fileSystem.chdir(options.project)
-
         this.program = new Program(this.importResolver, configOptions);
 
+        // TODO:
+        // - [ ] pyi files?
         const pyFiles = glob.sync(options.projectRoot + '/**/*.py');
         this.program.setTrackedFiles(pyFiles);
     }
 
     public index(): void {
+        const token = {
+            isCancellationRequested: false,
+            onCancellationRequested: Event.None,
+        };
+
         // Emit metadata
         this.options.writeIndex(
             new lsiftyped.Index({
@@ -48,7 +57,6 @@ export class Indexer {
                     text_document_encoding: lsiftyped.TextEncoding.UTF8,
                     tool_info: new lsiftyped.ToolInfo({
                         name: 'lsif-pyright',
-                        // TODO: import __version__
                         version: require('package.json').version,
                         arguments: [],
                     }),
@@ -56,73 +64,48 @@ export class Indexer {
             })
         );
 
+        // Run program analysis once.
         while (this.program.analyze()) {}
-        // this.program.indexWorkspace((_a, _b) => {}, {
-        //     isCancellationRequested: false,
-        //     onCancellationRequested: Event.None,
-        // });
-
-        const typeEvaluator = this.program.evaluator;
 
         // let visitors: lib.codeintel.lsiftyped.Document[] = [];
-        let sourceFiles: SourceFile[] = [];
-        this.program.indexWorkspace(
-            (filepath: string, _results: IndexResults) => {
-                if (filepath.indexOf(this.options.projectRoot) != 0) {
-                    return;
-                }
-
-                const sourceFile = this.program.getSourceFile(filepath)!;
-                sourceFiles.push(sourceFile);
-
-                console.log('Source File', filepath);
-
-                let requestsImport = sourceFile.getImports();
-                requestsImport.forEach((entry) =>
-                    entry.resolvedPaths.forEach((value) => {
-                        this.program.addTrackedFile(value, true, false);
-                    })
-                );
-
-                // const parseResults = sourceFile.getParseResults();
-                // const tree = parseResults?.parseTree;
-                // // sourceFile.getDeclarationForNode()
-                //
-                //
-                // let visitor = new TreeVisitor(filepath, this.program, typeEvaluator!, doc);
-                // visitor.walk(tree!);
-                //
-            },
-            {
-                isCancellationRequested: false,
-                onCancellationRequested: Event.None,
+        let projectSourceFiles: SourceFile[] = [];
+        this.program.indexWorkspace((filepath: string, _results: IndexResults) => {
+            // Filter out filepaths not part of this project
+            if (filepath.indexOf(this.options.projectRoot) != 0) {
+                return;
             }
-        );
 
-        console.log(
-            'Source Files:',
-            sourceFiles.map((value) => value.getFilePath())
-        );
+            const sourceFile = this.program.getSourceFile(filepath)!;
+            projectSourceFiles.push(sourceFile);
 
-        sourceFiles.forEach((sourceFile) => {
+            let requestsImport = sourceFile.getImports();
+            requestsImport.forEach((entry) =>
+                entry.resolvedPaths.forEach((value) => {
+                    this.program.addTrackedFile(value, true, false);
+                })
+            );
+        }, token);
+
+        // Mark every original sourceFile as dirty so that we can
+        // visit them via the program again (with all dependencies noted)
+        projectSourceFiles.forEach((sourceFile) => {
             sourceFile.markDirty(true);
         });
 
         while (this.program.analyze()) {}
 
-        sourceFiles.forEach((sourceFile) => {
+        const typeEvaluator = this.program.evaluator!;
+        projectSourceFiles.forEach((sourceFile) => {
             const filepath = sourceFile.getFilePath();
             let doc = new lsiftyped.Document({
                 relative_path: path.relative(this.options.workspaceRoot, filepath),
             });
 
             const parseResults = sourceFile.getParseResults();
-            const tree = parseResults?.parseTree;
+            const tree = parseResults?.parseTree!;
 
-            // TODO: Do I need this?
-            // this.program,
-            let visitor = new TreeVisitor(sourceFile, typeEvaluator!, doc, this.options.version, this.counter);
-            visitor.walk(tree!);
+            let visitor = new TreeVisitor(doc, sourceFile, typeEvaluator, this.counter, this.options);
+            visitor.walk(tree);
 
             this.options.writeIndex(
                 new lsiftyped.Index({

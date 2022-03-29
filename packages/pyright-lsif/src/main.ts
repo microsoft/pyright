@@ -7,7 +7,7 @@ import { index, formatSnapshot, writeSnapshot } from './lib';
 import { Input } from './lsif-typescript/Input';
 import * as yargs from 'yargs';
 
-console.log('Yargin');
+console.log('==> Starting new execution');
 
 export function main(): void {
     yargs
@@ -34,25 +34,25 @@ export function main(): void {
             },
             (argv) => {
                 const workspaceRoot = argv.project as string;
-                let workspaceVersion = argv.projectVersion as string;
+                let projectVersion = argv.projectVersion as string;
 
                 const projectRoot = workspaceRoot;
 
                 process.chdir(workspaceRoot);
-                if (workspaceVersion === '') {
+                if (projectVersion === '') {
                   // Default to current git hash
-                  workspaceVersion = child_process.execSync('git rev-parse HEAD').toString().trim();
+                  projectVersion = child_process.execSync('git rev-parse HEAD').toString().trim();
                 }
 
                 const lsifIndex = new lib.codeintel.lsiftyped.Index();
 
 
-                console.log('Indexing:', projectRoot, '@', workspaceVersion);
+                console.log('Indexing:', projectRoot, '@', projectVersion);
 
                 index({
                     workspaceRoot,
                     projectRoot,
-                    version: workspaceVersion,
+                    projectVersion,
                     writeIndex: (partialIndex: any): void => {
                         if (partialIndex.metadata) {
                             lsifIndex.metadata = partialIndex.metadata;

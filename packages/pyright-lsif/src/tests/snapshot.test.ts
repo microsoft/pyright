@@ -31,7 +31,7 @@ describe('indexer', () => {
             lsifIndex({
                 workspaceRoot: projectRoot,
                 projectRoot,
-                version: "0.1",
+                projectVersion: "0.1",
                 writeIndex: (partialIndex: any): void => {
                     if (partialIndex.metadata) {
                         index.metadata = partialIndex.metadata;

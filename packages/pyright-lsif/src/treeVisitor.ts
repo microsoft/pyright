@@ -8,7 +8,6 @@ import { TextRangeCollection } from 'pyright-internal/common/textRangeCollection
 import {
     AssignmentNode,
     ClassNode,
-    DecoratorNode,
     ExpressionNode,
     FunctionNode,
     ImportFromNode,
@@ -33,7 +32,7 @@ import {
 import { LsifSymbol } from './LsifSymbol';
 import { Position } from './lsif-typescript/Position';
 import { Range } from './lsif-typescript/Range';
-import { lsiftyped } from './lib';
+import { lsiftyped, Options } from './lib';
 import {
     getDocString,
     getEnclosingClass,
@@ -41,8 +40,8 @@ import {
     isFromImportModuleName,
     isImportModuleName,
 } from 'pyright-internal/analyzer/parseTreeUtils';
-import { ClassType, isClass, isClassInstance, isFunction, Type } from 'pyright-internal/analyzer/types';
-import { getScopeForNode } from 'pyright-internal/analyzer/scopeUtils';
+import { ClassType, isClass, isClassInstance, isFunction, isUnknown, Type } from 'pyright-internal/analyzer/types';
+import { getBuiltInScope, getScopeForNode } from 'pyright-internal/analyzer/scopeUtils';
 import { ScopeType } from 'pyright-internal/analyzer/scope';
 import { Counter } from './lsif-typescript/Counter';
 import { TypeStubExtendedWriter } from './TypeStubExtendedWriter';
@@ -64,10 +63,11 @@ function nameNodeToRange(name: NameNode, lines: TextRangeCollection<TextRange>) 
 }
 
 export class TreeVisitor extends ParseTreeWalker {
-    private fileInfo: AnalyzerFileInfo | undefined;
-    private symbols: Map<number, LsifSymbol>;
-    private imports: Map<number, ParseNode>;
     public filepath: string;
+
+    private fileInfo: AnalyzerFileInfo | undefined;
+    private imports: Map<number, ParseNode>;
+    private _symbols: Map<number, LsifSymbol>;
 
     private docstringWriter: TypeStubExtendedWriter;
 
@@ -76,15 +76,15 @@ export class TreeVisitor extends ParseTreeWalker {
     private _lastScope: ParseNode[];
 
     constructor(
+        public document: lsif.lib.codeintel.lsiftyped.Document,
         public sourceFile: SourceFile,
         private evaluator: TypeEvaluator,
-        public document: lsif.lib.codeintel.lsiftyped.Document,
-        private version: string,
-        private counter: Counter
+        private counter: Counter,
+        public options: Options
     ) {
         super();
         this.filepath = sourceFile.getFilePath();
-        this.symbols = new Map();
+        this._symbols = new Map();
         this.imports = new Map();
 
         this.docstringWriter = new TypeStubExtendedWriter(this.sourceFile, this.evaluator);
@@ -95,15 +95,15 @@ export class TreeVisitor extends ParseTreeWalker {
         this._lastScope = [];
     }
 
-    private getNearestClass(): ClassNode | undefined {
-        for (let i = this._lastScope.length - 1; i >= 0; i--) {
-            if (this._lastScope[i].nodeType == ParseNodeType.Class) {
-                return this._lastScope[i] as ClassNode;
-            }
-        }
-
-        return undefined;
-    }
+    // private getNearestClass(): ClassNode | undefined {
+    //     for (let i = this._lastScope.length - 1; i >= 0; i--) {
+    //         if (this._lastScope[i].nodeType == ParseNodeType.Class) {
+    //             return this._lastScope[i] as ClassNode;
+    //         }
+    //     }
+    //
+    //     return undefined;
+    // }
 
     private isInsideClass(): boolean {
         if (this._classDepth == 0) {
@@ -135,6 +135,7 @@ export class TreeVisitor extends ParseTreeWalker {
         );
 
         this.withScopeNode(node, () => {
+            this.walk(node.name);
             this.walk(node.suite);
         });
 
@@ -367,15 +368,36 @@ export class TreeVisitor extends ParseTreeWalker {
         }
 
         const builtinType = this.evaluator.getBuiltInType(node, node.value);
-        if (builtinType) {
-            this.document.occurrences.push(
-                new lsiftyped.Occurrence({
-                    symbol_roles: lsiftyped.SymbolRole.ReadAccess,
-                    symbol: this.getBuiltinSymbol(node.value).value,
-                    range: nameNodeToRange(node, this.fileInfo!.lines).toLsif(),
-                })
-            );
+        if (!isUnknown(builtinType)) {
+            // getDocumentationPartsForTypeAndDecl
+            if (node.value == "print") {
+                console.log("Print // BuiltinType:", builtinType);
+                console.log(this.evaluator.getBuiltInType(node.parent!, node.value))
+            }
+
+            if (isFunction(builtinType)) {
+                console.log("Docstring:",this.getBuiltinSymbol(node.value).value, builtinType.details.docString);
+                this.document.symbols.push(
+                    new lsiftyped.SymbolInformation({
+                        symbol: this.getBuiltinSymbol(node.value).value,
+                        documentation: [builtinType.details.docString || ''],
+                    })
+                );
+            } else {
+                this.document.occurrences.push(
+                    new lsiftyped.Occurrence({
+                        symbol_roles: lsiftyped.SymbolRole.ReadAccess,
+                        symbol: this.getBuiltinSymbol(node.value).value,
+                        range: nameNodeToRange(node, this.fileInfo!.lines).toLsif(),
+                    })
+                );
+            }
             return true;
+        } else {
+            let scope = getScopeForNode(node)!;
+            let builtinScope = getBuiltInScope(scope);
+            console.log(builtinScope);
+            // console.log(`Unknown type: ${node.value} :: ${scope}`);
         }
 
         return true;
@@ -387,7 +409,7 @@ export class TreeVisitor extends ParseTreeWalker {
     }
 
     private getLsifSymbol(node: ParseNode): LsifSymbol {
-        const existing = this.symbols.get(node.id);
+        const existing = this._symbols.get(node.id);
         if (existing) {
             return existing;
         }
@@ -396,13 +418,13 @@ export class TreeVisitor extends ParseTreeWalker {
 
         // not yet right, but good first approximation
         if (false && canBeLocal(node) && scope.type != ScopeType.Builtin) {
-            const newSymbol = LsifSymbol.local(this.counter.next());
-            this.symbols.set(node.id, newSymbol);
-            return newSymbol;
+            // const newSymbol = LsifSymbol.local(this.counter.next());
+            // this._symbols.set(node.id, newSymbol);
+            // return newSymbol;
         }
 
         const newSymbol = this.makeLsifSymbol(node);
-        this.symbols.set(node.id, newSymbol);
+        this._symbols.set(node.id, newSymbol);
 
         return newSymbol;
     }
@@ -414,9 +436,15 @@ export class TreeVisitor extends ParseTreeWalker {
     private makeLsifSymbol(node: ParseNode): LsifSymbol {
         switch (node.nodeType) {
             case ParseNodeType.Module:
+                const moduleName = getFileInfo(node)!.moduleName;
+                if (moduleName == "builtins") {
+                    // TODO: Should get the correct python version for the project here
+                    return LsifSymbol.package(moduleName, '3.9');
+                }
+
                 // TODO: When we can get versions for different modules, we
                 // should use that here to get the correction version (of the other module)
-                return LsifSymbol.package(getFileInfo(node)!.moduleName, this.version);
+                return LsifSymbol.package(moduleName, this.options.projectVersion);
 
             case ParseNodeType.Parameter:
                 return LsifSymbol.global(
@@ -484,22 +512,25 @@ export class TreeVisitor extends ParseTreeWalker {
                 // TODO:
                 return LsifSymbol.empty();
 
-            case ParseNodeType.If:
-                return LsifSymbol.empty();
-
             case ParseNodeType.Decorator:
                 throw 'Should not handle decorator directly';
 
             case ParseNodeType.Assignment:
-                console.log(
-                    'Assignment:',
-                    node.id,
-                    this._lastScope.length,
-                    LsifSymbol.package(getFileInfo(node)!.moduleName, this.version).value
-                );
+                // console.log(
+                //     'Assignment:',
+                //     node.id,
+                //     this._lastScope.length,
+                //     LsifSymbol.package(getFileInfo(node)!.moduleName, this.version).value
+                // );
 
+                // Handle if this variable is in the global scope or not
+                // Hard to say for sure (might need to use builtinscope for that?)
                 if (this._lastScope.length === 0) {
-                    return LsifSymbol.package(getFileInfo(node)!.moduleName, this.version);
+                    return LsifSymbol.package(getFileInfo(node)!.moduleName, this.options.projectVersion);
+                }
+
+                if (this._functionDepth > 0) {
+                  // TODO: Check this
                 }
 
                 // throw 'what';
@@ -507,6 +538,11 @@ export class TreeVisitor extends ParseTreeWalker {
 
             // Some nodes, it just makes sense to return whatever their parent is.
             case ParseNodeType.With:
+            case ParseNodeType.If:
+                // There is some confusion for me about whether we should do this
+                // vs the other idea...
+                // return LsifSymbol.empty();
+
                 return this.getLsifSymbol(node.parent!);
 
             default:
@@ -522,7 +558,7 @@ export class TreeVisitor extends ParseTreeWalker {
                 throw 'Unhandled missing declaration for type: function';
             }
 
-            return LsifSymbol.global(LsifSymbol.package(decl.moduleName, this.version), methodDescriptor(node.value));
+            return LsifSymbol.global(LsifSymbol.package(decl.moduleName, this.options.projectVersion), methodDescriptor(node.value));
         } else if (isClass(typeObj)) {
             let sourceFile = typeObj.details.moduleName;
             const sym = LsifSymbol.global(this.getPackageSymbol(), packageDescriptor(sourceFile));

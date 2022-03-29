@@ -20,7 +20,7 @@ export interface Options {
     projectRoot: string;
 
     /** Version **/
-    version: string;
+    projectVersion: string;
 
     writeIndex: (index: lib.codeintel.lsiftyped.Index) => void;
 }
