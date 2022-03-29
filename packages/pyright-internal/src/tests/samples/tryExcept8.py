@@ -1,6 +1,9 @@
 # This sample tests the detection of inaccessible exception handlers.
 
 
+from typing import Type, Union
+
+
 def func1() -> None:
     pass
 
@@ -46,3 +49,21 @@ def func5():
         pass
     except:
         pass
+
+
+def func6(u: Union[Type[Exception], tuple[Type[Exception], ...]]):
+    try:
+        ...
+    except ValueError as e:
+        ...
+    except u as e:
+        ...
+
+
+def func7(u: Type[Exception]):
+    try:
+        ...
+    except ValueError as e:
+        ...
+    except u as e:
+        ...

@@ -4930,17 +4930,17 @@ export class Checker extends ParseTreeWalker {
     // Determines whether any of the except statements are unreachable because
     // they are redundant.
     private _reportUnusedExceptStatements(node: TryNode) {
-        let sawUnknownOrAny = false;
+        let sawUnknownExceptionType = false;
         const exceptionTypesSoFar: ClassType[] = [];
 
         node.exceptClauses.forEach((except) => {
-            if (sawUnknownOrAny || except.isExceptGroup || !except.typeExpression) {
+            if (sawUnknownExceptionType || except.isExceptGroup || !except.typeExpression) {
                 return;
             }
 
             const exceptionType = this._evaluator.getType(except.typeExpression);
             if (!exceptionType || isAnyOrUnknown(exceptionType)) {
-                sawUnknownOrAny = true;
+                sawUnknownExceptionType = true;
                 return;
             }
 
@@ -4950,7 +4950,7 @@ export class Checker extends ParseTreeWalker {
                 // If the exception type is a variable whose type could represent
                 // subclasses, the actual exception type is statically unknown.
                 if (exceptionType.includeSubclasses) {
-                    sawUnknownOrAny = true;
+                    sawUnknownExceptionType = true;
                 }
 
                 typesForThisExcept.push(exceptionType);
@@ -4964,21 +4964,23 @@ export class Checker extends ParseTreeWalker {
 
                 doForEachSubtype(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
-                        sawUnknownOrAny = true;
+                        sawUnknownExceptionType = true;
                     }
 
                     if (isInstantiableClass(subtype)) {
                         // If the exception type is a variable whose type could represent
                         // subclasses, the actual exception type is statically unknown.
                         if (subtype.includeSubclasses) {
-                            sawUnknownOrAny = true;
+                            sawUnknownExceptionType = true;
                         }
                         typesForThisExcept.push(subtype);
                     }
                 });
+            } else {
+                sawUnknownExceptionType = true;
             }
 
-            if (exceptionTypesSoFar.length > 0) {
+            if (exceptionTypesSoFar.length > 0 && !sawUnknownExceptionType) {
                 const diagAddendum = new DiagnosticAddendum();
                 let overriddenExceptionCount = 0;
 
