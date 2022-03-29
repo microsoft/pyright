@@ -49,6 +49,15 @@ export class Indexer {
             onCancellationRequested: Event.None,
         };
 
+        // TODO: I don't understand how typescript & jest & webpack work together
+        // so I don't know how to make sure that this always works (cause it fails when
+        // I run it via jet but not via webpacked javascript and what not)
+        let version = "0.0"
+        try {
+            version = require('package.json');
+        } catch (e) {};
+
+
         // Emit metadata
         this.options.writeIndex(
             new lsiftyped.Index({
@@ -57,7 +66,7 @@ export class Indexer {
                     text_document_encoding: lsiftyped.TextEncoding.UTF8,
                     tool_info: new lsiftyped.ToolInfo({
                         name: 'lsif-pyright',
-                        version: require('package.json').version,
+                        version,
                         arguments: [],
                     }),
                 }),

@@ -18,7 +18,6 @@ export function main(): void {
             'index [project]',
             'LSIF index a project',
             (yargs) => {
-              console.log("Is this?");
                 yargs.positional('project', {
                     type: 'string',
                     default: '.',

@@ -88,7 +88,6 @@ export class TreeVisitor extends ParseTreeWalker {
         this.imports = new Map();
 
         this.docstringWriter = new TypeStubExtendedWriter(this.sourceFile, this.evaluator);
-        console.log('Visiting:', document.relative_path);
 
         this._classDepth = 0;
         this._functionDepth = 0;
@@ -369,11 +368,13 @@ export class TreeVisitor extends ParseTreeWalker {
 
         const builtinType = this.evaluator.getBuiltInType(node, node.value);
         if (!isUnknown(builtinType)) {
-            // getDocumentationPartsForTypeAndDecl
-            if (node.value == "print") {
-                console.log("Print // BuiltinType:", builtinType);
-                console.log(this.evaluator.getBuiltInType(node.parent!, node.value))
-            }
+            // TODO: We're still missing documentation for builtin functions,
+            // so that's a bit of a shame...
+            //
+            // if (node.value == "print") {
+            //     console.log("Print // BuiltinType:", builtinType);
+            //     console.log(this.evaluator.getBuiltInType(node.parent!, node.value))
+            // }
 
             if (isFunction(builtinType)) {
                 console.log("Docstring:",this.getBuiltinSymbol(node.value).value, builtinType.details.docString);
