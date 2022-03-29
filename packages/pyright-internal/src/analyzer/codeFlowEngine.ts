@@ -13,7 +13,7 @@
 
 import { assert, fail } from '../common/debug';
 import { CallNode, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { getCodeFlowComplexity, getImportInfo } from './analyzerNodeInfo';
+import { getImportInfo } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
@@ -650,12 +650,19 @@ export function getCodeFlowEngine(
                 const typesToCombine: Type[] = [];
 
                 let sawIncomplete = false;
+                let isProvenReachable = false;
 
                 // Set the cache entry to undefined before evaluating the
                 // expression in case it depends on itself.
                 setCacheEntry(branchNode, reference ? undefined : initialType, /* isIncomplete */ true);
 
                 branchNode.antecedents.forEach((antecedent) => {
+                    // If we're solving for "reachability", and we have now proven
+                    // reachability, there's no reason to do more work.
+                    if (reference === undefined && isProvenReachable) {
+                        return;
+                    }
+
                     const flowTypeResult = getTypeFromFlowNode(
                         antecedent,
                         reference,
@@ -668,10 +675,18 @@ export function getCodeFlowEngine(
                         sawIncomplete = true;
                     }
 
+                    if (reference === undefined && flowTypeResult.type !== undefined) {
+                        isProvenReachable = true;
+                    }
+
                     if (flowTypeResult.type) {
                         typesToCombine.push(flowTypeResult.type);
                     }
                 });
+
+                if (isProvenReachable) {
+                    return setCacheEntry(branchNode, initialType, /* isIncomplete */ false);
+                }
 
                 const effectiveType =
                     !!reference || typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
@@ -706,8 +721,17 @@ export function getCodeFlowEngine(
 
                 while (true) {
                     let sawIncomplete = false;
+                    let isProvenReachable =
+                        reference === undefined &&
+                        cacheEntry.incompleteSubtypes?.some((subtype) => subtype.type !== undefined);
 
                     loopNode.antecedents.forEach((antecedent, index) => {
+                        // If we've trying to determine reachability and we've already proven
+                        // reachability, then we're done.
+                        if (reference === undefined && isProvenReachable) {
+                            return;
+                        }
+
                         cacheEntry = getCacheEntry(loopNode)!;
 
                         // Have we already been here (i.e. does the entry exist and is
@@ -763,7 +787,15 @@ export function getCodeFlowEngine(
                                 throw e;
                             }
                         }
+
+                        if (reference === undefined && cacheEntry?.type !== undefined) {
+                            isProvenReachable = true;
+                        }
                     });
+
+                    if (isProvenReachable) {
+                        return setCacheEntry(loopNode, initialType, /* isIncomplete */ false);
+                    }
 
                     let effectiveType = cacheEntry.type;
                     if (sawIncomplete) {
@@ -1366,15 +1398,6 @@ export function getCodeFlowEngine(
 
     function isAfterNodeReachable(evaluator: TypeEvaluator, functionType: FunctionType) {
         if (!functionType.details.declaration) {
-            return true;
-        }
-
-        // Don't bother analyzing the function for NoReturn if it is extremely
-        // complex. It's highly unlikely that it will be NoReturn in this case,
-        // and it can be extremely expensive to compute.
-        const codeFlowComplexity = getCodeFlowComplexity(functionType.details.declaration.node);
-        const maxCodeFlowComplexity = 32;
-        if (codeFlowComplexity > maxCodeFlowComplexity) {
             return true;
         }
 
