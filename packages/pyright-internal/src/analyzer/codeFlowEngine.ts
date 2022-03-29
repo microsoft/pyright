@@ -278,13 +278,7 @@ export function getCodeFlowEngine(
             // If this flow has no knowledge of the target expression, it returns undefined.
             // If the start flow node for this scope is reachable, the typeAtStart value is
             // returned.
-            function getTypeFromFlowNode(
-                flowNode: FlowNode,
-                reference: CodeFlowReferenceExpressionNode | undefined,
-                targetSymbolId: number | undefined,
-                initialType: Type | undefined,
-                isInitialTypeIncomplete: boolean
-            ): FlowNodeTypeResult {
+            function getTypeFromFlowNode(flowNode: FlowNode): FlowNodeTypeResult {
                 let curFlowNode = flowNode;
 
                 // This is a frequently-called routine, so it's a good place to call
@@ -472,13 +466,7 @@ export function getCodeFlowEngine(
                                 );
 
                                 if (typeNarrowingCallback) {
-                                    const flowTypeResult = getTypeFromFlowNode(
-                                        conditionalFlowNode.antecedent,
-                                        reference,
-                                        targetSymbolId,
-                                        initialType,
-                                        isInitialTypeIncomplete
-                                    );
+                                    const flowTypeResult = getTypeFromFlowNode(conditionalFlowNode.antecedent);
                                     let flowType = flowTypeResult.type;
                                     if (flowType) {
                                         flowType = typeNarrowingCallback(flowType);
@@ -663,13 +651,7 @@ export function getCodeFlowEngine(
                         return;
                     }
 
-                    const flowTypeResult = getTypeFromFlowNode(
-                        antecedent,
-                        reference,
-                        targetSymbolId,
-                        initialType,
-                        isInitialTypeIncomplete
-                    );
+                    const flowTypeResult = getTypeFromFlowNode(antecedent);
 
                     if (flowTypeResult.isIncomplete) {
                         sawIncomplete = true;
@@ -755,13 +737,7 @@ export function getCodeFlowEngine(
                             );
 
                             try {
-                                const flowTypeResult = getTypeFromFlowNode(
-                                    antecedent,
-                                    reference,
-                                    targetSymbolId,
-                                    initialType,
-                                    isInitialTypeIncomplete
-                                );
+                                const flowTypeResult = getTypeFromFlowNode(antecedent);
 
                                 if (flowTypeResult.isIncomplete) {
                                     sawIncomplete = true;
@@ -827,13 +803,7 @@ export function getCodeFlowEngine(
                 setCacheEntry(preFinallyFlowNode, reference ? undefined : initialType, /* isIncomplete */ true);
 
                 try {
-                    const flowTypeResult = getTypeFromFlowNode(
-                        preFinallyFlowNode.antecedent,
-                        reference,
-                        targetSymbolId,
-                        initialType,
-                        isInitialTypeIncomplete
-                    );
+                    const flowTypeResult = getTypeFromFlowNode(preFinallyFlowNode.antecedent);
 
                     // We want to cache the type only if we're evaluating the "gate closed" path.
                     deleteCacheEntry(preFinallyFlowNode);
@@ -858,13 +828,7 @@ export function getCodeFlowEngine(
                     // because the final types within this parse node block should be
                     // evaluated when the gate is open.
                     evaluator.useSpeculativeMode(postFinallyFlowNode.finallyNode, () => {
-                        flowTypeResult = getTypeFromFlowNode(
-                            postFinallyFlowNode.antecedent,
-                            reference,
-                            targetSymbolId,
-                            initialType,
-                            isInitialTypeIncomplete
-                        );
+                        flowTypeResult = getTypeFromFlowNode(postFinallyFlowNode.antecedent);
                     });
 
                     // If the type is incomplete, don't write back to the cache.
@@ -887,7 +851,7 @@ export function getCodeFlowEngine(
                 };
             }
 
-            return getTypeFromFlowNode(flowNode, reference, targetSymbolId, initialType, isInitialTypeIncomplete);
+            return getTypeFromFlowNode(flowNode);
         }
 
         return {
