@@ -79,6 +79,8 @@ def as_completed(fs: Iterable[Future[_T]], timeout: float | None = ...) -> Itera
 
 # Ideally this would be a namedtuple, but mypy doesn't support generic tuple types. See #1976
 class DoneAndNotDoneFutures(Sequence[set[Future[_T]]]):
+    if sys.version_info >= (3, 10):
+        __match_args__ = ("done", "not_done")
     @property
     def done(self) -> set[Future[_T]]: ...
     @property

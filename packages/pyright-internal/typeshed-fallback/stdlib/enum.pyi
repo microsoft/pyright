@@ -95,11 +95,11 @@ class EnumMeta(ABCMeta):
     def __members__(self: type[_EnumMemberT]) -> types.MappingProxyType[str, _EnumMemberT]: ...
     def __len__(self) -> int: ...
     def __bool__(self) -> Literal[True]: ...
+    # Simple value lookup
+    @overload  # type: ignore[override]
+    def __call__(cls: type[_EnumMemberT], value: Any, names: None = ...) -> _EnumMemberT: ...
+    # Functional Enum API
     if sys.version_info >= (3, 11):
-        # Simple value lookup
-        @overload  # type: ignore[override]
-        def __call__(cls: type[_EnumMemberT], value: Any, names: None = ...) -> _EnumMemberT: ...
-        # Functional Enum API
         @overload
         def __call__(
             cls,
@@ -113,8 +113,6 @@ class EnumMeta(ABCMeta):
             boundary: FlagBoundary | None = ...,
         ) -> type[Enum]: ...
     else:
-        @overload  # type: ignore[override]
-        def __call__(cls: type[_EnumMemberT], value: Any, names: None = ...) -> _EnumMemberT: ...
         @overload
         def __call__(
             cls,

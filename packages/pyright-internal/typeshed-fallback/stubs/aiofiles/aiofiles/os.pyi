@@ -43,7 +43,7 @@ async def mkdir(
     *,
     dir_fd: int | None = ...,
     loop: AbstractEventLoop | None = ...,
-    executor: Any = ...,  # noqa: F811
+    executor: Any = ...,
 ) -> None: ...
 async def makedirs(
     name: StrOrBytesPath, mode: int = ..., exist_ok: bool = ..., *, loop: AbstractEventLoop | None = ..., executor: Any = ...

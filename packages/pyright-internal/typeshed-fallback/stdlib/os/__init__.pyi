@@ -35,7 +35,7 @@ from typing import (
     overload,
     runtime_checkable,
 )
-from typing_extensions import Literal, final
+from typing_extensions import Final, Literal, final
 
 from . import path as _path
 
@@ -314,6 +314,8 @@ class stat_result(structseq[float], tuple[int, int, int, int, int, int, int, flo
     # st_uid, st_gid, st_size, st_atime, st_mtime, st_ctime.
     #
     # More items may be added at the end by some implementations.
+    if sys.version_info >= (3, 10):
+        __match_args__: Final = ("st_mode", "st_ino", "st_dev", "st_nlink", "st_uid", "st_gid", "st_size")
     @property
     def st_mode(self) -> int: ...  # protection bits,
     @property
@@ -408,6 +410,19 @@ else:
 
 @final
 class statvfs_result(structseq[int], _StatVfsTuple):
+    if sys.version_info >= (3, 10):
+        __match_args__: Final = (
+            "f_bsize",
+            "f_frsize",
+            "f_blocks",
+            "f_bfree",
+            "f_bavail",
+            "f_files",
+            "f_ffree",
+            "f_favail",
+            "f_flag",
+            "f_namemax",
+        )
     @property
     def f_bsize(self) -> int: ...
     @property
@@ -449,6 +464,8 @@ def strerror(__code: int) -> str: ...
 def umask(__mask: int) -> int: ...
 @final
 class uname_result(structseq[str], tuple[str, str, str, str, str]):
+    if sys.version_info >= (3, 10):
+        __match_args__: Final = ("sysname", "nodename", "release", "version", "machine")
     @property
     def sysname(self) -> str: ...
     @property
@@ -654,6 +671,8 @@ if sys.platform != "win32":
 
 @final
 class terminal_size(structseq[int], tuple[int, int]):
+    if sys.version_info >= (3, 10):
+        __match_args__: Final = ("columns", "lines")
     @property
     def columns(self) -> int: ...
     @property
@@ -732,20 +751,15 @@ class _ScandirIterator(Iterator[DirEntry[AnyStr]], AbstractContextManager[_Scand
     def __exit__(self, *args: object) -> None: ...
     def close(self) -> None: ...
 
+@overload
+def scandir(path: None = ...) -> _ScandirIterator[str]: ...
+
 if sys.version_info >= (3, 7):
     @overload
-    def scandir(path: None = ...) -> _ScandirIterator[str]: ...
-    @overload
     def scandir(path: int) -> _ScandirIterator[str]: ...
-    @overload
-    def scandir(path: AnyStr | PathLike[AnyStr]) -> _ScandirIterator[AnyStr]: ...
 
-else:
-    @overload
-    def scandir(path: None = ...) -> _ScandirIterator[str]: ...
-    @overload
-    def scandir(path: AnyStr | PathLike[AnyStr]) -> _ScandirIterator[AnyStr]: ...
-
+@overload
+def scandir(path: AnyStr | PathLike[AnyStr]) -> _ScandirIterator[AnyStr]: ...
 def stat(path: _FdOrAnyPath, *, dir_fd: int | None = ..., follow_symlinks: bool = ...) -> stat_result: ...
 
 if sys.version_info < (3, 7):
@@ -878,6 +892,8 @@ else:
 def system(command: StrOrBytesPath) -> int: ...
 @final
 class times_result(structseq[float], tuple[float, float, float, float, float]):
+    if sys.version_info >= (3, 10):
+        __match_args__: Final = ("user", "system", "children_user", "children_system", "elapsed")
     @property
     def user(self) -> float: ...
     @property

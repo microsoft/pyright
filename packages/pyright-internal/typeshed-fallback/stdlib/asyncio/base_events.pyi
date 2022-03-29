@@ -14,6 +14,9 @@ from typing_extensions import Literal
 if sys.version_info >= (3, 7):
     from contextvars import Context
 
+if sys.version_info >= (3, 9):
+    __all__ = ("BaseEventLoop", "Server")
+elif sys.version_info >= (3, 7):
     __all__ = ("BaseEventLoop",)
 else:
     __all__ = ["BaseEventLoop"]

@@ -1,4 +1,4 @@
-from typing import Any, Container, Mapping, Text
+from typing import Any, Mapping, Text
 
 from urllib3 import exceptions as urllib3_exceptions, poolmanager, response
 from urllib3.util import retry
@@ -43,7 +43,7 @@ class BaseAdapter:
         stream: bool = ...,
         timeout: None | float | tuple[float, float] | tuple[float, None] = ...,
         verify: bool | str = ...,
-        cert: None | bytes | Text | Container[bytes | Text] = ...,
+        cert: None | bytes | Text | tuple[bytes | Text, bytes | Text] = ...,
         proxies: Mapping[str, str] | None = ...,
     ) -> Response: ...
     def close(self) -> None: ...
@@ -72,6 +72,6 @@ class HTTPAdapter(BaseAdapter):
         stream: bool = ...,
         timeout: None | float | tuple[float, float] | tuple[float, None] = ...,
         verify: bool | str = ...,
-        cert: None | bytes | Text | Container[bytes | Text] = ...,
+        cert: None | bytes | Text | tuple[bytes | Text, bytes | Text] = ...,
         proxies: Mapping[str, str] | None = ...,
     ) -> Response: ...

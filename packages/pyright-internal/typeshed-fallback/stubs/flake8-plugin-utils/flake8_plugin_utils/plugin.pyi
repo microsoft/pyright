@@ -3,7 +3,7 @@ import ast
 from typing import Any, Generic, Iterable, Iterator, TypeVar
 
 FLAKE8_ERROR = tuple[int, int, str, type[Any]]
-TConfig = TypeVar("TConfig")  # noqa: Y001
+TConfig = TypeVar("TConfig")  # noqa: Y001  # Name of the TypeVar matches the name at runtime
 
 class Error:
     code: str

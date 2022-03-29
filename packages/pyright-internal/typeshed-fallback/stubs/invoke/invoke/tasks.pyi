@@ -23,8 +23,8 @@ class Task:
     incrementable: Iterable[str]
     auto_shortflags: bool
     help: dict[str, str]
-    pre: list[Task]
-    post: list[Task]
+    pre: Iterable[Task]
+    post: Iterable[Task]
     times_called: int
     autoprint: bool
     def __init__(
@@ -37,8 +37,8 @@ class Task:
         default: bool = ...,
         auto_shortflags: bool = ...,
         help: dict[str, str] | None = ...,
-        pre: list[Task] | None = ...,
-        post: list[Task] | None = ...,
+        pre: Iterable[Task] | None = ...,
+        post: Iterable[Task] | None = ...,
         autoprint: bool = ...,
         iterable: Iterable[str] | None = ...,
         incrementable: Iterable[str] | None = ...,
@@ -73,7 +73,7 @@ def task(
     iterable: Iterable[str] | None = ...,
     incrementable: Iterable[str] | None = ...,
     klass: type[_TaskT] = ...,
-) -> _TaskT: ...
+) -> Callable[[Callable[..., Any]], _TaskT]: ...
 
 class Call:
     task: Task

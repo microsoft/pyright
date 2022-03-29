@@ -3,7 +3,7 @@ from _typeshed import structseq
 from threading import Thread
 from types import TracebackType
 from typing import Any, Callable, NoReturn
-from typing_extensions import final
+from typing_extensions import Final, final
 
 error = RuntimeError
 
@@ -34,6 +34,8 @@ if sys.version_info >= (3, 8):
     def get_native_id() -> int: ...  # only available on some platforms
     @final
     class _ExceptHookArgs(structseq[Any], tuple[type[BaseException], BaseException | None, TracebackType | None, Thread | None]):
+        if sys.version_info >= (3, 10):
+            __match_args__: Final = ("exc_type", "exc_value", "exc_traceback", "thread")
         @property
         def exc_type(self) -> type[BaseException]: ...
         @property

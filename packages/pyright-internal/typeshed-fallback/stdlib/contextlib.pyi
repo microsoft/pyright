@@ -1,7 +1,7 @@
 import sys
 from _typeshed import Self, StrOrBytesPath
 from types import TracebackType
-from typing import (  # noqa Y027
+from typing import (  # noqa: Y027
     IO,
     Any,
     AsyncGenerator,
@@ -80,7 +80,7 @@ else:
 
 AbstractContextManager = ContextManager
 if sys.version_info >= (3, 7):
-    from typing import AsyncContextManager  # noqa Y022
+    from typing import AsyncContextManager  # noqa: Y022
 
     AbstractAsyncContextManager = AsyncContextManager
 

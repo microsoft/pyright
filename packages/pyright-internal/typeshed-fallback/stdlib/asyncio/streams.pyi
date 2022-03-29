@@ -1,6 +1,6 @@
 import sys
 from _typeshed import Self, StrPath
-from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
+from typing import Any, AsyncIterator, Awaitable, Callable, Iterable, Sequence
 
 from . import events, protocols, transports
 from .base_events import Server
@@ -87,7 +87,7 @@ if sys.version_info >= (3, 10):
     ) -> tuple[StreamReader, StreamWriter]: ...
     async def start_server(
         client_connected_cb: _ClientConnectedCallback,
-        host: str | None = ...,
+        host: str | Sequence[str] | None = ...,
         port: int | str | None = ...,
         *,
         limit: int = ...,
