@@ -29,7 +29,6 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
-import { getHeapStatistics } from '../common/memUtils';
 import {
     combinePaths,
     getDirectoryPath,
