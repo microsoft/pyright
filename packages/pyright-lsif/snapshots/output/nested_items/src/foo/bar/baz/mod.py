@@ -1,5 +1,6 @@
 class SuchNestedMuchWow:
-#     ^^^^^^^^^^^^^^^^^ reference  src/foo.bar.baz.mod 0.1 SuchNestedMuchWow#
+#     ^^^^^^^^^^^^^^^^^ reference  src/foo.bar.baz.mod test SuchNestedMuchWow#
     class_item: int = 42
-#   ^^^^^^^^^^ definition  src/foo.bar.baz.mod 0.1 SuchNestedMuchWow#class_item.
+#   ^^^^^^^^^^ definition  src/foo.bar.baz.mod test SuchNestedMuchWow#class_item.
+#               ^^^ reference  builtins 3.9 int#
 

@@ -152,7 +152,7 @@ export function main(): void {
                         const input = Input.fromFile(inputPath);
                         const obtained = formatSnapshot(input, doc);
                         const relativeToInputDirectory = path.relative(projectRoot, inputPath);
-                        const outputPath = path.resolve(snapshotDir, relativeToInputDirectory);
+                        const outputPath = path.resolve(outputDirectory, snapshotDir, relativeToInputDirectory);
                         writeSnapshot(outputPath, obtained);
                     }
                 }
