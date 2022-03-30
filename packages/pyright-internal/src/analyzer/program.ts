@@ -8,7 +8,6 @@
  * and all of their recursive imports.
  */
 
-import { getHeapStatistics } from 'v8';
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
@@ -2177,13 +2176,13 @@ export class Program {
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
         if (typeCacheSize > 750000 || this._parsedFileCount > 1000) {
-            const memoryUsage = getHeapStatistics();
+            const memoryUsage = process.memoryUsage();
 
             // If we use more than 90% of the available heap size, avoid a crash
             // by emptying the type cache.
-            if (memoryUsage.used_heap_size > memoryUsage.heap_size_limit * 0.9) {
-                const heapSizeInMb = Math.round(memoryUsage.heap_size_limit / (1024 * 1024));
-                const heapUsageInMb = Math.round(memoryUsage.used_heap_size / (1024 * 1024));
+            if (memoryUsage.heapUsed > memoryUsage.rss * 0.9) {
+                const heapSizeInMb = Math.round(memoryUsage.rss / (1024 * 1024));
+                const heapUsageInMb = Math.round(memoryUsage.heapUsed / (1024 * 1024));
 
                 this._console.info(
                     `Emptying type cache to avoid heap overflow. Used ${heapUsageInMb}MB out of ${heapSizeInMb}MB`
