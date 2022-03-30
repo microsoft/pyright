@@ -47,7 +47,7 @@ import { Counter } from './lsif-typescript/Counter';
 import { TypeStubExtendedWriter } from './TypeStubExtendedWriter';
 import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 import { extractParameterDocumentation } from 'pyright-internal/analyzer/docStringUtils';
-import { Declaration } from 'pyright-internal/analyzer/declaration';
+import { Declaration, isIntrinsicDeclaration } from 'pyright-internal/analyzer/declaration';
 
 //  Useful functions for later, but haven't gotten far enough yet to use them.
 //      extractParameterDocumentation
@@ -272,10 +272,15 @@ export class TreeVisitor extends ParseTreeWalker {
         this.docstringWriter.visitImport(node);
 
         for (const listNode of node.list) {
-            this.pushNewNameNodeOccurence(
-                listNode.module.nameParts[0],
-                LsifSymbol.global(LsifSymbol.empty(), packageDescriptor(listNode.module.nameParts[0].value))
-            );
+            for (const namePart of listNode.module.nameParts) {
+                this.pushNewNameNodeOccurence(
+                    namePart,
+                    LsifSymbol.global(
+                        LsifSymbol.global(LsifSymbol.empty(), packageDescriptor(namePart.value)),
+                        metaDescriptor('__init__')
+                    )
+                );
+            }
         }
 
         return true;
@@ -298,15 +303,20 @@ export class TreeVisitor extends ParseTreeWalker {
                 return true;
             }
 
+            // TODO: Handle intrinsics
+            if (isIntrinsicDeclaration(dec)) {
+                // TODO: Should use this declaration better
+                this.pushNewNameNodeOccurence(node, this.getBuiltinSymbol(node.value));
+                return true;
+            }
+
             if (this.imports.has(dec.node.id)) {
                 // TODO: ExpressionNode cast is required?
                 const thingy = this.evaluator.getType(dec.node as ExpressionNode);
-
                 if (thingy) {
                     this.pushTypeReference(node, thingy!);
                 }
 
-                // TODO: Handle ?
                 return true;
             }
 
@@ -345,7 +355,6 @@ export class TreeVisitor extends ParseTreeWalker {
             // so that's a bit of a shame...
 
             if (isFunction(builtinType)) {
-                console.log('Docstring:', this.getBuiltinSymbol(node.value).value, builtinType.details.docString);
                 this.document.symbols.push(
                     new lsiftyped.SymbolInformation({
                         symbol: this.getBuiltinSymbol(node.value).value,
@@ -355,12 +364,11 @@ export class TreeVisitor extends ParseTreeWalker {
             } else {
                 this.pushNewNameNodeOccurence(node, this.getBuiltinSymbol(node.value));
             }
+
             return true;
         } else {
             let scope = getScopeForNode(node)!;
             let builtinScope = getBuiltInScope(scope);
-            // console.log(builtinScope);
-            // console.log(`Unknown type: ${node.value} :: ${scope}`);
         }
 
         return true;
@@ -474,13 +482,6 @@ export class TreeVisitor extends ParseTreeWalker {
                 throw 'Should not handle decorator directly';
 
             case ParseNodeType.Assignment:
-                // console.log(
-                //     'Assignment:',
-                //     node.id,
-                //     this._lastScope.length,
-                //     LsifSymbol.package(getFileInfo(node)!.moduleName, this.version).value
-                // );
-
                 // Handle if this variable is in the global scope or not
                 // Hard to say for sure (might need to use builtinscope for that?)
                 if (this._lastScope.length === 0) {
@@ -510,6 +511,7 @@ export class TreeVisitor extends ParseTreeWalker {
             case ParseNodeType.ListComprehensionFor:
             case ParseNodeType.ListComprehensionIf:
             case ParseNodeType.Argument:
+            case ParseNodeType.BinaryOperation:
                 // There is some confusion for me about whether we should do this
                 // vs the other idea...
                 // return LsifSymbol.empty();
@@ -517,9 +519,8 @@ export class TreeVisitor extends ParseTreeWalker {
                 return this.getLsifSymbol(node.parent!);
 
             default:
-                // console.log(node);
                 // throw `Unhandled: ${node.nodeType}\n`;
-                console.log(`Unhandled: ${node.nodeType}\n`);
+                console.warn(`Unhandled: ${node.nodeType}`);
                 if (!node.parent) {
                     return LsifSymbol.local(this.counter.next());
                 }
@@ -556,7 +557,7 @@ export class TreeVisitor extends ParseTreeWalker {
         // const mod = LsifSymbol.sourceFile(this.getPackageSymbol(), [this.fileInfo!.moduleName]);
         // const mod = LsifSymbol.global(this.getPackageSymbol(), packageDescriptor(this.fileInfo!.moduleName));
         // return LsifSymbol.global(mod, termDescriptor(node.value));
-        console.warn(`Unreachable TypeObj: ${node.value}`);
+        console.warn(`Unreachable TypeObj: ${node.value}: ${typeObj.category}`);
         return LsifSymbol.local(this.counter.next());
     }
 
