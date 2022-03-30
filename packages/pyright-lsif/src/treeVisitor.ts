@@ -397,7 +397,7 @@ export class TreeVisitor extends ParseTreeWalker {
         } else {
             let scope = getScopeForNode(node)!;
             let builtinScope = getBuiltInScope(scope);
-            console.log(builtinScope);
+            // console.log(builtinScope);
             // console.log(`Unknown type: ${node.value} :: ${scope}`);
         }
 
@@ -424,7 +424,9 @@ export class TreeVisitor extends ParseTreeWalker {
             // return newSymbol;
         }
 
-        const newSymbol = this.makeLsifSymbol(node);
+        let newSymbol = this.makeLsifSymbol(node);
+        (newSymbol as any).value = newSymbol.value.trimEnd();
+
         this._symbols.set(node.id, newSymbol);
 
         return newSymbol;
@@ -448,9 +450,14 @@ export class TreeVisitor extends ParseTreeWalker {
                 return LsifSymbol.package(moduleName, this.options.projectVersion);
 
             case ParseNodeType.Parameter:
+                if (!node.name) {
+                    console.warn('TODO: Paramerter with no name', node);
+                    return LsifSymbol.local(this.counter.next());
+                }
+
                 return LsifSymbol.global(
                     this.getLsifSymbol(node.parent!),
-                    parameterDescriptor((node as ParameterNode).name!.value)
+                    parameterDescriptor(node.name.value)
                 );
 
             case ParseNodeType.Class:
@@ -507,12 +514,6 @@ export class TreeVisitor extends ParseTreeWalker {
                     termDescriptor('FuncAnnotation')
                 );
 
-            case ParseNodeType.ImportAs:
-            case ParseNodeType.ImportFrom:
-            case ParseNodeType.ImportFromAs:
-                // TODO:
-                return LsifSymbol.empty();
-
             case ParseNodeType.Decorator:
                 throw 'Should not handle decorator directly';
 
@@ -540,14 +541,34 @@ export class TreeVisitor extends ParseTreeWalker {
             // Some nodes, it just makes sense to return whatever their parent is.
             case ParseNodeType.With:
             case ParseNodeType.If:
+            case ParseNodeType.For:
+            // TODO: Handle imports better
+            case ParseNodeType.ImportAs:
+            case ParseNodeType.ImportFrom:
+            case ParseNodeType.ImportFromAs:
+            // To explore:
+            case ParseNodeType.StatementList:
+            case ParseNodeType.Tuple:
+            case ParseNodeType.ListComprehension:
+            case ParseNodeType.ListComprehensionFor:
+            case ParseNodeType.ListComprehensionIf:
+            case ParseNodeType.Argument:
                 // There is some confusion for me about whether we should do this
                 // vs the other idea...
                 // return LsifSymbol.empty();
 
                 return this.getLsifSymbol(node.parent!);
 
+
             default:
-                throw 'Unhandled: ' + node.nodeType;
+                // console.log(node);
+                // throw `Unhandled: ${node.nodeType}\n`;
+                console.log(`Unhandled: ${node.nodeType}\n`);
+                if (!node.parent) {
+                    return LsifSymbol.empty();
+                }
+
+                return this.getLsifSymbol(node.parent!);
         }
     }
 
@@ -556,7 +577,9 @@ export class TreeVisitor extends ParseTreeWalker {
         if (isFunction(typeObj)) {
             const decl = typeObj.details.declaration;
             if (!decl) {
-                throw 'Unhandled missing declaration for type: function';
+                // throw 'Unhandled missing declaration for type: function';
+                console.warn("Missing Function Decl:", node.token.value, typeObj);
+                return LsifSymbol.empty();
             }
 
             return LsifSymbol.global(LsifSymbol.package(decl.moduleName, this.options.projectVersion), methodDescriptor(node.value));
