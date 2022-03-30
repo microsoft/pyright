@@ -4,6 +4,7 @@ from typing import Generic, List, Mapping, TypeVar, Union
 
 t1 = ()
 
+# This should generate an error because t1 is not a mapping.
 d1 = {**t1}
 
 

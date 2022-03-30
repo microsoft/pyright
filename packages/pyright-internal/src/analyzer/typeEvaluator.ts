@@ -21602,6 +21602,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // For union sources, all of the types need to be assignable to the dest.
         let isIncompatible = false;
         doForEachSubtype(srcType, (subtype, subtypeIndex) => {
+            if (isIncompatible) {
+                return;
+            }
+
             if (!canAssignType(destType, subtype, /* diag */ undefined, typeVarMap, flags, recursionCount)) {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
