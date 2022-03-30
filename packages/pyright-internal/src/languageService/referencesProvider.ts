@@ -10,7 +10,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
@@ -30,13 +30,44 @@ export type ReferenceCallback = (locations: DocumentRange[]) => void;
 export class ReferencesResult {
     private readonly _locations: DocumentRange[] = [];
 
+    readonly nonImportDeclarations: Declaration[];
+
     constructor(
         readonly requiresGlobalSearch: boolean,
         readonly nodeAtOffset: ParseNode,
         readonly symbolName: string,
         readonly declarations: Declaration[],
         private readonly _reporter?: ReferenceCallback
-    ) {}
+    ) {
+        // Filter out any import decls. but leave one with alias.
+        this.nonImportDeclarations = declarations.filter((d) => {
+            if (!isAliasDeclaration(d)) {
+                return true;
+            }
+
+            // We must have alias and decl node that point to import statement.
+            if (!d.usesLocalName || !d.node) {
+                return false;
+            }
+
+            // d.node can't be ImportFrom if usesLocalName is true.
+            // but we are doing this for type checker.
+            if (d.node.nodeType === ParseNodeType.ImportFrom) {
+                return false;
+            }
+
+            // Check alias and what we are renaming is same thing.
+            if (d.node.alias?.value !== symbolName) {
+                return false;
+            }
+
+            return true;
+        });
+    }
+
+    get containsOnlyImportDecls(): boolean {
+        return this.declarations.length > 0 && this.nonImportDeclarations.length === 0;
+    }
 
     get locations(): readonly DocumentRange[] {
         return this._locations;

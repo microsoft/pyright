@@ -20,7 +20,7 @@ import {
 } from 'vscode-languageserver-types';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
-import { appendArray, removeArrayElements } from '../common/collectionUtils';
+import { appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert, assertNever } from '../common/debug';
@@ -29,6 +29,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
+import { getHeapStatistics } from '../common/memUtils';
 import {
     combinePaths,
     getDirectoryPath,
@@ -69,14 +70,14 @@ import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
-import { isAliasDeclaration } from './declaration';
+import { Declaration } from './declaration';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { findNodeByOffset, getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
-import { SourceMapper } from './sourceMapper';
+import { isStubFile, SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
 import { createTracePrinter } from './tracePrinter';
@@ -450,6 +451,11 @@ export class Program {
 
     isCheckingOnlyOpenFiles() {
         return this._configOptions.checkOnlyOpenFiles || false;
+    }
+
+    containsSourceFileIn(folder: string): boolean {
+        const normalized = normalizePathCase(this._fs, folder);
+        return this._sourceFileList.some((i) => i.sourceFile.getFilePath().startsWith(normalized));
     }
 
     getSourceFile(filePath: string): SourceFile | undefined {
@@ -1717,7 +1723,7 @@ export class Program {
         });
     }
 
-    renameModule(path: string, newPath: string, token: CancellationToken): FileEditAction[] | undefined {
+    renameModule(path: string, newPath: string, token: CancellationToken): FileEditActions | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
             if (isFile(this._fs, path)) {
                 const fileInfo = this._getSourceFileInfoFromPath(path);
@@ -1739,7 +1745,7 @@ export class Program {
             }
 
             this._processModuleReferences(renameModuleProvider, renameModuleProvider.lastModuleName, path);
-            return renameModuleProvider.getEdits();
+            return { edits: renameModuleProvider.getEdits(), fileOperations: [] };
         });
     }
 
@@ -1807,6 +1813,7 @@ export class Program {
         filePath: string,
         position: Position,
         isDefaultWorkspace: boolean,
+        allowModuleRename: boolean,
         token: CancellationToken
     ): Range | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1816,8 +1823,21 @@ export class Program {
             }
 
             this._bindFile(sourceFileInfo);
-            const referencesResult = this._getReferenceResult(sourceFileInfo, filePath, position, token);
+            const referencesResult = this._getReferenceResult(
+                sourceFileInfo,
+                filePath,
+                position,
+                allowModuleRename,
+                token
+            );
             if (!referencesResult) {
+                return undefined;
+            }
+
+            if (
+                referencesResult.containsOnlyImportDecls &&
+                !this._supportRenameModule(referencesResult.declarations, isDefaultWorkspace)
+            ) {
                 return undefined;
             }
 
@@ -1837,8 +1857,9 @@ export class Program {
         position: Position,
         newName: string,
         isDefaultWorkspace: boolean,
+        allowModuleRename: boolean,
         token: CancellationToken
-    ): FileEditAction[] | undefined {
+    ): FileEditActions | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
             if (!sourceFileInfo) {
@@ -1847,9 +1868,61 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
-            const referencesResult = this._getReferenceResult(sourceFileInfo, filePath, position, token);
+            const referencesResult = this._getReferenceResult(
+                sourceFileInfo,
+                filePath,
+                position,
+                allowModuleRename,
+                token
+            );
             if (!referencesResult) {
                 return undefined;
+            }
+
+            if (referencesResult.containsOnlyImportDecls) {
+                // All decls must be on a user file.
+                if (!this._supportRenameModule(referencesResult.declarations, isDefaultWorkspace)) {
+                    return undefined;
+                }
+
+                const moduleInfo = RenameModuleProvider.getRenameModulePathInfo(
+                    RenameModuleProvider.getRenameModulePath(referencesResult.declarations),
+                    newName
+                );
+                if (!moduleInfo) {
+                    // Can't figure out module to rename.
+                    return undefined;
+                }
+
+                const editActions = this.renameModule(moduleInfo.filePath, moduleInfo.newFilePath, token);
+
+                // Add file system rename.
+                editActions?.fileOperations.push({
+                    kind: 'rename',
+                    oldFilePath: moduleInfo.filePath,
+                    newFilePath: moduleInfo.newFilePath,
+                });
+
+                if (isStubFile(moduleInfo.filePath)) {
+                    const matchingFiles = this._importResolver.getSourceFilesFromStub(
+                        moduleInfo.filePath,
+                        this._configOptions.findExecEnvironment(filePath),
+                        /* mapCompiled */ false
+                    );
+
+                    for (const matchingFile of matchingFiles) {
+                        const matchingFileInfo = RenameModuleProvider.getRenameModulePathInfo(matchingFile, newName);
+                        if (matchingFileInfo) {
+                            editActions?.fileOperations.push({
+                                kind: 'rename',
+                                oldFilePath: matchingFileInfo.filePath,
+                                newFilePath: matchingFileInfo.newFilePath,
+                            });
+                        }
+                    }
+                }
+
+                return editActions;
             }
 
             const renameMode = this._getRenameSymbolMode(sourceFileInfo, referencesResult, isDefaultWorkspace);
@@ -1889,16 +1962,16 @@ export class Program {
                     assertNever(renameMode);
             }
 
-            const editActions: FileEditAction[] = [];
+            const edits: FileEditAction[] = [];
             referencesResult.locations.forEach((loc) => {
-                editActions.push({
+                edits.push({
                     filePath: loc.path,
                     range: loc.range,
                     replacementText: newName,
                 });
             });
 
-            return editActions;
+            return { edits, fileOperations: [] };
         });
     }
 
@@ -2080,10 +2153,18 @@ export class Program {
         return 'none';
     }
 
+    private _supportRenameModule(declarations: Declaration[], isDefaultWorkspace: boolean) {
+        // Rename module is not supported for standalone file and all decls must be on a user file.
+        return (
+            !isDefaultWorkspace && declarations.every((d) => this._isUserCode(this._getSourceFileInfoFromPath(d.path)))
+        );
+    }
+
     private _getReferenceResult(
         sourceFileInfo: SourceFileInfo,
         filePath: string,
         position: Position,
+        allowModuleRename: boolean,
         token: CancellationToken
     ) {
         const execEnv = this._configOptions.findExecEnvironment(filePath);
@@ -2099,37 +2180,22 @@ export class Program {
             return undefined;
         }
 
-        // We only allow renaming module alias, filter out any other alias decls.
-        removeArrayElements(referencesResult.declarations, (d) => {
-            if (!isAliasDeclaration(d)) {
-                return false;
-            }
+        if (allowModuleRename && referencesResult.containsOnlyImportDecls) {
+            return referencesResult;
+        }
 
-            // We must have alias and decl node that point to import statement.
-            if (!d.usesLocalName || !d.node) {
-                return true;
-            }
-
-            // d.node can't be ImportFrom if usesLocalName is true.
-            // but we are doing this for type checker.
-            if (d.node.nodeType === ParseNodeType.ImportFrom) {
-                return true;
-            }
-
-            // Check alias and what we are renaming is same thing.
-            if (d.node.alias?.value !== referencesResult.symbolName) {
-                return true;
-            }
-
-            return false;
-        });
-
-        if (referencesResult.declarations.length === 0) {
+        if (referencesResult.nonImportDeclarations.length === 0) {
             // There is no symbol we can rename.
             return undefined;
         }
 
-        return referencesResult;
+        // Use declarations that doesn't contain import decls.
+        return new ReferencesResult(
+            referencesResult.requiresGlobalSearch,
+            referencesResult.nodeAtOffset,
+            referencesResult.symbolName,
+            referencesResult.nonImportDeclarations
+        );
     }
 
     private _processModuleReferences(
