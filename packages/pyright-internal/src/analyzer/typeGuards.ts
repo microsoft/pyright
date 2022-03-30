@@ -65,6 +65,7 @@ import {
     convertToInstance,
     convertToInstantiable,
     doForEachSubtype,
+    getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
@@ -707,24 +708,20 @@ function narrowTypeForTruthiness(evaluator: TypeEvaluator, type: Type, isPositiv
 }
 
 // Handle type narrowing for expressions of the form "a[I] is None" and "a[I] is not None" where
-// I is an integer and a is a union of Tuples with known lengths and entry types.
+// I is an integer and a is a union of Tuples (or subtypes thereof) with known lengths and entry types.
 function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean, indexValue: number) {
     return evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (subtype) => {
-        if (
-            !isClassInstance(subtype) ||
-            !isTupleClass(subtype) ||
-            isUnboundedTupleClass(subtype) ||
-            !subtype.tupleTypeArguments
-        ) {
+        const tupleType = getSpecializedTupleType(subtype);
+        if (!tupleType || isUnboundedTupleClass(tupleType) || !tupleType.tupleTypeArguments) {
             return subtype;
         }
 
-        const tupleLength = subtype.tupleTypeArguments.length;
+        const tupleLength = tupleType.tupleTypeArguments.length;
         if (indexValue < 0 || indexValue >= tupleLength) {
             return subtype;
         }
 
-        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(subtype.tupleTypeArguments[indexValue].type);
+        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(tupleType.tupleTypeArguments[indexValue].type);
 
         if (isPositiveTest) {
             if (!evaluator.canAssignType(typeOfEntry, NoneType.createInstance())) {
