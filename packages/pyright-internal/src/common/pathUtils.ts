@@ -621,7 +621,7 @@ export function getFileSystemEntriesFromDirEntries(
 // that can be used for matching against.
 export function getWildcardRegexPattern(rootPath: string, fileSpec: string): string {
     let absolutePath = normalizePath(combinePaths(rootPath, fileSpec));
-    if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
+    if (!hasPythonExtension(absolutePath)) {
         absolutePath = ensureTrailingDirectorySeparator(absolutePath);
     }
 
@@ -668,7 +668,7 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
 // Returns the topmost path that contains no wildcard characters.
 export function getWildcardRoot(rootPath: string, fileSpec: string): string {
     let absolutePath = normalizePath(combinePaths(rootPath, fileSpec));
-    if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
+    if (!hasPythonExtension(absolutePath)) {
         absolutePath = ensureTrailingDirectorySeparator(absolutePath);
     }
 
@@ -704,6 +704,10 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
     }
 
     return wildcardRoot;
+}
+
+export function hasPythonExtension(path: string) {
+    return path.endsWith('.py') || path.endsWith('.pyi');
 }
 
 export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {

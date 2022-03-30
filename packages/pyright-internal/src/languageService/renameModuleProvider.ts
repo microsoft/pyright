@@ -55,6 +55,7 @@ import {
     combinePaths,
     getDirectoryChangeKind,
     getDirectoryPath,
+    getFileExtension,
     getFileName,
     isDirectory,
     isFile,
@@ -161,6 +162,48 @@ export class RenameModuleProvider {
             filteredDecls,
             token!
         );
+    }
+
+    static getRenameModulePath(declarations: Declaration[]) {
+        // If we have a decl with no node, we will prefer that decl over others.
+        // The decl with no node is a synthesized alias decl created only for IDE case
+        // that should point to the right module file.
+        const bestDecl = declarations.find((d) => !d.node);
+        if (bestDecl) {
+            return bestDecl.path;
+        }
+
+        // Otherwise, prefer stub if we have one. or just return first decl.
+        const declarationPaths = [...declarations.reduce((s, d) => s.add(d.path), new Set<string>())];
+        const stubIndex = declarationPaths.findIndex((d) => isStubFile(d));
+        if (stubIndex >= 0) {
+            return declarationPaths[stubIndex];
+        }
+
+        return declarationPaths[0];
+    }
+
+    static getRenameModulePathInfo(declarationPath: string, newName: string) {
+        const filePath = getFilePathToRename(declarationPath);
+        const newFilePath = replaceFileName(filePath, newName);
+
+        return { filePath, newFilePath };
+
+        function getFilePathToRename(filePath: string) {
+            const fileName = stripFileExtension(getFileName(filePath));
+            if (fileName === '__init__') {
+                return getDirectoryPath(filePath);
+            }
+
+            return filePath;
+        }
+
+        function replaceFileName(filePath: string, newName: string) {
+            const ext = getFileExtension(filePath);
+            const directory = getDirectoryPath(filePath);
+
+            return combinePaths(directory, `${newName}${ext}`);
+        }
     }
 
     private static _create(

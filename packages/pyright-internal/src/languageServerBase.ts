@@ -100,7 +100,7 @@ import { convertPathToUri } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
-import { convertWorkspaceEdits } from './common/workspaceEditUtils';
+import { convertWorkspaceDocumentEdits } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter } from './languageService/definitionProvider';
@@ -337,6 +337,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected isOpenFilesOnly(diagnosticMode: string): boolean {
         return diagnosticMode !== 'workspace';
+    }
+
+    protected get allowModuleRename() {
+        return false;
     }
 
     protected getSeverityOverrides(value: string): DiagnosticSeverityOverrides | undefined {
@@ -983,14 +987,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        const renameRange = workspace.serviceInstance.canRenameSymbolAtPosition(
+        const range = workspace.serviceInstance.canRenameSymbolAtPosition(
             filePath,
             position,
             workspace.rootPath === '',
+            this.allowModuleRename,
             token
         );
 
-        return renameRange ? renameRange : null;
+        return range ?? null;
     }
 
     protected async onRenameRequest(
@@ -1009,6 +1014,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             position,
             params.newName,
             workspace.rootPath === '',
+            this.allowModuleRename,
             token
         );
 
@@ -1016,7 +1022,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return undefined;
         }
 
-        return convertWorkspaceEdits(this.fs, editActions);
+        return convertWorkspaceDocumentEdits(this.fs, editActions);
     }
 
     protected async onPrepare(
