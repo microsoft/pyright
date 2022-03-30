@@ -309,7 +309,7 @@ test('TypeNarrowingIsNoneNamedTuple1', () => {
 });
 
 test('TypeNarrowingIsNoneNamedTuple2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeNarrowingIsNoneNamedTuple2.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsNoneNamedTuple2.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
