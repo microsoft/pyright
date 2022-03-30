@@ -65,7 +65,6 @@ import {
     convertToInstance,
     convertToInstantiable,
     doForEachSubtype,
-    getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeId,
     isLiteralType,
@@ -355,25 +354,6 @@ export function getTypeNarrowingCallback(
                         );
                     };
                 }
-            }
-
-            // Look for X.Y is None or X.Y is not None
-            // These are commonly-used patterns used in control flow.
-            if (
-                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression) &&
-                testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
-                testExpression.rightExpression.constType === KeywordType.None
-            ) {
-                const memberName = testExpression.leftExpression.memberName;
-                return (type: Type) => {
-                    return narrowTypeForDiscriminatedFieldNoneComparison(
-                        evaluator,
-                        type,
-                        memberName.value,
-                        adjIsPositiveTest
-                    );
-                };
             }
         }
 
@@ -727,20 +707,24 @@ function narrowTypeForTruthiness(evaluator: TypeEvaluator, type: Type, isPositiv
 }
 
 // Handle type narrowing for expressions of the form "a[I] is None" and "a[I] is not None" where
-// I is an integer and a is a union of Tuples and NamedTuples with known lengths and entry types.
+// I is an integer and a is a union of Tuples with known lengths and entry types.
 function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean, indexValue: number) {
     return evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (subtype) => {
-        const tupleType = getSpecializedTupleType(subtype);
-        if (!tupleType || isUnboundedTupleClass(tupleType) || !tupleType.tupleTypeArguments) {
+        if (
+            !isClassInstance(subtype) ||
+            !isTupleClass(subtype) ||
+            isUnboundedTupleClass(subtype) ||
+            !subtype.tupleTypeArguments
+        ) {
             return subtype;
         }
 
-        const tupleLength = tupleType.tupleTypeArguments.length;
+        const tupleLength = subtype.tupleTypeArguments.length;
         if (indexValue < 0 || indexValue >= tupleLength) {
             return subtype;
         }
 
-        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(tupleType.tupleTypeArguments[indexValue].type);
+        const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(subtype.tupleTypeArguments[indexValue].type);
 
         if (isPositiveTest) {
             if (!evaluator.canAssignType(typeOfEntry, NoneType.createInstance())) {
@@ -1473,41 +1457,6 @@ function narrowTypeForDiscriminatedFieldComparison(
     });
 
     return narrowedType;
-}
-
-// Attempts to narrow a type based on a comparison (equal or not equal)
-// between a discriminating field that has a declared None type to a
-// None.
-function narrowTypeForDiscriminatedFieldNoneComparison(
-    evaluator: TypeEvaluator,
-    referenceType: Type,
-    memberName: string,
-    isPositiveTest: boolean
-): Type {
-    return mapSubtypes(referenceType, (subtype) => {
-        let memberInfo: ClassMember | undefined;
-        if (isClassInstance(subtype)) {
-            memberInfo = lookUpObjectMember(subtype, memberName);
-        } else if (isInstantiableClass(subtype)) {
-            memberInfo = lookUpClassMember(subtype, memberName);
-        }
-
-        if (memberInfo && memberInfo.isTypeDeclared) {
-            const memberType = evaluator.getTypeOfMember(memberInfo);
-
-            if (isPositiveTest) {
-                if (!evaluator.canAssignType(memberType, NoneType.createInstance())) {
-                    return undefined;
-                }
-            } else {
-                if (isNoneInstance(memberType)) {
-                    return undefined;
-                }
-            }
-        }
-
-        return subtype;
-    });
 }
 
 // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.
