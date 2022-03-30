@@ -386,6 +386,12 @@ test('TypeNarrowingLiteralMember1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeNarrowingNoneMember1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingNoneMember1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingTuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTuple1.py']);
 
