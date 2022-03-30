@@ -1,5 +1,5 @@
 class ExampleClass:
-#     ^^^^^^^^^^^^ definition  src/single_class 0.1 ExampleClass#
+#     ^^^^^^^^^^^^ reference  src/single_class 0.1 ExampleClass#
     a: int
 #   ^ definition  src/single_class 0.1 ExampleClass#a.
     b: int
@@ -11,10 +11,10 @@ class ExampleClass:
 #   ^^^^^^^^^^ definition  src/single_class 0.1 ExampleClass#static_var.
 
     def __init__(self, a: int, b: int):
-#       ^^^^^^^^ definition  src/single_class 0.1 ExampleClass#__init__().
-#                ^^^^ definition  src/single_class 0.1 ExampleClass#__init__().(self)
-#                      ^ definition  src/single_class 0.1 ExampleClass#__init__().(a)
-#                              ^ definition  src/single_class 0.1 ExampleClass#__init__().(b)
+#       ^^^^^^^^ reference  src/single_class 0.1 ExampleClass#__init__().
+#                ^^^^ reference  src/single_class 0.1 ExampleClass#__init__().(self)
+#                      ^ reference  src/single_class 0.1 ExampleClass#__init__().(a)
+#                              ^ reference  src/single_class 0.1 ExampleClass#__init__().(b)
         local_c = ", world!"
 #       ^^^^^^^ definition  src/single_class 0.1 ExampleClass#__init__().local_c.
 

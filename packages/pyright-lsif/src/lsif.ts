@@ -904,7 +904,7 @@ export namespace lib.codeintel.lsiftyped {
             pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [3, 4], []);
             if (!Array.isArray(data) && typeof data == "object") {
                 if ("symbol" in data && data.symbol != undefined) {
-                    this.symbol = data.symbol;
+                    this.symbol = data.symbol.trimEnd();
                 }
                 if ("documentation" in data && data.documentation != undefined) {
                     this.documentation = data.documentation;
@@ -1157,7 +1157,7 @@ export namespace lib.codeintel.lsiftyped {
                     this.range = data.range;
                 }
                 if ("symbol" in data && data.symbol != undefined) {
-                    this.symbol = data.symbol;
+                    this.symbol = data.symbol.trimEnd();
                 }
                 if ("symbol_roles" in data && data.symbol_roles != undefined) {
                     this.symbol_roles = data.symbol_roles;
