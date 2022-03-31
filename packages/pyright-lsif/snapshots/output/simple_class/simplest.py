@@ -1,9 +1,10 @@
 class MyClass:
-#     ^^^^^^^ reference  simplest 0.1 MyClass#
+#     ^^^^^^^ definition  simplest test MyClass#
     """
     This is an example class of things that I'm making
     """
 
     a: int
-#   ^ definition  simplest 0.1 MyClass#a.
+#   ^ definition  simplest test MyClass#a.
+#      ^^^ reference  builtins 3.9 int#
 

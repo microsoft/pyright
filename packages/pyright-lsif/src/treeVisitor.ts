@@ -47,7 +47,7 @@ import { Counter } from './lsif-typescript/Counter';
 import { TypeStubExtendedWriter } from './TypeStubExtendedWriter';
 import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 import { extractParameterDocumentation } from 'pyright-internal/analyzer/docStringUtils';
-import { Declaration, isIntrinsicDeclaration } from 'pyright-internal/analyzer/declaration';
+import { Declaration, isAliasDeclaration, isIntrinsicDeclaration } from 'pyright-internal/analyzer/declaration';
 
 //  Useful functions for later, but haven't gotten far enough yet to use them.
 //      extractParameterDocumentation
@@ -295,6 +295,8 @@ export class TreeVisitor extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
+        console.log('visitName:', node.value, node.parent!.nodeType);
+
         const decls = this.evaluator.getDeclarationsForNameNode(node) || [];
         if (decls.length > 0) {
             const dec = decls[0];
@@ -312,9 +314,9 @@ export class TreeVisitor extends ParseTreeWalker {
 
             if (this.imports.has(dec.node.id)) {
                 // TODO: ExpressionNode cast is required?
-                const thingy = this.evaluator.getType(dec.node as ExpressionNode);
-                if (thingy) {
-                    this.pushTypeReference(node, thingy!);
+                const evalutedType = this.evaluator.getType(dec.node as ExpressionNode);
+                if (evalutedType) {
+                    this.pushTypeReference(node, evalutedType!);
                 }
 
                 return true;
@@ -324,6 +326,11 @@ export class TreeVisitor extends ParseTreeWalker {
             // definition node. Probably some util somewhere already for
             // that (need to explore pyright some more)
             if (dec.node.id == node.parent!.id) {
+                this.pushNewNameNodeOccurence(node, this.getLsifSymbol(dec.node), lsiftyped.SymbolRole.Definition);
+                return true;
+            }
+
+            if (isAliasDeclaration(dec)) {
                 this.pushNewNameNodeOccurence(node, this.getLsifSymbol(dec.node));
                 return true;
             }
@@ -346,6 +353,7 @@ export class TreeVisitor extends ParseTreeWalker {
         }
 
         if (node && (isImportModuleName(node) || isFromImportModuleName(node))) {
+            console.log('we here');
             return true;
         }
 
@@ -415,6 +423,9 @@ export class TreeVisitor extends ParseTreeWalker {
                 // TODO: When we can get versions for different modules, we
                 // should use that here to get the correction version (of the other module)
                 return LsifSymbol.package(moduleName, this.options.projectVersion);
+
+            case ParseNodeType.MemberAccess:
+                throw 'oh ya';
 
             case ParseNodeType.Parameter:
                 if (!node.name) {
@@ -495,15 +506,29 @@ export class TreeVisitor extends ParseTreeWalker {
                 // throw 'what';
                 return LsifSymbol.local(this.counter.next());
 
+            // TODO: Handle imports better
+            // TODO: `ImportAs` is pretty broken it looks like
+            case ParseNodeType.ImportAs:
+                console.log(node);
+                // @ts-ignore Pretty sure this always is true
+                let info = node.module.importInfo;
+                return LsifSymbol.global(
+                    LsifSymbol.package(info.importName, this.getVersion(info.importName)),
+                    metaDescriptor('__init__')
+                );
+
+            case ParseNodeType.ImportFrom:
+                console.log('from', node);
+                return LsifSymbol.empty();
+
+            case ParseNodeType.ImportFromAs:
+                console.log('from as', node);
+                return LsifSymbol.empty();
+
             // Some nodes, it just makes sense to return whatever their parent is.
             case ParseNodeType.With:
             case ParseNodeType.If:
             case ParseNodeType.For:
-            // TODO: Handle imports better
-            // TODO: `ImportAs` is pretty broken it looks like
-            case ParseNodeType.ImportAs:
-            case ParseNodeType.ImportFrom:
-            case ParseNodeType.ImportFromAs:
             // To explore:
             case ParseNodeType.StatementList:
             case ParseNodeType.Tuple:
@@ -573,7 +598,7 @@ export class TreeVisitor extends ParseTreeWalker {
         role: number = lsiftyped.SymbolRole.ReadAccess
     ): void {
         if (symbol.value.trim() != symbol.value) {
-            throw `Invalid symbol dude ${node.value} -> ${symbol.value}`;
+            console.trace(`Invalid symbol dude ${node.value} -> ${symbol.value}`);
         }
 
         this.document.occurrences.push(
@@ -583,6 +608,10 @@ export class TreeVisitor extends ParseTreeWalker {
                 range: nameNodeToRange(node, this.fileInfo!.lines).toLsif(),
             })
         );
+    }
+
+    private getVersion(_moduleName: string): string {
+        return this.options.projectVersion;
     }
 }
 
