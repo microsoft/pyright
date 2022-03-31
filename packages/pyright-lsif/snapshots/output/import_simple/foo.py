@@ -15,6 +15,6 @@ class MyClass:
         return "exported"
 
 this_class = MyClass()
-#^^^^^^^^^ reference  foo test this_class.
+#^^^^^^^^^ definition  foo test this_class.
 #            ^^^^^^^ reference  foo test MyClass#
 
