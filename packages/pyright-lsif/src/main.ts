@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as child_process from 'child_process';
 
+import * as packages from './packages';
 import { lib } from './lsif';
 import { index, formatSnapshot, writeSnapshot } from './lib';
 import { Input } from './lsif-typescript/Input';
@@ -156,6 +157,14 @@ export function main(): void {
                         writeSnapshot(outputPath, obtained);
                     }
                 }
+            }
+        )
+        .command(
+            'versions',
+            'display version information for current env',
+            () => {},
+            () => {
+                console.log(packages.getEnvironmentPackages());
             }
         )
         .help().argv;

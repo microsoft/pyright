@@ -10,7 +10,7 @@ import { TreeVisitor } from './treeVisitor';
 import { FullAccessHost } from 'pyright-internal/common/fullAccessHost';
 import { glob } from 'glob';
 import * as url from 'url';
-import { lsiftyped, Options } from './lib';
+import { lsiftyped, LsifConfig } from './lib';
 import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 import { Counter } from './lsif-typescript/Counter';
 import { getTypeShedFallbackPath } from 'pyright-internal/analyzer/pythonPathUtils';
@@ -22,24 +22,25 @@ export class Indexer {
     program: Program;
     importResolver: ImportResolver;
     counter: Counter;
+    configOptions: ConfigOptions;
 
-    constructor(public readonly config: Config, public options: Options) {
+    constructor(public readonly config: Config, public lsifConfig: LsifConfig) {
         this.counter = new Counter();
 
-        const configOptions = new ConfigOptions(options.projectRoot);
-        configOptions.checkOnlyOpenFiles = false;
-        configOptions.indexing = true;
+        this.configOptions = new ConfigOptions(lsifConfig.projectRoot);
+        this.configOptions.checkOnlyOpenFiles = false;
+        this.configOptions.indexing = true;
 
         const fs = new PyrightFileSystem(createFromRealFileSystem());
-        configOptions.typeshedPath = getTypeShedFallbackPath(fs);
+        this.configOptions.typeshedPath = getTypeShedFallbackPath(fs);
 
         const host = new FullAccessHost(fs);
-        this.importResolver = new ImportResolver(fs, configOptions, host);
-        this.program = new Program(this.importResolver, configOptions);
+        this.importResolver = new ImportResolver(fs, this.configOptions, host);
+        this.program = new Program(this.importResolver, this.configOptions);
 
         // TODO:
         // - [ ] pyi files?
-        const pyFiles = glob.sync(options.projectRoot + '/**/*.py');
+        const pyFiles = glob.sync(lsifConfig.projectRoot + '/**/*.py');
         this.program.setTrackedFiles(pyFiles);
     }
 
@@ -52,17 +53,16 @@ export class Indexer {
         // TODO: I don't understand how typescript & jest & webpack work together
         // so I don't know how to make sure that this always works (cause it fails when
         // I run it via jet but not via webpacked javascript and what not)
-        let version = "0.0"
+        let version = '0.0';
         try {
             version = require('package.json');
-        } catch (e) {};
-
+        } catch (e) {}
 
         // Emit metadata
-        this.options.writeIndex(
+        this.lsifConfig.writeIndex(
             new lsiftyped.Index({
                 metadata: new lsiftyped.Metadata({
-                    project_root: url.pathToFileURL(this.options.workspaceRoot).toString(),
+                    project_root: url.pathToFileURL(this.lsifConfig.workspaceRoot).toString(),
                     text_document_encoding: lsiftyped.TextEncoding.UTF8,
                     tool_info: new lsiftyped.ToolInfo({
                         name: 'lsif-pyright',
@@ -80,7 +80,7 @@ export class Indexer {
         let projectSourceFiles: SourceFile[] = [];
         this.program.indexWorkspace((filepath: string, _results: IndexResults) => {
             // Filter out filepaths not part of this project
-            if (filepath.indexOf(this.options.projectRoot) != 0) {
+            if (filepath.indexOf(this.lsifConfig.projectRoot) != 0) {
                 return;
             }
 
@@ -107,16 +107,23 @@ export class Indexer {
         projectSourceFiles.forEach((sourceFile) => {
             const filepath = sourceFile.getFilePath();
             let doc = new lsiftyped.Document({
-                relative_path: path.relative(this.options.workspaceRoot, filepath),
+                relative_path: path.relative(this.lsifConfig.workspaceRoot, filepath),
             });
 
             const parseResults = sourceFile.getParseResults();
             const tree = parseResults?.parseTree!;
 
-            let visitor = new TreeVisitor(doc, sourceFile, typeEvaluator, this.counter, this.options);
+            let visitor = new TreeVisitor({
+                document: doc,
+                sourceFile: sourceFile,
+                evaluator: typeEvaluator,
+                counter: this.counter,
+                pyrightConfig: this.configOptions,
+                lsifConfig: this.lsifConfig,
+            });
             visitor.walk(tree);
 
-            this.options.writeIndex(
+            this.lsifConfig.writeIndex(
                 new lsiftyped.Index({
                     documents: [doc],
                 })

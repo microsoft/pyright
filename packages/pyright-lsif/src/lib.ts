@@ -8,7 +8,7 @@ import { Range } from './lsif-typescript/Range';
 
 export const lsiftyped = lib.codeintel.lsiftyped;
 
-export interface Options {
+export interface LsifConfig {
     /**
      * The directory where to generate the dump.lsif-typed file.
      *
@@ -25,7 +25,7 @@ export interface Options {
     writeIndex: (index: lib.codeintel.lsiftyped.Index) => void;
 }
 
-export function index(options: Options) {
+export function index(options: LsifConfig) {
     const indexer = new Indexer({}, options);
     indexer.index();
 }
