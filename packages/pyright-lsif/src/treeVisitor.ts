@@ -300,10 +300,12 @@ export class TreeVisitor extends ParseTreeWalker {
         const decls = this.evaluator.getDeclarationsForNameNode(node) || [];
         if (decls.length > 0) {
             const dec = decls[0];
+            console.log('  Found Dec...');
 
             if (!dec.node) {
                 return true;
             }
+            console.log('  ... with node:', dec.node.id);
 
             // TODO: Handle intrinsics more usefully (using declaration probably)
             if (isIntrinsicDeclaration(dec)) {
@@ -315,7 +317,7 @@ export class TreeVisitor extends ParseTreeWalker {
                 // TODO: ExpressionNode cast is required?
                 const evalutedType = this.evaluator.getType(dec.node as ExpressionNode);
                 if (evalutedType) {
-                    this.pushTypeReference(node, evalutedType!);
+                    this.pushTypeReference(node, dec.node, evalutedType!);
                 }
 
                 return true;
@@ -334,20 +336,23 @@ export class TreeVisitor extends ParseTreeWalker {
                 return true;
             }
 
-            // TODO: WriteAccess isn't really implemented yet on my side
-            const symbol = this.declarationToSymbol(dec);
-            const symbol_roles =
-                dec.node.id == node.id ? lsiftyped.SymbolRole.Definition : lsiftyped.SymbolRole.ReadAccess;
-
-            if (symbol_roles == lsiftyped.SymbolRole.Definition) {
-                const scope = getScopeForNode(node);
-                if (scope?.type != ScopeType.Builtin) {
-                }
-                // if scope
+            if (dec.node.id == node.id) {
+                const symbol = this.getLsifSymbol(dec.node);
+                this.pushNewNameNodeOccurence(node, symbol, lsiftyped.SymbolRole.Definition);
+                return true;
             }
 
+            const existingLsifSymbol = this.rawGetLsifSymbol(dec.node);
+            if (existingLsifSymbol) {
+                console.log('Using existing');
+                this.pushNewNameNodeOccurence(node, existingLsifSymbol, lsiftyped.SymbolRole.ReadAccess);
+                return true;
+            }
+
+            // TODO: WriteAccess isn't really implemented yet on my side
             // Now this must be a reference, so let's reference the right thing.
-            this.pushNewNameNodeOccurence(node, symbol, symbol_roles);
+            const symbol = this.getLsifSymbol(dec.node);
+            this.pushNewNameNodeOccurence(node, symbol);
             return true;
         }
 
@@ -386,8 +391,16 @@ export class TreeVisitor extends ParseTreeWalker {
         return LsifSymbol.global(LsifSymbol.package('python', '3.9'), termDescriptor('builtins__' + name));
     }
 
+    private rawGetLsifSymbol(node: ParseNode): LsifSymbol | undefined {
+        return this._symbols.get(node.id);
+    }
+
+    private rawSetLsifSymbol(node: ParseNode, sym: LsifSymbol): void {
+        this._symbols.set(node.id, sym);
+    }
+
     private getLsifSymbol(node: ParseNode): LsifSymbol {
-        const existing = this._symbols.get(node.id);
+        const existing = this.rawGetLsifSymbol(node);
         if (existing) {
             return existing;
         }
@@ -401,13 +414,9 @@ export class TreeVisitor extends ParseTreeWalker {
         // }
 
         let newSymbol = this.makeLsifSymbol(node);
-        this._symbols.set(node.id, newSymbol);
+        this.rawSetLsifSymbol(node, newSymbol);
 
         return newSymbol;
-    }
-
-    private declarationToSymbol(declaration: Declaration): LsifSymbol {
-        return this.getLsifSymbol(declaration.node);
     }
 
     private makeLsifSymbol(node: ParseNode): LsifSymbol {
@@ -586,8 +595,10 @@ export class TreeVisitor extends ParseTreeWalker {
     }
 
     // TODO: Could maybe just remove this now.
-    private pushTypeReference(node: NameNode, typeObj: Type): void {
-        this.pushNewNameNodeOccurence(node, this.typeToSymbol(node, typeObj));
+    private pushTypeReference(node: NameNode, declNode: ParseNode, typeObj: Type): void {
+        const symbol = this.typeToSymbol(node, typeObj);
+        this.rawSetLsifSymbol(declNode, symbol);
+        this.pushNewNameNodeOccurence(node, symbol);
     }
 
     // Might be the only way we can add new occurrences?
