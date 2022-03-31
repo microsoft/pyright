@@ -305,9 +305,8 @@ export class TreeVisitor extends ParseTreeWalker {
                 return true;
             }
 
-            // TODO: Handle intrinsics
+            // TODO: Handle intrinsics more usefully (using declaration probably)
             if (isIntrinsicDeclaration(dec)) {
-                // TODO: Should use this declaration better
                 this.pushNewNameNodeOccurence(node, this.getBuiltinSymbol(node.value));
                 return true;
             }
