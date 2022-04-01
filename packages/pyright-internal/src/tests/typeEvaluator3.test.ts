@@ -512,18 +512,6 @@ test('RecursiveTypeAlias9', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Dictionary1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
-
-    TestUtils.validateResults(analysisResults, 3);
-});
-
-test('Dictionary2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary2.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 

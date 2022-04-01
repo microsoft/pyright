@@ -31,9 +31,9 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
-import { FileEditAction, TextEditAction } from '../common/editAction';
+import { FileEditActions, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
-import { FileSystem, FileWatcher, ignoredWatchEventFunction } from '../common/fileSystem';
+import { FileSystem, FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileSystem';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import {
     combinePaths,
@@ -43,6 +43,7 @@ import {
     getFileName,
     getFileSpec,
     getFileSystemEntries,
+    hasPythonExtension,
     isDirectory,
     isFile,
     makeDirectories,
@@ -63,7 +64,7 @@ import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { createImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
-import { MaxAnalysisTime } from './program';
+import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 
@@ -423,7 +424,7 @@ export class AnalyzerService {
         return this._program.performQuickAction(filePath, command, args, token);
     }
 
-    renameModule(filePath: string, newFilePath: string, token: CancellationToken): FileEditAction[] | undefined {
+    renameModule(filePath: string, newFilePath: string, token: CancellationToken): FileEditActions | undefined {
         return this._program.renameModule(filePath, newFilePath, token);
     }
 
@@ -431,9 +432,16 @@ export class AnalyzerService {
         filePath: string,
         position: Position,
         isDefaultWorkspace: boolean,
+        allowModuleRename: boolean,
         token: CancellationToken
     ): Range | undefined {
-        return this._program.canRenameSymbolAtPosition(filePath, position, isDefaultWorkspace, token);
+        return this._program.canRenameSymbolAtPosition(
+            filePath,
+            position,
+            isDefaultWorkspace,
+            allowModuleRename,
+            token
+        );
     }
 
     renameSymbolAtPosition(
@@ -441,9 +449,17 @@ export class AnalyzerService {
         position: Position,
         newName: string,
         isDefaultWorkspace: boolean,
+        allowModuleRename: boolean,
         token: CancellationToken
-    ): FileEditAction[] | undefined {
-        return this._program.renameSymbolAtPosition(filePath, position, newName, isDefaultWorkspace, token);
+    ): FileEditActions | undefined {
+        return this._program.renameSymbolAtPosition(
+            filePath,
+            position,
+            newName,
+            isDefaultWorkspace,
+            allowModuleRename,
+            token
+        );
     }
 
     getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {
@@ -1258,51 +1274,100 @@ export class AnalyzerService {
                         return;
                     }
 
-                    const stats = tryStat(this._fs, path);
-
-                    if (stats && stats.isFile() && !path.endsWith('.py') && !path.endsWith('.pyi')) {
+                    const eventInfo = getEventInfo(this._fs, this._console, this._program, event, path);
+                    if (!eventInfo) {
+                        // no-op event, return.
                         return;
                     }
 
-                    // Delete comes in as a change event, so try to distinguish here.
-                    if (event === 'change' && stats) {
+                    // For file change, we only care python file change.
+                    if (eventInfo.isFile && (!hasPythonExtension(path) || isTemporaryFile(path))) {
+                        return;
+                    }
+
+                    if (eventInfo.isFile && (eventInfo.event === 'change' || eventInfo.event === 'unlink')) {
                         this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
                         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
                     } else {
-                        // Determine if this is an add or delete event related to a temporary
-                        // file. Some tools (like auto-formatters) create temporary files
-                        // alongside the original file and name them "x.py.<temp-id>.py" where
-                        // <temp-id> is a 32-character random string of hex digits. We don't
-                        // want these events to trigger a full reanalysis.
-                        const fileName = getFileName(path);
-                        const fileNameSplit = fileName.split('.');
-                        let isTemporaryFile = false;
-                        if (fileNameSplit.length === 4) {
-                            if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
-                                isTemporaryFile = true;
-                            }
-                        }
-
-                        if (!isTemporaryFile) {
-                            // Added/deleted/renamed files impact imports,
-                            // clear the import resolver cache and reanalyze everything.
-                            //
-                            // Here we don't need to rebuild any indexing since this kind of change can't affect
-                            // indices. For library, since the changes are on workspace files, it won't affect library
-                            // indices. For user file, since user file indices don't contains import alias symbols,
-                            // it won't affect those indices. we only need to rebuild user file indices when symbols
-                            // defined in the file are changed. ex) user modified the file.
-                            this.invalidateAndForceReanalysis(
-                                /* rebuildUserFileIndexing */ false,
-                                /* rebuildLibraryIndexing */ false
-                            );
-                            this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
-                        }
+                        // Added files or folder changes impact imports,
+                        // clear the import resolver cache and reanalyze everything.
+                        //
+                        // Here we don't need to rebuild any indexing since this kind of change can't affect
+                        // indices. For library, since the changes are on workspace files, it won't affect library
+                        // indices. For user file, since user file indices don't contains import alias symbols,
+                        // it won't affect those indices. we only need to rebuild user file indices when symbols
+                        // defined in the file are changed. ex) user modified the file.
+                        // Newly added file will be scanned since it doesn't have existing indices.
+                        this.invalidateAndForceReanalysis(
+                            /* rebuildUserFileIndexing */ false,
+                            /* rebuildLibraryIndexing */ false
+                        );
+                        this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                     }
                 });
             } catch {
                 this._console.error(`Exception caught when installing fs watcher for:\n ${fileList.join('\n')}`);
             }
+        }
+
+        function isTemporaryFile(path: string) {
+            // Determine if this is an add or delete event related to a temporary
+            // file. Some tools (like auto-formatters) create temporary files
+            // alongside the original file and name them "x.py.<temp-id>.py" where
+            // <temp-id> is a 32-character random string of hex digits. We don't
+            // want these events to trigger a full reanalysis.
+            const fileName = getFileName(path);
+            const fileNameSplit = fileName.split('.');
+            if (fileNameSplit.length === 4) {
+                if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function getEventInfo(
+            fs: FileSystem,
+            console: ConsoleInterface,
+            program: Program,
+            event: FileWatcherEventType,
+            path: string
+        ) {
+            // Due to the way we implemented file watcher, we will only get 2 events; 'add' and 'change'.
+            // Here, we will convert those 2 to 3 events. 'add', 'change' and 'unlink';
+            const stats = tryStat(fs, path);
+            if (event === 'add') {
+                if (!stats) {
+                    // If we are told that the path is added, but if we can't access it, then consider it as already deleted.
+                    // there is nothing we need to do.
+                    return undefined;
+                }
+
+                return { event, isFile: stats.isFile() };
+            }
+
+            if (event === 'change') {
+                // If we got 'change', but can't access the path, then we consider it as delete.
+                if (!stats) {
+                    // See whether it is a file that got deleted.
+                    const isFile = !!program.getSourceFile(path);
+
+                    // If not, check whether it is a part of the workspace at all.
+                    if (!isFile && !program.containsSourceFileIn(path)) {
+                        // There is no source file under the given path. There is nothing we need to do.
+                        return undefined;
+                    }
+
+                    return { event: 'unlink', isFile };
+                }
+
+                return { event, isFile: stats.isFile() };
+            }
+
+            // We have unknown event.
+            console.warn(`Received unknown file change event: '${event}' for '${path}'`);
+            return undefined;
         }
     }
 

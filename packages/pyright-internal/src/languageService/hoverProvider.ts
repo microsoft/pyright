@@ -17,6 +17,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
+    ClassType,
     getTypeAliasInfo,
     isClassInstance,
     isFunction,
@@ -33,7 +34,7 @@ import { fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
-import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { getDocumentationPartsForTypeAndDecl, getOverloadedFunctionTooltip } from './tooltipUtils';
 
@@ -121,6 +122,11 @@ export class HoverProvider {
                     this._addResultsPart(results.parts, typeText, true);
                     this._addDocumentationPart(format, sourceMapper, results.parts, node, evaluator, undefined);
                 }
+            }
+        } else if (node.nodeType === ParseNodeType.String) {
+            const type = evaluator.getExpectedType(node)?.type;
+            if (type !== undefined && isClassInstance(type)) {
+                this._tryAddPartsForTypedDictKey(format, sourceMapper, evaluator, node, type, results.parts);
             }
         }
 
@@ -237,6 +243,44 @@ export class HoverProvider {
                 this._addResultsPart(parts, '(module) ' + node.value, true);
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
+            }
+        }
+    }
+
+    private static _tryAddPartsForTypedDictKey(
+        format: MarkupKind,
+        sourceMapper: SourceMapper,
+        evaluator: TypeEvaluator,
+        node: StringNode,
+        type: ClassType,
+        parts: HoverTextPart[]
+    ) {
+        // If the expected type is a TypedDict and the current node is a key entry then we can provide a tooltip
+        // with the type of the TypedDict key and its docstring, if available.
+
+        // TODO: support Unions of TypedDicts
+        if (!ClassType.isTypedDictClass(type)) {
+            return;
+        }
+
+        const entry = type.details.typedDictEntries?.get(node.value);
+        if (entry !== undefined) {
+            // e.g. (key) name: str
+            this._addResultsPart(
+                parts,
+                '(key) ' + node.value + ': ' + evaluator.printType(entry.valueType, /* expandTypeAlias */ false),
+                true
+            );
+
+            const declarations = type.details.fields.get(node.value)?.getDeclarations();
+            if (declarations !== undefined && declarations?.length !== 0) {
+                // As we are just interested in the docString we don't have to worry about
+                // anything other than the first declaration. There also shouldn't be more
+                // than one declaration for a TypedDict key variable.
+                const declaration = declarations[0];
+                if (declaration.type === DeclarationType.Variable && declaration.docString !== undefined) {
+                    this._addDocumentationPartForType(format, sourceMapper, parts, type, declaration, evaluator);
+                }
             }
         }
     }
