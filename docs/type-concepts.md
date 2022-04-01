@@ -171,6 +171,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `type(x) is T` and `type(x) is not T`
 * `x is E` and `x is not E` (where E is a literal enum or bool)
 * `x == L` and `x != L` (where L is a literal expression)
+* `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
 * `x.y is E` and `x.y is not E` (where E is a literal enum or bool and x is a type that is distinguished by a field with a literal type)
 * `x.y == L` and `x.y != L` (where L is a literal expression and x is a type that is distinguished by a field with a literal type)
 * `x[K] == V` and `x[K] != V` (where K and V are literal expressions and x is a type that is distinguished by a TypedDict field with a literal type)

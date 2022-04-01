@@ -70,6 +70,8 @@ import {
     getTypeVarScopeId,
     isLiteralType,
     isLiteralTypeOrUnion,
+    isMaybeDescriptorInstance,
+    isProperty,
     isTupleClass,
     isUnboundedTupleClass,
     lookUpClassMember,
@@ -321,7 +323,7 @@ export function getTypeNarrowingCallback(
                 const memberName = testExpression.leftExpression.memberName;
                 if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
                     return (type: Type) => {
-                        return narrowTypeForDiscriminatedFieldComparison(
+                        return narrowTypeForDiscriminatedLiteralFieldComparison(
                             evaluator,
                             type,
                             memberName.value,
@@ -346,7 +348,7 @@ export function getTypeNarrowingCallback(
                     rightType.literalValue !== undefined
                 ) {
                     return (type: Type) => {
-                        return narrowTypeForDiscriminatedFieldComparison(
+                        return narrowTypeForDiscriminatedLiteralFieldComparison(
                             evaluator,
                             type,
                             memberName.value,
@@ -355,6 +357,25 @@ export function getTypeNarrowingCallback(
                         );
                     };
                 }
+            }
+
+            // Look for X.Y is None or X.Y is not None
+            // These are commonly-used patterns used in control flow.
+            if (
+                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression) &&
+                testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
+                testExpression.rightExpression.constType === KeywordType.None
+            ) {
+                const memberName = testExpression.leftExpression.memberName;
+                return (type: Type) => {
+                    return narrowTypeForDiscriminatedFieldNoneComparison(
+                        evaluator,
+                        type,
+                        memberName.value,
+                        adjIsPositiveTest
+                    );
+                };
             }
         }
 
@@ -1423,7 +1444,7 @@ function narrowTypeForDiscriminatedTupleComparison(
 // Attempts to narrow a type based on a comparison (equal or not equal)
 // between a discriminating field that has a declared literal type to a
 // literal value.
-function narrowTypeForDiscriminatedFieldComparison(
+function narrowTypeForDiscriminatedLiteralFieldComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     memberName: string,
@@ -1454,6 +1475,53 @@ function narrowTypeForDiscriminatedFieldComparison(
     });
 
     return narrowedType;
+}
+
+// Attempts to narrow a type based on a comparison (equal or not equal)
+// between a discriminating field that has a declared None type to a
+// None.
+function narrowTypeForDiscriminatedFieldNoneComparison(
+    evaluator: TypeEvaluator,
+    referenceType: Type,
+    memberName: string,
+    isPositiveTest: boolean
+): Type {
+    return mapSubtypes(referenceType, (subtype) => {
+        let memberInfo: ClassMember | undefined;
+        if (isClassInstance(subtype)) {
+            memberInfo = lookUpObjectMember(subtype, memberName);
+        } else if (isInstantiableClass(subtype)) {
+            memberInfo = lookUpClassMember(subtype, memberName);
+        }
+
+        if (memberInfo && memberInfo.isTypeDeclared) {
+            const memberType = evaluator.makeTopLevelTypeVarsConcrete(evaluator.getTypeOfMember(memberInfo));
+            let canNarrow = true;
+
+            if (isPositiveTest) {
+                doForEachSubtype(memberType, (memberSubtype) => {
+                    memberSubtype = evaluator.makeTopLevelTypeVarsConcrete(memberSubtype);
+
+                    // Don't attempt to narrow if the member is a descriptor or property.
+                    if (isProperty(memberSubtype) || isMaybeDescriptorInstance(memberSubtype)) {
+                        canNarrow = false;
+                    }
+
+                    if (isAnyOrUnknown(memberSubtype) || isNoneInstance(memberSubtype) || isNever(memberSubtype)) {
+                        canNarrow = false;
+                    }
+                });
+            } else {
+                canNarrow = isNoneInstance(memberType);
+            }
+
+            if (canNarrow) {
+                return undefined;
+            }
+        }
+
+        return subtype;
+    });
 }
 
 // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.
