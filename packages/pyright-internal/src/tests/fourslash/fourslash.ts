@@ -264,7 +264,7 @@ declare namespace _ {
             },
             verifyCodeActionCount?: boolean
         ): Promise<any>;
-        verifyHover(kind: string, map: { [marker: string]: string }): void;
+        verifyHover(kind: string, map: { [marker: string]: string | null }): void;
         verifyCompletion(
             verifyMode: FourSlashCompletionVerificationMode,
             docFormat: MarkupKind,
