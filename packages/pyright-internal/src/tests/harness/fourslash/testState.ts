@@ -962,7 +962,7 @@ export class TestState {
         }
     }
 
-    verifyHover(kind: MarkupKind, map: { [marker: string]: string }): void {
+    verifyHover(kind: MarkupKind, map: { [marker: string]: string | null }): void {
         // Do not force analyze, it can lead to test passing while it doesn't work in product
         for (const range of this.getRanges()) {
             const name = this.getMarkerName(range.marker!);
@@ -977,6 +977,13 @@ export class TestState {
                 kind,
                 this.program.getHoverForPosition(range.fileName, rangePos.start, kind, CancellationToken.None)
             );
+
+            // if expected is null then there should be nothing shown on hover
+            if (expected === null) {
+                assert.equal(actual, undefined);
+                continue;
+            }
+
             assert.ok(actual);
 
             assert.deepEqual(actual!.range, rangePos);
