@@ -319,7 +319,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected async getConfiguration(scopeUri: string | undefined, section: string) {
         if (this.client.hasConfigurationCapability) {
             const item: ConfigurationItem = {};
-            if (scopeUri !== undefined) {
+            if (scopeUri) {
                 item.scopeUri = scopeUri;
             }
             if (section !== undefined) {
