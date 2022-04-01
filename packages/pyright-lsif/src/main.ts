@@ -164,7 +164,7 @@ export function main(): void {
             'display version information for current env',
             () => {},
             () => {
-                console.log(packages.getEnvironmentPackages());
+                // console.log(packages.getEnvironmentPackages('', 'test'));
             }
         )
         .help().argv;

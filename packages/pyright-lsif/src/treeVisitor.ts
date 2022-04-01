@@ -37,6 +37,7 @@ import {
     getDocString,
     getEnclosingClass,
     getEnclosingSuite,
+    getFileInfoFromNode,
     isFromImportModuleName,
     isImportModuleName,
 } from 'pyright-internal/analyzer/parseTreeUtils';
@@ -57,6 +58,8 @@ import { extractParameterDocumentation } from 'pyright-internal/analyzer/docStri
 import { isAliasDeclaration, isIntrinsicDeclaration } from 'pyright-internal/analyzer/declaration';
 import { ConfigOptions, ExecutionEnvironment } from 'pyright-internal/common/configOptions';
 import { versionToString } from 'pyright-internal/common/pythonVersion';
+import { PackageConfig } from './packages';
+import { Program } from 'pyright-internal/analyzer/program';
 
 //  Useful functions for later, but haven't gotten far enough yet to use them.
 //      extractParameterDocumentation
@@ -75,9 +78,11 @@ export interface TreeVisitorConfig {
     document: lsif.lib.codeintel.lsiftyped.Document;
     sourceFile: SourceFile;
     evaluator: TypeEvaluator;
+    program: Program;
     counter: Counter;
     pyrightConfig: ConfigOptions;
     lsifConfig: LsifConfig;
+    packageConfig: PackageConfig;
 }
 
 export class TreeVisitor extends ParseTreeWalker {
@@ -93,12 +98,14 @@ export class TreeVisitor extends ParseTreeWalker {
     private _execEnv: ExecutionEnvironment;
 
     public evaluator: TypeEvaluator;
+    public program: Program;
     public document: lsif.lib.codeintel.lsiftyped.Document;
 
     constructor(public config: TreeVisitorConfig) {
         super();
 
         this.evaluator = config.evaluator;
+        this.program = config.program;
         this.document = config.document;
 
         // this._filepath = config.sourceFile.getFilePath();
@@ -275,7 +282,7 @@ export class TreeVisitor extends ParseTreeWalker {
 
         for (const listNode of node.list) {
             for (const namePart of listNode.module.nameParts) {
-                this.pushNewNameNodeOccurence(namePart, symbols.pythonModule(this, namePart.value));
+                this.pushNewNameNodeOccurence(namePart, symbols.pythonModule(this, namePart, namePart.value));
             }
         }
 
@@ -511,7 +518,7 @@ export class TreeVisitor extends ParseTreeWalker {
             case ParseNodeType.ImportAs:
                 // @ts-ignore Pretty sure this always is true
                 let info = node.module.importInfo;
-                return symbols.pythonModule(this, info.importName);
+                return symbols.pythonModule(this, node, info.importName);
 
             case ParseNodeType.ImportFrom:
                 // console.log('from', node);
@@ -618,7 +625,7 @@ export class TreeVisitor extends ParseTreeWalker {
         );
     }
 
-    private getVersion(_node: ParseNode, _moduleName: string): string {
+    public getVersion(_node: ParseNode, moduleName: string): string {
         /**
           executionEnvironment: ExecutionEnvironment {
             extraPaths: [],
@@ -626,9 +633,16 @@ export class TreeVisitor extends ParseTreeWalker {
             pythonVersion: 778,
             pythonPlatform: undefined
           }, */
-        // console.log(_moduleName);
-        // console.log(getFileInfo(node));
-        return this.config.lsifConfig.projectVersion;
+
+        let filepath = getFileInfoFromNode(_node)!.filePath;
+        this.program.getSourceFile(filepath);
+        let packageInfo = this.config.packageConfig.getPackageForModule(filepath, moduleName);
+        if (packageInfo) {
+            return packageInfo.version;
+        }
+
+        // TODO: Maybe this just shouldn't emit a symbol anymore?
+        return 'unknown';
     }
 
     private isInsideClass(): boolean {

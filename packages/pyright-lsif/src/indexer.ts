@@ -15,6 +15,7 @@ import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 import { Counter } from './lsif-typescript/Counter';
 import { getTypeShedFallbackPath } from 'pyright-internal/analyzer/pythonPathUtils';
 import { PyrightFileSystem } from 'pyright-internal/pyrightFileSystem';
+import { getEnvironmentPackages } from './packages';
 
 export interface Config {}
 
@@ -22,21 +23,21 @@ export class Indexer {
     program: Program;
     importResolver: ImportResolver;
     counter: Counter;
-    configOptions: ConfigOptions;
+    pyrightConfig: ConfigOptions;
 
     constructor(public readonly config: Config, public lsifConfig: LsifConfig) {
         this.counter = new Counter();
 
-        this.configOptions = new ConfigOptions(lsifConfig.projectRoot);
-        this.configOptions.checkOnlyOpenFiles = false;
-        this.configOptions.indexing = true;
+        this.pyrightConfig = new ConfigOptions(lsifConfig.projectRoot);
+        this.pyrightConfig.checkOnlyOpenFiles = false;
+        this.pyrightConfig.indexing = true;
 
         const fs = new PyrightFileSystem(createFromRealFileSystem());
-        this.configOptions.typeshedPath = getTypeShedFallbackPath(fs);
+        this.pyrightConfig.typeshedPath = getTypeShedFallbackPath(fs);
 
         const host = new FullAccessHost(fs);
-        this.importResolver = new ImportResolver(fs, this.configOptions, host);
-        this.program = new Program(this.importResolver, this.configOptions);
+        this.importResolver = new ImportResolver(fs, this.pyrightConfig, host);
+        this.program = new Program(this.importResolver, this.pyrightConfig);
 
         // TODO:
         // - [ ] pyi files?
@@ -49,6 +50,8 @@ export class Indexer {
             isCancellationRequested: false,
             onCancellationRequested: Event.None,
         };
+
+        const packageConfig = getEnvironmentPackages(this.lsifConfig.projectVersion, this.program);
 
         // TODO: I don't understand how typescript & jest & webpack work together
         // so I don't know how to make sure that this always works (cause it fails when
@@ -117,9 +120,11 @@ export class Indexer {
                 document: doc,
                 sourceFile: sourceFile,
                 evaluator: typeEvaluator,
+                program: this.program,
                 counter: this.counter,
-                pyrightConfig: this.configOptions,
+                pyrightConfig: this.pyrightConfig,
                 lsifConfig: this.lsifConfig,
+                packageConfig: packageConfig,
             });
             visitor.walk(tree);
 
