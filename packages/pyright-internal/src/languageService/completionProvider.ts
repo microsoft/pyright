@@ -27,6 +27,7 @@ import {
     FunctionDeclaration,
     isFunctionDeclaration,
     isIntrinsicDeclaration,
+    isVariableDeclaration,
     VariableDeclaration,
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
@@ -501,7 +502,7 @@ export class CompletionProvider {
                 // This condition is little different than others since it does its own
                 // tree walk up to find context and let outer tree walk up to proceed if it can't find
                 // one to show completion.
-                const result = this._tryGetNameCompletions(curNode, offset, priorWord);
+                const result = this._tryGetNameCompletions(curNode, offset, priorWord, priorText, postText);
                 if (result || result === undefined) {
                     return result;
                 }
@@ -623,7 +624,13 @@ export class CompletionProvider {
         }
     }
 
-    private _tryGetNameCompletions(curNode: NameNode, offset: number, priorWord: string) {
+    private _tryGetNameCompletions(
+        curNode: NameNode,
+        offset: number,
+        priorWord: string,
+        priorText: string,
+        postText: string
+    ) {
         if (!curNode.parent) {
             return false;
         }
@@ -708,6 +715,33 @@ export class CompletionProvider {
             TextRange.contains(curNode.parent.targetExpression, curNode.start)
         ) {
             return undefined;
+        }
+
+        // For assignments that implicitly declare variables, remove itself (var decl) from completion.
+        if (
+            curNode.parent.nodeType === ParseNodeType.Assignment ||
+            curNode.parent.nodeType === ParseNodeType.AssignmentExpression
+        ) {
+            const leftNode =
+                curNode.parent.nodeType === ParseNodeType.AssignmentExpression
+                    ? curNode.parent.name
+                    : curNode.parent.leftExpression;
+
+            if (leftNode !== curNode || priorWord.length === 0) {
+                return false;
+            }
+
+            const decls = this._evaluator.getDeclarationsForNameNode(curNode);
+            if (decls?.length !== 1 || !isVariableDeclaration(decls[0]) || decls[0].node !== curNode) {
+                return false;
+            }
+
+            const completionList = this._getExpressionCompletions(curNode, priorWord, priorText, postText);
+            if (completionList?.completionMap) {
+                completionList.completionMap.delete(curNode.value);
+            }
+
+            return completionList;
         }
 
         return false;

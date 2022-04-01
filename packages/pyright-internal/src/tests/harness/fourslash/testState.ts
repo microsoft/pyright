@@ -746,7 +746,7 @@ export class TestState {
         return commandResult;
     }
 
-    protected verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit) {
+    verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit) {
         if (actual.changes) {
             this._verifyTextEditMap(expected.changes!, actual.changes);
         } else {
@@ -876,12 +876,12 @@ export class TestState {
         }
 
         for (const edit of expectedEdits) {
-            if (actualEdits.some((a) => this._textEditAreSame(edit, a))) {
-                return true;
+            if (!actualEdits.some((a) => this._textEditAreSame(edit, a))) {
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
     private _textEditAreSame(expected: TextEdit, actual: TextEdit) {
@@ -1444,13 +1444,14 @@ export class TestState {
                 position,
                 expected.newName,
                 /* isDefaultWorkspace */ false,
+                /* allowModuleRename */ false,
                 CancellationToken.None
             );
 
-            assert.equal(actual?.length ?? 0, expected.changes.length);
+            assert.equal(actual?.edits.length ?? 0, expected.changes.length);
 
             for (const c of expected.changes) {
-                assert.equal(actual?.filter((e) => this._deepEqual(e, c)).length, 1);
+                assert.equal(actual?.edits.filter((e) => this._deepEqual(e, c)).length, 1);
             }
         }
     }
