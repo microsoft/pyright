@@ -738,7 +738,13 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
     if (isFunction(type)) {
         functionType = type;
     } else if (isOverloadedFunction(type)) {
-        functionType = type.overloads[0];
+        // Find the first overload or implementation that contains a
+        // dataclass_transform decorator. If more than one have such a decorator,
+        // only the first one will be honored, as per PEP 681.
+        functionType =
+            type.overloads.find((overload) => {
+                overload.details.decoratorDataClassBehaviors !== undefined;
+            }) ?? type.overloads[0];
     }
 
     if (!functionType) {
