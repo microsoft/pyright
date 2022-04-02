@@ -620,8 +620,8 @@ export function getTypeNarrowingCallback(
     // We normally won't find a "not" operator here because they are stripped out
     // by the binder when it creates condition flow nodes, but we can find this
     // in the case of local variables type narrowing.
-    if (testExpression.nodeType === ParseNodeType.UnaryOperation) {
-        if (testExpression.operator === OperatorType.Not) {
+    if (reference.nodeType === ParseNodeType.Name) {
+        if (testExpression.nodeType === ParseNodeType.UnaryOperation && testExpression.operator === OperatorType.Not) {
             return getTypeNarrowingCallback(evaluator, reference, testExpression.expression, !isPositiveTest);
         }
     }
