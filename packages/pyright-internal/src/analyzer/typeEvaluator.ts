@@ -17779,20 +17779,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
+    // In general, string nodes don't have any declarations associated with them, but
+    // we need to handle the special case of string literals used as keys within a
+    // dictionary expression where those keys are associated with a known TypedDict.
     function getDeclarationsForStringNode(node: StringNode): Declaration[] | undefined {
         const declarations: Declaration[] = [];
         const expectedType = getExpectedType(node)?.type;
-        if (expectedType !== undefined) {
+
+        if (expectedType) {
             doForEachSubtype(expectedType, (subtype) => {
-                // if the expected type is a TypedDict then the node is either a key expression
-                // or a single entry in a set.
-                // we then need to check that the value of the node is a valid entry in the
-                // TypedDict to avoid resolving declarations for synthesized symbols such as 'get'.
+                // If the expected type is a TypedDict then the node is either a key expression
+                // or a single entry in a set. We then need to check that the value of the node
+                // is a valid entry in the TypedDict to avoid resolving declarations for
+                // synthesized symbols such as 'get'.
                 if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
                     const entry = subtype.details.typedDictEntries?.get(node.value);
-                    if (entry !== undefined) {
+                    if (entry) {
                         const symbol = lookUpObjectMember(subtype, node.value)?.symbol;
-                        if (symbol !== undefined) {
+
+                        if (symbol) {
                             appendArray(declarations, symbol.getDeclarations());
                         }
                     }
@@ -17800,11 +17805,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        if (declarations.length === 0) {
-            return undefined;
-        }
-
-        return declarations;
+        return declarations.length === 0 ? undefined : declarations;
     }
 
     function getDeclarationsForNameNode(node: NameNode, skipUnreachableCode = true): Declaration[] | undefined {
