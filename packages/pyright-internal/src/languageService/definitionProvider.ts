@@ -17,14 +17,14 @@ import { Declaration, DeclarationType, isFunctionDeclaration } from '../analyzer
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { ClassType, isClassInstance, isOverloadedFunction, TypeCategory } from '../analyzer/types';
-import { doForEachSubtype, lookUpObjectMember } from '../analyzer/typeUtils';
+import { isOverloadedFunction, TypeCategory } from '../analyzer/types';
+import { doForEachSubtype } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
-import { ParseNodeType, StringNode } from '../parser/parseNodes';
+import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export enum DefinitionFilter {
@@ -60,7 +60,8 @@ export class DefinitionProvider {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
         } else if (node.nodeType === ParseNodeType.String) {
-            DefinitionProvider._tryAddTypedDictDefinitions(node, evaluator, definitions, sourceMapper);
+            const declarations = evaluator.getDeclarationsForStringNode(node);
+            DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
         }
 
         if (definitions.length === 0) {
@@ -125,7 +126,8 @@ export class DefinitionProvider {
                 DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
             }
         } else if (node.nodeType === ParseNodeType.String) {
-            DefinitionProvider._tryAddTypedDictDefinitions(node, evaluator, definitions, sourceMapper);
+            const declarations = evaluator.getDeclarationsForStringNode(node);
+            DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
         }
 
         if (definitions.length === 0) {
@@ -209,32 +211,6 @@ export class DefinitionProvider {
                 }
             });
         }
-    }
-
-    private static _tryAddTypedDictDefinitions(
-        node: StringNode,
-        evaluator: TypeEvaluator,
-        definitions: DocumentRange[],
-        sourceMapper: SourceMapper
-    ) {
-        const type = evaluator.getExpectedType(node)?.type;
-        if (type === undefined) {
-            return;
-        }
-
-        doForEachSubtype(type, (subtype) => {
-            if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                const entry = subtype.details.typedDictEntries?.get(node.value);
-                if (entry !== undefined) {
-                    DefinitionProvider._resolveDeclarations(
-                        lookUpObjectMember(subtype, node.value)?.symbol.getDeclarations(),
-                        evaluator,
-                        definitions,
-                        sourceMapper
-                    );
-                }
-            }
-        });
     }
 
     private static _createModuleEntry(filePath: string): DocumentRange {

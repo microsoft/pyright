@@ -62,6 +62,7 @@ import {
     SetNode,
     SliceNode,
     StringListNode,
+    StringNode,
     TernaryNode,
     TupleNode,
     TypeAnnotationNode,
@@ -17778,6 +17779,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
+    function getDeclarationsForStringNode(node: StringNode): Declaration[] | undefined {
+        const declarations: Declaration[] = [];
+        const expectedType = getExpectedType(node)?.type;
+        if (expectedType !== undefined) {
+            doForEachSubtype(expectedType, (subtype) => {
+                // if the expected type is a TypedDict then the node is either a key expression
+                // or a single entry in a set.
+                // we then need to check that the value of the node is a valid entry in the
+                // TypedDict to avoid resolving declarations for synthesized symbols such as 'get'.
+                if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
+                    const entry = subtype.details.typedDictEntries?.get(node.value);
+                    if (entry !== undefined) {
+                        const symbol = lookUpObjectMember(subtype, node.value)?.symbol;
+                        if (symbol !== undefined) {
+                            appendArray(declarations, symbol.getDeclarations());
+                        }
+                    }
+                }
+            });
+        }
+
+        if (declarations.length === 0) {
+            return undefined;
+        }
+
+        return declarations;
+    }
+
     function getDeclarationsForNameNode(node: NameNode, skipUnreachableCode = true): Declaration[] | undefined {
         if (skipUnreachableCode && AnalyzerNodeInfo.isCodeUnreachable(node)) {
             return undefined;
@@ -23860,6 +23889,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isNodeReachable,
         isAsymmetricDescriptorAssignment,
         suppressDiagnostics,
+        getDeclarationsForStringNode,
         getDeclarationsForNameNode,
         getTypeForDeclaration,
         resolveAliasDeclaration,
