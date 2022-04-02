@@ -26,7 +26,7 @@ import {
     TypeCategory,
     TypeSourceId,
 } from '../analyzer/types';
-import { doForEachSubtype } from '../analyzer/typeUtils';
+import { doForEachSubtype, lookUpObjectMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
@@ -235,7 +235,7 @@ export class DefinitionProvider {
                 const entry = subtype.details.typedDictEntries?.get(node.value);
                 if (entry !== undefined) {
                     DefinitionProvider._resolveDeclarations(
-                        DefinitionProvider._resolveField(subtype, node.value)?.getDeclarations(),
+                        lookUpObjectMember(subtype, node.value)?.symbol.getDeclarations(),
                         evaluator,
                         definitions,
                         sourceMapper
@@ -243,39 +243,6 @@ export class DefinitionProvider {
                 }
             }
         });
-    }
-
-    private static _resolveField(type: ClassType, name: string, checkedTypes?: Set<TypeSourceId>): Symbol | undefined {
-        // resolve a field from the symbol table for the given class and all it's base classes
-        let field = type.details.fields.get(name);
-        if (field !== undefined) {
-            return field;
-        }
-
-        // recursion guard
-        if (checkedTypes === undefined) {
-            checkedTypes = new Set();
-        } else if (checkedTypes.has(type.details.typeSourceId)) {
-            // returning undefined is fine as if we've checked this type before
-            // then it didn't include the field as otherwise we would have already returned
-            return undefined;
-        }
-
-        checkedTypes.add(type.details.typeSourceId);
-
-        for (let index = 0; index < type.details.baseClasses.length; index++) {
-            const base = type.details.baseClasses[index];
-            if (!isClass(base)) {
-                continue;
-            }
-
-            field = DefinitionProvider._resolveField(base, name, checkedTypes);
-            if (field !== undefined) {
-                return field;
-            }
-        }
-
-        return undefined;
     }
 
     private static _createModuleEntry(filePath: string): DocumentRange {
