@@ -47,7 +47,13 @@ import {
     TypeBase,
     TypeCategory,
 } from './types';
-import { doForEachSubtype, getFullNameOfType, isEllipsisType, isPartlyUnknown } from './typeUtils';
+import {
+    doForEachSubtype,
+    getFullNameOfType,
+    isDescriptorInstance,
+    isEllipsisType,
+    isPartlyUnknown,
+} from './typeUtils';
 
 type PublicSymbolMap = Map<string, string>;
 
@@ -489,7 +495,11 @@ export class PackageTypeVerifier {
                         // not the same type as the inferred type, mark it as ambiguous because
                         // different type checkers will get different results.
                         if (TypeBase.isAmbiguous(childSymbolType) || !isTypeSame(baseSymbolType, childSymbolType)) {
-                            usesAmbiguousOverride = true;
+                            // If the base type is known to be a descriptor with a setter,
+                            // assume that the child class is simply writing to the base class's setter.
+                            if (!isDescriptorInstance(baseSymbolType, /* requireSetter */ true)) {
+                                usesAmbiguousOverride = true;
+                            }
                         }
 
                         symbolType = baseSymbolType;

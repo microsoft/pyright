@@ -821,9 +821,17 @@ export function isProperty(type: Type) {
     return isClassInstance(type) && ClassType.isPropertyClass(type);
 }
 
+export function isDescriptorInstance(type: Type, requireSetter = false): boolean {
+    if (isUnion(type)) {
+        return type.subtypes.every((subtype) => isMaybeDescriptorInstance(subtype, requireSetter));
+    }
+
+    return isMaybeDescriptorInstance(type, requireSetter);
+}
+
 export function isMaybeDescriptorInstance(type: Type, requireSetter = false): boolean {
     if (isUnion(type)) {
-        return type.subtypes.some((subtype) => isMaybeDescriptorInstance(subtype));
+        return type.subtypes.some((subtype) => isMaybeDescriptorInstance(subtype, requireSetter));
     }
 
     if (!isClassInstance(type)) {
