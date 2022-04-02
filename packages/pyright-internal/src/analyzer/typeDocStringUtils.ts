@@ -39,7 +39,7 @@ import {
     ClassMemberLookupFlags,
     getClassIterator,
     getClassMemberIterator,
-    isProperty,
+    isMaybeDescriptorInstance,
 } from './typeUtils';
 
 const DefaultClassIteratorFlagsForFunctions =
@@ -282,7 +282,7 @@ function _getPropertyDocStringInherited(
     }
 
     const declaredType = evaluator.getTypeForDeclaration(decl);
-    if (!declaredType || !isProperty(declaredType)) {
+    if (!declaredType || !isMaybeDescriptorInstance(declaredType)) {
         return;
     }
 
@@ -305,7 +305,7 @@ function _getPropertyDocStringInherited(
             for (const decl of decls) {
                 if (isFunctionDeclaration(decl)) {
                     const declaredType = evaluator.getTypeForDeclaration(decl);
-                    if (declaredType && isProperty(declaredType)) {
+                    if (declaredType && isMaybeDescriptorInstance(declaredType)) {
                         const docString = _getFunctionDocStringFromDeclaration(decl, sourceMapper);
                         if (docString) {
                             return docString;
