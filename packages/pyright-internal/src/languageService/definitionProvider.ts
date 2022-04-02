@@ -16,15 +16,23 @@ import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType, isFunctionDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
+import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { isOverloadedFunction, TypeCategory } from '../analyzer/types';
+import {
+    ClassType,
+    isClass,
+    isClassInstance,
+    isOverloadedFunction,
+    TypeCategory,
+    TypeSourceId,
+} from '../analyzer/types';
 import { doForEachSubtype } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
-import { ParseNodeType } from '../parser/parseNodes';
+import { ParseNodeType, StringNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export enum DefinitionFilter {
@@ -59,6 +67,8 @@ export class DefinitionProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+        } else if (node.nodeType === ParseNodeType.String) {
+            DefinitionProvider._tryAddTypedDictDefinitions(node, evaluator, definitions, sourceMapper);
         }
 
         if (definitions.length === 0) {
@@ -122,6 +132,8 @@ export class DefinitionProvider {
 
                 DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
             }
+        } else if (node.nodeType === ParseNodeType.String) {
+            DefinitionProvider._tryAddTypedDictDefinitions(node, evaluator, definitions, sourceMapper);
         }
 
         if (definitions.length === 0) {
@@ -205,6 +217,65 @@ export class DefinitionProvider {
                 }
             });
         }
+    }
+
+    private static _tryAddTypedDictDefinitions(
+        node: StringNode,
+        evaluator: TypeEvaluator,
+        definitions: DocumentRange[],
+        sourceMapper: SourceMapper
+    ) {
+        const type = evaluator.getExpectedType(node)?.type;
+        if (type === undefined) {
+            return;
+        }
+
+        doForEachSubtype(type, (subtype) => {
+            if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
+                const entry = subtype.details.typedDictEntries?.get(node.value);
+                if (entry !== undefined) {
+                    DefinitionProvider._resolveDeclarations(
+                        DefinitionProvider._resolveField(subtype, node.value)?.getDeclarations(),
+                        evaluator,
+                        definitions,
+                        sourceMapper
+                    );
+                }
+            }
+        });
+    }
+
+    private static _resolveField(type: ClassType, name: string, checkedTypes?: Set<TypeSourceId>): Symbol | undefined {
+        // resolve a field from the symbol table for the given class and all it's base classes
+        let field = type.details.fields.get(name);
+        if (field !== undefined) {
+            return field;
+        }
+
+        // recursion guard
+        if (checkedTypes === undefined) {
+            checkedTypes = new Set();
+        } else if (checkedTypes.has(type.details.typeSourceId)) {
+            // returning undefined is fine as if we've checked this type before
+            // then it didn't include the field as otherwise we would have already returned
+            return undefined;
+        }
+
+        checkedTypes.add(type.details.typeSourceId);
+
+        for (let index = 0; index < type.details.baseClasses.length; index++) {
+            const base = type.details.baseClasses[index];
+            if (!isClass(base)) {
+                continue;
+            }
+
+            field = DefinitionProvider._resolveField(base, name, checkedTypes);
+            if (field !== undefined) {
+                return field;
+            }
+        }
+
+        return undefined;
     }
 
     private static _createModuleEntry(filePath: string): DocumentRange {
