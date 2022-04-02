@@ -21982,7 +21982,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     newSubtype,
                     /* memberClass */ undefined,
                     /* errorNode */ undefined,
-                    /* recursionCount */ undefined,
+                    recursionCount,
                     /* treatConstructorAsClassMember */ true
                 ) as FunctionType | undefined;
             };
