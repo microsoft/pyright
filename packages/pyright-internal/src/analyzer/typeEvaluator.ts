@@ -2413,7 +2413,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
-        return getTypeFromModule(node, symbolName, ['typing']);
+        return (
+            getTypeFromModule(node, symbolName, ['typing']) ??
+            getTypeFromModule(node, symbolName, ['typing_extensions'])
+        );
     }
 
     function getTypeshedType(node: ParseNode, symbolName: string): Type | undefined {
@@ -14428,10 +14431,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             classType.details.localSlotsNames = slotsNames;
         }
 
-        if (ClassType.isTypedDictClass(classType)) {
-            synthesizeTypedDictClassMethods(evaluatorInterface, node, classType);
-        }
-
         // Determine if the class should be a "pseudo-generic" class, characterized
         // by having an __init__ method with parameters that lack type annotations.
         // For such classes, we'll treat them as generic, with the type arguments provided
@@ -14613,6 +14612,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Clear the "partially constructed" flag.
         classType.details.flags &= ~ClassTypeFlags.PartiallyConstructed;
+
+        // Synthesize TypedDict methods.
+        if (ClassType.isTypedDictClass(classType)) {
+            synthesizeTypedDictClassMethods(evaluatorInterface, node, classType, isClass(decoratedType) && ClassType.isFinal(decoratedType));
+        }
 
         // Synthesize dataclass methods.
         if (ClassType.isDataClass(classType)) {

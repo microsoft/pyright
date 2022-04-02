@@ -249,7 +249,7 @@ export function createTypedDictType(
         }
     }
 
-    synthesizeTypedDictClassMethods(evaluator, errorNode, classType);
+    synthesizeTypedDictClassMethods(evaluator, errorNode, classType, /* isClassFinal */ false);
 
     return classType;
 }
@@ -257,7 +257,8 @@ export function createTypedDictType(
 export function synthesizeTypedDictClassMethods(
     evaluator: TypeEvaluator,
     node: ClassNode | ExpressionNode,
-    classType: ClassType
+    classType: ClassType,
+    isClassFinal: boolean
 ) {
     assert(ClassType.isTypedDictClass(classType));
 
@@ -320,8 +321,7 @@ export function synthesizeTypedDictClassMethods(
             hasDeclaredType: true,
         };
         const createDefaultTypeVar = (func: FunctionType) => {
-            let defaultTypeVar = TypeVarType.createInstance(`__${func.details.name}_default`);
-            defaultTypeVar.details.isSynthesized = true;
+            let defaultTypeVar = TypeVarType.createInstance(`__TDefault`);
             defaultTypeVar = TypeVarType.cloneForScopeId(
                 defaultTypeVar,
                 func.details.typeVarScopeId!,
@@ -333,8 +333,9 @@ export function synthesizeTypedDictClassMethods(
 
         const createGetMethod = (
             keyType: Type,
-            valueType: Type,
+            valueType: Type | undefined,
             includeDefault: boolean,
+            isEntryRequired = false,
             defaultTypeMatchesField = false
         ) => {
             const getOverload = FunctionType.createInstance(
@@ -351,19 +352,37 @@ export function synthesizeTypedDictClassMethods(
                 type: keyType,
                 hasDeclaredType: true,
             });
+
             if (includeDefault) {
                 const defaultTypeVar = createDefaultTypeVar(getOverload);
+                let defaultParamType: Type;
+                let returnType: Type;
+
+                if (isEntryRequired) {
+                    // If the entry is required, the type of the default param doesn't matter
+                    // because the type will always come from the value.
+                    defaultParamType = AnyType.create();
+                    returnType = valueType ?? AnyType.create();
+                } else {
+                    defaultParamType = defaultTypeMatchesField && valueType ? valueType : defaultTypeVar;
+                    if (valueType) {
+                        returnType = defaultTypeMatchesField ? valueType : combineTypes([valueType, defaultTypeVar]);
+                    } else {
+                        returnType = defaultTypeVar;
+                    }
+                }
+
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'default',
-                    type: defaultTypeMatchesField ? valueType : defaultTypeVar,
+                    type: defaultParamType,
                     hasDeclaredType: true,
                 });
-                getOverload.details.declaredReturnType = defaultTypeMatchesField
-                    ? valueType
-                    : combineTypes([valueType, defaultTypeVar]);
+                getOverload.details.declaredReturnType = returnType;
             } else {
-                getOverload.details.declaredReturnType = combineTypes([valueType, NoneType.createInstance()]);
+                getOverload.details.declaredReturnType = isEntryRequired
+                    ? valueType
+                    : combineTypes([valueType ?? AnyType.create(), NoneType.createInstance()]);
             }
             return getOverload;
         };
@@ -456,26 +475,64 @@ export function synthesizeTypedDictClassMethods(
         entries.forEach((entry, name) => {
             const nameLiteralType = ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, name));
 
-            getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ false));
             getOverloads.push(
-                createGetMethod(
-                    nameLiteralType,
-                    entry.valueType,
-                    /* includeDefault */ true,
-                    /* defaultTypeMatchesField */ true
-                )
+                createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ false, entry.isRequired)
             );
-            getOverloads.push(
-                createGetMethod(
-                    nameLiteralType,
-                    entry.valueType,
-                    /* includeDefault */ true,
-                    /* defaultTypeMatchesField */ false
-                )
-            );
+
+            if (entry.isRequired) {
+                getOverloads.push(
+                    createGetMethod(
+                        nameLiteralType,
+                        entry.valueType,
+                        /* includeDefault */ true,
+                        /* isEntryRequired */ true,
+                        /* defaultTypeMatchesField */ true
+                    )
+                );
+            } else {
+                getOverloads.push(
+                    createGetMethod(
+                        nameLiteralType,
+                        entry.valueType,
+                        /* includeDefault */ true,
+                        /* isEntryRequired */ false,
+                        /* defaultTypeMatchesField */ true
+                    )
+                );
+                getOverloads.push(
+                    createGetMethod(
+                        nameLiteralType,
+                        entry.valueType,
+                        /* includeDefault */ true,
+                        /* isEntryRequired */ false,
+                        /* defaultTypeMatchesField */ false
+                    )
+                );
+            }
+
             appendArray(popOverloads, createPopMethods(nameLiteralType, entry.valueType));
             setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
         });
+
+        // If the class is marked "@final", we can assume that any other literal
+        // key values will return the default parameter value.
+        if (isClassFinal) {
+            const literalStringType = evaluator.getTypingType(node, 'LiteralString');
+            if (literalStringType && isInstantiableClass(literalStringType)) {
+                const literalStringInstance = ClassType.cloneAsInstance(literalStringType);
+                getOverloads.push(
+                    createGetMethod(
+                        literalStringInstance,
+                        NoneType.createInstance(),
+                        /* includeDefault */ false,
+                        /* isEntryRequired */ true
+                    )
+                );
+                getOverloads.push(
+                    createGetMethod(literalStringInstance, /* valueType */ undefined, /* includeDefault */ true)
+                );
+            }
+        }
 
         // Provide a final `get` overload that handles the general case where
         // the key is a str but the literal value isn't known.

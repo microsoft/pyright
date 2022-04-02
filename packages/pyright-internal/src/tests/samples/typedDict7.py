@@ -13,12 +13,10 @@ user2: UserType2 = {"name": "Bob", "age": 40}
 
 name2: Union[str, None] = user2.get("name")
 
-# This should generate an error.
 name3: str = user2.get("name")
 
 age2: int = user2.get("age", 42)
 
 age3: Union[int, str] = user2.get("age", "42")
 
-# This should generate an error.
 age4: int = user2.get("age", "42")
