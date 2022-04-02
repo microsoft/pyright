@@ -28,7 +28,12 @@ import {
     Type,
     UnknownType,
 } from '../analyzer/types';
-import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
+import {
+    ClassMemberLookupFlags,
+    isMaybeDescriptorInstance,
+    isProperty,
+    lookUpClassMember,
+} from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -225,7 +230,10 @@ export class HoverProvider {
                 let label = 'function';
                 if (resolvedDecl.isMethod) {
                     const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
-                    label = declaredType && isProperty(declaredType) ? 'property' : 'method';
+                    label =
+                        declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false)
+                            ? 'property'
+                            : 'method';
                 }
 
                 const type = evaluator.getType(node);
