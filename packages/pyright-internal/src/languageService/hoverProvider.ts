@@ -28,12 +28,7 @@ import {
     Type,
     UnknownType,
 } from '../analyzer/types';
-import {
-    ClassMemberLookupFlags,
-    isMaybeDescriptorInstance,
-    isProperty,
-    lookUpClassMember,
-} from '../analyzer/typeUtils';
+import { ClassMemberLookupFlags, isMaybeDescriptorInstance, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
