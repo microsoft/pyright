@@ -59,6 +59,9 @@ export class DefinitionProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
+        } else if (node.nodeType === ParseNodeType.String) {
+            const declarations = evaluator.getDeclarationsForStringNode(node);
+            DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
         }
 
         if (definitions.length === 0) {
@@ -122,6 +125,9 @@ export class DefinitionProvider {
 
                 DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
             }
+        } else if (node.nodeType === ParseNodeType.String) {
+            const declarations = evaluator.getDeclarationsForStringNode(node);
+            DefinitionProvider._resolveDeclarations(declarations, evaluator, definitions, sourceMapper);
         }
 
         if (definitions.length === 0) {
