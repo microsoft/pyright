@@ -16,16 +16,8 @@ import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType, isFunctionDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
-import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import {
-    ClassType,
-    isClass,
-    isClassInstance,
-    isOverloadedFunction,
-    TypeCategory,
-    TypeSourceId,
-} from '../analyzer/types';
+import { ClassType, isClassInstance, isOverloadedFunction, TypeCategory } from '../analyzer/types';
 import { doForEachSubtype, lookUpObjectMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
