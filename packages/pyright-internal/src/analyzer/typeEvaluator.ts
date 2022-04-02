@@ -14615,7 +14615,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Synthesize TypedDict methods.
         if (ClassType.isTypedDictClass(classType)) {
-            synthesizeTypedDictClassMethods(evaluatorInterface, node, classType, isClass(decoratedType) && ClassType.isFinal(decoratedType));
+            synthesizeTypedDictClassMethods(
+                evaluatorInterface,
+                node,
+                classType,
+                isClass(decoratedType) && ClassType.isFinal(decoratedType)
+            );
         }
 
         // Synthesize dataclass methods.
