@@ -134,13 +134,15 @@ export const enum EvaluatorFlags {
     AllowUnpackedTypedDict = 1 << 23,
 }
 
-export interface TypeArgumentResult {
+export interface SimpleTypeResult {
     type: Type;
+
+    // Is the type incomplete (i.e. not fully evaluated) because
+    // some of the paths involve cyclical dependencies?
     isIncomplete?: boolean | undefined;
 }
 
-export interface TypeResult {
-    type: Type;
+export interface TypeResult extends SimpleTypeResult {
     node: ParseNode;
 
     // Type consistency errors detected when evaluating this type.
@@ -149,10 +151,6 @@ export interface TypeResult {
     // Variadic type arguments allow the shorthand "()" to
     // represent an empty tuple (i.e. Tuple[()]).
     isEmptyTupleShorthand?: boolean | undefined;
-
-    // Is the type incomplete (i.e. not fully evaluated) because
-    // some of the paths involve cyclical dependencies?
-    isIncomplete?: boolean | undefined;
 
     unpackedType?: Type | undefined;
     typeList?: TypeResult[] | undefined;
@@ -326,7 +324,7 @@ export interface TypeEvaluator {
     getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getTypeFromIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
-    getTypeForArgument: (arg: FunctionArgument) => TypeArgumentResult;
+    getTypeForArgument: (arg: FunctionArgument) => SimpleTypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
     makeTopLevelTypeVarsConcrete: (type: Type) => Type;

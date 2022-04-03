@@ -145,7 +145,7 @@ import {
     ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
-    TypeArgumentResult,
+    SimpleTypeResult,
     TypeEvaluator,
     TypeResult,
     ValidateArgTypeParams,
@@ -508,8 +508,9 @@ const maxReturnTypeInferenceArgumentCount = 6;
 
 // What is the max complexity of the code flow graph that
 // we will analyze to determine the return type of a function
-// when its parameters are unannotated?
-const maxReturnTypeInferenceCodeFlowComplexity = 15;
+// when its parameters are unannotated? We want to keep this
+// pretty low because this can be very costly.
+const maxReturnTypeInferenceCodeFlowComplexity = 8;
 
 // How many entries in a list, set, or dict should we examine
 // when inferring the type? We need to cut it off at some point
@@ -1396,7 +1397,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             validateCallArguments(
                 node.expression,
                 argList,
-                decoratorTypeResult.type,
+                decoratorTypeResult,
                 /* typeVarMap */ undefined,
                 /* skipUnknownArgCheck */ true
             ).returnType || UnknownType.create();
@@ -5270,7 +5271,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     const callResult = validateCallArguments(
                                         errorNode,
                                         argList,
-                                        boundMethodType,
+                                        { type: boundMethodType },
                                         typeVarMap,
                                         /* skipUnknownArgCheck */ true
                                     );
@@ -6394,7 +6395,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // type with 'int', and we don't want to emit errors before we know
         // which type to use.
         useSpeculativeMode(node, () => {
-            callResult = validateCallArguments(node, argList, itemMethodType);
+            callResult = validateCallArguments(node, argList, { type: itemMethodType });
 
             if (callResult.argumentErrors) {
                 // If the object supports "__index__" magic method, convert
@@ -6411,7 +6412,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
 
-                    callResult = validateCallArguments(node, altArgList, itemMethodType);
+                    callResult = validateCallArguments(node, altArgList, { type: itemMethodType });
 
                     // We were successful, so replace the arg list.
                     if (!callResult.argumentErrors) {
@@ -6421,7 +6422,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        callResult = validateCallArguments(node, argList, itemMethodType);
+        callResult = validateCallArguments(node, argList, { type: itemMethodType });
 
         return {
             node,
@@ -6792,7 +6793,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const callResult = validateCallArguments(
                     node,
                     argList,
-                    baseTypeResult.type,
+                    baseTypeResult,
                     /* typeVarMap */ undefined,
                     /* skipUnknownArgCheck */ false,
                     expectedType
@@ -7644,7 +7645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             callResult = validateCallArguments(
                                 errorNode,
                                 argList,
-                                initMethodType,
+                                { type: initMethodType },
                                 typeVarMap.clone(),
                                 skipUnknownArgCheck,
                                 NoneType.createInstance()
@@ -7657,7 +7658,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const callResult = validateCallArguments(
                                 errorNode,
                                 argList,
-                                initMethodType,
+                                { type: initMethodType },
                                 typeVarMap,
                                 skipUnknownArgCheck,
                                 NoneType.createInstance()
@@ -7688,7 +7689,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const callResult = validateCallArguments(
                     errorNode,
                     argList,
-                    initMethodType,
+                    { type: initMethodType },
                     typeVarMap,
                     skipUnknownArgCheck
                 );
@@ -7775,7 +7776,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const callResult = validateCallArguments(
                     errorNode,
                     argList,
-                    constructorMethodInfo.type,
+                    constructorMethodInfo,
                     typeVarMap,
                     skipUnknownArgCheck
                 );
@@ -8118,7 +8119,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function validateCallArguments(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        callType: Type,
+        callTypeResult: SimpleTypeResult,
         typeVarMap?: TypeVarMap,
         skipUnknownArgCheck = false,
         expectedType?: Type,
@@ -8133,14 +8134,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         recursionCount++;
 
-        if (TypeBase.isSpecialForm(callType)) {
+        if (TypeBase.isSpecialForm(callTypeResult.type)) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeNotCallable().format({
                     expression: ParseTreeUtils.printExpression(exprNode),
-                    type: printType(callType, /* expandTypeAlias */ true),
+                    type: printType(callTypeResult.type, /* expandTypeAlias */ true),
                 }),
                 exprNode
             );
@@ -8148,18 +8149,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const returnType = mapSubtypesExpandTypeVars(
-            callType,
+            callTypeResult.type,
             /* conditionFilter */ undefined,
             (expandedSubtype, unexpandedSubtype) => {
                 switch (expandedSubtype.category) {
                     case TypeCategory.Unknown:
                     case TypeCategory.Any: {
-                        // Touch all of the args so they're marked accessed.
-                        argList.forEach((arg) => {
-                            if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
-                                getTypeForArgument(arg);
-                            }
-                        });
+                        // Touch all of the args so they're marked accessed. Don't bother
+                        // doing this if the call type is incomplete because this will need
+                        // to be done again once it is complete.
+                        if (!callTypeResult.isIncomplete) {
+                            argList.forEach((arg) => {
+                                if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
+                                    getTypeForArgument(arg);
+                                }
+                            });
+                        }
 
                         return expandedSubtype;
                     }
@@ -8559,7 +8564,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const functionResult = validateCallArguments(
                                     errorNode,
                                     argList,
-                                    memberType,
+                                    { type: memberType },
                                     typeVarMap,
                                     skipUnknownArgCheck,
                                     expectedType,
@@ -8617,7 +8622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const callResult = validateCallArguments(
                             errorNode,
                             argList,
-                            expandedSubtype,
+                            { type: expandedSubtype },
                             typeVarMap,
                             skipUnknownArgCheck,
                             expectedType,
@@ -11658,7 +11663,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     callResult = validateCallArguments(
                         errorNode,
                         functionArgs,
-                        magicMethodType!,
+                        { type: magicMethodType! },
                         /* typeVarMap */ undefined,
                         /* skipUnknownArgCheck */ true,
                         expectedType
@@ -14850,7 +14855,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 validateCallArguments(
                     errorNode,
                     argList,
-                    initSubclassMethodType,
+                    { type: initSubclassMethodType },
                     /* typeVarMap */ undefined,
                     /* skipUnknownArgCheck */ false,
                     NoneType.createInstance()
@@ -17542,7 +17547,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return specializedClass;
     }
 
-    function getTypeForArgument(arg: FunctionArgument): TypeArgumentResult {
+    function getTypeForArgument(arg: FunctionArgument): SimpleTypeResult {
         if (arg.type) {
             return { type: arg.type };
         }
@@ -17561,7 +17566,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // used in cases where the argument is expected to be a type
     // and therefore follows the normal rules of types (e.g. they
     // can be forward-declared in stubs, etc.).
-    function getTypeForArgumentExpectingType(arg: FunctionArgument): TypeArgumentResult {
+    function getTypeForArgumentExpectingType(arg: FunctionArgument): SimpleTypeResult {
         if (arg.type) {
             return { type: arg.type };
         }
