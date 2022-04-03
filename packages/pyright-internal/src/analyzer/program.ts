@@ -8,6 +8,7 @@
  * and all of their recursive imports.
  */
 
+import { getHeapStatistics } from 'v8';
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
@@ -2236,21 +2237,34 @@ export class Program {
 
     private _handleMemoryHighUsage() {
         const typeCacheSize = this._evaluator!.getTypeCacheSize();
+        const convertToMB = (bytes: number) => {
+            return `${Math.round(bytes / (1024 * 1024))}MB`;
+        };
 
         // If the type cache size has exceeded a high-water mark, query the heap usage.
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
         if (typeCacheSize > 750000 || this._parsedFileCount > 1000) {
-            const memoryUsage = process.memoryUsage();
+            const heapStats = getHeapStatistics();
 
-            // If we use more than 90% of the available heap size, avoid a crash
-            // by emptying the type cache.
-            if (memoryUsage.heapUsed > memoryUsage.rss * 0.9) {
-                const heapSizeInMb = Math.round(memoryUsage.rss / (1024 * 1024));
-                const heapUsageInMb = Math.round(memoryUsage.heapUsed / (1024 * 1024));
-
+            if (this._configOptions.verboseOutput) {
                 this._console.info(
-                    `Emptying type cache to avoid heap overflow. Used ${heapUsageInMb}MB out of ${heapSizeInMb}MB`
+                    `Heap stats: ` +
+                        `total_heap_size=${convertToMB(heapStats.total_heap_size)}, ` +
+                        `used_heap_size=${convertToMB(heapStats.used_heap_size)}, ` +
+                        `total_physical_size=${convertToMB(heapStats.total_physical_size)}, ` +
+                        `total_available_size=${convertToMB(heapStats.total_available_size)}, ` +
+                        `heap_size_limit=${convertToMB(heapStats.heap_size_limit)}`
+                );
+            }
+
+            // If we use more than 90% of the heap size limit, avoid a crash
+            // by emptying the type cache.
+            if (heapStats.used_heap_size > heapStats.heap_size_limit * 0.9) {
+                this._console.info(
+                    `Emptying type cache to avoid heap overflow. Used ${convertToMB(
+                        heapStats.used_heap_size
+                    )} out of ${convertToMB(heapStats.heap_size_limit)}`
                 );
                 this._createNewEvaluator();
                 this._discardCachedParseResults();
