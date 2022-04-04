@@ -3454,7 +3454,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 getTypeFromIndexWithBaseType(
                     target,
-                    baseTypeResult.type,
+                    baseTypeResult,
                     {
                         method: 'set',
                         setType: type,
@@ -3658,7 +3658,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     undefined,
                     EvaluatorFlags.DoNotSpecialize
                 );
-                getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'del' }, EvaluatorFlags.None);
+                getTypeFromIndexWithBaseType(node, baseTypeResult, { method: 'del' }, EvaluatorFlags.None);
                 writeTypeCache(node, UnboundType.create(), EvaluatorFlags.None, /* isIncomplete */ false);
                 break;
             }
@@ -5615,7 +5615,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const indexTypeResult = getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'get' }, flags);
+        const indexTypeResult = getTypeFromIndexWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
             // We limit type narrowing for index expressions to built-in types that are
@@ -5940,23 +5940,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeFromIndexWithBaseType(
         node: IndexNode,
-        baseType: Type,
+        baseTypeResult: SimpleTypeResult,
         usage: EvaluatorUsage,
         flags: EvaluatorFlags
     ): TypeResult {
         // Handle the case where we're specializing a generic type alias.
-        const typeAliasResult = createSpecializedTypeAlias(node, baseType, flags);
+        const typeAliasResult = createSpecializedTypeAlias(node, baseTypeResult.type, flags);
         if (typeAliasResult) {
             return typeAliasResult;
         }
 
-        if (isTypeAliasPlaceholder(baseType)) {
+        if (isTypeAliasPlaceholder(baseTypeResult.type)) {
             const typeArgTypes = getTypeArgs(node, flags).map((t) => convertToInstance(t.type));
             const type = TypeBase.cloneForTypeAlias(
-                baseType,
-                baseType.details.recursiveTypeAliasName!,
+                baseTypeResult.type,
+                baseTypeResult.type.details.recursiveTypeAliasName!,
                 '',
-                baseType.details.recursiveTypeAliasScopeId!,
+                baseTypeResult.type.details.recursiveTypeAliasScopeId!,
                 undefined,
                 typeArgTypes
             );
@@ -5966,7 +5966,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
 
         const type = mapSubtypesExpandTypeVars(
-            baseType,
+            baseTypeResult.type,
             /* conditionFilter */ undefined,
             (concreteSubtype, unexpandedSubtype) => {
                 if (isAnyOrUnknown(concreteSubtype)) {
@@ -6147,15 +6147,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // In case we didn't walk the list items above, do so now.
         // If we have, this information will be cached.
-        node.items.forEach((item) => {
-            if (!isTypeCached(item.valueExpression)) {
-                getTypeOfExpression(
-                    item.valueExpression,
-                    /* expectedType */ undefined,
-                    flags & EvaluatorFlags.AllowForwardReferences
-                );
-            }
-        });
+        if (!baseTypeResult.isIncomplete) {
+            node.items.forEach((item) => {
+                if (!isTypeCached(item.valueExpression)) {
+                    getTypeOfExpression(
+                        item.valueExpression,
+                        /* expectedType */ undefined,
+                        flags & EvaluatorFlags.AllowForwardReferences
+                    );
+                }
+            });
+        }
 
         return { type, node, isIncomplete };
     }
@@ -6817,8 +6819,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             returnResult.isIncomplete = true;
         }
 
-        // Don't bother evaluating the arguments if we're speculatively evaluating the call.
-        if (!speculativeTypeTracker.isSpeculative(node)) {
+        // Don't bother evaluating the arguments if we're speculatively evaluating the call
+        // or the base type is incomplete.
+        if (!speculativeTypeTracker.isSpeculative(node) && !baseTypeResult.isIncomplete) {
             // Touch all of the args so they're marked accessed even if there were errors.
             // We skip this if it's a TypeVar() call in the typing.pyi module because
             // this results in a cyclical type resolution problem whereby we try to

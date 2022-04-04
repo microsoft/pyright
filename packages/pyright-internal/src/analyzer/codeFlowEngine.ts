@@ -349,7 +349,7 @@ export function getCodeFlowEngine(
                                 // case (something like "int: int = 4"). Avoid infinite recursion
                                 // by returning an undefined type.
                                 if (cachedEntry && cachedEntry.type === undefined) {
-                                    return { type: undefined, isIncomplete: true };
+                                    return { type: undefined, isIncomplete: false };
                                 }
 
                                 // Set the cache entry to undefined before evaluating the
