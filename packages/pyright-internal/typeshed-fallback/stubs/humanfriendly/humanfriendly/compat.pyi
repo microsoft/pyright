@@ -11,7 +11,7 @@ else:
     unicode = unicode
     unichr = unichr
     basestring = basestring
-    interactive_prompt = raw_input
+    interactive_prompt = raw_input  # noqa: F821  # exists as a builtin in Python 2, but not in Python 3
     from StringIO import StringIO as StringIO
 
     from HTMLParser import HTMLParser as HTMLParser

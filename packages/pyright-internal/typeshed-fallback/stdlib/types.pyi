@@ -200,6 +200,7 @@ class FunctionType:
         @property
         def __builtins__(self) -> dict[str, Any]: ...
 
+    __module__: str
     def __init__(
         self,
         code: CodeType,

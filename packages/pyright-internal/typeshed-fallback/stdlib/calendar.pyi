@@ -1,7 +1,7 @@
 import datetime
 import sys
+from collections.abc import Iterable, Sequence
 from time import struct_time
-from typing import Any, Iterable, Sequence
 from typing_extensions import Literal
 
 __all__ = [
@@ -106,7 +106,7 @@ class HTMLCalendar(Calendar):
 class different_locale:
     def __init__(self, locale: _LocaleType) -> None: ...
     def __enter__(self) -> None: ...
-    def __exit__(self, *args: Any) -> None: ...
+    def __exit__(self, *args: object) -> None: ...
 
 class LocaleTextCalendar(TextCalendar):
     def __init__(self, firstweekday: int = ..., locale: _LocaleType | None = ...) -> None: ...
