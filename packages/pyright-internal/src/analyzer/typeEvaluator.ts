@@ -544,16 +544,17 @@ export interface EvaluatorOptions {
 
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
-    const functionRecursionMap = new Map<number, true>();
-    const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
-    const typeCache: TypeCache = new Map<number, CachedType>();
     const typeCacheFlags = new Map<number, EvaluatorFlags>();
     const asymmetricDescriptorAssignmentCache = new Set<number>();
-    const expectedTypeCache = new Map<number, Type>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
-    const effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     const suppressedNodeStack: ParseNode[] = [];
     const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
+
+    let functionRecursionMap = new Map<number, true>();
+    let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
+    let typeCache: TypeCache = new Map<number, CachedType>();
+    let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
+    let expectedTypeCache = new Map<number, Type>();
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
@@ -589,6 +590,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeCacheSize(): number {
         return typeCache.size;
+    }
+
+    // This function should be called immediately prior to discarding
+    // the type evaluator. It forcibly replacing existing cache maps
+    // with empty equivalents. This shouldn't be necessary, but there
+    // is apparently a bug in the v8 GC where it is unable to detect
+    // circular references in complex data structures, so it fails
+    // to clean up the objects if we don't help it out.
+    function disposeEvaluator() {
+        functionRecursionMap = new Map<number, true>();
+        codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
+        typeCache = new Map<number, CachedType>();
+        effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
+        expectedTypeCache = new Map<number, Type>();
     }
 
     function isTypeCached(node: ParseNode) {
@@ -23957,6 +23972,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         printType,
         printFunctionParts,
         getTypeCacheSize,
+        disposeEvaluator,
         useSpeculativeMode,
         setTypeForNode,
         checkForCancellation,

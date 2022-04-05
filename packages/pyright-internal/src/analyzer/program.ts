@@ -788,6 +788,13 @@ export class Program {
     }
 
     private _createNewEvaluator() {
+        if (this._evaluator) {
+            // We shouldn't need to call this, but there appears to be a bug
+            // in the v8 garbage collector where it's unable to resolve orphaned
+            // objects without us giving it some assistance.
+            this._evaluator.disposeEvaluator();
+        }
+
         this._evaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {

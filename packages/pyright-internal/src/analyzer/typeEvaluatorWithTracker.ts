@@ -153,6 +153,7 @@ export function createTypeEvaluatorWithTracker(
         printType: (t, e) => run('printType', () => typeEvaluator.printType(t, e), t),
         printFunctionParts: (t) => run('printFunctionParts', () => typeEvaluator.printFunctionParts(t), t),
         getTypeCacheSize: typeEvaluator.getTypeCacheSize,
+        disposeEvaluator: typeEvaluator.disposeEvaluator,
         useSpeculativeMode: typeEvaluator.useSpeculativeMode,
         setTypeForNode: typeEvaluator.setTypeForNode,
         checkForCancellation: typeEvaluator.checkForCancellation,
