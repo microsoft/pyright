@@ -96,6 +96,7 @@ export class AnalyzerService {
     private _configFilePath: string | undefined;
     private _configFileWatcher: FileWatcher | undefined;
     private _libraryFileWatcher: FileWatcher | undefined;
+    private _librarySearchPathsToWatch: string[] | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _commandLineOptions: CommandLineOptions | undefined;
     private _analyzeTimer: any;
@@ -193,6 +194,10 @@ export class AnalyzerService {
         this._clearReloadConfigTimer();
         this._clearReanalysisTimer();
         this._clearLibraryReanalysisTimer();
+    }
+
+    get librarySearchPathsToWatch() {
+        return this._librarySearchPathsToWatch;
     }
 
     get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
@@ -1281,7 +1286,10 @@ export class AnalyzerService {
                     }
 
                     // For file change, we only care python file change.
-                    if (eventInfo.isFile && (!hasPythonExtension(path) || isTemporaryFile(path))) {
+                    if (
+                        eventInfo.isFile &&
+                        (!hasPythonExtension(path) || isTemporaryFile(path) || !this.isTracked(path))
+                    ) {
                         return;
                     }
 
@@ -1387,7 +1395,7 @@ export class AnalyzerService {
 
         // Watch the library paths for package install/uninstall.
         const importFailureInfo: string[] = [];
-        const watchList = findPythonSearchPaths(
+        this._librarySearchPathsToWatch = findPythonSearchPaths(
             this._fs,
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
@@ -1396,6 +1404,7 @@ export class AnalyzerService {
             this._executionRootPath
         );
 
+        const watchList = this._librarySearchPathsToWatch;
         if (watchList && watchList.length > 0) {
             try {
                 if (this._verboseOutput) {

@@ -1565,9 +1565,8 @@ export class ImportResolver {
             });
         }
 
-        this._cachedTypeshedThirdPartyPackageRoots = [
-            ...new Set(...this._cachedTypeshedThirdPartyPackagePaths.values()),
-        ].sort();
+        const flattenPaths = [...this._cachedTypeshedThirdPartyPackagePaths.values()].flatMap((v) => v);
+        this._cachedTypeshedThirdPartyPackageRoots = [...new Set(flattenPaths)].sort();
     }
 
     private _getCompletionSuggestionsTypeshedPath(

@@ -62,6 +62,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     disableLanguageServices: false,
                     disableOrganizeImports: false,
                     isInitialized: createDeferred<boolean>(),
+                    searchPathsToWatch: [],
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
                 ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();

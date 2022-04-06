@@ -53,6 +53,7 @@ export class AnalyzerServiceExecutor {
             disableLanguageServices: true,
             disableOrganizeImports: true,
             isInitialized: createDeferred<boolean>(),
+            searchPathsToWatch: [],
         };
 
         const serverSettings = await ls.getSettings(workspace);

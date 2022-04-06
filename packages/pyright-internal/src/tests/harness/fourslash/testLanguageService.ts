@@ -73,6 +73,7 @@ export class TestLanguageService implements LanguageServerInterface {
             disableLanguageServices: false,
             disableOrganizeImports: false,
             isInitialized: createDeferred<boolean>(),
+            searchPathsToWatch: [],
         };
     }
     decodeTextDocumentUri(uriString: string): string {

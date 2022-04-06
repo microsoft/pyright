@@ -52,7 +52,7 @@ export class PyrightServer extends LanguageServerBase {
 
         const console = new ConsoleWithLogLevel(connection.console);
         const workspaceMap = new WorkspaceMap();
-        const fileWatcherProvider = new WorkspaceFileWatcherProvider(workspaceMap, console);
+        const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
 
         super(

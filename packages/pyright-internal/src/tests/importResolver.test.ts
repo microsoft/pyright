@@ -363,6 +363,27 @@ test('no empty import roots', () => {
     importResolver.getImportRoots(configOptions.getDefaultExecEnvironment()).forEach((path) => assert(path));
 });
 
+test('multiple typeshedFallback', () => {
+    const files = [
+        {
+            path: combinePaths('/', typeshedFallback, 'stubs', 'aLib', 'aLib', '__init__.pyi'),
+            content: '# empty',
+        },
+        {
+            path: combinePaths('/', typeshedFallback, 'stubs', 'bLib', 'bLib', '__init__.pyi'),
+            content: '# empty',
+        },
+    ];
+
+    const fs = createFileSystem(files);
+    const configOptions = new ConfigOptions(''); // Empty, like open-file mode.
+    const importResolver = new ImportResolver(fs, configOptions, new TestAccessHost(fs.getModulePath(), [libraryRoot]));
+    const importRoots = importResolver.getImportRoots(configOptions.getDefaultExecEnvironment());
+
+    assert.strictEqual(1, importRoots.filter((f) => f === combinePaths('/', typeshedFallback, 'stubs', 'aLib')).length);
+    assert.strictEqual(1, importRoots.filter((f) => f === combinePaths('/', typeshedFallback, 'stubs', 'bLib')).length);
+});
+
 test('import side by side file root', () => {
     const files = [
         {
