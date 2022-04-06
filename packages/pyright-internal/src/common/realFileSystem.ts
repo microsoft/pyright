@@ -10,9 +10,7 @@ import * as fs from 'fs';
 import * as tmp from 'tmp';
 import { URI } from 'vscode-uri';
 
-import { WorkspaceMap } from '../workspaceMap';
 import { ConsoleInterface, NullConsole } from './console';
-import { isDefined } from './core';
 import {
     FileSystem,
     FileWatcher,
@@ -23,7 +21,6 @@ import {
     nullFileWatcherProvider,
     TmpfileOptions,
 } from './fileSystem';
-import { containsPath } from './pathUtils';
 import { getRootLength } from './pathUtils';
 
 // Automatically remove files created by tmp at process exit.
@@ -300,7 +297,10 @@ class RealFileSystem implements FileSystem {
     }
 
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        return this._fileWatcherProvider.createFileWatcher(paths, listener);
+        return this._fileWatcherProvider.createFileWatcher(
+            paths.map((p) => this.realCasePath(p)),
+            listener
+        );
     }
 
     createReadStream(path: string): fs.ReadStream {
@@ -400,54 +400,12 @@ interface WorkspaceFileWatcher extends FileWatcher {
 export class WorkspaceFileWatcherProvider implements FileWatcherProvider {
     private _fileWatchers: WorkspaceFileWatcher[] = [];
 
-    constructor(private _workspaceMap: WorkspaceMap, private _console: ConsoleInterface) {}
-
-    createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        // Determine which paths are located within one or more workspaces.
-        // Those are already covered by existing file watchers handled by
-        // the client.
-        const workspacePaths: string[] = [];
-        const nonWorkspacePaths: string[] = [];
-
-        const workspaces = this._workspaceMap.getNonDefaultWorkspaces();
-        paths.forEach((path) => {
-            if (workspaces.some((workspace) => containsPath(workspace.rootPath, path))) {
-                workspacePaths.push(path);
-            } else {
-                nonWorkspacePaths.push(path);
-            }
-        });
-
-        // For any non-workspace paths, use the node file watcher.
-        const nodeWatchers = nonWorkspacePaths
-            .map((path) => {
-                // Skip paths that don't exist; fs.watch will throw when it tries to watch them,
-                // and won't give us a watcher that would work if it were created later.
-                if (!fs.existsSync(path)) {
-                    return undefined;
-                }
-
-                try {
-                    return fs.watch(path, { recursive: true }, (event, filename) =>
-                        listener(event as FileWatcherEventType, filename)
-                    );
-                } catch (e: any) {
-                    this._console.warn(`Exception received when installing file system watcher: ${e}`);
-                    return undefined;
-                }
-            })
-            .filter(isDefined);
-
+    createFileWatcher(workspacePaths: string[], listener: FileWatcherEventHandler): FileWatcher {
         const self = this;
         const fileWatcher: WorkspaceFileWatcher = {
             close() {
                 // Stop listening for workspace paths.
                 self._fileWatchers = self._fileWatchers.filter((watcher) => watcher !== fileWatcher);
-
-                // Close the node watchers.
-                nodeWatchers.forEach((watcher) => {
-                    watcher.close();
-                });
             },
             workspacePaths,
             eventHandler: listener,
@@ -460,8 +418,13 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider {
     }
 
     onFileChange(eventType: FileWatcherEventType, filePath: string): void {
+        // Since file watcher is a server wide service, we don't know which watcher is
+        // for which workspace (for multi workspace case), also, we don't know which watcher
+        // is for source or library. so we need to solely rely on paths that can cause us
+        // to raise events both for source and library if .venv is inside of workspace root
+        // for a file change. It is event handler's job to filter those out.
         this._fileWatchers.forEach((watcher) => {
-            if (watcher.workspacePaths.some((dirPath) => containsPath(dirPath, filePath))) {
+            if (watcher.workspacePaths.some((dirPath) => filePath.startsWith(dirPath))) {
                 watcher.eventHandler(eventType, filePath);
             }
         });

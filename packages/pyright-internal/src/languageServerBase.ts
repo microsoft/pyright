@@ -42,11 +42,13 @@ import {
     DidChangeWatchedFilesParams,
     DidCloseTextDocumentParams,
     DidOpenTextDocumentParams,
+    Disposable,
     DocumentHighlight,
     DocumentHighlightParams,
     DocumentSymbol,
     DocumentSymbolParams,
     ExecuteCommandParams,
+    FileSystemWatcher,
     HoverParams,
     InitializeParams,
     InitializeResult,
@@ -96,7 +98,7 @@ import { FileDiagnostics } from './common/diagnosticSink';
 import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/fileSystem';
 import { Host } from './common/host';
-import { convertPathToUri } from './common/pathUtils';
+import { convertPathToUri, normalizeSlashes } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
@@ -143,6 +145,7 @@ export interface WorkspaceServiceInstance {
     disableOrganizeImports: boolean;
     disableWorkspaceSymbol?: boolean;
     isInitialized: Deferred<boolean>;
+    searchPathsToWatch: string[];
 }
 
 export interface MessageAction {
@@ -228,6 +231,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     private _progressReporter: ProgressReporter;
 
     private _lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
+
+    private _lastFileWatcherRegistration: Disposable | undefined;
 
     // Global root path - the basis for all global settings.
     rootPath = '';
@@ -598,25 +603,47 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     await this.updateSettingsForWorkspace(newWorkspace);
                 });
             });
+
+            this._setupFileWatcher();
+        }
+    }
+
+    private _setupFileWatcher() {
+        if (!this.client.hasWatchFileCapability) {
+            return;
         }
 
-        // Set up our file watchers.
-        if (this.client.hasWatchFileCapability) {
-            this._connection.client.register(DidChangeWatchedFilesNotification.type, {
-                watchers: [
-                    ...configFileNames.map((fileName) => {
-                        return {
-                            globPattern: `**/${fileName}`,
-                            kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
-                        };
-                    }),
-                    {
-                        globPattern: '**',
-                        kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
-                    },
-                ],
+        // Set default (config files and all workspace files) first.
+        const watchers: FileSystemWatcher[] = [
+            ...configFileNames.map((fileName) => {
+                return {
+                    globPattern: `**/${fileName}`,
+                    kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                };
+            }),
+            {
+                globPattern: '**',
+                kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+            },
+        ];
+
+        // Add all python search paths to watch list
+        for (const workspace of this._workspaceMap.getNonDefaultWorkspaces()) {
+            workspace.searchPathsToWatch.forEach((p) => {
+                watchers.push({
+                    globPattern: `${normalizeSlashes(this.fs.realCasePath(p), '/')}/**`,
+                    kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                });
             });
         }
+
+        this._connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
+            if (this._lastFileWatcherRegistration) {
+                this._lastFileWatcherRegistration.dispose();
+            }
+
+            this._lastFileWatcherRegistration = d;
+        });
     }
 
     protected onDidChangeConfiguration(params: DidChangeConfigurationParams) {
@@ -1148,7 +1175,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
         params.changes.forEach((change) => {
-            const filePath = this._uriParser.decodeTextDocumentUri(change.uri);
+            const filePath = this.fs.realCasePath(this._uriParser.decodeTextDocumentUri(change.uri));
             const eventType: FileWatcherEventType = change.type === 1 ? 'add' : 'change';
             this._fileWatcherProvider.onFileChange(eventType, filePath);
         });
@@ -1233,6 +1260,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._workspaceMap.forEach((workspace) => {
             this.updateSettingsForWorkspace(workspace).ignoreErrors();
         });
+
+        this._setupFileWatcher();
     }
 
     protected getCompletionOptions(params?: CompletionParams) {
@@ -1257,6 +1286,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
+            searchPathsToWatch: [],
         };
     }
 
@@ -1329,6 +1359,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         typeStubTargetImportName?: string
     ) {
         AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
+        workspace.searchPathsToWatch = workspace.serviceInstance.librarySearchPathsToWatch ?? [];
     }
 
     protected convertLogLevel(logLevelValue?: string): LogLevel {

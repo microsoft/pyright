@@ -189,6 +189,7 @@ export class TestState {
             disableLanguageServices: false,
             disableOrganizeImports: false,
             isInitialized: createDeferred<boolean>(),
+            searchPathsToWatch: [],
         };
 
         const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);

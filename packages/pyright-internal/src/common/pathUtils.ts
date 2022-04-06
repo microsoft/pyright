@@ -197,11 +197,11 @@ export function directoryExists(fs: FileSystem, path: string): boolean {
     return fileSystemEntryExists(fs, path, FileSystemEntryKind.Directory);
 }
 
-const invalidSeparator = path.sep === '/' ? '\\' : '/';
-export function normalizeSlashes(pathString: string): string {
-    if (pathString.includes(invalidSeparator)) {
+const getInvalidSeparator = (sep: string) => (sep === '/' ? '\\' : '/');
+export function normalizeSlashes(pathString: string, sep = path.sep): string {
+    if (pathString.includes(getInvalidSeparator(sep))) {
         const separatorRegExp = /[\\/]/g;
-        return pathString.replace(separatorRegExp, path.sep);
+        return pathString.replace(separatorRegExp, sep);
     }
 
     return pathString;
