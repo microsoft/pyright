@@ -339,7 +339,11 @@ export function printType(
                     );
 
                     if (printTypeFlags & PrintTypeFlags.PEP604) {
-                        return optionalType + ' | None';
+                        const unionString = optionalType + ' | None';
+                        if (parenthesizeUnion) {
+                            return `(${unionString})`;
+                        }
+                        return unionString;
                     }
 
                     return 'Optional[' + optionalType + ']';
