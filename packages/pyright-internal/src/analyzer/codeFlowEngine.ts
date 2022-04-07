@@ -787,7 +787,7 @@ export function getCodeFlowEngine(
                     }
 
                     if (!sawIncomplete || attemptCount >= maxAttemptCount) {
-                        return setCacheEntry(loopNode, effectiveType, sawIncomplete);
+                        return setCacheEntry(loopNode, effectiveType, /* isIncomplete */ false);
                     }
 
                     attemptCount++;
