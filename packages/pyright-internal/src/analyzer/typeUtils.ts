@@ -863,7 +863,12 @@ export function isUnboundedTupleClass(type: ClassType) {
 // Partially specializes a type within the context of a specified
 // (presumably specialized) class. Optionally specializes the `Self`
 // type variables, replacing them with selfClass.
-export function partiallySpecializeType(type: Type, contextClassType: ClassType, selfClass?: ClassType): Type {
+export function partiallySpecializeType(
+    type: Type,
+    contextClassType: ClassType,
+    selfClass?: ClassType,
+    typeClassType?: Type
+): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
     if (ClassType.isUnspecialized(contextClassType)) {
@@ -877,7 +882,14 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType,
         populateTypeVarMapForSelfType(typeVarMap, contextClassType, selfClass);
     }
 
-    return applySolvedTypeVars(type, typeVarMap);
+    return applySolvedTypeVars(
+        type,
+        typeVarMap,
+        /* unknownIfNotFound */ undefined,
+        /* useNarrowBoundOnly */ undefined,
+        /* eliminateUnsolvedInUnions */ undefined,
+        typeClassType
+    );
 }
 
 export function populateTypeVarMapForSelfType(
@@ -896,7 +908,8 @@ export function applySolvedTypeVars(
     typeVarMap: TypeVarMap,
     unknownIfNotFound = false,
     useNarrowBoundOnly = false,
-    eliminateUnsolvedInUnions = false
+    eliminateUnsolvedInUnions = false,
+    typeClassType?: Type
 ): Type {
     // Use a shortcut if the typeVarMap is empty and no transform is necessary.
     if (typeVarMap.isEmpty() && !unknownIfNotFound && !eliminateUnsolvedInUnions) {
@@ -907,7 +920,8 @@ export function applySolvedTypeVars(
         typeVarMap,
         unknownIfNotFound,
         useNarrowBoundOnly,
-        eliminateUnsolvedInUnions
+        eliminateUnsolvedInUnions,
+        typeClassType
     );
     return transformer.apply(type);
 }
@@ -2869,7 +2883,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         private _typeVarMap: TypeVarMap,
         private _unknownIfNotFound = false,
         private _useNarrowBoundOnly = false,
-        private _eliminateUnsolvedInUnions = false
+        private _eliminateUnsolvedInUnions = false,
+        private _typeClassType?: Type
     ) {
         super();
     }
@@ -2894,7 +2909,19 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
             if (replacement) {
                 if (TypeBase.isInstantiable(typeVar)) {
-                    replacement = convertToInstantiable(replacement);
+                    if (
+                        isAnyOrUnknown(replacement) &&
+                        this._typeClassType &&
+                        isInstantiableClass(this._typeClassType)
+                    ) {
+                        replacement = ClassType.cloneForSpecialization(
+                            ClassType.cloneAsInstance(this._typeClassType),
+                            [replacement],
+                            /* isTypeArgumentExplicit */ true
+                        );
+                    } else {
+                        replacement = convertToInstantiable(replacement);
+                    }
                 }
                 return replacement;
             }

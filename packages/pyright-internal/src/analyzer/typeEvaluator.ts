@@ -18999,7 +18999,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfMember(member: ClassMember): Type {
         if (isInstantiableClass(member.classType)) {
-            return partiallySpecializeType(getEffectiveTypeOfSymbol(member.symbol), member.classType);
+            return partiallySpecializeType(
+                getEffectiveTypeOfSymbol(member.symbol),
+                member.classType,
+                /* selfClass */ undefined,
+                typeClassType ?? UnknownType.create()
+            );
         }
         return UnknownType.create();
     }
