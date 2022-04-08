@@ -2503,11 +2503,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const sourceFlowNode = sourceNode ? AnalyzerNodeInfo.getFlowNode(sourceNode) : undefined;
 
-        if (!codeFlowEngine.isFlowNodeReachable(flowNode, sourceFlowNode)) {
-            return false;
-        }
-
-        return true;
+        return codeFlowEngine.isFlowNodeReachable(flowNode, sourceFlowNode);
     }
 
     function isAfterNodeReachable(node: ParseNode): boolean {

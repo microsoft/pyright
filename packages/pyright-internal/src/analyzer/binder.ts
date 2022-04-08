@@ -3021,7 +3021,7 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = flowNode;
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode!);
     }
 
     private _isCodeUnreachable() {
