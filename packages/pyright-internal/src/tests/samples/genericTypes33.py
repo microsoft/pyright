@@ -1,6 +1,8 @@
 # This sample tests the reportMissingTypeArgument diagnostic rule.
 
+import collections
 from typing import Generic, Optional, TypeVar, Union
+
 
 _T1 = TypeVar("_T1")
 
@@ -37,3 +39,8 @@ class Class3(Generic[_T1, _T2]):
 # is enabled because this class requires two type arguments and this will
 # generate a runtime exception.
 a = Class3[int]
+
+
+# This should generate an error when reportMissingTypeArgument is enabled.
+def func1() -> collections.deque:
+    ...

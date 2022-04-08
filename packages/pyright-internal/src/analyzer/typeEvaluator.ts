@@ -4341,7 +4341,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
-        const memberTypeResult = getTypeFromMemberAccessWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
+        const memberTypeResult = getTypeFromMemberAccessWithBaseType(
+            node,
+            baseTypeResult,
+            { method: 'get' },
+            flags | EvaluatorFlags.DoNotSpecialize
+        );
 
         if (isCodeFlowSupportedForReference(node)) {
             // Before performing code flow analysis, update the cache to prevent recursion.
