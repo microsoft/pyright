@@ -8739,7 +8739,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Does this function define the param spec, or is it an inner
                 // function nested within another function that defines the param
                 // spec? We need to handle these two cases differently.
-                if (varArgListParam.type.scopeId === type.details.typeVarScopeId) {
+                if (
+                    varArgListParam.type.scopeId === type.details.typeVarScopeId ||
+                    varArgListParam.type.scopeId === type.details.constructorTypeVarScopeId
+                ) {
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, undefined);
                 } else {
@@ -15040,6 +15043,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         functionType.details.typeVarScopeId = getScopeIdForNode(node);
+
+        if (node.name.value === '__init__' || node.name.value === '__new__') {
+            if (containingClassNode) {
+                functionType.details.constructorTypeVarScopeId = getScopeIdForNode(containingClassNode);
+            }
+        }
 
         if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
             // Stash away the name of the function since we need to handle

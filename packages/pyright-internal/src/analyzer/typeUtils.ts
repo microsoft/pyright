@@ -2764,7 +2764,13 @@ class TypeVarTransformer {
             ) {
                 const paramSpecType = this.transformParamSpec(argsParamType);
                 if (paramSpecType) {
-                    functionType = FunctionType.cloneForParamSpecApplication(functionType, paramSpecType);
+                    if (
+                        paramSpecType.parameters.length > 0 ||
+                        paramSpecType.paramSpec === undefined ||
+                        !isTypeSame(argsParamType, paramSpecType.paramSpec)
+                    ) {
+                        functionType = FunctionType.cloneForParamSpecApplication(functionType, paramSpecType);
+                    }
                 }
             }
         }

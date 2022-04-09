@@ -1052,6 +1052,7 @@ interface FunctionDetails {
     declaredReturnType?: Type | undefined;
     declaration?: FunctionDeclaration | undefined;
     typeVarScopeId?: TypeVarScopeId | undefined;
+    constructorTypeVarScopeId?: TypeVarScopeId | undefined;
     builtInName?: string | undefined;
     docString?: string | undefined;
 
