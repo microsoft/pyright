@@ -145,7 +145,15 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
                 continue;
             }
 
-            for (const entry of this._realFS.readdirEntriesSync(path)) {
+            let dirEntries: fs.Dirent[] = [];
+
+            try {
+                dirEntries = this._realFS.readdirEntriesSync(path);
+            } catch {
+                // Leave empty set of dir entries to process.
+            }
+
+            for (const entry of dirEntries) {
                 const partialStubPackagePath = combinePaths(path, entry.name);
                 const isDirectory = !entry.isSymbolicLink()
                     ? entry.isDirectory()
