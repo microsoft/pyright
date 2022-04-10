@@ -178,9 +178,9 @@ _CanvasItemId = int
 _Color = str  # typically '#rrggbb', '#rgb' or color names.
 _Compound = Literal["top", "left", "center", "right", "bottom", "none"]  # -compound in manual page named 'options'
 _Cursor = Union[str, tuple[str], tuple[str, str], tuple[str, str, str], tuple[str, str, str, str]]  # manual page: Tk_GetCursor
-_EntryValidateCommand = Union[
-    Callable[[], bool], str, list[str], tuple[str, ...]
-]  # example when it's sequence:  entry['invalidcommand'] = [entry.register(print), '%P']
+_EntryValidateCommand = (
+    str | list[str] | tuple[str, ...] | Callable[[], bool]
+)  # example when it's sequence:  entry['invalidcommand'] = [entry.register(print), '%P']
 _GridIndex = int | str | Literal["all"]
 _ImageSpec = _Image | str  # str can be from e.g. tkinter.image_names()
 _Padding = Union[

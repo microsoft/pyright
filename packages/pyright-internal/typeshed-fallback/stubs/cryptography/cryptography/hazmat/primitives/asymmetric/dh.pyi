@@ -30,7 +30,8 @@ class DHParameterNumbers:
     def parameters(self, backend: DHBackend | None = ...) -> DHParameters: ...
 
 class DHPrivateKey(metaclass=ABCMeta):
-    key_size: int
+    @property
+    def key_size(self) -> int: ...
     @abstractmethod
     def exchange(self, peer_public_key: DHPublicKey) -> bytes: ...
     @abstractmethod

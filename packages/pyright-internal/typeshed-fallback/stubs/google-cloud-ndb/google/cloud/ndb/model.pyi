@@ -348,7 +348,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     @classmethod
     def get_or_insert(
         cls: type[Model],
-        name: str,
+        _name: str,
         parent: key_module.Key | None = ...,
         namespace: str | None = ...,
         project: str | None = ...,
@@ -373,7 +373,7 @@ class Model(_NotEqualMixin, metaclass=MetaModel):
     @classmethod
     def get_or_insert_async(
         cls: type[Model],
-        name: str,
+        _name: str,
         parent: key_module.Key | None = ...,
         namespace: str | None = ...,
         project: str | None = ...,

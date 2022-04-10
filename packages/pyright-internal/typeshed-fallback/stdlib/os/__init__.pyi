@@ -920,6 +920,8 @@ else:
     if sys.platform != "darwin":
         @final
         class waitid_result(structseq[int], tuple[int, int, int, int, int]):
+            if sys.version_info >= (3, 10):
+                __match_args__: Final = ("si_pid", "si_uid", "si_signo", "si_status", "si_code")
             @property
             def si_pid(self) -> int: ...
             @property
@@ -977,6 +979,8 @@ else:
 if sys.platform != "win32":
     @final
     class sched_param(structseq[int], tuple[int]):
+        if sys.version_info >= (3, 10):
+            __match_args__: Final = ("sched_priority",)
         def __new__(cls: type[Self], sched_priority: int) -> Self: ...
         @property
         def sched_priority(self) -> int: ...

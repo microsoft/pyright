@@ -1,9 +1,11 @@
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from .. import util
 from . import operators
 from .base import SchemaEventTarget
 from .visitors import Traversible, TraversibleType
+
+_T = TypeVar("_T")
 
 BOOLEANTYPE: Any
 INTEGERTYPE: Any
@@ -14,7 +16,7 @@ INDEXABLE: Any
 TABLEVALUE: Any
 
 class TypeEngine(Traversible):
-    class Comparator(operators.ColumnOperators):
+    class Comparator(operators.ColumnOperators[_T], Generic[_T]):
         default_comparator: Any
         def __clause_element__(self): ...
         expr: Any

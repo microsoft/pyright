@@ -3,6 +3,8 @@ from typing import Any
 from .fault import *
 from .query import *
 
+class DynamicData: ...
+
 class DynamicProperty:
     def __init__(self, *, name: str = ..., val: Any = ...) -> None: ...
     name: str
@@ -10,16 +12,16 @@ class DynamicProperty:
 
 class ManagedObject: ...
 
-class KeyAnyValue:
+class KeyAnyValue(DynamicData):
     key: str
     value: Any
 
-class LocalizableMessage:
+class LocalizableMessage(DynamicData):
     key: str
     arg: list[KeyAnyValue] | None
     message: str | None
 
-class MethodFault:
+class MethodFault(DynamicData, Exception):
     msg: str | None
     faultCause: MethodFault | None
     faultMessage: list[LocalizableMessage] | None

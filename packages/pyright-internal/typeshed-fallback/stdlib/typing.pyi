@@ -1138,21 +1138,19 @@ class Pattern(Generic[AnyStr]):
 # Functions
 
 if sys.version_info >= (3, 7):
-    _get_type_hints_obj_allowed_types = Union[
-        object,
-        Callable[..., Any],
-        FunctionType,
-        BuiltinFunctionType,
-        MethodType,
-        ModuleType,
-        WrapperDescriptorType,
-        MethodWrapperType,
-        MethodDescriptorType,
-    ]
+    _get_type_hints_obj_allowed_types = (
+        object
+        | Callable[..., Any]
+        | FunctionType
+        | BuiltinFunctionType
+        | MethodType
+        | ModuleType
+        | WrapperDescriptorType
+        | MethodWrapperType
+        | MethodDescriptorType
+    )
 else:
-    _get_type_hints_obj_allowed_types = Union[
-        object, Callable[..., Any], FunctionType, BuiltinFunctionType, MethodType, ModuleType,
-    ]
+    _get_type_hints_obj_allowed_types = object | Callable[..., Any] | FunctionType | BuiltinFunctionType | MethodType | ModuleType
 
 if sys.version_info >= (3, 9):
     def get_type_hints(

@@ -121,10 +121,14 @@ class Distribution(IResourceProvider, IMetadataProvider):
     PKG_INFO: str
     location: str
     project_name: str
-    key: str
-    extras: list[str]
-    version: str
-    parsed_version: tuple[str, ...]
+    @property
+    def key(self) -> str: ...
+    @property
+    def extras(self) -> list[str]: ...
+    @property
+    def version(self) -> str: ...
+    @property
+    def parsed_version(self) -> tuple[str, ...]: ...
     py_version: str
     platform: str | None
     precedence: int

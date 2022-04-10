@@ -1,12 +1,12 @@
 from collections.abc import Container
-from typing import Any, Sequence, Union, overload
+from typing import Any, Sequence, overload
 from typing_extensions import Literal
 
 from .Image import Image
 from .ImageColor import _Ink
 from .ImageFont import _Font
 
-_XY = Sequence[Union[float, tuple[float, float]]]
+_XY = Sequence[float | tuple[float, float]]
 _Outline = Any
 
 class ImageDraw:

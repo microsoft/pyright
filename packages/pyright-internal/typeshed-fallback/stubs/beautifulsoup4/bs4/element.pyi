@@ -27,7 +27,6 @@ class ContentMetaAttributeValue(AttributeValueWithCharsetSubstitution):
     def encode(self, encoding: str) -> str: ...  # type: ignore[override]  # incompatible with str
 
 _PageElementT = TypeVar("_PageElementT", bound=PageElement)
-# The wrapping Union[] can be removed once mypy fully supports | in type aliases.
 _SimpleStrainable = str | bool | None | bytes | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
 _Strainable = _SimpleStrainable | Iterable[_SimpleStrainable]
 _SimpleNormalizedStrainable = str | bool | None | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
@@ -262,7 +261,8 @@ class Tag(PageElement):
     def __copy__(self: Self) -> Self: ...
     @property
     def is_empty_element(self) -> bool: ...
-    isSelfClosing = is_empty_element
+    @property
+    def isSelfClosing(self) -> bool: ...
     @property
     def string(self) -> str | None: ...
     @string.setter

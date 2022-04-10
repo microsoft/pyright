@@ -80,8 +80,9 @@ class local:
 
 class Thread:
     name: str
-    ident: int | None
     daemon: bool
+    @property
+    def ident(self) -> int | None: ...
     def __init__(
         self,
         group: None = ...,
@@ -183,9 +184,12 @@ class Timer(Thread):
     def cancel(self) -> None: ...
 
 class Barrier:
-    parties: int
-    n_waiting: int
-    broken: bool
+    @property
+    def parties(self) -> int: ...
+    @property
+    def n_waiting(self) -> int: ...
+    @property
+    def broken(self) -> bool: ...
     def __init__(self, parties: int, action: Callable[[], None] | None = ..., timeout: float | None = ...) -> None: ...
     def wait(self, timeout: float | None = ...) -> int: ...
     def reset(self) -> None: ...
