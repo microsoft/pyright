@@ -12,7 +12,7 @@ P = ParamSpec("P")
 def func1(func: Callable[P, int]) -> Callable[P, int]:
     def inner_func(x: int) -> int:
         # This should generate a type error.
-        return func(x)
+        return func()
 
     # This should generate a type error.
     return inner_func
@@ -22,8 +22,7 @@ def func2(
     func: Callable[Concatenate[int, P], int]
 ) -> Callable[Concatenate[int, P], int]:
     def inner_func(x: int) -> int:
-        # This should generate a type error, but it currently
-        # does not!
+        # This should generate a type error.
         return func(x)
 
     # This should generate a type error.

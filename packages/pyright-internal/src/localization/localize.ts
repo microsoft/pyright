@@ -608,6 +608,8 @@ export namespace Localizer {
         export const paramNameMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramNameMissing'));
         export const paramSpecArgsKwargsUsage = () => getRawString('Diagnostic.paramSpecArgsKwargsUsage');
+        export const paramSpecArgsMissing = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecArgsMissing'));
         export const paramSpecArgsUsage = () => getRawString('Diagnostic.paramSpecArgsUsage');
         export const paramSpecAssignedName = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecAssignedName'));

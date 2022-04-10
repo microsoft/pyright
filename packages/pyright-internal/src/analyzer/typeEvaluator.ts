@@ -340,6 +340,7 @@ interface MatchArgsToParamsResult {
 
 interface ArgResult {
     isCompatible: boolean;
+    argType: Type;
     isTypeIncomplete?: boolean | undefined;
     condition?: TypeCondition[];
     skippedOverloadArg?: boolean;
@@ -9183,6 +9184,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     } else if (isParamSpec(argType) && argType.paramSpecAccess === 'kwargs') {
                         unpackedDictionaryArgType = AnyType.create();
+                        if (type.details.paramSpec) {
+                            validateArgTypeParams.push({
+                                paramCategory: ParameterCategory.VarArgDictionary,
+                                paramType: type.details.paramSpec,
+                                requiresTypeVarMatching: false,
+                                argument: argList[argIndex],
+                                errorNode: argList[argIndex].valueExpression || errorNode,
+                            });
+                        }
                     } else {
                         const mappingType = getTypingType(errorNode, 'Mapping');
                         const strObjType = getBuiltInObject(errorNode, 'str');
@@ -9323,6 +9333,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList[argIndex].valueExpression || errorNode
                         );
                         reportedArgError = true;
+                    } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
+                        // Handle the case where a *args: P.args is passed as an argument to
+                        // a function that accepts a ParamSpec.
+                        if (type.details.paramSpec) {
+                            const argType = getTypeForArgument(argList[argIndex]).type;
+                            if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
+                                validateArgTypeParams.push({
+                                    paramCategory: ParameterCategory.VarArgList,
+                                    paramType: type.details.paramSpec,
+                                    requiresTypeVarMatching: false,
+                                    argument: argList[argIndex],
+                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                });
+                            }
+                        }
                     }
                 }
 
@@ -9739,6 +9764,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeVarMap.lock();
         }
 
+        let sawParamSpecArgs = false;
+        let sawParamSpecKwargs = false;
+
         let condition: TypeCondition[] = [];
         matchResults.argParams.forEach((argParam) => {
             const argResult = validateArgType(
@@ -9762,6 +9790,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (argResult.condition) {
                 condition = TypeCondition.combine(condition, argResult.condition) ?? [];
             }
+
+            if (type.details.paramSpec) {
+                if (argParam.argument.argumentCategory === ArgumentCategory.UnpackedList) {
+                    if (isParamSpec(argResult.argType) && argResult.argType.paramSpecAccess === 'args') {
+                        sawParamSpecArgs = true;
+                    }
+                }
+
+                if (argParam.argument.argumentCategory === ArgumentCategory.UnpackedDictionary) {
+                    if (isParamSpec(argResult.argType) && argResult.argType.paramSpecAccess === 'kwargs') {
+                        sawParamSpecKwargs = true;
+                    }
+                }
+            }
         });
 
         // Handle the assignment of additional arguments that map to a param spec.
@@ -9775,6 +9817,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeCondition
                 )
             ) {
+                argumentErrors = true;
+            }
+        } else if (type.details.paramSpec) {
+            if (!sawParamSpecArgs || !sawParamSpecKwargs) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.paramSpecArgsMissing().format({ type: printType(type.details.paramSpec) }),
+                    errorNode
+                );
                 argumentErrors = true;
             }
         }
@@ -10177,7 +10229,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Handle the case where we're assigning a *args or **kwargs argument
         // to a *P.args or **P.kwargs parameter.
         if (isParamSpec(argParam.paramType) && argParam.paramType.paramSpecAccess !== undefined) {
-            return { isCompatible, isTypeIncomplete, condition };
+            return { isCompatible, argType, isTypeIncomplete, condition };
         }
 
         // If we are asked to skip overload arguments, determine whether the argument
@@ -10185,7 +10237,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // an overloaded callback protocol.
         if (skipOverloadArg) {
             if (isOverloadedFunction(argType)) {
-                return { isCompatible, isTypeIncomplete, skippedOverloadArg: true, condition };
+                return { isCompatible, argType, isTypeIncomplete, skippedOverloadArg: true, condition };
             }
 
             const concreteParamType = makeTopLevelTypeVarsConcrete(argParam.paramType);
@@ -10193,7 +10245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isInstantiableClass(argType)) {
                     const constructor = createFunctionFromConstructor(argType);
                     if (constructor && isOverloadedFunction(constructor)) {
-                        return { isCompatible, isTypeIncomplete, skippedOverloadArg: true, condition };
+                        return { isCompatible, argType, isTypeIncomplete, skippedOverloadArg: true, condition };
                     }
                 }
 
@@ -10202,7 +10254,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (callMember) {
                         const memberType = getTypeOfMember(callMember);
                         if (isOverloadedFunction(memberType)) {
-                            return { isCompatible, isTypeIncomplete, skippedOverloadArg: true, condition };
+                            return { isCompatible, argType, isTypeIncomplete, skippedOverloadArg: true, condition };
                         }
                     }
                 }
@@ -10268,7 +10320,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            return { isCompatible: false, isTypeIncomplete, condition };
+            return { isCompatible: false, argType, isTypeIncomplete, condition };
         }
 
         if (!skipUnknownCheck) {
@@ -10347,7 +10399,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { isCompatible, isTypeIncomplete, condition };
+        return { isCompatible, argType, isTypeIncomplete, condition };
     }
 
     function createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {

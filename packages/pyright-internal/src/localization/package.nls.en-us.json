@@ -288,6 +288,7 @@
         "paramAnnotationMissing": "Type annotation is missing for parameter \"{name}\"",
         "paramNameMissing": "No parameter named \"{name}\"",
         "paramSpecArgsKwargsUsage": "\"args\" and \"kwargs\" members of ParamSpec must both appear within a function signature",
+        "paramSpecArgsMissing": "Arguments for ParamSpec \"{type}\" are missing",
         "paramSpecArgsUsage": "\"args\" member of ParamSpec is valid only when used with *args parameter",
         "paramSpecAssignedName": "ParamSpec must be assigned to a variable named \"{name}\"",
         "paramSpecContext": "ParamSpec not allowed in this context",
