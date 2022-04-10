@@ -19351,20 +19351,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     typesAreConsistent = false;
                                 }
                             }
-                        } else if (
-                            !canAssignType(
-                                destMemberType,
-                                srcMemberType,
-                                subDiag?.createAddendum(),
-                                genericDestTypeVarMap,
-                                canAssignFlags,
-                                recursionCount
-                            )
-                        ) {
-                            if (subDiag) {
-                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                        } else {
+                            // Class and instance variables that are mutable need to
+                            // enforce invariance.
+                            const primaryDecl = symbol.getDeclarations()[0];
+                            if (
+                                !canAssignType(
+                                    destMemberType,
+                                    srcMemberType,
+                                    subDiag?.createAddendum(),
+                                    genericDestTypeVarMap,
+                                    primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal
+                                        ? canAssignFlags | CanAssignFlags.EnforceInvariance
+                                        : canAssignFlags,
+                                    recursionCount
+                                )
+                            ) {
+                                if (subDiag) {
+                                    subDiag.addMessage(
+                                        Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
+                                    );
+                                }
+                                typesAreConsistent = false;
                             }
-                            typesAreConsistent = false;
                         }
 
                         const isDestFinal = symbol
