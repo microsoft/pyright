@@ -22913,15 +22913,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     });
 
-                    typeVarMap.setParamSpec(effectiveDestType.details.paramSpec, {
-                        parameters: remainingParams,
-                        typeVarScopeId: effectiveSrcType.details.typeVarScopeId,
-                        docString: effectiveSrcType.details.docString,
-                        flags: effectiveSrcType.details.flags,
-                        paramSpec: effectiveSrcType.details.paramSpec
-                            ? (convertToInstance(effectiveSrcType.details.paramSpec) as TypeVarType)
-                            : undefined,
-                    });
+                    const srcParamSpec = effectiveSrcType.details.paramSpec;
+                    const destParamSpec = effectiveDestType.details.paramSpec;
+
+                    if (!typeVarMap.isLocked() && typeVarMap.hasSolveForScope(destParamSpec.scopeId)) {
+                        typeVarMap.setParamSpec(destParamSpec, {
+                            parameters: remainingParams,
+                            typeVarScopeId: effectiveSrcType.details.typeVarScopeId,
+                            docString: effectiveSrcType.details.docString,
+                            flags: effectiveSrcType.details.flags,
+                            paramSpec: srcParamSpec ? (convertToInstance(srcParamSpec) as TypeVarType) : undefined,
+                        });
+                    } else {
+                        // If there are any remaining parameters or the source doesn't include the
+                        // dest param spec itself, it is not assignable in this case.
+                        if (
+                            !srcParamSpec ||
+                            !isTypeSame(
+                                srcParamSpec,
+                                destParamSpec,
+                                /* ignorePseudoGeneric */ false,
+                                /* ignoreTypeFlags */ true
+                            ) ||
+                            remainingParams.length > 0
+                        ) {
+                            canAssign = false;
+                        }
+                    }
                 }
             }
         }
