@@ -1465,6 +1465,15 @@ export function buildTypeVarMap(
                             docString: undefined,
                             paramSpec: typeArgType,
                         });
+                    } else if (isAnyOrUnknown(typeArgType)) {
+                        // Fill in an empty signature if the arg type is Any or Unknown.
+                        typeVarMap.setParamSpec(typeParam, {
+                            flags: FunctionTypeFlags.None,
+                            parameters: FunctionType.getDefaultParameters(),
+                            typeVarScopeId: undefined,
+                            docString: undefined,
+                            paramSpec: undefined,
+                        });
                     }
                 }
             } else {
