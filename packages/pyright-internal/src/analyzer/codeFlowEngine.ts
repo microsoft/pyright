@@ -680,6 +680,11 @@ export function getCodeFlowEngine(
                 // See if we've been here before. If so, there will be an incomplete cache entry.
                 let cacheEntry = getCacheEntry(loopNode);
 
+                // The type result from one antecedent may depend on the type
+                // result from another, so loop up to one time for each
+                // antecedent in the loop.
+                const maxAttemptCount = loopNode.antecedents.length;
+
                 if (cacheEntry === undefined) {
                     // We haven't been here before, so create a new incomplete cache entry.
                     cacheEntry = setCacheEntry(loopNode, reference ? undefined : initialType, /* isIncomplete */ true);
@@ -689,17 +694,12 @@ export function getCodeFlowEngine(
                     const isIncomplete =
                         cacheEntry.incompleteSubtypes.length < loopNode.antecedents.length ||
                         cacheEntry.incompleteSubtypes.some(
-                            (subtype) => subtype.isPending && subtype.evaluationCount === 0
+                            (subtype) => subtype.isPending && subtype.evaluationCount < maxAttemptCount
                         );
                     return { type: cacheEntry.type, isIncomplete };
                 }
 
                 let attemptCount = 0;
-
-                // The type result from one antecedent may depend on the type
-                // result from another, so loop up to one time for each
-                // antecedent in the loop.
-                const maxAttemptCount = loopNode.antecedents.length;
 
                 while (true) {
                     let sawIncomplete = false;
