@@ -86,3 +86,9 @@ R = TypeVar("R", covariant=True)
 class Callback(Protocol[P, R]):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         ...
+
+
+class Protocol9(Protocol[_T1_co]):
+    @property
+    def prop1(self) -> _T1_co:
+        ...

@@ -456,6 +456,7 @@ export function canAssignProperty(
     evaluator: TypeEvaluator,
     destPropertyType: ClassType,
     srcPropertyType: ClassType,
+    destClass: ClassType,
     srcClass: ClassType,
     diag: DiagnosticAddendum | undefined,
     typeVarMap?: TypeVarMap,
@@ -483,7 +484,7 @@ export function canAssignProperty(
 
     accessors.forEach((accessorInfo) => {
         const destAccessSymbol = destPropertyType.details.fields.get(accessorInfo.name);
-        const destAccessType = destAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(destAccessSymbol) : undefined;
+        let destAccessType = destAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(destAccessSymbol) : undefined;
 
         if (destAccessType && isFunction(destAccessType)) {
             const srcAccessSymbol = srcPropertyType.details.fields.get(accessorInfo.name);
@@ -498,6 +499,7 @@ export function canAssignProperty(
             }
 
             srcAccessType = partiallySpecializeType(srcAccessType, srcClass) as FunctionType;
+            destAccessType = partiallySpecializeType(destAccessType, destClass) as FunctionType;
 
             const boundDestAccessType = evaluator.bindFunctionToClassOrObject(
                 objectToBind,
@@ -520,17 +522,13 @@ export function canAssignProperty(
                 !evaluator.canAssignType(
                     boundDestAccessType,
                     boundSrcAccessType,
-                    diag?.createAddendum(),
+                    diag,
                     typeVarMap,
                     CanAssignFlags.Default,
                     recursionCount
                 )
             ) {
-                if (diag) {
-                    diag.addMessage('getter type is incompatible');
-                }
                 isAssignable = false;
-                return;
             }
         }
     });
