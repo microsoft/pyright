@@ -36,6 +36,7 @@ import {
     DictionaryNode,
     ErrorNode,
     ExceptNode,
+    ExpressionNode,
     FormatStringNode,
     ForNode,
     FunctionNode,
@@ -47,6 +48,7 @@ import {
     IndexNode,
     isExpressionNode,
     LambdaNode,
+    ListComprehensionIfNode,
     ListComprehensionNode,
     ListNode,
     MatchNode,
@@ -760,13 +762,20 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
+    override visitListComprehensionIf(node: ListComprehensionIfNode): boolean {
+        this._reportUnnecessaryConditionExpression(node.testExpression);
+        return true;
+    }
+
     override visitIf(node: IfNode): boolean {
         this._evaluator.getType(node.testExpression);
+        this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
     }
 
     override visitWhile(node: WhileNode): boolean {
         this._evaluator.getType(node.testExpression);
+        this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
     }
 
@@ -1113,6 +1122,7 @@ export class Checker extends ParseTreeWalker {
 
     override visitTernary(node: TernaryNode): boolean {
         this._evaluator.getType(node);
+        this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
     }
 
@@ -1323,6 +1333,43 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _reportUnnecessaryConditionExpression(expression: ExpressionNode) {
+        if (expression.nodeType === ParseNodeType.BinaryOperation) {
+            if (expression.operator === OperatorType.And || expression.operator === OperatorType.Or) {
+                this._reportUnnecessaryConditionExpression(expression.leftExpression);
+                this._reportUnnecessaryConditionExpression(expression.rightExpression);
+            }
+
+            return;
+        } else if (expression.nodeType === ParseNodeType.UnaryOperation) {
+            if (expression.operator === OperatorType.Not) {
+                this._reportUnnecessaryConditionExpression(expression.expression);
+            }
+
+            return;
+        }
+
+        const exprTypeResult = this._evaluator.getTypeOfExpression(expression);
+        let isExprFunction = true;
+
+        doForEachSubtype(exprTypeResult.type, (subtype) => {
+            subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+            if (!isFunction(subtype) && !isOverloadedFunction(subtype)) {
+                isExprFunction = false;
+            }
+        });
+
+        if (isExprFunction) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
+                DiagnosticRule.reportUnnecessaryComparison,
+                Localizer.Diagnostic.functionInConditionalExpression(),
+                expression
+            );
+        }
     }
 
     private _reportUnusedExpression(node: ParseNode) {

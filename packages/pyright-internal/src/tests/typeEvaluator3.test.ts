@@ -933,6 +933,17 @@ test('Comparison1', () => {
     TestUtils.validateResults(analysisResults2, 7);
 });
 
+test('Comparison2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['comparison2.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison2.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 7);
+});
+
 test('EmptyContainers1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['emptyContainers1.py']);
     TestUtils.validateResults(analysisResults, 3);

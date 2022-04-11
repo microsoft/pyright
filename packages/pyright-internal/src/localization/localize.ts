@@ -426,6 +426,7 @@ export namespace Localizer {
         export const formatStringUnicode = () => getRawString('Diagnostic.formatStringUnicode');
         export const formatStringUnterminated = () => getRawString('Diagnostic.formatStringUnterminated');
         export const functionDecoratorTypeUnknown = () => getRawString('Diagnostic.functionDecoratorTypeUnknown');
+        export const functionInConditionalExpression = () => getRawString('Diagnostic.functionInConditionalExpression');
         export const generatorAsyncReturnType = () => getRawString('Diagnostic.generatorAsyncReturnType');
         export const generatorNotParenthesized = () => getRawString('Diagnostic.generatorNotParenthesized');
         export const generatorSyncReturnType = () => getRawString('Diagnostic.generatorSyncReturnType');
