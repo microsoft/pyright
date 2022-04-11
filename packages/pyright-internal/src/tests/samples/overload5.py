@@ -8,6 +8,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     TypeVar,
     Union,
     overload,
@@ -289,4 +290,30 @@ class ClassB:
         ...
 
     def __call__(self, f: _T1 | None) -> _T1:
+        ...
+
+
+class ClassC:
+    @overload
+    def method1(self, x: Type[Any]) -> bool:
+        ...
+
+    @overload
+    def method1(self, x: Any) -> str | bool:
+        ...
+
+    def method1(self, x: Any) -> Any:
+        ...
+
+
+class ClassD:
+    @overload
+    def method1(self, x: type) -> bool:
+        ...
+
+    @overload
+    def method1(self, x: Any) -> str | bool:
+        ...
+
+    def method1(self, x: Any) -> Any:
         ...

@@ -21319,6 +21319,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             } else if (ClassType.isBuiltIn(destType, 'type')) {
+                if (isAnyOrUnknown(srcType) && (flags & CanAssignFlags.OverloadOverlapCheck) !== 0) {
+                    return false;
+                }
+
                 // Is the dest a "type" object? Assume that all instantiable
                 // types are assignable to "type".
                 if (TypeBase.isInstantiable(srcType)) {
