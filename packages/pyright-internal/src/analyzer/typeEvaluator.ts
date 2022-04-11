@@ -10232,6 +10232,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { isCompatible, argType, isTypeIncomplete, condition };
         }
 
+        // Handle the case where we're assigning a *P.args or **P.kwargs argument
+        // to a *P.args or **P.kwargs parameter.
+        if (isParamSpec(argType) && argType.paramSpecAccess !== undefined) {
+            return { isCompatible, argType, isTypeIncomplete, condition };
+        }
+
         // If we are asked to skip overload arguments, determine whether the argument
         // is an explicit overload type, an overloaded class constructor, or a
         // an overloaded callback protocol.
