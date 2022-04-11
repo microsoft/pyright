@@ -204,6 +204,9 @@ export interface ModuleLoaderActions {
     // a directory).
     path: string;
 
+    // Is this a dummy entry for an unresolved import?
+    isUnresolved?: boolean;
+
     // Indicate whether symbols can be loaded from the path.
     loadSymbolsFromPath: boolean;
 

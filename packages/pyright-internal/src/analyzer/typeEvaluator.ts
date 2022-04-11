@@ -18282,9 +18282,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (loaderActions.implicitImports) {
                 loaderActions.implicitImports.forEach((implicitImport, name) => {
                     // Recursively apply loader actions.
-                    const moduleName = moduleType.moduleName ? moduleType.moduleName + '.' + name : '';
-                    const importedModuleType = ModuleType.create(moduleName, implicitImport.path);
-                    const symbolType = applyLoaderActionsToModuleType(importedModuleType, implicitImport, importLookup);
+                    let symbolType: Type;
+
+                    if (implicitImport.isUnresolved) {
+                        symbolType = UnknownType.create();
+                    } else {
+                        const moduleName = moduleType.moduleName ? moduleType.moduleName + '.' + name : '';
+                        const importedModuleType = ModuleType.create(moduleName, implicitImport.path);
+                        symbolType = applyLoaderActionsToModuleType(importedModuleType, implicitImport, importLookup);
+                    }
 
                     const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
                     moduleType.loaderFields.set(name, importedModuleSymbol);

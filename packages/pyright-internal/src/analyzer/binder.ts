@@ -2260,99 +2260,114 @@ export class Binder extends ParseTreeWalker {
     ) {
         const firstNamePartValue = node.module.nameParts[0].value;
 
+        // See if there's already a matching alias declaration for this import.
+        // if so, we'll update it rather than creating a new one. This is required
+        // to handle cases where multiple import statements target the same
+        // starting symbol such as "import a.b.c" and "import a.d". In this case,
+        // we'll build a single declaration that describes the combined actions
+        // of both import statements, thus reflecting the behavior of the
+        // python module loader.
+        const existingDecl = symbol
+            .getDeclarations()
+            .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
+        let newDecl: AliasDeclaration;
+        let pathOfLastSubmodule: string;
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0) {
-            // See if there's already a matching alias declaration for this import.
-            // if so, we'll update it rather than creating a new one. This is required
-            // to handle cases where multiple import statements target the same
-            // starting symbol such as "import a.b.c" and "import a.d". In this case,
-            // we'll build a single declaration that describes the combined actions
-            // of both import statements, thus reflecting the behavior of the
-            // python module loader.
-            const existingDecl = symbol
-                .getDeclarations()
-                .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
+            pathOfLastSubmodule = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+        } else {
+            pathOfLastSubmodule = '*** unresolved ***';
+        }
 
-            let newDecl: AliasDeclaration;
-            if (existingDecl) {
-                newDecl = existingDecl as AliasDeclaration;
-            } else {
-                newDecl = {
-                    type: DeclarationType.Alias,
-                    node,
-                    path: importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1],
-                    loadSymbolsFromPath: false,
-                    moduleName: importInfo.importName,
-                    isInExceptSuite: this._isInExceptSuite,
-                    range: getEmptyRange(),
-                    firstNamePart: firstNamePartValue,
-                    usesLocalName: !!importAlias,
-                };
-            }
+        const isResolved =
+            importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0;
 
-            // Add the implicit imports for this module if it's the last
-            // name part we're resolving.
-            if (importAlias || node.module.nameParts.length === 1) {
-                newDecl.path = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
-                newDecl.loadSymbolsFromPath = true;
-                this._addImplicitImportsToLoaderActions(importInfo, newDecl);
-            } else {
-                // Fill in the remaining name parts.
-                let curLoaderActions: ModuleLoaderActions = newDecl;
-
-                for (let i = 1; i < node.module.nameParts.length; i++) {
-                    if (i >= importInfo.resolvedPaths.length) {
-                        break;
-                    }
-
-                    const namePartValue = node.module.nameParts[i].value;
-
-                    // Is there an existing loader action for this name?
-                    let loaderActions = curLoaderActions.implicitImports
-                        ? curLoaderActions.implicitImports.get(namePartValue)
-                        : undefined;
-                    if (!loaderActions) {
-                        // Allocate a new loader action.
-                        loaderActions = {
-                            path: importInfo.resolvedPaths[i],
-                            loadSymbolsFromPath: false,
-                            implicitImports: new Map<string, ModuleLoaderActions>(),
-                        };
-                        if (!curLoaderActions.implicitImports) {
-                            curLoaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
-                        }
-                        curLoaderActions.implicitImports.set(namePartValue, loaderActions);
-                    }
-
-                    // If this is the last name part we're resolving, add in the
-                    // implicit imports as well.
-                    if (i === node.module.nameParts.length - 1) {
-                        loaderActions.path = importInfo.resolvedPaths[i];
-                        loaderActions.loadSymbolsFromPath = true;
-                        this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
-                    }
-
-                    curLoaderActions = loaderActions;
-                }
-            }
-
-            if (!existingDecl) {
-                symbol.addDeclaration(newDecl);
-            }
+        if (existingDecl) {
+            newDecl = existingDecl as AliasDeclaration;
+        } else if (isResolved) {
+            newDecl = {
+                type: DeclarationType.Alias,
+                node,
+                path: pathOfLastSubmodule,
+                loadSymbolsFromPath: false,
+                range: getEmptyRange(),
+                usesLocalName: !!importAlias,
+                moduleName: importInfo.importName,
+                firstNamePart: firstNamePartValue,
+                isInExceptSuite: this._isInExceptSuite,
+            };
         } else {
             // If we couldn't resolve the import, create a dummy declaration with a
             // bogus path so it gets an unknown type (rather than an unbound type) at
             // analysis time.
-            const newDecl: AliasDeclaration = {
+            newDecl = {
                 type: DeclarationType.Alias,
                 node,
-                path: '*** unresolved ***',
+                path: pathOfLastSubmodule,
                 loadSymbolsFromPath: true,
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
-                moduleName: '',
+                moduleName: importInfo?.importName ?? '',
+                firstNamePart: firstNamePartValue,
                 isUnresolved: true,
                 isInExceptSuite: this._isInExceptSuite,
             };
+        }
+
+        // Add the implicit imports for this module if it's the last
+        // name part we're resolving.
+        if (importAlias || node.module.nameParts.length === 1) {
+            newDecl.path = pathOfLastSubmodule;
+            newDecl.loadSymbolsFromPath = true;
+            newDecl.isUnresolved = false;
+
+            if (importInfo) {
+                this._addImplicitImportsToLoaderActions(importInfo, newDecl);
+            }
+        } else {
+            // Fill in the remaining name parts.
+            let curLoaderActions: ModuleLoaderActions = newDecl;
+
+            for (let i = 1; i < node.module.nameParts.length; i++) {
+                const namePartValue = node.module.nameParts[i].value;
+
+                // Is there an existing loader action for this name?
+                let loaderActions = curLoaderActions.implicitImports
+                    ? curLoaderActions.implicitImports.get(namePartValue)
+                    : undefined;
+                if (!loaderActions) {
+                    const loaderActionPath =
+                        importInfo && i < importInfo.resolvedPaths.length
+                            ? importInfo.resolvedPaths[i]
+                            : '*** unresolved ***';
+
+                    // Allocate a new loader action.
+                    loaderActions = {
+                        path: loaderActionPath,
+                        loadSymbolsFromPath: false,
+                        implicitImports: new Map<string, ModuleLoaderActions>(),
+                        isUnresolved: !isResolved,
+                    };
+                    if (!curLoaderActions.implicitImports) {
+                        curLoaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
+                    }
+                    curLoaderActions.implicitImports.set(namePartValue, loaderActions);
+                }
+
+                // If this is the last name part we're resolving, add in the
+                // implicit imports as well.
+                if (i === node.module.nameParts.length - 1) {
+                    if (importInfo && i < importInfo.resolvedPaths.length) {
+                        loaderActions.path = importInfo.resolvedPaths[i];
+                        loaderActions.loadSymbolsFromPath = true;
+                        this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
+                    }
+                }
+
+                curLoaderActions = loaderActions;
+            }
+        }
+
+        if (!existingDecl) {
             symbol.addDeclaration(newDecl);
         }
     }
