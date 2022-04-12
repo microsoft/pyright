@@ -22001,37 +22001,44 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             return !applicableConditions.some((condition) => {
-                if (destType.details.boundType) {
-                    assert(condition.constraintIndex === 0, 'Expected constraint for bound TypeVar to have index of 0');
+                if (condition.typeVarName === TypeVarType.getNameWithScope(destType)) {
+                    if (destType.details.boundType) {
+                        assert(
+                            condition.constraintIndex === 0,
+                            'Expected constraint for bound TypeVar to have index of 0'
+                        );
 
-                    return canAssignType(
-                        destType.details.boundType,
-                        srcSubtype,
-                        /* diag */ undefined,
-                        /* typeVarMap */ undefined,
-                        /* flags */ undefined,
-                        recursionCount
-                    );
+                        return canAssignType(
+                            destType.details.boundType,
+                            srcSubtype,
+                            /* diag */ undefined,
+                            /* typeVarMap */ undefined,
+                            /* flags */ undefined,
+                            recursionCount
+                        );
+                    }
+
+                    if (destType.details.constraints.length > 0) {
+                        assert(
+                            condition.constraintIndex < destType.details.constraints.length,
+                            'Constraint for constrained TypeVar is out of bounds'
+                        );
+
+                        return canAssignType(
+                            destType.details.constraints[condition.constraintIndex],
+                            srcSubtype,
+                            /* diag */ undefined,
+                            /* typeVarMap */ undefined,
+                            /* flags */ undefined,
+                            recursionCount
+                        );
+                    }
+
+                    // This is a non-bound and non-constrained type variable with a matching condition.
+                    return true;
                 }
 
-                if (destType.details.constraints.length > 0) {
-                    assert(
-                        condition.constraintIndex < destType.details.constraints.length,
-                        'Constraint for constrained TypeVar is out of bounds'
-                    );
-
-                    return canAssignType(
-                        destType.details.constraints[condition.constraintIndex],
-                        srcSubtype,
-                        /* diag */ undefined,
-                        /* typeVarMap */ undefined,
-                        /* flags */ undefined,
-                        recursionCount
-                    );
-                }
-
-                // This is a non-bound and non-constrained type variable with a matching condition.
-                return true;
+                return false;
             });
         });
     }
