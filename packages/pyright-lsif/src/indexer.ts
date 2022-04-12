@@ -15,7 +15,7 @@ import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 import { Counter } from './lsif-typescript/Counter';
 import { getTypeShedFallbackPath } from 'pyright-internal/analyzer/pythonPathUtils';
 import { PyrightFileSystem } from 'pyright-internal/pyrightFileSystem';
-import { getEnvironmentPackages } from './packages';
+import getEnvironment from './virtualenv/environment';
 
 export interface Config {}
 
@@ -51,7 +51,7 @@ export class Indexer {
             onCancellationRequested: Event.None,
         };
 
-        const packageConfig = getEnvironmentPackages(this.lsifConfig.projectVersion, this.program);
+        const packageConfig = getEnvironment(this.lsifConfig.projectVersion);
 
         // TODO: I don't understand how typescript & jest & webpack work together
         // so I don't know how to make sure that this always works (cause it fails when
@@ -124,7 +124,7 @@ export class Indexer {
                 counter: this.counter,
                 pyrightConfig: this.pyrightConfig,
                 lsifConfig: this.lsifConfig,
-                packageConfig: packageConfig,
+                pythonEnvironment: packageConfig,
             });
             visitor.walk(tree);
 

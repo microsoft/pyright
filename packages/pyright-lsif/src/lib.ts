@@ -51,8 +51,8 @@ export function formatSnapshot(input: Input, document: lib.codeintel.lsiftyped.D
                 continue;
             }
 
-            const range = Range.fromLsif(occurrence.range);
             out.push('#');
+            const range = Range.fromLsif(occurrence.range);
 
             let modifier = 0;
             if (range.start.character === 0) {

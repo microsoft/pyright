@@ -2,7 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as child_process from 'child_process';
 
-import * as packages from './packages';
 import { lib } from './lsif';
 import { index, formatSnapshot, writeSnapshot } from './lib';
 import { Input } from './lsif-typescript/Input';
@@ -165,6 +164,7 @@ export function main(): void {
             () => {},
             () => {
                 // console.log(packages.getEnvironmentPackages('', 'test'));
+                throw 'todo: put this back when it is ready';
             }
         )
         .help().argv;

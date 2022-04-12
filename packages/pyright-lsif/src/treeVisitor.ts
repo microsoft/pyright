@@ -58,8 +58,8 @@ import { extractParameterDocumentation } from 'pyright-internal/analyzer/docStri
 import { isAliasDeclaration, isIntrinsicDeclaration } from 'pyright-internal/analyzer/declaration';
 import { ConfigOptions, ExecutionEnvironment } from 'pyright-internal/common/configOptions';
 import { versionToString } from 'pyright-internal/common/pythonVersion';
-import { PackageConfig } from './packages';
 import { Program } from 'pyright-internal/analyzer/program';
+import PythonEnvironment from './virtualenv/PythonEnvironment';
 
 //  Useful functions for later, but haven't gotten far enough yet to use them.
 //      extractParameterDocumentation
@@ -82,7 +82,7 @@ export interface TreeVisitorConfig {
     counter: Counter;
     pyrightConfig: ConfigOptions;
     lsifConfig: LsifConfig;
-    packageConfig: PackageConfig;
+    pythonEnvironment: PythonEnvironment;
 }
 
 export class TreeVisitor extends ParseTreeWalker {
@@ -636,7 +636,7 @@ export class TreeVisitor extends ParseTreeWalker {
 
         let filepath = getFileInfoFromNode(_node)!.filePath;
         this.program.getSourceFile(filepath);
-        let packageInfo = this.config.packageConfig.getPackageForModule(filepath, moduleName);
+        let packageInfo = this.config.pythonEnvironment.getPackageForModule(filepath, moduleName);
         if (packageInfo) {
             return packageInfo.version;
         }
