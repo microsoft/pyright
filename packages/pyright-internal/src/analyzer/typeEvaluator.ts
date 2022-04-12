@@ -5583,19 +5583,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flags | EvaluatorFlags.DoNotSpecialize
         );
 
-        if (node.baseExpression.nodeType === ParseNodeType.Name) {
-            if (!baseTypeResult.isIncomplete) {
-                reportPossibleUnknownAssignment(
-                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportUnknownVariableType,
-                    DiagnosticRule.reportUnknownVariableType,
-                    node.baseExpression,
-                    baseTypeResult.type,
-                    node.baseExpression,
-                    /* ignoreEmptyContainers */ false
-                );
-            }
-        }
-
         // If this is meant to be a type and the base expression is a string expression,
         // emit an error because this will generate a runtime exception in Python versions
         // less than 3.10.
@@ -6780,19 +6767,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* expectedType */ undefined,
             EvaluatorFlags.DoNotSpecialize
         );
-
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            if (!baseTypeResult.isIncomplete) {
-                reportPossibleUnknownAssignment(
-                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportUnknownVariableType,
-                    DiagnosticRule.reportUnknownVariableType,
-                    node.leftExpression,
-                    baseTypeResult.type,
-                    node.leftExpression,
-                    /* ignoreEmptyContainers */ false
-                );
-            }
-        }
 
         const argList = node.arguments.map((arg) => {
             const functionArg: FunctionArgument = {
