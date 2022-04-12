@@ -1258,6 +1258,14 @@ test('TupleUnpack2', () => {
     TestUtils.validateResults(analysisResults2, 5);
 });
 
+test('TupleUnpack3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack3.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 1);
+});
+
 test('PseudoGeneric1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pseudoGeneric1.py']);
 

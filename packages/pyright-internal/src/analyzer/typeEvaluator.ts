@@ -8968,7 +8968,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: funcArg,
                             errorNode: argList[argIndex].valueExpression || errorNode,
-                            paramName: paramDetails.params[paramIndex].param.isNameSynthesized ? undefined : paramName,
+                            paramName,
+                            isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
                         });
                     }
                 }
@@ -9048,6 +9049,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argument: argList[argIndex],
                             errorNode: argList[argIndex].valueExpression || errorNode,
                             paramName,
+                            isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
                             mapsToVarArgList: true,
                         });
 
@@ -9062,7 +9064,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
-                    paramName: paramDetails.params[paramIndex].param.isNameSynthesized ? undefined : paramName,
+                    paramName,
+                    isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
                 });
                 trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
@@ -9382,7 +9385,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             errorNode:
                                 argList.find((arg) => arg.argumentCategory === ArgumentCategory.UnpackedDictionary)
                                     ?.valueExpression ?? errorNode,
-                            paramName: param.isNameSynthesized ? undefined : param.name,
+                            paramName: param.name,
+                            isParamNameSynthesized: param.isNameSynthesized,
                         });
 
                         paramMap.get(param.name)!.argsReceived = 1;
@@ -9437,7 +9441,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         type: param.defaultType,
                                     },
                                     errorNode: errorNode,
-                                    paramName: param.isNameSynthesized ? undefined : param.name,
+                                    paramName: param.name,
+                                    isParamNameSynthesized: param.isNameSynthesized,
                                 });
                             }
                         }
@@ -9508,6 +9513,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argument: { argumentCategory: ArgumentCategory.Simple, type: specializedTuple },
                             errorNode,
                             paramName: paramDetails.params[paramDetails.argsIndex].param.name,
+                            isParamNameSynthesized: paramDetails.params[paramDetails.argsIndex].param.isNameSynthesized,
                             mapsToVarArgList: true,
                         };
 
@@ -10281,7 +10287,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const paramTypeText = printType(argParam.paramType);
 
                 let message: string;
-                if (argParam.paramName) {
+                if (argParam.paramName && !argParam.isParamNameSynthesized) {
                     if (functionName) {
                         message = Localizer.Diagnostic.argAssignmentParamFunction().format({
                             argType: argTypeText,

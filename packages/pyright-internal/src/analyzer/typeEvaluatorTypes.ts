@@ -247,6 +247,7 @@ export interface ValidateArgTypeParams {
     argType?: Type | undefined;
     errorNode: ExpressionNode;
     paramName?: string | undefined;
+    isParamNameSynthesized?: boolean;
     mapsToVarArgList?: boolean | undefined;
     expectingType?: boolean;
 }

@@ -296,8 +296,9 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     type.details.parameters.forEach((param, index) => {
         if (param.category === ParameterCategory.VarArgList) {
             // If this is an unpacked tuple, expand the entries.
-            if (param.name && isUnpackedClass(param.type) && param.type.tupleTypeArguments) {
-                param.type.tupleTypeArguments.forEach((tupleArg, index) => {
+            const paramType = FunctionType.getEffectiveParameterType(type, index);
+            if (param.name && isUnpackedClass(paramType) && paramType.tupleTypeArguments) {
+                paramType.tupleTypeArguments.forEach((tupleArg, index) => {
                     const category =
                         isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
                             ? ParameterCategory.VarArgList
@@ -315,6 +316,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         {
                             category,
                             name: `${param.name}[${index.toString()}]`,
+                            isNameSynthesized: true,
                             type: tupleArg.type,
                             hasDeclaredType: true,
                         },
