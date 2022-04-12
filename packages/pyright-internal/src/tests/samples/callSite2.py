@@ -3,7 +3,7 @@
 
 # pyright: strict
 
-from .callSite1 import add
+from .callSite1 import add  # pyright: ignore[reportUnknownVariableType]
 
 must_be_int = add(1, 2)
 result1: int = must_be_int

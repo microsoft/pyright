@@ -2684,6 +2684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         nameNode: NameNode,
         type: Type,
         isTypeIncomplete: boolean,
+        ignoreEmptyContainers: boolean,
         srcExpression?: ParseNode,
         allowAssignmentToFinalVar = false,
         expectedTypeDiagAddendum?: DiagnosticAddendum
@@ -2787,6 +2788,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     nameNode
                 );
             }
+        }
+
+        if (!isTypeIncomplete) {
+            reportPossibleUnknownAssignment(
+                fileInfo.diagnosticRuleSet.reportUnknownVariableType,
+                DiagnosticRule.reportUnknownVariableType,
+                nameNode,
+                destType,
+                nameNode,
+                ignoreEmptyContainers
+            );
         }
 
         writeTypeCache(
@@ -3430,21 +3442,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         switch (target.nodeType) {
             case ParseNodeType.Name: {
-                if (!isTypeIncomplete) {
-                    reportPossibleUnknownAssignment(
-                        AnalyzerNodeInfo.getFileInfo(target).diagnosticRuleSet.reportUnknownVariableType,
-                        DiagnosticRule.reportUnknownVariableType,
-                        target,
-                        type,
-                        target,
-                        ignoreEmptyContainers
-                    );
-                }
-
                 assignTypeToNameNode(
                     target,
                     type,
                     isTypeIncomplete,
+                    ignoreEmptyContainers,
                     srcExpr,
                     allowAssignmentToFinalVar,
                     expectedTypeDiagAddendum
@@ -3532,6 +3534,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         target.expression,
                         getBuiltInObject(target.expression, 'list', [type]),
                         /* isIncomplete */ false,
+                        ignoreEmptyContainers,
                         srcExpr
                     );
                 }
@@ -16478,7 +16481,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false);
+        assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
 
         writeTypeCache(node, symbolType, EvaluatorFlags.None, /* isIncomplete */ false);
     }
@@ -16550,7 +16553,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        assignTypeToNameNode(aliasNode, symbolType, /* isIncomplete */ false);
+        assignTypeToNameNode(aliasNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
         writeTypeCache(node, symbolType, EvaluatorFlags.None, /* isIncomplete */ false);
     }
 
@@ -16653,7 +16656,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false);
+        assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
 
         writeTypeCache(node, symbolType, EvaluatorFlags.None, /* isIncomplete */ false);
     }
