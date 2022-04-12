@@ -1,4 +1,3 @@
-import requests
+import leftpad
 
-# requests.get("https://google.com")
-print(requests)
+print(leftpad)

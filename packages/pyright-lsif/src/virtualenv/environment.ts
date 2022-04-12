@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as child_process from 'child_process';
 import PythonPackage from './PythonPackage';
 import PythonEnvironment from './PythonEnvironment';
@@ -22,10 +23,20 @@ function pipBulkShow(names: string[]): string[] {
         .split('---');
 }
 
-export default function getEnvironment(projectVersion: string): PythonEnvironment {
-    let listed = pipList();
-    let bulk = pipBulkShow(listed.map((item) => item.name));
-    let info = bulk.map((shown) => PythonPackage.fromPipShow(shown));
+export default function getEnvironment(projectVersion: string, cachedEnvFile: string | undefined): PythonEnvironment {
+    if (cachedEnvFile) {
+        let f = JSON.parse(fs.readFileSync(cachedEnvFile).toString()).map((entry: any) => {
+          return new PythonPackage(entry.name, entry.version, entry.files);
+        });
+
+        console.log(f);
+
+        return new PythonEnvironment(projectVersion, f);
+    }
+
+    const listed = pipList();
+    const bulk = pipBulkShow(listed.map((item) => item.name));
+    const info = bulk.map((shown) => PythonPackage.fromPipShow(shown));
 
     return new PythonEnvironment(projectVersion, info);
 }

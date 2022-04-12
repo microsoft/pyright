@@ -51,7 +51,7 @@ export class Indexer {
             onCancellationRequested: Event.None,
         };
 
-        const packageConfig = getEnvironment(this.lsifConfig.projectVersion);
+        const packageConfig = getEnvironment(this.lsifConfig.projectVersion, this.lsifConfig.envCacheFile);
 
         // TODO: I don't understand how typescript & jest & webpack work together
         // so I don't know how to make sure that this always works (cause it fails when

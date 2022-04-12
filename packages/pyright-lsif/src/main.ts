@@ -37,11 +37,18 @@ export function main(): void {
                     default: '',
                     describe: 'snapshot directory',
                 });
+
+                yargs.option('envCacheFile', {
+                    type: 'string',
+                    default: '',
+                    describe: 'filepath of environment cache. Can be used to speed up multiple executions.',
+                });
             },
             (argv) => {
                 const workspaceRoot = argv.project as string;
                 let projectVersion = argv.projectVersion as string;
                 let snapshotDir = argv.snapshotDir as string;
+                const envCacheFile = argv.envCacheFile as string;
 
                 const projectRoot = workspaceRoot;
 
@@ -59,6 +66,7 @@ export function main(): void {
                     workspaceRoot,
                     projectRoot,
                     projectVersion,
+                    envCacheFile,
                     writeIndex: (partialIndex: any): void => {
                         if (partialIndex.metadata) {
                             lsifIndex.metadata = partialIndex.metadata;
@@ -104,12 +112,20 @@ export function main(): void {
                     default: '',
                     describe: 'name of snapshot to run. If passed, only runs this snapshot test',
                 });
+
+                yargs.option('envCacheFile', {
+                    type: 'string',
+                    default: '',
+                    describe: 'filepath of environment cache. Can be used to speed up multiple executions.',
+                });
+
             },
             (argv) => {
                 const projectVersion = 'test';
 
                 const snapshotRoot = argv.directory as string;
                 const snapshotName = argv.name as string;
+                const envCacheFile = argv.envCacheFile as string;
 
                 const inputDirectory = join(snapshotRoot, 'input');
                 const outputDirectory = join(snapshotRoot, 'output');
@@ -122,6 +138,10 @@ export function main(): void {
 
                 for (const snapshotDir of snapshotDirectories) {
                     const projectRoot = join(inputDirectory, snapshotDir);
+                    if (!fs.lstatSync(projectRoot).isDirectory()) {
+                      continue;
+                    }
+
                     console.log('Snapshotting: ', projectRoot);
 
                     const lsifIndex = new lib.codeintel.lsiftyped.Index();
@@ -129,6 +149,7 @@ export function main(): void {
                         workspaceRoot: projectRoot,
                         projectRoot,
                         projectVersion,
+                        envCacheFile,
                         writeIndex: (partialIndex: any): void => {
                             if (partialIndex.metadata) {
                                 lsifIndex.metadata = partialIndex.metadata;
@@ -168,8 +189,6 @@ export function main(): void {
             }
         )
         .help().argv;
-
-    console.log('Done?');
 }
 
 main();

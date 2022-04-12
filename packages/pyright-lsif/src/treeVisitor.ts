@@ -634,8 +634,9 @@ export class TreeVisitor extends ParseTreeWalker {
             pythonPlatform: undefined
           }, */
 
+        // console.log(_node);
+        // this.program.getSourceFile(filepath);
         let filepath = getFileInfoFromNode(_node)!.filePath;
-        this.program.getSourceFile(filepath);
         let packageInfo = this.config.pythonEnvironment.getPackageForModule(filepath, moduleName);
         if (packageInfo) {
             return packageInfo.version;

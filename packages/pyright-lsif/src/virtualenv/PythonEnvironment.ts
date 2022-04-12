@@ -68,7 +68,7 @@ export default class PythonEnvironment {
                 }
             }
 
-            if (!packageIndex) {
+            if (packageIndex === undefined) {
                 packageIndex = -1;
             }
 

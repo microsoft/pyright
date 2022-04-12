@@ -1,8 +1,7 @@
-import requests
-#      ^^^^^^^^ reference  requests 2.27.1 requests/__init__:
+import leftpad
+#      ^^^^^^^ reference  leftpad 0.1.2 leftpad/__init__:
 
-# requests.get("https://google.com")
-print(requests)
+print(leftpad)
 #^^^^ reference  builtins 3.9 print().
-#     ^^^^^^^^ reference  requests 2.27.1 requests/__init__:
+#     ^^^^^^^ reference  leftpad 0.1.2 leftpad/__init__:
 
