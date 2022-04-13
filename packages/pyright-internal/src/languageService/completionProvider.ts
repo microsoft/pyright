@@ -2216,6 +2216,7 @@ export class CompletionProvider {
                 };
                 completionItem.data = completionItemData;
                 completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
+                completionItem.filterText = argName;
 
                 completionMap.set(completionItem);
             }
