@@ -408,6 +408,290 @@ test('string in __all__', () => {
     verifyReferencesAtPosition(state.program, state.configOptions, 'A', marker1.fileName, marker1.position, ranges1);
 });
 
+test('overridden symbols test', () => {
+    const code = `
+// @filename: test.py
+//// class B:
+////     def [|foo|](self):
+////         pass
+////
+//// class C(B):
+////     def [|foo|](self):
+////         pass
+////
+//// B().[|foo|]()
+//// C().[|foo|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const ranges = state.getRangesByText().get('foo')!;
+    for (const range of ranges) {
+        verifyReferencesAtPosition(state.program, state.configOptions, 'foo', range.fileName, range.pos, ranges);
+    }
+});
+
+test('overridden symbols multi inheritance test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def [|foo|](self):
+////         pass
+////
+//// class B:
+////     def [|foo|](self):
+////         pass
+////
+//// class C(A, B):
+////     def [|/*marker*/foo|](self):
+////         pass
+////
+//// A().[|foo|]()
+//// B().[|foo|]()
+//// C().[|foo|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('foo')!;
+
+    verifyReferencesAtPosition(state.program, state.configOptions, 'foo', marker.fileName, marker.position, ranges);
+});
+
+test('overridden symbols multi inheritance with multiple base with same name test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def [|/*marker*/foo|](self):
+////         pass
+////
+//// class B:
+////     def foo(self):
+////         pass
+////
+//// class C(A, B):
+////     def [|foo|](self):
+////         pass
+////
+//// A().[|foo|]()
+//// B().foo()
+//// C().[|foo|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('foo')!;
+
+    verifyReferencesAtPosition(state.program, state.configOptions, 'foo', marker.fileName, marker.position, ranges);
+});
+
+test('protocol member symbol test', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Protocol
+////
+//// class A:
+////     def foo(self):
+////         pass
+////
+//// class P(Protocol):
+////     def [|foo|](self): ...
+//// 
+//// def foo(p: P):
+////     p.[|/*marker*/foo|]()
+//// 
+//// foo(A().foo())
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('foo')!;
+
+    verifyReferencesAtPosition(state.program, state.configOptions, 'foo', marker.fileName, marker.position, ranges);
+});
+
+test('overridden symbols nested inheritance test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def [|foo|](self):
+////         pass
+////
+//// class B(A):
+////     def [|foo|](self):
+////         pass
+////
+//// class C(B):
+////     def [|foo|](self):
+////         pass
+////
+//// A().[|foo|]()
+//// B().[|foo|]()
+//// C().[|foo|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const ranges = state.getRangesByText().get('foo')!;
+    for (const range of ranges) {
+        verifyReferencesAtPosition(state.program, state.configOptions, 'foo', range.fileName, range.pos, ranges);
+    }
+});
+
+test('overridden symbols nested inheritance no direct override test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def [|foo|](self):
+////         pass
+////
+//// class B(A):
+////     def [|foo|](self):
+////         pass
+////
+//// class C(B):
+////     pass
+////
+//// A().[|foo|]()
+//// B().[|foo|]()
+//// C().[|foo|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const ranges = state.getRangesByText().get('foo')!;
+    for (const range of ranges) {
+        verifyReferencesAtPosition(state.program, state.configOptions, 'foo', range.fileName, range.pos, ranges);
+    }
+});
+
+test('overridden symbols different type test', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     def [|foo|](self):
+////         pass
+////
+//// class B:
+////     foo: int
+////
+//// class C(A, B):
+////     def [|foo|](self):
+////         pass
+////
+//// A().[|foo|]()
+//// B().foo = 1
+//// C().[|/*marker*/foo|]()
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = state.getMarkerByName('marker');
+    const ranges = state.getRangesByText().get('foo')!;
+
+    verifyReferencesAtPosition(state.program, state.configOptions, 'foo', marker.fileName, marker.position, ranges);
+});
+
+test('overridden and overloaded symbol test', () => {
+    const code = `
+// @filename: test.py
+//// from typing import overload
+////
+//// class A:
+////     def [|foo|](self):
+////         pass
+////
+//// class B(A):
+////     @overload
+////     def [|foo|](self):
+////         pass
+////     @overload
+////     def [|foo|](self, a):
+////         pass
+////
+//// A().[|foo|]()
+//// B().[|foo|](1)
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const ranges = state.getRangesByText().get('foo')!;
+    for (const range of ranges) {
+        verifyReferencesAtPosition(state.program, state.configOptions, 'foo', range.fileName, range.pos, ranges);
+    }
+});
+
+test('library method override test', () => {
+    const code = `
+// @filename: test.py
+//// from lib import BaseType
+////
+//// class A(BaseType):
+////     def [|foo|](self):
+////         pass
+////
+//// A().[|foo|]()
+
+// @filename: lib/__init__.py
+// @library: true
+//// class BaseType:
+////     def foo(self):
+////         pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const ranges = state.getRangesByText().get('foo')!;
+    for (const range of ranges) {
+        verifyReferencesAtPosition(state.program, state.configOptions, 'foo', range.fileName, range.pos, ranges);
+    }
+});
+
+test('variable overridden test 1', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     [|foo|] = 1
+////
+//// class B(A):
+////     foo = 2
+//// 
+//// a = A().[|foo|]
+//// b = B().foo
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const ranges = state.getRangesByText().get('foo')!;
+    for (const range of ranges) {
+        verifyReferencesAtPosition(state.program, state.configOptions, 'foo', range.fileName, range.pos, ranges);
+    }
+});
+
+test('variable overridden test 2', () => {
+    const code = `
+// @filename: test.py
+//// class A:
+////     foo = 1
+////
+//// class B(A):
+////     [|foo|] = 2
+//// 
+//// a = A().foo
+//// b = B().[|foo|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const ranges = state.getRangesByText().get('foo')!;
+    for (const range of ranges) {
+        verifyReferencesAtPosition(state.program, state.configOptions, 'foo', range.fileName, range.pos, ranges);
+    }
+});
+
 function verifyReferencesAtPosition(
     program: Program,
     configOption: ConfigOptions,
