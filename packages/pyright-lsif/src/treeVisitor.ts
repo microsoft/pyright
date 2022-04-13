@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { AnalyzerFileInfo } from 'pyright-internal/analyzer/analyzerFileInfo';
 import { getFileInfo } from 'pyright-internal/analyzer/analyzerNodeInfo';
 import { ParseTreeWalker } from 'pyright-internal/analyzer/parseTreeWalker';
@@ -96,6 +97,7 @@ export class TreeVisitor extends ParseTreeWalker {
     private _functionDepth: number;
     private _lastScope: ParseNode[];
     private _execEnv: ExecutionEnvironment;
+    private _cwd: string;
 
     public evaluator: TypeEvaluator;
     public program: Program;
@@ -119,9 +121,13 @@ export class TreeVisitor extends ParseTreeWalker {
         this._functionDepth = 0;
         this._lastScope = [];
         this._execEnv = this.config.pyrightConfig.getExecutionEnvironments()[0];
+
+        this._cwd = path.resolve(process.cwd());
     }
 
     override visitModule(node: ModuleNode): boolean {
+        // TODO: Insert definition at the top of the file
+
         this._fileInfo = getFileInfo(node);
         return true;
     }
@@ -191,34 +197,6 @@ export class TreeVisitor extends ParseTreeWalker {
         }
 
         return true;
-    }
-
-    private withScopeNode(node: ParseNode, f: () => void): void {
-        if (node.nodeType == ParseNodeType.Function) {
-            this._functionDepth++;
-        } else if (node.nodeType == ParseNodeType.Class) {
-            this._classDepth++;
-        } else {
-            throw 'unsupported scope type';
-        }
-
-        const scopeLen = this._lastScope.push(node);
-
-        f();
-
-        // Assert we have a balanced traversal
-        if (scopeLen !== this._lastScope.length) {
-            throw 'Scopes are not matched';
-        }
-        this._lastScope.pop();
-
-        if (node.nodeType == ParseNodeType.Function) {
-            this._functionDepth--;
-        } else if (node.nodeType == ParseNodeType.Class) {
-            this._classDepth--;
-        } else {
-            throw 'unsupported scope type';
-        }
     }
 
     override visitFunction(node: FunctionNode): boolean {
@@ -300,22 +278,22 @@ export class TreeVisitor extends ParseTreeWalker {
     override visitName(node: NameNode): boolean {
         const decls = this.evaluator.getDeclarationsForNameNode(node) || [];
         if (decls.length > 0) {
-            const dec = decls[0];
-            if (!dec.node) {
+            const decl = decls[0];
+            if (!decl.node) {
                 return true;
             }
 
             // TODO: Handle intrinsics more usefully (using declaration probably)
-            if (isIntrinsicDeclaration(dec)) {
+            if (isIntrinsicDeclaration(decl)) {
                 this.pushNewNameNodeOccurence(node, this.getBuiltinSymbol(node.value));
                 return true;
             }
 
-            if (this._imports.has(dec.node.id)) {
+            if (this._imports.has(decl.node.id)) {
                 // TODO: ExpressionNode cast is required?
-                const evalutedType = this.evaluator.getType(dec.node as ExpressionNode);
+                const evalutedType = this.evaluator.getType(decl.node as ExpressionNode);
                 if (evalutedType) {
-                    this.pushTypeReference(node, dec.node, evalutedType!);
+                    this.pushTypeReference(node, decl.node, evalutedType!);
                 }
 
                 return true;
@@ -324,23 +302,23 @@ export class TreeVisitor extends ParseTreeWalker {
             // TODO: Write a more rigorous check for if this node is a
             // definition node. Probably some util somewhere already for
             // that (need to explore pyright some more)
-            if (dec.node.id == node.parent!.id) {
-                this.pushNewNameNodeOccurence(node, this.getLsifSymbol(dec.node), lsiftyped.SymbolRole.Definition);
+            if (decl.node.id == node.parent!.id) {
+                this.pushNewNameNodeOccurence(node, this.getLsifSymbol(decl.node), lsiftyped.SymbolRole.Definition);
                 return true;
             }
 
-            if (isAliasDeclaration(dec)) {
-                this.pushNewNameNodeOccurence(node, this.getLsifSymbol(dec.node));
+            if (isAliasDeclaration(decl)) {
+                this.pushNewNameNodeOccurence(node, this.getLsifSymbol(decl.node));
                 return true;
             }
 
-            if (dec.node.id == node.id) {
-                const symbol = this.getLsifSymbol(dec.node);
+            if (decl.node.id == node.id) {
+                const symbol = this.getLsifSymbol(decl.node);
                 this.pushNewNameNodeOccurence(node, symbol, lsiftyped.SymbolRole.Definition);
                 return true;
             }
 
-            const existingLsifSymbol = this.rawGetLsifSymbol(dec.node);
+            const existingLsifSymbol = this.rawGetLsifSymbol(decl.node);
             if (existingLsifSymbol) {
                 this.pushNewNameNodeOccurence(node, existingLsifSymbol, lsiftyped.SymbolRole.ReadAccess);
                 return true;
@@ -348,7 +326,7 @@ export class TreeVisitor extends ParseTreeWalker {
 
             // TODO: WriteAccess isn't really implemented yet on my side
             // Now this must be a reference, so let's reference the right thing.
-            const symbol = this.getLsifSymbol(dec.node);
+            const symbol = this.getLsifSymbol(decl.node);
             this.pushNewNameNodeOccurence(node, symbol);
             return true;
         }
@@ -418,17 +396,27 @@ export class TreeVisitor extends ParseTreeWalker {
     }
 
     private makeLsifSymbol(node: ParseNode): LsifSymbol {
+        // const nodeFileInfo = getFileInfo(node)!;
+        // const nodeFilePath = path.resolve(nodeFileInfo.filePath);
+        // const moduleName = nodeFileInfo.moduleName;
+        // const version = this.getVersion(node, moduleName);
+        //
+
         switch (node.nodeType) {
             case ParseNodeType.Module:
+                // TODO: Should get the correct python version for the project here
+                //  I think we have this info somewhere else...
                 const moduleName = getFileInfo(node)!.moduleName;
                 if (moduleName == 'builtins') {
-                    // TODO: Should get the correct python version for the project here
                     return LsifSymbol.package(moduleName, '3.9');
                 }
 
-                // TODO: When we can get versions for different modules, we
-                // should use that here to get the correction version (of the other module)
-                return LsifSymbol.package(moduleName, this.getVersion(node, moduleName));
+                const version = this.getVersion(node, moduleName);
+                if (version) {
+                    return LsifSymbol.package(moduleName, version);
+                } else {
+                    return LsifSymbol.local(this.config.counter.next());
+                }
 
             case ParseNodeType.MemberAccess:
                 throw 'oh ya';
@@ -503,7 +491,12 @@ export class TreeVisitor extends ParseTreeWalker {
                 // Hard to say for sure (might need to use builtinscope for that?)
                 if (this._lastScope.length === 0) {
                     const moduleName = getFileInfo(node)!.moduleName;
-                    return LsifSymbol.package(moduleName, this.getVersion(node, moduleName));
+                    const version = this.getVersion(node, moduleName);
+                    if (version) {
+                        return LsifSymbol.package(moduleName, version);
+                    } else {
+                        return LsifSymbol.local(this.config.counter.next());
+                    }
                 }
 
                 if (this._functionDepth > 0) {
@@ -583,7 +576,6 @@ export class TreeVisitor extends ParseTreeWalker {
         } else if (isTypeVar(typeObj)) {
             throw 'typevar';
         } else if (isModule(typeObj)) {
-            // console.log(typeObj);
             // throw `module ${typeObj}`;
             return LsifSymbol.global(
                 LsifSymbol.package(typeObj.moduleName, this.getVersion(node, typeObj.moduleName)),
@@ -625,25 +617,23 @@ export class TreeVisitor extends ParseTreeWalker {
         );
     }
 
-    public getVersion(_node: ParseNode, moduleName: string): string {
-        /**
-          executionEnvironment: ExecutionEnvironment {
-            extraPaths: [],
-            root: 'snapshots/input/nested_items',
-            pythonVersion: 778,
-            pythonPlatform: undefined
-          }, */
+    // TODO: Can remove module name? or should I pass more info in...
+    public getVersion(node: ParseNode, moduleName: string): string | undefined {
+        // TODO: This seems really bad performance wise, but we can test that part out later a bit more.
+        const nodeFileInfo = getFileInfo(node)!;
+        const nodeFilePath = path.resolve(nodeFileInfo.filePath);
 
-        // console.log(_node);
-        // this.program.getSourceFile(filepath);
-        let filepath = getFileInfoFromNode(_node)!.filePath;
-        let packageInfo = this.config.pythonEnvironment.getPackageForModule(filepath, moduleName);
-        if (packageInfo) {
-            return packageInfo.version;
+        if (nodeFilePath.startsWith(this._cwd)) {
+            return this.config.lsifConfig.projectVersion;
         }
 
-        // TODO: Maybe this just shouldn't emit a symbol anymore?
-        return 'unknown';
+        // This isn't correct: gets the current file, not the import file
+        // let filepath = getFileInfoFromNode(_node)!.filePath;
+        let packageInfo = this.config.pythonEnvironment.getPackageForModule(moduleName);
+
+        // If we don't have a reliable version, we should turn a symbol into
+        // a local symbol -- this prevents us from making bad cross-repo jumps
+        return packageInfo ? packageInfo.version : undefined;
     }
 
     private isInsideClass(): boolean {
@@ -652,5 +642,33 @@ export class TreeVisitor extends ParseTreeWalker {
         }
 
         return this._lastScope[this._lastScope.length - 1].nodeType == ParseNodeType.Class;
+    }
+
+    private withScopeNode(node: ParseNode, f: () => void): void {
+        if (node.nodeType == ParseNodeType.Function) {
+            this._functionDepth++;
+        } else if (node.nodeType == ParseNodeType.Class) {
+            this._classDepth++;
+        } else {
+            throw 'unsupported scope type';
+        }
+
+        const scopeLen = this._lastScope.push(node);
+
+        f();
+
+        // Assert we have a balanced traversal
+        if (scopeLen !== this._lastScope.length) {
+            throw 'Scopes are not matched';
+        }
+        this._lastScope.pop();
+
+        if (node.nodeType == ParseNodeType.Function) {
+            this._functionDepth--;
+        } else if (node.nodeType == ParseNodeType.Class) {
+            this._classDepth--;
+        } else {
+            throw 'unsupported scope type';
+        }
     }
 }

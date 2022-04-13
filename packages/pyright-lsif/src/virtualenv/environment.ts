@@ -29,8 +29,6 @@ export default function getEnvironment(projectVersion: string, cachedEnvFile: st
           return new PythonPackage(entry.name, entry.version, entry.files);
         });
 
-        console.log(f);
-
         return new PythonEnvironment(projectVersion, f);
     }
 

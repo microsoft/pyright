@@ -33,7 +33,7 @@ export default class PythonEnvironment {
     }
 
     // TODO: Pass program, seems fine
-    public getPackageForModule(filepath: string, moduleName: string): PythonPackage | undefined {
+    public getPackageForModule(moduleName: string): PythonPackage | undefined {
         // let sourcefile = this.program.getSourceFile(filepath)!;
         // console.log(filepath, moduleName, '->', sourcefile.getFilePath(), sourcefile.isThirdPartyImport());
         // if (!sourcefile.isThirdPartyImport()) {
