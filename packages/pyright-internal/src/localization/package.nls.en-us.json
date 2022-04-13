@@ -526,6 +526,7 @@
         "memberIsAbstractMore": "and {count} more...",
         "memberIsFinalInProtocol": "\"{name}\" is marked Final in protocol",
         "memberIsInitVar": "Member \"{name}\" is an init-only field",
+        "memberIsInvariant": "\"{name}\" is invariant because it is mutable",
         "memberIsNotFinalInProtocol": "\"{name}\" is not marked Final in protocol",
         "memberTypeMismatch": "\"{name}\" is an incompatible type",
         "memberUnknown": "Member \"{name}\" is unknown",

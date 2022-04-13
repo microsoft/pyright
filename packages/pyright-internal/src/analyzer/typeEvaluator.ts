@@ -19377,19 +19377,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Class and instance variables that are mutable need to
                             // enforce invariance.
                             const primaryDecl = symbol.getDeclarations()[0];
+                            const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
                             if (
                                 !canAssignType(
                                     destMemberType,
                                     srcMemberType,
                                     subDiag?.createAddendum(),
                                     genericDestTypeVarMap,
-                                    primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal
-                                        ? canAssignFlags | CanAssignFlags.EnforceInvariance
-                                        : canAssignFlags,
+                                    isInvariant ? canAssignFlags | CanAssignFlags.EnforceInvariance : canAssignFlags,
                                     recursionCount
                                 )
                             ) {
                                 if (subDiag) {
+                                    if (isInvariant) {
+                                        subDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.memberIsInvariant().format({ name })
+                                        );
+                                    }
                                     subDiag.addMessage(
                                         Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name })
                                     );
