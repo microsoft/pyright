@@ -965,7 +965,7 @@ export class ImportResolver {
                         foundInit = true;
                     }
 
-                    if (foundInit && !pyTypedInfo && lookForPyTyped) {
+                    if (!pyTypedInfo && lookForPyTyped) {
                         if (this.fileExistsCached(combinePaths(dirPath, 'py.typed'))) {
                             pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
                         }
