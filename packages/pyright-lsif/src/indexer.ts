@@ -127,6 +127,11 @@ export class Indexer {
             });
             visitor.walk(tree);
 
+            if (doc.occurrences.length === 0) {
+                console.log(`file:${filepath} had no occurrences`);
+                return;
+            }
+
             this.lsifConfig.writeIndex(
                 new lsiftyped.Index({
                     documents: [doc],

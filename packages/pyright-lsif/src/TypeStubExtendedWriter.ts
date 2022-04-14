@@ -1,9 +1,17 @@
 import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 import { TypeEvaluator } from 'pyright-internal/analyzer/typeEvaluatorTypes';
-import { isFunction, isNever, isUnknown, removeUnknownFromUnion } from 'pyright-internal/analyzer/types';
+import {
+    ClassType,
+    isFunction,
+    isInstantiableClass,
+    isNever,
+    isUnknown,
+    removeUnknownFromUnion,
+} from 'pyright-internal/analyzer/types';
 import { TypeStubWriter } from 'pyright-internal/analyzer/typeStubWriter';
 import {
     ArgumentCategory,
+    AssignmentNode,
     ClassNode,
     DecoratorNode,
     ExpressionNode,
@@ -12,6 +20,7 @@ import {
     ParameterNode,
     ParseNodeType,
 } from 'pyright-internal/parser/parseNodes';
+import * as TypeUtils from 'pyright-internal/analyzer/typeUtils';
 
 // I have to ignore the private stuff for now -- can reset this later if we want.
 // @ts-ignore
@@ -74,16 +83,24 @@ export class TypeStubExtendedWriter extends TypeStubWriter {
         line += this._printDecorators(node.decorators);
         line += node.isAsync ? 'async ' : '';
         line += `def ${functionName}`;
-        line += `(${node.parameters.map((param, index) => this._printParameter(param, node, index)).join(', ')})`;
+
+        const mappedParameters = node.parameters.map((param, index) => this._printParameter(param, node, index))
+        if (mappedParameters.length <= 0) {
+            line += `(${mappedParameters.join(', ')})`;
+        } else {
+            // TODO: I don't really like this, but I also _hate_ the way things
+            // are wrapped currently in the hover. So we could come back to this part later.
+            line += `(\n  ${mappedParameters.join(',\n  ')}\n)`;
+        }
 
         let returnAnnotation: string | undefined;
         if (node.returnTypeAnnotation) {
-            // returnAnnotation = this._printExpression(node.returnTypeAnnotation, /* treatStringsAsSymbols */ true);
+            returnAnnotation = this._printExpression(node.returnTypeAnnotation, /* treatStringsAsSymbols */ true);
         } else if (node.functionAnnotationComment) {
-            // returnAnnotation = this._printExpression(
-            //     node.functionAnnotationComment.returnTypeAnnotation,
-            //     /* treatStringsAsSymbols */ true
-            // );
+            returnAnnotation = this._printExpression(
+                node.functionAnnotationComment.returnTypeAnnotation,
+                /* treatStringsAsSymbols */ true
+            );
         } else {
             // Handle a few common cases where we always know the answer.
             if (node.name.value === '__init__') {
@@ -119,6 +136,61 @@ export class TypeStubExtendedWriter extends TypeStubWriter {
         }
 
         this.docstrings.set(node.id, [line]);
+
+        return true;
+    }
+
+    override visitAssignment(node: AssignmentNode): boolean {
+        let isTypeAlias = false;
+        let line = '';
+
+        if (node.leftExpression.nodeType === ParseNodeType.Name) {
+            // TODO: Handle "__all__" as a special case.
+            // if (node.leftExpression.value === '__all__') {
+            //     if (this._functionNestCount === 0 && this._ifNestCount === 0) {
+            //         this._emittedSuite = true;
+            //
+            //         line = this._printExpression(node.leftExpression);
+            //         line += ' = ';
+            //         line += this._printExpression(node.rightExpression);
+            //         this._emitLine(line);
+            //     }
+            //
+            //     return false;
+            // }
+
+            const valueType = this._evaluator.getType(node.leftExpression);
+
+            if (node.typeAnnotationComment) {
+                line += this._printExpression(node.typeAnnotationComment, /* treatStringsAsSymbols */ true);
+            } else if (valueType) {
+                line += TypeUtils.getFullNameOfType(valueType);
+            }
+
+            if (valueType?.typeAliasInfo) {
+                isTypeAlias = true;
+            } else if (node.rightExpression.nodeType === ParseNodeType.Call) {
+                // Special-case TypeVar, TypeVarTuple, ParamSpec and NewType calls.
+                // Treat them like type aliases.
+                const callBaseType = this._evaluator.getType(node.rightExpression.leftExpression);
+                if (
+                    callBaseType &&
+                    isInstantiableClass(callBaseType) &&
+                    ClassType.isBuiltIn(callBaseType, ['TypeVar', 'TypeVarTuple', 'ParamSpec', 'NewType'])
+                ) {
+                    isTypeAlias = true;
+                }
+            }
+        }
+
+        if (line) {
+            if (isTypeAlias) {
+                line += ' = ';
+                line += this._printExpression(node.rightExpression);
+            }
+
+            this.docstrings.set(node.id, [line]);
+        }
 
         return true;
     }

@@ -1,4 +1,5 @@
 def exported_function():
+# definition  snapshot-util 0.1 foo/__init__:
 #   ^^^^^^^^^^^^^^^^^ definition  snapshot-util 0.1 foo/exported_function().
     return "function"
 

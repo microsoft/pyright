@@ -1,4 +1,5 @@
 def my_cool_function(a: str) -> str:
+# definition  snapshot-util 0.1 `src.single_function`/__init__:
 #   ^^^^^^^^^^^^^^^^ definition  snapshot-util 0.1 `src.single_function`/my_cool_function().
 #                    ^ definition  snapshot-util 0.1 `src.single_function`/my_cool_function().(a)
 #                       ^^^ reference  python-stdlib 3.10 builtins/str#

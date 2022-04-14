@@ -1,4 +1,6 @@
 from typing import Sequence
+# definition  snapshot-util 0.1 property_access/__init__:
+#    ^^^^^^ reference  snapshot-util 0.1 typing/__init__:
 #                  ^^^^^^^^ reference  snapshot-util 0.1 typing/Sequence#
 
 class PropertyClass:
