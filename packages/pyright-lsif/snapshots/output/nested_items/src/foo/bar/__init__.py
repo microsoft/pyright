@@ -1,5 +1,5 @@
 class InitClass:
-#     ^^^^^^^^^ definition  src/foo.bar test InitClass#
+#     ^^^^^^^^^ definition  snapshot-util 0.1 `src.foo.bar`/InitClass#
     init_item = 10
-#   ^^^^^^^^^ definition  src/foo.bar test InitClass#init_item.
+#   ^^^^^^^^^ definition  snapshot-util 0.1 `src.foo.bar`/InitClass#init_item.
 

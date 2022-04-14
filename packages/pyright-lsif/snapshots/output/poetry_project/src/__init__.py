@@ -1,7 +1,7 @@
 import leftpad
-#      ^^^^^^^ reference  leftpad test leftpad/__init__:
+#      ^^^^^^^ reference  snapshot-util 0.1 leftpad/__init__:
 
 print(leftpad)
-#^^^^ reference  builtins 3.9 print().
-#     ^^^^^^^ reference  leftpad test leftpad/__init__:
+#^^^^ reference  python-stdlib 3.10 builtins/print().
+#     ^^^^^^^ reference  snapshot-util 0.1 leftpad/__init__:
 

@@ -32,17 +32,9 @@ export default class PythonEnvironment {
         return path.resolve(filepath).includes(this._cwd);
     }
 
-    // TODO: Pass program, seems fine
     public getPackageForModule(moduleName: string): PythonPackage | undefined {
-        // let sourcefile = this.program.getSourceFile(filepath)!;
-        // console.log(filepath, moduleName, '->', sourcefile.getFilePath(), sourcefile.isThirdPartyImport());
-        // if (!sourcefile.isThirdPartyImport()) {
-        //     // packageSymbol = LsifSymbol.global(
-        //     //     LsifSymbol.package(moduleName, visitor.config.lsifConfig.projectVersion),
-        //     //     packageDescriptor(moduleName)
-        //     // );
-        //     return new PythonPackage('', this.projectVersion, []);
-        // }
+        // TODO: Could turn these into a Set (normalize all paths, replace with `.`, etc) and then just look this up
+        // that is probably worth it as an optimization later.
 
         let packageIndex = this._moduleNameToIndex.get(moduleName);
         if (!packageIndex) {

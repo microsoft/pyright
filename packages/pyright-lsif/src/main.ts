@@ -26,11 +26,17 @@ export function main(): void {
                         'path to the TypeScript project to index. Normally, this directory contains a tsconfig.json file.',
                 });
 
+                yargs.option('projectName', {
+                    type: 'string',
+                    default: '',
+                    describe: 'name of project',
+                });
                 yargs.option('projectVersion', {
                     type: 'string',
                     default: '',
                     describe: 'version of project',
                 });
+
 
                 yargs.option('snapshotDir', {
                     type: 'string',
@@ -46,13 +52,18 @@ export function main(): void {
             },
             (argv) => {
                 const workspaceRoot = argv.project as string;
-                let projectVersion = argv.projectVersion as string;
                 let snapshotDir = argv.snapshotDir as string;
                 const envCacheFile = argv.envCacheFile as string;
 
                 const projectRoot = workspaceRoot;
-
                 process.chdir(workspaceRoot);
+
+                // TODO: use setup.py / poetry to determine better projectName
+                const projectName = argv.projectName as string;
+
+                // TODO: Use setup.py / poetry to determine better projectVersion
+                //  for now, the current hash works OK
+                let projectVersion = argv.projectVersion as string;
                 if (projectVersion === '') {
                     // Default to current git hash
                     projectVersion = child_process.execSync('git rev-parse HEAD').toString().trim();
@@ -65,6 +76,7 @@ export function main(): void {
                 index({
                     workspaceRoot,
                     projectRoot,
+                    projectName,
                     projectVersion,
                     envCacheFile,
                     writeIndex: (partialIndex: any): void => {
@@ -119,9 +131,20 @@ export function main(): void {
                     describe: 'filepath of environment cache. Can be used to speed up multiple executions.',
                 });
 
+                yargs.option('projectName', {
+                    type: 'string',
+                    default: '',
+                    describe: 'name of project',
+                });
+                yargs.option('projectVersion', {
+                    type: 'string',
+                    default: '',
+                    describe: 'version of project',
+                });
             },
             (argv) => {
-                const projectVersion = 'test';
+                const projectName = argv.projectName as string || 'snapshot-util';
+                const projectVersion = argv.projectVersion as string || '0.1';
 
                 const snapshotRoot = argv.directory as string;
                 const snapshotName = argv.name as string;
@@ -148,6 +171,7 @@ export function main(): void {
                     index({
                         workspaceRoot: projectRoot,
                         projectRoot,
+                        projectName,
                         projectVersion,
                         envCacheFile,
                         writeIndex: (partialIndex: any): void => {

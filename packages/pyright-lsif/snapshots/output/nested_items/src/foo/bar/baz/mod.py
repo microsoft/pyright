@@ -1,6 +1,6 @@
 class SuchNestedMuchWow:
-#     ^^^^^^^^^^^^^^^^^ definition  src/foo.bar.baz.mod test SuchNestedMuchWow#
+#     ^^^^^^^^^^^^^^^^^ definition  snapshot-util 0.1 `src.foo.bar.baz.mod`/SuchNestedMuchWow#
     class_item: int = 42
-#   ^^^^^^^^^^ definition  src/foo.bar.baz.mod test SuchNestedMuchWow#class_item.
-#               ^^^ reference  builtins 3.9 int#
+#   ^^^^^^^^^^ definition  snapshot-util 0.1 `src.foo.bar.baz.mod`/SuchNestedMuchWow#class_item.
+#               ^^^ reference  python-stdlib 3.10 builtins/int#
 

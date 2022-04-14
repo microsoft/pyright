@@ -1,15 +1,19 @@
-import { getFileInfo } from 'pyright-internal/analyzer/analyzerNodeInfo';
 import { ParseNode } from 'pyright-internal/parser/parseNodes';
 import { metaDescriptor, packageDescriptor } from './lsif-typescript/Descriptor';
 import { LsifSymbol } from './LsifSymbol';
 import { TreeVisitor } from './treeVisitor';
 
 export function pythonModule(visitor: TreeVisitor, node: ParseNode, moduleName: string): LsifSymbol {
-    let packageSymbol = LsifSymbol.empty();
-    let moduleVersion = visitor.getVersion(node, moduleName);
-    if (moduleVersion) {
-        packageSymbol = LsifSymbol.global(LsifSymbol.package(moduleName, moduleVersion), packageDescriptor(moduleName));
+    let pythonPackage = visitor.getPackageInfo(node, moduleName);
+    if (pythonPackage) {
+        return LsifSymbol.global(
+            LsifSymbol.global(
+                LsifSymbol.package(pythonPackage.name, pythonPackage.version),
+                packageDescriptor(moduleName)
+            ),
+            metaDescriptor('__init__')
+        );
+    } else {
+        return LsifSymbol.local(12341234);
     }
-
-    return LsifSymbol.global(packageSymbol, metaDescriptor('__init__'));
 }

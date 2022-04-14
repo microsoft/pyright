@@ -121,7 +121,6 @@ export class Indexer {
                 sourceFile: sourceFile,
                 evaluator: typeEvaluator,
                 program: this.program,
-                counter: this.counter,
                 pyrightConfig: this.pyrightConfig,
                 lsifConfig: this.lsifConfig,
                 pythonEnvironment: packageConfig,

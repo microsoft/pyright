@@ -1,7 +1,7 @@
 
 if __name__ == '__main__':
-#  ^^^^^^^^ reference  python 3.10 __name__.
+#  ^^^^^^^^ reference local 0
     print("main")
-#   ^^^^^ reference  builtins 3.9 print().
+#   ^^^^^ reference  python-stdlib 3.10 builtins/print().
 
 

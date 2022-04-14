@@ -19,7 +19,10 @@ export interface LsifConfig {
     /** The directory containing a tsconfig.json file. */
     projectRoot: string;
 
-    /** Version **/
+    /** Name of current project **/
+    projectName: string;
+
+    /** Version of current project **/
     projectVersion: string;
 
     /** Cached Deps **/

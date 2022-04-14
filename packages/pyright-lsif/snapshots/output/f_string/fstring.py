@@ -1,7 +1,7 @@
 var = ", world!"
-#^^ definition  fstring test var.
+#^^ definition  snapshot-util 0.1 fstring/var.
 
 print(f"var: hello {var}")
-#^^^^ reference  builtins 3.9 print().
-#                   ^^^ reference  fstring test var.
+#^^^^ reference  python-stdlib 3.10 builtins/print().
+#                   ^^^ reference  snapshot-util 0.1 fstring/var.
 
