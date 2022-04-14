@@ -4179,7 +4179,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 type = TypeBase.cloneForTypeAlias(
-                    type,
+                    applySolvedTypeVars(
+                        type,
+                        new TypeVarMap(type.typeAliasInfo.typeVarScopeId),
+                        /* unknownIfNotFound */ true
+                    ),
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,

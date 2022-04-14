@@ -73,6 +73,6 @@ Alias6 = Tuple[int, Unpack[_Xs]]
 def func2(x: Alias6[float, bool], y: Alias6, z: Alias6[()]):
     reveal_type(x, expected_text="Tuple[int, float, bool]")
 
-    reveal_type(y, expected_text="Tuple[int, *_Xs@Alias6]")
+    reveal_type(y, expected_text="Tuple[int, Unknown]")
 
     reveal_type(z, expected_text="Tuple[int]")
