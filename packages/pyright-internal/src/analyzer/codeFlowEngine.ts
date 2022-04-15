@@ -450,6 +450,11 @@ export function getCodeFlowEngine(
                         const conditionalFlowNode = curFlowNode as FlowCondition;
 
                         if (reference) {
+                            // Was an incomplete entry added to prevent recursion?
+                            if (cachedEntry && cachedEntry.type === undefined) {
+                                return cachedEntry;
+                            }
+
                             // Before calling getTypeNarrowingCallback, set the type
                             // of this flow node in the cache to prevent recursion.
                             setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
