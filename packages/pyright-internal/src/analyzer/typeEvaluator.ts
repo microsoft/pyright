@@ -2159,7 +2159,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const setterInfo = lookUpClassMember(declaredType, '__set__');
                     const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
                     if (setter && isFunction(setter) && setter.details.parameters.length >= 2) {
-                        declaredType = setter.details.parameters[1].type;
+                        declaredType = setter.details.parameters[2].type;
 
                         if (isAnyOrUnknown(declaredType)) {
                             return undefined;
