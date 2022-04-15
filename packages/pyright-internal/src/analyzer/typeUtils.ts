@@ -2990,7 +2990,25 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        return this._typeVarMap.getParamSpec(paramSpec);
+        const transformedParamSpec = this._typeVarMap.getParamSpec(paramSpec);
+        if (transformedParamSpec) {
+            return transformedParamSpec;
+        }
+
+        if (this._unknownIfNotFound) {
+            // Convert to the ParamSpec equivalent of "Unknown".
+            const paramSpecValue: ParamSpecValue = {
+                flags: FunctionTypeFlags.None,
+                parameters: FunctionType.getDefaultParameters(/* useUnknown */ true),
+                typeVarScopeId: undefined,
+                docString: undefined,
+                paramSpec: undefined,
+            };
+
+            return paramSpecValue;
+        }
+
+        return undefined;
     }
 }
 
