@@ -22973,14 +22973,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Perform partial specialization of type variables to allow for
             // "higher-order" type variables.
-            typeVarMap.getTypeVars().forEach((entry) => {
-                if (entry.narrowBound) {
-                    const specializedType = applySolvedTypeVars(entry.narrowBound, typeVarMap);
-                    if (specializedType !== entry.narrowBound) {
-                        typeVarMap.setTypeVarType(entry.typeVar, specializedType, entry.wideBound, entry.retainLiteral);
+            if (!typeVarMap.isLocked()) {
+                typeVarMap.getTypeVars().forEach((entry) => {
+                    if (entry.narrowBound) {
+                        const specializedType = applySolvedTypeVars(entry.narrowBound, typeVarMap);
+                        if (specializedType !== entry.narrowBound) {
+                            typeVarMap.setTypeVarType(
+                                entry.typeVar,
+                                specializedType,
+                                entry.wideBound,
+                                entry.retainLiteral
+                            );
+                        }
                     }
-                }
-            });
+                });
+            }
 
             // Are we assigning to a function with a ParamSpec?
             if (targetIncludesParamSpec) {
