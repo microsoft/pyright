@@ -17,6 +17,7 @@ import { NoAccessHost } from '../common/host';
 import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
+import { TestFileSystem } from './harness/vfs/filesystem';
 
 test('FindFilesWithConfigFile', () => {
     const cwd = normalizePath(process.cwd());
@@ -192,7 +193,8 @@ test('PythonPlatform', () => {
             "extraPaths" : []
     }]}`);
 
-    configOptions.initializeFromJson(json, undefined, nullConsole, new NoAccessHost());
+    const fs = new TestFileSystem(/* ignoreCase */ false);
+    configOptions.initializeFromJson(json, undefined, nullConsole, fs, new NoAccessHost());
 
     const env = configOptions.executionEnvironments[0];
     assert.strictEqual(env.pythonPlatform, 'platform');

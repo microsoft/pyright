@@ -710,12 +710,12 @@ export function hasPythonExtension(path: string) {
     return path.endsWith('.py') || path.endsWith('.pyi');
 }
 
-export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
+export function getFileSpec(fs: FileSystem, rootPath: string, fileSpec: string): FileSpec {
     let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
     const escapedSeparator = getRegexEscapedSeparator();
     regExPattern = `^(${regExPattern})($|${escapedSeparator})`;
 
-    const regExp = new RegExp(regExPattern);
+    const regExp = new RegExp(regExPattern, isFileSystemCaseSensitive(fs) ? undefined : 'i');
     const wildcardRoot = getWildcardRoot(rootPath, fileSpec);
 
     return {

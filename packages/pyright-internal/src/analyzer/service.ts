@@ -621,18 +621,18 @@ export class AnalyzerService {
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
-                configOptions.include.push(getFileSpec(projectRoot, fileSpec));
+                configOptions.include.push(getFileSpec(this._fs, projectRoot, fileSpec));
             });
         } else if (!configFilePath) {
             // If no config file was found and there are no explicit include
             // paths specified, assume the caller wants to include all source
             // files under the execution root path.
             if (commandLineOptions.executionRoot) {
-                configOptions.include.push(getFileSpec(commandLineOptions.executionRoot, '.'));
+                configOptions.include.push(getFileSpec(this._fs, commandLineOptions.executionRoot, '.'));
 
                 // Add a few common excludes to avoid long scan times.
                 defaultExcludes.forEach((exclude) => {
-                    configOptions.exclude.push(getFileSpec(commandLineOptions.executionRoot, exclude));
+                    configOptions.exclude.push(getFileSpec(this._fs, commandLineOptions.executionRoot, exclude));
                 });
             }
         }
@@ -654,6 +654,7 @@ export class AnalyzerService {
                 configJsonObj,
                 this._typeCheckingMode,
                 this._console,
+                this._fs,
                 host,
                 commandLineOptions.diagnosticSeverityOverrides,
                 commandLineOptions.fileSpecs.length > 0
@@ -665,14 +666,14 @@ export class AnalyzerService {
             // the project should be included.
             if (configOptions.include.length === 0) {
                 this._console.info(`No include entries specified; assuming ${configFileDir}`);
-                configOptions.include.push(getFileSpec(configFileDir, '.'));
+                configOptions.include.push(getFileSpec(this._fs, configFileDir, '.'));
             }
 
             // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
             if (configOptions.exclude.length === 0) {
                 defaultExcludes.forEach((exclude) => {
                     this._console.info(`Auto-excluding ${exclude}`);
-                    configOptions.exclude.push(getFileSpec(configFileDir, exclude));
+                    configOptions.exclude.push(getFileSpec(this._fs, configFileDir, exclude));
                 });
 
                 if (configOptions.autoExcludeVenv === undefined) {

@@ -140,7 +140,6 @@ export class TestState {
         const ignoreCase = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
 
         this._cancellationToken = new TestCancellationToken();
-        const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions, mountPaths);
 
         const sourceFiles = [];
         const files: vfs.FileSet = {};
@@ -152,9 +151,6 @@ export class TestState {
                 } catch (e: any) {
                     throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }
-
-                configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole, testAccessHost);
-                this._applyTestConfigOptions(configOptions);
             } else {
                 files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
 
@@ -174,6 +170,12 @@ export class TestState {
 
         this.fs = new PyrightFileSystem(this.testFS);
         this._files = sourceFiles;
+
+        const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions, mountPaths);
+        if (this.rawConfigJson) {
+            configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole, this.fs, testAccessHost);
+            this._applyTestConfigOptions(configOptions);
+        }
 
         const service = this._createAnalysisService(
             nullConsole,
@@ -1494,14 +1496,14 @@ export class TestState {
             configOptions.stubPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
         }
 
-        configOptions.include.push(getFileSpec(configOptions.projectRoot, '.'));
-        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, typeshedFolder));
-        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, distlibFolder));
-        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, libFolder));
+        configOptions.include.push(getFileSpec(this.fs, configOptions.projectRoot, '.'));
+        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, typeshedFolder));
+        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, distlibFolder));
+        configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, libFolder));
 
         if (mountPaths) {
             for (const mountPath of mountPaths.keys()) {
-                configOptions.exclude.push(getFileSpec(configOptions.projectRoot, mountPath));
+                configOptions.exclude.push(getFileSpec(this.fs, configOptions.projectRoot, mountPath));
             }
         }
 
