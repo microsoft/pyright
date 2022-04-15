@@ -2386,7 +2386,7 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
     }
 }
 
-export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Type {
+export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue, omitParamSpec = false): Type {
     let hasParameters = paramSpecEntry.parameters.length > 0;
 
     if (paramSpecEntry.parameters.length === 1) {
@@ -2398,9 +2398,14 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Typ
         }
     }
 
-    if (hasParameters || !paramSpecEntry.paramSpec) {
+    if (hasParameters || !paramSpecEntry.paramSpec || omitParamSpec) {
         // Create a function type from the param spec entries.
-        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+        const functionType = FunctionType.createInstance(
+            '',
+            '',
+            '',
+            FunctionTypeFlags.ParamSpecValue | paramSpecEntry.flags
+        );
 
         paramSpecEntry.parameters.forEach((entry) => {
             FunctionType.addParameter(functionType, {
@@ -2413,7 +2418,9 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue): Typ
             });
         });
 
-        functionType.details.paramSpec = paramSpecEntry.paramSpec;
+        if (!omitParamSpec) {
+            functionType.details.paramSpec = paramSpecEntry.paramSpec;
+        }
         functionType.details.docString = paramSpecEntry.docString;
 
         return functionType;

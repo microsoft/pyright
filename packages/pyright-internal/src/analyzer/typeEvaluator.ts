@@ -20828,27 +20828,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const existingEntry = typeVarMap.getParamSpec(destType);
             if (existingEntry) {
-                // Verify that the existing entry matches the new entry.
-                if (
-                    existingEntry.paramSpec === srcType.details.paramSpec &&
-                    existingEntry.parameters.length === parameters.length &&
-                    !existingEntry.parameters.some((existingParam, index) => {
-                        const newParam = parameters[index];
-                        return (
-                            existingParam.category !== newParam.category ||
-                            existingParam.name !== newParam.name ||
-                            existingParam.hasDefault !== newParam.hasDefault ||
-                            !isTypeSame(
-                                existingParam.type,
-                                newParam.type,
-                                /* ignorePseudoGeneric */ undefined,
-                                /* ignoreTypeFlags */ undefined,
-                                recursionCount
-                            )
-                        );
-                    })
-                ) {
-                    return true;
+                if (existingEntry.paramSpec === srcType.details.paramSpec) {
+                    // Convert the remaining portion of the signature to a function
+                    // for comparison purposes.
+                    const existingFunction = convertParamSpecValueToType(existingEntry, /* omitParamSpec */ true);
+                    const assignedFunction = convertParamSpecValueToType(
+                        {
+                            parameters,
+                            flags: srcType.details.flags,
+                            typeVarScopeId: srcType.details.typeVarScopeId,
+                            docString: undefined,
+                            paramSpec: undefined,
+                        },
+                        /* omitParamSpec */ true
+                    );
+
+                    if (
+                        canAssignType(
+                            existingFunction,
+                            assignedFunction,
+                            /* diag */ undefined,
+                            /* typeVarMap */ undefined,
+                            CanAssignFlags.SkipFunctionReturnTypeCheck,
+                            recursionCount
+                        )
+                    ) {
+                        return true;
+                    }
                 }
             } else {
                 if (!typeVarMap.isLocked() && typeVarMap.hasSolveForScope(destType.scopeId)) {
@@ -22948,7 +22954,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (typeVarMap && !typeVarMap.isLocked()) {
+        if (typeVarMap) {
             const effectiveSrcTypeVarMap =
                 (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcTypeVarMap : destTypeVarMap;
 
@@ -23019,14 +23025,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const srcParamSpec = effectiveSrcType.details.paramSpec;
                     const destParamSpec = effectiveDestType.details.paramSpec;
 
-                    if (!typeVarMap.isLocked() && typeVarMap.hasSolveForScope(destParamSpec.scopeId)) {
-                        typeVarMap.setParamSpec(destParamSpec, {
-                            parameters: remainingParams,
-                            typeVarScopeId: effectiveSrcType.details.typeVarScopeId,
-                            docString: effectiveSrcType.details.docString,
-                            flags: effectiveSrcType.details.flags,
-                            paramSpec: srcParamSpec ? (convertToInstance(srcParamSpec) as TypeVarType) : undefined,
+                    if (typeVarMap.hasSolveForScope(destParamSpec.scopeId)) {
+                        // Synthesize a function based on the remaining parameters.
+                        const remainingFunction = FunctionType.createInstance(
+                            '',
+                            '',
+                            '',
+                            effectiveSrcType.details.flags,
+                            effectiveSrcType.details.docString
+                        );
+                        remainingFunction.details.typeVarScopeId = effectiveSrcType.details.typeVarScopeId;
+                        remainingParams.forEach((param) => {
+                            FunctionType.addParameter(remainingFunction, param);
                         });
+                        remainingFunction.details.paramSpec = srcParamSpec
+                            ? (convertToInstance(srcParamSpec) as TypeVarType)
+                            : undefined;
+
+                        if (
+                            !canAssignTypeToTypeVar(destParamSpec, remainingFunction, /* diag */ undefined, typeVarMap)
+                        ) {
+                            // If we couldn't assign the function to the ParamSpec, see if we can
+                            // assign only the ParamSpec. This is possible if there were no
+                            // remaining parameters.
+                            if (
+                                remainingParams.length > 0 ||
+                                !srcParamSpec ||
+                                !canAssignTypeToTypeVar(
+                                    destParamSpec,
+                                    convertToInstance(srcParamSpec) as TypeVarType,
+                                    /* diag */ undefined,
+                                    typeVarMap
+                                )
+                            ) {
+                                canAssign = false;
+                            }
+                        }
                     } else {
                         // If there are any remaining parameters or the source doesn't include the
                         // dest param spec itself, it is not assignable in this case.
