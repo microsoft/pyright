@@ -24,6 +24,17 @@
 //// foo({'name': 'Robert', [|/*marker6*/'age'|]: 100})
 //// foo({'name': [|/*marker7*/'Robert'|], 'age': 100})
 //// foo({'name': [|/*marker8*/'name'|]})
+////
+//// class Post(TypedDict):
+////     title: str
+////     age: int
+////     """The age of the Post"""
+////
+//// def bar(item: Post | User) -> None:
+////     ...
+////
+//// bar({[|/*marker9*/'title'|]})
+//// bar({[|/*marker10*/'age'|]})
 
 helper.verifyHover('markdown', {
     marker1: '```python\n(key) name: str\n```\n---\nThe fullname of the User',
@@ -34,4 +45,7 @@ helper.verifyHover('markdown', {
     marker6: '```python\n(key) age: int\n```\n---\nThe age of the User, will not be over 200',
     marker7: null,
     marker8: null,
+    marker9: '```python\n(key) title: str\n```',
+    marker10:
+        '```python\n(key) age: int\n```\n---\nThe age of the Post\n\n---\n```python\n(key) age: int\n```\n---\nThe age of the User, will not be over 200',
 });
