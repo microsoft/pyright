@@ -64,7 +64,7 @@ import {
     specializeTupleClass,
     stripLiteralValue,
 } from './typeUtils';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 // PEP 634 indicates that several built-in classes are handled differently
 // when used with class pattern matching.
@@ -593,7 +593,7 @@ function narrowTypeBasedOnClassPattern(
                                         ClassType.isSpecialBuiltIn(unexpandedSubtype) ||
                                         unexpandedSubtype.details.typeParameters.length > 0
                                     ) {
-                                        const typeVarMap = new TypeVarMap(getTypeVarScopeId(unexpandedSubtype));
+                                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(unexpandedSubtype));
                                         const unspecializedMatchType = ClassType.cloneForSpecialization(
                                             unexpandedSubtype,
                                             /* typeArguments */ undefined,
@@ -602,16 +602,16 @@ function narrowTypeBasedOnClassPattern(
 
                                         const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
                                         if (
-                                            evaluator.populateTypeVarMapBasedOnExpectedType(
+                                            evaluator.populateTypeVarContextBasedOnExpectedType(
                                                 matchTypeInstance,
                                                 subjectSubtypeExpanded,
-                                                typeVarMap,
+                                                typeVarContext,
                                                 []
                                             )
                                         ) {
                                             resultType = applySolvedTypeVars(
                                                 matchTypeInstance,
-                                                typeVarMap,
+                                                typeVarContext,
                                                 /* unknownIfNotFound */ true
                                             ) as ClassType;
                                         }

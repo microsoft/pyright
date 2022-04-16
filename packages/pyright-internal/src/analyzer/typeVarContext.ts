@@ -1,12 +1,12 @@
 /*
- * typeVarMap.ts
+ * typeVarContext.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Module that records the relationship between named TypeVars
- * (type variables) and their types. It is used by the type
- * evaluator to "solve" for the type of each type variable.
+ * Module that records the relationship between type variables (and ParamSpecs)
+ * and their types. It is used by the type evaluator to "solve" for the type of
+ * each type variable.
  */
 
 import { assert } from '../common/debug';
@@ -45,7 +45,7 @@ export interface VariadicTypeVarMapEntry {
     types: TupleTypeArgument[];
 }
 
-export class TypeVarMap {
+export class TypeVarContext {
     private _solveForScopes: TypeVarScopeId[] | undefined;
     private _typeVarMap: Map<string, TypeVarMapEntry>;
     private _variadicTypeVarMap: Map<string, VariadicTypeVarMapEntry> | undefined;
@@ -66,7 +66,7 @@ export class TypeVarMap {
     }
 
     clone() {
-        const newTypeVarMap = new TypeVarMap();
+        const newTypeVarMap = new TypeVarContext();
         if (this._solveForScopes) {
             newTypeVarMap._solveForScopes = [...this._solveForScopes];
         }
@@ -91,7 +91,7 @@ export class TypeVarMap {
     }
 
     // Copies a cloned type var map back into this object.
-    copyFromClone(clone: TypeVarMap) {
+    copyFromClone(clone: TypeVarContext) {
         this._typeVarMap = clone._typeVarMap;
         this._paramSpecMap = clone._paramSpecMap;
         this._variadicTypeVarMap = clone._variadicTypeVarMap;

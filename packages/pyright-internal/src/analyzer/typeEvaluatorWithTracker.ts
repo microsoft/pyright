@@ -107,7 +107,7 @@ export function createTypeEvaluatorWithTracker(
         makeTopLevelTypeVarsConcrete: (t) =>
             run('makeTopLevelTypeVarsConcrete', () => typeEvaluator.makeTopLevelTypeVarsConcrete(t), t),
         mapSubtypesExpandTypeVars: typeEvaluator.mapSubtypesExpandTypeVars,
-        populateTypeVarMapBasedOnExpectedType: typeEvaluator.populateTypeVarMapBasedOnExpectedType,
+        populateTypeVarContextBasedOnExpectedType: typeEvaluator.populateTypeVarContextBasedOnExpectedType,
         lookUpSymbolRecursive: typeEvaluator.lookUpSymbolRecursive,
         getDeclaredTypeOfSymbol: typeEvaluator.getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol: (s) =>

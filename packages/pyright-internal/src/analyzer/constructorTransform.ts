@@ -26,7 +26,7 @@ import {
     lookUpObjectMember,
     ParameterSource,
 } from './typeUtils';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 export function applyConstructorTransform(
     evaluator: TypeEvaluator,
@@ -94,7 +94,7 @@ function applyPartialTransform(
     // Verify the types of the provided arguments.
     let argumentErrors = false;
     let reportedPositionalError = false;
-    const typeVarMap = new TypeVarMap(getTypeVarScopeId(origFunctionType));
+    const typeVarContext = new TypeVarContext(getTypeVarScopeId(origFunctionType));
 
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {
@@ -114,7 +114,7 @@ function applyPartialTransform(
                     );
                     const diag = new DiagnosticAddendum();
 
-                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarMap)) {
+                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -152,7 +152,7 @@ function applyPartialTransform(
                 const diag = new DiagnosticAddendum();
                 const paramName = paramListDetails.params[argIndex].param.name ?? '';
 
-                if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarMap)) {
+                if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                     evaluator.addDiagnostic(
                         getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -194,7 +194,7 @@ function applyPartialTransform(
                     );
                     const diag = new DiagnosticAddendum();
 
-                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarMap)) {
+                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -226,7 +226,7 @@ function applyPartialTransform(
                 } else {
                     const diag = new DiagnosticAddendum();
 
-                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarMap)) {
+                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -247,7 +247,7 @@ function applyPartialTransform(
         }
     });
 
-    const specializedFunctionType = applySolvedTypeVars(origFunctionType, typeVarMap);
+    const specializedFunctionType = applySolvedTypeVars(origFunctionType, typeVarContext);
     if (!isFunction(specializedFunctionType)) {
         return result;
     }

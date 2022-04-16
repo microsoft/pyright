@@ -49,17 +49,17 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
-    buildTypeVarMapFromSpecializedClass,
+    buildTypeVarContextFromSpecializedClass,
     convertToInstance,
     getTypeVarScopeId,
     isLiteralType,
     lookUpObjectMember,
-    populateTypeVarMapForSelfType,
+    populateTypeVarContextForSelfType,
     requiresSpecialization,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 // Validates fields for compatibility with a dataclass and synthesizes
 // an appropriate __new__ and __init__ methods plus __dataclass_fields__
@@ -390,9 +390,9 @@ export function synthesizeDataClassMethods(
                 // transform it to refer to the Self of this subclass.
                 let effectiveType = entry.type;
                 if (entry.classType !== classType && requiresSpecialization(effectiveType)) {
-                    const typeVarMap = new TypeVarMap(getTypeVarScopeId(entry.classType));
-                    populateTypeVarMapForSelfType(typeVarMap, entry.classType, classType);
-                    effectiveType = applySolvedTypeVars(effectiveType, typeVarMap);
+                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(entry.classType));
+                    populateTypeVarContextForSelfType(typeVarContext, entry.classType, classType);
+                    effectiveType = applySolvedTypeVars(effectiveType, typeVarContext);
                 }
 
                 // Is the field type a descriptor object? If so, we need to extract the corresponding
@@ -566,7 +566,7 @@ function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEn
         const mroClass = classType.details.mro[i];
 
         if (isInstantiableClass(mroClass)) {
-            const typeVarMap = buildTypeVarMapFromSpecializedClass(mroClass, /* makeConcrete */ false);
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(mroClass, /* makeConcrete */ false);
             const dataClassEntries = ClassType.getDataClassEntries(mroClass);
 
             // Add the entries to the end of the list, replacing same-named
@@ -577,7 +577,7 @@ function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEn
                 // If the type from the parent class is generic, we need to convert
                 // to the type parameter namespace of child class.
                 const updatedEntry = { ...entry };
-                updatedEntry.type = applySolvedTypeVars(updatedEntry.type, typeVarMap);
+                updatedEntry.type = applySolvedTypeVars(updatedEntry.type, typeVarContext);
 
                 if (entry.isClassVar) {
                     // If this entry is a class variable, it overrides an existing

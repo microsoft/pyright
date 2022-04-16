@@ -161,7 +161,7 @@ import {
     partiallySpecializeType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 interface LocalTypeVarInfo {
     isExempt: boolean;
@@ -820,7 +820,7 @@ export class Checker extends ParseTreeWalker {
                             declaredReturnType,
                             returnType,
                             diagAddendum,
-                            new TypeVarMap(),
+                            new TypeVarContext(),
                             CanAssignFlags.AllowBoolTypeGuard
                         )
                     ) {
@@ -834,27 +834,27 @@ export class Checker extends ParseTreeWalker {
                             uniqueTypeVars &&
                             uniqueTypeVars.some((typeVar) => typeVar.details.constraints.length > 0)
                         ) {
-                            const typeVarMap = new TypeVarMap();
+                            const typeVarContext = new TypeVarContext();
 
                             for (const typeVar of uniqueTypeVars) {
                                 if (typeVar.details.constraints.length > 0) {
                                     const narrowedType = this._evaluator.narrowConstrainedTypeVar(node, typeVar);
                                     if (narrowedType) {
-                                        typeVarMap.setTypeVarType(typeVar, narrowedType);
-                                        typeVarMap.addSolveForScope(getTypeVarScopeId(typeVar));
+                                        typeVarContext.setTypeVarType(typeVar, narrowedType);
+                                        typeVarContext.addSolveForScope(getTypeVarScopeId(typeVar));
                                     }
                                 }
                             }
 
-                            if (!typeVarMap.isEmpty()) {
-                                const adjustedReturnType = applySolvedTypeVars(declaredReturnType, typeVarMap);
+                            if (!typeVarContext.isEmpty()) {
+                                const adjustedReturnType = applySolvedTypeVars(declaredReturnType, typeVarContext);
 
                                 if (
                                     this._evaluator.canAssignType(
                                         adjustedReturnType,
                                         returnType,
                                         diagAddendum,
-                                        /* typeVarMap */ undefined,
+                                        /* typeVarContext */ undefined,
                                         CanAssignFlags.AllowBoolTypeGuard
                                     )
                                 ) {
@@ -1760,7 +1760,7 @@ export class Checker extends ParseTreeWalker {
                         returnType,
                         prevReturnType,
                         /* diag */ undefined,
-                        new TypeVarMap(),
+                        new TypeVarContext(),
                         CanAssignFlags.SkipSolveTypeVars
                     )
                 ) {
@@ -1816,7 +1816,7 @@ export class Checker extends ParseTreeWalker {
             functionType,
             prevOverload,
             /* diag */ undefined,
-            /* typeVarMap */ new TypeVarMap(getTypeVarScopeId(functionType)),
+            new TypeVarContext(getTypeVarScopeId(functionType)),
             CanAssignFlags.SkipSolveTypeVars |
                 CanAssignFlags.SkipFunctionReturnTypeCheck |
                 CanAssignFlags.OverloadOverlapCheck
@@ -1828,14 +1828,14 @@ export class Checker extends ParseTreeWalker {
         implementation: FunctionType,
         diag: DiagnosticAddendum | undefined
     ): boolean {
-        const typeVarMap = new TypeVarMap(getTypeVarScopeId(implementation));
+        const typeVarContext = new TypeVarContext(getTypeVarScopeId(implementation));
 
         // First check the parameters to see if they are assignable.
         let isLegal = this._evaluator.canAssignType(
             overload,
             implementation,
             diag,
-            typeVarMap,
+            typeVarContext,
             CanAssignFlags.SkipFunctionReturnTypeCheck |
                 CanAssignFlags.ReverseTypeVarMatching |
                 CanAssignFlags.SkipSelfClsTypeCheck
@@ -1846,7 +1846,7 @@ export class Checker extends ParseTreeWalker {
             overload.details.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
         const implementationReturnType = applySolvedTypeVars(
             implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
-            typeVarMap
+            typeVarContext
         );
 
         const returnDiag = new DiagnosticAddendum();
@@ -1856,7 +1856,7 @@ export class Checker extends ParseTreeWalker {
                 implementationReturnType,
                 overloadReturnType,
                 returnDiag.createAddendum(),
-                typeVarMap,
+                typeVarContext,
                 CanAssignFlags.SkipSolveTypeVars
             )
         ) {
@@ -4010,14 +4010,14 @@ export class Checker extends ParseTreeWalker {
                 newMemberType,
                 initMemberType,
                 /* diag */ undefined,
-                /* typeVarMap */ undefined,
+                /* typeVarContext */ undefined,
                 CanAssignFlags.SkipFunctionReturnTypeCheck
             ) ||
             !this._evaluator.canAssignType(
                 initMemberType,
                 newMemberType,
                 /* diag */ undefined,
-                /* typeVarMap */ undefined,
+                /* typeVarContext */ undefined,
                 CanAssignFlags.SkipFunctionReturnTypeCheck
             )
         ) {

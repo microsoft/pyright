@@ -58,7 +58,7 @@ import {
     UnionType,
     UnknownType,
 } from './types';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 export interface ClassMember {
     // Symbol
@@ -175,10 +175,10 @@ export const enum CanAssignFlags {
 
     // If an assignment is made to a TypeVar that is out of scope,
     // do not generate an error. This is used for populating the
-    // typeVarMap when handling contravariant parameters in a callable.
+    // typeVarContext when handling contravariant parameters in a callable.
     IgnoreTypeVarScope = 1 << 9,
 
-    // We're initially populating the TypeVarMap with an expected type,
+    // We're initially populating the typeVarContext with an expected type,
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 10,
@@ -658,12 +658,12 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                 return unspecializedType;
             }
 
-            const typeVarMap = buildTypeVarMap(
+            const typeVarContext = buildTypeVarContext(
                 type.details.recursiveTypeParameters,
                 type.typeAliasInfo.typeArguments,
                 getTypeVarScopeId(type)
             );
-            return applySolvedTypeVars(unspecializedType, typeVarMap);
+            return applySolvedTypeVars(unspecializedType, typeVarContext);
         }
     }
 
@@ -714,8 +714,8 @@ export function getSpecializedTupleType(type: Type): ClassType | undefined {
         return classType;
     }
 
-    const typeVarMap = buildTypeVarMapFromSpecializedClass(classType);
-    return applySolvedTypeVars(tupleClass, typeVarMap) as ClassType;
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
+    return applySolvedTypeVars(tupleClass, typeVarContext) as ClassType;
 }
 
 export function isLiteralType(type: ClassType): boolean {
@@ -878,15 +878,15 @@ export function partiallySpecializeType(
     }
 
     // Partially specialize the type using the specialized class type vars.
-    const typeVarMap = buildTypeVarMapFromSpecializedClass(contextClassType, /* makeConcrete */ undefined);
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(contextClassType, /* makeConcrete */ undefined);
 
     if (selfClass) {
-        populateTypeVarMapForSelfType(typeVarMap, contextClassType, selfClass);
+        populateTypeVarContextForSelfType(typeVarContext, contextClassType, selfClass);
     }
 
     return applySolvedTypeVars(
         type,
-        typeVarMap,
+        typeVarContext,
         /* unknownIfNotFound */ undefined,
         /* useNarrowBoundOnly */ undefined,
         /* eliminateUnsolvedInUnions */ undefined,
@@ -894,32 +894,32 @@ export function partiallySpecializeType(
     );
 }
 
-export function populateTypeVarMapForSelfType(
-    typeVarMap: TypeVarMap,
+export function populateTypeVarContextForSelfType(
+    typeVarContext: TypeVarContext,
     contextClassType: ClassType,
     selfClass: ClassType
 ) {
     const synthesizedSelfTypeVar = synthesizeTypeVarForSelfCls(contextClassType, /* isClsParam */ false);
-    typeVarMap.setTypeVarType(synthesizedSelfTypeVar, convertToInstance(selfClass));
+    typeVarContext.setTypeVarType(synthesizedSelfTypeVar, convertToInstance(selfClass));
 }
 
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
 export function applySolvedTypeVars(
     type: Type,
-    typeVarMap: TypeVarMap,
+    typeVarContext: TypeVarContext,
     unknownIfNotFound = false,
     useNarrowBoundOnly = false,
     eliminateUnsolvedInUnions = false,
     typeClassType?: Type
 ): Type {
-    // Use a shortcut if the typeVarMap is empty and no transform is necessary.
-    if (typeVarMap.isEmpty() && !unknownIfNotFound && !eliminateUnsolvedInUnions) {
+    // Use a shortcut if the typeVarContext is empty and no transform is necessary.
+    if (typeVarContext.isEmpty() && !unknownIfNotFound && !eliminateUnsolvedInUnions) {
         return type;
     }
 
     const transformer = new ApplySolvedTypeVarsTransformer(
-        typeVarMap,
+        typeVarContext,
         unknownIfNotFound,
         useNarrowBoundOnly,
         eliminateUnsolvedInUnions,
@@ -935,7 +935,7 @@ export function applySolvedTypeVars(
 // type variables that are scoped to the appropriate context.
 export function transformExpectedTypeForConstructor(
     expectedType: Type,
-    typeVarMap: TypeVarMap,
+    typeVarContext: TypeVarContext,
     liveTypeVarScopes: TypeVarScopeId[]
 ): Type | undefined {
     const isTypeVarLive = (typeVar: TypeVarType) => liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
@@ -951,7 +951,7 @@ export function transformExpectedTypeForConstructor(
         return undefined;
     }
 
-    const transformer = new ExpectedConstructorTypeTransformer(typeVarMap, liveTypeVarScopes);
+    const transformer = new ExpectedConstructorTypeTransformer(typeVarContext, liveTypeVarScopes);
     return transformer.apply(expectedType);
 }
 
@@ -1312,44 +1312,49 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown.
 export function specializeClassType(type: ClassType): ClassType {
-    const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
+    const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
     const typeParams = ClassType.getTypeParameters(type);
 
     typeParams.forEach((typeParam) => {
-        typeVarMap.setTypeVarType(typeParam, UnknownType.create());
+        typeVarContext.setTypeVarType(typeParam, UnknownType.create());
     });
 
-    return applySolvedTypeVars(type, typeVarMap) as ClassType;
+    return applySolvedTypeVars(type, typeVarContext) as ClassType;
 }
 
 // Recursively finds all of the type arguments and sets them
 // to the specified srcType.
-export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVarMap: TypeVarMap, recursionCount = 0) {
+export function setTypeArgumentsRecursive(
+    destType: Type,
+    srcType: Type,
+    typeVarContext: TypeVarContext,
+    recursionCount = 0
+) {
     if (recursionCount > maxTypeRecursionCount) {
         return;
     }
     recursionCount++;
 
-    if (typeVarMap.isLocked()) {
+    if (typeVarContext.isLocked()) {
         return;
     }
 
     switch (destType.category) {
         case TypeCategory.Union:
             doForEachSubtype(destType, (subtype) => {
-                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount);
+                setTypeArgumentsRecursive(subtype, srcType, typeVarContext, recursionCount);
             });
             break;
 
         case TypeCategory.Class:
             if (destType.typeArguments) {
                 destType.typeArguments.forEach((typeArg) => {
-                    setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount);
+                    setTypeArgumentsRecursive(typeArg, srcType, typeVarContext, recursionCount);
                 });
             }
             if (destType.tupleTypeArguments) {
                 destType.tupleTypeArguments.forEach((typeArg) => {
-                    setTypeArgumentsRecursive(typeArg.type, srcType, typeVarMap, recursionCount);
+                    setTypeArgumentsRecursive(typeArg.type, srcType, typeVarContext, recursionCount);
                 });
             }
             break;
@@ -1357,28 +1362,33 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
         case TypeCategory.Function:
             if (destType.specializedTypes) {
                 destType.specializedTypes.parameterTypes.forEach((paramType) => {
-                    setTypeArgumentsRecursive(paramType, srcType, typeVarMap, recursionCount);
+                    setTypeArgumentsRecursive(paramType, srcType, typeVarContext, recursionCount);
                 });
                 if (destType.specializedTypes.returnType) {
                     setTypeArgumentsRecursive(
                         destType.specializedTypes.returnType,
                         srcType,
-                        typeVarMap,
+                        typeVarContext,
                         recursionCount
                     );
                 }
             } else {
                 destType.details.parameters.forEach((param) => {
-                    setTypeArgumentsRecursive(param.type, srcType, typeVarMap, recursionCount);
+                    setTypeArgumentsRecursive(param.type, srcType, typeVarContext, recursionCount);
                 });
                 if (destType.details.declaredReturnType) {
-                    setTypeArgumentsRecursive(destType.details.declaredReturnType, srcType, typeVarMap, recursionCount);
+                    setTypeArgumentsRecursive(
+                        destType.details.declaredReturnType,
+                        srcType,
+                        typeVarContext,
+                        recursionCount
+                    );
                 }
 
                 if (destType.details.paramSpec) {
                     // Fill in an empty signature for a ParamSpec if the source is Any or Unknown.
-                    if (!typeVarMap.hasTypeVar(destType.details.paramSpec) && isAnyOrUnknown(srcType)) {
-                        typeVarMap.setParamSpec(destType.details.paramSpec, {
+                    if (!typeVarContext.hasTypeVar(destType.details.paramSpec) && isAnyOrUnknown(srcType)) {
+                        typeVarContext.setParamSpec(destType.details.paramSpec, {
                             flags: FunctionTypeFlags.None,
                             parameters: FunctionType.getDefaultParameters(),
                             typeVarScopeId: undefined,
@@ -1392,13 +1402,13 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 
         case TypeCategory.OverloadedFunction:
             destType.overloads.forEach((subtype) => {
-                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount);
+                setTypeArgumentsRecursive(subtype, srcType, typeVarContext, recursionCount);
             });
             break;
 
         case TypeCategory.TypeVar:
-            if (!typeVarMap.hasTypeVar(destType)) {
-                typeVarMap.setTypeVarType(destType, srcType);
+            if (!typeVarContext.hasTypeVar(destType)) {
+                typeVarContext.setTypeVarType(destType, srcType);
             }
             break;
     }
@@ -1408,7 +1418,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
-export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeConcrete = true): TypeVarMap {
+export function buildTypeVarContextFromSpecializedClass(classType: ClassType, makeConcrete = true): TypeVarContext {
     const typeParameters = ClassType.getTypeParameters(classType);
     let typeArguments = classType.typeArguments;
 
@@ -1419,20 +1429,20 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeCo
         typeArguments = typeParameters;
     }
 
-    const typeVarMap = buildTypeVarMap(typeParameters, typeArguments, getTypeVarScopeId(classType));
+    const typeVarContext = buildTypeVarContext(typeParameters, typeArguments, getTypeVarScopeId(classType));
     if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments && typeParameters.length >= 1) {
-        typeVarMap.setVariadicTypeVar(typeParameters[0], classType.tupleTypeArguments);
+        typeVarContext.setVariadicTypeVar(typeParameters[0], classType.tupleTypeArguments);
     }
 
-    return typeVarMap;
+    return typeVarContext;
 }
 
-export function buildTypeVarMap(
+export function buildTypeVarContext(
     typeParameters: TypeVarType[],
     typeArgs: Type[] | undefined,
     typeVarScopeId: TypeVarScopeId | undefined
-): TypeVarMap {
-    const typeVarMap = new TypeVarMap(typeVarScopeId);
+): TypeVarContext {
+    const typeVarContext = new TypeVarContext(typeVarScopeId);
     typeParameters.forEach((typeParam, index) => {
         let typeArgType: Type;
 
@@ -1452,7 +1462,7 @@ export function buildTypeVarMap(
                                 type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
                             });
                         });
-                        typeVarMap.setParamSpec(typeParam, {
+                        typeVarContext.setParamSpec(typeParam, {
                             parameters: paramSpecEntries,
                             typeVarScopeId: typeArgType.details.typeVarScopeId,
                             flags: typeArgType.details.flags,
@@ -1460,7 +1470,7 @@ export function buildTypeVarMap(
                             paramSpec: typeArgType.details.paramSpec,
                         });
                     } else if (isParamSpec(typeArgType)) {
-                        typeVarMap.setParamSpec(typeParam, {
+                        typeVarContext.setParamSpec(typeParam, {
                             flags: FunctionTypeFlags.None,
                             parameters: [],
                             typeVarScopeId: undefined,
@@ -1469,7 +1479,7 @@ export function buildTypeVarMap(
                         });
                     } else if (isAnyOrUnknown(typeArgType)) {
                         // Fill in an empty signature if the arg type is Any or Unknown.
-                        typeVarMap.setParamSpec(typeParam, {
+                        typeVarContext.setParamSpec(typeParam, {
                             flags: FunctionTypeFlags.None,
                             parameters: FunctionType.getDefaultParameters(),
                             typeVarScopeId: undefined,
@@ -1485,12 +1495,12 @@ export function buildTypeVarMap(
                     typeArgType = typeArgs[index];
                 }
 
-                typeVarMap.setTypeVarType(typeParam, typeArgType, typeArgType, /* retainLiteral */ true);
+                typeVarContext.setTypeVarType(typeParam, typeArgType, typeArgType, /* retainLiteral */ true);
             }
         }
     });
 
-    return typeVarMap;
+    return typeVarContext;
 }
 
 // Determines the specialized base class type that srcType derives from.
@@ -1503,8 +1513,8 @@ export function specializeForBaseClass(srcType: ClassType, baseClass: ClassType)
         return baseClass;
     }
 
-    const typeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
-    const specializedType = applySolvedTypeVars(baseClass, typeVarMap);
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(srcType);
+    const specializedType = applySolvedTypeVars(baseClass, typeVarContext);
     assert(isInstantiableClass(specializedType));
     return specializedType as ClassType;
 }
@@ -2238,10 +2248,10 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     filteredBaseClasses.forEach((baseClass, index) => {
         if (isInstantiableClass(baseClass)) {
-            const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClass, /* makeConcrete */ false);
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass, /* makeConcrete */ false);
             classListsToMerge.push(
                 baseClass.details.mro.map((mroClass) => {
-                    return applySolvedTypeVars(mroClass, typeVarMap);
+                    return applySolvedTypeVars(mroClass, typeVarContext);
                 })
             );
         } else {
@@ -2251,14 +2261,14 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     classListsToMerge.push(
         filteredBaseClasses.map((baseClass) => {
-            const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, /* makeConcrete */ false);
-            return applySolvedTypeVars(baseClass, typeVarMap);
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(classType, /* makeConcrete */ false);
+            return applySolvedTypeVars(baseClass, typeVarContext);
         })
     );
 
     // The first class in the MRO is the class itself.
-    const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, /* makeConcrete */ false);
-    classType.details.mro.push(applySolvedTypeVars(classType, typeVarMap));
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType, /* makeConcrete */ false);
+    classType.details.mro.push(applySolvedTypeVars(classType, typeVarContext));
 
     // Helper function that returns true if the specified searchClass
     // is found in the "tail" (i.e. in elements 1 through n) of any
@@ -2904,7 +2914,7 @@ class TypeVarTransformer {
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     constructor(
-        private _typeVarMap: TypeVarMap,
+        private _typeVarContext: TypeVarContext,
         private _unknownIfNotFound = false,
         private _useNarrowBoundOnly = false,
         private _eliminateUnsolvedInUnions = false,
@@ -2916,14 +2926,14 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     override transformTypeVar(typeVar: TypeVarType) {
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
-        if (typeVar.scopeId && this._typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-            let replacement = this._typeVarMap.getTypeVarType(typeVar, this._useNarrowBoundOnly);
+        if (typeVar.scopeId && this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
+            let replacement = this._typeVarContext.getTypeVarType(typeVar, this._useNarrowBoundOnly);
 
             // If there was no narrow bound but there is a wide bound that
             // contains literals, we'll use the wide bound even if "useNarrowBoundOnly"
             // is specified.
             if (!replacement && this._useNarrowBoundOnly) {
-                const wideType = this._typeVarMap.getTypeVarType(typeVar);
+                const wideType = this._typeVarContext.getTypeVarType(typeVar);
                 if (wideType) {
                     if (containsLiteralType(wideType, /* includeTypeArgs */ true)) {
                         replacement = wideType;
@@ -2971,7 +2981,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 if (
                     isTypeVar(subtype) &&
                     subtype.scopeId !== undefined &&
-                    this._typeVarMap.hasSolveForScope(subtype.scopeId)
+                    this._typeVarContext.hasSolveForScope(subtype.scopeId)
                 ) {
                     return undefined;
                 }
@@ -2985,19 +2995,19 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     override transformVariadicTypeVar(typeVar: TypeVarType) {
-        if (!typeVar.scopeId || !this._typeVarMap.hasSolveForScope(typeVar.scopeId)) {
+        if (!typeVar.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
             return undefined;
         }
 
-        return this._typeVarMap.getVariadicTypeVar(typeVar);
+        return this._typeVarContext.getVariadicTypeVar(typeVar);
     }
 
     override transformParamSpec(paramSpec: TypeVarType) {
-        if (!paramSpec.scopeId || !this._typeVarMap.hasSolveForScope(paramSpec.scopeId)) {
+        if (!paramSpec.scopeId || !this._typeVarContext.hasSolveForScope(paramSpec.scopeId)) {
             return undefined;
         }
 
-        const transformedParamSpec = this._typeVarMap.getParamSpec(paramSpec);
+        const transformedParamSpec = this._typeVarContext.getParamSpec(paramSpec);
         if (transformedParamSpec) {
             return transformedParamSpec;
         }
@@ -3025,10 +3035,10 @@ class ExpectedConstructorTypeTransformer extends TypeVarTransformer {
     dummyScopeId = '__expected_type_scope_id';
     dummyTypeVarPrefix = '__expected_type_';
 
-    constructor(private _typeVarMap: TypeVarMap, private _liveTypeVarScopes: TypeVarScopeId[]) {
+    constructor(private _typeVarContext: TypeVarContext, private _liveTypeVarScopes: TypeVarScopeId[]) {
         super();
 
-        this._typeVarMap.addSolveForScope(this.dummyScopeId);
+        this._typeVarContext.addSolveForScope(this.dummyScopeId);
     }
 
     private _isTypeVarLive(typeVar: TypeVarType) {

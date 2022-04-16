@@ -677,7 +677,7 @@ export function canAssignTypedDict(
                     destEntry.valueType,
                     srcEntry.valueType,
                     /* diag */ undefined,
-                    /* typeVarMap */ undefined,
+                    /* typeVarContext */ undefined,
                     /* flags */ undefined,
                     recursionCount
                 )

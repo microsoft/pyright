@@ -39,7 +39,7 @@ import {
     isProperty,
     partiallySpecializeType,
 } from './typeUtils';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 export function validatePropertyMethod(evaluator: TypeEvaluator, method: FunctionType, errorNode: ParseNode) {
     if (FunctionType.isStaticMethod(method)) {
@@ -449,7 +449,7 @@ export function canAssignProperty(
     destClass: ClassType,
     srcClass: ClassType,
     diag: DiagnosticAddendum | undefined,
-    typeVarMap?: TypeVarMap,
+    typeVarContext?: TypeVarContext,
     recursionCount = 0
 ): boolean {
     const objectToBind = ClassType.cloneAsInstance(srcClass);
@@ -513,7 +513,7 @@ export function canAssignProperty(
                     boundDestAccessType,
                     boundSrcAccessType,
                     diag,
-                    typeVarMap,
+                    typeVarContext,
                     CanAssignFlags.Default,
                     recursionCount
                 )

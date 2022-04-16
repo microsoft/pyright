@@ -80,7 +80,7 @@ import {
     stripLiteralValue,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 export type TypeNarrowingCallback = (type: Type) => Type | undefined;
 
@@ -956,7 +956,7 @@ function narrowTypeForIsInstance(
                                 ClassType.isSpecialBuiltIn(filterType) ||
                                 filterType.details.typeParameters.length > 0
                             ) {
-                                const typeVarMap = new TypeVarMap(getTypeVarScopeId(filterType));
+                                const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
                                 const unspecializedFilterType = ClassType.cloneForSpecialization(
                                     filterType,
                                     /* typeArguments */ undefined,
@@ -964,16 +964,16 @@ function narrowTypeForIsInstance(
                                 );
 
                                 if (
-                                    evaluator.populateTypeVarMapBasedOnExpectedType(
+                                    evaluator.populateTypeVarContextBasedOnExpectedType(
                                         unspecializedFilterType,
                                         varType,
-                                        typeVarMap,
+                                        typeVarContext,
                                         /* liveTypeVarScopes */ undefined
                                     )
                                 ) {
                                     specializedFilterType = applySolvedTypeVars(
                                         unspecializedFilterType,
-                                        typeVarMap,
+                                        typeVarContext,
                                         /* unknownIfNotFound */ true
                                     ) as ClassType;
                                 }

@@ -45,7 +45,7 @@ import {
     TypeVarType,
 } from './types';
 import { CanAssignFlags, ClassMember } from './typeUtils';
-import { TypeVarMap } from './typeVarMap';
+import { TypeVarContext } from './typeVarContext';
 
 export const enum EvaluatorFlags {
     None = 0,
@@ -334,10 +334,10 @@ export interface TypeEvaluator {
         conditionFilter: TypeCondition[] | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
     ) => Type;
-    populateTypeVarMapBasedOnExpectedType: (
+    populateTypeVarContextBasedOnExpectedType: (
         type: ClassType,
         expectedType: Type,
-        typeVarMap: TypeVarMap,
+        typeVarContext: TypeVarContext,
         liveTypeVarScopes: TypeVarScopeId[] | undefined
     ) => boolean;
     lookUpSymbolRecursive: (node: ParseNode, name: string, honorCodeFlow: boolean) => SymbolWithScope | undefined;
@@ -393,7 +393,7 @@ export interface TypeEvaluator {
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        typeVarMap?: TypeVarMap,
+        typeVarContext?: TypeVarContext,
         flags?: CanAssignFlags,
         recursionCount?: number
     ) => boolean;
