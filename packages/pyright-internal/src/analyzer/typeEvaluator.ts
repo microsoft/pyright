@@ -31,6 +31,7 @@ import {
     ArgumentCategory,
     AssignmentNode,
     AugmentedAssignmentNode,
+    AwaitNode,
     BinaryOperationNode,
     CallNode,
     CaseNode,
@@ -54,6 +55,7 @@ import {
     MatchNode,
     MemberAccessNode,
     NameNode,
+    NumberNode,
     ParameterCategory,
     ParameterNode,
     ParseNode,
@@ -67,6 +69,7 @@ import {
     TupleNode,
     TypeAnnotationNode,
     UnaryOperationNode,
+    UnpackNode,
     WithItemNode,
     YieldFromNode,
     YieldNode,
@@ -885,7 +888,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // will be thrown at this point.
         checkForCancellation();
 
-        const expectedTypeAlt = transformPossibleRecursiveTypeAlias(expectedType);
+        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
 
         // If we haven't already fetched some core type definitions from the
         // typeshed stubs, do so here. It would be better to fetch this when it's
@@ -904,11 +907,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParseNodeType.MemberAccess: {
                 typeResult = getTypeFromMemberAccess(node, flags);
-
-                // Cache the type information in the member name node as well.
-                if (!isTypeAliasPlaceholder(typeResult.type)) {
-                    writeTypeCache(node.memberName, typeResult.type, flags, !!typeResult.isIncomplete);
-                }
                 break;
             }
 
@@ -918,25 +916,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Call: {
-                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-                    // Evaluate the expression still so symbols are marked as accessed.
-                    getTypeFromCall(node, expectedTypeAlt);
-
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeAnnotationCall(),
-                        node
-                    );
-                    typeResult = { node, type: UnknownType.create() };
-                } else {
-                    typeResult = getTypeFromCall(node, expectedTypeAlt);
-                }
+                typeResult = getTypeFromCall(node, expectedType, flags);
                 break;
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeFromTuple(node, expectedTypeAlt, flags);
+                typeResult = getTypeFromTuple(node, expectedType, flags);
                 break;
             }
 
@@ -946,123 +931,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.StringList: {
-                const expectingType =
+                const isExpectingType =
                     (flags & EvaluatorFlags.EvaluateStringLiteralAsType) !== 0 && !isAnnotationLiteralValue(node);
 
-                if (expectingType) {
-                    let updatedFlags = flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType;
-
-                    // In most cases, annotations within a string are not parsed by the interpreter.
-                    // There are a few exceptions (e.g. the "bound" value for a TypeVar constructor).
-                    if ((flags & EvaluatorFlags.InterpreterParsesStringLiteral) === 0) {
-                        updatedFlags |= EvaluatorFlags.NotParsedByInterpreter;
-                    }
-
-                    if (node.typeAnnotation) {
-                        typeResult = getTypeOfExpression(node.typeAnnotation, undefined, updatedFlags);
-                    } else if (!node.typeAnnotation && node.strings.length === 1) {
-                        // We didn't know at parse time that this string node was going
-                        // to be evaluated as a forward-referenced type. We need
-                        // to re-invoke the parser at this stage.
-                        const expr = parseStringAsTypeAnnotation(node);
-                        if (expr) {
-                            typeResult = getTypeOfExpression(expr, /* expectedType */ undefined, updatedFlags);
-                        }
-                    }
-
-                    if (!typeResult) {
-                        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.expectedTypeNotString(),
-                            node
-                        );
-                        typeResult = { node, type: UnknownType.create() };
-                    }
-
+                if (isExpectingType) {
                     // Don't report expecting type errors again. We will have already
                     // reported them when analyzing the contents of the string.
                     reportExpectingTypeErrors = false;
-                } else {
-                    // Evaluate the format string expressions in this context.
-                    node.strings.forEach((str) => {
-                        if (str.nodeType === ParseNodeType.FormatString) {
-                            str.expressions.forEach((expr) => {
-                                getTypeOfExpression(expr);
-                            });
-                        }
-                    });
-
-                    const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
-
-                    // Don't create a literal type if it's an f-string.
-                    if (node.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
-                        typeResult = {
-                            node,
-                            type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
-                        };
-                    } else {
-                        typeResult = {
-                            node,
-                            type: cloneBuiltinObjectWithLiteral(
-                                node,
-                                isBytes ? 'bytes' : 'str',
-                                node.strings.map((s) => s.value).join('')
-                            ),
-                        };
-                    }
                 }
+
+                typeResult = getTypeFromStringList(node, flags, isExpectingType);
                 break;
             }
 
             case ParseNodeType.Number: {
-                if (node.isImaginary) {
-                    typeResult = { node, type: getBuiltInObject(node, 'complex') };
-                } else if (node.isInteger) {
-                    typeResult = { node, type: cloneBuiltinObjectWithLiteral(node, 'int', node.value) };
-                } else {
-                    typeResult = { node, type: getBuiltInObject(node, 'float') };
-                }
+                typeResult = getTypeFromNumber(node, typeResult);
                 break;
             }
 
             case ParseNodeType.Ellipsis: {
-                if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
-                    typeResult = { type: AnyType.create(/* isEllipsis */ true), node };
-                } else if ((flags & EvaluatorFlags.ConvertEllipsisToUnknown) !== 0) {
-                    typeResult = { type: UnknownType.create(), node };
-                } else {
-                    const ellipsisType = getBuiltInObject(node, 'ellipsis') || AnyType.create();
-                    typeResult = { type: ellipsisType, node };
-                }
+                typeResult = getTypeFromEllipsis(flags, typeResult, node);
                 break;
             }
 
             case ParseNodeType.UnaryOperation: {
-                typeResult = getTypeFromUnaryOperation(node, expectedTypeAlt);
+                typeResult = getTypeFromUnaryOperation(node, expectedType);
                 break;
             }
 
             case ParseNodeType.BinaryOperation: {
-                typeResult = getTypeFromBinaryOperation(node, expectedTypeAlt, flags);
+                typeResult = getTypeFromBinaryOperation(node, expectedType, flags);
                 break;
             }
 
             case ParseNodeType.AugmentedAssignment: {
-                typeResult = getTypeFromAugmentedAssignment(node, expectedTypeAlt);
-                assignTypeToExpression(
-                    node.destExpression,
-                    typeResult.type,
-                    !!typeResult.isIncomplete,
-                    node.rightExpression
-                );
+                typeResult = getTypeFromAugmentedAssignment(node, expectedType);
                 break;
             }
 
             case ParseNodeType.List:
             case ParseNodeType.Set: {
-                typeResult = getTypeFromListOrSet(node, expectedTypeAlt);
+                typeResult = getTypeFromListOrSet(node, expectedType);
                 break;
             }
 
@@ -1072,39 +981,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Await: {
-                const effectiveExpectedType = expectedType
-                    ? createAwaitableReturnType(node, expectedType, /* isGenerator */ false)
-                    : undefined;
-
-                const exprTypeResult = getTypeOfExpression(node.expression, effectiveExpectedType, flags);
-                typeResult = {
-                    type: getTypeFromAwaitable(exprTypeResult.type, node.expression),
-                    node,
-                };
-
-                if (exprTypeResult.isIncomplete) {
-                    typeResult.isIncomplete = true;
-                }
+                typeResult = getTypeFromAwaitOperator(node, flags, expectedType);
                 break;
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeFromTernary(node, flags, expectedTypeAlt);
+                typeResult = getTypeFromTernary(node, flags, expectedType);
                 break;
             }
 
             case ParseNodeType.ListComprehension: {
-                typeResult = getTypeFromListComprehension(node, expectedTypeAlt);
+                typeResult = getTypeFromListComprehension(node, expectedType);
                 break;
             }
 
             case ParseNodeType.Dictionary: {
-                typeResult = getTypeFromDictionary(node, expectedTypeAlt);
+                typeResult = getTypeFromDictionary(node, expectedType);
                 break;
             }
 
             case ParseNodeType.Lambda: {
-                typeResult = getTypeFromLambda(node, expectedTypeAlt);
+                typeResult = getTypeFromLambda(node, expectedType);
                 break;
             }
 
@@ -1144,42 +1041,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Unpack: {
-                let iterExpectedType: Type | undefined;
-                if (expectedTypeAlt) {
-                    const iterableType = getBuiltInType(node, 'Iterable');
-                    if (iterableType && isInstantiableClass(iterableType)) {
-                        iterExpectedType = ClassType.cloneAsInstance(
-                            ClassType.cloneForSpecialization(
-                                iterableType,
-                                [expectedTypeAlt],
-                                /* isTypeArgumentExplicit */ true
-                            )
-                        );
-                    }
-                }
-
-                const iterTypeResult = getTypeOfExpression(node.expression, iterExpectedType, flags);
-                const iterType = iterTypeResult.type;
-                if (
-                    (flags & EvaluatorFlags.TypeVarTupleDisallowed) === 0 &&
-                    isVariadicTypeVar(iterType) &&
-                    !iterType.isVariadicUnpacked
-                ) {
-                    typeResult = { type: TypeVarType.cloneForUnpacked(iterType), node };
-                } else {
-                    if (
-                        (flags & EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple) !== 0 &&
-                        isInstantiableClass(iterType) &&
-                        ClassType.isBuiltIn(iterType, 'tuple')
-                    ) {
-                        typeResult = { type: ClassType.cloneForUnpacked(iterType), node };
-                    } else {
-                        const type =
-                            getTypeFromIterator(iterType, /* isAsync */ false, node) ??
-                            UnknownType.create(!!iterTypeResult.isIncomplete);
-                        typeResult = { type, unpackedType: iterType, node, isIncomplete: iterTypeResult.isIncomplete };
-                    }
-                }
+                typeResult = getTypeFromUnpackOperator(node, flags, expectedType);
                 break;
             }
 
@@ -1187,11 +1049,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeResult = getTypeOfExpression(
                     node.typeAnnotation,
                     undefined,
-                    EvaluatorFlags.EvaluateStringLiteralAsType |
+                    EvaluatorFlags.ExpectingType |
+                        EvaluatorFlags.ExpectingTypeAnnotation |
+                        EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed |
-                        EvaluatorFlags.ExpectingType |
-                        EvaluatorFlags.ExpectingTypeAnnotation |
                         EvaluatorFlags.VariableTypeAnnotation
                 );
                 break;
@@ -1271,6 +1133,151 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node
                 )}): Post ${printType(typeResult.type)}${typeResult.isIncomplete ? ' Incomplete' : ''}`
             );
+        }
+
+        return typeResult;
+    }
+
+    function getTypeFromAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, expectedType?: Type) {
+        const effectiveExpectedType = expectedType
+            ? createAwaitableReturnType(node, expectedType, /* isGenerator */ false)
+            : undefined;
+
+        const exprTypeResult = getTypeOfExpression(node.expression, effectiveExpectedType, flags);
+        const typeResult: TypeResult = {
+            type: getTypeFromAwaitable(exprTypeResult.type, node.expression),
+            node,
+        };
+
+        if (exprTypeResult.isIncomplete) {
+            typeResult.isIncomplete = true;
+        }
+        return typeResult;
+    }
+
+    function getTypeFromEllipsis(flags: EvaluatorFlags, typeResult: TypeResult | undefined, node: ExpressionNode) {
+        if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
+            typeResult = { type: AnyType.create(/* isEllipsis */ true), node };
+        } else if ((flags & EvaluatorFlags.ConvertEllipsisToUnknown) !== 0) {
+            typeResult = { type: UnknownType.create(), node };
+        } else {
+            const ellipsisType = getBuiltInObject(node, 'ellipsis') || AnyType.create();
+            typeResult = { type: ellipsisType, node };
+        }
+        return typeResult;
+    }
+
+    function getTypeFromNumber(node: NumberNode, typeResult: TypeResult | undefined) {
+        if (node.isImaginary) {
+            typeResult = { node, type: getBuiltInObject(node, 'complex') };
+        } else if (node.isInteger) {
+            typeResult = { node, type: cloneBuiltinObjectWithLiteral(node, 'int', node.value) };
+        } else {
+            typeResult = { node, type: getBuiltInObject(node, 'float') };
+        }
+        return typeResult;
+    }
+
+    function getTypeFromUnpackOperator(node: UnpackNode, flags: EvaluatorFlags, expectedType?: Type) {
+        let typeResult: TypeResult | undefined;
+        let iterExpectedType: Type | undefined;
+
+        if (expectedType) {
+            const iterableType = getBuiltInType(node, 'Iterable');
+            if (iterableType && isInstantiableClass(iterableType)) {
+                iterExpectedType = ClassType.cloneAsInstance(
+                    ClassType.cloneForSpecialization(iterableType, [expectedType], /* isTypeArgumentExplicit */ true)
+                );
+            }
+        }
+
+        const iterTypeResult = getTypeOfExpression(node.expression, iterExpectedType, flags);
+        const iterType = iterTypeResult.type;
+        if (
+            (flags & EvaluatorFlags.TypeVarTupleDisallowed) === 0 &&
+            isVariadicTypeVar(iterType) &&
+            !iterType.isVariadicUnpacked
+        ) {
+            typeResult = { type: TypeVarType.cloneForUnpacked(iterType), node };
+        } else {
+            if (
+                (flags & EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple) !== 0 &&
+                isInstantiableClass(iterType) &&
+                ClassType.isBuiltIn(iterType, 'tuple')
+            ) {
+                typeResult = { type: ClassType.cloneForUnpacked(iterType), node };
+            } else {
+                const type =
+                    getTypeFromIterator(iterType, /* isAsync */ false, node) ??
+                    UnknownType.create(!!iterTypeResult.isIncomplete);
+                typeResult = { type, unpackedType: iterType, node, isIncomplete: iterTypeResult.isIncomplete };
+            }
+        }
+        return typeResult;
+    }
+
+    function getTypeFromStringList(node: StringListNode, flags: EvaluatorFlags, isExpectingType: boolean) {
+        let typeResult: TypeResult | undefined;
+
+        if (isExpectingType) {
+            let updatedFlags = flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType;
+
+            // In most cases, annotations within a string are not parsed by the interpreter.
+            // There are a few exceptions (e.g. the "bound" value for a TypeVar constructor).
+            if ((flags & EvaluatorFlags.InterpreterParsesStringLiteral) === 0) {
+                updatedFlags |= EvaluatorFlags.NotParsedByInterpreter;
+            }
+
+            if (node.typeAnnotation) {
+                typeResult = getTypeOfExpression(node.typeAnnotation, undefined, updatedFlags);
+            } else if (!node.typeAnnotation && node.strings.length === 1) {
+                // We didn't know at parse time that this string node was going
+                // to be evaluated as a forward-referenced type. We need
+                // to re-invoke the parser at this stage.
+                const expr = parseStringAsTypeAnnotation(node);
+                if (expr) {
+                    typeResult = getTypeOfExpression(expr, /* expectedType */ undefined, updatedFlags);
+                }
+            }
+
+            if (!typeResult) {
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.expectedTypeNotString(),
+                    node
+                );
+                typeResult = { node, type: UnknownType.create() };
+            }
+        } else {
+            // Evaluate the format string expressions in this context.
+            node.strings.forEach((str) => {
+                if (str.nodeType === ParseNodeType.FormatString) {
+                    str.expressions.forEach((expr) => {
+                        getTypeOfExpression(expr);
+                    });
+                }
+            });
+
+            const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
+
+            // Don't create a literal type if it's an f-string.
+            if (node.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
+                typeResult = {
+                    node,
+                    type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
+                };
+            } else {
+                typeResult = {
+                    node,
+                    type: cloneBuiltinObjectWithLiteral(
+                        node,
+                        isBytes ? 'bytes' : 'str',
+                        node.strings.map((s) => s.value).join('')
+                    ),
+                };
+            }
         }
 
         return typeResult;
@@ -4349,7 +4356,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
-        const memberTypeResult = getTypeFromMemberAccessWithBaseType(
+        const typeResult = getTypeFromMemberAccessWithBaseType(
             node,
             baseTypeResult,
             { method: 'get' },
@@ -4358,13 +4365,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isCodeFlowSupportedForReference(node)) {
             // Before performing code flow analysis, update the cache to prevent recursion.
-            writeTypeCache(node, memberTypeResult.type, flags, /* isIncomplete */ true);
-            writeTypeCache(node.memberName, memberTypeResult.type, flags, /* isIncomplete */ true);
+            writeTypeCache(node, typeResult.type, flags, /* isIncomplete */ true);
+            writeTypeCache(node.memberName, typeResult.type, flags, /* isIncomplete */ true);
 
             // If the type is initially unbound, see if there's a parent class that
             // potentially initialized the value.
-            let initialType = memberTypeResult.type;
-            let isInitialTypeIncomplete = !!memberTypeResult.isIncomplete;
+            let initialType = typeResult.type;
+            let isInitialTypeIncomplete = !!typeResult.isIncomplete;
             if (isUnbound(initialType)) {
                 const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
@@ -4396,26 +4403,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 initialType,
                 isInitialTypeIncomplete
             );
+
             if (codeFlowTypeResult.type) {
-                memberTypeResult.type = codeFlowTypeResult.type;
+                typeResult.type = codeFlowTypeResult.type;
             }
 
             if (codeFlowTypeResult.isIncomplete) {
-                memberTypeResult.isIncomplete = true;
+                typeResult.isIncomplete = true;
             }
 
             // Detect, report, and fill in missing type arguments if appropriate.
-            memberTypeResult.type = reportMissingTypeArguments(node, memberTypeResult.type, flags);
+            typeResult.type = reportMissingTypeArguments(node, typeResult.type, flags);
 
             deleteTypeCacheEntry(node);
             deleteTypeCacheEntry(node.memberName);
         }
 
         if (baseTypeResult.isIncomplete) {
-            memberTypeResult.isIncomplete = true;
+            typeResult.isIncomplete = true;
         }
 
-        return memberTypeResult;
+        // Cache the type information in the member name node.
+        writeTypeCache(node.memberName, typeResult.type, flags, !!typeResult.isIncomplete);
+
+        return typeResult;
     }
 
     function getTypeFromMemberAccessWithBaseType(
@@ -6765,7 +6776,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return entryTypes;
     }
 
-    function getTypeFromCall(node: CallNode, expectedType: Type | undefined): TypeResult {
+    function getTypeFromCall(node: CallNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
         const baseTypeResult = getTypeOfExpression(
             node.leftExpression,
             /* expectedType */ undefined,
@@ -6782,25 +6793,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionArg;
         });
 
-        let returnResult: TypeResult = { node, type: UnknownType.create() };
+        let typeResult: TypeResult = { node, type: UnknownType.create() };
 
         if (!isTypeAliasPlaceholder(baseTypeResult.type)) {
             if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'super') {
                 // Handle the built-in "super" call specially.
-                returnResult = getTypeFromSuperCall(node);
+                typeResult = getTypeFromSuperCall(node);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
                 node.leftExpression.value === 'reveal_type'
             ) {
                 // Handle the implicit "reveal_type" call.
-                returnResult = getTypeFromRevealType(node, expectedType);
+                typeResult = getTypeFromRevealType(node, expectedType);
             } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'reveal_type') {
                 // Handle the "typing.reveal_type" call.
-                returnResult = getTypeFromRevealType(node, expectedType);
+                typeResult = getTypeFromRevealType(node, expectedType);
             } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'assert_type') {
                 // Handle the "typing.assert_type" call.
-                returnResult = getTypeFromAssertType(node, expectedType);
+                typeResult = getTypeFromAssertType(node, expectedType);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
@@ -6808,7 +6819,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 if (node.arguments.length === 0) {
                     // Handle the special-case "reveal_locals" call.
-                    returnResult.type = getTypeFromRevealLocals(node);
+                    typeResult.type = getTypeFromRevealLocals(node);
                 } else {
                     addError(Localizer.Diagnostic.revealLocalsArgs(), node);
                 }
@@ -6822,22 +6833,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     expectedType
                 );
 
-                returnResult.type = callResult.returnType ?? UnknownType.create();
+                typeResult.type = callResult.returnType ?? UnknownType.create();
 
                 if (callResult.argumentErrors) {
-                    returnResult.typeErrors = true;
+                    typeResult.typeErrors = true;
                 }
 
                 if (callResult.isTypeIncomplete) {
-                    returnResult.isIncomplete = true;
+                    typeResult.isIncomplete = true;
                 }
             }
 
             if (baseTypeResult.isIncomplete) {
-                returnResult.isIncomplete = true;
+                typeResult.isIncomplete = true;
             }
         } else {
-            returnResult.isIncomplete = true;
+            typeResult.isIncomplete = true;
         }
 
         // Don't bother evaluating the arguments if we're speculatively evaluating the call
@@ -6867,7 +6878,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return returnResult;
+        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeAnnotationCall(),
+                node
+            );
+
+            typeResult = { node, type: UnknownType.create() };
+        }
+
+        return typeResult;
     }
 
     function getTypeFromAssertType(node: CallNode, expectedType: Type | undefined): TypeResult {
@@ -11227,6 +11249,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
 
         let type: Type | undefined;
+        let typeResult: TypeResult | undefined;
         const diag = new DiagnosticAddendum();
 
         const leftTypeResult = getTypeOfExpression(node.leftExpression);
@@ -11244,100 +11267,105 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isIncomplete = !!rightTypeResult.isIncomplete || !!leftTypeResult.isIncomplete;
 
         if (isNever(leftType) || isNever(rightType)) {
-            return { node, type: NeverType.createNever(), isIncomplete };
-        }
+            typeResult = { node, type: NeverType.createNever(), isIncomplete };
+        } else {
+            type = mapSubtypesExpandTypeVars(
+                leftType,
+                /* conditionFilter */ undefined,
+                (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
+                    return mapSubtypesExpandTypeVars(
+                        rightType,
+                        getTypeCondition(leftSubtypeExpanded),
+                        (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
+                            if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
+                                return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
+                            }
 
-        type = mapSubtypesExpandTypeVars(
-            leftType,
-            /* conditionFilter */ undefined,
-            (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
-                return mapSubtypesExpandTypeVars(
-                    rightType,
-                    getTypeCondition(leftSubtypeExpanded),
-                    (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
-                        if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
-                            return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
-                        }
-
-                        const magicMethodName = operatorMap[node.operator][0];
-                        let returnType = getTypeFromMagicMethodReturn(
-                            leftSubtypeUnexpanded,
-                            [rightSubtypeUnexpanded],
-                            magicMethodName,
-                            node,
-                            expectedType
-                        );
-
-                        if (!returnType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
-                            // Try with the expanded left type.
-                            returnType = getTypeFromMagicMethodReturn(
-                                leftSubtypeExpanded,
+                            const magicMethodName = operatorMap[node.operator][0];
+                            let returnType = getTypeFromMagicMethodReturn(
+                                leftSubtypeUnexpanded,
                                 [rightSubtypeUnexpanded],
                                 magicMethodName,
                                 node,
                                 expectedType
                             );
+
+                            if (!returnType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
+                                // Try with the expanded left type.
+                                returnType = getTypeFromMagicMethodReturn(
+                                    leftSubtypeExpanded,
+                                    [rightSubtypeUnexpanded],
+                                    magicMethodName,
+                                    node,
+                                    expectedType
+                                );
+                            }
+
+                            if (!returnType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
+                                // Try with the expanded left and right type.
+                                returnType = getTypeFromMagicMethodReturn(
+                                    leftSubtypeExpanded,
+                                    [rightSubtypeExpanded],
+                                    magicMethodName,
+                                    node,
+                                    expectedType
+                                );
+                            }
+
+                            if (!returnType) {
+                                // If the LHS class didn't support the magic method for augmented
+                                // assignment, fall back on the normal binary expression evaluator.
+                                const binaryOperator = operatorMap[node.operator][1];
+
+                                // Don't use literal math if either of the operand types are
+                                // incomplete because we may be evaluating types within a loop,
+                                // so the literal values may change each time.
+                                const isLiteralMathAllowed =
+                                    !leftTypeResult.isIncomplete && !rightTypeResult.isIncomplete;
+
+                                returnType = validateBinaryOperation(
+                                    binaryOperator,
+                                    leftSubtypeUnexpanded,
+                                    rightSubtypeUnexpanded,
+                                    node,
+                                    expectedType,
+                                    diag,
+                                    isLiteralMathAllowed
+                                );
+                            }
+
+                            return returnType;
                         }
+                    );
+                }
+            );
 
-                        if (!returnType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
-                            // Try with the expanded left and right type.
-                            returnType = getTypeFromMagicMethodReturn(
-                                leftSubtypeExpanded,
-                                [rightSubtypeExpanded],
-                                magicMethodName,
-                                node,
-                                expectedType
-                            );
-                        }
+            // If the LHS class didn't support the magic method for augmented
+            // assignment, fall back on the normal binary expression evaluator.
+            if (!diag.isEmpty() || !type || isNever(type)) {
+                if (!isIncomplete) {
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                            operator: ParseTreeUtils.printOperator(node.operator),
+                            leftType: printType(leftType),
+                            rightType: printType(rightType),
+                        }) + diag.getString(),
+                        node
+                    );
+                }
 
-                        if (!returnType) {
-                            // If the LHS class didn't support the magic method for augmented
-                            // assignment, fall back on the normal binary expression evaluator.
-                            const binaryOperator = operatorMap[node.operator][1];
-
-                            // Don't use literal math if either of the operand types are
-                            // incomplete because we may be evaluating types within a loop,
-                            // so the literal values may change each time.
-                            const isLiteralMathAllowed = !leftTypeResult.isIncomplete && !rightTypeResult.isIncomplete;
-
-                            returnType = validateBinaryOperation(
-                                binaryOperator,
-                                leftSubtypeUnexpanded,
-                                rightSubtypeUnexpanded,
-                                node,
-                                expectedType,
-                                diag,
-                                isLiteralMathAllowed
-                            );
-                        }
-
-                        return returnType;
-                    }
-                );
+                type = UnknownType.create();
             }
-        );
 
-        // If the LHS class didn't support the magic method for augmented
-        // assignment, fall back on the normal binary expression evaluator.
-        if (!diag.isEmpty() || !type || isNever(type)) {
-            if (!isIncomplete) {
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                        operator: ParseTreeUtils.printOperator(node.operator),
-                        leftType: printType(leftType),
-                        rightType: printType(rightType),
-                    }) + diag.getString(),
-                    node
-                );
-            }
-
-            type = UnknownType.create();
+            typeResult = { node, type, isIncomplete };
         }
 
-        return { node, type, isIncomplete };
+        assignTypeToExpression(node.destExpression, typeResult.type, !!typeResult.isIncomplete, node.rightExpression);
+
+        return typeResult;
     }
 
     function validateBinaryOperation(
@@ -14200,12 +14228,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const destTypeResult = getTypeFromAugmentedAssignment(node, /* expectedType */ undefined);
-        assignTypeToExpression(
-            node.destExpression,
-            destTypeResult.type,
-            !!destTypeResult.isIncomplete,
-            node.rightExpression
-        );
 
         writeTypeCache(node, destTypeResult.type, EvaluatorFlags.None, !!destTypeResult.isIncomplete);
     }
