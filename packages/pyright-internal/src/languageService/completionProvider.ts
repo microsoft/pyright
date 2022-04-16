@@ -1080,7 +1080,7 @@ export class CompletionProvider {
 
                 // Currently, we don't automatically add import if the type used in the annotation is not imported
                 // in current file.
-                const paramTypeAnnotation = this._evaluator.getTypeAnnotationForParameter(node, index);
+                const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(node, index);
                 if (paramTypeAnnotation) {
                     paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation, printFlags);
                 }

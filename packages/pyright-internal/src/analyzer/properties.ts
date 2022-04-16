@@ -12,7 +12,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { Localizer } from '../localization/localize';
 import { DecoratorNode, FunctionNode, ParameterCategory, ParseNode } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { getClassFullName, getTypeSourceId } from './parseTreeUtils';
+import { getClassFullName, getTypeAnnotationForParameter, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -137,7 +137,7 @@ export function clonePropertyWithSetter(
     // can be somewhat expensive, especially in code that is not annotated.
     const fileInfo = getFileInfo(errorNode);
     if (errorNode.parameters.length >= 2) {
-        const typeAnnotation = evaluator.getTypeAnnotationForParameter(errorNode, 1);
+        const typeAnnotation = getTypeAnnotationForParameter(errorNode, 1);
         if (typeAnnotation) {
             // Verify consistency of the type.
             const fgetType = evaluator.getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);

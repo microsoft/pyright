@@ -129,8 +129,6 @@ export function createTypeEvaluatorWithTracker(
         bindFunctionToClassOrObject: typeEvaluator.bindFunctionToClassOrObject,
         getCallSignatureInfo: (n, i, a) =>
             run('getCallSignatureInfo', () => typeEvaluator.getCallSignatureInfo(n, i, a), n),
-        getTypeAnnotationForParameter: (n, p) =>
-            run('getTypeAnnotationForParameter', () => typeEvaluator.getTypeAnnotationForParameter(n, p), n),
         getAbstractMethods: (c) => run('getAbstractMethods', () => typeEvaluator.getAbstractMethods(c), c),
         narrowConstrainedTypeVar: typeEvaluator.narrowConstrainedTypeVar,
         canAssignType: (d, s, a, m, f) => run('canAssignType', () => typeEvaluator.canAssignType(d, s, a, m, f), d),

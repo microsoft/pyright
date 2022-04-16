@@ -1888,6 +1888,36 @@ export function isFunctionSuiteEmpty(node: FunctionNode) {
     return isEmpty;
 }
 
+export function getTypeAnnotationForParameter(node: FunctionNode, paramIndex: number): ExpressionNode | undefined {
+    if (paramIndex >= node.parameters.length) {
+        return undefined;
+    }
+
+    const param = node.parameters[paramIndex];
+    if (param.typeAnnotation) {
+        return param.typeAnnotation;
+    } else if (param.typeAnnotationComment) {
+        return param.typeAnnotationComment;
+    }
+
+    if (!node.functionAnnotationComment || node.functionAnnotationComment.isParamListEllipsis) {
+        return undefined;
+    }
+
+    let firstCommentAnnotationIndex = 0;
+    const paramAnnotations = node.functionAnnotationComment.paramTypeAnnotations;
+    if (paramAnnotations.length < node.parameters.length) {
+        firstCommentAnnotationIndex = 1;
+    }
+
+    const adjIndex = paramIndex - firstCommentAnnotationIndex;
+    if (adjIndex < 0 || adjIndex >= paramAnnotations.length) {
+        return undefined;
+    }
+
+    return paramAnnotations[adjIndex];
+}
+
 export function isImportModuleName(node: ParseNode): boolean {
     return getFirstAncestorOrSelfOfKind(node, ParseNodeType.ModuleName)?.parent?.nodeType === ParseNodeType.ImportAs;
 }

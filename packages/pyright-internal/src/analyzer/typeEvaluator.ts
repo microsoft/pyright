@@ -1827,36 +1827,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function getTypeAnnotationForParameter(node: FunctionNode, paramIndex: number): ExpressionNode | undefined {
-        if (paramIndex >= node.parameters.length) {
-            return undefined;
-        }
-
-        const param = node.parameters[paramIndex];
-        if (param.typeAnnotation) {
-            return param.typeAnnotation;
-        } else if (param.typeAnnotationComment) {
-            return param.typeAnnotationComment;
-        }
-
-        if (!node.functionAnnotationComment || node.functionAnnotationComment.isParamListEllipsis) {
-            return undefined;
-        }
-
-        let firstCommentAnnotationIndex = 0;
-        const paramAnnotations = node.functionAnnotationComment.paramTypeAnnotations;
-        if (paramAnnotations.length < node.parameters.length) {
-            firstCommentAnnotationIndex = 1;
-        }
-
-        const adjIndex = paramIndex - firstCommentAnnotationIndex;
-        if (adjIndex < 0 || adjIndex >= paramAnnotations.length) {
-            return undefined;
-        }
-
-        return paramAnnotations[adjIndex];
-    }
-
     // Returns the signature(s) associated with a call node that contains
     // the specified node. It also returns the index of the argument
     // that contains the node.
@@ -13308,7 +13278,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (enclosingFunction.parameters.length > 0) {
-                    const firstParamTypeAnnotation = getTypeAnnotationForParameter(enclosingFunction, 0);
+                    const firstParamTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(enclosingFunction, 0);
                     if (
                         firstParamTypeAnnotation &&
                         !ParseTreeUtils.isNodeContainedWithin(errorNode, firstParamTypeAnnotation)
@@ -14558,7 +14528,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (
                         initParams.length > 1 &&
-                        !initParams.some((param, index) => !!getTypeAnnotationForParameter(initDeclNode, index))
+                        !initParams.some(
+                            (param, index) => !!ParseTreeUtils.getTypeAnnotationForParameter(initDeclNode, index)
+                        )
                     ) {
                         const genericParams = initParams.filter(
                             (param, index) => index > 0 && param.name && param.category === ParameterCategory.Simple
@@ -16984,7 +16956,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const functionNode = parent as FunctionNode;
 
         const paramIndex = functionNode.parameters.findIndex((param) => param === node);
-        const typeAnnotation = getTypeAnnotationForParameter(functionNode, paramIndex);
+        const typeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
 
         if (typeAnnotation) {
             const param = functionNode.parameters[paramIndex];
@@ -18182,7 +18154,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             !functionNode.functionAnnotationComment.isParamListEllipsis
                         ) {
                             const paramIndex = functionNode.parameters.findIndex((param) => param === declaration.node);
-                            typeAnnotationNode = getTypeAnnotationForParameter(functionNode, paramIndex);
+                            typeAnnotationNode = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
                         }
                     }
                 }
@@ -24121,7 +24093,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeFromMagicMethodReturn,
         bindFunctionToClassOrObject,
         getCallSignatureInfo,
-        getTypeAnnotationForParameter,
         getAbstractMethods,
         narrowConstrainedTypeVar,
         canAssignType,

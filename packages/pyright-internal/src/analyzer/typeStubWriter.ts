@@ -611,7 +611,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += paramNode.name.value;
         }
 
-        const paramTypeAnnotation = this._evaluator.getTypeAnnotationForParameter(functionNode, paramIndex);
+        const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
         let paramType = '';
         if (paramTypeAnnotation) {
             paramType = this._printExpression(paramTypeAnnotation, /* treatStringsAsSymbols */ true);
