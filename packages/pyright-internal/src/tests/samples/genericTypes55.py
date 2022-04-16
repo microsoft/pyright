@@ -2,7 +2,7 @@
 # a generic Callable that can be specialized with type variables
 # provided by the caller.
 
-from typing import Callable, TypeVar
+from typing import Callable, List, TypeVar, Union
 
 _T = TypeVar("_T")
 
@@ -43,3 +43,19 @@ v4 = identity_callable_2(identity_generic)
 reveal_type(v4, expected_text="(_T@identity_generic) -> _T@identity_generic")
 reveal_type(v4(0), expected_text="int")
 reveal_type(v4(""), expected_text="str")
+
+
+_U = TypeVar("_U")
+
+
+def dec() -> Callable[[_U], _U]:
+    ...
+
+
+@dec()
+def func1(x: _T, y: Union[_T, List[_T]]) -> None:
+    pass
+
+
+func1(1, 2)
+func1(1, [2, 3])
