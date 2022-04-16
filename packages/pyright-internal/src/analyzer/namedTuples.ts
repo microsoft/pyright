@@ -110,12 +110,7 @@ export function createNamedTupleType(
     );
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
-    const constructorType = FunctionType.createInstance(
-        '__new__',
-        '',
-        '',
-        FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
-    );
+    const constructorType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
     constructorType.details.declaredReturnType = convertToInstance(classTypeVar);
     if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
         constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
@@ -311,12 +306,7 @@ export function createNamedTupleType(
     // will handle property type checking. We may need to disable default
     // parameter processing for __new__ (see isAssignmentToDefaultsFollowingNamedTuple),
     // and we don't want to do it for __init__ as well.
-    const initType = FunctionType.createInstance(
-        '__init__',
-        '',
-        '',
-        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipConstructorCheck
-    );
+    const initType = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.SkipConstructorCheck);
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
     initType.details.declaredReturnType = NoneType.createInstance();
@@ -324,8 +314,8 @@ export function createNamedTupleType(
     classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
     classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
-    const keysItemType = FunctionType.createInstance('keys', '', '', FunctionTypeFlags.SynthesizedMethod);
-    const itemsItemType = FunctionType.createInstance('items', '', '', FunctionTypeFlags.SynthesizedMethod);
+    const keysItemType = FunctionType.createSynthesizedInstance('keys');
+    const itemsItemType = FunctionType.createSynthesizedInstance('items');
     keysItemType.details.declaredReturnType = evaluator.getBuiltInObject(errorNode, 'list', [
         evaluator.getBuiltInObject(errorNode, 'str'),
     ]);
@@ -333,18 +323,13 @@ export function createNamedTupleType(
     classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
     classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, itemsItemType));
 
-    const lenType = FunctionType.createInstance('__len__', '', '', FunctionTypeFlags.SynthesizedMethod);
+    const lenType = FunctionType.createSynthesizedInstance('__len__');
     lenType.details.declaredReturnType = evaluator.getBuiltInObject(errorNode, 'int');
     FunctionType.addParameter(lenType, selfParameter);
     classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
 
     if (addGenericGetAttribute) {
-        const getAttribType = FunctionType.createInstance(
-            '__getattribute__',
-            '',
-            '',
-            FunctionTypeFlags.SynthesizedMethod
-        );
+        const getAttribType = FunctionType.createSynthesizedInstance('__getattribute__');
         getAttribType.details.declaredReturnType = AnyType.create();
         FunctionType.addParameter(getAttribType, selfParameter);
         FunctionType.addParameter(getAttribType, {

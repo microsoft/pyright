@@ -271,12 +271,7 @@ export function clonePropertyWithDeleter(
 function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: FunctionType) {
     const fields = propertyObject.details.fields;
 
-    const getFunction1 = FunctionType.createInstance(
-        '__get__',
-        '',
-        '',
-        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-    );
+    const getFunction1 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(getFunction1, {
         category: ParameterCategory.Simple,
         name: 'self',
@@ -302,12 +297,7 @@ function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: Func
         : propertyObject;
     getFunction1.details.declaration = fget.details.declaration;
 
-    const getFunction2 = FunctionType.createInstance(
-        '__get__',
-        '',
-        '',
-        FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-    );
+    const getFunction2 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
         name: 'self',
@@ -345,7 +335,7 @@ function addGetMethodToPropertySymbolTable(propertyObject: ClassType, fget: Func
 function addSetMethodToPropertySymbolTable(propertyObject: ClassType, fset: FunctionType, evaluator: TypeEvaluator) {
     const fields = propertyObject.details.fields;
 
-    const setFunction = FunctionType.createInstance('__set__', '', '', FunctionTypeFlags.SynthesizedMethod);
+    const setFunction = FunctionType.createSynthesizedInstance('__set__');
     FunctionType.addParameter(setFunction, {
         category: ParameterCategory.Simple,
         name: 'self',
@@ -384,7 +374,7 @@ function addSetMethodToPropertySymbolTable(propertyObject: ClassType, fset: Func
 function addDelMethodToPropertySymbolTable(propertyObject: ClassType, fdel: FunctionType, evaluator: TypeEvaluator) {
     const fields = propertyObject.details.fields;
 
-    const delFunction = FunctionType.createInstance('__delete__', '', '', FunctionTypeFlags.SynthesizedMethod);
+    const delFunction = FunctionType.createSynthesizedInstance('__delete__');
     FunctionType.addParameter(delFunction, {
         category: ParameterCategory.Simple,
         name: 'self',
@@ -433,7 +423,7 @@ function addDecoratorMethodsToPropertySymbolTable(propertyObject: ClassType) {
 
     // Fill in the getter, setter and deleter methods.
     ['getter', 'setter', 'deleter'].forEach((accessorName) => {
-        const accessorFunction = FunctionType.createInstance(accessorName, '', '', FunctionTypeFlags.SynthesizedMethod);
+        const accessorFunction = FunctionType.createSynthesizedInstance(accessorName);
         FunctionType.addParameter(accessorFunction, {
             category: ParameterCategory.Simple,
             name: 'self',

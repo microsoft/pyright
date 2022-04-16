@@ -5862,7 +5862,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const typeArgType = typeArgs[index].type;
 
                 if (typeArgs[index].typeList) {
-                    const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
+                    const functionType = FunctionType.createInstantiable(FunctionTypeFlags.ParamSpecValue);
                     TypeBase.setSpecialForm(functionType);
                     typeArgs[index].typeList!.forEach((paramType, paramIndex) => {
                         FunctionType.addParameter(functionType, {
@@ -5909,9 +5909,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canAssignTypeToTypeVar(param, functionType, diag, typeVarMap);
                 } else if (isEllipsisType(typeArgType)) {
                     const functionType = FunctionType.createInstantiable(
-                        '',
-                        '',
-                        '',
                         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
                     );
                     TypeBase.setSpecialForm(functionType);
@@ -10770,7 +10767,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 computeMroLinearization(classType);
 
                 // Synthesize an __init__ method that accepts only the specified type.
-                const initType = FunctionType.createInstance('__init__', '', '', FunctionTypeFlags.SynthesizedMethod);
+                const initType = FunctionType.createSynthesizedInstance('__init__');
                 FunctionType.addParameter(initType, {
                     category: ParameterCategory.Simple,
                     name: 'self',
@@ -10787,12 +10784,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
                 // Synthesize a trivial __new__ method.
-                const newType = FunctionType.createInstance(
-                    '__new__',
-                    '',
-                    '',
-                    FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
-                );
+                const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
                 FunctionType.addParameter(newType, {
                     category: ParameterCategory.Simple,
                     name: 'cls',
@@ -12511,7 +12503,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const callMember = lookUpObjectMember(subtype, '__call__');
                     if (callMember) {
                         const memberType = getTypeOfMember(callMember);
-                        if (memberType && isFunction(memberType)) {
+                        if (isFunction(memberType)) {
                             const boundMethod = bindFunctionToClassOrObject(subtype, memberType);
 
                             if (boundMethod) {
@@ -12898,7 +12890,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function createCallableType(typeArgs: TypeResult[] | undefined, errorNode: ParseNode): FunctionType {
         // Create a new function that is marked as "static" so there is later
         // no attempt to bind it as though it's an instance or class method.
-        const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
+        const functionType = FunctionType.createInstantiable(FunctionTypeFlags.None);
         TypeBase.setSpecialForm(functionType);
         functionType.details.declaredReturnType = UnknownType.create();
 
@@ -17562,7 +17554,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeArgs && index < typeArgs.length) {
                 if (typeParam.details.isParamSpec) {
                     const typeArg = typeArgs[index];
-                    const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.ParamSpecValue);
+                    const functionType = FunctionType.createInstantiable(FunctionTypeFlags.ParamSpecValue);
                     TypeBase.setSpecialForm(functionType);
 
                     if (isEllipsisType(typeArg.type)) {
@@ -22160,11 +22152,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Return a generic constructor.
-        const constructorFunction = FunctionType.createInstance(
+        const constructorFunction = FunctionType.createSynthesizedInstance(
             '__new__',
-            '',
-            '',
-            FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
+            FunctionTypeFlags.ConstructorMethod
         );
         constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
         FunctionType.addDefaultParameters(constructorFunction);
@@ -23042,7 +23032,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             '',
                             '',
                             '',
-                            effectiveSrcType.details.flags,
+                            effectiveSrcType.details.flags | FunctionTypeFlags.SynthesizedMethod,
                             effectiveSrcType.details.docString
                         );
                         remainingFunction.details.typeVarScopeId = effectiveSrcType.details.typeVarScopeId;

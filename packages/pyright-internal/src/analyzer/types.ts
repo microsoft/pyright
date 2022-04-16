@@ -1118,14 +1118,12 @@ export namespace FunctionType {
         return create(name, fullName, moduleName, functionFlags, TypeFlags.Instance, docString);
     }
 
-    export function createInstantiable(
-        name: string,
-        fullName: string,
-        moduleName: string,
-        functionFlags: FunctionTypeFlags,
-        docString?: string
-    ) {
-        return create(name, fullName, moduleName, functionFlags, TypeFlags.Instantiable, docString);
+    export function createInstantiable(functionFlags: FunctionTypeFlags, docString?: string) {
+        return create('', '', '', functionFlags, TypeFlags.Instantiable, docString);
+    }
+
+    export function createSynthesizedInstance(name: string, additionalFlags = FunctionTypeFlags.None) {
+        return create(name, '', '', additionalFlags | FunctionTypeFlags.SynthesizedMethod, TypeFlags.Instance);
     }
 
     function create(

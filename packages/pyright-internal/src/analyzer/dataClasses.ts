@@ -75,13 +75,8 @@ export function synthesizeDataClassMethods(
     assert(ClassType.isDataClass(classType));
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
-    const newType = FunctionType.createInstance(
-        '__new__',
-        '',
-        '',
-        FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
-    );
-    const initType = FunctionType.createInstance('__init__', '', '', FunctionTypeFlags.SynthesizedMethod);
+    const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
+    const initType = FunctionType.createSynthesizedInstance('__init__');
 
     FunctionType.addParameter(newType, {
         category: ParameterCategory.Simple,
@@ -461,7 +456,7 @@ export function synthesizeDataClassMethods(
     }
 
     const synthesizeComparisonMethod = (operator: string, paramType: Type) => {
-        const operatorMethod = FunctionType.createInstance(operator, '', '', FunctionTypeFlags.SynthesizedMethod);
+        const operatorMethod = FunctionType.createSynthesizedInstance(operator);
         FunctionType.addParameter(operatorMethod, selfParam);
         FunctionType.addParameter(operatorMethod, {
             category: ParameterCategory.Simple,
@@ -501,7 +496,7 @@ export function synthesizeDataClassMethods(
     }
 
     if (synthesizeHashFunction) {
-        const hashMethod = FunctionType.createInstance('__hash__', '', '', FunctionTypeFlags.SynthesizedMethod);
+        const hashMethod = FunctionType.createSynthesizedInstance('__hash__');
         FunctionType.addParameter(hashMethod, selfParam);
         hashMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'int');
         symbolTable.set('__hash__', Symbol.createWithType(SymbolFlags.ClassMember, hashMethod));

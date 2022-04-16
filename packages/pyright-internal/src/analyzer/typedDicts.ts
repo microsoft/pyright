@@ -263,12 +263,7 @@ export function synthesizeTypedDictClassMethods(
     assert(ClassType.isTypedDictClass(classType));
 
     // Synthesize a __new__ method.
-    const newType = FunctionType.createInstance(
-        '__new__',
-        '',
-        '',
-        FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
-    );
+    const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
     FunctionType.addParameter(newType, {
         category: ParameterCategory.Simple,
         name: 'cls',
@@ -279,7 +274,7 @@ export function synthesizeTypedDictClassMethods(
     newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
 
     // Synthesize an __init__ method.
-    const initType = FunctionType.createInstance('__init__', '', '', FunctionTypeFlags.SynthesizedMethod);
+    const initType = FunctionType.createSynthesizedInstance('__init__');
     FunctionType.addParameter(initType, {
         category: ParameterCategory.Simple,
         name: 'self',
@@ -338,12 +333,7 @@ export function synthesizeTypedDictClassMethods(
             isEntryRequired = false,
             defaultTypeMatchesField = false
         ) => {
-            const getOverload = FunctionType.createInstance(
-                'get',
-                '',
-                '',
-                FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-            );
+            const getOverload = FunctionType.createSynthesizedInstance('get', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(getOverload, selfParam);
             getOverload.details.typeVarScopeId = evaluator.getScopeIdForNode(node);
             FunctionType.addParameter(getOverload, {
@@ -395,22 +385,12 @@ export function synthesizeTypedDictClassMethods(
                 hasDeclaredType: true,
             };
 
-            const popOverload1 = FunctionType.createInstance(
-                'pop',
-                '',
-                '',
-                FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-            );
+            const popOverload1 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(popOverload1, selfParam);
             FunctionType.addParameter(popOverload1, keyParam);
             popOverload1.details.declaredReturnType = valueType;
 
-            const popOverload2 = FunctionType.createInstance(
-                'pop',
-                '',
-                '',
-                FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-            );
+            const popOverload2 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(popOverload2, selfParam);
             FunctionType.addParameter(popOverload2, keyParam);
             popOverload2.details.typeVarScopeId = evaluator.getScopeIdForNode(node);
@@ -427,11 +407,9 @@ export function synthesizeTypedDictClassMethods(
         };
 
         const createSetDefaultMethod = (keyType: Type, valueType: Type) => {
-            const setDefaultOverload = FunctionType.createInstance(
+            const setDefaultOverload = FunctionType.createSynthesizedInstance(
                 'setdefault',
-                '',
-                '',
-                FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+                FunctionTypeFlags.Overloaded
             );
             FunctionType.addParameter(setDefaultOverload, selfParam);
             FunctionType.addParameter(setDefaultOverload, {
@@ -451,12 +429,7 @@ export function synthesizeTypedDictClassMethods(
         };
 
         const createDelItemMethod = (keyType: Type) => {
-            const delItemOverload = FunctionType.createInstance(
-                'delitem',
-                '',
-                '',
-                FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
-            );
+            const delItemOverload = FunctionType.createSynthesizedInstance('delitem', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(delItemOverload, selfParam);
             FunctionType.addParameter(delItemOverload, {
                 category: ParameterCategory.Simple,

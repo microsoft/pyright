@@ -2836,7 +2836,7 @@ class TypeVarTransformer {
         }
 
         // Unpack the tuple and synthesize a new function in the process.
-        const newFunctionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.SynthesizedMethod);
+        const newFunctionType = FunctionType.createSynthesizedInstance('');
         let insertKeywordOnlySeparator = false;
         let swallowPositionOnlySeparator = false;
 

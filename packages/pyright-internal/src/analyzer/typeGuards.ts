@@ -34,7 +34,6 @@ import {
     combineTypes,
     FunctionParameter,
     FunctionType,
-    FunctionTypeFlags,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -1721,12 +1720,7 @@ function narrowTypeForCallable(
                         newClassType = addConditionToType(newClassType, subtype.condition) as ClassType;
 
                         // Add a __call__ method to the new class.
-                        const callMethod = FunctionType.createInstance(
-                            '__call__',
-                            '',
-                            '',
-                            FunctionTypeFlags.SynthesizedMethod
-                        );
+                        const callMethod = FunctionType.createSynthesizedInstance('__call__');
                         const selfParam: FunctionParameter = {
                             category: ParameterCategory.Simple,
                             name: 'self',

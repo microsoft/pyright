@@ -18,7 +18,6 @@ import {
     ClassType,
     FunctionParameter,
     FunctionType,
-    FunctionTypeFlags,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -103,7 +102,7 @@ function applyTotalOrderingTransform(
 
     // Add the missing members to the class's symbol table.
     missingMethods.forEach((methodName) => {
-        const methodToAdd = FunctionType.createInstance(methodName, '', '', FunctionTypeFlags.SynthesizedMethod);
+        const methodToAdd = FunctionType.createSynthesizedInstance(methodName);
         FunctionType.addParameter(methodToAdd, selfParam);
         FunctionType.addParameter(methodToAdd, objParam);
         methodToAdd.details.declaredReturnType = boolType;
