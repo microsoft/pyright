@@ -1,6 +1,7 @@
 import types
 import unittest
 from typing import Any, Callable, NamedTuple
+from typing_extensions import TypeAlias
 
 __all__ = [
     "register_optionflag",
@@ -123,8 +124,8 @@ class DocTestFinder:
         extraglobs: dict[str, Any] | None = ...,
     ) -> list[DocTest]: ...
 
-_Out = Callable[[str], Any]
-_ExcInfo = tuple[type[BaseException], BaseException, types.TracebackType]
+_Out: TypeAlias = Callable[[str], Any]
+_ExcInfo: TypeAlias = tuple[type[BaseException], BaseException, types.TracebackType]
 
 class DocTestRunner:
     DIVIDER: str

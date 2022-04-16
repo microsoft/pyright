@@ -3,6 +3,7 @@ from _typeshed import StrOrBytesPath
 from builtins import open as _builtin_open
 from token import *
 from typing import Any, Callable, Generator, Iterable, NamedTuple, Pattern, Sequence, TextIO
+from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 10):
     __all__ = [
@@ -317,7 +318,7 @@ if sys.version_info < (3, 7):
 cookie_re: Pattern[str]
 blank_re: Pattern[bytes]
 
-_Position = tuple[int, int]
+_Position: TypeAlias = tuple[int, int]
 
 class _TokenInfo(NamedTuple):
     type: int
@@ -331,7 +332,7 @@ class TokenInfo(_TokenInfo):
     def exact_type(self) -> int: ...
 
 # Backwards compatible tokens can be sequences of a shorter length too
-_Token = TokenInfo | Sequence[int | str | _Position]
+_Token: TypeAlias = TokenInfo | Sequence[int | str | _Position]
 
 class TokenError(Exception): ...
 class StopTokenizing(Exception): ...  # undocumented

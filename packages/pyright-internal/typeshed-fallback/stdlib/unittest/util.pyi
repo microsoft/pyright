@@ -1,7 +1,8 @@
 from typing import Any, Sequence, TypeVar
+from typing_extensions import TypeAlias
 
 _T = TypeVar("_T")
-_Mismatch = tuple[_T, _T, int]
+_Mismatch: TypeAlias = tuple[_T, _T, int]
 
 _MAX_LENGTH: int
 _PLACEHOLDER_LEN: int

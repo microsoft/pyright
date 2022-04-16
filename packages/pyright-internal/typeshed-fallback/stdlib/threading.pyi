@@ -1,11 +1,12 @@
 import sys
 from types import FrameType, TracebackType
 from typing import Any, Callable, Iterable, Mapping, TypeVar
+from typing_extensions import TypeAlias
 
 # TODO recursive type
-_TF = Callable[[FrameType, str, Any], Callable[..., Any] | None]
+_TF: TypeAlias = Callable[[FrameType, str, Any], Callable[..., Any] | None]
 
-_PF = Callable[[FrameType, str, Any], None]
+_PF: TypeAlias = Callable[[FrameType, str, Any], None]
 _T = TypeVar("_T")
 
 if sys.version_info >= (3, 10):

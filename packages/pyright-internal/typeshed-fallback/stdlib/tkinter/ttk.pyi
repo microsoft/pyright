@@ -3,7 +3,7 @@ import sys
 import tkinter
 from tkinter.font import _FontDescription
 from typing import Any, Callable, overload
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal, TypeAlias, TypedDict
 
 if sys.version_info >= (3, 7):
     __all__ = [
@@ -65,7 +65,7 @@ def tclobjs_to_py(adict: dict[Any, Any]) -> dict[Any, Any]: ...
 def setup_master(master: Any | None = ...): ...
 
 # from ttk_widget (aka ttk::widget) manual page, differs from tkinter._Compound
-_TtkCompound = Literal["text", "image", tkinter._Compound]
+_TtkCompound: TypeAlias = Literal["text", "image", tkinter._Compound]
 
 class Style:
     master: Any
@@ -972,7 +972,7 @@ class _TreeviewColumnDict(TypedDict):
     anchor: tkinter._Anchor
     id: str
 
-_TreeviewColumnId = int | str  # manual page: "COLUMN IDENTIFIERS"
+_TreeviewColumnId: TypeAlias = int | str  # manual page: "COLUMN IDENTIFIERS"
 
 class Treeview(Widget, tkinter.XView, tkinter.YView):
     def __init__(

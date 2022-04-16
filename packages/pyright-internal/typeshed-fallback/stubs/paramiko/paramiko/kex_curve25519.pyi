@@ -1,6 +1,6 @@
 import sys
 from _typeshed import ReadableBuffer as ReadableBuffer
-from typing import Callable
+from collections.abc import Callable
 
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from paramiko.message import Message

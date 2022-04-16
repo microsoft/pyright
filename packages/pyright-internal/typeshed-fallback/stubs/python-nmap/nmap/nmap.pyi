@@ -1,8 +1,8 @@
 from typing import Any, Callable, Iterable, Iterator, Text, TypeVar
-from typing_extensions import TypedDict
+from typing_extensions import TypeAlias, TypedDict
 
 _T = TypeVar("_T")
-_Callback = Callable[[str, _Result], Any]
+_Callback: TypeAlias = Callable[[str, _Result], Any]
 
 class _Result(TypedDict):
     nmap: _ResultNmap

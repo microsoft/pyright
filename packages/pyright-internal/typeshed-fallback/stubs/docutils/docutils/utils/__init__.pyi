@@ -1,7 +1,7 @@
 import optparse
 from collections.abc import Iterable
 from typing import Any
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 from docutils import ApplicationError
 from docutils.io import FileOutput
@@ -17,7 +17,7 @@ class DependencyList:
     def add(self, *filenames: str) -> None: ...
     def close(self) -> None: ...
 
-_SystemMessageLevel = Literal[0, 1, 2, 3, 4]
+_SystemMessageLevel: TypeAlias = Literal[0, 1, 2, 3, 4]
 
 class Reporter:
     DEBUG_LEVEL: Literal[0]

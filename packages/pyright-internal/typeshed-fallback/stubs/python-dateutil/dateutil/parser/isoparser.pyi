@@ -1,9 +1,10 @@
 from _typeshed import SupportsRead
 from datetime import date, datetime, time, tzinfo
 from typing import Text
+from typing_extensions import TypeAlias
 
-_Readable = SupportsRead[Text | bytes]
-_TakesAscii = Text | bytes | _Readable
+_Readable: TypeAlias = SupportsRead[Text | bytes]
+_TakesAscii: TypeAlias = Text | bytes | _Readable
 
 class isoparser:
     def __init__(self, sep: Text | bytes | None = ...): ...

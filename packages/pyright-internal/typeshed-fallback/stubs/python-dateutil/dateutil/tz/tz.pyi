@@ -1,10 +1,11 @@
 import datetime
 from typing import IO, Any, Text, TypeVar
+from typing_extensions import TypeAlias
 
 from ..relativedelta import relativedelta
 from ._common import _tzinfo as _tzinfo, enfold as enfold, tzname_in_python2 as tzname_in_python2, tzrangebase as tzrangebase
 
-_FileObj = str | Text | IO[str] | IO[Text]
+_FileObj: TypeAlias = str | Text | IO[str] | IO[Text]
 _DT = TypeVar("_DT", bound=datetime.datetime)
 
 ZERO: datetime.timedelta

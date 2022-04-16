@@ -3,8 +3,9 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from typing import Any, TypeVar
+from typing_extensions import TypeAlias
 
-_EscaperMapping = Mapping[type[object], Callable[..., str]] | None
+_EscaperMapping: TypeAlias = Mapping[type[object], Callable[..., str]] | None
 _T = TypeVar("_T")
 
 def escape_item(val: object, charset: object, mapping: _EscaperMapping = ...) -> str: ...

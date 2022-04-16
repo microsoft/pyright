@@ -3,11 +3,12 @@ from abc import abstractmethod
 from reprlib import Repr
 from types import MethodType, ModuleType, TracebackType
 from typing import IO, Any, AnyStr, Callable, Container, Mapping, MutableMapping, NoReturn, TypeVar
+from typing_extensions import TypeAlias
 
 __all__ = ["help"]
 
 # the return type of sys.exc_info(), used by ErrorDuringImport.__init__
-_Exc_Info = tuple[type[BaseException] | None, BaseException | None, TracebackType | None]
+_Exc_Info: TypeAlias = tuple[type[BaseException] | None, BaseException | None, TracebackType | None]
 
 _T = TypeVar("_T")
 

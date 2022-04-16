@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from types import TracebackType
 from typing import IO, Callable, MutableMapping
+from typing_extensions import TypeAlias
 
 from .headers import Headers
 from .types import ErrorStream, InputStream, StartResponse, WSGIApplication, WSGIEnvironment
@@ -8,7 +9,7 @@ from .util import FileWrapper
 
 __all__ = ["BaseHandler", "SimpleHandler", "BaseCGIHandler", "CGIHandler", "IISCGIHandler", "read_environ"]
 
-_exc_info = tuple[type[BaseException] | None, BaseException | None, TracebackType | None]
+_exc_info: TypeAlias = tuple[type[BaseException] | None, BaseException | None, TracebackType | None]
 
 def format_date_time(timestamp: float | None) -> str: ...  # undocumented
 def read_environ() -> dict[str, str]: ...

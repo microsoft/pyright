@@ -3,11 +3,11 @@ import sys
 from collections.abc import Callable, Iterable, Iterator
 from tokenize import TokenInfo
 from typing import Any, ClassVar, Pattern, TypeVar, overload
-from typing_extensions import Literal, ParamSpec
+from typing_extensions import Literal, ParamSpec, TypeAlias
 
 from pyflakes.messages import Message
 
-_AnyFunction = Callable[..., Any]
+_AnyFunction: TypeAlias = Callable[..., Any]
 _F = TypeVar("_F", bound=_AnyFunction)
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -37,8 +37,8 @@ PRECISION_RE: Pattern[str]
 LENGTH_RE: Pattern[str]
 VALID_CONVERSIONS: frozenset[str]
 
-_FormatType = tuple[str | None, str | None, str | None, str | None, str]
-_PercentFormat = tuple[str, _FormatType | None]
+_FormatType: TypeAlias = tuple[str | None, str | None, str | None, str | None, str]
+_PercentFormat: TypeAlias = tuple[str, _FormatType | None]
 
 def parse_percent_format(s: str) -> tuple[_PercentFormat, ...]: ...
 
@@ -47,7 +47,7 @@ class _FieldsOrder(dict[type[ast.AST], tuple[str, ...]]):
 
 def counter(items: Iterable[_T]) -> dict[_T, int]: ...
 
-_OmitType = str | tuple[str, ...] | None
+_OmitType: TypeAlias = str | tuple[str, ...] | None
 
 def iter_child_nodes(node: ast.AST, omit: _OmitType = ..., _fields_order: _FieldsOrder = ...) -> Iterator[ast.AST]: ...
 @overload

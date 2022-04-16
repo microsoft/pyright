@@ -1,6 +1,7 @@
 import sys
 from _typeshed import Self, StrPath
 from typing import Any, AsyncIterator, Awaitable, Callable, Iterable, Sequence
+from typing_extensions import TypeAlias
 
 from . import events, protocols, transports
 from .base_events import Server
@@ -64,7 +65,7 @@ else:
             "start_unix_server",
         ]
 
-_ClientConnectedCallback = Callable[[StreamReader, StreamWriter], Awaitable[None] | None]
+_ClientConnectedCallback: TypeAlias = Callable[[StreamReader, StreamWriter], Awaitable[None] | None]
 
 if sys.version_info < (3, 8):
     class IncompleteReadError(EOFError):

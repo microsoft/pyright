@@ -1,8 +1,9 @@
-from typing import Callable
+from collections.abc import Callable
+from typing_extensions import TypeAlias
 
 from google.protobuf.descriptor import FieldDescriptor
 
-_Sizer = Callable[[int, bool, bool], int]
+_Sizer: TypeAlias = Callable[[int, bool, bool], int]
 
 Int32Sizer: _Sizer
 UInt32Sizer: _Sizer
@@ -19,7 +20,7 @@ def MessageSetItemSizer(field_number: int) -> _Sizer: ...
 def MapSizer(field_descriptor: FieldDescriptor, is_message_map: bool) -> _Sizer: ...
 def TagBytes(field_number: int, wire_type: int) -> bytes: ...
 
-_Encoder = Callable[[Callable[[bytes], int], bytes, bool], int]
+_Encoder: TypeAlias = Callable[[Callable[[bytes], int], bytes, bool], int]
 
 Int32Encoder: _Encoder
 UInt32Encoder: _Encoder

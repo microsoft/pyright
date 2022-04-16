@@ -1,4 +1,4 @@
-from typing import Iterable
+from collections.abc import Iterable
 
 from google.protobuf.descriptor import Descriptor, EnumDescriptor, FileDescriptor, ServiceDescriptor
 from google.protobuf.message import Message

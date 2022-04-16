@@ -1,6 +1,7 @@
 from _typeshed import Self
-from collections.abc import Iterator
-from typing import Any, Callable, Generic, Iterable, Pattern, TypeVar, overload
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any, Generic, Pattern, TypeVar, overload
+from typing_extensions import TypeAlias
 
 from . import BeautifulSoup
 from .builder import TreeBuilder
@@ -27,10 +28,10 @@ class ContentMetaAttributeValue(AttributeValueWithCharsetSubstitution):
     def encode(self, encoding: str) -> str: ...  # type: ignore[override]  # incompatible with str
 
 _PageElementT = TypeVar("_PageElementT", bound=PageElement)
-_SimpleStrainable = str | bool | None | bytes | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
-_Strainable = _SimpleStrainable | Iterable[_SimpleStrainable]
-_SimpleNormalizedStrainable = str | bool | None | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
-_NormalizedStrainable = _SimpleNormalizedStrainable | Iterable[_SimpleNormalizedStrainable]
+_SimpleStrainable: TypeAlias = str | bool | None | bytes | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
+_Strainable: TypeAlias = _SimpleStrainable | Iterable[_SimpleStrainable]
+_SimpleNormalizedStrainable: TypeAlias = str | bool | None | Pattern[str] | Callable[[str], bool] | Callable[[Tag], bool]
+_NormalizedStrainable: TypeAlias = _SimpleNormalizedStrainable | Iterable[_SimpleNormalizedStrainable]
 
 class PageElement:
     parent: Tag | None

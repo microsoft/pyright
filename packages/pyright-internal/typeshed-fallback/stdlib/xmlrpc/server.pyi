@@ -4,10 +4,11 @@ import socketserver
 import sys
 from datetime import datetime
 from typing import Any, Callable, Iterable, Mapping, Pattern, Protocol
+from typing_extensions import TypeAlias
 from xmlrpc.client import Fault
 
 # TODO: Recursive type on tuple, list, dict
-_Marshallable = None | bool | int | float | str | bytes | tuple[Any, ...] | list[Any] | dict[Any, Any] | datetime
+_Marshallable: TypeAlias = None | bool | int | float | str | bytes | tuple[Any, ...] | list[Any] | dict[Any, Any] | datetime
 
 # The dispatch accepts anywhere from 0 to N arguments, no easy way to allow this in mypy
 class _DispatchArity0(Protocol):
@@ -30,7 +31,9 @@ class _DispatchArity4(Protocol):
 class _DispatchArityN(Protocol):
     def __call__(self, *args: _Marshallable) -> _Marshallable: ...
 
-_DispatchProtocol = _DispatchArity0 | _DispatchArity1 | _DispatchArity2 | _DispatchArity3 | _DispatchArity4 | _DispatchArityN
+_DispatchProtocol: TypeAlias = (
+    _DispatchArity0 | _DispatchArity1 | _DispatchArity2 | _DispatchArity3 | _DispatchArity4 | _DispatchArityN
+)
 
 def resolve_dotted_attribute(obj: Any, attr: str, allow_dotted_names: bool = ...) -> Any: ...  # undocumented
 def list_public_methods(obj: Any) -> list[str]: ...  # undocumented

@@ -1,5 +1,7 @@
-AdpcmState = tuple[int, int]
-RatecvState = tuple[int, tuple[tuple[int, int], ...]]
+from typing_extensions import TypeAlias
+
+AdpcmState: TypeAlias = tuple[int, int]
+RatecvState: TypeAlias = tuple[int, tuple[tuple[int, int], ...]]
 
 class error(Exception): ...
 

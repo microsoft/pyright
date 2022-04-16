@@ -1,5 +1,6 @@
 from _typeshed import Self
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from .retry import Retry
 

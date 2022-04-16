@@ -3,6 +3,7 @@ import types
 from _typeshed import Self
 from opcode import *  # `dis` re-exports it as a part of public API
 from typing import IO, Any, Callable, Iterator, NamedTuple
+from typing_extensions import TypeAlias
 
 __all__ = [
     "code_info",
@@ -34,8 +35,8 @@ __all__ = [
 
 # Strictly this should not have to include Callable, but mypy doesn't use FunctionType
 # for functions (python/mypy#3171)
-_HaveCodeType = types.MethodType | types.FunctionType | types.CodeType | type | Callable[..., Any]
-_HaveCodeOrStringType = _HaveCodeType | str | bytes
+_HaveCodeType: TypeAlias = types.MethodType | types.FunctionType | types.CodeType | type | Callable[..., Any]
+_HaveCodeOrStringType: TypeAlias = _HaveCodeType | str | bytes
 
 class Instruction(NamedTuple):
     opname: str

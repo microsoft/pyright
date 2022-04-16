@@ -1,6 +1,6 @@
 import sys
 from _typeshed import ReadableBuffer
-from typing import Callable
+from collections.abc import Callable
 
 from paramiko.message import Message
 from paramiko.transport import Transport

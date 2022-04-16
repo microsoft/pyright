@@ -14,7 +14,7 @@ from typing import (
     TypeVar,
     overload,
 )
-from typing_extensions import Literal, SupportsIndex, TypeGuard
+from typing_extensions import Literal, SupportsIndex, TypeAlias, TypeGuard
 
 if sys.version_info >= (3, 9):
     __all__ = [
@@ -101,9 +101,9 @@ else:
     ]
 
 _T = TypeVar("_T")
-_FileRead = StrOrBytesPath | FileDescriptor | SupportsRead[bytes] | SupportsRead[str]
-_FileWriteC14N = StrOrBytesPath | FileDescriptor | SupportsWrite[bytes]
-_FileWrite = _FileWriteC14N | SupportsWrite[str]
+_FileRead: TypeAlias = StrOrBytesPath | FileDescriptor | SupportsRead[bytes] | SupportsRead[str]
+_FileWriteC14N: TypeAlias = StrOrBytesPath | FileDescriptor | SupportsWrite[bytes]
+_FileWrite: TypeAlias = _FileWriteC14N | SupportsWrite[str]
 
 VERSION: str
 
@@ -352,7 +352,7 @@ def fromstringlist(sequence: Sequence[str | bytes], parser: XMLParser | None = .
 # TreeBuilder is called by client code (they could pass strs, bytes or whatever);
 # but we don't want to use a too-broad type, or it would be too hard to write
 # elementfactories.
-_ElementFactory = Callable[[Any, dict[Any, Any]], Element]
+_ElementFactory: TypeAlias = Callable[[Any, dict[Any, Any]], Element]
 
 class TreeBuilder:
     if sys.version_info >= (3, 8):

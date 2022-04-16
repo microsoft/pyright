@@ -3,7 +3,7 @@ import types
 from _typeshed import Self
 from abc import abstractmethod
 from typing import IO, Any, BinaryIO, Callable, Generator, Iterable, Iterator, Protocol, TextIO, overload
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 __all__ = [
     "register",
@@ -83,7 +83,7 @@ class _IncrementalDecoder(Protocol):
 
 # The type ignore on `encode` and `decode` is to avoid issues with overlapping overloads, for more details, see #300
 # https://docs.python.org/3/library/codecs.html#binary-transforms
-_BytesToBytesEncoding = Literal[
+_BytesToBytesEncoding: TypeAlias = Literal[
     "base64",
     "base_64",
     "base64_codec",
@@ -102,7 +102,7 @@ _BytesToBytesEncoding = Literal[
     "zlib_codec",
 ]
 # https://docs.python.org/3/library/codecs.html#text-transforms
-_StrToStrEncoding = Literal["rot13", "rot_13"]
+_StrToStrEncoding: TypeAlias = Literal["rot13", "rot_13"]
 
 @overload
 def encode(obj: bytes, encoding: _BytesToBytesEncoding, errors: str = ...) -> bytes: ...

@@ -1,5 +1,7 @@
 from _typeshed import SupportsWrite
-from typing import Any, Callable, Iterable, Text, TypeVar
+from collections.abc import Callable, Iterable
+from typing import Any, Text, TypeVar
+from typing_extensions import TypeAlias
 
 from .descriptor import FieldDescriptor
 from .descriptor_pool import DescriptorPool
@@ -20,7 +22,7 @@ class TextWriter:
     def getvalue(self) -> str: ...
     def close(self) -> None: ...
 
-_MessageFormatter = Callable[[Message, int, bool], Text | None]
+_MessageFormatter: TypeAlias = Callable[[Message, int, bool], Text | None]
 
 def MessageToString(
     message: Message,

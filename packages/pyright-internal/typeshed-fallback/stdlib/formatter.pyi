@@ -1,8 +1,9 @@
 from typing import IO, Any, Iterable
+from typing_extensions import TypeAlias
 
 AS_IS: None
-_FontType = tuple[str, bool, bool, bool]
-_StylesType = tuple[Any, ...]
+_FontType: TypeAlias = tuple[str, bool, bool, bool]
+_StylesType: TypeAlias = tuple[Any, ...]
 
 class NullFormatter:
     writer: NullWriter | None

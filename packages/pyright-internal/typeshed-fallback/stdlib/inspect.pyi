@@ -19,6 +19,7 @@ from types import (
     ModuleType,
     TracebackType,
 )
+from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 7):
     from types import (
@@ -165,8 +166,8 @@ TPFLAGS_IS_ABSTRACT: Literal[1048576]
 
 modulesbyfile: dict[str, Any]
 
-_GetMembersPredicate = Callable[[Any], bool]
-_GetMembersReturn = list[tuple[str, Any]]
+_GetMembersPredicate: TypeAlias = Callable[[Any], bool]
+_GetMembersReturn: TypeAlias = list[tuple[str, Any]]
 
 def getmembers(object: object, predicate: _GetMembersPredicate | None = ...) -> _GetMembersReturn: ...
 
@@ -242,7 +243,9 @@ def isdatadescriptor(object: object) -> TypeGuard[_SupportsSet[Any, Any] | _Supp
 #
 # Retrieving source code
 #
-_SourceObjectType = Union[ModuleType, type[Any], MethodType, FunctionType, TracebackType, FrameType, CodeType, Callable[..., Any]]
+_SourceObjectType: TypeAlias = Union[
+    ModuleType, type[Any], MethodType, FunctionType, TracebackType, FrameType, CodeType, Callable[..., Any]
+]
 
 def findsource(object: _SourceObjectType) -> tuple[list[str], int]: ...
 def getabsfile(object: _SourceObjectType, _filename: str | None = ...) -> str: ...

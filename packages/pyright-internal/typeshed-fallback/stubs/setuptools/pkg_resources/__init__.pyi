@@ -3,19 +3,21 @@ import types
 import zipimport
 from _typeshed import Self
 from abc import ABCMeta
-from typing import IO, Any, Callable, Generator, Iterable, Sequence, TypeVar, overload
+from collections.abc import Callable, Generator, Iterable, Sequence
+from typing import IO, Any, TypeVar, overload
+from typing_extensions import TypeAlias
 
-LegacyVersion = Any  # from packaging.version
-Version = Any  # from packaging.version
+LegacyVersion: TypeAlias = Any  # from packaging.version
+Version: TypeAlias = Any  # from packaging.version
 
 _T = TypeVar("_T")
-_NestedStr = str | Iterable[str | Iterable[Any]]
-_InstallerType = Callable[[Requirement], Distribution | None]
-_EPDistType = Distribution | Requirement | str
-_MetadataType = IResourceProvider | None
-_PkgReqType = str | Requirement
-_DistFinderType = Callable[[_Importer, str, bool], Generator[Distribution, None, None]]
-_NSHandlerType = Callable[[_Importer, str, str, types.ModuleType], str]
+_NestedStr: TypeAlias = str | Iterable[str | Iterable[Any]]
+_InstallerType: TypeAlias = Callable[[Requirement], Distribution | None]
+_EPDistType: TypeAlias = Distribution | Requirement | str
+_MetadataType: TypeAlias = IResourceProvider | None
+_PkgReqType: TypeAlias = str | Requirement
+_DistFinderType: TypeAlias = Callable[[_Importer, str, bool], Generator[Distribution, None, None]]
+_NSHandlerType: TypeAlias = Callable[[_Importer, str, str, types.ModuleType], str]
 
 def declare_namespace(name: str) -> None: ...
 def fixup_namespace_packages(path_item: str) -> None: ...

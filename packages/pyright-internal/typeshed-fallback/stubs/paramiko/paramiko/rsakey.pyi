@@ -1,4 +1,5 @@
-from typing import IO, Any, Callable
+from collections.abc import Callable
+from typing import IO, Any
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey, RSAPublicNumbers
 from paramiko.message import Message

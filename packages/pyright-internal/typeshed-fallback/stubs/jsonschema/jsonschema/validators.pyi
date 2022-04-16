@@ -1,10 +1,11 @@
 from _typeshed import SupportsKeysAndGetItem
-from collections.abc import Callable, Generator, Iterable
-from typing import Any, ClassVar, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
+from typing import Any, ClassVar
+from typing_extensions import TypeAlias
 
 from ._utils import URIDict
 
-_Schema = Mapping[str, Any]
+_Schema: TypeAlias = Mapping[str, Any]
 
 # This class does not exist at runtime. Compatible classes are created at
 # runtime by create().
@@ -43,7 +44,7 @@ class Draft7Validator(_Validator): ...
 class Draft201909Validator(_Validator): ...
 class Draft202012Validator(_Validator): ...
 
-_Handler = Callable[[str], Any]
+_Handler: TypeAlias = Callable[[str], Any]
 
 class RefResolver:
     referrer: dict[str, Any]

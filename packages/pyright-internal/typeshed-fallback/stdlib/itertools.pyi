@@ -1,7 +1,7 @@
 import sys
 from _typeshed import Self, _T_co
 from typing import Any, Callable, Generic, Iterable, Iterator, SupportsComplex, SupportsFloat, SupportsInt, TypeVar, overload
-from typing_extensions import Literal, SupportsIndex
+from typing_extensions import Literal, SupportsIndex, TypeAlias
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -9,9 +9,9 @@ if sys.version_info >= (3, 9):
 _T = TypeVar("_T")
 _S = TypeVar("_S")
 _N = TypeVar("_N", int, float, SupportsFloat, SupportsInt, SupportsIndex, SupportsComplex)
-_Step = int | float | SupportsFloat | SupportsInt | SupportsIndex | SupportsComplex
+_Step: TypeAlias = int | float | SupportsFloat | SupportsInt | SupportsIndex | SupportsComplex
 
-Predicate = Callable[[_T], object]
+Predicate: TypeAlias = Callable[[_T], object]
 
 # Technically count can take anything that implements a number protocol and has an add method
 # but we can't enforce the add method

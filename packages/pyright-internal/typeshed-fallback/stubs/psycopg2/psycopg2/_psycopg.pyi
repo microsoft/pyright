@@ -2,12 +2,13 @@ from _typeshed import Self
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import TracebackType
 from typing import Any, TypeVar, overload
+from typing_extensions import TypeAlias
 
 import psycopg2
 import psycopg2.extensions
 from psycopg2.sql import Composable
 
-_Vars = Sequence[Any] | Mapping[str, Any] | None
+_Vars: TypeAlias = Sequence[Any] | Mapping[str, Any] | None
 
 BINARY: Any
 BINARYARRAY: Any

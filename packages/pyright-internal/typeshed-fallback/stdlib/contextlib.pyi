@@ -16,7 +16,7 @@ from typing import (  # noqa: Y027
     TypeVar,
     overload,
 )
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec, TypeAlias
 
 if sys.version_info >= (3, 11):
     __all__ = [
@@ -90,7 +90,7 @@ _T_io = TypeVar("_T_io", bound=IO[str] | None)
 _F = TypeVar("_F", bound=Callable[..., Any])
 _P = ParamSpec("_P")
 
-_ExitFunc = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], bool | None]
+_ExitFunc: TypeAlias = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], bool | None]
 _CM_EF = TypeVar("_CM_EF", AbstractContextManager[Any], _ExitFunc)
 
 class ContextDecorator:
@@ -189,7 +189,7 @@ class ExitStack(AbstractContextManager[ExitStack]):
     ) -> bool: ...
 
 if sys.version_info >= (3, 7):
-    _ExitCoroFunc = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], Awaitable[bool]]
+    _ExitCoroFunc: TypeAlias = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], Awaitable[bool]]
     _ACM_EF = TypeVar("_ACM_EF", AbstractAsyncContextManager[Any], _ExitCoroFunc)
 
     class AsyncExitStack(AbstractAsyncContextManager[AsyncExitStack]):

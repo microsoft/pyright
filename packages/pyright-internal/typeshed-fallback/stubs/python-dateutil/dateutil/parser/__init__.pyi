@@ -1,9 +1,10 @@
 from datetime import datetime, tzinfo
 from typing import IO, Any, Mapping, Text
+from typing_extensions import TypeAlias
 
 from .isoparser import isoparse as isoparse, isoparser as isoparser
 
-_FileOrStr = bytes | Text | IO[str] | IO[Any]
+_FileOrStr: TypeAlias = bytes | Text | IO[str] | IO[Any]
 
 class parserinfo(object):
     JUMP: list[str]

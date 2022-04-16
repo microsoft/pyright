@@ -1,17 +1,18 @@
 import threading
 from _typeshed import Self, SupportsItems
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
 from types import TracebackType
-from typing import Any, Callable, ClassVar, Generic, Iterable, Iterator, Mapping, Pattern, Sequence, TypeVar, overload
-from typing_extensions import Literal
+from typing import Any, ClassVar, Generic, Pattern, TypeVar, overload
+from typing_extensions import Literal, TypeAlias
 
 from .commands import CoreCommands, RedisModuleCommands, SentinelCommands
 from .connection import ConnectionPool, _ConnectionPoolOptions
 from .lock import Lock
 from .retry import Retry
 
-_Value = bytes | float | int | str
-_Key = str | bytes
+_Value: TypeAlias = bytes | float | int | str
+_Key: TypeAlias = str | bytes
 
 # Lib returns str or bytes depending on value of decode_responses
 _StrType = TypeVar("_StrType", bound=str | bytes)
@@ -21,9 +22,9 @@ _T = TypeVar("_T")
 _ScoreCastFuncReturn = TypeVar("_ScoreCastFuncReturn")
 
 # Keyword arguments that are passed to Redis.parse_response().
-_ParseResponseOptions = Any
+_ParseResponseOptions: TypeAlias = Any
 # Keyword arguments that are passed to Redis.execute_command().
-_CommandOptions = _ConnectionPoolOptions | _ParseResponseOptions
+_CommandOptions: TypeAlias = _ConnectionPoolOptions | _ParseResponseOptions
 
 SYM_EMPTY: bytes
 EMPTY_RESPONSE: str

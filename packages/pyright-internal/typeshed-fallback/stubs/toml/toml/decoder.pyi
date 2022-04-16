@@ -1,6 +1,7 @@
 import sys
 from _typeshed import SupportsRead
 from typing import Any, Callable, Generic, MutableMapping, Pattern, Text, TypeVar, overload
+from typing_extensions import TypeAlias
 
 _MutableMappingT = TypeVar("_MutableMappingT", bound=MutableMapping[str, Any])
 
@@ -8,10 +9,10 @@ if sys.version_info >= (3, 0):
     from pathlib import PurePath
 
     FNFError = FileNotFoundError
-    _PathLike = str | bytes | PurePath
+    _PathLike: TypeAlias = str | bytes | PurePath
 else:
     FNFError = IOError
-    _PathLike = Text
+    _PathLike: TypeAlias = Text
 
 TIME_RE: Pattern[str]
 

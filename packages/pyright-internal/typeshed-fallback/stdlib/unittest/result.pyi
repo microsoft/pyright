@@ -1,8 +1,9 @@
 import unittest.case
 from types import TracebackType
 from typing import Any, Callable, TextIO, TypeVar, Union
+from typing_extensions import TypeAlias
 
-_SysExcInfoType = Union[tuple[type[BaseException], BaseException, TracebackType], tuple[None, None, None]]
+_SysExcInfoType: TypeAlias = Union[tuple[type[BaseException], BaseException, TracebackType], tuple[None, None, None]]
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 

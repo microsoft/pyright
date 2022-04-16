@@ -99,7 +99,7 @@ StrPath: TypeAlias = str | PathLike[str]  # stable
 BytesPath: TypeAlias = bytes | PathLike[bytes]  # stable
 StrOrBytesPath: TypeAlias = str | bytes | PathLike[str] | PathLike[bytes]  # stable
 
-OpenTextModeUpdating = Literal[
+OpenTextModeUpdating: TypeAlias = Literal[
     "r+",
     "+r",
     "rt+",

@@ -3,7 +3,7 @@ from _typeshed import Self
 from contextlib import _GeneratorContextManager
 from types import TracebackType
 from typing import Any, Awaitable, Callable, Generic, Iterable, Mapping, Sequence, TypeVar, overload
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 _T = TypeVar("_T")
 _TT = TypeVar("_TT", bound=type[Any])
@@ -77,9 +77,9 @@ class _Sentinel:
 sentinel: Any
 DEFAULT: Any
 
-_ArgsKwargs = tuple[tuple[Any, ...], Mapping[str, Any]]
-_NameArgsKwargs = tuple[str, tuple[Any, ...], Mapping[str, Any]]
-_CallValue = str | tuple[Any, ...] | Mapping[str, Any] | _ArgsKwargs | _NameArgsKwargs
+_ArgsKwargs: TypeAlias = tuple[tuple[Any, ...], Mapping[str, Any]]
+_NameArgsKwargs: TypeAlias = tuple[str, tuple[Any, ...], Mapping[str, Any]]
+_CallValue: TypeAlias = str | tuple[Any, ...] | Mapping[str, Any] | _ArgsKwargs | _NameArgsKwargs
 
 class _Call(tuple[Any, ...]):
     def __new__(
@@ -283,7 +283,7 @@ class _patch_dict:
     stop: Any
 
 if sys.version_info >= (3, 8):
-    _Mock = MagicMock | AsyncMock
+    _Mock: TypeAlias = MagicMock | AsyncMock
 else:
     _Mock = MagicMock
 

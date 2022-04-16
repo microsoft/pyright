@@ -13,9 +13,9 @@ from abc import ABCMeta, abstractmethod
 from importlib.machinery import ModuleSpec
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from typing import IO, Any, BinaryIO, Iterator, Mapping, NoReturn, Protocol, Sequence, overload, runtime_checkable
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
-_Path = bytes | str
+_Path: TypeAlias = bytes | str
 
 class Finder(metaclass=ABCMeta): ...
 

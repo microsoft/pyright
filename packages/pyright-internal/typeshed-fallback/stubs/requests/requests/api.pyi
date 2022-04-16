@@ -1,11 +1,11 @@
-from typing import Any, Text
+from typing import Any
 
 from .models import Response
 from .sessions import _Data, _Params
 
 def request(
-    method: Text | bytes,
-    url: Text | bytes,
+    method: str | bytes,
+    url: str | bytes,
     params: _Params | None = ...,
     data: Any | None = ...,
     headers: Any | None = ...,
@@ -22,7 +22,7 @@ def request(
     json: Any | None = ...,
 ) -> Response: ...
 def get(
-    url: Text | bytes,
+    url: str | bytes,
     params: _Params | None = ...,
     data: Any | None = ...,
     headers: Any | None = ...,
@@ -39,7 +39,7 @@ def get(
     json: Any | None = ...,
 ) -> Response: ...
 def options(
-    url: Text | bytes,
+    url: str | bytes,
     params: _Params | None = ...,
     data: Any | None = ...,
     headers: Any | None = ...,
@@ -56,7 +56,7 @@ def options(
     json: Any | None = ...,
 ) -> Response: ...
 def head(
-    url: Text | bytes,
+    url: str | bytes,
     params: _Params | None = ...,
     data: Any | None = ...,
     headers: Any | None = ...,
@@ -73,7 +73,7 @@ def head(
     json: Any | None = ...,
 ) -> Response: ...
 def post(
-    url: Text | bytes,
+    url: str | bytes,
     data: _Data = ...,
     json: Any | None = ...,
     params: _Params | None = ...,
@@ -90,7 +90,7 @@ def post(
     cert: Any | None = ...,
 ) -> Response: ...
 def put(
-    url: Text | bytes,
+    url: str | bytes,
     data: _Data = ...,
     params: _Params | None = ...,
     headers: Any | None = ...,
@@ -107,7 +107,7 @@ def put(
     json: Any | None = ...,
 ) -> Response: ...
 def patch(
-    url: Text | bytes,
+    url: str | bytes,
     data: _Data = ...,
     params: _Params | None = ...,
     headers: Any | None = ...,
@@ -124,7 +124,7 @@ def patch(
     json: Any | None = ...,
 ) -> Response: ...
 def delete(
-    url: Text | bytes,
+    url: str | bytes,
     params: _Params | None = ...,
     data: Any | None = ...,
     headers: Any | None = ...,

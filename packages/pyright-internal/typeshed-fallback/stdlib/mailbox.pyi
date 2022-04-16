@@ -4,7 +4,7 @@ from _typeshed import Self, StrOrBytesPath
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import IO, Any, AnyStr, Callable, Generic, Iterable, Iterator, Mapping, Protocol, Sequence, TypeVar, overload
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
@@ -31,7 +31,7 @@ __all__ = [
 
 _T = TypeVar("_T")
 _MessageT = TypeVar("_MessageT", bound=Message)
-_MessageData = email.message.Message | bytes | str | IO[str] | IO[bytes]
+_MessageData: TypeAlias = email.message.Message | bytes | str | IO[str] | IO[bytes]
 
 class _HasIteritems(Protocol):
     def iteritems(self) -> Iterator[tuple[str, _MessageData]]: ...

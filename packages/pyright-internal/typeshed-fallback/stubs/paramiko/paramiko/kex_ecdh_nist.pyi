@@ -1,6 +1,6 @@
 import sys
 from _typeshed import ReadableBuffer
-from typing import Callable
+from collections.abc import Callable
 
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurve, EllipticCurvePrivateKey, EllipticCurvePublicKey
 from paramiko.message import Message

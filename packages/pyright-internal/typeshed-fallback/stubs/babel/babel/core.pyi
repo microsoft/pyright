@@ -1,5 +1,5 @@
 from typing import Any
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 class UnknownLocaleError(Exception):
     identifier: Any
@@ -115,7 +115,7 @@ def parse_locale(identifier, sep: str = ...): ...
 def get_locale_identifier(tup, sep: str = ...): ...
 def get_global(key: _GLOBAL_KEY): ...
 
-_GLOBAL_KEY = Literal[
+_GLOBAL_KEY: TypeAlias = Literal[
     "all_currencies",
     "currency_fractions",
     "language_aliases",

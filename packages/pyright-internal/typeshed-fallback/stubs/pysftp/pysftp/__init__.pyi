@@ -1,9 +1,10 @@
 from _typeshed import Self
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from stat import S_IMODE as S_IMODE
 from types import TracebackType
-from typing import IO, Any, Callable, Sequence
-from typing_extensions import Literal
+from typing import IO, Any
+from typing_extensions import Literal, TypeAlias
 
 import paramiko
 from paramiko import AuthenticationException as AuthenticationException
@@ -32,8 +33,8 @@ class CnOpts:
     def __init__(self, knownhosts: str | None = ...) -> None: ...
     def get_hostkey(self, host: str) -> paramiko.PKey: ...
 
-_Callback = Callable[[int, int], Any]
-_Path = str | bytes
+_Callback: TypeAlias = Callable[[int, int], Any]
+_Path: TypeAlias = str | bytes
 
 class Connection:
     def __init__(

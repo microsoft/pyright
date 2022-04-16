@@ -2,6 +2,7 @@ import sys
 from _typeshed import SupportsWrite
 from types import TracebackType
 from typing import Any, Callable, Pattern, Sequence, TextIO
+from typing_extensions import TypeAlias
 
 if sys.platform == "win32":
     from .winterm import WinTerm
@@ -22,8 +23,8 @@ class StreamWrapper:
     @property
     def closed(self) -> bool: ...
 
-_WinTermCall = Callable[[int | None, bool, bool], None]
-_WinTermCallDict = dict[int, tuple[_WinTermCall] | tuple[_WinTermCall, int] | tuple[_WinTermCall, int, bool]]
+_WinTermCall: TypeAlias = Callable[[int | None, bool, bool], None]
+_WinTermCallDict: TypeAlias = dict[int, tuple[_WinTermCall] | tuple[_WinTermCall, int] | tuple[_WinTermCall, int, bool]]
 
 class AnsiToWin32:
     ANSI_CSI_RE: Pattern[str] = ...

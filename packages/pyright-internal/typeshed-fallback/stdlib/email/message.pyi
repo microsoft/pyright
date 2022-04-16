@@ -4,13 +4,14 @@ from email.contentmanager import ContentManager
 from email.errors import MessageDefect
 from email.policy import Policy
 from typing import Any, Generator, Iterator, Sequence, TypeVar
+from typing_extensions import TypeAlias
 
 __all__ = ["Message", "EmailMessage"]
 
 _T = TypeVar("_T")
 
-_PayloadType = list[Message] | str | bytes
-_CharsetType = Charset | str | None
+_PayloadType: TypeAlias = list[Message] | str | bytes
+_CharsetType: TypeAlias = Charset | str | None
 _HeaderType = Any
 
 class Message:

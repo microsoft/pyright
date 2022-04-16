@@ -1,10 +1,11 @@
 import subprocess
 from collections import deque
 from typing import IO, Any, Callable, Sequence
+from typing_extensions import TypeAlias
 
 from . import events, futures, protocols, transports
 
-_File = int | IO[Any] | None
+_File: TypeAlias = int | IO[Any] | None
 
 class BaseSubprocessTransport(transports.SubprocessTransport):
 

@@ -1,6 +1,6 @@
 import datetime
 from _typeshed import Self
-from typing import Iterable
+from collections.abc import Iterable
 
 from dateutil.relativedelta import relativedelta
 

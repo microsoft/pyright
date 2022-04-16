@@ -3,8 +3,10 @@ import logging.handlers
 import subprocess
 import sys
 import time
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
-from typing import IO, Any, Callable, Iterable, Mapping, Sequence, TypeVar
+from typing import IO, Any, TypeVar
+from typing_extensions import TypeAlias
 
 import boto.connection
 
@@ -15,28 +17,28 @@ if sys.version_info >= (3,):
     # TODO move _StringIO definition into boto.compat once stubs exist and rename to StringIO
     import io
 
-    _StringIO = io.StringIO
+    _StringIO: TypeAlias = io.StringIO
 
     from hashlib import _Hash
 
-    _HashType = _Hash
+    _HashType: TypeAlias = _Hash
 
     from email.message import Message as _Message
 else:
     # TODO move _StringIO definition into boto.compat once stubs exist and rename to StringIO
     import StringIO
 
-    _StringIO = StringIO.StringIO[Any]
+    _StringIO: TypeAlias = StringIO.StringIO[Any]
 
     from hashlib import _hash
 
-    _HashType = _hash
+    _HashType: TypeAlias = _hash
 
     # TODO use email.message.Message once stubs exist
-    _Message = Any
+    _Message: TypeAlias = Any
 
-_Provider = Any  # TODO replace this with boto.provider.Provider once stubs exist
-_LockType = Any  # TODO replace this with _thread.LockType once stubs exist
+_Provider: TypeAlias = Any  # TODO replace this with boto.provider.Provider once stubs exist
+_LockType: TypeAlias = Any  # TODO replace this with _thread.LockType once stubs exist
 
 JSONDecodeError: type[ValueError]
 qsa_of_interest: list[str]

@@ -35,7 +35,7 @@ from typing import (
     overload,
     runtime_checkable,
 )
-from typing_extensions import Final, Literal, final
+from typing_extensions import Final, Literal, TypeAlias, final
 
 from . import path as _path
 
@@ -211,7 +211,7 @@ R_OK: int
 W_OK: int
 X_OK: int
 
-_EnvironCodeFunc = Callable[[AnyStr], AnyStr]
+_EnvironCodeFunc: TypeAlias = Callable[[AnyStr], AnyStr]
 
 class _Environ(MutableMapping[AnyStr, AnyStr], Generic[AnyStr]):
     encodekey: _EnvironCodeFunc[AnyStr]
@@ -383,7 +383,7 @@ def listdir(path: BytesPath) -> list[bytes]: ...
 @overload
 def listdir(path: int) -> list[str]: ...
 
-_FdOrAnyPath = int | StrOrBytesPath
+_FdOrAnyPath: TypeAlias = int | StrOrBytesPath
 
 @final
 class DirEntry(Generic[AnyStr]):
@@ -404,9 +404,9 @@ class DirEntry(Generic[AnyStr]):
         def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 
 if sys.version_info >= (3, 7):
-    _StatVfsTuple = tuple[int, int, int, int, int, int, int, int, int, int, int]
+    _StatVfsTuple: TypeAlias = tuple[int, int, int, int, int, int, int, int, int, int, int]
 else:
-    _StatVfsTuple = tuple[int, int, int, int, int, int, int, int, int, int]
+    _StatVfsTuple: TypeAlias = tuple[int, int, int, int, int, int, int, int, int, int]
 
 @final
 class statvfs_result(structseq[int], _StatVfsTuple):
@@ -527,7 +527,7 @@ def putenv(__name: bytes | str, __value: bytes | str) -> None: ...
 if sys.platform != "win32" or sys.version_info >= (3, 9):
     def unsetenv(__name: bytes | str) -> None: ...
 
-_Opener = Callable[[str, int], int]
+_Opener: TypeAlias = Callable[[str, int], int]
 
 @overload
 def fdopen(
@@ -787,7 +787,7 @@ def utime(
     follow_symlinks: bool = ...,
 ) -> None: ...
 
-_OnError = Callable[[OSError], Any]
+_OnError: TypeAlias = Callable[[OSError], Any]
 
 def walk(
     top: AnyStr | PathLike[AnyStr], topdown: bool = ..., onerror: _OnError | None = ..., followlinks: bool = ...
@@ -845,7 +845,7 @@ def execlpe(file: StrOrBytesPath, __arg0: StrOrBytesPath, *args: Any) -> NoRetur
 # Not separating out PathLike[str] and PathLike[bytes] here because it doesn't make much difference
 # in practice, and doing so would explode the number of combinations in this already long union.
 # All these combinations are necessary due to list being invariant.
-_ExecVArgs = (
+_ExecVArgs: TypeAlias = (
     tuple[StrOrBytesPath, ...]
     | list[bytes]
     | list[str]
@@ -855,7 +855,7 @@ _ExecVArgs = (
     | list[str | PathLike[Any]]
     | list[bytes | str | PathLike[Any]]
 )
-_ExecEnv = Mapping[bytes, bytes | str] | Mapping[str, bytes | str]
+_ExecEnv: TypeAlias = Mapping[bytes, bytes | str] | Mapping[str, bytes | str]
 
 def execv(__path: StrOrBytesPath, __argv: _ExecVArgs) -> NoReturn: ...
 def execve(path: _FdOrAnyPath, argv: _ExecVArgs, env: _ExecEnv) -> NoReturn: ...

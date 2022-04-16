@@ -1,10 +1,12 @@
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+from typing_extensions import TypeAlias
 
 from google.protobuf.descriptor import Descriptor, FieldDescriptor
 from google.protobuf.message import Message
 
-_Decoder = Callable[[str, int, int, Message, dict[FieldDescriptor, Any]], int]
-_NewDefault = Callable[[Message], Message]
+_Decoder: TypeAlias = Callable[[str, int, int, Message, dict[FieldDescriptor, Any]], int]
+_NewDefault: TypeAlias = Callable[[Message], Message]
 
 def ReadTag(buffer, pos): ...
 

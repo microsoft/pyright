@@ -4,7 +4,7 @@ import ssl
 import sys
 from _typeshed import Self
 from typing import IO, Any, Iterable, NamedTuple
-from typing_extensions import Literal
+from typing_extensions import Literal, TypeAlias
 
 __all__ = [
     "NNTP",
@@ -18,7 +18,7 @@ __all__ = [
     "NNTP_SSL",
 ]
 
-_File = IO[bytes] | bytes | str | None
+_File: TypeAlias = IO[bytes] | bytes | str | None
 
 class NNTPError(Exception):
     response: str

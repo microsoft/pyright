@@ -1,8 +1,9 @@
 from typing import Any
+from typing_extensions import TypeAlias
 from weakref import ReferenceType
 
 __all__ = ["local"]
-localdict = dict[Any, Any]
+localdict: TypeAlias = dict[Any, Any]
 
 class _localimpl:
     key: str

@@ -1,5 +1,6 @@
 import sys
-from typing import Any, Callable, Iterator, NamedTuple, Pattern, Text, TypeVar
+from collections.abc import Callable, Iterator
+from typing import Any, NamedTuple, Pattern, TypeVar
 from typing_extensions import ParamSpec
 
 _C = TypeVar("_C", bound=Callable[..., Any])
@@ -33,42 +34,42 @@ DEF: Pattern[str]
 _dict = dict  # conflicts with attribute name
 
 class FunctionMaker:
-    args: list[Text]
-    varargs: Text | None
-    varkw: Text | None
+    args: list[str]
+    varargs: str | None
+    varkw: str | None
     defaults: tuple[Any, ...]
-    kwonlyargs: list[Text]
-    kwonlydefaults: Text | None
-    shortsignature: Text | None
-    name: Text
-    doc: Text | None
-    module: Text | None
-    annotations: _dict[Text, Any]
-    signature: Text
-    dict: _dict[Text, Any]
+    kwonlyargs: list[str]
+    kwonlydefaults: str | None
+    shortsignature: str | None
+    name: str
+    doc: str | None
+    module: str | None
+    annotations: _dict[str, Any]
+    signature: str
+    dict: _dict[str, Any]
     def __init__(
         self,
         func: Callable[..., Any] | None = ...,
-        name: Text | None = ...,
-        signature: Text | None = ...,
+        name: str | None = ...,
+        signature: str | None = ...,
         defaults: tuple[Any, ...] | None = ...,
-        doc: Text | None = ...,
-        module: Text | None = ...,
-        funcdict: _dict[Text, Any] | None = ...,
+        doc: str | None = ...,
+        module: str | None = ...,
+        funcdict: _dict[str, Any] | None = ...,
     ) -> None: ...
     def update(self, func: Any, **kw: Any) -> None: ...
     def make(
-        self, src_templ: Text, evaldict: _dict[Text, Any] | None = ..., addsource: bool = ..., **attrs: Any
+        self, src_templ: str, evaldict: _dict[str, Any] | None = ..., addsource: bool = ..., **attrs: Any
     ) -> Callable[..., Any]: ...
     @classmethod
     def create(
         cls,
         obj: Any,
-        body: Text,
-        evaldict: _dict[Text, Any],
+        body: str,
+        evaldict: _dict[str, Any],
         defaults: tuple[Any, ...] | None = ...,
-        doc: Text | None = ...,
-        module: Text | None = ...,
+        doc: str | None = ...,
+        module: str | None = ...,
         addsource: bool = ...,
         **attrs: Any,
     ) -> Callable[..., Any]: ...

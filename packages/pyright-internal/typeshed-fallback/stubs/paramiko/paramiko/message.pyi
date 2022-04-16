@@ -1,5 +1,7 @@
 import sys
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
+from typing_extensions import TypeAlias
 
 from .common import _LikeBytes
 
@@ -8,7 +10,7 @@ if sys.version_info >= (3, 0):
 else:
     from StringIO import StringIO
 
-    BytesIO = StringIO[bytes]
+    BytesIO: TypeAlias = StringIO[bytes]
 
 class Message:
     big_int: int

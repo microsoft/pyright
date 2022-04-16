@@ -1,5 +1,6 @@
 from _typeshed import Self, SupportsRead
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from .builder import TreeBuilder
 from .element import (

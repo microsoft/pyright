@@ -5,6 +5,7 @@ from email.message import Message
 from http.client import HTTPMessage, HTTPResponse, _HTTPConnectionProtocol
 from http.cookiejar import CookieJar
 from typing import IO, Any, Callable, ClassVar, Iterable, Mapping, MutableMapping, NoReturn, Pattern, Sequence, TypeVar, overload
+from typing_extensions import TypeAlias
 from urllib.error import HTTPError
 from urllib.response import addclosehook, addinfourl
 
@@ -46,8 +47,8 @@ __all__ = [
 ]
 
 _T = TypeVar("_T")
-_UrlopenRet = Any
-_DataType = bytes | SupportsRead[bytes] | Iterable[bytes] | None
+_UrlopenRet: TypeAlias = Any
+_DataType: TypeAlias = bytes | SupportsRead[bytes] | Iterable[bytes] | None
 
 def urlopen(
     url: str | Request,

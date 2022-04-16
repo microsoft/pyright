@@ -1,6 +1,7 @@
 import typing
 from collections import OrderedDict
-from typing import Any, Callable, Mapping, NoReturn
+from collections.abc import Callable, Mapping
+from typing import Any, NoReturn
 
 from parsimonious.expressions import _CALLABLE_TYPE, Expression, Literal, Lookahead, Not, OneOf, Regex, Sequence, TokenMatcher
 from parsimonious.nodes import Node, NodeVisitor

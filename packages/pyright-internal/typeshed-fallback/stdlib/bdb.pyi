@@ -1,13 +1,13 @@
 from types import CodeType, FrameType, TracebackType
 from typing import IO, Any, Callable, Iterable, Mapping, SupportsInt, TypeVar
-from typing_extensions import Literal, ParamSpec
+from typing_extensions import Literal, ParamSpec, TypeAlias
 
 __all__ = ["BdbQuit", "Bdb", "Breakpoint"]
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
-_TraceDispatch = Callable[[FrameType, str, Any], Any]  # TODO: Recursive type
-_ExcInfo = tuple[type[BaseException], BaseException, FrameType]
+_TraceDispatch: TypeAlias = Callable[[FrameType, str, Any], Any]  # TODO: Recursive type
+_ExcInfo: TypeAlias = tuple[type[BaseException], BaseException, FrameType]
 
 GENERATOR_AND_COROUTINE_FLAGS: Literal[672]
 

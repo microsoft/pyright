@@ -3,12 +3,12 @@ import sys
 import types
 from _typeshed import Self
 from typing import Any, Iterable, Union
-from typing_extensions import SupportsIndex
+from typing_extensions import SupportsIndex, TypeAlias
 
 __all__ = ["Client", "Listener", "Pipe", "wait"]
 
 # https://docs.python.org/3/library/multiprocessing.html#address-formats
-_Address = Union[str, tuple[str, int]]
+_Address: TypeAlias = Union[str, tuple[str, int]]
 
 class _ConnectionBase:
     def __init__(self, handle: SupportsIndex, readable: bool = ..., writable: bool = ...) -> None: ...
