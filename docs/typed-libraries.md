@@ -252,6 +252,17 @@ def create_user(age: int, *, dob: Optional[date] = None):
     ...
 ```
 
+### Positional-only Parameters
+If a function or method is intended to take parameters that are specified only by position, use the positional-only separator ("/") as documented in [PEP 570](https://peps.python.org/pep-0570/). If your library needs to run on versions of Python prior to 3.8, you can alternatively name the positional-only parameters with an identifier that begins with a double underscore.
+
+```python
+def compare_values(value1: T, value2: T, /) -> bool:
+    ...
+
+def compare_values(__value1: T, __value2: T) -> bool:
+    ...
+```
+
 ### Annotating Decorators
 Decorators modify the behavior of a class or a function. Providing annotations for decorators is straightforward if the decorator retains the original signature of the decorated function.
 
