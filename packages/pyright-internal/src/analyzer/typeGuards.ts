@@ -154,7 +154,6 @@ export function getTypeNarrowingCallback(
             if (isOrIsNotOperator && testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                 const callType = evaluator.getTypeOfExpression(
                     testExpression.leftExpression.leftExpression,
-                    /* expectedType */ undefined,
                     EvaluatorFlags.DoNotSpecialize
                 ).type;
 
@@ -294,7 +293,6 @@ export function getTypeNarrowingCallback(
                 if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                     const callType = evaluator.getTypeOfExpression(
                         testExpression.leftExpression.leftExpression,
-                        /* expectedType */ undefined,
                         EvaluatorFlags.DoNotSpecialize
                     ).type;
 
@@ -410,7 +408,6 @@ export function getTypeNarrowingCallback(
     if (testExpression.nodeType === ParseNodeType.Call) {
         const callType = evaluator.getTypeOfExpression(
             testExpression.leftExpression,
-            /* expectedType */ undefined,
             EvaluatorFlags.DoNotSpecialize
         ).type;
 
@@ -429,7 +426,6 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const arg1Type = evaluator.getTypeOfExpression(
                     arg1Expr,
-                    undefined,
                     EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed

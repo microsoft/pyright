@@ -61,8 +61,8 @@ export function createTypeEvaluatorWithTracker(
     const withTracker: TypeEvaluator = {
         runWithCancellationToken: typeEvaluator.runWithCancellationToken,
         getType: (n) => run('getType', () => typeEvaluator.getType(n), n),
-        getTypeOfExpression: (n, e, f) =>
-            run('getTypeOfExpression', () => typeEvaluator.getTypeOfExpression(n, e, f), n),
+        getTypeOfExpression: (n, f, e) =>
+            run('getTypeOfExpression', () => typeEvaluator.getTypeOfExpression(n, f, e), n),
         getTypeOfAnnotation: typeEvaluator.getTypeOfAnnotation,
         getTypeOfClass: (n) => run('getTypeOfClass', () => typeEvaluator.getTypeOfClass(n), n),
         getTypeOfFunction: (n) => run('getTypeOfFunction', () => typeEvaluator.getTypeOfFunction(n), n),

@@ -461,11 +461,7 @@ function narrowTypeBasedOnClassPattern(
     pattern: PatternClassNode,
     isPositiveTest: boolean
 ): Type {
-    let exprType = evaluator.getTypeOfExpression(
-        pattern.className,
-        /* expectedType */ undefined,
-        EvaluatorFlags.DoNotSpecialize
-    ).type;
+    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.DoNotSpecialize).type;
 
     // If this is a class (but not a type alias that refers to a class),
     // specialize it with Unknown type arguments.
@@ -1301,11 +1297,7 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
 }
 
 export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternClassNode) {
-    const exprType = evaluator.getTypeOfExpression(
-        pattern.className,
-        /* expectedType */ undefined,
-        EvaluatorFlags.DoNotSpecialize
-    ).type;
+    const exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.DoNotSpecialize).type;
 
     if (isAnyOrUnknown(exprType)) {
         return;
