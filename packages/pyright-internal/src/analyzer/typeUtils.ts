@@ -2443,14 +2443,15 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue, omit
 // it to be replaced with something else.
 class TypeVarTransformer {
     private _isTransformingTypeArg = false;
+    private _pendingTypeVarTransformations = new Set<string>();
 
-    apply(type: Type, recursionSet = new Set<string>(), recursionCount = 0): Type {
+    apply(type: Type, recursionCount = 0): Type {
         if (recursionCount > maxTypeRecursionCount) {
             return type;
         }
         recursionCount++;
 
-        type = this._transformGenericTypeAlias(type, recursionSet, recursionCount);
+        type = this._transformGenericTypeAlias(type, recursionCount);
 
         // Shortcut the operation if possible.
         if (!requiresSpecialization(type)) {
@@ -2476,7 +2477,7 @@ class TypeVarTransformer {
 
                 let requiresUpdate = false;
                 const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
-                    const replacementType = this.apply(typeArg, recursionSet, recursionCount);
+                    const replacementType = this.apply(typeArg, recursionCount);
                     if (replacementType !== typeArg) {
                         requiresUpdate = true;
                     }
@@ -2500,15 +2501,16 @@ class TypeVarTransformer {
             let replacementType: Type = type;
 
             // Recursively transform the results, but ensure that we don't replace the
-            // same type variable recursively by setting it in the recursionSet.
+            // same type variable recursively by setting it in the
+            // _pendingTypeVarTransformations set.
             const typeVarName = TypeVarType.getNameWithScope(type);
-            if (!recursionSet.has(typeVarName)) {
+            if (!this._pendingTypeVarTransformations.has(typeVarName)) {
                 replacementType = this.transformTypeVar(type);
 
                 if (!this._isTransformingTypeArg) {
-                    recursionSet.add(typeVarName);
-                    replacementType = this.apply(replacementType, recursionSet, recursionCount);
-                    recursionSet.delete(typeVarName);
+                    this._pendingTypeVarTransformations.add(typeVarName);
+                    replacementType = this.apply(replacementType, recursionCount);
+                    this._pendingTypeVarTransformations.delete(typeVarName);
                 }
 
                 // If we're transforming a variadic type variable that was in a union,
@@ -2523,7 +2525,7 @@ class TypeVarTransformer {
 
         if (isUnion(type)) {
             const newUnionType = mapSubtypes(type, (subtype) => {
-                let transformedType = this.apply(subtype, recursionSet, recursionCount);
+                let transformedType = this.apply(subtype, recursionCount);
 
                 // If we're transforming a variadic type variable within a union,
                 // combine the individual types within the variadic type variable.
@@ -2547,11 +2549,11 @@ class TypeVarTransformer {
         }
 
         if (isClass(type)) {
-            return this._transformTypeVarsInClassType(type, recursionSet, recursionCount);
+            return this._transformTypeVarsInClassType(type, recursionCount);
         }
 
         if (isFunction(type)) {
-            return this._transformTypeVarsInFunctionType(type, recursionSet, recursionCount);
+            return this._transformTypeVarsInFunctionType(type, recursionCount);
         }
 
         if (isOverloadedFunction(type)) {
@@ -2560,7 +2562,7 @@ class TypeVarTransformer {
             // Specialize each of the functions in the overload.
             const newOverloads: FunctionType[] = [];
             type.overloads.forEach((entry) => {
-                const replacementType = this._transformTypeVarsInFunctionType(entry, recursionSet, recursionCount);
+                const replacementType = this._transformTypeVarsInFunctionType(entry, recursionCount);
                 newOverloads.push(replacementType);
                 if (replacementType !== entry) {
                     requiresUpdate = true;
@@ -2590,14 +2592,14 @@ class TypeVarTransformer {
         return type;
     }
 
-    private _transformGenericTypeAlias(type: Type, recursionSet: Set<string>, recursionCount: number) {
+    private _transformGenericTypeAlias(type: Type, recursionCount: number) {
         if (!type.typeAliasInfo || !type.typeAliasInfo.typeParameters || !type.typeAliasInfo.typeArguments) {
             return type;
         }
 
         let requiresUpdate = false;
         const newTypeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
-            const updatedType = this.apply(typeArg, recursionSet, recursionCount);
+            const updatedType = this.apply(typeArg, recursionCount);
             if (type !== updatedType) {
                 requiresUpdate = true;
             }
@@ -2616,11 +2618,7 @@ class TypeVarTransformer {
             : type;
     }
 
-    private _transformTypeVarsInClassType(
-        classType: ClassType,
-        recursionSet: Set<string>,
-        recursionCount: number
-    ): ClassType {
+    private _transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
         // Handle the common case where the class has no type parameters.
         if (ClassType.getTypeParameters(classType).length === 0 && !ClassType.isSpecialBuiltIn(classType)) {
             return classType;
@@ -2651,7 +2649,7 @@ class TypeVarTransformer {
                     return transformParamSpec(oldTypeArgType);
                 }
 
-                let newTypeArgType = this.apply(oldTypeArgType, recursionSet, recursionCount);
+                let newTypeArgType = this.apply(oldTypeArgType, recursionCount);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
 
@@ -2678,14 +2676,14 @@ class TypeVarTransformer {
                     }
                 } else {
                     const typeParamName = TypeVarType.getNameWithScope(typeParam);
-                    if (!recursionSet.has(typeParamName)) {
+                    if (!this._pendingTypeVarTransformations.has(typeParamName)) {
                         replacementType = this.transformTypeVar(typeParam);
 
                         if (replacementType !== typeParam) {
                             if (!this._isTransformingTypeArg) {
-                                recursionSet.add(typeParamName);
-                                replacementType = this.apply(replacementType, recursionSet, recursionCount);
-                                recursionSet.delete(typeParamName);
+                                this._pendingTypeVarTransformations.add(typeParamName);
+                                replacementType = this.apply(replacementType, recursionCount);
+                                this._pendingTypeVarTransformations.delete(typeParamName);
                             }
 
                             specializationNeeded = true;
@@ -2701,7 +2699,7 @@ class TypeVarTransformer {
             if (classType.tupleTypeArguments) {
                 newVariadicTypeArgs = [];
                 classType.tupleTypeArguments.forEach((oldTypeArgType) => {
-                    const newTypeArgType = this.apply(oldTypeArgType.type, recursionSet, recursionCount);
+                    const newTypeArgType = this.apply(oldTypeArgType.type, recursionCount);
 
                     if (newTypeArgType !== oldTypeArgType.type) {
                         specializationNeeded = true;
@@ -2742,11 +2740,7 @@ class TypeVarTransformer {
         );
     }
 
-    private _transformTypeVarsInFunctionType(
-        sourceType: FunctionType,
-        recursionSet: Set<string>,
-        recursionCount: number
-    ): FunctionType {
+    private _transformTypeVarsInFunctionType(sourceType: FunctionType, recursionCount: number): FunctionType {
         let functionType = sourceType;
 
         // Handle functions with a parameter specification in a special manner.
@@ -2758,9 +2752,7 @@ class TypeVarTransformer {
         }
 
         const declaredReturnType = FunctionType.getSpecializedReturnType(functionType);
-        const specializedReturnType = declaredReturnType
-            ? this.apply(declaredReturnType, recursionSet, recursionCount)
-            : undefined;
+        const specializedReturnType = declaredReturnType ? this.apply(declaredReturnType, recursionCount) : undefined;
         let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
 
         const specializedParameters: SpecializedFunctionTypes = {
@@ -2808,7 +2800,7 @@ class TypeVarTransformer {
 
         for (let i = 0; i < functionType.details.parameters.length; i++) {
             const paramType = FunctionType.getEffectiveParameterType(functionType, i);
-            const specializedType = this.apply(paramType, recursionSet, recursionCount);
+            const specializedType = this.apply(paramType, recursionCount);
             specializedParameters.parameterTypes.push(specializedType);
             if (
                 variadicParamIndex === undefined &&
@@ -2833,7 +2825,7 @@ class TypeVarTransformer {
 
         let specializedInferredReturnType: Type | undefined;
         if (functionType.inferredReturnType) {
-            specializedInferredReturnType = this.apply(functionType.inferredReturnType, recursionSet, recursionCount);
+            specializedInferredReturnType = this.apply(functionType.inferredReturnType, recursionCount);
         }
 
         // If there was no unpacked variadic type variable, we're done.
