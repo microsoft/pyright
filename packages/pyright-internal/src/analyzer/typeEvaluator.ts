@@ -20581,7 +20581,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 )
             ) {
                 if (
-                    canAssignType(curNarrowTypeBound, adjSrcType, diagAddendum, typeVarContext, flags, recursionCount)
+                    canAssignType(
+                        curNarrowTypeBound,
+                        adjSrcType,
+                        diagAddendum,
+                        new TypeVarContext(destType.scopeId),
+                        flags,
+                        recursionCount
+                    )
                 ) {
                     // No need to widen. Stick with the existing type unless it's unknown
                     // or partly unknown, in which case we'll replace it with a known type
@@ -20593,7 +20600,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             adjSrcType,
                             curNarrowTypeBound,
                             /* diag */ undefined,
-                            typeVarContext,
+                            new TypeVarContext(destType.scopeId),
                             flags & CanAssignFlags.IgnoreTypeVarScope,
                             recursionCount
                         )
@@ -20617,7 +20624,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     // Don't allow widening for variadic type variables.
-                    if (isVariadicTypeVar(destType)) {
+                    const possibleVariadic = destType;
+                    if (isVariadicTypeVar(possibleVariadic)) {
                         if (diag) {
                             diag.addMessage(
                                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
@@ -20634,7 +20642,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             adjSrcType,
                             curNarrowTypeBound,
                             /* diag */ undefined,
-                            typeVarContext,
+                            new TypeVarContext(destType.scopeId),
                             flags & CanAssignFlags.IgnoreTypeVarScope,
                             recursionCount
                         )
@@ -20693,7 +20701,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             makeConcrete ? makeTopLevelTypeVarsConcrete(curWideTypeBound) : curWideTypeBound,
                             newNarrowTypeBound,
                             diag?.createAddendum(),
-                            typeVarContext,
+                            new TypeVarContext(destType.scopeId),
                             flags & CanAssignFlags.IgnoreTypeVarScope,
                             recursionCount
                         )
@@ -20723,12 +20731,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return false;
             }
 
+            // In general, bound types cannot be generic, but the "Self" type is an
+            // exception. In this case, we need to use the original TypeVarContext
+            // to solve for the generic type variable(s) in the bound type.
+            const effectiveTypeVarContext = destType.details.isSynthesizedSelf
+                ? typeVarContext
+                : new TypeVarContext(destType.scopeId);
+
             if (
                 !canAssignType(
                     destType.details.boundType,
                     makeTopLevelTypeVarsConcrete(updatedType),
                     diag?.createAddendum(),
-                    typeVarContext,
+                    effectiveTypeVarContext,
                     flags & CanAssignFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
