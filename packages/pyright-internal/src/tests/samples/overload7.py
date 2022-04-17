@@ -12,6 +12,8 @@ from typing import (
     Literal,
     NoReturn,
     Optional,
+    ParamSpec,
+    Protocol,
     Tuple,
     Type,
     TypeVar,
@@ -320,3 +322,55 @@ def func15(client_id: str, client_secret: str) -> None:
 # This should generate an error because some of the keyword arguments are not present.
 def func15(*creds: str) -> None:
     pass
+
+
+T1 = TypeVar("T1", covariant=True)
+T2 = TypeVar("T2", bound=Callable[..., Any])
+R = TypeVar("R")
+P = ParamSpec("P")
+
+
+class Builds(Protocol[T1]):
+    _target_: str
+
+
+class BuildsWithSig(Builds[T1], Protocol[T1, P]):
+    def __init__(self, *args: P.args, **kwds: P.kwargs):
+        ...
+
+
+class ClassD(Protocol):
+    @overload
+    def __call__(
+        self,
+        x: Callable[P, R],
+        *,
+        sig: Literal[True] = ...,
+    ) -> BuildsWithSig[Type[R], P]:
+        ...
+
+    @overload
+    def __call__(
+        self,
+        x: T2,
+        *,
+        sig: Literal[False] = ...,
+    ) -> Builds[Type[T2]]:
+        ...
+
+    @overload
+    def __call__(
+        self,
+        x: Union[T2, Callable[P, R]],
+        *,
+        sig: bool,
+    ) -> Union[Builds[Type[T2]], BuildsWithSig[Type[R], P]]:
+        ...
+
+    def __call__(
+        self,
+        x: Union[T2, Callable[P, R]],
+        *,
+        sig: bool = False,
+    ) -> Union[Builds[Type[T2]], BuildsWithSig[Type[R], P]]:
+        ...
