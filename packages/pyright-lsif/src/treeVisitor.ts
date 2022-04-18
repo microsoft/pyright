@@ -13,6 +13,7 @@ import {
     FunctionNode,
     ImportFromNode,
     ImportNode,
+    ModuleNameNode,
     ModuleNode,
     NameNode,
     ParameterNode,
@@ -50,7 +51,6 @@ import {
     isModule,
     isTypeVar,
     isUnknown,
-    ModuleType,
     Type,
 } from 'pyright-internal/analyzer/types';
 import { TypeStubExtendedWriter } from './TypeStubExtendedWriter';
@@ -63,12 +63,12 @@ import { Program } from 'pyright-internal/analyzer/program';
 import PythonEnvironment from './virtualenv/PythonEnvironment';
 import { Counter } from './lsif-typescript/Counter';
 import PythonPackage from './virtualenv/PythonPackage';
-import { getModuleDocString } from 'pyright-internal/analyzer/typeDocStringUtils';
 
 //  Useful functions for later, but haven't gotten far enough yet to use them.
 //      extractParameterDocumentation
+//      import { getModuleDocString } from 'pyright-internal/analyzer/typeDocStringUtils';
 
-function parseNodeToRange(name: ParseNode, lines: TextRangeCollection<TextRange>) {
+function parseNodeToRange(name: ParseNode, lines: TextRangeCollection<TextRange>): Range {
     const _start = convertOffsetToPosition(name.start, lines);
     const start = new Position(_start.line, _start.character);
 
@@ -97,16 +97,16 @@ export class TreeVisitor extends ParseTreeWalker {
 
     private _classDepth: number;
     private _functionDepth: number;
-    private _lastScope: ParseNode[];
-    private _execEnv: ExecutionEnvironment;
-    private _cwd: string;
-    private _projectPackage: PythonPackage;
-    private _stdlibPackage: PythonPackage;
+    private scopeStack: ParseNode[];
+    private execEnv: ExecutionEnvironment;
+    private cwd: string;
+    private projectPackage: PythonPackage;
+    private stdlibPackage: PythonPackage;
+    private counter: Counter;
 
+    public document: lsif.lib.codeintel.lsiftyped.Document;
     public evaluator: TypeEvaluator;
     public program: Program;
-    public counter: Counter;
-    public document: lsif.lib.codeintel.lsiftyped.Document;
 
     constructor(public config: TreeVisitorConfig) {
         super();
@@ -126,7 +126,7 @@ export class TreeVisitor extends ParseTreeWalker {
 
         // this._filepath = config.sourceFile.getFilePath();
 
-        this._projectPackage = new PythonPackage(
+        this.projectPackage = new PythonPackage(
             this.config.lsifConfig.projectName,
             this.config.lsifConfig.projectVersion,
             []
@@ -138,11 +138,11 @@ export class TreeVisitor extends ParseTreeWalker {
 
         this._classDepth = 0;
         this._functionDepth = 0;
-        this._lastScope = [];
-        this._execEnv = this.config.pyrightConfig.getExecutionEnvironments()[0];
-        this._stdlibPackage = new PythonPackage('python-stdlib', versionToString(this._execEnv.pythonVersion), []);
+        this.scopeStack = [];
+        this.execEnv = this.config.pyrightConfig.getExecutionEnvironments()[0];
+        this.stdlibPackage = new PythonPackage('python-stdlib', versionToString(this.execEnv.pythonVersion), []);
 
-        this._cwd = path.resolve(process.cwd());
+        this.cwd = path.resolve(process.cwd());
     }
 
     override visitModule(node: ModuleNode): boolean {
@@ -153,7 +153,7 @@ export class TreeVisitor extends ParseTreeWalker {
         // TODO: Make these all call the same code, hate copy-pasta
         const pythonPackage = this.getPackageInfo(node, fileInfo.moduleName);
         if (pythonPackage) {
-            if (pythonPackage === this._projectPackage) {
+            if (pythonPackage === this.projectPackage) {
                 const symbol = LsifSymbol.global(
                     LsifSymbol.global(
                         LsifSymbol.package(pythonPackage.name, pythonPackage.version),
@@ -333,9 +333,37 @@ export class TreeVisitor extends ParseTreeWalker {
         this._docstringWriter.visitImport(node);
 
         for (const listNode of node.list) {
-            for (const namePart of listNode.module.nameParts) {
-                this.pushNewNameNodeOccurence(namePart, symbols.pythonModule(this, namePart, namePart.value));
+            let lastName = listNode.module.nameParts[listNode.module.nameParts.length - 1];
+            let decls = this.evaluator.getDeclarationsForNameNode(lastName);
+            if (!decls || decls.length === 0) {
+                continue;
             }
+
+            console.log('decl node:', decls);
+
+            let decl = decls[0];
+            let filepath = path.resolve(decl.path);
+            if (filepath.startsWith(this.cwd)) {
+                let symbol = LsifSymbol.global(
+                    LsifSymbol.global(
+                        LsifSymbol.package(this.projectPackage.name, this.projectPackage.version),
+                        packageDescriptor(_formatModuleName(listNode.module))
+                    ),
+                    metaDescriptor('__init__')
+                );
+
+                this.document.occurrences.push(
+                    new lsiftyped.Occurrence({
+                        symbol_roles: lsiftyped.SymbolRole.ReadAccess,
+                        symbol: symbol.value,
+                        range: parseNodeToRange(listNode, this._fileInfo!.lines).toLsif(),
+                    })
+                );
+            }
+
+            // This isn't correct: gets the current file, not the import file
+            // let filepath = getFileInfoFromNode(_node)!.filePath;
+            // return this.config.pythonEnvironment.getPackageForModule(moduleName);
 
             // TODO: This is the same problem as from visitImportFrom,
             //  I can't get this to resolve to a type that is useful for getting
@@ -345,7 +373,6 @@ export class TreeVisitor extends ParseTreeWalker {
             //  Not important enough for now though. Also should make sure we only emit the symbols once
             //
             // let importName = listNode.module.nameParts[listNode.module.nameParts.length - 1];
-            // let decls = this.evaluator.getDeclarationsForNameNode(importName)!;
             // let resolved = this.evaluator.resolveAliasDeclaration(decls[0], true, true);
             // let resolvedInfo = this.evaluator.resolveAliasDeclarationWithInfo(decls[0], true, true);
             // console.log(resolvedInfo)
@@ -540,7 +567,7 @@ export class TreeVisitor extends ParseTreeWalker {
         // TODO: Can handle special cases here if we need to.
         //  Hopefully we will not need any though.
 
-        return this.makeLsifSymbol(this._stdlibPackage, 'builtins', node);
+        return this.makeLsifSymbol(this.stdlibPackage, 'builtins', node);
     }
 
     // the pythonPackage is for the
@@ -664,7 +691,7 @@ export class TreeVisitor extends ParseTreeWalker {
             case ParseNodeType.Assignment:
                 // Handle if this variable is in the global scope or not
                 // Hard to say for sure (might need to use builtinscope for that?)
-                if (this._lastScope.length === 0) {
+                if (this.scopeStack.length === 0) {
                     if (pythonPackage.version) {
                         return this.getLsifSymbol(node.parent!);
                     } else {
@@ -809,8 +836,8 @@ export class TreeVisitor extends ParseTreeWalker {
         const nodeFilePath = path.resolve(nodeFileInfo.filePath);
 
         // TODO: Should use files from the package to determine this -- should be able to do that quite easily.
-        if (nodeFilePath.startsWith(this._cwd)) {
-            return this._projectPackage;
+        if (nodeFilePath.startsWith(this.cwd)) {
+            return this.projectPackage;
         }
 
         // This isn't correct: gets the current file, not the import file
@@ -819,11 +846,11 @@ export class TreeVisitor extends ParseTreeWalker {
     }
 
     private isInsideClass(): boolean {
-        if (this._classDepth == 0) {
+        if (this.scopeStack.length === 0) {
             return false;
         }
 
-        return this._lastScope[this._lastScope.length - 1].nodeType == ParseNodeType.Class;
+        return this.scopeStack[this.scopeStack.length - 1].nodeType == ParseNodeType.Class;
     }
 
     // private isInsideFunction(): boolean {
@@ -836,30 +863,25 @@ export class TreeVisitor extends ParseTreeWalker {
     // }
 
     private withScopeNode(node: ParseNode, f: () => void): void {
-        if (node.nodeType == ParseNodeType.Function) {
-            this._functionDepth++;
-        } else if (node.nodeType == ParseNodeType.Class) {
-            this._classDepth++;
-        } else {
-            throw 'unsupported scope type';
-        }
-
-        const scopeLen = this._lastScope.push(node);
+        const scopeLen = this.scopeStack.push(node);
 
         f();
 
         // Assert we have a balanced traversal
-        if (scopeLen !== this._lastScope.length) {
+        if (scopeLen !== this.scopeStack.length) {
             throw 'Scopes are not matched';
         }
-        this._lastScope.pop();
-
-        if (node.nodeType == ParseNodeType.Function) {
-            this._functionDepth--;
-        } else if (node.nodeType == ParseNodeType.Class) {
-            this._classDepth--;
-        } else {
-            throw 'unsupported scope type';
-        }
+        this.scopeStack.pop();
     }
+}
+
+function _formatModuleName(node: ModuleNameNode): string {
+    let moduleName = '';
+    for (let i = 0; i < node.leadingDots; i++) {
+        moduleName = moduleName + '.';
+    }
+
+    moduleName += node.nameParts.map((part) => part.value).join('.');
+
+    return moduleName;
 }

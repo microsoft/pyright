@@ -14,6 +14,7 @@ export function pythonModule(visitor: TreeVisitor, node: ParseNode, moduleName: 
             metaDescriptor('__init__')
         );
     } else {
-        return LsifSymbol.local(12341234);
+        throw 'could not find package'
+        // return LsifSymbol.local(12341234);
     }
 }
