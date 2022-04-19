@@ -168,7 +168,7 @@ export interface ParseResults {
 }
 
 export interface ParseExpressionTextResults {
-    parseTree?: ExpressionNode | undefined;
+    parseTree?: ExpressionNode | FunctionAnnotationNode | undefined;
     lines: TextRangeCollection<TextRange>;
     diagnostics: Diagnostic[];
 }
@@ -278,7 +278,7 @@ export class Parser {
             this._typingSymbolAliases = new Map<string, string>(typingSymbolAliases);
         }
 
-        let parseTree: ExpressionNode | undefined;
+        let parseTree: ExpressionNode | FunctionAnnotationNode | undefined;
         if (parseTextMode === ParseTextMode.VariableAnnotation) {
             parseTree = this._parseTypeAnnotation();
         } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
@@ -4273,6 +4273,7 @@ export class Parser {
             return undefined;
         }
 
+        assert(parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
         return parseResults.parseTree;
     }
 
@@ -4351,6 +4352,7 @@ export class Parser {
                 const segmentExprLength = this._getFormatStringExpressionLength(segment.value.trimEnd());
                 const parseTree = this._parseFormatStringSegment(stringToken, segment, 0, segmentExprLength);
                 if (parseTree) {
+                    assert(parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
                     formatExpressions.push(parseTree);
                 }
 
@@ -4378,6 +4380,7 @@ export class Parser {
                                     formatSegmentLength
                                 );
                                 if (parseTree) {
+                                    assert(parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
                                     formatExpressions.push(parseTree);
                                 }
                             }
@@ -4572,6 +4575,7 @@ export class Parser {
                     });
 
                     if (parseResults.parseTree) {
+                        assert(parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
                         stringNode.typeAnnotation = parseResults.parseTree;
                         stringNode.typeAnnotation.parent = stringNode;
                     }
