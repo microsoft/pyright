@@ -20,7 +20,7 @@ import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
-import { assert, fail } from '../common/debug';
+import { assert, assertNever, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
@@ -41,6 +41,7 @@ import {
     DictionaryNode,
     ExceptNode,
     ExpressionNode,
+    FormatStringNode,
     ForNode,
     FunctionNode,
     ImportAsNode,
@@ -1058,6 +1059,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 break;
             }
 
+            case ParseNodeType.String:
+            case ParseNodeType.FormatString: {
+                typeResult = getTypeFromString(node);
+                break;
+            }
+
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
@@ -1069,6 +1076,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeResult = { type: UnknownType.create(), node };
                 break;
             }
+
+            default:
+                assertNever(node);
         }
 
         if (!typeResult) {
@@ -1277,6 +1287,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ),
                 };
             }
+        }
+
+        return typeResult;
+    }
+
+    function getTypeFromString(node: StringNode | FormatStringNode): TypeResult {
+        const isBytes = (node.token.flags & StringTokenFlags.Bytes) !== 0;
+        let typeResult: TypeResult;
+
+        // Don't create a literal type if it's an f-string.
+        if (node.nodeType === ParseNodeType.FormatString) {
+            typeResult = {
+                node,
+                type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
+            };
+        } else {
+            typeResult = {
+                node,
+                type: cloneBuiltinObjectWithLiteral(node, isBytes ? 'bytes' : 'str', node.value),
+            };
         }
 
         return typeResult;
@@ -16887,10 +16917,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (parent.nodeType === ParseNodeType.Function) {
-            if (
-                lastContextualExpression === parent.returnTypeAnnotation ||
-                lastContextualExpression === parent.functionAnnotationComment
-            ) {
+            if (lastContextualExpression === parent.returnTypeAnnotation) {
                 getTypeOfAnnotation(lastContextualExpression, {
                     associateTypeVarsWithScope: true,
                     disallowRecursiveTypeAlias: true,
@@ -24066,7 +24093,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             fileInfo.typingSymbolAliases
         );
 
-        if (parseResults.parseTree) {
+        if (parseResults.parseTree && parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation) {
             parseResults.diagnostics.forEach((diag) => {
                 addError(diag.message, node);
             });

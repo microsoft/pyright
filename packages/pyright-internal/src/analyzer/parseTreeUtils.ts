@@ -421,6 +421,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                         `${printExpression(entry.keyExpression, flags)}: ` +
                         `${printExpression(entry.valueExpression, flags)}`
                     );
+                } else if (entry.nodeType === ParseNodeType.DictionaryExpandEntry) {
+                    return `**${printExpression(entry.expandExpression, flags)}`;
                 } else {
                     return printExpression(entry, flags);
                 }
@@ -431,10 +433,6 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             }
 
             return '{}';
-        }
-
-        case ParseNodeType.DictionaryExpandEntry: {
-            return `**${printExpression(node.expandExpression, flags)}`;
         }
 
         case ParseNodeType.Set: {
