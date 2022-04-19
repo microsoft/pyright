@@ -2278,7 +2278,6 @@ export type ParseNode =
     | DecoratorNode
     | DelNode
     | DictionaryNode
-    | DictionaryEntryNode
     | DictionaryExpandEntryNode
     | DictionaryKeyEntryNode
     | EllipsisNode
