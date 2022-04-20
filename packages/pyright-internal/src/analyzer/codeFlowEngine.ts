@@ -984,7 +984,12 @@ export function getCodeFlowEngine(
 
                 if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                     const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
-                    return !preFinallyFlowNode.isGateClosed;
+                    if (preFinallyFlowNode.isGateClosed) {
+                        return false;
+                    }
+
+                    curFlowNode = preFinallyFlowNode.antecedent;
+                    continue;
                 }
 
                 if (curFlowNode.flags & FlowFlags.PostFinally) {
