@@ -33,8 +33,9 @@ import {
     FlowVariableAnnotation,
     FlowWildcardImport,
 } from './codeFlowTypes';
+import { formatControlFlowGraph } from './codeFlowUtils';
 import { DeclarationType } from './declaration';
-import { isMatchingExpression, isPartialMatchingExpression } from './parseTreeUtils';
+import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
 import { Symbol } from './symbol';
 import {
     CachedType,
@@ -99,6 +100,9 @@ export interface CodeFlowEngine {
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
 }
 
+// This debugging option prints the control flow graph when getTypeFromCodeFlow is called.
+const printControlFlowGraph = false;
+
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
     speculativeTypeTracker: SpeculativeTypeTracker
@@ -121,6 +125,15 @@ export function getCodeFlowEngine(
             initialType: Type | undefined,
             isInitialTypeIncomplete: boolean
         ): FlowNodeTypeResult {
+            if (printControlFlowGraph) {
+                console.log(
+                    `getTypeFromCodeFlow: node=${flowNode.id}, reference="${
+                        reference ? printExpression(reference) : ''
+                    }"`
+                );
+                console.log(formatControlFlowGraph(flowNode));
+            }
+
             const referenceKey = reference !== undefined ? createKeyForReference(reference) : undefined;
             let subexpressionReferenceKeys: string[] | undefined;
             const referenceKeyWithSymbolId =
