@@ -69,7 +69,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         lane: number;
         endLane: number;
         level: number;
-        circular: boolean | 'circularity';
+        circular: boolean;
     }
 
     interface FlowGraphEdge {
@@ -151,7 +151,6 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         let graphNode = links[id];
 
         if (graphNode && seen.has(flowNode)) {
-            graphNode.circular = true;
             graphNode = {
                 id: -1,
                 flowNode,
@@ -160,7 +159,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
                 lane: -1,
                 endLane: -1,
                 level: -1,
-                circular: 'circularity',
+                circular: true,
             };
             nodes.push(graphNode);
             return graphNode;
@@ -247,12 +246,12 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         if (flags & FlowFlags.Start) return 'Start';
         if (flags & FlowFlags.BranchLabel) return 'Branch';
         if (flags & FlowFlags.LoopLabel) return 'Loop';
+        if (flags & FlowFlags.Unbind) return 'Unbind';
         if (flags & FlowFlags.Assignment) return 'Assign';
         if (flags & FlowFlags.TrueCondition) return 'True';
         if (flags & FlowFlags.FalseCondition) return 'False';
         if (flags & FlowFlags.Call) return 'Call';
         if (flags & FlowFlags.Unreachable) return 'Unreachable';
-        if (flags & FlowFlags.Unbind) return 'Unbind';
         if (flags & FlowFlags.WildcardImport) return 'Wildcard';
         if (flags & FlowFlags.PreFinallyGate) return 'PreFinal';
         if (flags & FlowFlags.PostFinally) return 'PostFinal';
@@ -281,6 +280,10 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
             return (f as FlowNarrowForPattern).statement;
         }
 
+        if (f.flags & FlowFlags.Call) {
+            return (f as FlowCall).node;
+        }
+
         return undefined;
     }
 
@@ -294,22 +297,12 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         const fileInfo = getFileInfo(parseNode);
         const startPos = convertOffsetToPosition(parseNode.start, fileInfo.lines);
 
-        return `[${startPos.line + 1}:${startPos.character}]`;
+        return `[${startPos.line + 1}:${startPos.character + 1}]`;
     }
 
-    function renderFlowNode(flowNode: FlowNode, circular: boolean | 'circularity') {
-        let text = getHeader(flowNode.flags);
-
-        if (circular) {
-            text = `${text}#${flowNode.id}`;
-        }
-
-        const nodeText = getNodeText(flowNode);
-        if (nodeText) {
-            text += ` ${nodeText}`;
-        }
-
-        return circular === 'circularity' ? `Circular(${text})` : text;
+    function renderFlowNode(flowNode: FlowNode, circular: boolean) {
+        const text = `${getHeader(flowNode.flags)}@${flowNode.id}${getNodeText(flowNode) || ''}`;
+        return circular ? `Circular(${text})` : text;
     }
 
     function renderGraph() {
@@ -319,7 +312,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         const grid: (FlowGraphNode | undefined)[][] = columnWidths.map(() => Array(laneCount));
         const connectors: Connection[][] = columnWidths.map(() => fill(Array(laneCount), 0));
 
-        // build connectors
+        // Build connectors.
         for (const node of nodes) {
             grid[node.level][node.lane] = node;
             const children = getChildren(node);
@@ -344,7 +337,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
             }
         }
 
-        // fill in missing connectors
+        // Fill in missing connectors.
         for (let column = 0; column < columnCount; column++) {
             for (let lane = 0; lane < laneCount; lane++) {
                 const left = column > 0 ? connectors[column - 1][lane] : 0;
@@ -384,7 +377,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
             }
         }
 
-        return `\n${lanes.join('\n')}\n`;
+        return `${lanes.join('\n')}\n`;
 
         function writeLane(lane: number, text: string) {
             lanes[lane] += text;

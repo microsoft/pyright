@@ -12,8 +12,9 @@
  */
 
 import { assert, fail } from '../common/debug';
+import { convertOffsetToPosition } from '../common/positionUtils';
 import { CallNode, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { getImportInfo } from './analyzerNodeInfo';
+import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
@@ -101,7 +102,7 @@ export interface CodeFlowEngine {
 }
 
 // This debugging option prints the control flow graph when getTypeFromCodeFlow is called.
-const printControlFlowGraph = false;
+const isPrintControlFlowGraphEnabled = false;
 
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
@@ -125,13 +126,8 @@ export function getCodeFlowEngine(
             initialType: Type | undefined,
             isInitialTypeIncomplete: boolean
         ): FlowNodeTypeResult {
-            if (printControlFlowGraph) {
-                console.log(
-                    `getTypeFromCodeFlow: node=${flowNode.id}, reference="${
-                        reference ? printExpression(reference) : ''
-                    }"`
-                );
-                console.log(formatControlFlowGraph(flowNode));
+            if (isPrintControlFlowGraphEnabled) {
+                printControlFlowGraph(flowNode, reference, 'getTypeFromCodeFlow');
             }
 
             const referenceKey = reference !== undefined ? createKeyForReference(reference) : undefined;
@@ -884,6 +880,10 @@ export function getCodeFlowEngine(
     function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode): boolean {
         const visitedFlowNodeMap = new Set<number>();
 
+        if (isPrintControlFlowGraphEnabled) {
+            printControlFlowGraph(flowNode, /* reference */ undefined, 'isFlowNodeReachable');
+        }
+
         function isFlowNodeReachableRecursive(
             flowNode: FlowNode,
             sourceFlowNode: FlowNode | undefined,
@@ -1555,6 +1555,22 @@ export function getCodeFlowEngine(
         }
 
         return undefined;
+    }
+
+    function printControlFlowGraph(
+        flowNode: FlowNode,
+        reference: CodeFlowReferenceExpressionNode | undefined,
+        callName: string
+    ) {
+        let referenceText = '';
+        if (reference) {
+            const fileInfo = getFileInfo(reference);
+            const pos = convertOffsetToPosition(reference.start, fileInfo.lines);
+            referenceText = `${printExpression(reference)}[${pos.line + 1}:${pos.character + 1}]`;
+        }
+
+        console.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
+        console.log(formatControlFlowGraph(flowNode));
     }
 
     return {
