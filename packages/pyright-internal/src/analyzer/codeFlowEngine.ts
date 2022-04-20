@@ -13,7 +13,7 @@
 
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { CallNode, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -103,6 +103,9 @@ export interface CodeFlowEngine {
 
 // This debugging option prints the control flow graph when getTypeFromCodeFlow is called.
 const isPrintControlFlowGraphEnabled = false;
+
+// This debugging option prints the results of calls to isCallNoReturn.
+const isPrintCallNoReturnEnabled = false;
 
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
@@ -329,7 +332,7 @@ export function getCodeFlowEngine(
                         // If this function returns a "NoReturn" type, that means
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
-                        if (isCallNoReturn(callFlowNode.node)) {
+                        if (isCallNoReturn(callFlowNode)) {
                             return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                         }
 
@@ -945,7 +948,7 @@ export function getCodeFlowEngine(
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    if (isCallNoReturn(callFlowNode.node)) {
+                    if (isCallNoReturn(callFlowNode)) {
                         return false;
                     }
 
@@ -1197,10 +1200,22 @@ export function getCodeFlowEngine(
     // without fully evaluating its type. This is done during code flow,
     // so it can't rely on full type analysis. It makes some simplifying
     // assumptions that work fine in practice.
-    function isCallNoReturn(node: CallNode) {
+    function isCallNoReturn(flowNode: FlowCall) {
+        const node = flowNode.node;
+
+        if (isPrintCallNoReturnEnabled) {
+            console.log(`isCallNoReturn@${flowNode.id} Pre`);
+        }
+
         // See if this information is cached already.
         if (callIsNoReturnCache.has(node.id)) {
-            return callIsNoReturnCache.get(node.id);
+            const result = callIsNoReturnCache.get(node.id);
+
+            if (isPrintCallNoReturnEnabled) {
+                console.log(`isCallNoReturn@${flowNode.id} Post: ${result ? 'true' : 'false'} (cached)`);
+            }
+
+            return result;
         }
 
         // Initially set to false to avoid infinite recursion.
@@ -1378,6 +1393,10 @@ export function getCodeFlowEngine(
 
         // Cache the value for next time.
         callIsNoReturnCache.set(node.id, callIsNoReturn);
+
+        if (isPrintCallNoReturnEnabled) {
+            console.log(`isCallNoReturn@${flowNode.id} Post: ${callIsNoReturn ? 'true' : 'false'}`);
+        }
 
         return callIsNoReturn;
     }
