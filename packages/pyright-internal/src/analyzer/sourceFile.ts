@@ -27,6 +27,7 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
+import { fromLSPAny } from '../common/lspUtils';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
@@ -1103,7 +1104,7 @@ export class SourceFile {
             return;
         }
 
-        const completionData = completionItem.data as CompletionItemData;
+        const completionData = fromLSPAny<CompletionItemData>(completionItem.data);
         const completionProvider = new CompletionProvider(
             completionData.workspacePath,
             this._parseResults,

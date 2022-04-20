@@ -11,9 +11,11 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { isDefined } from '../common/core';
-import { getAnyExtensionFromPath } from '../common/pathUtils';
-import { ClassNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { assertNever } from '../common/debug';
+import { combinePaths, getAnyExtensionFromPath } from '../common/pathUtils';
+import { ClassNode, ImportFromNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import {
+    AliasDeclaration,
     ClassDeclaration,
     Declaration,
     FunctionDeclaration,
@@ -461,7 +463,8 @@ export class SourceMapper {
                 result.push(decl);
             }
         } else if (isAliasDeclaration(decl)) {
-            const resolvedDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+            const adjustedDecl = this._handleSpecialBuiltInModule(decl);
+            const resolvedDecl = this._evaluator.resolveAliasDeclaration(adjustedDecl, /* resolveLocalNames */ true);
             if (resolvedDecl && !isAliasDeclaration(resolvedDecl)) {
                 this._addClassOrFunctionDeclarations(resolvedDecl, result, recursiveDeclCache);
             }
@@ -489,6 +492,70 @@ export class SourceMapper {
         }
     }
 
+    private _handleSpecialBuiltInModule(decl: AliasDeclaration) {
+        // Some stdlib modules import builtin modules that don't actually exist as a file.
+        // For example, io.py has an import statement such as from _io import (..., ByteIO)
+        // but _io doesn't actually exist on disk so, decl.path will be empty.
+        // That means for symbols that belong to _io such as ByteIO, our regular method
+        // won't work. to make it work, this method does 2 things, first, it fakes path
+        // to _io in stdlib path which doesn't actually exist and call getSourceFiles to
+        // generate or extract builtin module info from runtime, the same way we do for builtin.pyi,
+        // and second, clone the given decl and set path to the generated pyi for the
+        // builtin module (ex, _io) to make resolveAliasDeclaration to work.
+        // once the path is set, our regular code path will work as expected.
+        if (decl.path || !decl.node) {
+            // If module actually exists, nothing we need to do.
+            return decl;
+        }
+
+        // See if it is one of those special cases.
+        if (decl.moduleName !== 'io' && decl.moduleName !== 'collections') {
+            return decl;
+        }
+
+        const stdLibPath = this._importResolver.getTypeshedStdLibPath(this._execEnv);
+        if (!stdLibPath) {
+            return decl;
+        }
+
+        const fileInfo = ParseTreeUtils.getFileInfoFromNode(decl.node);
+        if (!fileInfo) {
+            return decl;
+        }
+
+        // ImportResolver might be able to generate or extract builtin module's info
+        // from runtime if we provide right synthesized stub path.
+        const fakeStubPath = combinePaths(
+            stdLibPath,
+            getModuleName()
+                .nameParts.map((n) => n.value)
+                .join('.') + '.pyi'
+        );
+
+        const sources = this._getSourceFiles(fakeStubPath, fileInfo.filePath);
+        if (sources.length === 0) {
+            return decl;
+        }
+
+        const synthesizedDecl = { ...decl };
+        synthesizedDecl.path = sources[0].getFilePath();
+
+        return synthesizedDecl;
+
+        function getModuleName() {
+            switch (decl.node.nodeType) {
+                case ParseNodeType.ImportAs:
+                    return decl.node.module;
+                case ParseNodeType.ImportFromAs:
+                    return (decl.node.parent as ImportFromNode).module;
+                case ParseNodeType.ImportFrom:
+                    return decl.node.module;
+                default:
+                    return assertNever(decl.node);
+            }
+        }
+    }
+
     private _addClassTypeDeclarations(
         originated: string,
         type: ClassType,
@@ -507,11 +574,11 @@ export class SourceMapper {
         }
     }
 
-    private _getSourceFiles(filePath: string) {
+    private _getSourceFiles(filePath: string, stubToShadow?: string) {
         const sourceFiles: SourceFile[] = [];
 
         if (this._isStubThatShouldBeMappedToImplementation(filePath)) {
-            appendArray(sourceFiles, this._getBoundSourceFilesFromStubFile(filePath));
+            appendArray(sourceFiles, this._getBoundSourceFilesFromStubFile(filePath, stubToShadow));
         } else {
             const sourceFile = this._boundSourceGetter(filePath);
             if (sourceFile) {
@@ -623,9 +690,9 @@ export class SourceMapper {
         return fullName.reverse().join('.');
     }
 
-    private _getBoundSourceFilesFromStubFile(stubFilePath: string): SourceFile[] {
+    private _getBoundSourceFilesFromStubFile(stubFilePath: string, stubToShadow?: string): SourceFile[] {
         const paths = this._importResolver.getSourceFilesFromStub(stubFilePath, this._execEnv, this._mapCompiled);
-        return paths.map((fp) => this._fileBinder(stubFilePath, fp)).filter(isDefined);
+        return paths.map((fp) => this._fileBinder(stubToShadow ?? stubFilePath, fp)).filter(isDefined);
     }
 
     private _isStubThatShouldBeMappedToImplementation(filePath: string): boolean {

@@ -18,7 +18,7 @@ export class QuickActionCommand implements ServerCommand {
 
     async execute(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         if (params.arguments && params.arguments.length >= 1) {
-            const docUri = params.arguments[0];
+            const docUri = params.arguments[0] as string;
             const otherArgs = params.arguments.slice(1);
             const filePath = this._ls.decodeTextDocumentUri(docUri);
             const workspace = await this._ls.getWorkspaceForFile(filePath);

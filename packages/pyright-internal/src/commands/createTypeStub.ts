@@ -18,9 +18,9 @@ export class CreateTypeStubCommand implements ServerCommand {
 
     async execute(cmdParams: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
-            const workspaceRoot = cmdParams.arguments[0];
-            const importName = cmdParams.arguments[1];
-            const callingFile = cmdParams.arguments[2];
+            const workspaceRoot = cmdParams.arguments[0] as string;
+            const importName = cmdParams.arguments[1] as string;
+            const callingFile = cmdParams.arguments[2] as string;
 
             const service = await AnalyzerServiceExecutor.cloneService(
                 this._ls,

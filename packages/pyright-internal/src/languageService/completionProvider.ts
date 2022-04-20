@@ -82,6 +82,7 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import * as debug from '../common/debug';
 import { fail } from '../common/debug';
 import { TextEditAction } from '../common/editAction';
+import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
@@ -573,7 +574,7 @@ export class CompletionProvider {
     resolveCompletionItem(completionItem: CompletionItem) {
         throwIfCancellationRequested(this._cancellationToken);
 
-        const completionItemData = completionItem.data as CompletionItemData;
+        const completionItemData = fromLSPAny<CompletionItemData>(completionItem.data);
 
         const label = completionItem.label;
         let autoImportText = '';
@@ -2214,7 +2215,7 @@ export class CompletionProvider {
                     filePath: this._filePath,
                     position: this._position,
                 };
-                completionItem.data = completionItemData;
+                completionItem.data = toLSPAny(completionItemData);
                 completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
                 completionItem.filterText = argName;
 
@@ -2360,7 +2361,7 @@ export class CompletionProvider {
                 // Are we resolving a completion item? If so, see if this symbol
                 // is the one that we're trying to match.
                 if (this._itemToResolve) {
-                    const completionItemData = this._itemToResolve.data as CompletionItemData;
+                    const completionItemData = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
 
                     if (completionItemData.symbolLabel === name && !completionItemData.autoImportText) {
                         // This call can be expensive to perform on every completion item
@@ -2598,7 +2599,7 @@ export class CompletionProvider {
             completionItemData.funcParensDisabled = true;
         }
 
-        completionItem.data = completionItemData;
+        completionItem.data = toLSPAny(completionItemData);
 
         if (detail?.sortText || detail?.itemDetail) {
             completionItem.sortText = detail.sortText;
@@ -2705,7 +2706,7 @@ export class CompletionProvider {
             });
 
             if (this._itemToResolve) {
-                const data = this._itemToResolve.data as CompletionItemData;
+                const data = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
                 if (data.autoImportText === completionItemData.autoImportText) {
                     this._itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
                 }
@@ -2954,5 +2955,5 @@ export class CompletionMap {
 }
 
 function _getCompletionData(completionItem: CompletionItem): CompletionItemData | undefined {
-    return completionItem.data;
+    return fromLSPAny(completionItem.data);
 }
