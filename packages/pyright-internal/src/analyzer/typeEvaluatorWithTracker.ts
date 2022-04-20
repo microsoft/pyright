@@ -66,12 +66,12 @@ export function createTypeEvaluatorWithTracker(
         getTypeOfAnnotation: typeEvaluator.getTypeOfAnnotation,
         getTypeOfClass: (n) => run('getTypeOfClass', () => typeEvaluator.getTypeOfClass(n), n),
         getTypeOfFunction: (n) => run('getTypeOfFunction', () => typeEvaluator.getTypeOfFunction(n), n),
-        getTypeForExpressionExpectingType: typeEvaluator.getTypeForExpressionExpectingType,
+        getTypeOfExpressionExpectingType: typeEvaluator.getTypeOfExpressionExpectingType,
         evaluateTypeForSubnode: typeEvaluator.evaluateTypeForSubnode,
         evaluateTypesForStatement: (n) =>
             run('evaluateTypesForStatement', () => typeEvaluator.evaluateTypesForStatement(n), n),
-        evaluateTypesForMatchNode: typeEvaluator.evaluateTypesForMatchNode,
-        evaluateTypesForCaseNode: typeEvaluator.evaluateTypesForCaseNode,
+        evaluateTypesForMatchStatement: typeEvaluator.evaluateTypesForMatchStatement,
+        evaluateTypesForCaseStatement: typeEvaluator.evaluateTypesForCaseStatement,
         evaluateTypeOfParameter: typeEvaluator.evaluateTypeOfParameter,
         canBeTruthy: typeEvaluator.canBeTruthy,
         canBeFalsy: typeEvaluator.canBeFalsy,
@@ -95,13 +95,11 @@ export function createTypeEvaluatorWithTracker(
             run('resolveAliasDeclaration', () => typeEvaluator.resolveAliasDeclaration(d, l, h), d),
         resolveAliasDeclarationWithInfo: (d, l, h) =>
             run('resolveAliasDeclarationWithInfo', () => typeEvaluator.resolveAliasDeclarationWithInfo(d, l, h), d),
-        getTypeFromIterable: (t, a, e) =>
-            run('getTypeFromIterable', () => typeEvaluator.getTypeFromIterable(t, a, e), t),
-        getTypeFromIterator: (t, a, e) =>
-            run('getTypeFromIterator', () => typeEvaluator.getTypeFromIterator(t, a, e), t),
+        getTypeOfIterable: (t, a, e) => run('getTypeOfIterable', () => typeEvaluator.getTypeOfIterable(t, a, e), t),
+        getTypeOfIterator: (t, a, e) => run('getTypeOfIterator', () => typeEvaluator.getTypeOfIterator(t, a, e), t),
         getGetterTypeFromProperty: (p, i) =>
             run('getGetterTypeFromProperty', () => typeEvaluator.getGetterTypeFromProperty(p, i), p),
-        getTypeForArgument: typeEvaluator.getTypeForArgument,
+        getTypeOfArgument: typeEvaluator.getTypeOfArgument,
         markNamesAccessed: (n, a) => run('markNamesAccessed', () => typeEvaluator.markNamesAccessed(n, a), n),
         getScopeIdForNode: typeEvaluator.getScopeIdForNode,
         makeTopLevelTypeVarsConcrete: (t) =>
@@ -123,9 +121,9 @@ export function createTypeEvaluatorWithTracker(
         getBestOverloadForArguments: (e, t, a) => typeEvaluator.getBestOverloadForArguments(e, t, a),
         getBuiltInType: (n, b) => run('getBuiltInType', () => typeEvaluator.getBuiltInType(n, b), n),
         getTypeOfMember: (m) => run('getTypeOfMember', () => typeEvaluator.getTypeOfMember(m), m.symbol),
-        getTypeFromObjectMember: typeEvaluator.getTypeFromObjectMember,
+        getTypeOfObjectMember: typeEvaluator.getTypeOfObjectMember,
         getBoundMethod: typeEvaluator.getBoundMethod,
-        getTypeFromMagicMethodReturn: typeEvaluator.getTypeFromMagicMethodReturn,
+        getTypeOfMagicMethodReturn: typeEvaluator.getTypeOfMagicMethodReturn,
         bindFunctionToClassOrObject: typeEvaluator.bindFunctionToClassOrObject,
         getCallSignatureInfo: (n, i, a) =>
             run('getCallSignatureInfo', () => typeEvaluator.getCallSignatureInfo(n, i, a), n),

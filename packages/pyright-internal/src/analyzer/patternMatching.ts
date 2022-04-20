@@ -175,7 +175,7 @@ function narrowTypeBasedOnSequencePattern(
         }
 
         pattern.entries.forEach((sequenceEntry, index) => {
-            const entryType = getTypeForPatternSequenceEntry(
+            const entryType = getTypeOfPatternSequenceEntry(
                 evaluator,
                 pattern,
                 entry,
@@ -701,7 +701,7 @@ function narrowTypeOfClassPatternArgument(
             argType = evaluator.useSpeculativeMode(arg, () =>
                 // We need to apply a rather ugly cast here because PatternClassArgumentNode is
                 // not technically an ExpressionNode, but it is OK to use it in this context.
-                evaluator.getTypeFromObjectMember(
+                evaluator.getTypeOfObjectMember(
                     arg as any as ExpressionNode,
                     ClassType.cloneAsInstance(matchType),
                     argName!
@@ -789,7 +789,7 @@ function narrowTypeBasedOnValuePattern(
                         // Determine if we assignment is supported for this combination of
                         // value subtype and matching subtype.
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
-                            evaluator.getTypeFromMagicMethodReturn(
+                            evaluator.getTypeOfMagicMethodReturn(
                                 valueSubtypeExpanded,
                                 [subjectSubtypeExpanded],
                                 '__eq__',
@@ -988,7 +988,7 @@ function getSequencePatternInfo(
     return sequenceInfo;
 }
 
-function getTypeForPatternSequenceEntry(
+function getTypeOfPatternSequenceEntry(
     evaluator: TypeEvaluator,
     node: ParseNode,
     sequenceInfo: SequencePatternInfo,
@@ -1070,7 +1070,7 @@ export function assignTypeToPatternTargets(
             pattern.entries.forEach((entry, index) => {
                 const entryType = combineTypes(
                     sequenceInfo.map((info) =>
-                        getTypeForPatternSequenceEntry(
+                        getTypeOfPatternSequenceEntry(
                             evaluator,
                             pattern,
                             info,

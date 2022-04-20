@@ -69,7 +69,7 @@ function applyPartialTransform(
         return result;
     }
 
-    const origFunctionTypeResult = evaluator.getTypeForArgument(argList[0]);
+    const origFunctionTypeResult = evaluator.getTypeOfArgument(argList[0]);
     const origFunctionType = origFunctionTypeResult.type;
 
     // Evaluate the inferred return type if necessary.
@@ -98,7 +98,7 @@ function applyPartialTransform(
 
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {
-        const argTypeResult = evaluator.getTypeForArgument(arg);
+        const argTypeResult = evaluator.getTypeOfArgument(arg);
 
         // Is it a positional argument or a keyword argument?
         if (!arg.name) {

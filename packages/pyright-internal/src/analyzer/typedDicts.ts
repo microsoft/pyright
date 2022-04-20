@@ -145,7 +145,7 @@ export function createTypedDictType(
                 entryMap.set(entryName, true);
 
                 // Cache the annotation type.
-                const annotatedType = evaluator.getTypeForExpressionExpectingType(
+                const annotatedType = evaluator.getTypeOfExpressionExpectingType(
                     entry.valueExpression,
                     /* allowFinal */ true,
                     /* allowRequired */ true
@@ -193,7 +193,7 @@ export function createTypedDictType(
 
                 // Evaluate the type with specific evaluation flags. The
                 // type will be cached for later.
-                const annotatedType = evaluator.getTypeForExpressionExpectingType(
+                const annotatedType = evaluator.getTypeOfExpressionExpectingType(
                     entry.valueExpression,
                     /* allowFinal */ true,
                     /* allowRequired */ true
@@ -788,7 +788,7 @@ export function assignToTypedDict(
         : ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
 }
 
-export function getTypeFromIndexedTypedDict(
+export function getTypeOfIndexedTypedDict(
     evaluator: TypeEvaluator,
     node: IndexNode,
     baseType: ClassType,

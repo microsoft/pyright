@@ -574,7 +574,7 @@ export function getCodeFlowEngine(
                     if (curFlowNode.flags & FlowFlags.ExhaustedMatch) {
                         const exhaustedMatchFlowNode = curFlowNode as FlowExhaustedMatch;
                         const narrowedTypeResult = evaluator.evaluateTypeForSubnode(exhaustedMatchFlowNode.node, () => {
-                            evaluator.evaluateTypesForMatchNode(exhaustedMatchFlowNode.node);
+                            evaluator.evaluateTypesForMatchStatement(exhaustedMatchFlowNode.node);
                         });
 
                         // If the narrowed type is "never", don't allow further exploration.
@@ -591,9 +591,9 @@ export function getCodeFlowEngine(
                         if (!reference || isMatchingExpression(reference, patternFlowNode.subjectExpression)) {
                             const typeResult = evaluator.evaluateTypeForSubnode(patternFlowNode.statement, () => {
                                 if (patternFlowNode.statement.nodeType === ParseNodeType.Case) {
-                                    evaluator.evaluateTypesForCaseNode(patternFlowNode.statement);
+                                    evaluator.evaluateTypesForCaseStatement(patternFlowNode.statement);
                                 } else {
-                                    evaluator.evaluateTypesForMatchNode(patternFlowNode.statement);
+                                    evaluator.evaluateTypesForMatchStatement(patternFlowNode.statement);
                                 }
                             });
 
@@ -1450,7 +1450,7 @@ export function getCodeFlowEngine(
 
         if (cmType && isClassInstance(cmType)) {
             const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-            const exitType = evaluator.getTypeFromObjectMember(node, cmType, exitMethodName)?.type;
+            const exitType = evaluator.getTypeOfObjectMember(node, cmType, exitMethodName)?.type;
 
             if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
                 const returnType = exitType.details.declaredReturnType;

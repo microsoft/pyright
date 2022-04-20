@@ -690,7 +690,7 @@ export class Program {
         }
     }
 
-    getTypeForSymbol(symbol: Symbol) {
+    getTypeOfSymbol(symbol: Symbol) {
         this._handleMemoryHighUsage();
 
         const evaluator = this._evaluator || this._createNewEvaluator();

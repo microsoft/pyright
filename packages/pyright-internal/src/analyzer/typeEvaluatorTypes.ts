@@ -284,15 +284,15 @@ export interface TypeEvaluator {
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
-    getTypeForExpressionExpectingType: (
+    getTypeOfExpressionExpectingType: (
         node: ExpressionNode,
         allowFinal?: boolean,
         allowRequired?: boolean
     ) => TypeResult;
     evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
-    evaluateTypesForMatchNode: (node: MatchNode) => void;
-    evaluateTypesForCaseNode: (node: CaseNode) => void;
+    evaluateTypesForMatchStatement: (node: MatchNode) => void;
+    evaluateTypesForCaseStatement: (node: CaseNode) => void;
     evaluateTypeOfParameter: (node: ParameterNode) => void;
 
     canBeTruthy: (type: Type) => boolean;
@@ -322,10 +322,10 @@ export interface TypeEvaluator {
         resolveLocalNames: boolean,
         allowExternallyHiddenAccess?: boolean
     ) => DeclarationUtils.ResolvedAliasInfo | undefined;
-    getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
-    getTypeFromIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
+    getTypeOfIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
+    getTypeOfIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
-    getTypeForArgument: (arg: FunctionArgument) => SimpleTypeResult;
+    getTypeOfArgument: (arg: FunctionArgument) => SimpleTypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
     makeTopLevelTypeVarsConcrete: (type: Type) => Type;
@@ -359,17 +359,13 @@ export interface TypeEvaluator {
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
-    getTypeFromObjectMember(
-        errorNode: ExpressionNode,
-        objectType: ClassType,
-        memberName: string
-    ): TypeResult | undefined;
+    getTypeOfObjectMember(errorNode: ExpressionNode, objectType: ClassType, memberName: string): TypeResult | undefined;
     getBoundMethod: (
         classType: ClassType,
         memberName: string,
         treatConstructorAsClassMember?: boolean
     ) => FunctionType | OverloadedFunctionType | undefined;
-    getTypeFromMagicMethodReturn: (
+    getTypeOfMagicMethodReturn: (
         objType: Type,
         args: Type[],
         magicMethodName: string,

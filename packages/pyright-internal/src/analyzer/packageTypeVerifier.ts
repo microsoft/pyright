@@ -142,7 +142,7 @@ export class PackageTypeVerifier {
                     });
 
                     publicModules.forEach((moduleName) => {
-                        this._verifyTypesForModule(moduleName, publicSymbolMap, report);
+                        this._verifyTypesOfModule(moduleName, publicSymbolMap, report);
                     });
                 }
             }
@@ -267,7 +267,7 @@ export class PackageTypeVerifier {
                 const fullName = `${scopeName}.${name}`;
 
                 if (!symbol.isExternallyHidden() && !symbol.isPrivateMember() && !symbol.isPrivatePyTypedImport()) {
-                    const symbolType = this._program.getTypeForSymbol(symbol);
+                    const symbolType = this._program.getTypeOfSymbol(symbol);
                     symbolMap.set(fullName, fullName);
 
                     const typedDecls = symbol.getTypedDeclarations();
@@ -293,7 +293,7 @@ export class PackageTypeVerifier {
                     // Is this the re-export of an import? If so, record the alternate name.
                     const importDecl = symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias);
                     if (importDecl && importDecl.type === DeclarationType.Alias) {
-                        const typeName = getFullNameOfType(this._program.getTypeForSymbol(symbol));
+                        const typeName = getFullNameOfType(this._program.getTypeOfSymbol(symbol));
                         if (typeName) {
                             this._addAlternateSymbolName(alternateSymbolNames, typeName, fullName);
                         }
@@ -319,7 +319,7 @@ export class PackageTypeVerifier {
         }
     }
 
-    private _verifyTypesForModule(moduleName: string, publicSymbolMap: PublicSymbolMap, report: PackageTypeReport) {
+    private _verifyTypesOfModule(moduleName: string, publicSymbolMap: PublicSymbolMap, report: PackageTypeReport) {
         const importResult = this._resolveImport(moduleName);
         if (!importResult.isImportFound) {
             report.generalDiagnostics.push(
@@ -478,7 +478,7 @@ export class PackageTypeVerifier {
                     return;
                 }
 
-                let symbolType = this._program.getTypeForSymbol(symbol);
+                let symbolType = this._program.getTypeOfSymbol(symbol);
 
                 let usesAmbiguousOverride = false;
                 let baseSymbolType: Type | undefined;
@@ -489,7 +489,7 @@ export class PackageTypeVerifier {
 
                     if (baseTypeSymbol !== symbol) {
                         childSymbolType = symbolType;
-                        baseSymbolType = this._program.getTypeForSymbol(baseTypeSymbol);
+                        baseSymbolType = this._program.getTypeOfSymbol(baseTypeSymbol);
 
                         // If the inferred type is ambiguous or the declared base class type is
                         // not the same type as the inferred type, mark it as ambiguous because
@@ -741,7 +741,7 @@ export class PackageTypeVerifier {
 
                     accessors.forEach((accessorName) => {
                         const accessSymbol = propertyClass.details.fields.get(accessorName);
-                        let accessType = accessSymbol ? this._program.getTypeForSymbol(accessSymbol) : undefined;
+                        let accessType = accessSymbol ? this._program.getTypeOfSymbol(accessSymbol) : undefined;
 
                         if (!accessType) {
                             return;

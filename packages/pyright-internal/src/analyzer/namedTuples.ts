@@ -218,7 +218,7 @@ export function createNamedTupleType(
                             entryNameNode = entry.expressions[0];
                             entryTypeNode = entry.expressions[1];
                             entryType = convertToInstance(
-                                evaluator.getTypeForExpressionExpectingType(entryTypeNode, /* allowFinal */ false).type
+                                evaluator.getTypeOfExpressionExpectingType(entryTypeNode, /* allowFinal */ false).type
                             );
                         } else {
                             evaluator.addError(Localizer.Diagnostic.namedTupleNameType(), entry);

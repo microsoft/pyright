@@ -915,7 +915,7 @@ export class Checker extends ParseTreeWalker {
             yieldType = UnknownType.create();
         } else {
             yieldType =
-                this._evaluator.getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+                this._evaluator.getTypeOfIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
 
             // Does the iterator return a Generator? If so, get the yield type from it.
             // If the iterator doesn't return a Generator, use the iterator return type
@@ -925,8 +925,7 @@ export class Checker extends ParseTreeWalker {
                 yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
             } else {
                 yieldType =
-                    this._evaluator.getTypeFromIterator(yieldFromType, /* isAsync */ false, node) ||
-                    UnknownType.create();
+                    this._evaluator.getTypeOfIterator(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
             }
         }
 
@@ -1402,7 +1401,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const narrowedTypeResult = this._evaluator.evaluateTypeForSubnode(node, () => {
-            this._evaluator.evaluateTypesForMatchNode(node);
+            this._evaluator.evaluateTypesForMatchStatement(node);
         });
 
         if (narrowedTypeResult && !isNever(narrowedTypeResult.type)) {
@@ -2005,7 +2004,7 @@ export class Checker extends ParseTreeWalker {
                 resultingExceptionType = ClassType.cloneAsInstance(exceptionType);
             } else if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    this._evaluator.getTypeFromIterator(exceptionType, /* isAsync */ false, errorNode) ||
+                    this._evaluator.getTypeOfIterator(exceptionType, /* isAsync */ false, errorNode) ||
                     UnknownType.create();
 
                 resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
@@ -4991,7 +4990,7 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            const typesForThisExcept: ClassType[] = [];
+            const typesOfThisExcept: ClassType[] = [];
 
             if (isInstantiableClass(exceptionType)) {
                 // If the exception type is a variable whose type could represent
@@ -5000,14 +4999,11 @@ export class Checker extends ParseTreeWalker {
                     sawUnknownExceptionType = true;
                 }
 
-                typesForThisExcept.push(exceptionType);
+                typesOfThisExcept.push(exceptionType);
             } else if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    this._evaluator.getTypeFromIterator(
-                        exceptionType,
-                        /* isAsync */ false,
-                        /* errorNode */ undefined
-                    ) || UnknownType.create();
+                    this._evaluator.getTypeOfIterator(exceptionType, /* isAsync */ false, /* errorNode */ undefined) ||
+                    UnknownType.create();
 
                 doForEachSubtype(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
@@ -5020,7 +5016,7 @@ export class Checker extends ParseTreeWalker {
                         if (subtype.includeSubclasses) {
                             sawUnknownExceptionType = true;
                         }
-                        typesForThisExcept.push(subtype);
+                        typesOfThisExcept.push(subtype);
                     }
                 });
             } else {
@@ -5031,7 +5027,7 @@ export class Checker extends ParseTreeWalker {
                 const diagAddendum = new DiagnosticAddendum();
                 let overriddenExceptionCount = 0;
 
-                typesForThisExcept.forEach((thisExceptType) => {
+                typesOfThisExcept.forEach((thisExceptType) => {
                     const subtype = exceptionTypesSoFar.find((previousExceptType) => {
                         return derivesFromClassRecursive(thisExceptType, previousExceptType, /* ignoreUnknown */ true);
                     });
@@ -5048,7 +5044,7 @@ export class Checker extends ParseTreeWalker {
                 });
 
                 // Were all of the exception types overridden?
-                if (typesForThisExcept.length === overriddenExceptionCount) {
+                if (typesOfThisExcept.length === overriddenExceptionCount) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -5059,7 +5055,7 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            exceptionTypesSoFar.push(...typesForThisExcept);
+            exceptionTypesSoFar.push(...typesOfThisExcept);
         });
     }
 
