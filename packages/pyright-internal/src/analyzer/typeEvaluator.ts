@@ -23340,6 +23340,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let canOverride = true;
 
+        // Verify that we're not overriding a static, class or instance method with
+        // an incompatible type.
+        if (FunctionType.isStaticMethod(baseMethod)) {
+            if (!FunctionType.isStaticMethod(overrideMethod)) {
+                diag.addMessage(Localizer.DiagnosticAddendum.overrideNotStaticMethod());
+                canOverride = false;
+            }
+        } else if (FunctionType.isClassMethod(baseMethod)) {
+            if (!FunctionType.isClassMethod(overrideMethod)) {
+                diag.addMessage(Localizer.DiagnosticAddendum.overrideNotClassMethod());
+                canOverride = false;
+            }
+        }
+        if (FunctionType.isInstanceMethod(baseMethod)) {
+            if (!FunctionType.isInstanceMethod(overrideMethod)) {
+                diag.addMessage(Localizer.DiagnosticAddendum.overrideNotInstanceMethod());
+                canOverride = false;
+            }
+        }
+
         // Verify that the positional param count matches exactly or that the override
         // adds only params that preserve the original signature.
         let foundParamCountMismatch = false;

@@ -119,6 +119,28 @@ class ParentClass:
     def my_method28(self, __a: object) -> None:
         ...
 
+    @classmethod
+    def my_method29(cls, /) -> None:
+        ...
+
+    @classmethod
+    def my_method30(cls, /) -> None:
+        ...
+
+    @staticmethod
+    def my_method31(a: "Type[ParentClass]", /) -> None:
+        ...
+
+    @staticmethod
+    def my_method32(a: "Type[ParentClass]", /) -> None:
+        ...
+
+    def my_method33(self, /) -> None:
+        ...
+
+    def my_method34(self, /) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -234,6 +256,34 @@ class ChildClass(ParentClass):
         ...
 
     def my_method28(self, a: object, /) -> None:
+        ...
+
+    # This should generate an error because it is not a classmethod.
+    def my_method29(self, /) -> None:
+        ...
+
+    # This should generate an error because it is not a classmethod.
+    @staticmethod
+    def my_method30(a: Type[ParentClass], /) -> None:
+        ...
+
+    # This should generate an error because it is not a staticmethod.
+    @classmethod
+    def my_method31(cls, /) -> None:
+        ...
+
+    # This should generate an error because it is not a staticmethod.
+    def my_method32(self, /) -> None:
+        ...
+
+    # This should generate an error because it is not an instance method.
+    @classmethod
+    def my_method33(cls, /) -> None:
+        ...
+
+    # This should generate an error because it is not an instance method.
+    @staticmethod
+    def my_method34(a: Type[ParentClass], /) -> None:
         ...
 
 
