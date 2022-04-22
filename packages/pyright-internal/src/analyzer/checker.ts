@@ -214,6 +214,10 @@ const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
     ['Union', { version: PythonVersion.V3_10, fullName: 'typing.Union', replacementText: '|' }],
 ]);
 
+// When enabled, this debug flag causes the code complexity of
+// functions to be emitted.
+const isPrintCodeComplexityEnabled = false;
+
 export class Checker extends ParseTreeWalker {
     private readonly _fileInfo: AnalyzerFileInfo;
     private _isUnboundCheckSuppressed = false;
@@ -564,6 +568,10 @@ export class Checker extends ParseTreeWalker {
 
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
         const isTooComplexToAnalyze = codeComplexity > maxCodeComplexity;
+
+        if (isPrintCodeComplexityEnabled) {
+            console.log(`Code complexity of function ${node.name.value} is ${codeComplexity.toString()}`);
+        }
 
         if (isTooComplexToAnalyze) {
             this._evaluator.addDiagnostic(
@@ -5154,6 +5162,11 @@ class MissingModuleSourceReporter extends ParseTreeWalker {
 
     override visitModule(node: ModuleNode): boolean {
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
+
+        if (isPrintCodeComplexityEnabled) {
+            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
+        }
+
         if (codeComplexity > maxCodeComplexity) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
