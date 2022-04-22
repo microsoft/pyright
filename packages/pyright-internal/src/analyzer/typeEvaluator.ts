@@ -538,6 +538,12 @@ const verifyTypeCacheEvaluatorFlags = false;
 // This debugging option prints each expression and its evaluated type.
 const printExpressionTypes = false;
 
+// The following number is chosen somewhat arbitrarily. We need to cut
+// off code flow analysis at some point for code flow graphs that are too
+// complex. Otherwise we risk overflowing the stack or incurring extremely
+// long analysis times. This number has been tuned empirically.
+export const maxCodeComplexity = 1024;
+
 export interface EvaluatorOptions {
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
@@ -2460,12 +2466,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function checkCodeFlowTooComplex(node: ParseNode): boolean {
         const scopeNode = node.nodeType === ParseNodeType.Function ? node : ParseTreeUtils.getExecutionScopeNode(node);
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(scopeNode);
-
-        // The following number is chosen somewhat arbitrarily. We need to cut
-        // off code flow analysis at some point for code flow graphs that are too
-        // complex. Otherwise we risk overflowing the stack or incurring extremely
-        // long analysis times. This number has been tuned empirically.
-        const maxCodeComplexity = 1024;
 
         if (codeComplexity > maxCodeComplexity) {
             let errorRange: TextRange = scopeNode;

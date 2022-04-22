@@ -101,6 +101,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
+import { maxCodeComplexity } from './typeEvaluator';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
@@ -561,11 +562,25 @@ export class Checker extends ParseTreeWalker {
             }
         });
 
-        this.walk(node.suite);
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
+        const isTooComplexToAnalyze = codeComplexity > maxCodeComplexity;
+
+        if (isTooComplexToAnalyze) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                node.name
+            );
+        } else {
+            this.walk(node.suite);
+        }
 
         if (functionTypeResult) {
             // Validate that the function returns the declared type.
-            this._validateFunctionReturn(node, functionTypeResult.functionType);
+            if (!isTooComplexToAnalyze) {
+                this._validateFunctionReturn(node, functionTypeResult.functionType);
+            }
 
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
@@ -5135,6 +5150,22 @@ class MissingModuleSourceReporter extends ParseTreeWalker {
         }
 
         return super.visitNode(node);
+    }
+
+    override visitModule(node: ModuleNode): boolean {
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
+        if (codeComplexity > maxCodeComplexity) {
+            this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                { start: 0, length: 0 }
+            );
+            return false;
+        }
+
+        return true;
     }
 
     override visitModuleName(node: ModuleNameNode): boolean {
