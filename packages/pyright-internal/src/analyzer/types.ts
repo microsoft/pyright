@@ -1757,7 +1757,7 @@ export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
     subtypes: UnionableType[];
     literalStrMap?: Map<string, UnionableType> | undefined;
-    literalIntMap?: Map<number, UnionableType> | undefined;
+    literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     typeAliasSources?: Set<UnionType>;
 }
 
@@ -1790,13 +1790,12 @@ export namespace UnionType {
             isClassInstance(newType) &&
             ClassType.isBuiltIn(newType, 'int') &&
             newType.literalValue !== undefined &&
-            typeof newType.literalValue === 'number' &&
             newType.condition === undefined
         ) {
             if (unionType.literalIntMap === undefined) {
-                unionType.literalIntMap = new Map<number, UnionableType>();
+                unionType.literalIntMap = new Map<bigint | number, UnionableType>();
             }
-            unionType.literalIntMap.set(newType.literalValue as number, newType);
+            unionType.literalIntMap.set(newType.literalValue as number | bigint, newType);
         }
 
         unionType.flags &= newType.flags;
@@ -1816,10 +1815,9 @@ export namespace UnionType {
             } else if (
                 ClassType.isBuiltIn(subtype, 'int') &&
                 subtype.literalValue !== undefined &&
-                typeof subtype.literalValue === 'number' &&
                 unionType.literalIntMap !== undefined
             ) {
-                return unionType.literalIntMap.has(subtype.literalValue as number);
+                return unionType.literalIntMap.has(subtype.literalValue as number | bigint);
             }
         }
 
@@ -2727,10 +2725,9 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
         } else if (
             ClassType.isBuiltIn(typeToAdd, 'int') &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalIntMap !== undefined &&
-            typeof typeToAdd.literalValue === 'number'
+            unionType.literalIntMap !== undefined
         ) {
-            if (!unionType.literalIntMap.has(typeToAdd.literalValue as number)) {
+            if (!unionType.literalIntMap.has(typeToAdd.literalValue as number | bigint)) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;
