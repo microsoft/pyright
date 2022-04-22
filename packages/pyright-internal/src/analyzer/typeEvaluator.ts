@@ -535,6 +535,10 @@ const maxOverloadUnionExpansionCount = 64;
 // from the type cache.
 const verifyTypeCacheEvaluatorFlags = false;
 
+// If the number of subtypes starts to explode when applying "literal math",
+// cut off the literal union and fall back to the non-literal supertype.
+const maxLiteralMathSubtypeCount = 64;
+
 // This debugging option prints each expression and its evaluated type.
 const printExpressionTypes = false;
 
@@ -11292,7 +11296,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // incomplete because we may be evaluating types within a loop,
                                 // so the literal values may change each time.
                                 const isLiteralMathAllowed =
-                                    !leftTypeResult.isIncomplete && !rightTypeResult.isIncomplete;
+                                    !leftTypeResult.isIncomplete &&
+                                    !rightTypeResult.isIncomplete &&
+                                    getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
+                                        maxLiteralMathSubtypeCount;
 
                                 returnType = validateBinaryOperation(
                                     binaryOperator,
@@ -11477,9 +11484,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const leftLiteralClassName = getLiteralTypeClassName(leftType);
                 if (leftLiteralClassName && !getTypeCondition(leftType)) {
                     const rightLiteralClassName = getLiteralTypeClassName(rightType);
-
-                    // If the number of subtypes starts to explode, don't use this code path.
-                    const maxLiteralMathSubtypeCount = 64;
 
                     if (
                         leftLiteralClassName === rightLiteralClassName &&

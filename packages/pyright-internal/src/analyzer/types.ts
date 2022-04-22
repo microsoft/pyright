@@ -1773,9 +1773,9 @@ export namespace UnionType {
     }
 
     export function addType(unionType: UnionType, newType: UnionableType) {
-        // If we're adding a string literal type, add it to the
-        // literal string map to speed up some operations. It's not
-        // uncommon for unions to contain hundreds of string literals.
+        // If we're adding a string literal or integer type, add it to the
+        // corresponding literal map to speed up some operations. It's not
+        // uncommon for unions to contain hundreds of literals.
         if (
             isClassInstance(newType) &&
             ClassType.isBuiltIn(newType, 'str') &&
