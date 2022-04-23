@@ -12510,16 +12510,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (isClassInstance(subtype)) {
-                    const callMember = lookUpObjectMember(subtype, '__call__');
-                    if (callMember) {
-                        const memberType = getTypeOfMember(callMember);
-                        if (isFunction(memberType)) {
-                            const boundMethod = bindFunctionToClassOrObject(subtype, memberType);
-
-                            if (boundMethod) {
-                                expectedFunctionTypes.push(boundMethod as FunctionType);
-                            }
-                        }
+                    const boundMethod = getBoundMethod(subtype, '__call__');
+                    if (boundMethod && isFunction(boundMethod)) {
+                        expectedFunctionTypes.push(boundMethod as FunctionType);
                     }
                 }
 
@@ -15880,15 +15873,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     validatePropertyMethod(evaluatorInterface, inputFunctionType, decoratorNode);
                     return createProperty(evaluatorInterface, decoratorNode, decoratorType, inputFunctionType);
                 } else if (isClassInstance(inputFunctionType)) {
-                    const callMember = lookUpObjectMember(inputFunctionType, '__call__');
-                    if (callMember) {
-                        const memberType = getTypeOfMember(callMember);
-                        if (isFunction(memberType) || isOverloadedFunction(memberType)) {
-                            const boundMethod = bindFunctionToClassOrObject(inputFunctionType, memberType);
-                            if (boundMethod && isFunction(boundMethod)) {
-                                return createProperty(evaluatorInterface, decoratorNode, decoratorType, boundMethod);
-                            }
-                        }
+                    const boundMethod = getBoundMethod(inputFunctionType, '__call__');
+                    if (boundMethod && isFunction(boundMethod)) {
+                        return createProperty(evaluatorInterface, decoratorNode, decoratorType, boundMethod);
                     }
 
                     return UnknownType.create();
@@ -21526,21 +21513,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
             if (isClassInstance(concreteSrcType)) {
-                const callMember = lookUpObjectMember(concreteSrcType, '__call__');
-                if (callMember) {
-                    const memberType = getTypeOfMember(callMember);
-                    if (isFunction(memberType) || isOverloadedFunction(memberType)) {
-                        const boundMethod = bindFunctionToClassOrObject(
-                            concreteSrcType,
-                            memberType,
-                            /* memberClass */ undefined,
-                            /* errorNode */ undefined,
-                            recursionCount
-                        );
-                        if (boundMethod) {
-                            concreteSrcType = removeParamSpecVariadicsFromSignature(boundMethod);
-                        }
-                    }
+                const boundMethod = getBoundMethod(concreteSrcType, '__call__');
+                if (boundMethod) {
+                    concreteSrcType = removeParamSpecVariadicsFromSignature(boundMethod);
                 }
             }
 
@@ -22243,18 +22218,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const callMember = lookUpObjectMember(objType, '__call__');
-        if (!callMember) {
-            return undefined;
-        }
-
-        const memberType = getTypeOfMember(callMember);
-        if (isFunction(memberType) || isOverloadedFunction(memberType)) {
-            const boundMethod = bindFunctionToClassOrObject(objType, memberType);
-
-            if (boundMethod) {
-                return removeParamSpecVariadicsFromSignature(boundMethod);
-            }
+        const boundMethod = getBoundMethod(objType, '__call__');
+        if (boundMethod) {
+            return removeParamSpecVariadicsFromSignature(boundMethod);
         }
 
         return undefined;
