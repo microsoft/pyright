@@ -256,7 +256,7 @@ export class AnalyzerService {
             ipythonMode,
             chainedFilePath,
         });
-        this._scheduleReanalysis(/*requireTrackedFileUpdate*/ false);
+        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     updateOpenFileContents(
@@ -271,7 +271,7 @@ export class AnalyzerService {
             ipythonMode,
             chainedFilePath,
         });
-        this._scheduleReanalysis(/*requireTrackedFileUpdate*/ false);
+        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     test_setIndexing(
@@ -287,7 +287,7 @@ export class AnalyzerService {
 
     setFileClosed(path: string) {
         this._backgroundAnalysisProgram.setFileClosed(path);
-        this._scheduleReanalysis(false);
+        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     getParseResult(path: string) {
@@ -517,7 +517,7 @@ export class AnalyzerService {
         // If we have a pending timer for reanalysis, cancel it
         // and reschedule for some time in the future.
         if (this._analyzeTimer) {
-            this._scheduleReanalysis(false);
+            this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
         }
     }
 
@@ -1458,7 +1458,7 @@ export class AnalyzerService {
             // Invalidate import resolver, mark all files dirty unconditionally,
             // and reanalyze.
             this.invalidateAndForceReanalysis(/* rebuildUserFileIndexing */ false);
-            this._scheduleReanalysis(false);
+            this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
         }, _libraryActivityBackoffTimeInMs);
     }
 
@@ -1566,9 +1566,9 @@ export class AnalyzerService {
         this._updateLibraryFileWatcher();
         this._updateConfigFileWatcher();
         this._updateSourceFileWatchers();
-        this._updateTrackedFileList(true);
+        this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ true);
 
-        this._scheduleReanalysis(false);
+        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
     private _clearReanalysisTimer() {
@@ -1614,7 +1614,7 @@ export class AnalyzerService {
             this._analyzeTimer = undefined;
 
             if (this._requireTrackedFileUpdate) {
-                this._updateTrackedFileList(false);
+                this._updateTrackedFileList(/* markFilesDirtyUnconditionally */ false);
             }
 
             // This creates a cancellation source only if it actually gets used.
@@ -1623,7 +1623,7 @@ export class AnalyzerService {
                 this._backgroundAnalysisCancellationSource.token
             );
             if (moreToAnalyze) {
-                this._scheduleReanalysis(false);
+                this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
             }
         }, timeUntilNextAnalysisInMs);
     }

@@ -2695,13 +2695,13 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
 
     if (isInstantiableClass(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
-        srcType = ClassType.cloneWithLiteral(srcType, undefined);
+        srcType = ClassType.cloneWithLiteral(srcType, /* value */ undefined);
         return isTypeSame(destType, srcType);
     }
 
     if (isClassInstance(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
-        srcType = ClassType.cloneWithLiteral(srcType, undefined);
+        srcType = ClassType.cloneWithLiteral(srcType, /* value */ undefined);
         return isTypeSame(destType, srcType);
     }
 
@@ -2760,7 +2760,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
                 !typeToAdd.condition
             ) {
                 if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
-                    unionType.subtypes[i] = ClassType.cloneWithLiteral(type, undefined);
+                    unionType.subtypes[i] = ClassType.cloneWithLiteral(type, /* value */ undefined);
                     return;
                 }
             }

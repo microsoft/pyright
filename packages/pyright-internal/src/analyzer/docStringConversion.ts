@@ -152,7 +152,7 @@ class DocStringConverter {
         ) {
             this._trimOutputAndAppendLine('```');
         } else if (this._insideInlineCode) {
-            this._trimOutputAndAppendLine('`', true);
+            this._trimOutputAndAppendLine('`', /* noNewLine */ true);
         }
 
         return this._builder.trim();

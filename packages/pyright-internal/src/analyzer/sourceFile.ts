@@ -1338,7 +1338,7 @@ export class SourceFile {
         // If this is a project source file (not a stub), try to resolve
         // the __builtins__ stub first.
         if (!this._isThirdPartyImport && !this._isStubFile) {
-            builtinsImportResult = resolveAndAddIfNotSelf(['__builtins__'], /*skipMissingImport*/ true);
+            builtinsImportResult = resolveAndAddIfNotSelf(['__builtins__'], /* skipMissingImport */ true);
         }
 
         if (!builtinsImportResult) {

@@ -723,7 +723,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function setAsymmetricDescriptorAssignment(node: ParseNode) {
-        if (speculativeTypeTracker.isSpeculative(undefined)) {
+        if (speculativeTypeTracker.isSpeculative(/* node */ undefined)) {
             return;
         }
 
@@ -4151,7 +4151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
                 if (!type.typeArguments) {
-                    type = createSpecializedClassType(type, undefined, flags, node);
+                    type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node);
                 }
             }
 
@@ -4829,7 +4829,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (isInstantiableClass(type) && !type.typeArguments) {
-                type = createSpecializedClassType(type, undefined, flags, node);
+                type = createSpecializedClassType(type, /* typeArgs */ undefined, flags, node);
             }
         }
 
@@ -8177,7 +8177,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 Localizer.Diagnostic.namedTupleNoTypes(),
                                 errorNode
                             );
-                            return createNamedTupleType(evaluatorInterface, errorNode, argList, false);
+                            return createNamedTupleType(
+                                evaluatorInterface,
+                                errorNode,
+                                argList,
+                                /* includesTypes */ false
+                            );
                         }
 
                         let effectiveTypeVarContext = typeVarContext;
@@ -8389,7 +8394,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
 
                                 if (className === 'NamedTuple') {
-                                    return createNamedTupleType(evaluatorInterface, errorNode, argList, true);
+                                    return createNamedTupleType(
+                                        evaluatorInterface,
+                                        errorNode,
+                                        argList,
+                                        /* includesTypes */ true
+                                    );
                                 }
 
                                 if (className === 'NewType') {
@@ -8723,7 +8733,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     varArgListParam.type.scopeId === type.details.constructorTypeVarScopeId
                 ) {
                     paramSpecArgList = [];
-                    paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, undefined);
+                    paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
                 } else {
                     positionalOnlyLimitIndex = varArgListParamIndex;
                 }
@@ -17132,7 +17142,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function evaluateTypeForSubnode(subnode: ParseNode, callback: () => void): TypeResult | undefined {
         // If the type cache is already populated, don't bother
         // doing additional work.
-        let subnodeType = readTypeCache(subnode, undefined);
+        let subnodeType = readTypeCache(subnode, /* flags */ undefined);
         if (subnodeType) {
             return { node: subnode, type: subnodeType };
         }
@@ -17146,7 +17156,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 incompleteTypeCache = new Map<number, CachedType>();
             }
             callback();
-            subnodeType = readTypeCache(subnode, undefined);
+            subnodeType = readTypeCache(subnode, /* flags */ undefined);
             if (subnodeType) {
                 return { node: subnode, type: subnodeType };
             }
@@ -20004,7 +20014,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                typeVarContext.setTypeVarType(destType.details.typeParameters[i], undefined, typeArgType);
+                typeVarContext.setTypeVarType(
+                    destType.details.typeParameters[i],
+                    /* narrowBound */ undefined,
+                    typeArgType
+                );
             }
         }
 

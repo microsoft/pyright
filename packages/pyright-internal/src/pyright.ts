@@ -393,7 +393,7 @@ function verifyPackageTypes(
         const jsonReport = buildTypeCompletenessReport(packageName, report);
 
         if (outputJson) {
-            console.log(JSON.stringify(jsonReport, undefined, 4));
+            console.log(JSON.stringify(jsonReport, /* replacer */ undefined, 4));
         } else {
             printTypeCompletenessReportText(jsonReport, verboseOutput);
         }
@@ -694,7 +694,7 @@ function reportDiagnosticsAsJson(
         });
     });
 
-    console.log(JSON.stringify(report, undefined, 4));
+    console.log(JSON.stringify(report, /* replacer */ undefined, 4));
 
     return {
         errorCount: report.summary.errorCount,

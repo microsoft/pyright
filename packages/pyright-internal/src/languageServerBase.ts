@@ -217,7 +217,7 @@ interface ClientCapabilities {
     completionItemResolveSupportsAdditionalTextEdits: boolean;
 }
 
-const nullProgressReporter = attachWorkDone(undefined as any, undefined);
+const nullProgressReporter = attachWorkDone(undefined as any, /* params */ undefined);
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _defaultClientConfig: any;
@@ -879,7 +879,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 );
             }
 
-            const sigInfo = SignatureInformation.create(sig.label, undefined, ...paramInfo);
+            const sigInfo = SignatureInformation.create(sig.label, /* documentation */ undefined, ...paramInfo);
             if (sig.documentation !== undefined) {
                 sigInfo.documentation = sig.documentation;
             }
@@ -1237,7 +1237,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         item: CompletionItem,
         token: CancellationToken
     ): void {
-        workspace.serviceInstance.resolveCompletionItem(filePath, item, this.getCompletionOptions(), undefined, token);
+        workspace.serviceInstance.resolveCompletionItem(
+            filePath,
+            item,
+            this.getCompletionOptions(),
+            /* nameMap */ undefined,
+            token
+        );
     }
 
     protected getWorkspaceCompletionsForPosition(
@@ -1415,7 +1421,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
 
         const serverInitiatedReporter = await this._connection.window.createWorkDoneProgress();
-        serverInitiatedReporter.begin(title, undefined, undefined, true);
+        serverInitiatedReporter.begin(
+            title,
+            /* percentage */ undefined,
+            /* message */ undefined,
+            /* cancellable */ true
+        );
 
         return {
             reporter: serverInitiatedReporter,

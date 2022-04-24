@@ -299,7 +299,7 @@ export class ImportResolver {
             }
         }
 
-        return this.addResultsToCache(execEnv, importName, notFoundResult, undefined);
+        return this.addResultsToCache(execEnv, importName, notFoundResult, /* importedSymbols */ undefined);
     }
 
     getCompletionSuggestions(
@@ -327,7 +327,7 @@ export class ImportResolver {
                 current,
                 moduleDescriptor,
                 suggestions,
-                /*strictOnly*/ false
+                /* strictOnly */ false
             );
 
             let success;
@@ -1589,7 +1589,7 @@ export class ImportResolver {
                 moduleDescriptor,
                 execEnv,
                 importFailureInfo,
-                /*includeMatchOnly*/ false
+                /* includeMatchOnly */ false
             );
 
             const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);

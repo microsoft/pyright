@@ -938,7 +938,7 @@ export class CompletionProvider {
         partialName: NameNode,
         decorators?: DecoratorNode[]
     ): CompletionResults | undefined {
-        const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, true);
+        const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, /* stopAtFunction */ true);
         if (!enclosingClass) {
             return undefined;
         }
@@ -1355,7 +1355,7 @@ export class CompletionProvider {
             priorWord,
             priorText,
             postText,
-            /*atArgument*/ false,
+            /* atArgument */ false,
             completionMap
         );
 
@@ -1387,8 +1387,8 @@ export class CompletionProvider {
             ) {
                 this._tryAddTypedDictStringLiteral(
                     parseNode.parent,
-                    /*priorText*/ undefined,
-                    /*postText*/ undefined,
+                    /* priorText */ undefined,
+                    /* postText */ undefined,
                     completionMap
                 );
             } else if (parseNode.category === ErrorExpressionCategory.MissingExpression) {
@@ -2076,7 +2076,12 @@ export class CompletionProvider {
         }
 
         results.push(
-            ...autoImporter.getAutoImportCandidates(priorWord, similarityLimit, undefined, this._cancellationToken)
+            ...autoImporter.getAutoImportCandidates(
+                priorWord,
+                similarityLimit,
+                /* abbrFromUsers */ undefined,
+                this._cancellationToken
+            )
         );
 
         const perfInfo = autoImporter.getPerfInfo();
@@ -2088,7 +2093,7 @@ export class CompletionProvider {
                     autoImportSource: result.source,
                     autoImportAlias: result.alias,
                     edits: {
-                        textEdit: this._createReplaceEdits(priorWord, undefined, result.insertionText),
+                        textEdit: this._createReplaceEdits(priorWord, /* node */ undefined, result.insertionText),
                         additionalTextEdits: result.edits,
                     },
                 });
@@ -2101,7 +2106,7 @@ export class CompletionProvider {
                     {
                         autoImportText: this._getAutoImportText(result.name, result.source, result.alias),
                         edits: {
-                            textEdit: this._createReplaceEdits(priorWord, undefined, result.insertionText),
+                            textEdit: this._createReplaceEdits(priorWord, /* node */ undefined, result.insertionText),
                             additionalTextEdits: result.edits,
                         },
                     }

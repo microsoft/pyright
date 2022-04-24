@@ -1345,7 +1345,7 @@ export class Tokenizer {
                 this._cs.moveNext();
 
                 // Skip exponent value
-                this._skipDecimalNumber(true);
+                this._skipDecimalNumber(/* allowSign */ true);
             }
         }
         return this._cs.position > start;

@@ -77,7 +77,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         target: FlowGraphNode;
     }
 
-    const links: Record<number, FlowGraphNode> = Object.create(/*o*/ null);
+    const links: Record<number, FlowGraphNode> = Object.create(/* o */ null);
     const nodes: FlowGraphNode[] = [];
     const edges: FlowGraphEdge[] = [];
     const root = buildGraphNode(flowNode, new Set());

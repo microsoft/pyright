@@ -304,7 +304,7 @@ export class Binder extends ParseTreeWalker {
                 usesUnsupportedDunderAllForm: this._usesUnsupportedDunderAllForm,
             });
         } else {
-            AnalyzerNodeInfo.setDunderAllInfo(node, undefined);
+            AnalyzerNodeInfo.setDunderAllInfo(node, /* names */ undefined);
         }
 
         // Set __all__ flags on the module symbols.
@@ -421,7 +421,7 @@ export class Binder extends ParseTreeWalker {
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
-        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
         const functionDeclaration: FunctionDeclaration = {
             type: DeclarationType.Function,
             node,
@@ -2246,7 +2246,7 @@ export class Binder extends ParseTreeWalker {
         const symbolName = node.module.nameParts[0].value;
         const symbol = this._bindNameToScope(this._currentScope, symbolName);
         if (symbol) {
-            this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
+            this._createAliasDeclarationForMultipartImportName(node, /* importAlias */ undefined, importInfo, symbol);
         }
 
         this._createFlowAssignment(node.module.nameParts[0]);
@@ -2587,7 +2587,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _disableTrueFalseTargets(callback: () => void): void {
-        this._setTrueFalseTargets(undefined, undefined, callback);
+        this._setTrueFalseTargets(/* trueTarget */ undefined, /* falseTarget */ undefined, callback);
     }
 
     private _setTrueFalseTargets(

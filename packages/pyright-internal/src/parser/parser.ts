@@ -2082,7 +2082,7 @@ export class Parser {
         let nameToken = this._getTokenIfIdentifier();
         if (!nameToken) {
             this._addError(Localizer.Diagnostic.expectedClassName(), this._peekToken());
-            nameToken = IdentifierToken.create(0, 0, '', undefined);
+            nameToken = IdentifierToken.create(0, 0, '', /* comments */ undefined);
         }
 
         let argList: ArgumentNode[] = [];
@@ -4243,7 +4243,14 @@ export class Parser {
         }
 
         const tokenOffset = curToken.start + curToken.length + match[1].length;
-        return StringToken.create(tokenOffset, typeString.length, StringTokenFlags.None, typeString, 0, undefined);
+        return StringToken.create(
+            tokenOffset,
+            typeString.length,
+            StringTokenFlags.None,
+            typeString,
+            0,
+            /* comments */ undefined
+        );
     }
 
     private _parseVariableTypeAnnotationComment(): ExpressionNode | undefined {
