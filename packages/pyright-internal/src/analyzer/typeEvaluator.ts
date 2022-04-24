@@ -4559,34 +4559,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (typeResult?.isAsymmetricDescriptor) {
                         isAsymmetricDescriptor = true;
                     }
-                } else if (
-                    ClassType.isBuiltIn(baseType, 'type') &&
-                    objectType &&
-                    isClassInstance(objectType) &&
-                    !baseTypeResult.isSuperCall
-                ) {
-                    // Handle the case where the base type is an instance of 'type'. We'll
-                    // treat it as an instantiable subclass of 'object'.
-                    const typeResult = getTypeOfClassMember(
-                        node.memberName,
-                        ClassType.cloneAsInstantiable(objectType),
-                        memberName,
-                        usage,
-                        diag,
-                        MemberAccessFlags.None,
-                        baseTypeResult.bindToType
-                            ? (convertToInstance(baseTypeResult.bindToType) as ClassType | TypeVarType)
-                            : undefined
-                    );
-
-                    type = typeResult?.type;
-                    if (typeResult?.isIncomplete) {
-                        isIncomplete = true;
-                    }
-
-                    if (typeResult?.isAsymmetricDescriptor) {
-                        isAsymmetricDescriptor = true;
-                    }
                 } else {
                     // Handle the special case of LiteralString.
                     if (

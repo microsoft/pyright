@@ -3,22 +3,10 @@
 
 # pyright: strict
 
-from typing import Type, TypeVar
+from typing import TypeVar
 
-T = TypeVar("T")
-
-
-def func1(t: Type[T]) -> Type[T]:
-    def __repr__(self: T) -> str:
-        ...
-
-    t.__repr__ = __repr__
-    return t
+Cls = TypeVar("Cls")
 
 
-def func2(t: type) -> type:
-    def __repr__(self: object) -> str:
-        ...
-
-    t.__repr__ = __repr__
-    return t
+def func(cls: type[Cls]) -> list[type[Cls]]:
+    return cls.__subclasses__()
