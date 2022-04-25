@@ -1776,26 +1776,18 @@ export namespace UnionType {
         // If we're adding a string literal or integer type, add it to the
         // corresponding literal map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of literals.
-        if (
-            isClassInstance(newType) &&
-            ClassType.isBuiltIn(newType, 'str') &&
-            newType.literalValue !== undefined &&
-            newType.condition === undefined
-        ) {
-            if (unionType.literalStrMap === undefined) {
-                unionType.literalStrMap = new Map<string, UnionableType>();
+        if (isClassInstance(newType) && newType.literalValue !== undefined && newType.condition === undefined) {
+            if (ClassType.isBuiltIn(newType, 'str')) {
+                if (unionType.literalStrMap === undefined) {
+                    unionType.literalStrMap = new Map<string, UnionableType>();
+                }
+                unionType.literalStrMap.set(newType.literalValue as string, newType);
+            } else if (ClassType.isBuiltIn(newType, 'int')) {
+                if (unionType.literalIntMap === undefined) {
+                    unionType.literalIntMap = new Map<bigint | number, UnionableType>();
+                }
+                unionType.literalIntMap.set(newType.literalValue as number | bigint, newType);
             }
-            unionType.literalStrMap.set(newType.literalValue as string, newType);
-        } else if (
-            isClassInstance(newType) &&
-            ClassType.isBuiltIn(newType, 'int') &&
-            newType.literalValue !== undefined &&
-            newType.condition === undefined
-        ) {
-            if (unionType.literalIntMap === undefined) {
-                unionType.literalIntMap = new Map<bigint | number, UnionableType>();
-            }
-            unionType.literalIntMap.set(newType.literalValue as number | bigint, newType);
         }
 
         unionType.flags &= newType.flags;
@@ -1805,18 +1797,10 @@ export namespace UnionType {
     export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
-        if (isClassInstance(subtype) && subtype.condition === undefined) {
-            if (
-                ClassType.isBuiltIn(subtype, 'str') &&
-                subtype.literalValue !== undefined &&
-                unionType.literalStrMap !== undefined
-            ) {
+        if (isClassInstance(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
+            if (ClassType.isBuiltIn(subtype, 'str') && unionType.literalStrMap !== undefined) {
                 return unionType.literalStrMap.has(subtype.literalValue as string);
-            } else if (
-                ClassType.isBuiltIn(subtype, 'int') &&
-                subtype.literalValue !== undefined &&
-                unionType.literalIntMap !== undefined
-            ) {
+            } else if (ClassType.isBuiltIn(subtype, 'int') && unionType.literalIntMap !== undefined) {
                 return unionType.literalIntMap.has(subtype.literalValue as number | bigint);
             }
         }
@@ -2580,12 +2564,15 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
 export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     // Filter out any "Never" and "NoReturn" types.
     let sawNoReturn = false;
-    subtypes = subtypes.filter((subtype) => {
-        if (subtype.category === TypeCategory.Never && subtype.isNoReturn) {
-            sawNoReturn = true;
-        }
-        return subtype.category !== TypeCategory.Never;
-    });
+
+    if (subtypes.some((subtype) => subtype.category === TypeCategory.Never))
+        subtypes = subtypes.filter((subtype) => {
+            if (subtype.category === TypeCategory.Never && subtype.isNoReturn) {
+                sawNoReturn = true;
+            }
+            return subtype.category !== TypeCategory.Never;
+        });
+
     if (subtypes.length === 0) {
         return sawNoReturn ? NeverType.createNoReturn() : NeverType.createNever();
     }
@@ -2593,10 +2580,12 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     // Handle the common case where there is only one type.
     // Also handle the common case where there are multiple copies of the same type.
     let allSubtypesAreSame = true;
-    for (let index = 1; index < subtypes.length; index++) {
-        if (subtypes[index] !== subtypes[0]) {
-            allSubtypesAreSame = false;
-            break;
+    if (subtypes.length > 1) {
+        for (let index = 1; index < subtypes.length; index++) {
+            if (subtypes[index] !== subtypes[0]) {
+                allSubtypesAreSame = false;
+                break;
+            }
         }
     }
 
