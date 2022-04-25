@@ -6707,6 +6707,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     appendArray(entryTypes, typeArgs);
                 }
+            } else if (isNever(typeResult.type) && typeResult.isIncomplete && !typeResult.unpackedType) {
+                entryTypes.push({ type: UnknownType.create(/* isIncomplete */ true), isUnbounded: false });
             } else {
                 entryTypes.push({ type: typeResult.type, isUnbounded: !!typeResult.unpackedType });
             }
