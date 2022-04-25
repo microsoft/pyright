@@ -539,12 +539,12 @@ const maxInferFunctionReturnRecursionCount = 16;
 // from the type cache.
 const verifyTypeCacheEvaluatorFlags = false;
 
+// This debugging option prints each expression and its evaluated type.
+const printExpressionTypes = false;
+
 // If the number of subtypes starts to explode when applying "literal math",
 // cut off the literal union and fall back to the non-literal supertype.
 const maxLiteralMathSubtypeCount = 64;
-
-// This debugging option prints each expression and its evaluated type.
-const printExpressionTypes = false;
 
 // The following number is chosen somewhat arbitrarily. We need to cut
 // off code flow analysis at some point for code flow graphs that are too
