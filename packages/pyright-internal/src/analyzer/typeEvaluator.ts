@@ -22219,7 +22219,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function canAssignFunctionParameter(
         destType: Type,
         srcType: Type,
-        paramIndex: number,
+        paramIndex: number | undefined,
         diag: DiagnosticAddendum | undefined,
         destTypeVarContext: TypeVarContext,
         srcTypeVarContext: TypeVarContext,
@@ -22285,7 +22285,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (reverseMatchingFailed) {
-                if (diag) {
+                if (diag && paramIndex !== undefined) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.paramAssignment().format({
                             index: paramIndex + 1,
@@ -22331,7 +22331,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // to lambdas during bidirectional inference do not match the TypeVar scope
             // of the lambda itself.
             if (!isTypeSame(destType, srcType)) {
-                if (diag) {
+                if (diag && paramIndex !== undefined) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.paramAssignment().format({
                             index: paramIndex + 1,
@@ -22829,11 +22829,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     : destParamType;
 
                                 if (
-                                    !canAssignType(
+                                    !canAssignFunctionParameter(
+                                        destParamInfo.type,
                                         srcParamType,
-                                        specializedDestParamType,
+                                        /* paramIndex */ undefined,
                                         paramDiag?.createAddendum(),
-                                        undefined,
+                                        destTypeVarContext,
+                                        srcTypeVarContext,
                                         flags,
                                         recursionCount
                                     )
