@@ -1865,6 +1865,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (boundMethod) {
                     return boundMethod;
                 }
+            } else if (isAnyOrUnknown(unboundMethodType)) {
+                const unknownFunction = FunctionType.createSynthesizedInstance(
+                    '',
+                    FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                );
+                FunctionType.addDefaultParameters(unknownFunction);
+                return unknownFunction;
             }
         }
 
