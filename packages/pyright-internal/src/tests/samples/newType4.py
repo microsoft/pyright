@@ -1,6 +1,6 @@
 # This sample tests some error conditions for NewType usage.
 
-from typing import NewType
+from typing import Literal, NewType, Sized, Union
 
 
 A = NewType("A", Union[int, str])
