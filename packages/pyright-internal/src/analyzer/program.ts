@@ -1248,7 +1248,7 @@ export class Program {
 
                 results.push(
                     ...autoImporter
-                        .getAutoImportCandidates(writtenWord, similarityLimit, undefined, token)
+                        .getAutoImportCandidates(writtenWord, similarityLimit, /* abbrFromUsers */ undefined, token)
                         .filter((r) => !currentScope.lookUpSymbolRecursive(r.name))
                 );
             }
@@ -2124,7 +2124,7 @@ export class Program {
     }
 
     test_createSourceMapper(execEnv: ExecutionEnvironment) {
-        return this._createSourceMapper(execEnv, /*mapCompiled*/ false);
+        return this._createSourceMapper(execEnv, /* mapCompiled */ false);
     }
 
     private _getRenameSymbolMode(

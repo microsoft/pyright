@@ -287,6 +287,12 @@ test('Loops23', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Loops24', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops24.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ForLoop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop1.py']);
 
@@ -601,7 +607,7 @@ test('MethodOverride1', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 25);
+    TestUtils.validateResults(analysisResults, 31);
 });
 
 test('MethodOverride2', () => {

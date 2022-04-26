@@ -317,7 +317,7 @@ export function getCodeFlowEngine(
                         // We can get here if there are nodes in a compound logical expression
                         // (e.g. "False and x") that are never executed but are evaluated.
                         // The type doesn't matter in this case.
-                        return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                        return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
@@ -333,7 +333,7 @@ export function getCodeFlowEngine(
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
                         if (isCallNoReturn(callFlowNode)) {
-                            return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                            return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                         }
 
                         curFlowNode = callFlowNode.antecedent;
@@ -413,7 +413,7 @@ export function getCodeFlowEngine(
 
                             if (contextManagerSwallowsExceptions === contextMgrNode.blockIfSwallowsExceptions) {
                                 // Do not explore any further along this code flow path.
-                                return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                                return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                             }
                         }
 
@@ -469,7 +469,7 @@ export function getCodeFlowEngine(
 
                             // Before calling getTypeNarrowingCallback, set the type
                             // of this flow node in the cache to prevent recursion.
-                            setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
+                            setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ true);
 
                             try {
                                 const typeNarrowingCallback = getTypeNarrowingCallback(
@@ -579,7 +579,7 @@ export function getCodeFlowEngine(
 
                         // If the narrowed type is "never", don't allow further exploration.
                         if (narrowedTypeResult && isNever(narrowedTypeResult.type)) {
-                            return setCacheEntry(curFlowNode, undefined, !!narrowedTypeResult.isIncomplete);
+                            return setCacheEntry(curFlowNode, /* type */ undefined, !!narrowedTypeResult.isIncomplete);
                         }
 
                         curFlowNode = exhaustedMatchFlowNode.antecedent;
@@ -600,7 +600,11 @@ export function getCodeFlowEngine(
                             if (typeResult) {
                                 if (!reference) {
                                     if (isNever(typeResult.type)) {
-                                        return setCacheEntry(curFlowNode, undefined, !!typeResult.isIncomplete);
+                                        return setCacheEntry(
+                                            curFlowNode,
+                                            /* type */ undefined,
+                                            !!typeResult.isIncomplete
+                                        );
                                     }
                                 } else {
                                     return setCacheEntry(curFlowNode, typeResult.type, !!typeResult.isIncomplete);
@@ -629,7 +633,7 @@ export function getCodeFlowEngine(
                             const nameValue = reference.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 // Before calling getTypeFromWildcardImport, set the cache entry to prevent infinite recursion.
-                                setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
+                                setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ true);
 
                                 try {
                                     const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
@@ -647,7 +651,7 @@ export function getCodeFlowEngine(
 
                     // We shouldn't get here.
                     fail('Unexpected flow node flags');
-                    return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                    return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                 }
             }
 

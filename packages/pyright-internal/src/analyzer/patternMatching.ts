@@ -478,7 +478,11 @@ function narrowTypeBasedOnClassPattern(
         let classType = exprType;
 
         if (classType.details.typeParameters.length > 0) {
-            classType = ClassType.cloneForSpecialization(classType, undefined, /* isTypeArgumentExplicit */ false);
+            classType = ClassType.cloneForSpecialization(
+                classType,
+                /* typeArguments */ undefined,
+                /* isTypeArgumentExplicit */ false
+            );
         }
 
         const classInstance = convertToInstance(classType);

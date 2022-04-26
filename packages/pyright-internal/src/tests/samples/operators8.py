@@ -110,3 +110,16 @@ def func5(
 ):
     # Make sure this degenerate case falls back to "str".
     reveal_type(a + b + c + d + e + f + g + h + i, expected_text="str")
+
+
+def func6(x: Literal[1, 3, 5, 7, 11, 13]):
+    y = x
+    y *= x
+
+    reveal_type(
+        y,
+        expected_text="Literal[1, 3, 5, 7, 11, 13, 9, 15, 21, 33, 39, 25, 35, 55, 65, 49, 77, 91, 121, 143, 169]",
+    )
+
+    y *= x
+    reveal_type(y, expected_text="int")

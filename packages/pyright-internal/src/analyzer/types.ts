@@ -1757,7 +1757,7 @@ export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
     subtypes: UnionableType[];
     literalStrMap?: Map<string, UnionableType> | undefined;
-    literalIntMap?: Map<number, UnionableType> | undefined;
+    literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     typeAliasSources?: Set<UnionType>;
 }
 
@@ -1773,30 +1773,21 @@ export namespace UnionType {
     }
 
     export function addType(unionType: UnionType, newType: UnionableType) {
-        // If we're adding a string literal type, add it to the
-        // literal string map to speed up some operations. It's not
-        // uncommon for unions to contain hundreds of string literals.
-        if (
-            isClassInstance(newType) &&
-            ClassType.isBuiltIn(newType, 'str') &&
-            newType.literalValue !== undefined &&
-            newType.condition === undefined
-        ) {
-            if (unionType.literalStrMap === undefined) {
-                unionType.literalStrMap = new Map<string, UnionableType>();
+        // If we're adding a string literal or integer type, add it to the
+        // corresponding literal map to speed up some operations. It's not
+        // uncommon for unions to contain hundreds of literals.
+        if (isClassInstance(newType) && newType.literalValue !== undefined && newType.condition === undefined) {
+            if (ClassType.isBuiltIn(newType, 'str')) {
+                if (unionType.literalStrMap === undefined) {
+                    unionType.literalStrMap = new Map<string, UnionableType>();
+                }
+                unionType.literalStrMap.set(newType.literalValue as string, newType);
+            } else if (ClassType.isBuiltIn(newType, 'int')) {
+                if (unionType.literalIntMap === undefined) {
+                    unionType.literalIntMap = new Map<bigint | number, UnionableType>();
+                }
+                unionType.literalIntMap.set(newType.literalValue as number | bigint, newType);
             }
-            unionType.literalStrMap.set(newType.literalValue as string, newType);
-        } else if (
-            isClassInstance(newType) &&
-            ClassType.isBuiltIn(newType, 'int') &&
-            newType.literalValue !== undefined &&
-            typeof newType.literalValue === 'number' &&
-            newType.condition === undefined
-        ) {
-            if (unionType.literalIntMap === undefined) {
-                unionType.literalIntMap = new Map<number, UnionableType>();
-            }
-            unionType.literalIntMap.set(newType.literalValue as number, newType);
         }
 
         unionType.flags &= newType.flags;
@@ -1806,20 +1797,11 @@ export namespace UnionType {
     export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
-        if (isClassInstance(subtype) && subtype.condition === undefined) {
-            if (
-                ClassType.isBuiltIn(subtype, 'str') &&
-                subtype.literalValue !== undefined &&
-                unionType.literalStrMap !== undefined
-            ) {
+        if (isClassInstance(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
+            if (ClassType.isBuiltIn(subtype, 'str') && unionType.literalStrMap !== undefined) {
                 return unionType.literalStrMap.has(subtype.literalValue as string);
-            } else if (
-                ClassType.isBuiltIn(subtype, 'int') &&
-                subtype.literalValue !== undefined &&
-                typeof subtype.literalValue === 'number' &&
-                unionType.literalIntMap !== undefined
-            ) {
-                return unionType.literalIntMap.has(subtype.literalValue as number);
+            } else if (ClassType.isBuiltIn(subtype, 'int') && unionType.literalIntMap !== undefined) {
+                return unionType.literalIntMap.has(subtype.literalValue as number | bigint);
             }
         }
 
@@ -2582,12 +2564,15 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
 export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     // Filter out any "Never" and "NoReturn" types.
     let sawNoReturn = false;
-    subtypes = subtypes.filter((subtype) => {
-        if (subtype.category === TypeCategory.Never && subtype.isNoReturn) {
-            sawNoReturn = true;
-        }
-        return subtype.category !== TypeCategory.Never;
-    });
+
+    if (subtypes.some((subtype) => subtype.category === TypeCategory.Never))
+        subtypes = subtypes.filter((subtype) => {
+            if (subtype.category === TypeCategory.Never && subtype.isNoReturn) {
+                sawNoReturn = true;
+            }
+            return subtype.category !== TypeCategory.Never;
+        });
+
     if (subtypes.length === 0) {
         return sawNoReturn ? NeverType.createNoReturn() : NeverType.createNever();
     }
@@ -2595,10 +2580,12 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     // Handle the common case where there is only one type.
     // Also handle the common case where there are multiple copies of the same type.
     let allSubtypesAreSame = true;
-    for (let index = 1; index < subtypes.length; index++) {
-        if (subtypes[index] !== subtypes[0]) {
-            allSubtypesAreSame = false;
-            break;
+    if (subtypes.length > 1) {
+        for (let index = 1; index < subtypes.length; index++) {
+            if (subtypes[index] !== subtypes[0]) {
+                allSubtypesAreSame = false;
+                break;
+            }
         }
     }
 
@@ -2697,13 +2684,13 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
 
     if (isInstantiableClass(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
-        srcType = ClassType.cloneWithLiteral(srcType, undefined);
+        srcType = ClassType.cloneWithLiteral(srcType, /* value */ undefined);
         return isTypeSame(destType, srcType);
     }
 
     if (isClassInstance(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
-        srcType = ClassType.cloneWithLiteral(srcType, undefined);
+        srcType = ClassType.cloneWithLiteral(srcType, /* value */ undefined);
         return isTypeSame(destType, srcType);
     }
 
@@ -2727,10 +2714,9 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
         } else if (
             ClassType.isBuiltIn(typeToAdd, 'int') &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalIntMap !== undefined &&
-            typeof typeToAdd.literalValue === 'number'
+            unionType.literalIntMap !== undefined
         ) {
-            if (!unionType.literalIntMap.has(typeToAdd.literalValue as number)) {
+            if (!unionType.literalIntMap.has(typeToAdd.literalValue as number | bigint)) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;
@@ -2763,7 +2749,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
                 !typeToAdd.condition
             ) {
                 if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
-                    unionType.subtypes[i] = ClassType.cloneWithLiteral(type, undefined);
+                    unionType.subtypes[i] = ClassType.cloneWithLiteral(type, /* value */ undefined);
                     return;
                 }
             }

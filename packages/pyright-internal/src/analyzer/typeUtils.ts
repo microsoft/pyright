@@ -549,7 +549,7 @@ export function getFullNameOfType(type: Type): string | undefined {
 export function stripLiteralValue(type: Type): Type {
     if (isClass(type)) {
         if (type.literalValue !== undefined) {
-            type = ClassType.cloneWithLiteral(type, undefined);
+            type = ClassType.cloneWithLiteral(type, /* value */ undefined);
         }
 
         return type;

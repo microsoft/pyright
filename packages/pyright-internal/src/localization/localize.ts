@@ -1067,6 +1067,9 @@ export namespace Localizer {
         export const overloadWithImplementation = () => getRawString('DiagnosticAddendum.overloadWithImplementation');
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
         export const overriddenSymbol = () => getRawString('DiagnosticAddendum.overriddenSymbol');
+        export const overrideNotClassMethod = () => getRawString('DiagnosticAddendum.overrideNotClassMethod');
+        export const overrideNotInstanceMethod = () => getRawString('DiagnosticAddendum.overrideNotInstanceMethod');
+        export const overrideNotStaticMethod = () => getRawString('DiagnosticAddendum.overrideNotStaticMethod');
         export const overrideParamKeywordNoDefault = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overrideParamKeywordNoDefault'));
         export const overrideParamKeywordType = () =>

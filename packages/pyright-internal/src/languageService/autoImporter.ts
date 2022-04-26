@@ -192,7 +192,7 @@ export class AutoImporter {
         private _moduleSymbolMap: ModuleSymbolMap,
         private _options: AutoImportOptions
     ) {
-        this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
+        this._importStatements = getTopLevelImports(this._parseResults.parseTree, /* includeImplicitImports */ true);
 
         this._perfInfo.indexUsed = !!this._options.libraryMap;
     }

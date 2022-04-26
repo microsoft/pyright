@@ -303,7 +303,7 @@ function _tryHandleMultilineConstructs(parseResults: ParseResults, offset: numbe
             previousTokenSpan.end.line < tokenSpan.start.line &&
             previousToken!.type !== TokenType.NewLine
         ) {
-            const indentationResult = _getIndentation(parseResults, previousToken!.start, /*preferDedent*/ false);
+            const indentationResult = _getIndentation(parseResults, previousToken!.start, /* preferDedent */ false);
             const currentPosition = convertOffsetToPosition(offset, lines);
 
             // Handle multiline constructs (explicit or implicit)

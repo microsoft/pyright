@@ -231,7 +231,7 @@ export function createTracePrinter(roots: string[]): TracePrinter {
         }
 
         if (isNode(o)) {
-            return printNode(o, /*printPath*/ true);
+            return printNode(o, /* printPath */ true);
         }
 
         if (isDeclaration(o)) {

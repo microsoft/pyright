@@ -1084,6 +1084,12 @@ test('Protocol30', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Protocol31', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol31.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
