@@ -3887,6 +3887,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Don't apply this for dataclasses because their class variables
+        // are transformed into instance variables.
+        if (ClassType.isDataClass(classType)) {
+            return;
+        }
+
         classType.details.fields.forEach((symbol, name) => {
             const decls = symbol.getDeclarations();
             const isDefinedBySlots = decls.some(
