@@ -47,6 +47,7 @@ import {
     isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
+    maxTypeRecursionCount,
     NoneType,
     OverloadedFunctionType,
     Type,
@@ -92,10 +93,23 @@ export function getTypeNarrowingCallback(
     evaluator: TypeEvaluator,
     reference: ExpressionNode,
     testExpression: ExpressionNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    recursionCount = 0
 ): TypeNarrowingCallback | undefined {
+    if (recursionCount > maxTypeRecursionCount) {
+        return undefined;
+    }
+
+    recursionCount++;
+
     if (testExpression.nodeType === ParseNodeType.AssignmentExpression) {
-        return getTypeNarrowingCallbackForAssignmentExpression(evaluator, reference, testExpression, isPositiveTest);
+        return getTypeNarrowingCallbackForAssignmentExpression(
+            evaluator,
+            reference,
+            testExpression,
+            isPositiveTest,
+            recursionCount
+        );
     }
 
     if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
@@ -560,7 +574,8 @@ export function getTypeNarrowingCallback(
         evaluator,
         reference,
         testExpression,
-        isPositiveTest
+        isPositiveTest,
+        recursionCount
     );
     if (narrowingCallback) {
         return narrowingCallback;
@@ -571,7 +586,13 @@ export function getTypeNarrowingCallback(
     // in the case of local variables type narrowing.
     if (reference.nodeType === ParseNodeType.Name) {
         if (testExpression.nodeType === ParseNodeType.UnaryOperation && testExpression.operator === OperatorType.Not) {
-            return getTypeNarrowingCallback(evaluator, reference, testExpression.expression, !isPositiveTest);
+            return getTypeNarrowingCallback(
+                evaluator,
+                reference,
+                testExpression.expression,
+                !isPositiveTest,
+                recursionCount
+            );
         }
     }
 
@@ -582,7 +603,8 @@ function getTypeNarrowingCallbackForAliasedCondition(
     evaluator: TypeEvaluator,
     reference: ExpressionNode,
     testExpression: ExpressionNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    recursionCount: number
 ) {
     if (
         testExpression.nodeType !== ParseNodeType.Name ||
@@ -640,7 +662,7 @@ function getTypeNarrowingCallbackForAliasedCondition(
         return undefined;
     }
 
-    return getTypeNarrowingCallback(evaluator, reference, initNode, isPositiveTest);
+    return getTypeNarrowingCallback(evaluator, reference, initNode, isPositiveTest, recursionCount);
 }
 
 // Determines whether the symbol is a local variable or parameter within
@@ -694,11 +716,17 @@ function getTypeNarrowingCallbackForAssignmentExpression(
     evaluator: TypeEvaluator,
     reference: ExpressionNode,
     testExpression: AssignmentExpressionNode,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    recursionCount: number
 ) {
     return (
-        getTypeNarrowingCallback(evaluator, reference, testExpression.rightExpression, isPositiveTest) ??
-        getTypeNarrowingCallback(evaluator, reference, testExpression.name, isPositiveTest)
+        getTypeNarrowingCallback(
+            evaluator,
+            reference,
+            testExpression.rightExpression,
+            isPositiveTest,
+            recursionCount
+        ) ?? getTypeNarrowingCallback(evaluator, reference, testExpression.name, isPositiveTest, recursionCount)
     );
 }
 
