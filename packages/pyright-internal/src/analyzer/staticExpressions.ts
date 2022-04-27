@@ -25,7 +25,7 @@ export function evaluateStaticBoolExpression(
     }
 
     if (node.nodeType === ParseNodeType.UnaryOperation) {
-        if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
+        if (node.operator === OperatorType.Not) {
             const value = evaluateStaticBoolLikeExpression(
                 node.expression,
                 execEnv,
