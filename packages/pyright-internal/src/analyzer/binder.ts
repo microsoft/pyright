@@ -591,7 +591,12 @@ export class Binder extends ParseTreeWalker {
     override visitCall(node: CallNode): boolean {
         this._disableTrueFalseTargets(() => {
             this.walk(node.leftExpression);
-            this.walkMultiple(node.arguments);
+            node.arguments.forEach((argNode) => {
+                if (this._currentFlowNode) {
+                    AnalyzerNodeInfo.setFlowNode(argNode, this._currentFlowNode);
+                }
+                this.walk(argNode);
+            });
         });
         this._createCallFlowNode(node);
 

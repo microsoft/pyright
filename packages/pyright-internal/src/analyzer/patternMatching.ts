@@ -543,7 +543,7 @@ function narrowTypeBasedOnClassPattern(
         );
     }
 
-    if (!TypeBase.isInstantiable(exprType)) {
+    if (!TypeBase.isInstantiable(exprType) && !isNever(exprType)) {
         evaluator.addDiagnostic(
             getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
@@ -1321,12 +1321,14 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
             pattern.className
         );
     } else if (!isInstantiableClass(exprType) || exprType.includeSubclasses) {
-        evaluator.addDiagnostic(
-            getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
-            pattern.className
-        );
+        if (!isNever(exprType)) {
+            evaluator.addDiagnostic(
+                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
+                pattern.className
+            );
+        }
     } else {
         const isBuiltIn = classPatternSpecialCases.some((className) => exprType.details.fullName === className);
 

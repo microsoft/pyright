@@ -1,6 +1,8 @@
 # This sample tests the detection and reporting of unreachable code.
 
 from abc import abstractmethod
+import os
+import sys
 
 
 def func1():
@@ -85,3 +87,26 @@ def func9():
 
     # This should be marked unreachable.
     return 3
+
+
+def func10():
+    e = OSError()
+    a1 = os.name == "nt" and None == e.errno
+    reveal_type(a1, expected_text="bool")
+  
+    a2 = True and os.name == "nt"
+    reveal_type(a2, expected_text="bool")
+              
+    if os.name == "nt":
+        # This should be marked unreachable.
+        b = e.errno                            
+
+    if sys.version_info >= (4, 0):
+        # This should be marked unreachable.
+        b = e.errno
+         
+    return
+    # This should be marked unreachable.
+    b = e.errno
+
+    

@@ -16,6 +16,12 @@ import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
 import * as TestUtils from './testUtils';
 
+test('Unreachable1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py']);
+
+    TestUtils.validateResults(analysisResults, 0, 0, 2, 5);
+});
+
 test('Builtins1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['builtins1.py']);
 
@@ -696,12 +702,6 @@ test('KwargsUnpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['kwargsUnpack1.py']);
 
     TestUtils.validateResults(analysisResults, 11);
-});
-
-test('Unreachable1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py']);
-
-    TestUtils.validateResults(analysisResults, 0, 0, 0, 2);
 });
 
 test('FunctionMember1', () => {

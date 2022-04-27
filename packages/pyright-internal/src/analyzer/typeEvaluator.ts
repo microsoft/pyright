@@ -2630,7 +2630,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node: ParseNode,
         range?: TextRange
     ) {
-        if (!isDiagnosticSuppressedForNode(node)) {
+        if (!isDiagnosticSuppressedForNode(node) && isNodeReachable(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
         }
@@ -3906,15 +3906,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else {
             // Handle the special case of "reveal_type" and "reveal_locals".
-            if (name !== 'reveal_type' && name !== 'reveal_locals') {
+            if (name === 'reveal_type' || name === 'reveal_locals') {
+                type = AnyType.create();
+            } else {
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportUndefinedVariable,
                     DiagnosticRule.reportUndefinedVariable,
                     Localizer.Diagnostic.symbolIsUndefined().format({ name }),
                     node
                 );
+
+                type = UnknownType.create();
             }
-            type = UnknownType.create();
         }
 
         if (isParamSpec(type)) {
@@ -4472,13 +4475,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         switch (baseType.category) {
             case TypeCategory.Any:
-            case TypeCategory.Unknown: {
-                type = baseType;
-                break;
-            }
-
+            case TypeCategory.Unknown:
             case TypeCategory.Never: {
-                type = UnknownType.create();
+                type = baseType;
                 break;
             }
 
@@ -11370,6 +11369,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 concreteLeftType = removeTruthinessFromType(concreteLeftType);
+
+                if (isNever(rightType)) {
+                    return concreteLeftType;
+                }
             } else if (operator === OperatorType.Or) {
                 // If the LHS evaluates to truthy, the Or expression will
                 // always return the type of the left-hand side.
@@ -11384,6 +11387,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 concreteLeftType = removeFalsinessFromType(concreteLeftType);
+
+                if (isNever(rightType)) {
+                    return concreteLeftType;
+                }
             }
 
             if (isNever(leftType) || isNever(rightType)) {

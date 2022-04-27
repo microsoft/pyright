@@ -62,6 +62,7 @@ import {
     isTypeSame,
     isTypeVar,
     ModuleType,
+    NeverType,
     removeIncompleteUnknownFromUnion,
     Type,
     TypeVarType,
@@ -316,8 +317,7 @@ export function getCodeFlowEngine(
                     if (curFlowNode.flags & FlowFlags.Unreachable) {
                         // We can get here if there are nodes in a compound logical expression
                         // (e.g. "False and x") that are never executed but are evaluated.
-                        // The type doesn't matter in this case.
-                        return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
+                        return setCacheEntry(curFlowNode, NeverType.createNever(), /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
