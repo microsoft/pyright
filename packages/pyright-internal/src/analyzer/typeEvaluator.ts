@@ -1846,6 +1846,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getBoundMethod(
         classType: ClassType,
         memberName: string,
+        recursionCount = 0,
         treatConstructorAsClassMember = false
     ): FunctionType | OverloadedFunctionType | undefined {
         const memberInfo = lookUpClassMember(classType, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
@@ -1858,7 +1859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     unboundMethodType,
                     /* memberClass */ undefined,
                     /* errorNode */ undefined,
-                    /* recursionCount */ undefined,
+                    recursionCount,
                     treatConstructorAsClassMember
                 );
 
@@ -1995,6 +1996,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const constructorType = getBoundMethod(
                                 subtype,
                                 '__new__',
+                                /* recursionCount */ undefined,
                                 /* treatConstructorAsClassMember */ true
                             );
 
@@ -21436,7 +21438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             } else if (isFunction(concreteSrcType) || isOverloadedFunction(concreteSrcType)) {
                 // Is the destination a callback protocol (defined in PEP 544)?
-                const destCallbackType = getCallbackProtocolType(destType);
+                const destCallbackType = getCallbackProtocolType(destType, recursionCount);
                 if (destCallbackType) {
                     return canAssignType(
                         destCallbackType,
@@ -21471,7 +21473,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (isInstantiableClass(concreteSrcType)) {
                 // See if the destType is an instantiation of a Protocol
                 // class that is effectively a function.
-                const callbackType = getCallbackProtocolType(destType);
+                const callbackType = getCallbackProtocolType(destType, recursionCount);
                 if (callbackType) {
                     return canAssignType(callbackType, concreteSrcType, diag, typeVarContext, flags, recursionCount);
                 }
@@ -21519,7 +21521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
             if (isClassInstance(concreteSrcType)) {
-                const boundMethod = getBoundMethod(concreteSrcType, '__call__');
+                const boundMethod = getBoundMethod(concreteSrcType, '__call__', recursionCount);
                 if (boundMethod) {
                     concreteSrcType = removeParamSpecVariadicsFromSignature(boundMethod);
                 }
@@ -22197,7 +22199,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // or attributes that would be incompatible with a function, this method returns
     // the signature of the call implied by the `__call__` method. Otherwise it returns
     // undefined.
-    function getCallbackProtocolType(objType: ClassType): FunctionType | OverloadedFunctionType | undefined {
+    function getCallbackProtocolType(objType: ClassType, recursionCount = 0): FunctionType | OverloadedFunctionType | undefined {
         if (!isClassInstance(objType) || !ClassType.isProtocolClass(objType)) {
             return undefined;
         }
@@ -22224,7 +22226,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const boundMethod = getBoundMethod(objType, '__call__');
+        const boundMethod = getBoundMethod(objType, '__call__', recursionCount);
         if (boundMethod) {
             return removeParamSpecVariadicsFromSignature(boundMethod);
         }
