@@ -22199,7 +22199,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // or attributes that would be incompatible with a function, this method returns
     // the signature of the call implied by the `__call__` method. Otherwise it returns
     // undefined.
-    function getCallbackProtocolType(objType: ClassType, recursionCount = 0): FunctionType | OverloadedFunctionType | undefined {
+    function getCallbackProtocolType(
+        objType: ClassType,
+        recursionCount = 0
+    ): FunctionType | OverloadedFunctionType | undefined {
         if (!isClassInstance(objType) || !ClassType.isProtocolClass(objType)) {
             return undefined;
         }
