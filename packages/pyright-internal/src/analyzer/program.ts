@@ -1032,7 +1032,15 @@ export class Program {
 
                     closureMap.forEach((file) => {
                         timingStats.cycleDetectionTime.timeOperation(() => {
-                            this._detectAndReportImportCycles(file);
+                            const filesVisitedMap = new Map<string, SourceFileInfo>();
+
+                            if (!this._detectAndReportImportCycles(file, filesVisitedMap)) {
+                                // If no cycles were reported, set a flag in all of the visited files
+                                // so we don't need to visit them again on subsequent cycle checks.
+                                filesVisitedMap.forEach((sourceFileInfo) => {
+                                    sourceFileInfo.sourceFile.setNoCircularDependencyConfirmed();
+                                });
+                            }
                         });
                     });
                 }
@@ -1076,13 +1084,23 @@ export class Program {
 
     private _detectAndReportImportCycles(
         sourceFileInfo: SourceFileInfo,
+        filesVisited: Map<string, SourceFileInfo>,
         dependencyChain: SourceFileInfo[] = [],
         dependencyMap = new Map<string, boolean>()
-    ): void {
+    ): boolean {
         // Don't bother checking for typestub files or third-party files.
         if (sourceFileInfo.sourceFile.isStubFile() || sourceFileInfo.isThirdPartyImport) {
-            return;
+            return false;
         }
+
+        // If we've already confirmed that this source file isn't part of a
+        // cycle, we can skip it entirely.
+        if (sourceFileInfo.sourceFile.isNoCircularDependencyConfirmed()) {
+            return false;
+        }
+
+        filesVisited.set(sourceFileInfo.sourceFile.getFilePath(), sourceFileInfo);
+        let detectedCycle = false;
 
         const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
         if (dependencyMap.has(filePath)) {
@@ -1091,12 +1109,13 @@ export class Program {
             // itself, but those are not interesting to report.
             if (dependencyChain.length > 1 && sourceFileInfo === dependencyChain[0]) {
                 this._logImportCycle(dependencyChain);
+                detectedCycle = true;
             }
         } else {
             // If we've already checked this dependency along
             // some other path, we can skip it.
             if (dependencyMap.has(filePath)) {
-                return;
+                return false;
             }
 
             // We use both a map (for fast lookups) and a list
@@ -1107,7 +1126,9 @@ export class Program {
             dependencyChain.push(sourceFileInfo);
 
             for (const imp of sourceFileInfo.imports) {
-                this._detectAndReportImportCycles(imp, dependencyChain, dependencyMap);
+                if (this._detectAndReportImportCycles(imp, filesVisited, dependencyChain, dependencyMap)) {
+                    detectedCycle = true;
+                }
             }
 
             // Set the dependencyMap entry to false to indicate that we have
@@ -1115,6 +1136,8 @@ export class Program {
             dependencyMap.set(filePath, false);
             dependencyChain.pop();
         }
+
+        return detectedCycle;
     }
 
     private _logImportCycle(dependencyChain: SourceFileInfo[]) {

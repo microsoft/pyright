@@ -157,6 +157,7 @@ export class SourceFile {
 
     // Circular dependencies that have been reported in this file.
     private _circularDependencies: CircularDependency[] = [];
+    private _noCircularDependencyConfirmed = false;
 
     // Did we hit the maximum import depth?
     private _hitMaxImportDepth: number | undefined;
@@ -533,6 +534,7 @@ export class SourceFile {
 
     markDirty(indexingNeeded = true): void {
         this._fileContentsVersion++;
+        this._noCircularDependencyConfirmed = false;
         this._isCheckingNeeded = true;
         this._isBindingNeeded = true;
         this._indexingNeeded = indexingNeeded;
@@ -682,6 +684,14 @@ export class SourceFile {
         if (updatedDependencyList) {
             this._diagnosticVersion++;
         }
+    }
+
+    setNoCircularDependencyConfirmed() {
+        this._noCircularDependencyConfirmed = true;
+    }
+
+    isNoCircularDependencyConfirmed() {
+        return !this.isParseRequired() && this._noCircularDependencyConfirmed;
     }
 
     setHitMaxImportDepth(maxImportDepth: number) {
