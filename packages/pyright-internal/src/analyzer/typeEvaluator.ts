@@ -24073,6 +24073,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const parseOptions = new ParseOptions();
         parseOptions.isStubFile = fileInfo.isStubFile;
         parseOptions.pythonVersion = fileInfo.executionEnvironment.pythonVersion;
+        parseOptions.reportErrorsForParsedStringContents = true;
 
         const parseResults = parser.parseTextExpression(
             fileInfo.fileContents,

@@ -148,6 +148,7 @@ export class ParseOptions {
         this.reportInvalidStringEscapeSequence = false;
         this.skipFunctionAndClassBody = false;
         this.ipythonMode = false;
+        this.reportErrorsForParsedStringContents = false;
     }
 
     isStubFile: boolean;
@@ -155,6 +156,7 @@ export class ParseOptions {
     reportInvalidStringEscapeSequence: boolean;
     skipFunctionAndClassBody: boolean;
     ipythonMode: boolean;
+    reportErrorsForParsedStringContents: boolean;
 }
 
 export interface ParseResults {
@@ -4577,14 +4579,19 @@ export class Parser {
                         this._typingSymbolAliases
                     );
 
-                    parseResults.diagnostics.forEach((diag) => {
-                        this._addError(diag.message, stringNode);
-                    });
+                    if (
+                        parseResults.diagnostics.length === 0 ||
+                        this._parseOptions.reportErrorsForParsedStringContents
+                    ) {
+                        parseResults.diagnostics.forEach((diag) => {
+                            this._addError(diag.message, stringNode);
+                        });
 
-                    if (parseResults.parseTree) {
-                        assert(parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
-                        stringNode.typeAnnotation = parseResults.parseTree;
-                        stringNode.typeAnnotation.parent = stringNode;
+                        if (parseResults.parseTree) {
+                            assert(parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
+                            stringNode.typeAnnotation = parseResults.parseTree;
+                            stringNode.typeAnnotation.parent = stringNode;
+                        }
                     }
                 }
             }
