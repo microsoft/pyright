@@ -14314,6 +14314,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the class derives from "Generic" directly, it will provide
         // all of the type parameters in the specified order.
         let genericTypeParameters: TypeVarType[] | undefined;
+        let protocolTypeParameters: TypeVarType[] | undefined;
 
         const initSubclassArgs: FunctionArgument[] = [];
         let metaclassNode: ExpressionNode | undefined;
@@ -14452,10 +14453,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(argType));
-                if (isInstantiableClass(argType) && ClassType.isBuiltIn(argType, 'Generic')) {
-                    if (!genericTypeParameters) {
-                        genericTypeParameters = [];
-                        addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
+                if (isInstantiableClass(argType)) {
+                    if (ClassType.isBuiltIn(argType, 'Generic')) {
+                        if (!genericTypeParameters) {
+                            if (protocolTypeParameters) {
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.duplicateGenericAndProtocolBase(),
+                                    arg.valueExpression
+                                );
+                            }
+                            genericTypeParameters = [];
+                            addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
+                        }
+                    } else if (
+                        ClassType.isBuiltIn(argType, 'Protocol') &&
+                        argType.typeArguments &&
+                        argType.typeArguments.length > 0
+                    ) {
+                        if (!protocolTypeParameters) {
+                            if (genericTypeParameters) {
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.duplicateGenericAndProtocolBase(),
+                                    arg.valueExpression
+                                );
+                            }
+                            protocolTypeParameters = [];
+                            addTypeVarsToListIfUnique(protocolTypeParameters, getTypeVarArgumentsRecursive(argType));
+                        }
                     }
                 }
             } else if (arg.name.value === 'metaclass') {
@@ -14511,7 +14539,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             classType.details.baseClasses.push(getBuiltInType(node, 'object'));
         }
 
-        // If genericTypeParameters are provided, make sure that typeParameters is a proper subset.
+        // If genericTypeParameters or protocolTypeParameters are provided,
+        // make sure that typeParameters is a proper subset.
+        genericTypeParameters = genericTypeParameters ?? protocolTypeParameters;
         if (genericTypeParameters) {
             verifyGenericTypeParameters(node.name, typeParameters, genericTypeParameters);
         }
@@ -14827,8 +14857,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { classType, decoratedType };
     }
 
-    // Verifies that the type variables provided outside of "Generic" are also
-    // provided within the "Generic". For example:
+    // Verifies that the type variables provided outside of "Generic"
+    // or "Protocol" are also provided within the "Generic". For example:
     //    class Foo(Mapping[K, V], Generic[V])
     // is illegal because K is not included in Generic.
     function verifyGenericTypeParameters(
@@ -14850,7 +14880,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeVarsNotInGeneric() + diag.getString(),
+                Localizer.Diagnostic.typeVarsNotInGenericOrProtocol() + diag.getString(),
                 errorNode
             );
         }

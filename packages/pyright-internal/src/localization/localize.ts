@@ -332,6 +332,7 @@ export namespace Localizer {
         export const duplicateCatchAll = () => getRawString('Diagnostic.duplicateCatchAll');
         export const duplicateEnumMember = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.duplicateEnumMember'));
+        export const duplicateGenericAndProtocolBase = () => getRawString('Diagnostic.duplicateGenericAndProtocolBase');
         export const duplicateImport = () =>
             new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.duplicateImport'));
         export const duplicateKwargsParam = () => getRawString('Diagnostic.duplicateKwargsParam');
@@ -855,7 +856,7 @@ export namespace Localizer {
         export const typeVarNotUsedByOuterScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarNotUsedByOuterScope'));
         export const typeVarSingleConstraint = () => getRawString('Diagnostic.typeVarSingleConstraint');
-        export const typeVarsNotInGeneric = () => getRawString('Diagnostic.typeVarsNotInGeneric');
+        export const typeVarsNotInGenericOrProtocol = () => getRawString('Diagnostic.typeVarsNotInGenericOrProtocol');
         export const typeVarTupleMustBeUnpacked = () => getRawString('Diagnostic.typeVarTupleMustBeUnpacked');
         export const typeVarTupleContext = () => getRawString('Diagnostic.typeVarTupleContext');
         export const typeVarUnknownParam = () =>
