@@ -16778,6 +16778,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
+            // The | operator is contextual in cases where it is used to describe a
+            // union in type annotations.
+            if (node.nodeType === ParseNodeType.BinaryOperation && node.operator === OperatorType.BitwiseOr) {
+                return true;
+            }
+
             return (
                 node.nodeType === ParseNodeType.Call ||
                 node.nodeType === ParseNodeType.Index ||
