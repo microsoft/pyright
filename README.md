@@ -74,8 +74,7 @@ Alternatively, [ALE](https://github.com/dense-analysis/ale) will automatically c
 Sublime text users can install the [LSP-pyright](https://github.com/sublimelsp/LSP-pyright) plugin from [package control](https://packagecontrol.io/packages/LSP-pyright).
 
 ### Emacs
-Emacs users can install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) that includes [lsp-pyright](https://github.com/emacs-lsp/lsp-pyright).
-To activate the pyright extension follow the instructions in the [docs](https://emacs-lsp.github.io/lsp-pyright/).
+Emacs users can install [eglot](https://github.com/joaotavora/eglot) or [lsp-mode](https://github.com/emacs-lsp/lsp-mode) with [lsp-pyright](https://github.com/emacs-lsp/lsp-pyright).
 
 ### Command-line
 A [community-maintained](https://github.com/RobertCraigie/pyright-python) Python package by the name of “pyright” is available on pypi and conda-forge. This package will automatically install node (which Pyright requires) and keep Pyright up to date.
