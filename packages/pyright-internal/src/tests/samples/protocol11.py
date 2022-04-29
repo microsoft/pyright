@@ -29,4 +29,4 @@ class ManagedSourceProvider(SourceProvider[_TBase2]):
         return source
 
     def __next__(self) -> _TBase2:
-        raise NotImplemented
+        raise NotImplementedError
