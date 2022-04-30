@@ -1309,10 +1309,6 @@ export class ImportResolver {
                 if (thirdPartyImport) {
                     thirdPartyImport.importType = ImportType.ThirdParty;
 
-                    if (thirdPartyImport.isImportFound && thirdPartyImport.isStubFile) {
-                        return thirdPartyImport;
-                    }
-
                     bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport, moduleDescriptor);
                 }
             }
