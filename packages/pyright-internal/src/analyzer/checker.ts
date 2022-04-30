@@ -2498,9 +2498,9 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // A name of "_" means "I know this symbol isn't used", so
-        // don't report it as unused.
-        if (name === '_') {
+        // A name of "_" or "__" means "I know this symbol isn't used",
+        // so don't report it as unused.
+        if (name === '_' || name === '__') {
             return;
         }
 
