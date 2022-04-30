@@ -224,16 +224,20 @@ export function printType(
                         recursionTypes
                     )}${getConditionalIndicator(type)}`;
                 } else {
+                    let typeToWrap: string;
+
                     if (type.literalValue !== undefined) {
-                        return `Type[Literal[${printLiteralValue(type)}]]${getConditionalIndicator(type)}`;
+                        typeToWrap = `Literal[${printLiteralValue(type)}]`;
+                    } else {
+                        typeToWrap = `${printObjectTypeForClass(
+                            type,
+                            printTypeFlags,
+                            returnTypeCallback,
+                            recursionTypes
+                        )}`;
                     }
 
-                    return `Type[${printObjectTypeForClass(
-                        type,
-                        printTypeFlags,
-                        returnTypeCallback,
-                        recursionTypes
-                    )}]${getConditionalIndicator(type)}`;
+                    return `${_printNestedInstantiable(type, typeToWrap)}${getConditionalIndicator(type)}`;
                 }
             }
 
@@ -433,7 +437,7 @@ export function printType(
                         }
 
                         if (TypeBase.isInstantiable(type)) {
-                            return `Type[${boundTypeString}]`;
+                            return `${_printNestedInstantiable(type, boundTypeString)}`;
                         }
 
                         return boundTypeString;
@@ -456,14 +460,16 @@ export function printType(
                 }
 
                 if (TypeBase.isInstantiable(type)) {
-                    return `Type[${typeVarName}]`;
+                    return `${_printNestedInstantiable(type, typeVarName)}`;
                 }
 
                 return typeVarName;
             }
 
             case TypeCategory.None: {
-                return `${TypeBase.isInstantiable(type) ? 'Type[None]' : 'None'}${getConditionalIndicator(type)}`;
+                return `${
+                    TypeBase.isInstantiable(type) ? `${_printNestedInstantiable(type, 'None')}` : 'None'
+                }${getConditionalIndicator(type)}`;
             }
 
             case TypeCategory.Never: {
@@ -786,4 +792,16 @@ export function printFunctionParts(
             : '';
 
     return [paramTypeStrings, returnTypeString];
+}
+
+// Surrounds a printed type with Type[...] as many times as needed
+// for the nested instantiable count.
+function _printNestedInstantiable(type: Type, textToWrap: string) {
+    const nestedTypes = (type.instantiableNestingLevel ?? 0) + 1;
+
+    for (let nestLevel = 0; nestLevel < nestedTypes; nestLevel++) {
+        textToWrap = `Type[${textToWrap}]`;
+    }
+
+    return textToWrap;
 }

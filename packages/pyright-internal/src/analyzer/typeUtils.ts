@@ -1684,10 +1684,7 @@ export function convertToInstantiable(type: Type): Type {
     let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
-                if (TypeBase.isInstance(subtype)) {
-                    return ClassType.cloneAsInstantiable(subtype);
-                }
-                break;
+                return ClassType.cloneAsInstantiable(subtype);
             }
 
             case TypeCategory.None: {
@@ -1695,17 +1692,11 @@ export function convertToInstantiable(type: Type): Type {
             }
 
             case TypeCategory.Function: {
-                if (TypeBase.isInstance(subtype)) {
-                    return FunctionType.cloneAsInstantiable(subtype);
-                }
-                break;
+                return FunctionType.cloneAsInstantiable(subtype);
             }
 
             case TypeCategory.TypeVar: {
-                if (TypeBase.isInstance(subtype)) {
-                    return TypeVarType.cloneAsInstantiable(subtype);
-                }
-                break;
+                return TypeVarType.cloneAsInstantiable(subtype);
             }
         }
 

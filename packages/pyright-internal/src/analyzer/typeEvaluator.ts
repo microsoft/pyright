@@ -4288,11 +4288,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeVarsForScope) {
                 const match = typeVarsForScope.find((typeVar) => typeVar.details.name === type.details.name);
 
-                if (match && match.scopeId) {
-                    return {
-                        type: nestedClassCount > 1 ? type : (convertToInstantiable(match) as TypeVarType),
-                        foundInterveningClass: nestedClassCount > 1,
-                    };
+                if (match?.scopeId) {
+                    // Use the scoped version of the TypeVar rather than the (unscoped) original type.
+                    type = TypeVarType.cloneForScopeId(type, match.scopeId, match.scopeName!, match.scopeType!);
+                    return { type, foundInterveningClass: nestedClassCount > 1 };
                 }
             }
 

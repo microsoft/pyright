@@ -109,6 +109,11 @@ interface TypeBase {
     category: TypeCategory;
     flags: TypeFlags;
 
+    // Used to handle nested references to instantiable classes
+    // (e.g. type[type[type[T]]]). If the field isn't present,
+    // it is assumed to be zero.
+    instantiableNestingLevel?: number;
+
     // Used only for type aliases
     typeAliasInfo?: TypeAliasInfo | undefined;
 
@@ -149,6 +154,40 @@ export namespace TypeBase {
 
     export function cloneType<T extends TypeBase>(type: T): T {
         return { ...type };
+    }
+
+    export function cloneTypeAsInstance<T extends TypeBase>(type: T): T {
+        assert(TypeBase.isInstantiable(type));
+
+        const newInstance = TypeBase.cloneType(type);
+
+        if (newInstance.instantiableNestingLevel === undefined) {
+            newInstance.flags &= ~TypeFlags.Instantiable;
+            newInstance.flags |= TypeFlags.Instance;
+            delete newInstance.instantiableNestingLevel;
+        } else {
+            if (newInstance.instantiableNestingLevel === 1) {
+                delete newInstance.instantiableNestingLevel;
+            } else {
+                newInstance.instantiableNestingLevel--;
+            }
+        }
+
+        return newInstance;
+    }
+
+    export function cloneTypeAsInstantiable<T extends TypeBase>(type: T): T {
+        const newInstance: T = TypeBase.cloneType(type);
+
+        if (TypeBase.isInstance(type)) {
+            newInstance.flags &= ~TypeFlags.Instance;
+            newInstance.flags |= TypeFlags.Instantiable;
+        } else {
+            newInstance.instantiableNestingLevel =
+                newInstance.instantiableNestingLevel === undefined ? 1 : newInstance.instantiableNestingLevel;
+        }
+
+        return newInstance;
     }
 
     export function cloneForTypeAlias(
@@ -553,27 +592,19 @@ export namespace ClassType {
         return newClass;
     }
 
-    export function cloneAsInstance(classType: ClassType): ClassType {
-        if (TypeBase.isInstance(classType)) {
-            return classType;
+    export function cloneAsInstance(type: ClassType): ClassType {
+        if (TypeBase.isInstance(type)) {
+            return type;
         }
 
-        const objectType = TypeBase.cloneType(classType);
-        objectType.flags &= ~(TypeFlags.Instantiable | TypeFlags.SpecialForm);
-        objectType.flags |= TypeFlags.Instance;
-        objectType.includeSubclasses = true;
-        return objectType;
+        const newInstance = TypeBase.cloneTypeAsInstance(type);
+        newInstance.flags &= ~TypeFlags.SpecialForm;
+        newInstance.includeSubclasses = true;
+        return newInstance;
     }
 
     export function cloneAsInstantiable(objectType: ClassType): ClassType {
-        if (TypeBase.isInstantiable(objectType)) {
-            return objectType;
-        }
-
-        const classType = TypeBase.cloneType(objectType);
-        classType.flags &= ~TypeFlags.Instance;
-        classType.flags |= TypeFlags.Instantiable;
-        return classType;
+        return TypeBase.cloneTypeAsInstantiable(objectType);
     }
 
     export function cloneForSpecialization(
@@ -1211,20 +1242,14 @@ export namespace FunctionType {
     }
 
     export function cloneAsInstance(type: FunctionType): FunctionType {
-        assert(TypeBase.isInstantiable(type));
-
-        const newInstance: FunctionType = TypeBase.cloneType(type);
-        newInstance.flags &= ~(TypeFlags.Instantiable | TypeFlags.SpecialForm);
-        newInstance.flags |= TypeFlags.Instance;
+        const newInstance = TypeBase.cloneTypeAsInstance(type);
+        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
     export function cloneAsInstantiable(type: FunctionType): FunctionType {
-        assert(TypeBase.isInstance(type));
-
-        const newInstance: FunctionType = TypeBase.cloneType(type);
-        newInstance.flags &= ~(TypeFlags.Instance | TypeFlags.SpecialForm);
-        newInstance.flags |= TypeFlags.Instantiable;
+        const newInstance = TypeBase.cloneTypeAsInstantiable(type);
+        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
@@ -1912,19 +1937,14 @@ export namespace TypeVarType {
 
     export function cloneAsInstance(type: TypeVarType): TypeVarType {
         assert(TypeBase.isInstantiable(type));
-
-        const newInstance: TypeVarType = TypeBase.cloneType(type);
-        newInstance.flags &= ~(TypeFlags.Instantiable | TypeFlags.SpecialForm);
-        newInstance.flags |= TypeFlags.Instance;
+        const newInstance = TypeBase.cloneTypeAsInstance(type);
+        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
     export function cloneAsInstantiable(type: TypeVarType): TypeVarType {
-        assert(TypeBase.isInstance(type));
-
-        const newInstance: TypeVarType = TypeBase.cloneType(type);
-        newInstance.flags &= ~(TypeFlags.Instance | TypeFlags.SpecialForm);
-        newInstance.flags |= TypeFlags.Instantiable;
+        const newInstance = TypeBase.cloneTypeAsInstantiable(type);
+        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 

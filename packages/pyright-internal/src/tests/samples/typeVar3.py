@@ -32,11 +32,9 @@ class OuterClass(Generic[_T, typing.AnyStr]):
         # This should generate an error.
         x: List[_T]
 
-        # This should generate two errors (one for each "_T").
         def f(self, x: _T, y: _S, z: _S) -> _T:
             ...
 
-        # THis should generate an error for typing.AnyStr.
         def g(self, x: typing.AnyStr) -> None:
             # This should generate an error.
             y: List[_T]
