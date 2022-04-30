@@ -388,6 +388,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
 
                         if (param.name) {
                             paramStr += param.name.value;
+                        } else if (param.category === ParameterCategory.Simple) {
+                            paramStr += '/';
                         }
 
                         if (param.defaultValue) {
