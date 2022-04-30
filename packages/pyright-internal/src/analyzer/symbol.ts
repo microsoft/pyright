@@ -80,7 +80,7 @@ export class Symbol {
     // a specified type.
     private _synthesizedType?: Type;
 
-    constructor(flags = SymbolFlags.ClassMember) {
+    constructor(flags: SymbolFlags) {
         this.id = getUniqueSymbolId();
         this._flags = flags;
     }

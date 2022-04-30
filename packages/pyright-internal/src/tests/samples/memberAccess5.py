@@ -11,12 +11,16 @@ class IntProvider:
 
 
 class Foo:
-    def __init__(self, value: Union[IntProvider, int]):
-        self._int_value_declared: Union[IntProvider, int] = value
-        self._int_value_inferred = value
+    _int_value_declared: Union[IntProvider, int] = 3
+    _int_value_inferred = 3
+
+    def __init__(self):
+        pass
 
     def get_int_value_1(self) -> int:
+        reveal_type(self._int_value_declared, expected_text="int")
         return self._int_value_declared
 
     def get_int_value_2(self) -> int:
+        reveal_type(self._int_value_inferred, expected_text="int")
         return self._int_value_inferred

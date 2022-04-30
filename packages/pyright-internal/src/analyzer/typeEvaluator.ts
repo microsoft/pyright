@@ -5089,8 +5089,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         type = mapSubtypes(type, (subtype) => {
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+            const isClassMember = !memberInfo || memberInfo.isClassMember;
 
-            if (isClass(concreteSubtype)) {
+            if (isClass(concreteSubtype) && isClassMember) {
                 // If it's an object, use its class to lookup the descriptor. If it's a class,
                 // use its metaclass instead.
                 let lookupClass: ClassType | undefined = concreteSubtype;

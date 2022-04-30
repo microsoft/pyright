@@ -67,10 +67,14 @@ export interface ClassMember {
     // Partially-specialized class that contains the class member
     classType: ClassType | UnknownType;
 
-    // True if instance member, false if class member
+    // True if it is an instance or class member; it can be both a class and
+    // an instance member in cases where a class variable is overridden
+    // by an instance variable
     isInstanceMember: boolean;
+    isClassMember: boolean;
 
-    // True if explicitly declared as "ClassVar"
+    // True if explicitly declared as "ClassVar" and therefore is
+    // a type violation if it is overwritten by an instance variable
     isClassVar: boolean;
 
     // True if member has declared type, false if inferred
@@ -986,6 +990,7 @@ function getProtocolSymbolsRecursive(classType: ClassType, symbolMap: Map<string
                 symbol,
                 classType,
                 isInstanceMember: symbol.isInstanceMember(),
+                isClassMember: symbol.isClassMember(),
                 isClassVar: symbol.isClassVar(),
                 isTypeDeclared: symbol.hasTypedDeclarations(),
                 skippedUndeclaredType: false,
@@ -1055,7 +1060,8 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                     const cm: ClassMember = {
                         symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
                         isInstanceMember: false,
-                        isClassVar: true,
+                        isClassMember: true,
+                        isClassVar: false,
                         classType: UnknownType.create(),
                         isTypeDeclared: false,
                         skippedUndeclaredType: false,
@@ -1080,6 +1086,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                         const cm: ClassMember = {
                             symbol,
                             isInstanceMember: true,
+                            isClassMember: symbol.isClassMember(),
                             isClassVar: symbol.isClassVar(),
                             classType: specializedMroClass,
                             isTypeDeclared: hasDeclaredType,
@@ -1098,6 +1105,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                 const hasDeclaredType = symbol.hasTypedDeclarations();
                 if (!declaredTypesOnly || hasDeclaredType) {
                     let isInstanceMember = false;
+                    let isClassMember = true;
 
                     // For data classes and typed dicts, variables that are declared
                     // within the class are treated as instance variables. This distinction
@@ -1108,12 +1116,14 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                         const decls = symbol.getDeclarations();
                         if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
                             isInstanceMember = true;
+                            isClassMember = false;
                         }
                     }
 
                     const cm: ClassMember = {
                         symbol,
                         isInstanceMember,
+                        isClassMember,
                         isClassVar: symbol.isClassVar(),
                         classType: specializedMroClass,
                         isTypeDeclared: hasDeclaredType,
@@ -1131,7 +1141,8 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
         const cm: ClassMember = {
             symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
             isInstanceMember: false,
-            isClassVar: true,
+            isClassMember: true,
+            isClassVar: false,
             classType: UnknownType.create(),
             isTypeDeclared: false,
             skippedUndeclaredType: false,
@@ -1205,6 +1216,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                     classType: mroClass,
                     symbol,
                     isInstanceMember: symbol.isInstanceMember(),
+                    isClassMember: symbol.isClassMember(),
                     isClassVar: symbol.isClassVar(),
                     isTypeDeclared: true,
                     skippedUndeclaredType: false,
