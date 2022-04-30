@@ -609,6 +609,8 @@ export class TypeStubWriter extends ParseTreeWalker {
 
         if (paramNode.name) {
             line += paramNode.name.value;
+        } else if (paramNode.category === ParameterCategory.Simple) {
+            line += '/';
         }
 
         const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
