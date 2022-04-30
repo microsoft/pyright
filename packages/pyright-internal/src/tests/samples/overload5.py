@@ -7,6 +7,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Tuple,
     Type,
     TypeVar,
@@ -279,7 +280,6 @@ class ClassA(Generic[_T1]):
 
 
 class ClassB:
-    # This should generate an error because the overload is overlapping.
     @overload
     def __call__(self, f: _T1) -> _T1:
         ...
@@ -317,3 +317,17 @@ class ClassD:
 
     def method1(self, x: Any) -> Any:
         ...
+
+
+@overload
+def func18(s: Sequence[_T1], extra: Literal[False]) -> list[_T1]: ...
+
+@overload
+def func18(s: Sequence[_T1], extra: Literal[True]) -> list[_T1] | tuple[_T1]: ...
+
+@overload
+def func18(s: Sequence[_T1], extra: bool) -> list[_T1] | tuple[_T1]: ...
+
+def func18(s: Sequence[_T1], extra: bool) -> list[_T1] | tuple[_T1]:
+    ...
+

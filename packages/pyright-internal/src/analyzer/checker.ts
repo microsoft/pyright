@@ -1787,7 +1787,7 @@ export class Checker extends ParseTreeWalker {
                         prevReturnType,
                         /* diag */ undefined,
                         new TypeVarContext(),
-                        CanAssignFlags.SkipSolveTypeVars
+                        CanAssignFlags.SkipSolveTypeVars | CanAssignFlags.IgnoreTypeVarScope
                     )
                 ) {
                     const altNode = this._findNodeForOverload(node, prevOverload);
