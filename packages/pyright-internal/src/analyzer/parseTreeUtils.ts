@@ -173,8 +173,8 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 printExpression(node.baseExpression, flags) +
                 '[' +
                 node.items.map((item) => printArgument(item, flags)).join(', ') +
-                ']' +
-                (node.trailingComma ? ',' : '')
+                (node.trailingComma ? ',' : '') +
+                ']'
             );
         }
 
