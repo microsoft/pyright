@@ -1,19 +1,7 @@
 import sys
 from _typeshed import FileDescriptor, StrOrBytesPath, SupportsRead, SupportsWrite
-from typing import (
-    Any,
-    Callable,
-    Generator,
-    ItemsView,
-    Iterable,
-    Iterator,
-    KeysView,
-    Mapping,
-    MutableSequence,
-    Sequence,
-    TypeVar,
-    overload,
-)
+from collections.abc import Callable, Generator, ItemsView, Iterable, Iterator, KeysView, Mapping, MutableSequence, Sequence
+from typing import Any, TypeVar, overload
 from typing_extensions import Literal, SupportsIndex, TypeAlias, TypeGuard
 
 if sys.version_info >= (3, 9):
@@ -331,7 +319,7 @@ def iterparse(
 
 class XMLPullParser:
     def __init__(self, events: Sequence[str] | None = ..., *, _parser: XMLParser | None = ...) -> None: ...
-    def feed(self, data: bytes) -> None: ...
+    def feed(self, data: str | bytes) -> None: ...
     def close(self) -> None: ...
     def read_events(self) -> Iterator[tuple[str, Element]]: ...
 

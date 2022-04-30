@@ -1,9 +1,10 @@
 import os
 import sys
+from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from pathlib import Path
 from types import ModuleType
-from typing import Any, BinaryIO, Iterator, TextIO
+from typing import Any, BinaryIO, TextIO
 from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 10):

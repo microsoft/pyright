@@ -1,6 +1,6 @@
 import unittest.case
 import unittest.result
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from typing_extensions import TypeAlias
 
 _TestType: TypeAlias = unittest.case.TestCase | TestSuite

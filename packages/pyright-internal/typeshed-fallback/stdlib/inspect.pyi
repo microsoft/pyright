@@ -1,9 +1,10 @@
+import dis
 import enum
 import sys
 import types
 from _typeshed import Self
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable, Generator, Mapping, Sequence, Set as AbstractSet
+from collections.abc import Awaitable, Callable, Coroutine, Generator, Mapping, Sequence, Set as AbstractSet
 from types import (
     AsyncGeneratorType,
     BuiltinFunctionType,
@@ -30,7 +31,7 @@ if sys.version_info >= (3, 7):
         MethodWrapperType,
     )
 
-from typing import Any, ClassVar, Coroutine, NamedTuple, Protocol, TypeVar, Union
+from typing import Any, ClassVar, NamedTuple, Protocol, TypeVar, Union
 from typing_extensions import Literal, ParamSpec, TypeGuard
 
 if sys.version_info >= (3, 11):
@@ -459,20 +460,64 @@ def unwrap(func: Callable[..., Any], *, stop: Callable[[Any], Any] | None = ...)
 # The interpreter stack
 #
 
-class Traceback(NamedTuple):
-    filename: str
-    lineno: int
-    function: str
-    code_context: list[str] | None
-    index: int | None  # type: ignore[assignment]
+if sys.version_info >= (3, 11):
+    class _Traceback(NamedTuple):
+        filename: str
+        lineno: int
+        function: str
+        code_context: list[str] | None
+        index: int | None  # type: ignore[assignment]
 
-class FrameInfo(NamedTuple):
-    frame: FrameType
-    filename: str
-    lineno: int
-    function: str
-    code_context: list[str] | None
-    index: int | None  # type: ignore[assignment]
+    class Traceback(_Traceback):
+        positions: dis.Positions | None
+        def __new__(
+            cls: type[Self],
+            filename: str,
+            lineno: int,
+            function: str,
+            code_context: list[str] | None,
+            index: int | None,
+            *,
+            positions: dis.Positions | None = ...,
+        ) -> Self: ...
+
+    class _FrameInfo(NamedTuple):
+        frame: FrameType
+        filename: str
+        lineno: int
+        function: str
+        code_context: list[str] | None
+        index: int | None  # type: ignore[assignment]
+
+    class FrameInfo(_FrameInfo):
+        positions: dis.Positions | None
+        def __new__(
+            cls: type[Self],
+            frame: FrameType,
+            filename: str,
+            lineno: int,
+            function: str,
+            code_context: list[str] | None,
+            index: int | None,
+            *,
+            positions: dis.Positions | None = ...,
+        ) -> Self: ...
+
+else:
+    class Traceback(NamedTuple):
+        filename: str
+        lineno: int
+        function: str
+        code_context: list[str] | None
+        index: int | None  # type: ignore[assignment]
+
+    class FrameInfo(NamedTuple):
+        frame: FrameType
+        filename: str
+        lineno: int
+        function: str
+        code_context: list[str] | None
+        index: int | None  # type: ignore[assignment]
 
 def getframeinfo(frame: FrameType | TracebackType, context: int = ...) -> Traceback: ...
 def getouterframes(frame: Any, context: int = ...) -> list[FrameInfo]: ...
@@ -514,7 +559,7 @@ def getcoroutinelocals(coroutine: Coroutine[Any, Any, Any]) -> dict[str, Any]: .
 
 # Create private type alias to avoid conflict with symbol of same
 # name created in Attribute class.
-_Object = object
+_Object: TypeAlias = object
 
 class Attribute(NamedTuple):
     name: str

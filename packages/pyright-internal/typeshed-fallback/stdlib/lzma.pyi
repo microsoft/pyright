@@ -1,6 +1,7 @@
 import io
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath
-from typing import IO, Any, Mapping, Sequence, TextIO, overload
+from collections.abc import Mapping, Sequence
+from typing import IO, Any, TextIO, overload
 from typing_extensions import Literal, TypeAlias, final
 
 __all__ = [

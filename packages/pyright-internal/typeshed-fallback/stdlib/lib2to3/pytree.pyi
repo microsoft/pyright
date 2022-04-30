@@ -1,6 +1,7 @@
 from _typeshed import Self
+from collections.abc import Callable, Iterator
 from lib2to3.pgen2.grammar import Grammar
-from typing import Any, Callable, Iterator
+from typing import Any
 from typing_extensions import TypeAlias
 
 _NL: TypeAlias = Node | Leaf

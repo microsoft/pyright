@@ -1,6 +1,6 @@
 import sys
 from _typeshed import StrOrBytesPath
-from typing import Callable, Sequence
+from collections.abc import Callable, Sequence
 from typing_extensions import TypeAlias
 
 if sys.platform != "win32":

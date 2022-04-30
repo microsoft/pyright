@@ -159,32 +159,32 @@ def in_string_annotation(func: _F) -> _F: ...
 def make_tokens(code: str | bytes) -> tuple[TokenInfo, ...]: ...
 
 if sys.version_info >= (3, 8):
-    _NamedExpr = ast.NamedExpr
+    _NamedExpr: TypeAlias = ast.NamedExpr
 else:
-    _NamedExpr = Any
+    _NamedExpr: TypeAlias = Any
 
 if sys.version_info >= (3, 10):
-    _Match = ast.Match
-    _MatchCase = ast.match_case
-    _MatchValue = ast.MatchValue
-    _MatchSingleton = ast.MatchSingleton
-    _MatchSequence = ast.MatchSequence
-    _MatchStar = ast.MatchStar
-    _MatchMapping = ast.MatchMapping
-    _MatchClass = ast.MatchClass
-    _MatchAs = ast.MatchAs
-    _MatchOr = ast.MatchOr
+    _Match: TypeAlias = ast.Match
+    _MatchCase: TypeAlias = ast.match_case
+    _MatchValue: TypeAlias = ast.MatchValue
+    _MatchSingleton: TypeAlias = ast.MatchSingleton
+    _MatchSequence: TypeAlias = ast.MatchSequence
+    _MatchStar: TypeAlias = ast.MatchStar
+    _MatchMapping: TypeAlias = ast.MatchMapping
+    _MatchClass: TypeAlias = ast.MatchClass
+    _MatchAs: TypeAlias = ast.MatchAs
+    _MatchOr: TypeAlias = ast.MatchOr
 else:
-    _Match = Any
-    _MatchCase = Any
-    _MatchValue = Any
-    _MatchSingleton = Any
-    _MatchSequence = Any
-    _MatchStar = Any
-    _MatchMapping = Any
-    _MatchClass = Any
-    _MatchAs = Any
-    _MatchOr = Any
+    _Match: TypeAlias = Any
+    _MatchCase: TypeAlias = Any
+    _MatchValue: TypeAlias = Any
+    _MatchSingleton: TypeAlias = Any
+    _MatchSequence: TypeAlias = Any
+    _MatchStar: TypeAlias = Any
+    _MatchMapping: TypeAlias = Any
+    _MatchClass: TypeAlias = Any
+    _MatchAs: TypeAlias = Any
+    _MatchOr: TypeAlias = Any
 
 class Checker:
     nodeDepth: int

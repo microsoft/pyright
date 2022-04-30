@@ -1,4 +1,5 @@
-from typing import Any, Callable, Hashable, SupportsInt, TypeVar, Union
+from collections.abc import Callable, Hashable
+from typing import Any, SupportsInt, TypeVar, Union
 from typing_extensions import TypeAlias
 
 _T = TypeVar("_T")

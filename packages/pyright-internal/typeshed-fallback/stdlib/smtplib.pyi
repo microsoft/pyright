@@ -1,10 +1,11 @@
 import sys
 from _typeshed import Self
+from collections.abc import Sequence
 from email.message import Message as _Message
 from socket import socket
 from ssl import SSLContext
 from types import TracebackType
-from typing import Any, Pattern, Protocol, Sequence, overload
+from typing import Any, Pattern, Protocol, overload
 from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 7):

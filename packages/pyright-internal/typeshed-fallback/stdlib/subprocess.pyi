@@ -1,7 +1,8 @@
 import sys
 from _typeshed import Self, StrOrBytesPath
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import TracebackType
-from typing import IO, Any, AnyStr, Callable, Generic, Iterable, Mapping, Sequence, TypeVar, overload
+from typing import IO, Any, AnyStr, Generic, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
 if sys.version_info >= (3, 9):
@@ -116,6 +117,12 @@ else:
     _ENV: TypeAlias = Mapping[bytes, StrOrBytesPath] | Mapping[str, StrOrBytesPath]
 
 _T = TypeVar("_T")
+
+# These two are private but documented
+if sys.version_info >= (3, 11):
+    _USE_VFORK: bool
+if sys.version_info >= (3, 8):
+    _USE_POSIX_SPAWN: bool
 
 class CompletedProcess(Generic[_T]):
     # morally: _CMD

@@ -1,8 +1,9 @@
 import numbers
 import sys
 from _typeshed import Self
+from collections.abc import Container, Sequence
 from types import TracebackType
-from typing import Any, Container, NamedTuple, Sequence, Union, overload
+from typing import Any, NamedTuple, Union, overload
 from typing_extensions import TypeAlias
 
 _Decimal: TypeAlias = Decimal | int
@@ -51,7 +52,23 @@ class FloatOperation(DecimalException, TypeError): ...
 
 def setcontext(__context: Context) -> None: ...
 def getcontext() -> Context: ...
-def localcontext(ctx: Context | None = ...) -> _ContextManager: ...
+
+if sys.version_info >= (3, 11):
+    def localcontext(
+        ctx: Context | None = ...,
+        *,
+        prec: int | None = ...,
+        rounding: str | None = ...,
+        Emin: int | None = ...,
+        Emax: int | None = ...,
+        capitals: int | None = ...,
+        clamp: int | None = ...,
+        traps: dict[_TrapType, bool] | None = ...,
+        flags: dict[_TrapType, bool] | None = ...,
+    ) -> _ContextManager: ...
+
+else:
+    def localcontext(ctx: Context | None = ...) -> _ContextManager: ...
 
 class Decimal:
     def __new__(cls: type[Self], value: _DecimalNew = ..., context: Context | None = ...) -> Self: ...

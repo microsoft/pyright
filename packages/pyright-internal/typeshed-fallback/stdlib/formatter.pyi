@@ -1,4 +1,5 @@
-from typing import IO, Any, Iterable
+from collections.abc import Iterable
+from typing import IO, Any
 from typing_extensions import TypeAlias
 
 AS_IS: None

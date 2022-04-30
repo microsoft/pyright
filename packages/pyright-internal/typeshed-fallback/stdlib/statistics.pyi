@@ -1,8 +1,9 @@
 import sys
 from _typeshed import Self, SupportsRichComparisonT
+from collections.abc import Hashable, Iterable, Sequence
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, Hashable, Iterable, NamedTuple, Sequence, SupportsFloat, TypeVar
+from typing import Any, NamedTuple, SupportsFloat, TypeVar
 from typing_extensions import Literal, TypeAlias
 
 if sys.version_info >= (3, 10):

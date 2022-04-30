@@ -1,8 +1,9 @@
 import sys
 from _typeshed import Self
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from contextlib import _GeneratorContextManager
 from types import TracebackType
-from typing import Any, Awaitable, Callable, Generic, Iterable, Mapping, Sequence, TypeVar, overload
+from typing import Any, Generic, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
 _T = TypeVar("_T")
@@ -285,7 +286,7 @@ class _patch_dict:
 if sys.version_info >= (3, 8):
     _Mock: TypeAlias = MagicMock | AsyncMock
 else:
-    _Mock = MagicMock
+    _Mock: TypeAlias = MagicMock
 
 class _patcher:
     TEST_PREFIX: str
@@ -296,7 +297,7 @@ class _patcher:
     @overload
     def __call__(  # type: ignore[misc]
         self,
-        target: Any,
+        target: str,
         new: _T,
         spec: Any | None = ...,
         create: bool = ...,
@@ -308,7 +309,7 @@ class _patcher:
     @overload
     def __call__(
         self,
-        target: Any,
+        target: str,
         *,
         spec: Any | None = ...,
         create: bool = ...,

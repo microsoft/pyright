@@ -1,6 +1,7 @@
 import codecs
 import sys
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from typing_extensions import TypeAlias
 
 # This type is not exposed; it is defined in unicodeobject.c

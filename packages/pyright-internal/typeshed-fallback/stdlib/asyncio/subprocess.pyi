@@ -2,7 +2,8 @@ import subprocess
 import sys
 from _typeshed import StrOrBytesPath
 from asyncio import events, protocols, streams, transports
-from typing import IO, Any, Callable
+from collections.abc import Callable
+from typing import IO, Any
 from typing_extensions import Literal, TypeAlias
 
 if sys.version_info >= (3, 7):

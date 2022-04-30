@@ -1,18 +1,17 @@
 import sys
-from _typeshed import structseq
+from _typeshed import OptExcInfo, structseq
 from builtins import object as _object
+from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
 from importlib.abc import PathEntryFinder
 from importlib.machinery import ModuleSpec
 from io import TextIOWrapper
 from types import FrameType, ModuleType, TracebackType
-from typing import Any, AsyncGenerator, Callable, Coroutine, NoReturn, Protocol, Sequence, TextIO, TypeVar, Union, overload
+from typing import Any, NoReturn, Protocol, TextIO, TypeVar, overload
 from typing_extensions import Literal, TypeAlias, final
 
 _T = TypeVar("_T")
 
-# The following type alias are stub-only and do not exist during runtime
-_ExcInfo: TypeAlias = tuple[type[BaseException], BaseException, TracebackType]
-_OptExcInfo: TypeAlias = Union[_ExcInfo, tuple[None, None, None]]
+_OptExcInfo: TypeAlias = OptExcInfo  # TODO: obsolete, remove fall 2022 or later
 
 # Intentionally omits one deprecated and one optional method of `importlib.abc.MetaPathFinder`
 class _MetaPathFinder(Protocol):
@@ -217,7 +216,7 @@ def _getframe(__depth: int = ...) -> FrameType: ...
 def _debugmallocstats() -> None: ...
 def __displayhook__(__value: object) -> None: ...
 def __excepthook__(__exctype: type[BaseException], __value: BaseException, __traceback: TracebackType | None) -> None: ...
-def exc_info() -> _OptExcInfo: ...
+def exc_info() -> OptExcInfo: ...
 
 # sys.exit() accepts an optional argument of anything printable
 def exit(__status: object = ...) -> NoReturn: ...
@@ -321,9 +320,8 @@ class _asyncgen_hooks(structseq[_AsyncgenHook], tuple[_AsyncgenHook, _AsyncgenHo
 def get_asyncgen_hooks() -> _asyncgen_hooks: ...
 def set_asyncgen_hooks(firstiter: _AsyncgenHook = ..., finalizer: _AsyncgenHook = ...) -> None: ...
 
-if sys.version_info >= (3, 6):
-    if sys.platform == "win32":
-        def _enablelegacywindowsfsencoding() -> None: ...
+if sys.platform == "win32":
+    def _enablelegacywindowsfsencoding() -> None: ...
 
 if sys.version_info >= (3, 7):
     def get_coroutine_origin_tracking_depth() -> int: ...

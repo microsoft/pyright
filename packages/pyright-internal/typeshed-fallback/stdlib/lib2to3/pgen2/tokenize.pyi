@@ -1,6 +1,6 @@
 import sys
+from collections.abc import Callable, Iterable, Iterator
 from lib2to3.pgen2.token import *
-from typing import Callable, Iterable, Iterator
 from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 8):

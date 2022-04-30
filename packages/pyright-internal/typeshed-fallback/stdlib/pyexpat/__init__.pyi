@@ -1,7 +1,8 @@
 import pyexpat.errors as errors
 import pyexpat.model as model
 from _typeshed import SupportsRead
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from typing_extensions import TypeAlias, final
 
 EXPAT_VERSION: str  # undocumented

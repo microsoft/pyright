@@ -1,6 +1,7 @@
 import sys
 from _typeshed import Self
-from typing import Any, Container, Generic, Iterable, Iterator, SupportsInt, TypeVar, overload
+from collections.abc import Container, Iterable, Iterator
+from typing import Any, Generic, SupportsInt, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
 # Undocumented length constants

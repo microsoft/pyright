@@ -1,7 +1,8 @@
 import os
 import sys
 from _typeshed import BytesPath, StrOrBytesPath, StrPath, SupportsRead, SupportsWrite
-from typing import Any, AnyStr, Callable, Iterable, NamedTuple, Sequence, TypeVar, overload
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, AnyStr, NamedTuple, TypeVar, overload
 from typing_extensions import TypeAlias
 
 __all__ = [
@@ -37,7 +38,7 @@ _StrOrBytesPathT = TypeVar("_StrOrBytesPathT", bound=StrOrBytesPath)
 _StrPathT = TypeVar("_StrPathT", bound=StrPath)
 # Return value of some functions that may either return a path-like object that was passed in or
 # a string
-_PathReturn = Any
+_PathReturn: TypeAlias = Any
 
 class Error(OSError): ...
 class SameFileError(Error): ...

@@ -2,7 +2,8 @@ import socket
 import sys
 import types
 from _typeshed import Self
-from typing import Any, Iterable, Union
+from collections.abc import Iterable
+from typing import Any, Union
 from typing_extensions import SupportsIndex, TypeAlias
 
 __all__ = ["Client", "Listener", "Pipe", "wait"]

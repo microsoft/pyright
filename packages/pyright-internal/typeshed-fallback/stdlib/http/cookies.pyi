@@ -1,5 +1,6 @@
 import sys
-from typing import Any, Generic, Iterable, Mapping, TypeVar, overload
+from collections.abc import Iterable, Mapping
+from typing import Any, Generic, TypeVar, overload
 from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 9):

@@ -1,5 +1,6 @@
 import sys
-from typing import Any, AnyStr, Callable, Generic, Mapping, NamedTuple, Sequence, overload
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, AnyStr, Generic, NamedTuple, overload
 from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 9):

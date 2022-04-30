@@ -17,7 +17,7 @@ _CMSGArg: TypeAlias = tuple[int, int, ReadableBuffer]
 # Addresses can be either tuples of varying lengths (AF_INET, AF_INET6,
 # AF_NETLINK, AF_TIPC) or strings (AF_UNIX).
 _Address: TypeAlias = tuple[Any, ...] | str
-_RetAddress = Any
+_RetAddress: TypeAlias = Any
 # TODO Most methods allow bytes as address objects
 
 # ----- Constants -----
@@ -271,6 +271,8 @@ TCP_SYNCNT: int
 TCP_WINDOW_CLAMP: int
 if sys.version_info >= (3, 7):
     TCP_NOTSENT_LOWAT: int
+if sys.version_info >= (3, 11) and sys.platform == "darwin":
+    TCP_CONNECTION_INFO: int
 
 # Specifically-documented constants
 

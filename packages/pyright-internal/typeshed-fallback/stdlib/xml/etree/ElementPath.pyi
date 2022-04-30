@@ -1,4 +1,5 @@
-from typing import Callable, Generator, Pattern, TypeVar
+from collections.abc import Callable, Generator
+from typing import Pattern, TypeVar
 from typing_extensions import TypeAlias
 from xml.etree.ElementTree import Element
 

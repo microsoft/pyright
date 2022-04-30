@@ -1,4 +1,5 @@
-from typing import IO, Any, Callable, Iterator, MutableMapping
+from collections.abc import Callable, Iterator, MutableMapping
+from typing import IO, Any
 from typing_extensions import TypeAlias
 
 __all__ = ["dis", "genops", "optimize"]

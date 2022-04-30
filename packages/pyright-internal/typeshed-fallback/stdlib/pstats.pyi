@@ -1,8 +1,9 @@
 import sys
 from _typeshed import Self, StrOrBytesPath
+from collections.abc import Iterable
 from cProfile import Profile as _cProfile
 from profile import Profile
-from typing import IO, Any, Iterable, overload
+from typing import IO, Any, overload
 from typing_extensions import Literal, TypeAlias
 
 if sys.version_info >= (3, 9):

@@ -1,7 +1,8 @@
 import sys
 from _typeshed import Self, SupportsWrite
+from collections.abc import Generator, Iterable, Iterator, Mapping
 from types import FrameType, TracebackType
-from typing import IO, Any, Generator, Iterable, Iterator, Mapping, overload
+from typing import IO, Any, overload
 from typing_extensions import Literal, TypeAlias
 
 __all__ = [

@@ -1,8 +1,9 @@
 import sys
 from _typeshed import structseq
+from collections.abc import Callable, Iterable
 from enum import IntEnum
 from types import FrameType
-from typing import Any, Callable, Iterable, Union
+from typing import Any, Union
 from typing_extensions import Final, TypeAlias, final
 
 NSIG: int

@@ -1,8 +1,9 @@
 import sys
 import types
 from _typeshed import Self
+from collections.abc import Callable
 from socket import socket as _socket
-from typing import Any, BinaryIO, Callable, ClassVar, Union
+from typing import Any, BinaryIO, ClassVar, Union
 from typing_extensions import TypeAlias
 
 if sys.platform == "win32":

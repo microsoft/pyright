@@ -1,4 +1,5 @@
-from typing import Any, Callable, Union
+from collections.abc import Callable
+from typing import Any, Union
 from typing_extensions import TypeAlias
 
 _Macro: TypeAlias = Union[tuple[str], tuple[str, str | None]]

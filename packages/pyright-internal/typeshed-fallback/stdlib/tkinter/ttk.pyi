@@ -1,8 +1,9 @@
 import _tkinter
 import sys
 import tkinter
+from collections.abc import Callable
 from tkinter.font import _FontDescription
-from typing import Any, Callable, overload
+from typing import Any, overload
 from typing_extensions import Literal, TypeAlias, TypedDict
 
 if sys.version_info >= (3, 7):

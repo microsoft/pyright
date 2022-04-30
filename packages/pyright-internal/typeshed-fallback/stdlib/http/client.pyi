@@ -4,8 +4,9 @@ import ssl
 import sys
 import types
 from _typeshed import Self, WriteableBuffer
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from socket import socket
-from typing import IO, Any, BinaryIO, Callable, Iterable, Iterator, Mapping, Protocol, TypeVar, overload
+from typing import IO, Any, BinaryIO, Protocol, TypeVar, overload
 from typing_extensions import TypeAlias
 
 __all__ = [

@@ -1,6 +1,7 @@
 import sys
 from _tracemalloc import *
-from typing import Any, Sequence, Union, overload
+from collections.abc import Sequence
+from typing import Any, Union, overload
 from typing_extensions import SupportsIndex, TypeAlias
 
 def get_object_traceback(obj: object) -> Traceback | None: ...

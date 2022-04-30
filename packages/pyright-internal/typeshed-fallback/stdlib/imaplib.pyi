@@ -3,10 +3,11 @@ import sys
 import time
 from _typeshed import Self
 from builtins import list as _list  # conflicts with a method named "list"
+from collections.abc import Callable
 from socket import socket as _socket
 from ssl import SSLContext, SSLSocket
 from types import TracebackType
-from typing import IO, Any, Callable, Pattern
+from typing import IO, Any, Pattern
 from typing_extensions import Literal, TypeAlias
 
 __all__ = ["IMAP4", "IMAP4_stream", "Internaldate2tuple", "Int2AP", "ParseFlags", "Time2Internaldate", "IMAP4_SSL"]

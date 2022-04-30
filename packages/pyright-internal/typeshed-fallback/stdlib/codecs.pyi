@@ -2,7 +2,8 @@ import sys
 import types
 from _typeshed import Self
 from abc import abstractmethod
-from typing import IO, Any, BinaryIO, Callable, Generator, Iterable, Iterator, Protocol, TextIO, overload
+from collections.abc import Callable, Generator, Iterable, Iterator
+from typing import IO, Any, BinaryIO, Protocol, TextIO, overload
 from typing_extensions import Literal, TypeAlias
 
 __all__ = [

@@ -1,6 +1,8 @@
 import types
 import unittest
-from typing import Any, Callable, NamedTuple
+from _typeshed import ExcInfo
+from collections.abc import Callable
+from typing import Any, NamedTuple
 from typing_extensions import TypeAlias
 
 __all__ = [
@@ -125,7 +127,6 @@ class DocTestFinder:
     ) -> list[DocTest]: ...
 
 _Out: TypeAlias = Callable[[str], Any]
-_ExcInfo: TypeAlias = tuple[type[BaseException], BaseException, types.TracebackType]
 
 class DocTestRunner:
     DIVIDER: str
@@ -138,7 +139,7 @@ class DocTestRunner:
     def report_start(self, out: _Out, test: DocTest, example: Example) -> None: ...
     def report_success(self, out: _Out, test: DocTest, example: Example, got: str) -> None: ...
     def report_failure(self, out: _Out, test: DocTest, example: Example, got: str) -> None: ...
-    def report_unexpected_exception(self, out: _Out, test: DocTest, example: Example, exc_info: _ExcInfo) -> None: ...
+    def report_unexpected_exception(self, out: _Out, test: DocTest, example: Example, exc_info: ExcInfo) -> None: ...
     def run(
         self, test: DocTest, compileflags: int | None = ..., out: _Out | None = ..., clear_globs: bool = ...
     ) -> TestResults: ...
@@ -158,8 +159,8 @@ class DocTestFailure(Exception):
 class UnexpectedException(Exception):
     test: DocTest
     example: Example
-    exc_info: _ExcInfo
-    def __init__(self, test: DocTest, example: Example, exc_info: _ExcInfo) -> None: ...
+    exc_info: ExcInfo
+    def __init__(self, test: DocTest, example: Example, exc_info: ExcInfo) -> None: ...
 
 class DebugRunner(DocTestRunner): ...
 

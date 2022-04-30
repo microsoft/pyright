@@ -1,6 +1,8 @@
 import sys
-from typing import Any, Callable, ClassVar, Iterable, Iterator, Mapping, Protocol, Union
-from typing_extensions import TypeAlias, final
+from _typeshed import ReadableBuffer
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from typing import Any, ClassVar, Protocol, SupportsBytes, Union
+from typing_extensions import SupportsIndex, TypeAlias, final
 
 if sys.version_info >= (3, 8):
     __all__ = [
@@ -182,11 +184,9 @@ class _WritableFileobj(Protocol):
     def write(self, __b: bytes) -> Any: ...
 
 if sys.version_info >= (3, 8):
-    # TODO: holistic design for buffer interface (typing.Buffer?)
     @final
     class PickleBuffer:
-        # buffer must be a buffer-providing object
-        def __init__(self, buffer: Any) -> None: ...
+        def __init__(self, buffer: ReadableBuffer) -> None: ...
         def raw(self) -> memoryview: ...
         def release(self) -> None: ...
     _BufferCallback: TypeAlias = Callable[[PickleBuffer], Any] | None
@@ -210,14 +210,19 @@ if sys.version_info >= (3, 8):
         buffers: Iterable[Any] | None = ...,
     ) -> Any: ...
     def loads(
-        __data: bytes, *, fix_imports: bool = ..., encoding: str = ..., errors: str = ..., buffers: Iterable[Any] | None = ...
+        __data: ReadableBuffer,
+        *,
+        fix_imports: bool = ...,
+        encoding: str = ...,
+        errors: str = ...,
+        buffers: Iterable[Any] | None = ...,
     ) -> Any: ...
 
 else:
     def dump(obj: Any, file: _WritableFileobj, protocol: int | None = ..., *, fix_imports: bool = ...) -> None: ...
     def dumps(obj: Any, protocol: int | None = ..., *, fix_imports: bool = ...) -> bytes: ...
     def load(file: _ReadableFileobj, *, fix_imports: bool = ..., encoding: str = ..., errors: str = ...) -> Any: ...
-    def loads(data: bytes, *, fix_imports: bool = ..., encoding: str = ..., errors: str = ...) -> Any: ...
+    def loads(data: ReadableBuffer, *, fix_imports: bool = ..., encoding: str = ..., errors: str = ...) -> Any: ...
 
 class PickleError(Exception): ...
 class PicklingError(PickleError): ...
@@ -358,7 +363,7 @@ if sys.version_info >= (3, 8):
     READONLY_BUFFER: bytes
 
 def encode_long(x: int) -> bytes: ...  # undocumented
-def decode_long(data: bytes) -> int: ...  # undocumented
+def decode_long(data: Iterable[SupportsIndex] | SupportsBytes | ReadableBuffer) -> int: ...  # undocumented
 
 # pure-Python implementations
 _Pickler = Pickler  # undocumented

@@ -1,6 +1,7 @@
 import sys
 from _typeshed import SupportsRead
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 from typing_extensions import Literal, TypeAlias
 from xml.dom.minidom import Document, DOMImplementation, Element, Text
 from xml.sax.handler import ContentHandler

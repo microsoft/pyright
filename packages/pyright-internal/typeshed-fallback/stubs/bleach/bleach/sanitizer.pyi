@@ -14,7 +14,7 @@ INVISIBLE_CHARACTERS_RE: Pattern[str]
 INVISIBLE_REPLACEMENT_CHAR: str
 
 # A html5lib Filter class
-_Filter = Any
+_Filter: TypeAlias = Any
 
 class Cleaner:
     tags: Container[str]

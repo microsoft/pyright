@@ -36,9 +36,9 @@ _converters: TypeAlias = dict[str, _converter]
 _T = TypeVar("_T")
 
 if sys.version_info >= (3, 7):
-    _Path = StrOrBytesPath
+    _Path: TypeAlias = StrOrBytesPath
 else:
-    _Path = StrPath
+    _Path: TypeAlias = StrPath
 
 DEFAULTSECT: Literal["DEFAULT"]
 MAX_INTERPOLATION_DEPTH: Literal[10]

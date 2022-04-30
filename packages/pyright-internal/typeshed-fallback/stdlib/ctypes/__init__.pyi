@@ -1,7 +1,8 @@
 import sys
 from _typeshed import ReadableBuffer, Self, WriteableBuffer
 from abc import abstractmethod
-from typing import Any, Callable, ClassVar, Generic, Iterable, Iterator, Mapping, Sequence, TypeVar, Union as _UnionT, overload
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from typing import Any, ClassVar, Generic, TypeVar, Union as _UnionT, overload
 from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 9):

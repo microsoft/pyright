@@ -1,6 +1,7 @@
 from _typeshed import Self
 from collections.abc import Mapping
 from typing import Any
+from typing_extensions import TypeAlias
 
 from .retry import Retry
 
@@ -12,7 +13,7 @@ SYM_EMPTY: Any
 SERVER_CLOSED_CONNECTION_ERROR: Any
 
 # Options as passed to Pool.get_connection().
-_ConnectionPoolOptions = Any
+_ConnectionPoolOptions: TypeAlias = Any
 
 class BaseParser:
     EXCEPTION_CLASSES: Any
@@ -135,6 +136,7 @@ class SSLConnection(Connection):
         ssl_certfile=...,
         ssl_cert_reqs=...,
         ssl_ca_certs=...,
+        ssl_ca_data: Any | None = ...,
         ssl_check_hostname: bool = ...,
         ssl_ca_path: Any | None = ...,
         ssl_password: Any | None = ...,

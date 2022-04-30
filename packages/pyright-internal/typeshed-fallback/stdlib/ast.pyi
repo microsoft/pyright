@@ -1,6 +1,7 @@
 import sys
 from _ast import *
-from typing import Any, Iterator, TypeVar, overload
+from collections.abc import Iterator
+from typing import Any, TypeVar, overload
 from typing_extensions import Literal
 
 if sys.version_info >= (3, 8):

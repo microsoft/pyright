@@ -11,8 +11,11 @@ from _typeshed import (
     ReadableBuffer,
     Self,
     StrOrBytesPath,
+    SupportsAdd,
+    SupportsAiter,
     SupportsAnext,
     SupportsDivMod,
+    SupportsIter,
     SupportsKeysAndGetItem,
     SupportsLenAndGetItem,
     SupportsNext,
@@ -22,29 +25,24 @@ from _typeshed import (
     SupportsTrunc,
     SupportsWrite,
 )
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Iterable, Iterator, MutableSet, Reversible, Set as AbstractSet, Sized
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from types import CodeType, TracebackType, _Cell
-from typing import (
+
+# mypy crashes if any of {ByteString, Sequence, MutableSequence, Mapping, MutableMapping} are imported from collections.abc in builtins.pyi
+from typing import (  # noqa: Y027
     IO,
-    AbstractSet,
     Any,
-    Awaitable,
     BinaryIO,
     ByteString,
     ClassVar,
     Generic,
-    Iterable,
-    Iterator,
     Mapping,
     MutableMapping,
     MutableSequence,
-    MutableSet,
     NoReturn,
     Protocol,
-    Reversible,
     Sequence,
-    Sized,
     SupportsAbs,
     SupportsBytes,
     SupportsComplex,
@@ -75,12 +73,6 @@ _SupportsNextT = TypeVar("_SupportsNextT", bound=SupportsNext[Any], covariant=Tr
 _SupportsAnextT = TypeVar("_SupportsAnextT", bound=SupportsAnext[Any], covariant=True)
 _AwaitableT = TypeVar("_AwaitableT", bound=Awaitable[Any])
 _AwaitableT_co = TypeVar("_AwaitableT_co", bound=Awaitable[Any], covariant=True)
-
-class _SupportsIter(Protocol[_T_co]):
-    def __iter__(self) -> _T_co: ...
-
-class _SupportsAiter(Protocol[_T_co]):
-    def __aiter__(self) -> _T_co: ...
 
 class object:
     __doc__: str | None
@@ -127,7 +119,8 @@ class staticmethod(Generic[_R_co]):
     if sys.version_info >= (3, 10):
         __name__: str
         __qualname__: str
-        __wrapped__: Callable[..., _R_co]
+        @property
+        def __wrapped__(self) -> Callable[..., _R_co]: ...
         def __call__(self, *args: Any, **kwargs: Any) -> _R_co: ...
 
 class classmethod(Generic[_R_co]):
@@ -140,7 +133,8 @@ class classmethod(Generic[_R_co]):
     if sys.version_info >= (3, 10):
         __name__: str
         __qualname__: str
-        __wrapped__: Callable[..., _R_co]
+        @property
+        def __wrapped__(self) -> Callable[..., _R_co]: ...
 
 class type:
     @property
@@ -218,15 +212,29 @@ class int:
     if sys.version_info >= (3, 10):
         def bit_count(self) -> int: ...
 
-    def to_bytes(self, length: SupportsIndex, byteorder: Literal["little", "big"], *, signed: bool = ...) -> bytes: ...
-    @classmethod
-    def from_bytes(
-        cls: type[Self],
-        bytes: Iterable[SupportsIndex] | SupportsBytes | ReadableBuffer,
-        byteorder: Literal["little", "big"],
-        *,
-        signed: bool = ...,
-    ) -> Self: ...
+    if sys.version_info >= (3, 11):
+        def to_bytes(
+            self, length: SupportsIndex = ..., byteorder: Literal["little", "big"] = ..., *, signed: bool = ...
+        ) -> bytes: ...
+        @classmethod
+        def from_bytes(
+            cls: type[Self],
+            bytes: Iterable[SupportsIndex] | SupportsBytes | ReadableBuffer,
+            byteorder: Literal["little", "big"] = ...,
+            *,
+            signed: bool = ...,
+        ) -> Self: ...
+    else:
+        def to_bytes(self, length: SupportsIndex, byteorder: Literal["little", "big"], *, signed: bool = ...) -> bytes: ...
+        @classmethod
+        def from_bytes(
+            cls: type[Self],
+            bytes: Iterable[SupportsIndex] | SupportsBytes | ReadableBuffer,
+            byteorder: Literal["little", "big"],
+            *,
+            signed: bool = ...,
+        ) -> Self: ...
+
     def __add__(self, __x: int) -> int: ...
     def __sub__(self, __x: int) -> int: ...
     def __mul__(self, __x: int) -> int: ...
@@ -246,7 +254,9 @@ class int:
     @overload
     def __pow__(self, __x: int, __modulo: int) -> int: ...
     @overload
-    def __pow__(self, __x: Literal[0], __modulo: None = ...) -> Literal[1]: ...
+    def __pow__(self, __x: Literal[0]) -> Literal[1]: ...
+    @overload
+    def __pow__(self, __x: Literal[0], __modulo: None) -> Literal[1]: ...
     @overload
     def __pow__(self, __x: _PositiveInteger, __modulo: None = ...) -> int: ...
     @overload
@@ -319,7 +329,12 @@ class float:
     def __rtruediv__(self, __x: float) -> float: ...
     def __rmod__(self, __x: float) -> float: ...
     def __rdivmod__(self, __x: float) -> tuple[float, float]: ...
-    # Returns complex if the argument is negative.
+    @overload
+    def __rpow__(self, __x: _PositiveInteger, __modulo: None = ...) -> float: ...
+    @overload
+    def __rpow__(self, __x: _NegativeInteger, __mod: None = ...) -> complex: ...
+    # Returning `complex` for the general case gives too many false-positive errors.
+    @overload
     def __rpow__(self, __x: float, __mod: None = ...) -> Any: ...
     def __getnewargs__(self) -> tuple[float]: ...
     def __trunc__(self) -> int: ...
@@ -1083,7 +1098,7 @@ class _PathLike(Protocol[_AnyStr_co]):
     def __fspath__(self) -> _AnyStr_co: ...
 
 if sys.version_info >= (3, 10):
-    def aiter(__async_iterable: _SupportsAiter[_SupportsAnextT]) -> _SupportsAnextT: ...
+    def aiter(__async_iterable: SupportsAiter[_SupportsAnextT]) -> _SupportsAnextT: ...
 
     class _SupportsSynchronousAnext(Protocol[_AwaitableT_co]):
         def __anext__(self) -> _AwaitableT_co: ...
@@ -1175,7 +1190,7 @@ def hex(__number: int | SupportsIndex) -> str: ...
 def id(__obj: object) -> int: ...
 def input(__prompt: object = ...) -> str: ...
 @overload
-def iter(__iterable: _SupportsIter[_SupportsNextT]) -> _SupportsNextT: ...
+def iter(__iterable: SupportsIter[_SupportsNextT]) -> _SupportsNextT: ...
 @overload
 def iter(__function: Callable[[], _T | None], __sentinel: None) -> Iterator[_T]: ...
 @overload
@@ -1275,7 +1290,7 @@ def next(__i: SupportsNext[_T]) -> _T: ...
 def next(__i: SupportsNext[_T], __default: _VT) -> _T | _VT: ...
 def oct(__number: int | SupportsIndex) -> str: ...
 
-_OpenFile = StrOrBytesPath | int
+_OpenFile = StrOrBytesPath | int  # noqa: Y026  # TODO: Use TypeAlias once mypy bugs are fixed
 _Opener: TypeAlias = Callable[[str, int], int]
 
 # Text mode: always returns a TextIOWrapper
@@ -1394,7 +1409,9 @@ class _SupportsPow3NoneOnly(Protocol[_E, _T_co]):
 class _SupportsPow3(Protocol[_E, _M, _T_co]):
     def __pow__(self, __other: _E, __modulo: _M) -> _T_co: ...
 
-_SupportsSomeKindOfPow = _SupportsPow2[Any, Any] | _SupportsPow3NoneOnly[Any, Any] | _SupportsPow3[Any, Any, Any]
+_SupportsSomeKindOfPow = (  # noqa: Y026  # TODO: Use TypeAlias once mypy bugs are fixed
+    _SupportsPow2[Any, Any] | _SupportsPow3NoneOnly[Any, Any] | _SupportsPow3[Any, Any, Any]
+)
 
 if sys.version_info >= (3, 8):
     @overload
@@ -1411,6 +1428,10 @@ if sys.version_info >= (3, 8):
     # return type must be Any as `int | float` causes too many false-positive errors
     @overload
     def pow(base: int, exp: int, mod: None = ...) -> Any: ...
+    @overload
+    def pow(base: _PositiveInteger, exp: float, mod: None = ...) -> float: ...
+    @overload
+    def pow(base: _NegativeInteger, exp: float, mod: None = ...) -> complex: ...
     @overload
     def pow(base: float, exp: int, mod: None = ...) -> float: ...
     # float base & float exp could return float or complex
@@ -1444,6 +1465,10 @@ else:
     def pow(__base: int, __exp: _NegativeInteger, __mod: None = ...) -> float: ...  # type: ignore[misc]
     @overload
     def pow(__base: int, __exp: int, __mod: None = ...) -> Any: ...
+    @overload
+    def pow(__base: _PositiveInteger, __exp: float, __mod: None = ...) -> float: ...
+    @overload
+    def pow(__base: _NegativeInteger, __exp: float, __mod: None = ...) -> complex: ...
     @overload
     def pow(__base: float, __exp: int, __mod: None = ...) -> float: ...
     @overload
@@ -1490,11 +1515,8 @@ def sorted(
 @overload
 def sorted(__iterable: Iterable[_T], *, key: Callable[[_T], SupportsRichComparison], reverse: bool = ...) -> list[_T]: ...
 
-class _SupportsSum(Protocol):
-    def __add__(self, __x: Any) -> Any: ...
-
-_SumT = TypeVar("_SumT", bound=_SupportsSum)
-_SumS = TypeVar("_SumS", bound=_SupportsSum)
+_SumT = TypeVar("_SumT", bound=SupportsAdd)
+_SumS = TypeVar("_SumS", bound=SupportsAdd)
 
 @overload
 def sum(__iterable: Iterable[_SumT]) -> _SumT | Literal[0]: ...
@@ -1783,6 +1805,7 @@ if sys.version_info >= (3, 11):
         @overload
         def split(self: Self, __condition: Callable[[_BaseExceptionT_co], bool]) -> tuple[Self | None, Self | None]: ...
         def derive(self: Self, __excs: Sequence[_BaseExceptionT_co]) -> Self: ...
+        def __class_getitem__(cls, __item: Any) -> GenericAlias: ...
 
     class ExceptionGroup(BaseExceptionGroup[_ExceptionT_co], Exception):
         def __new__(cls: type[Self], __message: str, __exceptions: Sequence[_ExceptionT_co]) -> Self: ...

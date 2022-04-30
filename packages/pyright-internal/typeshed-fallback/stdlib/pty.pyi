@@ -1,5 +1,5 @@
 import sys
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 from typing_extensions import Literal, TypeAlias
 
 if sys.platform != "win32":

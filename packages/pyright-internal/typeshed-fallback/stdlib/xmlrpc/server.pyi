@@ -2,8 +2,9 @@ import http.server
 import pydoc
 import socketserver
 import sys
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
-from typing import Any, Callable, Iterable, Mapping, Pattern, Protocol
+from typing import Any, Pattern, Protocol
 from typing_extensions import TypeAlias
 from xmlrpc.client import Fault
 

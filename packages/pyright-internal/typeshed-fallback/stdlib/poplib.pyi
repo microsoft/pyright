@@ -1,5 +1,6 @@
 import socket
 import ssl
+from builtins import list as _list  # conflicts with a method named "list"
 from typing import Any, BinaryIO, NoReturn, Pattern, overload
 from typing_extensions import Literal, TypeAlias
 
@@ -15,8 +16,6 @@ CR: Literal[b"\r"]
 LF: Literal[b"\n"]
 CRLF: Literal[b"\r\n"]
 HAVE_SSL: bool
-
-_list = list  # conflicts with a method named "list"
 
 class POP3:
     encoding: str

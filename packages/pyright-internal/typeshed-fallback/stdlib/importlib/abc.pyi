@@ -10,9 +10,10 @@ from _typeshed import (
     StrPath,
 )
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterator, Mapping, Sequence
 from importlib.machinery import ModuleSpec
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
-from typing import IO, Any, BinaryIO, Iterator, Mapping, NoReturn, Protocol, Sequence, overload, runtime_checkable
+from typing import IO, Any, BinaryIO, NoReturn, Protocol, overload, runtime_checkable
 from typing_extensions import Literal, TypeAlias
 
 _Path: TypeAlias = bytes | str

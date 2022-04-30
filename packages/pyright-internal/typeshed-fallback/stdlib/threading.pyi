@@ -1,6 +1,7 @@
 import sys
+from collections.abc import Callable, Iterable, Mapping
 from types import FrameType, TracebackType
-from typing import Any, Callable, Iterable, Mapping, TypeVar
+from typing import Any, TypeVar
 from typing_extensions import TypeAlias
 
 # TODO recursive type

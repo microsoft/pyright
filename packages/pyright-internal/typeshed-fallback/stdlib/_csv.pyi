@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Iterator, Protocol, Union
+from collections.abc import Iterable, Iterator
+from typing import Any, Protocol, Union
 from typing_extensions import Literal, TypeAlias
 
 __version__: str

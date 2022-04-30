@@ -1,20 +1,6 @@
 import sys
-from typing import (
-    Any,
-    AnyStr,
-    Callable,
-    Container,
-    Generic,
-    Iterable,
-    Mapping,
-    MutableMapping,
-    MutableSequence,
-    Protocol,
-    Sequence,
-    SupportsAbs,
-    TypeVar,
-    overload,
-)
+from collections.abc import Callable, Container, Iterable, Mapping, MutableMapping, MutableSequence, Sequence
+from typing import Any, AnyStr, Generic, Protocol, SupportsAbs, TypeVar, overload
 from typing_extensions import ParamSpec, SupportsIndex, TypeAlias, final
 
 _R = TypeVar("_R")

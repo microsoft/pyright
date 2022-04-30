@@ -1,6 +1,8 @@
-import sys
+from builtins import dict as _dict  # alias to avoid conflicts with attribute name
 from collections.abc import Callable, Iterator
-from typing import Any, NamedTuple, Pattern, TypeVar
+from contextlib import _GeneratorContextManager
+from inspect import getfullargspec as getfullargspec, iscoroutinefunction as iscoroutinefunction
+from typing import Any, Pattern, TypeVar
 from typing_extensions import ParamSpec
 
 _C = TypeVar("_C", bound=Callable[..., Any])
@@ -10,28 +12,7 @@ _P = ParamSpec("_P")
 
 def get_init(cls: type) -> None: ...
 
-if sys.version_info >= (3,):
-    from inspect import getfullargspec as getfullargspec, iscoroutinefunction as iscoroutinefunction
-else:
-    class FullArgSpec(NamedTuple):
-        args: list[str]
-        varargs: str | None
-        varkw: str | None
-        defaults: tuple[Any, ...]
-        kwonlyargs: list[str]
-        kwonlydefaults: dict[str, Any]
-        annotations: dict[str, Any]
-    def iscoroutinefunction(f: Callable[..., Any]) -> bool: ...
-    def getfullargspec(func: Any) -> FullArgSpec: ...
-
-if sys.version_info >= (3, 2):
-    from contextlib import _GeneratorContextManager
-else:
-    from contextlib import GeneratorContextManager as _GeneratorContextManager
-
 DEF: Pattern[str]
-
-_dict = dict  # conflicts with attribute name
 
 class FunctionMaker:
     args: list[str]

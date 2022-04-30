@@ -1,7 +1,8 @@
 import sys
 import types
 from _typeshed import StrPath
-from typing import Any, Callable, Mapping, Sequence, TypeVar
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, TypeVar
 from typing_extensions import ParamSpec, TypeAlias
 
 __all__ = ["Trace", "CoverageResults"]

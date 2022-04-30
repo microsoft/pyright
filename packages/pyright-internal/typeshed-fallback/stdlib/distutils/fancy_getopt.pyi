@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Mapping, overload
+from collections.abc import Iterable, Mapping
+from typing import Any, overload
 from typing_extensions import TypeAlias
 
 _Option: TypeAlias = tuple[str, str | None, str]

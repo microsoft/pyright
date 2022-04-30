@@ -1,9 +1,10 @@
 import io
 import sys
 from _typeshed import Self, StrOrBytesPath, StrPath
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from os import PathLike
 from types import TracebackType
-from typing import IO, Any, Callable, Iterable, Iterator, Protocol, Sequence, overload
+from typing import IO, Any, Protocol, overload
 from typing_extensions import Literal, TypeAlias
 
 if sys.version_info >= (3, 8):

@@ -2,7 +2,8 @@ import enum
 import socket
 import sys
 from _typeshed import ReadableBuffer, Self, StrOrBytesPath, WriteableBuffer
-from typing import Any, Callable, Iterable, NamedTuple, Union, overload
+from collections.abc import Callable, Iterable
+from typing import Any, NamedTuple, Union, overload
 from typing_extensions import Literal, TypeAlias, TypedDict, final
 
 _PCTRTT: TypeAlias = tuple[tuple[str, str], ...]

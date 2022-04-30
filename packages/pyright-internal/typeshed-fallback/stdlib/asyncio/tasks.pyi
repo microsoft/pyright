@@ -1,8 +1,8 @@
 import concurrent.futures
 import sys
-from collections.abc import Awaitable, Generator, Iterable, Iterator
+from collections.abc import Awaitable, Coroutine, Generator, Iterable, Iterator
 from types import FrameType
-from typing import Any, Coroutine, Generic, TextIO, TypeVar, overload
+from typing import Any, Generic, TextIO, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
 from .events import AbstractEventLoop

@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from typing import Any
+from typing_extensions import TypeAlias
 
 class NodeVisitor:
     def visit(self, node: AST) -> Any: ...
@@ -168,7 +169,7 @@ class Break(stmt): ...
 class Continue(stmt): ...
 class slice(AST): ...
 
-_slice = slice  # this lets us type the variable named 'slice' below
+_slice: TypeAlias = slice  # this lets us type the variable named 'slice' below
 
 class Slice(slice):
     lower: expr | None
