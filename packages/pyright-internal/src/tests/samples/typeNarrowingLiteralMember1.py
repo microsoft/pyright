@@ -118,3 +118,23 @@ def is_class2(c: Union[Type[A], Type[B]]):
         reveal_type(c, expected_text="Type[A] | Type[B]")
     else:
         reveal_type(c, expected_text="Type[A] | Type[B]")
+
+
+class E:
+    @property
+    def type(self) -> Literal[0]:
+        return 0
+
+
+class F:
+    @property
+    def type(self) -> Literal[1]:
+        return 1
+
+
+def test(x: E | F) -> None:
+    if x.type == 1:
+        reveal_type(x, expected_type="F")
+    else:
+        reveal_type(x, expected_type="E")
+
