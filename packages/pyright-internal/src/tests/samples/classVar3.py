@@ -1,7 +1,7 @@
 # This sample tests the reporting of errors for ClassVar in contexts
 # where it is not allowed.
 
-from typing import Annotated, Any, ClassVar, Final, Generic, List, TypeVar
+from typing import Annotated, Any, ClassVar, Final, Generic, List, TypeAlias, TypeVar
 from typing_extensions import Self
 
 # This should generate an error.
@@ -9,6 +9,8 @@ x: ClassVar[int] = 3
 
 T = TypeVar("T")
 
+# This should generate an error.
+TA1: TypeAlias = ClassVar[str]
 
 class Foo(Generic[T]):
     x: ClassVar[int] = 3

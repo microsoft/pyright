@@ -14044,7 +14044,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.ExpectingType |
                 EvaluatorFlags.EvaluateStringLiteralAsType |
                 EvaluatorFlags.ParamSpecDisallowed |
-                EvaluatorFlags.TypeVarTupleDisallowed;
+                EvaluatorFlags.TypeVarTupleDisallowed |
+                EvaluatorFlags.ClassVarDisallowed;
             flags &= ~EvaluatorFlags.DoNotSpecialize;
         }
 
