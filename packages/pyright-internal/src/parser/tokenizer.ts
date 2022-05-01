@@ -234,7 +234,7 @@ export class Tokenizer {
         if (start === undefined) {
             start = 0;
         } else if (start < 0 || start > text.length) {
-            throw new Error('Invalid range start');
+            throw new Error(`Invalid range start (start=${start}, text.length=${text.length})`);
         }
 
         if (length === undefined) {
