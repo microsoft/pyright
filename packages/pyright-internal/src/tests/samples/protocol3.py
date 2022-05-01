@@ -1,7 +1,7 @@
 # This sample tests the assignment of protocols that
 # include property declarations.
 
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 
 class Foo1(Protocol):
@@ -93,3 +93,18 @@ class MockFoo4:
 # This should generate an error because it is missing
 # a deleter.
 g: Foo4 = MockFoo4(batch_shape=1)
+
+
+_T_co = TypeVar("_T_co", covariant=True)
+_Self = TypeVar("_Self")
+
+class Foo5:
+    @property
+    def real(self: _Self) -> _Self: ...
+
+class MockFoo5(Protocol[_T_co]):
+    @property
+    def real(self) -> _T_co: ...
+
+foo5 = Foo5()
+h: MockFoo5[Foo5] = foo5

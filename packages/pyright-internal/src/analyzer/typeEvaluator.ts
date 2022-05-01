@@ -19390,6 +19390,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             srcType,
                                             subDiag?.createAddendum(),
                                             genericDestTypeVarContext,
+                                            selfTypeVarContext,
                                             recursionCount
                                         )
                                     ) {
@@ -19669,6 +19670,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 srcType,
                                 diag,
                                 typeVarContext,
+                                /* selfTypeVarContext */ undefined,
                                 recursionCount
                             )
                         ) {

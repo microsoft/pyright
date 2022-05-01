@@ -33,6 +33,7 @@ import {
     UnknownType,
 } from './types';
 import {
+    applySolvedTypeVars,
     CanAssignFlags,
     computeMroLinearization,
     getTypeVarScopeId,
@@ -450,6 +451,7 @@ export function canAssignProperty(
     srcClass: ClassType,
     diag: DiagnosticAddendum | undefined,
     typeVarContext?: TypeVarContext,
+    selfTypeVarContext?: TypeVarContext,
     recursionCount = 0
 ): boolean {
     const objectToBind = ClassType.cloneAsInstance(srcClass);
@@ -490,6 +492,12 @@ export function canAssignProperty(
 
             srcAccessType = partiallySpecializeType(srcAccessType, srcClass) as FunctionType;
             destAccessType = partiallySpecializeType(destAccessType, destClass) as FunctionType;
+
+            // If the caller provided a "self" TypeVar context, replace any Self types.
+            // This is needed during protocol matching.
+            if (selfTypeVarContext) {
+                destAccessType = applySolvedTypeVars(destAccessType, selfTypeVarContext) as FunctionType;
+            }
 
             const boundDestAccessType = evaluator.bindFunctionToClassOrObject(
                 objectToBind,
