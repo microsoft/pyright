@@ -12372,45 +12372,67 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         entryTypes: Type[],
         isNarrowable: boolean
     ): Type | undefined {
-        // Synthesize a temporary bound type var. We will attempt to assign all list
-        // entries to this type var, possibly narrowing the type in the process.
-        const targetTypeVar = TypeVarType.createInstance('__typeArg');
-        targetTypeVar.details.isSynthesized = true;
-        targetTypeVar.details.boundType = expectedType;
+        let targetTypeVar: TypeVarType;
+        let useSynthesizedTypeVar = false;
 
-        // Use a dummy scope ID. It needs to be a non-empty string.
-        targetTypeVar.scopeId = '__typeArgScopeId';
+        // If the expected type is a TypeVar, use it as a target to find
+        // a common (narrowest) type among the entry types.
+        if (isTypeVar(expectedType)) {
+            if (expectedType.details.isParamSpec || expectedType.details.isVariadic) {
+                return undefined;
+            }
 
-        let typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-        typeVarContext.setTypeVarType(targetTypeVar, isNarrowable ? undefined : expectedType, expectedType);
+            targetTypeVar = expectedType;
+        } else {
+            // Synthesize a temporary bound type var. We will attempt to assign all list
+            // entries to this type var, possibly narrowing the type in the process.
+            targetTypeVar = TypeVarType.createInstance('__typeArg');
+            targetTypeVar.details.isSynthesized = true;
+            targetTypeVar.details.boundType = makeTopLevelTypeVarsConcrete(expectedType);
+
+            // Use a dummy scope ID. It needs to be a non-empty string.
+            targetTypeVar.scopeId = '__typeArgScopeId';
+            useSynthesizedTypeVar = true;
+        }
 
         // First, try to assign entries with their literal values stripped.
         // The only time we don't want to strip them is if the expected
         // type explicitly includes literals.
+        let typeVarContext = new TypeVarContext(targetTypeVar.scopeId);
+
+        if (useSynthesizedTypeVar) {
+            typeVarContext.setTypeVarType(targetTypeVar, isNarrowable ? undefined : expectedType, expectedType);
+        }
+
         if (
-            entryTypes.some(
-                (entryType) =>
-                    !canAssignType(targetTypeVar, stripLiteralValue(entryType), /* diag */ undefined, typeVarContext)
+            entryTypes.every((entryType) =>
+                canAssignType(targetTypeVar, stripLiteralValue(entryType), /* diag */ undefined, typeVarContext)
             )
         ) {
-            // Allocate a fresh typeVarContext before we try again with literals not stripped.
-            typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
+            return applySolvedTypeVars(targetTypeVar, typeVarContext);
+        }
+
+        // Allocate a fresh typeVarContext before we try again with literals not stripped.
+        typeVarContext = new TypeVarContext(targetTypeVar.scopeId);
+
+        if (useSynthesizedTypeVar) {
             typeVarContext.setTypeVarType(
                 targetTypeVar,
                 isNarrowable ? undefined : expectedType,
                 expectedType,
                 /* retainLiteral */ true
             );
-            if (
-                entryTypes.some(
-                    (entryType) => !canAssignType(targetTypeVar!, entryType, /* diag */ undefined, typeVarContext)
-                )
-            ) {
-                return undefined;
-            }
         }
 
-        return applySolvedTypeVars(targetTypeVar, typeVarContext);
+        if (
+            entryTypes.every((entryType) =>
+                canAssignType(targetTypeVar!, entryType, /* diag */ undefined, typeVarContext)
+            )
+        ) {
+            return applySolvedTypeVars(targetTypeVar, typeVarContext);
+        }
+
+        return undefined;
     }
 
     function getTypeOfTernary(node: TernaryNode, flags: EvaluatorFlags, expectedType: Type | undefined): TypeResult {

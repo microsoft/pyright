@@ -8,6 +8,7 @@ from typing import (
     Dict,
     Generic,
     List,
+    Literal,
     Optional,
     Sequence,
     TypeVar,
@@ -72,3 +73,18 @@ x2 = [1, 2, 3]
 v15: List[Optional[str]] = [None] * sum(x2)
 
 v16: Dict[str, List[Optional[str]]] = {n: [None] * len(n) for n in ["a", "aa", "aaa"]}
+
+
+ScalarKeysT = TypeVar("ScalarKeysT", bound=Literal["name", "country"])
+
+
+def func1(by: list[ScalarKeysT]) -> ScalarKeysT:
+    ...
+
+
+reveal_type(func1(["country"]), expected_type="Literal['country']")
+reveal_type(func1(["name"]), expected_type="Literal['name']")
+reveal_type(func1(["name", "country"]), expected_type="Literal['name', 'country']")
+
+# This should generate an error.
+func1(["id"])
