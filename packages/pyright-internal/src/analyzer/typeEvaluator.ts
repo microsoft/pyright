@@ -16110,7 +16110,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return awaitableReturnType;
     }
 
-    function inferFunctionReturnType(node: FunctionNode, isAbstract: boolean): Type | undefined {
+    function inferFunctionReturnType(node: FunctionNode, isAbstract: boolean): SimpleTypeResult | undefined {
         const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
 
         // This shouldn't be called if there is a declared return type, but it
@@ -16123,11 +16123,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Is this type already cached?
         let inferredReturnType = readTypeCache(node.suite, EvaluatorFlags.None);
+        let isIncomplete = false;
+
         if (inferredReturnType) {
-            return inferredReturnType;
+            return { type: inferredReturnType, isIncomplete };
         }
 
-        if (!functionRecursionMap.has(node.id) && functionRecursionMap.size < maxInferFunctionReturnRecursionCount) {
+        if (functionRecursionMap.has(node.id) && functionRecursionMap.size < maxInferFunctionReturnRecursionCount) {
+            inferredReturnType = UnknownType.create();
+            isIncomplete = true;
+        } else {
             functionRecursionMap.set(node.id, true);
 
             try {
@@ -16162,8 +16167,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             functionDecl.returnStatements.forEach((returnNode) => {
                                 if (isNodeReachable(returnNode)) {
                                     if (returnNode.returnExpression) {
-                                        const returnType = getTypeOfExpression(returnNode.returnExpression).type;
-                                        inferredReturnTypes.push(returnType ?? UnknownType.create());
+                                        const returnTypeResult = getTypeOfExpression(returnNode.returnExpression);
+                                        if (returnTypeResult.isIncomplete) {
+                                            isIncomplete = true;
+                                        }
+
+                                        inferredReturnTypes.push(returnTypeResult.type ?? UnknownType.create());
                                     } else {
                                         inferredReturnTypes.push(NoneType.createInstance());
                                     }
@@ -16257,13 +16266,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                writeTypeCache(node.suite, inferredReturnType, EvaluatorFlags.None, /* isIncomplete */ false);
+                writeTypeCache(node.suite, inferredReturnType, EvaluatorFlags.None, isIncomplete);
             } finally {
                 functionRecursionMap.delete(node.id);
             }
         }
 
-        return inferredReturnType;
+        return inferredReturnType ? { type: inferredReturnType, isIncomplete } : undefined;
     }
 
     // Determines whether the function consists only of a "raise" statement
@@ -18906,6 +18915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
+        let isIncomplete = false;
 
         // Don't attempt to infer the return type for a stub file.
         if (FunctionType.isStubDefinition(type)) {
@@ -18938,9 +18948,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (parametersAreAnnotated || codeFlowComplexity < maxReturnTypeInferenceCodeFlowComplexity) {
                         // Temporarily disable speculative mode while we
                         // lazily evaluate the return type.
+                        let returnTypeResult: SimpleTypeResult | undefined;
                         disableSpeculativeMode(() => {
-                            returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+                            returnTypeResult = inferFunctionReturnType(
+                                functionNode,
+                                FunctionType.isAbstractMethod(type)
+                            );
                         });
+
+                        returnType = returnTypeResult?.type;
+                        if (returnTypeResult?.isIncomplete) {
+                            isIncomplete = true;
+                        }
 
                         // Do we need to wrap this in an awaitable?
                         if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
@@ -18959,13 +18978,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Cache the type for next time.
-            type.inferredReturnType = returnType;
+            if (!isIncomplete) {
+                type.inferredReturnType = returnType;
+            }
         }
 
         // If the type is partially unknown and the function has one or more unannotated
         // params, try to analyze the function with the provided argument types and
         // attempt to do a better job at inference.
         if (
+            !isIncomplete &&
             evaluatorOptions.analyzeUnannotatedFunctions &&
             isPartlyUnknown(returnType) &&
             FunctionType.hasUnannotatedParams(type) &&
@@ -19084,7 +19106,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Don't bother trying to determine the contextual return
                 // type if none of the argument types are known.
                 if (!allArgTypesAreUnknown) {
-                    contextualReturnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+                    contextualReturnType = inferFunctionReturnType(
+                        functionNode,
+                        FunctionType.isAbstractMethod(type)
+                    )?.type;
                 }
             } finally {
                 returnTypeInferenceContextStack.pop();
