@@ -332,7 +332,7 @@ export function getCodeFlowEngine(
                         // If this function returns a "NoReturn" type, that means
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
-                        if (isCallNoReturn(callFlowNode)) {
+                        if (isCallNoReturn(evaluator, callFlowNode)) {
                             return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                         }
 
@@ -951,7 +951,7 @@ export function getCodeFlowEngine(
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    if (isCallNoReturn(callFlowNode)) {
+                    if (isCallNoReturn(evaluator, callFlowNode)) {
                         return false;
                     }
 
@@ -1199,11 +1199,7 @@ export function getCodeFlowEngine(
         return isCompatible;
     }
 
-    // Performs a cursory analysis to determine whether a call never returns
-    // without fully evaluating its type. This is done during code flow,
-    // so it can't rely on full type analysis. It makes some simplifying
-    // assumptions that work fine in practice.
-    function isCallNoReturn(flowNode: FlowCall) {
+    function isCallNoReturn(evaluator: TypeEvaluator, flowNode: FlowCall) {
         const node = flowNode.node;
 
         if (isPrintCallNoReturnEnabled) {
@@ -1228,7 +1224,8 @@ export function getCodeFlowEngine(
         let subtypeCount = 0;
 
         // Evaluate the call base type.
-        const callType = getDeclaredCallBaseType(node.leftExpression) ?? UnknownType.create();
+        const callType = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize).type;
+
         doForEachSubtype(callType, (callSubtype) => {
             // Track the number of subtypes we've examined.
             subtypeCount++;
