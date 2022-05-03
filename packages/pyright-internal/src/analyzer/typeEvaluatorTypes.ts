@@ -400,7 +400,6 @@ export interface TypeEvaluator {
         diag: DiagnosticAddendum,
         enforceParamNames?: boolean
     ) => boolean;
-    canAssignProtocolClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
     assignTypeToExpression: (
         target: ExpressionNode,
         type: Type,
@@ -408,9 +407,17 @@ export interface TypeEvaluator {
         srcExpr: ExpressionNode
     ) => void;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
+    getTypedDictClassType: () => Type | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
-
+    verifyTypeArgumentsAssignable: (
+        destType: ClassType,
+        srcType: ClassType,
+        diag: DiagnosticAddendum | undefined,
+        typeVarContext: TypeVarContext | undefined,
+        flags: CanAssignFlags,
+        recursionCount: number
+    ) => boolean;
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
     addInformation: (message: string, node: ParseNode) => Diagnostic | undefined;

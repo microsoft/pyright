@@ -94,6 +94,7 @@ import { getRelativeModuleName, getTopLevelImports } from './importStatementUtil
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
+import { canAssignProtocolClassToSelf } from './protocols';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { isStubFile } from './sourceMapper';
@@ -3855,13 +3856,13 @@ export class Checker extends ParseTreeWalker {
                 /* isTypeArgumentExplicit */ true
             );
 
-            const isDestSubtypeOfSrc = this._evaluator.canAssignProtocolClassToSelf(srcType, destType);
+            const isDestSubtypeOfSrc = canAssignProtocolClassToSelf(this._evaluator, srcType, destType);
 
             let expectedVariance: Variance;
             if (isDestSubtypeOfSrc) {
                 expectedVariance = Variance.Covariant;
             } else {
-                const isSrcSubtypeOfDest = this._evaluator.canAssignProtocolClassToSelf(destType, srcType);
+                const isSrcSubtypeOfDest = canAssignProtocolClassToSelf(this._evaluator, destType, srcType);
                 if (isSrcSubtypeOfDest) {
                     expectedVariance = Variance.Contravariant;
                 } else {

@@ -132,12 +132,12 @@ export function createTypeEvaluatorWithTracker(
         canAssignType: (d, s, a, m, f) => run('canAssignType', () => typeEvaluator.canAssignType(d, s, a, m, f), d),
         canOverrideMethod: (b, o, d, e) =>
             run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d, e), o),
-        canAssignProtocolClassToSelf: (d, s) =>
-            run('canAssignProtocolClassToSelf', () => typeEvaluator.canAssignProtocolClassToSelf(d, s)),
         assignTypeToExpression: typeEvaluator.assignTypeToExpression,
         getBuiltInObject: typeEvaluator.getBuiltInObject,
+        getTypedDictClassType: typeEvaluator.getTypedDictClassType,
         getTypingType: typeEvaluator.getTypingType,
         inferReturnTypeIfNecessary: typeEvaluator.inferReturnTypeIfNecessary,
+        verifyTypeArgumentsAssignable: typeEvaluator.verifyTypeArgumentsAssignable,
         addError: (m, n) => run('addError', () => typeEvaluator.addError(m, n), n),
         addWarning: (m, n) => run('addWarning', () => typeEvaluator.addWarning(m, n), n),
         addInformation: (m, n) => run('addInformation', () => typeEvaluator.addInformation(m, n), n),
