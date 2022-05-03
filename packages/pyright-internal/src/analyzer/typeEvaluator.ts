@@ -8574,11 +8574,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             return returnType;
                         } else {
-                            let memberType = getTypeOfObjectMember(errorNode, expandedSubtype, '__call__')?.type;
+                            const memberType = getTypeOfObjectMember(errorNode, expandedSubtype, '__call__')?.type;
 
                             if (memberType && (isFunction(memberType) || isOverloadedFunction(memberType))) {
-                                memberType = removeParamSpecVariadicsFromSignature(memberType);
-
                                 const functionResult = validateCallArguments(
                                     errorNode,
                                     argList,
