@@ -21479,11 +21479,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     )
                 ) {
                     foundMatch = true;
-
                     if (typeVarContextClone) {
                         // Ask the typeVarContext to compute a "score" for the current
                         // contents of the table.
-                        const typeVarContextScore = typeVarContextClone.getScore();
+                        let typeVarContextScore = typeVarContextClone.getScore();
+
+                        // If the type matches exactly, prefer it over other types.
+                        if (isTypeSame(subtype, stripLiteralValue(srcType))) {
+                            typeVarContextScore = Number.POSITIVE_INFINITY;
+                        }
+
                         if (bestTypeVarContextScore === undefined || bestTypeVarContextScore <= typeVarContextScore) {
                             // We found a typeVar mapping with a higher score than before.
                             bestTypeVarContextScore = typeVarContextScore;

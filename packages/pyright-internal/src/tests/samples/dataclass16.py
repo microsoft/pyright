@@ -11,7 +11,7 @@ class Foo(Generic[T]):
     value: Union[str, T]
 
 
-reveal_type(Foo(""), expected_text="Foo[str]")
+reveal_type(Foo(""), expected_text="Foo[Unknown]")
 
 
 class Bar(Foo[int]):
