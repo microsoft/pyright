@@ -148,7 +148,7 @@ export function createTypeEvaluatorWithTracker(
             run('addDiagnosticForTextRange', () => typeEvaluator.addDiagnosticForTextRange(f, d, r, m, g)),
         printType: (t, e) => run('printType', () => typeEvaluator.printType(t, e), t),
         printFunctionParts: (t) => run('printFunctionParts', () => typeEvaluator.printFunctionParts(t), t),
-        getTypeCacheSize: typeEvaluator.getTypeCacheSize,
+        getTypeCacheEntryCount: typeEvaluator.getTypeCacheEntryCount,
         disposeEvaluator: typeEvaluator.disposeEvaluator,
         useSpeculativeMode: typeEvaluator.useSpeculativeMode,
         setTypeForNode: typeEvaluator.setTypeForNode,

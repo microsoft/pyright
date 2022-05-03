@@ -441,7 +441,7 @@ export interface TypeEvaluator {
     printType: (type: Type, expandTypeAlias?: boolean) => string;
     printFunctionParts: (type: FunctionType) => [string[], string];
 
-    getTypeCacheSize: () => number;
+    getTypeCacheEntryCount: () => number;
     disposeEvaluator: () => void;
     useSpeculativeMode: <T>(speculativeNode: ParseNode, callback: () => T) => T;
     setTypeForNode: (node: ParseNode, type?: Type, flags?: EvaluatorFlags) => void;

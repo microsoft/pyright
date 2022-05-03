@@ -2266,7 +2266,7 @@ export class Program {
     }
 
     private _handleMemoryHighUsage() {
-        const typeCacheSize = this._evaluator!.getTypeCacheSize();
+        const typeCacheEntryCount = this._evaluator!.getTypeCacheEntryCount();
         const convertToMB = (bytes: number) => {
             return `${Math.round(bytes / (1024 * 1024))}MB`;
         };
@@ -2274,7 +2274,7 @@ export class Program {
         // If the type cache size has exceeded a high-water mark, query the heap usage.
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
-        if (typeCacheSize > 750000 || this._parsedFileCount > 1000) {
+        if (typeCacheEntryCount > 750000 || this._parsedFileCount > 1000) {
             const heapStats = getHeapStatistics();
 
             if (this._configOptions.verboseOutput) {
@@ -2288,13 +2288,20 @@ export class Program {
                 );
             }
 
+            // The type cache uses a Map, which has an absolute limit of 2^24 entries
+            // before it will fail. If we cross the 95% mark, we'll empty the cache.
+            const absoluteMaxCacheEntryCount = (1 << 24) * 0.9;
+
             // If we use more than 90% of the heap size limit, avoid a crash
             // by emptying the type cache.
-            if (heapStats.used_heap_size > heapStats.heap_size_limit * 0.9) {
+            if (
+                typeCacheEntryCount > absoluteMaxCacheEntryCount ||
+                heapStats.used_heap_size > heapStats.heap_size_limit * 0.9
+            ) {
                 this._console.info(
                     `Emptying type cache to avoid heap overflow. Used ${convertToMB(
                         heapStats.used_heap_size
-                    )} out of ${convertToMB(heapStats.heap_size_limit)}`
+                    )} out of ${convertToMB(heapStats.heap_size_limit)} (${typeCacheEntryCount} cache entries).`
                 );
                 this._createNewEvaluator();
                 this._discardCachedParseResults();

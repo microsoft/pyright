@@ -600,7 +600,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function getTypeCacheSize(): number {
+    function getTypeCacheEntryCount(): number {
         return typeCache.size;
     }
 
@@ -23711,7 +23711,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         addDiagnosticForTextRange,
         printType,
         printFunctionParts,
-        getTypeCacheSize,
+        getTypeCacheEntryCount,
         disposeEvaluator,
         useSpeculativeMode,
         setTypeForNode,
