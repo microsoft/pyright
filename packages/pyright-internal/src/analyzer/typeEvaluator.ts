@@ -10035,7 +10035,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
-                            arg.valueExpression || errorNode
+                            arg.name || errorNode
                         );
                         reportedArgError = true;
                     }
@@ -10057,7 +10057,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 : Localizer.Diagnostic.argPositionalExpectedCount().format({
                                       expected: paramSpecParams.length,
                                   }),
-                            arg.valueExpression || errorNode
+                            arg.valueExpression ?? errorNode
                         );
                         reportedArgError = true;
                     }
