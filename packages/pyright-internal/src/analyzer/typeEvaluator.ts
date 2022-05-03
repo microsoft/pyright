@@ -16358,7 +16358,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
-        const targetType = mapSubtypes(exceptionTypes, (subType) => {
+        let targetType = mapSubtypes(exceptionTypes, (subType) => {
             // If more than one type was specified for the exception, we'll receive
             // a specialized tuple object here.
             const tupleType = getSpecializedTupleType(subType);
@@ -16371,6 +16371,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             return getExceptionType(subType, node.typeExpression!);
         });
+
+        // If this is an except group, wrap the exception type in an ExceptionGroup.
+        if (node.isExceptGroup) {
+            targetType = getBuiltInObject(node, 'ExceptionGroup', [targetType]);
+        }
 
         if (node.name) {
             assignTypeToExpression(node.name, targetType, /* isIncomplete */ false, node.name);
