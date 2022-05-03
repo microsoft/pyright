@@ -3743,8 +3743,23 @@ export class Checker extends ParseTreeWalker {
             if (
                 decls.find((decl) => {
                     const containingClass = ParseTreeUtils.getEnclosingClassOrFunction(decl.node);
-                    if (!containingClass || containingClass.nodeType === ParseNodeType.Class) {
+                    if (!containingClass) {
                         return true;
+                    }
+
+                    if (containingClass.nodeType === ParseNodeType.Class) {
+                        // If this is part of an assignment statement, assume it has been
+                        // initialized as a class variable.
+                        if (decl.node.parent?.nodeType === ParseNodeType.Assignment) {
+                            return true;
+                        }
+
+                        if (
+                            decl.node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+                            decl.node.parent.parent?.nodeType === ParseNodeType.Assignment
+                        ) {
+                            return true;
+                        }
                     }
 
                     if (containingClass.name.value === '__init__') {

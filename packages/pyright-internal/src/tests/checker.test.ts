@@ -413,6 +413,19 @@ test('UnusedExpression1', () => {
     TestUtils.validateResults(analysisResults, 10);
 });
 
+test('UninitializedVariable1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, this is off.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Enable it as an error.
+    configOptions.diagnosticRuleSet.reportUninitializedInstanceVariable = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['uninitializedVariable1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 // For now, this functionality is disabled.
 
 // test('Deprecated1', () => {
