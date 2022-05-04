@@ -14389,9 +14389,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
                             classType.details.flags |= ClassTypeFlags.TypedDictClass;
                         } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
-                            // TypedDict classes must derive only from other
-                            // TypedDict classes.
-                            addError(Localizer.Diagnostic.typedDictBaseClass(), arg);
+                            // Exempt Generic from this test. As of Python 3.11, generic TypedDict
+                            // classes are supported.
+                            if (!isInstantiableClass(argType) || !ClassType.isBuiltIn(argType, 'Generic')) {
+                                // TypedDict classes must derive only from other TypedDict classes.
+                                addError(Localizer.Diagnostic.typedDictBaseClass(), arg);
+                            }
                         }
 
                         // Validate that the class isn't deriving from itself, creating a

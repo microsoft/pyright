@@ -391,7 +391,7 @@
         "typeCallNotAllowed": "type() call should not be used in type annotation",
         "typedDictAccess": "Could not access item in TypedDict",
         "typedDictBadVar": "TypedDict classes can contain only type annotations",
-        "typedDictBaseClass": "All base classes for \"TypedDict\" classes must also be \"TypedDict\" classes",
+        "typedDictBaseClass": "All base classes for TypedDict classes must also be TypedDict classes",
         "typedDictDelete": "Could not delete item in TypedDict",
         "typedDictEmptyName": "Names within a TypedDict cannot be empty",
         "typedDictEntryName": "Expected string literal for dictionary entry name",

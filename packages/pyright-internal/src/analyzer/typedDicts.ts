@@ -55,7 +55,13 @@ import {
     TypeVarType,
     UnknownType,
 } from './types';
-import { computeMroLinearization, isLiteralType, mapSubtypes } from './typeUtils';
+import {
+    applySolvedTypeVars,
+    buildTypeVarContextFromSpecializedClass,
+    computeMroLinearization,
+    isLiteralType,
+    mapSubtypes,
+} from './typeUtils';
 
 // Creates a new custom TypedDict factory class.
 export function createTypedDictType(
@@ -543,16 +549,22 @@ export function getTypedDictMembersForClass(evaluator: TypeEvaluator, classType:
         classType.details.typedDictEntries = entries;
     }
 
-    // Create a copy of the entries so the caller can mutate them.
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
+
+    // Create a specialized copy of the entries so the caller can mutate them.
     const entries = new Map<string, TypedDictEntry>();
     classType.details.typedDictEntries!.forEach((value, key) => {
-        entries.set(key, { ...value });
+        const tdEntry = { ...value };
+        tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
+        entries.set(key, tdEntry);
     });
 
     // Apply narrowed types on top of existing entries if present.
     if (allowNarrowed && classType.typedDictNarrowedEntries) {
         classType.typedDictNarrowedEntries.forEach((value, key) => {
-            entries.set(key, { ...value });
+            const tdEntry = { ...value };
+            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
+            entries.set(key, tdEntry);
         });
     }
 
@@ -577,13 +589,17 @@ function getTypedDictMembersForClassRecursive(
         }
     });
 
+    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
+
     // Add any new typed dict entries from this class.
     classType.details.fields.forEach((symbol, name) => {
         if (!symbol.isIgnoredForProtocolMatch()) {
             // Only variables (not functions, classes, etc.) are considered.
             const lastDecl = getLastTypedDeclaredForSymbol(symbol);
             if (lastDecl && lastDecl.type === DeclarationType.Variable) {
-                const valueType = evaluator.getEffectiveTypeOfSymbol(symbol);
+                let valueType = evaluator.getEffectiveTypeOfSymbol(symbol);
+                valueType = applySolvedTypeVars(valueType, typeVarContext);
+
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
 
                 if (isRequiredTypedDictVariable(symbol)) {
