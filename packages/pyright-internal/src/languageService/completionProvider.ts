@@ -625,13 +625,17 @@ export class CompletionProvider {
         }
     }
 
+    // This method will return false if it wants
+    // caller to walk up the tree. it will return
+    // CompletionResults or undefined if it wants caller
+    // to return.
     private _tryGetNameCompletions(
         curNode: NameNode,
         offset: number,
         priorWord: string,
         priorText: string,
         postText: string
-    ) {
+    ): false | CompletionResults | undefined {
         if (!curNode.parent) {
             return false;
         }
@@ -743,6 +747,20 @@ export class CompletionProvider {
             }
 
             return completionList;
+        }
+
+        // Defining class variables.
+        // ex) class A:
+        //         variable = 1
+        if (
+            curNode.parent.nodeType === ParseNodeType.StatementList &&
+            curNode.parent.parent?.nodeType === ParseNodeType.Suite &&
+            curNode.parent.parent.parent?.nodeType === ParseNodeType.Class
+        ) {
+            const completionList = this._getClassVariableCompletions(priorWord, curNode);
+            if (completionList) {
+                return completionList;
+            }
         }
 
         return false;
@@ -864,6 +882,69 @@ export class CompletionProvider {
         const completionMap = new CompletionMap();
         completionMap.set(completionItem);
         return { completionMap };
+    }
+
+    private _getClassVariableCompletions(priorWord: string, partialName: NameNode): CompletionResults | undefined {
+        const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, false);
+        if (!enclosingClass) {
+            return undefined;
+        }
+
+        const classResults = this._evaluator.getTypeOfClass(enclosingClass);
+        if (!classResults) {
+            return undefined;
+        }
+
+        const symbolTable = new Map<string, Symbol>();
+        for (const mroClass of classResults.classType.details.mro) {
+            if (isInstantiableClass(mroClass)) {
+                getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
+            }
+        }
+
+        const printFlags = isStubFile(this._filePath)
+            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations
+            : undefined;
+
+        const completionMap = new CompletionMap();
+        symbolTable.forEach((symbol, name) => {
+            if (
+                SymbolNameUtils.isPrivateName(name) ||
+                symbol.isPrivateMember() ||
+                symbol.isExternallyHidden() ||
+                !StringUtils.isPatternInSymbol(partialName.value, name)
+            ) {
+                return;
+            }
+
+            const decls = symbol
+                .getDeclarations()
+                .filter((d) => isVariableDeclaration(d) && d.moduleName !== 'builtins') as VariableDeclaration[];
+
+            // Skip any symbols invalid such as defined in the same class.
+            if (
+                decls.length === 0 ||
+                decls.some((d) => d.node && ParseTreeUtils.getEnclosingClass(d.node, false) === enclosingClass)
+            ) {
+                return;
+            }
+
+            let edits: Edits | undefined;
+            const declWithTypeAnnotations = decls.filter((d) => d.typeAnnotationNode);
+            if (declWithTypeAnnotations.length > 0) {
+                const text = `${name}: ${ParseTreeUtils.printExpression(
+                    declWithTypeAnnotations[declWithTypeAnnotations.length - 1].typeAnnotationNode!,
+                    printFlags
+                )}`;
+                edits = {
+                    textEdit: this._createReplaceEdits(priorWord, partialName, text),
+                };
+            }
+
+            this._addSymbol(name, symbol, partialName.value, completionMap, { edits });
+        });
+
+        return completionMap.size > 0 ? { completionMap } : undefined;
     }
 
     private _getMethodOverloadsCompletions(priorWord: string, partialName: NameNode): CompletionResults | undefined {
