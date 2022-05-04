@@ -735,9 +735,10 @@ export function assignToTypedDict(
                 }
             } else {
                 // Can we assign the value to the declared type?
-                if (!evaluator.canAssignType(symbolEntry.valueType, valueTypes[index])) {
-                    if (diagAddendum) {
-                        diagAddendum.addMessage(
+                const subDiag = diagAddendum?.createAddendum();
+                if (!evaluator.canAssignType(symbolEntry.valueType, valueTypes[index], subDiag?.createAddendum())) {
+                    if (subDiag) {
+                        subDiag.addMessage(
                             Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
                                 name: keyType.literalValue as string,
                                 type: evaluator.printType(valueTypes[index]),
