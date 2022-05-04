@@ -12054,16 +12054,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
                 }
 
-                let keyType = keyTypeResult.type;
-                if (expectedKeyType) {
-                    const adjExpectedKeyType = makeTopLevelTypeVarsConcrete(expectedKeyType);
-                    if (!isAnyOrUnknown(adjExpectedKeyType)) {
-                        if (canAssignType(adjExpectedKeyType, keyType)) {
-                            keyType = adjExpectedKeyType;
-                        }
-                    }
-                }
-
+                const keyType = keyTypeResult.type;
                 let valueTypeResult: TypeResult;
 
                 if (
