@@ -14536,17 +14536,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let derivesFromNamedTuple = false;
             let foundIllegalBaseClass = false;
 
-            classType.details.baseClasses.forEach(
-                (baseClass) => {
-                    if (isInstantiableClass(baseClass)) {
-                        if (ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
-                            derivesFromNamedTuple = true;
-                        } else if (!ClassType.isBuiltIn(baseClass, 'Generic')) {
-                            foundIllegalBaseClass = true;
-                        }
+            classType.details.baseClasses.forEach((baseClass) => {
+                if (isInstantiableClass(baseClass)) {
+                    if (ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
+                        derivesFromNamedTuple = true;
+                    } else if (!ClassType.isBuiltIn(baseClass, 'Generic')) {
+                        foundIllegalBaseClass = true;
                     }
                 }
-            );
+            });
 
             if (derivesFromNamedTuple && foundIllegalBaseClass) {
                 addDiagnostic(
