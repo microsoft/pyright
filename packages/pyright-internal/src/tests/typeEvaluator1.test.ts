@@ -1123,7 +1123,7 @@ test('NamedTuples2', () => {
 test('NamedTuples3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples3.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('NamedTuples4', () => {
@@ -1142,6 +1142,12 @@ test('NamedTuples6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples6.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('NamedTuples7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples7.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Slots1', () => {

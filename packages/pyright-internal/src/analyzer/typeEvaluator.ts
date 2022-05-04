@@ -14533,11 +14533,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Check for NamedTuple multiple inheritance.
         if (classType.details.baseClasses.length > 1) {
-            if (
-                classType.details.baseClasses.some(
-                    (baseClass) => isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, 'NamedTuple')
-                )
-            ) {
+            let derivesFromNamedTuple = false;
+            let foundIllegalBaseClass = false;
+
+            classType.details.baseClasses.forEach(
+                (baseClass) => {
+                    if (isInstantiableClass(baseClass)) {
+                        if (ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
+                            derivesFromNamedTuple = true;
+                        } else if (!ClassType.isBuiltIn(baseClass, 'Generic')) {
+                            foundIllegalBaseClass = true;
+                        }
+                    }
+                }
+            );
+
+            if (derivesFromNamedTuple && foundIllegalBaseClass) {
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,

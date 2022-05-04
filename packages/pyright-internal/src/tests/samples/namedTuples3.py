@@ -10,6 +10,6 @@ class A(NamedTuple, object):
 
 T = TypeVar("T")
 
-# This should generate an error
+
 class B(NamedTuple, Generic[T]):
     x: int
