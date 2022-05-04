@@ -27,6 +27,7 @@ import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
+import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { EvaluatorFlags, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
@@ -115,9 +116,32 @@ export function synthesizeDataClassMethods(
     const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: EntryTypeEvaluator }[] = [];
     let sawKeywordOnlySeparator = false;
 
-    node.suite.statements.forEach((statementList) => {
-        if (statementList.nodeType === ParseNodeType.StatementList) {
-            statementList.statements.forEach((statement) => {
+    classType.details.fields.forEach((symbol, name) => {
+        if (!symbol.isIgnoredForProtocolMatch()) {
+            // Only variables (not functions, classes, etc.) are considered.
+            const lastDecl = getLastTypedDeclaredForSymbol(symbol);
+            if (lastDecl && lastDecl.type === DeclarationType.Variable) {
+                let statement: ParseNode | undefined = lastDecl.node;
+
+                while (statement) {
+                    if (statement.nodeType === ParseNodeType.Assignment) {
+                        break;
+                    }
+
+                    if (statement.nodeType === ParseNodeType.TypeAnnotation) {
+                        if (statement.parent?.nodeType === ParseNodeType.Assignment) {
+                            statement = statement.parent;
+                        }
+                        break;
+                    }
+
+                    statement = statement.parent;
+                }
+
+                if (!statement) {
+                    return;
+                }
+
                 let variableNameNode: NameNode | undefined;
                 let aliasName: string | undefined;
                 let variableTypeEvaluator: EntryTypeEvaluator | undefined;
@@ -132,9 +156,10 @@ export function synthesizeDataClassMethods(
                         statement.leftExpression.valueExpression.nodeType === ParseNodeType.Name
                     ) {
                         variableNameNode = statement.leftExpression.valueExpression;
+                        const assignmentStatement = statement;
                         variableTypeEvaluator = () =>
                             evaluator.getTypeOfAnnotation(
-                                (statement.leftExpression as TypeAnnotationNode).typeAnnotation,
+                                (assignmentStatement.leftExpression as TypeAnnotationNode).typeAnnotation,
                                 {
                                     isVariableAnnotation: true,
                                     allowFinal: true,
@@ -258,8 +283,9 @@ export function synthesizeDataClassMethods(
                 } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                     if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                         variableNameNode = statement.valueExpression;
+                        const annotationStatement = statement;
                         variableTypeEvaluator = () =>
-                            evaluator.getTypeOfAnnotation(statement.typeAnnotation, {
+                            evaluator.getTypeOfAnnotation(annotationStatement.typeAnnotation, {
                                 isVariableAnnotation: true,
                                 allowFinal: true,
                                 allowClassVar: true,
@@ -365,7 +391,7 @@ export function synthesizeDataClassMethods(
                         }
                     }
                 }
-            });
+            }
         }
     });
 
