@@ -1068,6 +1068,8 @@ export class TestState {
                 continue;
             }
 
+            this.lastKnownMarker = markerName;
+
             const filePath = marker.fileName;
             const expectedCompletions = map[markerName].completions;
             const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
