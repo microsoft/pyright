@@ -2,6 +2,9 @@
 # handle various class definition cases.
 
 
+from typing import Type
+
+
 class Foo:
     pass
 
@@ -22,3 +25,18 @@ class Bar3(Foo, metaclass=type, metaclass=type):
 
 class Bar4(Foo, other_keyword=2):
     pass
+
+
+class A:
+    ...
+
+
+class B:
+    C: Type[A]
+
+
+app = B()
+
+
+class D(app.C):
+    ...

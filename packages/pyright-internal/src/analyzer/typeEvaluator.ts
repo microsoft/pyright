@@ -3926,7 +3926,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (isTypeVar(type) && (flags & EvaluatorFlags.ExpectingType) === 0 && type.details.name === name) {
+        if (
+            isTypeVar(type) &&
+            !type.details.isParamSpec &&
+            (flags & EvaluatorFlags.ExpectingType) === 0 &&
+            type.details.name === name
+        ) {
             // Handle the special case of a PEP 604 union. These can appear within
             // an implied type alias where we are not expecting a type.
             const isPep604Union =
@@ -4332,8 +4337,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const baseTypeFlags =
             EvaluatorFlags.DoNotSpecialize |
             (flags &
-                (EvaluatorFlags.ExpectingType |
-                    EvaluatorFlags.ExpectingTypeAnnotation |
+                (EvaluatorFlags.ExpectingTypeAnnotation |
                     EvaluatorFlags.VariableTypeAnnotation |
                     EvaluatorFlags.AllowForwardReferences |
                     EvaluatorFlags.NotParsedByInterpreter |
