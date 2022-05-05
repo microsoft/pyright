@@ -598,7 +598,15 @@ export class Binder extends ParseTreeWalker {
                 this.walk(argNode);
             });
         });
-        this._createCallFlowNode(node);
+
+        // Create a call flow node. We'll skip this if the call is part of
+        // a decorator. We assume that decorators are not NoReturn functions.
+        // There are libraries that make extensive use of unannotated decorators,
+        // and this can lead to a performance issue when walking the control
+        // flow graph if we need to evaluate every decorator.
+        if (!ParseTreeUtils.isNodeContainedWithinNodeType(node, ParseNodeType.Decorator)) {
+            this._createCallFlowNode(node);
+        }
 
         // Is this an manipulation of dunder all?
         if (
