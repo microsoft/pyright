@@ -793,6 +793,10 @@ function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     console.log(message);
 }
 
+// Increase the default stack trace limit from 16 to 64 to help diagnose
+// crashes with deep stack traces.
+Error.stackTraceLimit = 64;
+
 export async function main() {
     if (process.env.NODE_ENV === 'production') {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
