@@ -339,7 +339,7 @@ export class CompletionProvider {
     private _execEnv: ExecutionEnvironment;
 
     // Indicate whether invocation is inside of string literal.
-    private _insideStringLiteral = false;
+    private _insideStringLiteral: StringToken | undefined = undefined;
 
     constructor(
         private _workspacePath: string,
@@ -367,11 +367,12 @@ export class CompletionProvider {
 
         const token = ParseTreeUtils.getTokenOverlapping(this._parseResults.tokenizerOutput.tokens, offset);
         if (token?.type === TokenType.String) {
-            this._insideStringLiteral = TextRange.contains(token, offset)
-                ? true
-                : (token as StringToken).flags & StringTokenFlags.Unterminated
-                ? true
-                : false;
+            const stringToken = token as StringToken;
+            this._insideStringLiteral = TextRange.contains(stringToken, offset)
+                ? stringToken
+                : stringToken.flags & StringTokenFlags.Unterminated
+                ? stringToken
+                : undefined;
         }
 
         let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
@@ -1600,7 +1601,7 @@ export class CompletionProvider {
         postText: string,
         completionMap: CompletionMap
     ) {
-        const quoteValue = this._getQuoteValueFromPriorText(priorText);
+        const quoteValue = this._getQuoteInfo(priorText);
         this._getSubTypesWithLiteralValues(type).forEach((v) => {
             if (ClassType.isBuiltIn(v, 'str')) {
                 const value = printLiteralValue(v, quoteValue.quoteCharacter);
@@ -1881,16 +1882,10 @@ export class CompletionProvider {
         }
 
         if (parentNode.nodeType === ParseNodeType.Argument && parentNode.parent?.nodeType === ParseNodeType.Index) {
-            if (
-                !this._tryAddTypedDictStringLiteral(
-                    parentNode.parent,
-                    parseNode.nodeType === ParseNodeType.String ? priorText : '',
-                    postText,
-                    completionMap
-                )
-            ) {
+            const priorTextInString = parseNode.nodeType === ParseNodeType.String ? priorText : '';
+            if (!this._tryAddTypedDictStringLiteral(parentNode.parent, priorTextInString, postText, completionMap)) {
                 const keys = this._getIndexerKeys(parentNode.parent, parseNode);
-                const quoteValue = this._getQuoteValueFromPriorText(priorText);
+                const quoteValue = this._getQuoteInfo(priorTextInString);
 
                 for (const key of keys) {
                     const stringLiteral = /^["|'].*["|']$/.test(key);
@@ -1969,7 +1964,7 @@ export class CompletionProvider {
 
         typedDicts = this._tryNarrowTypedDicts(typedDicts, keys);
 
-        const quoteValue = this._getQuoteValueFromPriorText(priorText);
+        const quoteValue = this._getQuoteInfo(priorText);
         const excludes = new Set(keys);
 
         typedDicts.forEach((typedDict) => {
@@ -2017,27 +2012,53 @@ export class CompletionProvider {
         return newTypes;
     }
 
-    // Given a string of text that precedes the current insertion point,
-    // determines which portion of it is the first part of a string literal
-    // (either starting with a single or double quote). Returns the quote
-    // type and the string literal value after the starting quote.
-    private _getQuoteValueFromPriorText(priorText: string) {
-        if (this._insideStringLiteral) {
-            const lastSingleQuote = priorText.lastIndexOf("'");
-            const lastDoubleQuote = priorText.lastIndexOf('"');
+    // Find out quotation and string prefix to use for string literals
+    // completion under current context.
+    private _getQuoteInfo(priorText: string | undefined): {
+        stringValue: string | undefined;
+        quoteCharacter: string;
+    } {
+        let stringValue = undefined;
+        let quoteCharacter = this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
+
+        // If completion is not inside of the existing string literal
+        // ex) typedDict[ |<= here
+        // use default quotation char without any string prefix.
+        if (!this._insideStringLiteral) {
+            return { stringValue, quoteCharacter };
+        }
+
+        const singleQuote = "'";
+        const doubleQuote = '"';
+
+        // If completion is inside of string literal and has prior text
+        // ex) typedDict["key |<= here
+        // find quotation user has used (ex, ") and string prefix (ex, key)
+        if (priorText !== undefined) {
+            const lastSingleQuote = priorText.lastIndexOf(singleQuote);
+            const lastDoubleQuote = priorText.lastIndexOf(doubleQuote);
 
             if (lastSingleQuote > lastDoubleQuote) {
-                return {
-                    quoteCharacter: "'",
-                    stringValue: priorText.substr(lastSingleQuote + 1),
-                };
+                stringValue = priorText.substr(lastSingleQuote + 1);
+                quoteCharacter = singleQuote;
             } else if (lastDoubleQuote > lastSingleQuote) {
-                return { quoteCharacter: '"', stringValue: priorText.substr(lastDoubleQuote + 1) };
+                stringValue = priorText.substr(lastDoubleQuote + 1);
+                quoteCharacter = doubleQuote;
             }
         }
 
-        const quoteCharacter = this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
-        const stringValue = undefined;
+        // If the string literal that completion is invoked in is f-string,
+        // quotation must be the other one than one that is used for f-string.
+        // ex) f"....{typedDict[|<= here ]}"
+        // then quotation must be "'"
+        //
+        // for f-string, this code path will be only taken when completion is inside
+        // of f-string segment.
+        // ex) f"..{|<= here }"
+        if (this._insideStringLiteral.flags & StringTokenFlags.Format) {
+            quoteCharacter = this._insideStringLiteral.flags & StringTokenFlags.SingleQuote ? doubleQuote : singleQuote;
+        }
+
         return { stringValue, quoteCharacter };
     }
 
@@ -2062,16 +2083,14 @@ export class CompletionProvider {
         }
 
         const entries = getTypedDictMembersForClass(this._evaluator, baseType, /* allowNarrowed */ true);
-        const quoteValue = priorText ? this._getQuoteValueFromPriorText(priorText) : undefined;
+        const quoteValue = this._getQuoteInfo(priorText);
 
         entries.forEach((_, key) => {
             this._addStringLiteralToCompletions(
                 key,
-                quoteValue ? quoteValue.stringValue : undefined,
+                quoteValue.stringValue,
                 postText,
-                quoteValue
-                    ? quoteValue.quoteCharacter
-                    : this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter,
+                quoteValue.quoteCharacter,
                 completionMap
             );
         });
