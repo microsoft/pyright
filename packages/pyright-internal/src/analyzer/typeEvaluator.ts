@@ -22661,7 +22661,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcReturnType,
                         returnDiag?.createAddendum(),
                         typeVarContext,
-                        flags,
+                        flags | CanAssignFlags.RetainLiteralsForTypeVar,
                         recursionCount
                     )
                 ) {
