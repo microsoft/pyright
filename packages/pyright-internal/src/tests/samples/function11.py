@@ -27,3 +27,10 @@ def f2() -> Literal["Foo"]:
 
 
 reveal_type(wrapper2(f2)(), expected_text="Literal['Foo']")
+
+
+def f3():
+    return "Foo"
+
+
+reveal_type(wrapper2(f3)(), expected_text="str")

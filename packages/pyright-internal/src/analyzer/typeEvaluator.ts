@@ -22651,6 +22651,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 let isReturnTypeCompatible = false;
 
+                let effectiveFlags = flags;
+
+                // If the source has a declared return type that includes a literal
+                // in its annotation, assume that we will want the constraint
+                // solver to retain literals.
+                if (
+                    srcType.details.declaredReturnType &&
+                    containsLiteralType(srcType.details.declaredReturnType, /* includeTypeArgs */ true)
+                ) {
+                    effectiveFlags |= CanAssignFlags.RetainLiteralsForTypeVar;
+                }
+
                 if (isNever(srcReturnType)) {
                     // We'll allow any function that returns NoReturn to match any
                     // function return type, consistent with other type checkers.
@@ -22661,7 +22673,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcReturnType,
                         returnDiag?.createAddendum(),
                         typeVarContext,
-                        flags | CanAssignFlags.RetainLiteralsForTypeVar,
+                        effectiveFlags,
                         recursionCount
                     )
                 ) {
