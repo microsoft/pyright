@@ -3768,6 +3768,12 @@ export class Checker extends ParseTreeWalker {
                         if (ClassType.isDataClass(classType)) {
                             return true;
                         }
+
+                        // If this is part of a TypedDict, exempt it because the class variables
+                        // are not actually class variables in a TypedDict.
+                        if (ClassType.isTypedDictClass(classType)) {
+                            return true;
+                        }
                     }
 
                     if (containingClass.name.value === '__init__') {

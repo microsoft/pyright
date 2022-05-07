@@ -1,6 +1,7 @@
 # This sample tests the reportUninitializedInstanceVariable functionality.
 
 from dataclasses import dataclass
+from typing import TypedDict
 
 
 class A:
@@ -17,5 +18,10 @@ class A:
 
 
 @dataclass
-class ErroneousClass:
+class B:
     x: int
+
+
+class C(TypedDict):
+    member1: str
+    member2: str
