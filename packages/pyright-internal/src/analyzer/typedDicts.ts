@@ -58,10 +58,13 @@ import {
 import {
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
+    CanAssignFlags,
     computeMroLinearization,
+    getTypeVarScopeId,
     isLiteralType,
     mapSubtypes,
 } from './typeUtils';
+import { TypeVarContext } from './typeVarContext';
 
 // Creates a new custom TypedDict factory class.
 export function createTypedDictType(
@@ -647,6 +650,8 @@ export function canAssignTypedDict(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
+    typeVarContext: TypeVarContext | undefined,
+    flags: CanAssignFlags,
     recursionCount = 0
 ) {
     let typesAreConsistent = true;
@@ -656,51 +661,44 @@ export function canAssignTypedDict(
     destEntries.forEach((destEntry, name) => {
         const srcEntry = srcEntries.get(name);
         if (!srcEntry) {
-            if (diag) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
-                        name,
-                        type: evaluator.printType(srcType),
-                    })
-                );
-            }
+            diag?.createAddendum().addMessage(
+                Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
+                    name,
+                    type: evaluator.printType(srcType),
+                })
+            );
             typesAreConsistent = false;
         } else {
             if (destEntry.isRequired && !srcEntry.isRequired) {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
-                            name,
-                            type: evaluator.printType(destType),
-                        })
-                    );
-                }
+                diag?.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+                        name,
+                        type: evaluator.printType(destType),
+                    })
+                );
                 typesAreConsistent = false;
             } else if (!destEntry.isRequired && srcEntry.isRequired) {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typedDictFieldNotRequired().format({
-                            name,
-                            type: evaluator.printType(destType),
-                        })
-                    );
-                }
+                diag?.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldNotRequired().format({
+                        name,
+                        type: evaluator.printType(destType),
+                    })
+                );
                 typesAreConsistent = false;
             }
 
+            const subDiag = diag?.createAddendum();
             if (
                 !evaluator.canAssignType(
                     destEntry.valueType,
                     srcEntry.valueType,
-                    /* diag */ undefined,
-                    /* typeVarContext */ undefined,
-                    /* flags */ undefined,
+                    subDiag?.createAddendum(),
+                    typeVarContext,
+                    flags,
                     recursionCount
                 )
             ) {
-                if (diag) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
-                }
+                subDiag?.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                 typesAreConsistent = false;
             }
         }
@@ -729,7 +727,23 @@ export function assignToTypedDict(
     let isMatch = true;
     const narrowedEntries = new Map<string, TypedDictEntry>();
 
-    const symbolMap = getTypedDictMembersForClass(evaluator, classType);
+    let typeVarContext: TypeVarContext | undefined;
+    let genericClassType = classType;
+
+    if (classType.details.typeParameters.length > 0) {
+        typeVarContext = new TypeVarContext(getTypeVarScopeId(classType));
+
+        // Create a generic (nonspecialized version) of the class.
+        if (classType.typeArguments) {
+            genericClassType = ClassType.cloneForSpecialization(
+                classType,
+                /* typeArguments */ undefined,
+                /* isTypeArgumentExplicit */ false
+            );
+        }
+    }
+
+    const symbolMap = getTypedDictMembersForClass(evaluator, genericClassType);
 
     keyTypes.forEach((keyType, index) => {
         if (!isClassInstance(keyType) || !ClassType.isBuiltIn(keyType, 'str') || !isLiteralType(keyType)) {
@@ -752,7 +766,14 @@ export function assignToTypedDict(
             } else {
                 // Can we assign the value to the declared type?
                 const subDiag = diagAddendum?.createAddendum();
-                if (!evaluator.canAssignType(symbolEntry.valueType, valueTypes[index], subDiag?.createAddendum())) {
+                if (
+                    !evaluator.canAssignType(
+                        symbolEntry.valueType,
+                        valueTypes[index],
+                        subDiag?.createAddendum(),
+                        typeVarContext
+                    )
+                ) {
                     if (subDiag) {
                         subDiag.addMessage(
                             Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
@@ -800,9 +821,13 @@ export function assignToTypedDict(
         return undefined;
     }
 
+    const specializedClassType = typeVarContext
+        ? (applySolvedTypeVars(genericClassType, typeVarContext) as ClassType)
+        : classType;
+
     return narrowedEntries.size === 0
-        ? classType
-        : ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
+        ? specializedClassType
+        : ClassType.cloneForNarrowedTypedDictEntries(specializedClassType, narrowedEntries);
 }
 
 export function getTypeOfIndexedTypedDict(

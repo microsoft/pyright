@@ -19210,26 +19210,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): boolean {
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
-        if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
-            if (!canAssignTypedDict(evaluatorInterface, destType, srcType, diag, recursionCount)) {
+        if (
+            ClassType.isTypedDictClass(destType) &&
+            ClassType.isTypedDictClass(srcType) &&
+            !ClassType.isSameGenericClass(destType, srcType)
+        ) {
+            if (
+                !canAssignTypedDict(evaluatorInterface, destType, srcType, diag, typeVarContext, flags, recursionCount)
+            ) {
                 return false;
             }
 
             if (ClassType.isFinal(destType) !== ClassType.isFinal(srcType)) {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typedDictFinalMismatch().format({
-                            sourceType: printType(convertToInstance(srcType)),
-                            destType: printType(convertToInstance(destType)),
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFinalMismatch().format({
+                        sourceType: printType(convertToInstance(srcType)),
+                        destType: printType(convertToInstance(destType)),
+                    })
+                );
                 return false;
             }
 
             // If invariance is being enforced, the two TypedDicts must be assignable to each other.
-            if ((flags & CanAssignFlags.EnforceInvariance) !== 0 && !ClassType.isSameGenericClass(destType, srcType)) {
-                return canAssignTypedDict(evaluatorInterface, srcType, destType, /* diag */ undefined, recursionCount);
+            if ((flags & CanAssignFlags.EnforceInvariance) !== 0) {
+                return canAssignTypedDict(
+                    evaluatorInterface,
+                    srcType,
+                    destType,
+                    /* diag */ undefined,
+                    /* typeVarContext */ undefined,
+                    flags,
+                    recursionCount
+                );
             }
 
             return true;

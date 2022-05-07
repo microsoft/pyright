@@ -36,11 +36,8 @@ class TD4(TD3, Generic[_T1]):
 v4: TD4[str] = {"a": 3, "b": ""}
 
 
-# The following does not yet work like it should, so
-# it is commented out for now.
+def func1(x: TD1[_T1, _T2]) -> dict[_T1, _T2]:
+    return x["a"]
 
-# def func1(x: TD1[_T1, _T2]) -> dict[_T1, _T2]:
-#     return x["a"]
-
-# v1_3 = func1({"a": {"x": 3}, "b": "y"})
-# reveal_type(v1_3, expected_text="dict[str, int]")
+v1_3 = func1({"a": {"x": 3}, "b": "y"})
+reveal_type(v1_3, expected_text="dict[str, int]")
