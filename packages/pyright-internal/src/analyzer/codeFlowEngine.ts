@@ -156,11 +156,11 @@ export function getCodeFlowEngine(
             ): FlowNodeTypeResult {
                 if (!isIncomplete) {
                     flowIncompleteGeneration++;
-                } else {
+                } else if (type) {
                     const prevEntry = flowNodeTypeCache!.get(flowNode.id);
                     if (prevEntry === undefined) {
                         flowIncompleteGeneration++;
-                    } else if (type && (prevEntry as IncompleteType).isIncompleteType) {
+                    } else if ((prevEntry as IncompleteType).isIncompleteType) {
                         const prevIncompleteType = prevEntry as IncompleteType;
                         if (prevIncompleteType.type && !isTypeSame(prevIncompleteType.type, type)) {
                             flowIncompleteGeneration++;

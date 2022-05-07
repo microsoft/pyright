@@ -2,8 +2,11 @@
 # recursion within the code flow engine and type narrowing logic.
 
 
+from typing import Any
+
+
 def func():
-    c = None
+    c: Any = None
 
     while True:
         if a:  # type: ignore
