@@ -491,8 +491,11 @@ export class AnalyzerService {
         this._console.info('');
         this._console.info('Analysis stats');
 
-        const fileCount = this._program.getFileCount();
-        this._console.info('Total files analyzed: ' + fileCount.toString());
+        const boundFileCount = this._program.getFileCount();
+        this._console.info('Total files parsed and bound: ' + boundFileCount.toString());
+
+        const checkedFileCount = this._program.getUserFileCount();
+        this._console.info('Total files checked: ' + checkedFileCount.toString());
     }
 
     printDetailedAnalysisTimes() {

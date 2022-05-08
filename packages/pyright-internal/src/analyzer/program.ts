@@ -423,6 +423,12 @@ export class Program {
         return this._sourceFileList.length;
     }
 
+    // Returns the number of files that are considered "user" files and therefore
+    // are checked.
+    getUserFileCount() {
+        return this._sourceFileList.filter((s) => this._isUserCode(s)).length;
+    }
+
     getTracked(): SourceFileInfo[] {
         return this._sourceFileList.filter((s) => s.isTracked);
     }
@@ -601,7 +607,7 @@ export class Program {
             });
 
         this._console.info('');
-        this._console.info('Analysis time by file:');
+        this._console.info('Analysis time by file');
 
         sortedFiles.forEach((sfInfo) => {
             const checkTimeInMs = sfInfo.sourceFile.getCheckTime()!;
