@@ -33,7 +33,7 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { timingStats } from '../common/timing';
+import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
 import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
@@ -167,6 +167,9 @@ export class SourceFile {
 
     // Do we have valid diagnostic results from a checking pass?
     private _isCheckingNeeded = true;
+
+    // Time (in ms) that the last check() call required for this file.
+    private _checkTime: number | undefined;
 
     // Do we need to perform an indexing step?
     private _indexingNeeded = true;
@@ -486,6 +489,10 @@ export class SourceFile {
 
     getModuleSymbolTable(): SymbolTable | undefined {
         return this._moduleSymbolTable;
+    }
+
+    getCheckTime() {
+        return this._checkTime;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -1229,12 +1236,14 @@ export class SourceFile {
         return this._logTracker.log(`checking: ${this._getPathForLogging(this._filePath)}`, () => {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
+                    const checkDuration = new Duration();
                     const checker = new Checker(importResolver, evaluator, this._parseResults!.parseTree);
                     checker.check();
                     this._isCheckingNeeded = false;
 
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
                     this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                    this._checkTime = checkDuration.getDurationInMilliseconds();
                 });
             } catch (e: any) {
                 const isCancellation = OperationCanceledException.is(e);

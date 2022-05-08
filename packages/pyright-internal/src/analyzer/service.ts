@@ -495,6 +495,10 @@ export class AnalyzerService {
         this._console.info('Total files analyzed: ' + fileCount.toString());
     }
 
+    printDetailedAnalysisTimes() {
+        this._program.printDetailedAnalysisTimes();
+    }
+
     printDependencies(verbose: boolean) {
         this._program.printDependencies(this._executionRootPath, verbose);
     }

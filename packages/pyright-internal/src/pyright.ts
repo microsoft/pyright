@@ -359,6 +359,10 @@ async function processArgs(): Promise<ExitStatus> {
                 // Print the stats details.
                 service.printStats();
                 timingStats.printDetails(console);
+
+                if (args.verbose) {
+                    service.printDetailedAnalysisTimes();
+                }
             }
 
             if (args.dependencies) {

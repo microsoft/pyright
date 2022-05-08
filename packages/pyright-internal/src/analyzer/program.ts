@@ -591,6 +591,24 @@ export class Program {
         }
     }
 
+    // Prints a detailed list of files that have been checked and the times associated
+    // with each of them, sorted greatest to least.
+    printDetailedAnalysisTimes() {
+        const sortedFiles = this._sourceFileList
+            .filter((s) => s.sourceFile.getCheckTime() !== undefined)
+            .sort((a, b) => {
+                return b.sourceFile.getCheckTime()! - a.sourceFile.getCheckTime()!;
+            });
+
+        this._console.info('');
+        this._console.info('Analysis time by file:');
+
+        sortedFiles.forEach((sfInfo) => {
+            const checkTimeInMs = sfInfo.sourceFile.getCheckTime()!;
+            this._console.info(`${checkTimeInMs}ms: ${sfInfo.sourceFile.getFilePath()}`);
+        });
+    }
+
     // Prints import dependency information for each of the files in
     // the program, skipping any typeshed files.
     printDependencies(projectRootDir: string, verbose: boolean) {
