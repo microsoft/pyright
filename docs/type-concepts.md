@@ -419,7 +419,7 @@ Some functions or methods can return one of several different types. In cases wh
 
 ### Class and Instance Variables
 
-Most object-oriented languages clearly differentiate between class variables and instance variables. Python allows an object to overwrite a class variable with an instance variable of the same name.
+Most object-oriented languages clearly differentiate between class variables and instance variables. Python is a bit looser in that it allows an object to overwrite a class variable with an instance variable of the same name.
 
 ```python
 class A:
@@ -445,7 +445,7 @@ print(A.my_var) # Updated class variable value of 2
 print(a.my_var) # Instance variable value of "hi!"
 ```
 
-Pyright differentiates between the following three types of variables:
+Pyright differentiates between three types of variables: pure class variables, regular class variables, and pure instance variables.
 
 #### Pure Class Variables
 If a class variable is declared with a `ClassVar` annotation as described in [PEP 526](https://peps.python.org/pep-0526/#class-and-instance-variable-annotations), it is considered a “pure class variable” and cannot be overwritten by an instance variable of the same name.
