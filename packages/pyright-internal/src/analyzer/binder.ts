@@ -212,6 +212,9 @@ export class Binder extends ParseTreeWalker {
     // Are we currently binding code located within an except block?
     private _isInExceptSuite = false;
 
+    // A list of names assigned to __slots__ within a class.
+    private _dunderSlotsEntries: StringListNode[] | undefined;
+
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
         flags: FlowFlags.Unreachable,
@@ -406,10 +409,16 @@ export class Binder extends ParseTreeWalker {
             this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
             this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
 
+            this._dunderSlotsEntries = undefined;
             if (!this._moduleSymbolOnly) {
                 // Analyze the suite.
                 this.walk(node.suite);
             }
+
+            if (this._dunderSlotsEntries) {
+                this._addSlotsToCurrentScope(this._dunderSlotsEntries);
+            }
+            this._dunderSlotsEntries = undefined;
         });
 
         this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ false, /* unbound */ false);
@@ -806,11 +815,11 @@ export class Binder extends ParseTreeWalker {
                     node.leftExpression.valueExpression.value === '__slots__')
             ) {
                 const expr = node.rightExpression;
-                const dunderSlotsNames: StringListNode[] = [];
+                this._dunderSlotsEntries = [];
                 let isExpressionUnderstood = true;
 
                 if (expr.nodeType === ParseNodeType.StringList) {
-                    dunderSlotsNames.push(expr);
+                    this._dunderSlotsEntries.push(expr);
                 } else if (expr.nodeType === ParseNodeType.List) {
                     expr.entries.forEach((listEntryNode) => {
                         if (
@@ -818,7 +827,7 @@ export class Binder extends ParseTreeWalker {
                             listEntryNode.strings.length === 1 &&
                             listEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
-                            dunderSlotsNames.push(listEntryNode);
+                            this._dunderSlotsEntries!.push(listEntryNode);
                         } else {
                             isExpressionUnderstood = false;
                         }
@@ -830,7 +839,7 @@ export class Binder extends ParseTreeWalker {
                             tupleEntryNode.strings.length === 1 &&
                             tupleEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
-                            dunderSlotsNames.push(tupleEntryNode);
+                            this._dunderSlotsEntries!.push(tupleEntryNode);
                         } else {
                             isExpressionUnderstood = false;
                         }
@@ -839,8 +848,8 @@ export class Binder extends ParseTreeWalker {
                     isExpressionUnderstood = false;
                 }
 
-                if (isExpressionUnderstood) {
-                    this._addSlotsToCurrentScope(dunderSlotsNames);
+                if (!isExpressionUnderstood) {
+                    this._dunderSlotsEntries = undefined;
                 }
             }
         }

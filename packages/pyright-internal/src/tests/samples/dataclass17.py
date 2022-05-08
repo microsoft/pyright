@@ -34,3 +34,13 @@ class C:
 
         # This should generate an error because "y" is not in slots.
         self.y = 3
+
+
+@dataclass
+class D:
+    __slots__ = ("y", "x")
+    x: int
+    y: str
+
+
+D(1, "bar")
