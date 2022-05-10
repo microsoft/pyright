@@ -135,6 +135,8 @@ export function createTypeEvaluatorWithTracker(
         assignTypeToExpression: typeEvaluator.assignTypeToExpression,
         getBuiltInObject: typeEvaluator.getBuiltInObject,
         getTypedDictClassType: typeEvaluator.getTypedDictClassType,
+        getTupleClassType: typeEvaluator.getTupleClassType,
+        getObjectType: typeEvaluator.getObjectType,
         getTypingType: typeEvaluator.getTypingType,
         inferReturnTypeIfNecessary: typeEvaluator.inferReturnTypeIfNecessary,
         verifyTypeArgumentsAssignable: typeEvaluator.verifyTypeArgumentsAssignable,

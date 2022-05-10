@@ -47,6 +47,10 @@ import {
 import { CanAssignFlags, ClassMember } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
+// Maximum number of unioned subtypes for an inferred type (e.g.
+// a list) before the type is considered an "Any".
+export const maxSubtypesForInferredType = 64;
+
 export const enum EvaluatorFlags {
     None = 0,
 
@@ -408,6 +412,8 @@ export interface TypeEvaluator {
     ) => void;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypedDictClassType: () => Type | undefined;
+    getTupleClassType: () => Type | undefined;
+    getObjectType: () => Type | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
     verifyTypeArgumentsAssignable: (
