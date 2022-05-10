@@ -87,7 +87,7 @@ import {
     FlowNode,
     isCodeFlowSupportedForReference,
 } from './codeFlowTypes';
-import { canAssignTypeToTypeVar } from './constraintSolver';
+import { canAssignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform } from './constructorTransform';
 import {
     applyDataClassClassBehaviorOverrides,
@@ -271,7 +271,6 @@ import {
     specializeTupleClass,
     stripLiteralValue,
     synthesizeTypeVarForSelfCls,
-    transformExpectedTypeForConstructor,
     transformPossibleRecursiveTypeAlias,
     VirtualParameterDetails,
 } from './typeUtils';
@@ -6645,6 +6644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const tupleTypeVarContext = new TypeVarContext(getTypeVarScopeId(tupleClassType));
             if (
                 !populateTypeVarContextBasedOnExpectedType(
+                    evaluatorInterface,
                     ClassType.cloneAsInstance(tupleClassType),
                     expectedType,
                     tupleTypeVarContext,
@@ -7654,6 +7654,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
                     if (
                         populateTypeVarContextBasedOnExpectedType(
+                            evaluatorInterface,
                             ClassType.cloneAsInstance(type),
                             expectedSubType,
                             typeVarContext,
@@ -7901,6 +7902,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (expectedType) {
                     populateTypeVarContextBasedOnExpectedType(
+                        evaluatorInterface,
                         ClassType.cloneAsInstance(type),
                         expectedType,
                         typeVarContext,
@@ -7990,146 +7992,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return specializedType;
-    }
-
-    // In cases where the expected type is a specialized base class of the
-    // source type, we need to determine which type arguments in the derived
-    // class will make it compatible with the specialized base class. This method
-    // performs this reverse mapping of type arguments and populates the type var
-    // map for the target type. If the type is not assignable to the expected type,
-    // it returns false.
-    function populateTypeVarContextBasedOnExpectedType(
-        type: ClassType,
-        expectedType: Type,
-        typeVarContext: TypeVarContext,
-        liveTypeVarScopes: TypeVarScopeId[] | undefined
-    ): boolean {
-        if (isAny(expectedType)) {
-            type.details.typeParameters.forEach((typeParam) => {
-                typeVarContext.setTypeVarType(typeParam, expectedType);
-            });
-            return true;
-        }
-
-        if (!isClass(expectedType)) {
-            return false;
-        }
-
-        // If the expected type is generic (but not specialized), we can't proceed.
-        const expectedTypeArgs = expectedType.typeArguments;
-        if (!expectedTypeArgs) {
-            return canAssignType(
-                type,
-                expectedType,
-                /* diag */ undefined,
-                typeVarContext,
-                CanAssignFlags.PopulatingExpectedType
-            );
-        }
-
-        // If the expected type is the same as the target type (commonly the case),
-        // we can use a faster method.
-        if (ClassType.isSameGenericClass(expectedType, type)) {
-            const sameClassTypeVarContext = buildTypeVarContextFromSpecializedClass(expectedType);
-            sameClassTypeVarContext.getTypeVars().forEach((entry) => {
-                const typeVarType = sameClassTypeVarContext.getTypeVarType(entry.typeVar);
-
-                if (typeVarType) {
-                    // Skip this if the type argument is a TypeVar defined by the class scope because
-                    // we're potentially solving for these TypeVars.
-                    if (!isTypeVar(typeVarType) || typeVarType.scopeId !== type.details.typeVarScopeId) {
-                        typeVarContext.setTypeVarType(
-                            entry.typeVar,
-                            entry.typeVar.details.variance === Variance.Covariant ? undefined : typeVarType,
-                            entry.typeVar.details.variance === Variance.Contravariant ? undefined : typeVarType,
-                            entry.retainLiteral
-                        );
-                    }
-                }
-            });
-            return true;
-        }
-
-        // Create a generic version of the expected type.
-        const expectedTypeScopeId = getTypeVarScopeId(expectedType);
-        const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType).map((typeParam, index) => {
-            const typeVar = TypeVarType.createInstance(`__dest${index}`);
-            typeVar.details.isSynthesized = true;
-
-            // Use invariance here so we set the narrow and wide values on the TypeVar.
-            typeVar.details.variance = Variance.Invariant;
-            typeVar.scopeId = expectedTypeScopeId;
-            return typeVar;
-        });
-        const genericExpectedType = ClassType.cloneForSpecialization(
-            expectedType,
-            synthExpectedTypeArgs,
-            /* isTypeArgumentExplicit */ true
-        );
-
-        // For each type param in the target type, create a placeholder type variable.
-        const typeArgs = ClassType.getTypeParameters(type).map((_, index) => {
-            const typeVar = TypeVarType.createInstance(`__source${index}`);
-            typeVar.details.isSynthesized = true;
-            typeVar.details.synthesizedIndex = index;
-            typeVar.details.isExemptFromBoundCheck = true;
-            return typeVar;
-        });
-
-        const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ true);
-        const syntheticTypeVarContext = new TypeVarContext(expectedTypeScopeId);
-        if (
-            canAssignType(
-                genericExpectedType,
-                specializedType,
-                /* diag */ undefined,
-                syntheticTypeVarContext,
-                CanAssignFlags.PopulatingExpectedType
-            )
-        ) {
-            let isResultValid = true;
-
-            synthExpectedTypeArgs.forEach((typeVar, index) => {
-                const synthTypeVar = syntheticTypeVarContext.getTypeVarType(typeVar);
-
-                // Is this one of the synthesized type vars we allocated above? If so,
-                // the type arg that corresponds to this type var maps back to the target type.
-                if (
-                    synthTypeVar &&
-                    isTypeVar(synthTypeVar) &&
-                    synthTypeVar.details.isSynthesized &&
-                    synthTypeVar.details.synthesizedIndex !== undefined
-                ) {
-                    const targetTypeVar =
-                        ClassType.getTypeParameters(specializedType)[synthTypeVar.details.synthesizedIndex];
-                    if (index < expectedTypeArgs.length) {
-                        let expectedTypeArgValue: Type | undefined = expectedTypeArgs[index];
-
-                        if (liveTypeVarScopes) {
-                            expectedTypeArgValue = transformExpectedTypeForConstructor(
-                                expectedTypeArgValue,
-                                typeVarContext,
-                                liveTypeVarScopes
-                            );
-                        }
-
-                        if (expectedTypeArgValue) {
-                            typeVarContext.setTypeVarType(
-                                targetTypeVar,
-                                typeVar.details.variance === Variance.Covariant ? undefined : expectedTypeArgValue,
-                                typeVar.details.variance === Variance.Contravariant ? undefined : expectedTypeArgValue
-                            );
-                        } else {
-                            isResultValid = false;
-                        }
-                    }
-                }
-            });
-
-            return isResultValid;
-        }
-
-        return false;
     }
 
     // Validates that the arguments can be assigned to the call's parameter
@@ -9637,6 +9499,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(effectiveReturnType));
                 populateTypeVarContextBasedOnExpectedType(
+                    evaluatorInterface,
                     effectiveReturnType,
                     effectiveExpectedType,
                     tempTypeVarContext,
@@ -11929,6 +11792,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const dictTypeVarContext = new TypeVarContext(getTypeVarScopeId(builtInDict));
         if (
             !populateTypeVarContextBasedOnExpectedType(
+                evaluatorInterface,
                 builtInDict,
                 expectedType,
                 dictTypeVarContext,
@@ -12251,6 +12115,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeVarContext = new TypeVarContext(getTypeVarScopeId(builtInListOrSet));
         if (
             !populateTypeVarContextBasedOnExpectedType(
+                evaluatorInterface,
                 builtInListOrSet,
                 expectedType,
                 typeVarContext,
@@ -21999,6 +21864,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(assignedType));
             populateTypeVarContextBasedOnExpectedType(
+                evaluatorInterface,
                 ClassType.cloneForSpecialization(
                     assignedType,
                     /* typeArguments */ undefined,
@@ -22961,7 +22827,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getScopeIdForNode,
         makeTopLevelTypeVarsConcrete,
         mapSubtypesExpandTypeVars,
-        populateTypeVarContextBasedOnExpectedType,
         lookUpSymbolRecursive,
         getDeclaredTypeOfSymbol,
         getEffectiveTypeOfSymbol,

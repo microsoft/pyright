@@ -41,7 +41,6 @@ import {
     OverloadedFunctionType,
     Type,
     TypeCondition,
-    TypeVarScopeId,
     TypeVarType,
 } from './types';
 import { CanAssignFlags, ClassMember } from './typeUtils';
@@ -338,12 +337,6 @@ export interface TypeEvaluator {
         conditionFilter: TypeCondition[] | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
     ) => Type;
-    populateTypeVarContextBasedOnExpectedType: (
-        type: ClassType,
-        expectedType: Type,
-        typeVarContext: TypeVarContext,
-        liveTypeVarScopes: TypeVarScopeId[] | undefined
-    ) => boolean;
     lookUpSymbolRecursive: (node: ParseNode, name: string, honorCodeFlow: boolean) => SymbolWithScope | undefined;
     getDeclaredTypeOfSymbol: (symbol: Symbol) => Type | undefined;
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;

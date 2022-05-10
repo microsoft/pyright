@@ -27,6 +27,7 @@ import {
     PatternValueNode,
 } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { getTypedDictMembersForClass } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
@@ -606,7 +607,8 @@ function narrowTypeBasedOnClassPattern(
 
                                         const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
                                         if (
-                                            evaluator.populateTypeVarContextBasedOnExpectedType(
+                                            populateTypeVarContextBasedOnExpectedType(
+                                                evaluator,
                                                 matchTypeInstance,
                                                 subjectSubtypeExpanded,
                                                 typeVarContext,

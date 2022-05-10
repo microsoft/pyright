@@ -21,6 +21,7 @@ import {
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
@@ -992,7 +993,8 @@ function narrowTypeForIsInstance(
                                 );
 
                                 if (
-                                    evaluator.populateTypeVarContextBasedOnExpectedType(
+                                    populateTypeVarContextBasedOnExpectedType(
+                                        evaluator,
                                         unspecializedFilterType,
                                         varType,
                                         typeVarContext,
