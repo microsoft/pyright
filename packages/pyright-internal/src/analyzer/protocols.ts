@@ -183,9 +183,7 @@ function canAssignClassToProtocolInternal(
                 }
 
                 if (!srcMemberInfo) {
-                    if (diag) {
-                        diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
-                    }
+                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                 } else {
                     let destMemberType = evaluator.getDeclaredTypeOfSymbol(symbol);
@@ -382,9 +380,7 @@ function canAssignClassToProtocolInternal(
                     }
 
                     if (symbol.isClassVar() && !srcMemberInfo.symbol.isClassMember()) {
-                        if (diag) {
-                            diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
-                        }
+                        diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
                         typesAreConsistent = false;
                     }
                 }
@@ -450,9 +446,7 @@ export function canAssignModuleToProtocol(
                 const memberSymbol = srcType.fields.get(name);
 
                 if (!memberSymbol) {
-                    if (diag) {
-                        diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
-                    }
+                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                 } else {
                     let destMemberType = evaluator.getDeclaredTypeOfSymbol(symbol);

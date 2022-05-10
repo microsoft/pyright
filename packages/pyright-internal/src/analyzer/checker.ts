@@ -1893,9 +1893,7 @@ export class Checker extends ParseTreeWalker {
                     destType: this._evaluator.printType(implementationReturnType, /* expandTypeAlias */ false),
                 })
             );
-            if (diag) {
-                diag.addAddendum(returnDiag);
-            }
+            diag?.addAddendum(returnDiag);
             isLegal = false;
         }
 

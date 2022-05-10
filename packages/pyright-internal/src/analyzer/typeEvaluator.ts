@@ -4916,9 +4916,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let isTypeIncomplete = false;
 
             if (memberInfo.symbol.isInitVar()) {
-                if (diag) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.memberIsInitVar().format({ name: memberName }));
-                }
+                diag?.addMessage(Localizer.DiagnosticAddendum.memberIsInitVar().format({ name: memberName }));
                 return undefined;
             }
 
@@ -4965,9 +4963,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (ClassType.isTypedDictClass(classType)) {
                 const typedDecls = memberInfo.symbol.getTypedDeclarations();
                 if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
-                    if (diag) {
-                        diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
-                    }
+                    diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
                     return undefined;
                 }
             }
@@ -5003,15 +4999,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (usage.method === 'set' && usage.setType) {
                 // Verify that the assigned type is compatible.
                 if (!canAssignType(type, usage.setType, diag?.createAddendum())) {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.memberAssignment().format({
-                                type: printType(usage.setType),
-                                name: memberName,
-                                classType: printObjectTypeForClass(classType),
-                            })
-                        );
-                    }
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.memberAssignment().format({
+                            type: printType(usage.setType),
+                            name: memberName,
+                            classType: printObjectTypeForClass(classType),
+                        })
+                    );
                     return undefined;
                 }
 
@@ -5020,13 +5014,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ClassType.isFrozenDataClass(memberInfo.classType) &&
                     (flags & MemberAccessFlags.AccessClassMembersOnly) === 0
                 ) {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.dataClassFrozen().format({
-                                name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
-                            })
-                        );
-                    }
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.dataClassFrozen().format({
+                            name: printType(ClassType.cloneAsInstance(memberInfo.classType)),
+                        })
+                    );
                     return undefined;
                 }
             }
@@ -5062,9 +5054,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (diag) {
-            diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
-        }
+        diag?.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
 
         return undefined;
     }
@@ -5137,25 +5127,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (ClassType.isPropertyClass(lookupClass)) {
                         if (usage.method === 'set') {
                             if (!accessMethod) {
-                                if (diag) {
-                                    diag.addMessage(
-                                        Localizer.DiagnosticAddendum.propertyMissingSetter().format({
-                                            name: memberName,
-                                        })
-                                    );
-                                }
+                                diag?.addMessage(
+                                    Localizer.DiagnosticAddendum.propertyMissingSetter().format({
+                                        name: memberName,
+                                    })
+                                );
                                 isTypeValid = false;
                                 return undefined;
                             }
                         } else if (usage.method === 'del') {
                             if (!accessMethod) {
-                                if (diag) {
-                                    diag.addMessage(
-                                        Localizer.DiagnosticAddendum.propertyMissingDeleter().format({
-                                            name: memberName,
-                                        })
-                                    );
-                                }
+                                diag?.addMessage(
+                                    Localizer.DiagnosticAddendum.propertyMissingDeleter().format({
+                                        name: memberName,
+                                    })
+                                );
                                 isTypeValid = false;
                                 return undefined;
                             }
@@ -5214,9 +5200,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 (flags & MemberAccessFlags.AccessClassMembersOnly) !== 0 &&
                                 ClassType.isProtocolClass(baseTypeClass)
                             ) {
-                                if (diag) {
-                                    diag.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
-                                }
+                                diag?.addMessage(Localizer.DiagnosticAddendum.propertyAccessFromProtocolClass());
                                 isTypeValid = false;
                             }
                         }
@@ -5343,11 +5327,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (usage.method === 'set') {
                 if (memberInfo?.symbol.isClassVar()) {
                     if (flags & MemberAccessFlags.DisallowClassVarWrites) {
-                        if (diag) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName })
-                            );
-                        }
+                        diag?.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
                         isTypeValid = false;
                         return undefined;
                     }
@@ -5363,9 +5343,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // being assigned within an __init__ method, it's allowed.
                     const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
                     if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
-                        if (diag) {
-                            diag.addMessage(Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
-                        }
+                        diag?.addMessage(Localizer.Diagnostic.finalReassigned().format({ name: memberName }));
                         isTypeValid = false;
                         return undefined;
                     }
@@ -5378,9 +5356,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isClass(memberInfo.classType) &&
                     ClassType.isReadOnlyInstanceVariables(memberInfo.classType)
                 ) {
-                    if (diag) {
-                        diag.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
-                    }
+                    diag?.addMessage(Localizer.DiagnosticAddendum.readOnlyAttribute().format({ name: memberName }));
                     isTypeValid = false;
                     return undefined;
                 }
@@ -15360,9 +15336,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 action: Commands.addMissingOptionalToParam,
                                 offsetOfTypeNode: paramTypeNode.start + 1,
                             };
-                            if (diag) {
-                                diag.addAction(addOptionalAction);
-                            }
+                            diag?.addAction(addOptionalAction);
                         }
                     }
                 }
@@ -19281,14 +19255,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     recursionCount
                 )
             ) {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.protocolIncompatible().format({
-                            sourceType: printType(convertToInstance(srcType)),
-                            destType: printType(convertToInstance(destType)),
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.protocolIncompatible().format({
+                        sourceType: printType(convertToInstance(srcType)),
+                        destType: printType(convertToInstance(destType)),
+                    })
+                );
                 return false;
             }
 
@@ -19330,14 +19302,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             srcErrorTypeText = srcType.details.fullName;
         }
 
-        if (diag) {
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.typeIncompatible().format({
-                    sourceType: srcErrorTypeText,
-                    destType: destErrorTypeText,
-                })
-            );
-        }
+        diag?.addMessage(
+            Localizer.DiagnosticAddendum.typeIncompatible().format({
+                sourceType: srcErrorTypeText,
+                destType: destErrorTypeText,
+            })
+        );
         return false;
     }
 
@@ -19369,9 +19339,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (destVariadicIndex >= 0 && srcUnboundedIndex >= 0) {
-            if (diag) {
-                diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
-            }
+            diag?.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
             return false;
         }
 
@@ -19442,25 +19410,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // PEP 646 allows an indeterminate tuple type to be assigned to
                 // a determinate tuple type if it's associated with a TypeVarTuple.
                 if (!destType.isUnpacked) {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
-                                expected: destTypeArgs.length,
-                            })
-                        );
-                    }
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
+                            expected: destTypeArgs.length,
+                        })
+                    );
 
                     return false;
                 }
             } else {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
-                            expected: destTypeArgs.length,
-                            received: srcTypeArgs.length,
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
+                        expected: destTypeArgs.length,
+                        received: srcTypeArgs.length,
+                    })
+                );
 
                 return false;
             }
@@ -19764,14 +19728,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             isTypeVarInScope = false;
             if (!destType.details.isSynthesized) {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
                 return false;
             }
         }
@@ -19953,14 +19915,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // or there were multiple types that were assignable and they
             // are not conditional, it's an error.
             if (!constrainedType) {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                            type: printType(srcType),
-                            name: destType.details.name,
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                        type: printType(srcType),
+                        name: destType.details.name,
+                    })
+                );
                 return false;
             }
 
@@ -19992,14 +19952,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeVarContext.setTypeVarType(destType, constrainedType);
                         }
                     } else {
-                        if (diag) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
-                                    type: printType(constrainedType),
-                                    name: printType(curNarrowTypeBound),
-                                })
-                            );
-                        }
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                                type: printType(constrainedType),
+                                name: printType(curNarrowTypeBound),
+                            })
+                        );
                         return false;
                     }
                 }
@@ -20031,14 +19989,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isEffectivelyInstantiable(adjSrcType)) {
                 adjSrcType = convertToInstance(adjSrcType);
             } else {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(adjSrcType),
-                            destType: printType(destType),
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(adjSrcType),
+                        destType: printType(destType),
+                    })
+                );
                 return false;
             }
         }
@@ -20160,28 +20116,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     // We need to widen the type.
                     if (typeVarContext.isLocked() || isTypeVar(adjSrcType)) {
-                        if (diag) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                    sourceType: printType(curNarrowTypeBound),
-                                    destType: printType(adjSrcType),
-                                })
-                            );
-                        }
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(curNarrowTypeBound),
+                                destType: printType(adjSrcType),
+                            })
+                        );
                         return false;
                     }
 
                     // Don't allow widening for variadic type variables.
                     const possibleVariadic = destType;
                     if (isVariadicTypeVar(possibleVariadic)) {
-                        if (diag) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                    sourceType: printType(curNarrowTypeBound),
-                                    destType: printType(adjSrcType),
-                                })
-                            );
-                        }
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(curNarrowTypeBound),
+                                destType: printType(adjSrcType),
+                            })
+                        );
                         return false;
                     }
 
@@ -20299,15 +20251,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Avoid adding a message that will confuse users if the TypeVar was
                 // synthesized for internal purposes.
                 if (!destType.details.isSynthesized) {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeBound().format({
-                                sourceType: printType(updatedType),
-                                destType: printType(destType.details.boundType),
-                                name: TypeVarType.getReadableName(destType),
-                            })
-                        );
-                    }
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.typeBound().format({
+                            sourceType: printType(updatedType),
+                            destType: printType(destType.details.boundType),
+                            name: TypeVarType.getReadableName(destType),
+                        })
+                    );
                 }
                 return false;
             }
@@ -20415,14 +20365,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (diag) {
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.typeParamSpec().format({
-                    type: printType(srcType),
-                    name: destType.details.name,
-                })
-            );
-        }
+        diag?.addMessage(
+            Localizer.DiagnosticAddendum.typeParamSpec().format({
+                type: printType(srcType),
+                name: destType.details.name,
+            })
+        );
         return false;
     }
 
@@ -20690,14 +20638,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
                 return false;
             }
         }
@@ -20821,14 +20767,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return true;
                     }
 
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: printType(srcType),
-                                destType: printType(destType),
-                            })
-                        );
-                    }
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
                     return false;
                 }
             }
@@ -20845,14 +20789,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isInstantiableClass(srcType) &&
                         !srcType.includeSubclasses
                     ) {
-                        if (diag) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.protocolSourceIsNotConcrete().format({
-                                    sourceType: printType(convertToInstance(srcType)),
-                                    destType: printType(destType),
-                                })
-                            );
-                        }
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.protocolSourceIsNotConcrete().format({
+                                sourceType: printType(convertToInstance(srcType)),
+                                destType: printType(destType),
+                            })
+                        );
                         return false;
                     }
                 }
@@ -20871,14 +20813,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
                 return false;
             }
         }
@@ -20924,14 +20864,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (destType.literalValue !== undefined) {
                     const srcLiteral = concreteSrcType.literalValue;
                     if (srcLiteral === undefined || !ClassType.isLiteralValueSame(concreteSrcType, destType)) {
-                        if (diag) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
-                                    sourceType: printType(srcType),
-                                    destType: printType(destType),
-                                })
-                            );
-                        }
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
+                                sourceType: printType(srcType),
+                                destType: printType(destType),
+                            })
+                        );
 
                         return false;
                     }
@@ -21069,9 +21007,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isOverloadedFunction(concreteSrcType)) {
                 // Overloads are not compatible with ParamSpec.
                 if (destType.details.paramSpec) {
-                    if (diag) {
-                        diag.addMessage(Localizer.DiagnosticAddendum.paramSpecOverload());
-                    }
+                    diag?.addMessage(Localizer.DiagnosticAddendum.paramSpecOverload());
                     return false;
                 }
 
@@ -21095,11 +21031,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 if (overloadIndex < 0) {
-                    if (diag) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) })
-                        );
-                    }
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) })
+                    );
                     return false;
                 }
                 srcFunction = overloads[overloadIndex];
@@ -21187,20 +21121,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isNoneInstance(destType)) {
-            if (diag) {
-                diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
-            }
+            diag?.addMessage(Localizer.DiagnosticAddendum.assignToNone());
             return false;
         }
 
-        if (diag) {
-            diag.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                    sourceType: printType(srcType),
-                    destType: printType(destType),
-                })
-            );
-        }
+        diag?.addMessage(
+            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                sourceType: printType(srcType),
+                destType: printType(destType),
+            })
+        );
 
         return false;
     }
@@ -21383,14 +21313,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (isIncompatible) {
-            if (diag) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
-                );
-            }
+            diag?.addMessage(
+                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                    sourceType: printType(srcType),
+                    destType: printType(destType),
+                })
+            );
             return false;
         }
 
@@ -21445,14 +21373,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (isIncompatible) {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
                 return false;
             }
 
@@ -22064,26 +21990,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     srcParam.param.category !== ParameterCategory.VarArgList &&
                     destParamName !== srcParamName
                 ) {
-                    if (diag) {
-                        diag.createAddendum().addMessage(
-                            Localizer.DiagnosticAddendum.functionParamName().format({
-                                srcName: srcParamName,
-                                destName: destParamName,
-                            })
-                        );
-                    }
+                    diag?.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.functionParamName().format({
+                            srcName: srcParamName,
+                            destName: destParamName,
+                        })
+                    );
                     canAssign = false;
                 }
             }
 
             if (!!destParam.param.hasDefault && !srcParam.param.hasDefault) {
-                if (diag) {
-                    diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
-                            name: srcParamName,
-                        })
-                    );
-                }
+                diag?.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                        name: srcParamName,
+                    })
+                );
                 canAssign = false;
             }
 
@@ -22130,14 +22052,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.positionOnlyParamCount &&
             !targetIncludesParamSpec
         ) {
-            if (diag) {
-                diag.createAddendum().addMessage(
-                    Localizer.DiagnosticAddendum.argsPositionOnly().format({
-                        expected: srcParamDetails.positionOnlyParamCount,
-                        received: destParamDetails.firstPositionOrKeywordIndex,
-                    })
-                );
-            }
+            diag?.createAddendum().addMessage(
+                Localizer.DiagnosticAddendum.argsPositionOnly().format({
+                    expected: srcParamDetails.positionOnlyParamCount,
+                    received: destParamDetails.firstPositionOrKeywordIndex,
+                })
+            );
             canAssign = false;
         }
 
@@ -22155,14 +22075,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destParamDetails.firstPositionOrKeywordIndex > 0 &&
                             destParamDetails.firstPositionOrKeywordIndex < srcPositionalCount
                         ) {
-                            if (diag) {
-                                diag.createAddendum().addMessage(
-                                    Localizer.DiagnosticAddendum.functionTooFewParams().format({
-                                        expected: nonDefaultSrcParamCount,
-                                        received: destPositionalCount,
-                                    })
-                                );
-                            }
+                            diag?.createAddendum().addMessage(
+                                Localizer.DiagnosticAddendum.functionTooFewParams().format({
+                                    expected: nonDefaultSrcParamCount,
+                                    received: destPositionalCount,
+                                })
+                            );
                             canAssign = false;
                         }
                     }
@@ -22199,9 +22117,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 for (let paramIndex = srcPositionalCount; paramIndex < destPositionalCount; paramIndex++) {
                     const destParamType = destParamDetails.params[paramIndex].type;
                     if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
-                        if (diag) {
-                            diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
-                        }
+                        diag?.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
                         canAssign = false;
                     } else {
                         if (
@@ -22223,26 +22139,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destParamDetails.params[paramIndex].source !== ParameterSource.PositionOnly &&
                             srcParamDetails.kwargsIndex === undefined
                         ) {
-                            if (diag) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.namedParamMissingInSource().format({
-                                        name: destParamDetails.params[paramIndex].param.name ?? '',
-                                    })
-                                );
-                            }
+                            diag?.addMessage(
+                                Localizer.DiagnosticAddendum.namedParamMissingInSource().format({
+                                    name: destParamDetails.params[paramIndex].param.name ?? '',
+                                })
+                            );
                             canAssign = false;
                         }
                     }
                 }
             } else {
-                if (diag) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.functionTooManyParams().format({
-                            expected: srcPositionalCount,
-                            received: destPositionalCount,
-                        })
-                    );
-                }
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.functionTooManyParams().format({
+                        expected: srcPositionalCount,
+                        received: destPositionalCount,
+                    })
+                );
                 canAssign = false;
             }
         }
@@ -22310,13 +22222,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !destParamDetails.hasUnpackedVariadicTypeVar &&
             !targetIncludesParamSpec
         ) {
-            if (diag) {
-                diag.createAddendum().addMessage(
-                    Localizer.DiagnosticAddendum.argsParamMissing().format({
-                        paramName: destParamDetails.params[destParamDetails.argsIndex].param.name ?? '',
-                    })
-                );
-            }
+            diag?.createAddendum().addMessage(
+                Localizer.DiagnosticAddendum.argsParamMissing().format({
+                    paramName: destParamDetails.params[destParamDetails.argsIndex].param.name ?? '',
+                })
+            );
             canAssign = false;
         }
 
@@ -22411,13 +22321,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
 
                                 if (!!destParamInfo.param.hasDefault && !srcParamInfo.param.hasDefault) {
-                                    if (diag) {
-                                        diag.createAddendum().addMessage(
-                                            Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
-                                                name: srcParamInfo.param.name,
-                                            })
-                                        );
-                                    }
+                                    diag?.createAddendum().addMessage(
+                                        Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
+                                            name: srcParamInfo.param.name,
+                                        })
+                                    );
                                     canAssign = false;
                                 }
 
@@ -22448,11 +22356,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                     destParamMap.delete(paramName);
                 } else {
-                    if (diag) {
-                        diag.createAddendum().addMessage(
-                            Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
-                        );
-                    }
+                    diag?.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
+                    );
                     canAssign = false;
                 }
             });
@@ -22482,13 +22388,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 srcParamDetails.kwargsIndex === undefined &&
                 destParamDetails.kwargsIndex !== undefined
             ) {
-                if (diag) {
-                    diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.kwargsParamMissing().format({
-                            paramName: destParamDetails.params[destParamDetails.kwargsIndex].param.name!,
-                        })
-                    );
-                }
+                diag?.createAddendum().addMessage(
+                    Localizer.DiagnosticAddendum.kwargsParamMissing().format({
+                        paramName: destParamDetails.params[destParamDetails.kwargsIndex].param.name!,
+                    })
+                );
                 canAssign = false;
             }
         }

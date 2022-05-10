@@ -483,9 +483,7 @@ export function canAssignProperty(
             let srcAccessType = srcAccessSymbol ? evaluator.getDeclaredTypeOfSymbol(srcAccessSymbol) : undefined;
 
             if (!srcAccessType || !isFunction(srcAccessType)) {
-                if (diag) {
-                    diag.addMessage(accessorInfo.missingDiagMsg());
-                }
+                diag?.addMessage(accessorInfo.missingDiagMsg());
                 isAssignable = false;
                 return;
             }

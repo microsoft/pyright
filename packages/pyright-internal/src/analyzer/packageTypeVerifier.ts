@@ -874,11 +874,7 @@ export class PackageTypeVerifier {
                                 declFilePath || ''
                             );
                         }
-                        if (diag) {
-                            diag.createAddendum().addMessage(
-                                `Type annotation for parameter "${param.name}" is missing`
-                            );
-                        }
+                        diag?.createAddendum().addMessage(`Type annotation for parameter "${param.name}" is missing`);
                         knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                     }
                 } else if (isUnknown(param.type)) {
@@ -889,9 +885,7 @@ export class PackageTypeVerifier {
                             declRange || getEmptyRange(),
                             declFilePath || ''
                         );
-                        if (diag) {
-                            diag.createAddendum().addMessage(`Type of parameter "${param.name}" is unknown`);
-                        }
+                        diag?.createAddendum().addMessage(`Type of parameter "${param.name}" is unknown`);
                     }
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                 } else {
@@ -986,9 +980,7 @@ export class PackageTypeVerifier {
                         declFilePath || ''
                     );
                 }
-                if (diag) {
-                    diag.createAddendum().addMessage(`Return type annotation is missing`);
-                }
+                diag?.createAddendum().addMessage(`Return type annotation is missing`);
                 knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
             }
         }
