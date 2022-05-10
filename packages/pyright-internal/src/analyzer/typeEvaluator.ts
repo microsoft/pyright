@@ -16584,7 +16584,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const symbolNameNode = node.module.nameParts[0];
 
         // Look up the symbol to find the alias declaration.
-        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) ?? UnknownType.create();
+        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value);
+        if (!symbolType) {
+            return;
+        }
 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created.
