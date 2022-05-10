@@ -29,6 +29,16 @@ class ClassA:
         pass
 
 
+# This should generate an error because func3 is final.
+ClassA.func3 = lambda self: None
+
+# This should generate an error because func4 is final.
+ClassA.func4 = lambda cls: None
+
+# This should generate an error because _func5 is final.
+ClassA._func5 = lambda self: None
+
+
 class ClassB(ClassA):
     def func1(self):
         pass

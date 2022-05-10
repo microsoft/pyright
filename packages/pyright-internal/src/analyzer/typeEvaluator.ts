@@ -5309,6 +5309,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             } else if (isFunction(concreteSubtype) || isOverloadedFunction(concreteSubtype)) {
+                // Check for an attempt to overwrite a final method.
+                if (usage.method === 'set') {
+                    let isFinal = false;
+                    if (isFunction(concreteSubtype)) {
+                        isFinal = FunctionType.isFinal(concreteSubtype);
+                    } else {
+                        const impl = concreteSubtype.overloads.find((f) => !FunctionType.isOverloaded(f));
+                        if (impl) {
+                            isFinal = FunctionType.isFinal(impl);
+                        }
+                    }
+
+                    if (isFinal && memberInfo && isClass(memberInfo.classType)) {
+                        diag?.addMessage(
+                            Localizer.Diagnostic.finalMethodOverride().format({
+                                name: memberName,
+                                className: memberInfo.classType.details.name,
+                            })
+                        );
+                        isTypeValid = false;
+                        return undefined;
+                    }
+                }
+
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
                 if (!isAccessedThroughObject || (memberInfo && !memberInfo.isInstanceMember)) {
@@ -5334,11 +5358,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 // Check for an attempt to overwrite a final member variable.
-                const finalTypeDecl = memberInfo?.symbol
+                const finalVarTypeDecl = memberInfo?.symbol
                     .getDeclarations()
                     .find((decl) => isFinalVariableDeclaration(decl));
 
-                if (finalTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalTypeDecl.node)) {
+                if (finalVarTypeDecl && !ParseTreeUtils.isNodeContainedWithin(errorNode, finalVarTypeDecl.node)) {
                     // If a Final instance variable is declared in the class body but is
                     // being assigned within an __init__ method, it's allowed.
                     const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
