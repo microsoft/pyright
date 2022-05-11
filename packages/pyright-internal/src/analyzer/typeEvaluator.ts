@@ -19740,8 +19740,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            // If we're using ReverseTypeVarMatching and the source is a TypeVar,
-            // the logic below will handle this case.
             if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 || !isTypeVar(srcType)) {
                 if (
                     !canAssignTypeToTypeVar(
@@ -20938,8 +20936,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
-        // We may need to reverse the type var mapping to populate the type
-        // var map of the
         let specializedSrcType = srcType;
         let specializedDestType = destType;
         let reverseMatchingFailed = false;
@@ -20966,18 +20962,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
 
             if (requiresSpecialization(specializedSrcType)) {
-                if (requiresSpecialization(specializedSrcType)) {
-                    reverseMatchingFailed = !canAssignType(
-                        specializedSrcType,
-                        specializedDestType,
-                        /* diag */ undefined,
-                        srcTypeVarContext,
-                        (flags & ~CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.IgnoreTypeVarScope,
-                        recursionCount
-                    );
+                reverseMatchingFailed = !canAssignType(
+                    specializedSrcType,
+                    specializedDestType,
+                    /* diag */ undefined,
+                    srcTypeVarContext,
+                    (flags & ~CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.IgnoreTypeVarScope,
+                    recursionCount
+                );
 
-                    specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
-                }
+                specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
             }
 
             if (reverseMatchingFailed) {
