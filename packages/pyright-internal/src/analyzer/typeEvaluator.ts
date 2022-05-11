@@ -21631,142 +21631,140 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (typeVarContext) {
-            const effectiveSrcTypeVarContext =
-                (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcTypeVarContext : destTypeVarContext;
+        const effectiveSrcTypeVarContext =
+            (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcTypeVarContext : destTypeVarContext;
 
-            // If the target function was generic and we solved some of the type variables
-            // in that generic type, assign them back to the destination typeVar.
-            effectiveSrcTypeVarContext.getTypeVars().forEach((typeVarEntry) => {
-                canAssignType(
-                    typeVarEntry.typeVar,
-                    effectiveSrcTypeVarContext.getTypeVarType(typeVarEntry.typeVar)!,
-                    /* diag */ undefined,
-                    typeVarContext,
-                    /* flags */ undefined,
-                    recursionCount
-                );
+        // If the target function was generic and we solved some of the type variables
+        // in that generic type, assign them back to the destination typeVar.
+        effectiveSrcTypeVarContext.getTypeVars().forEach((typeVarEntry) => {
+            canAssignType(
+                typeVarEntry.typeVar,
+                effectiveSrcTypeVarContext.getTypeVarType(typeVarEntry.typeVar)!,
+                /* diag */ undefined,
+                typeVarContext,
+                /* flags */ undefined,
+                recursionCount
+            );
+        });
+
+        // Perform partial specialization of type variables to allow for
+        // "higher-order" type variables.
+        if (!typeVarContext.isLocked()) {
+            typeVarContext.getTypeVars().forEach((entry) => {
+                if (entry.narrowBound) {
+                    const specializedType = applySolvedTypeVars(entry.narrowBound, typeVarContext);
+                    if (specializedType !== entry.narrowBound) {
+                        typeVarContext.setTypeVarType(
+                            entry.typeVar,
+                            specializedType,
+                            entry.wideBound,
+                            entry.retainLiteral
+                        );
+                    }
+                }
             });
+        }
 
-            // Perform partial specialization of type variables to allow for
-            // "higher-order" type variables.
-            if (!typeVarContext.isLocked()) {
-                typeVarContext.getTypeVars().forEach((entry) => {
-                    if (entry.narrowBound) {
-                        const specializedType = applySolvedTypeVars(entry.narrowBound, typeVarContext);
-                        if (specializedType !== entry.narrowBound) {
-                            typeVarContext.setTypeVarType(
-                                entry.typeVar,
-                                specializedType,
-                                entry.wideBound,
-                                entry.retainLiteral
-                            );
+        // Are we assigning to a function with a ParamSpec?
+        if (targetIncludesParamSpec) {
+            const effectiveDestType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destType : srcType;
+            const effectiveSrcType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
+
+            if (effectiveDestType.details.paramSpec) {
+                const requiredMatchParamCount = effectiveDestType.details.parameters.filter((p) => {
+                    if (!p.name) {
+                        return false;
+                    }
+                    if (p.category === ParameterCategory.Simple && isParamSpec(p.type)) {
+                        return false;
+                    }
+                    return true;
+                }).length;
+                let matchedParamCount = 0;
+                const remainingParams: ParamSpecEntry[] = [];
+
+                // If there are parameters in the source that are not matched
+                // to parameters in the dest, assume these are concatenated on
+                // to the ParamSpec.
+                effectiveSrcType.details.parameters.forEach((p, index) => {
+                    if (matchedParamCount < requiredMatchParamCount) {
+                        if (p.name) {
+                            matchedParamCount++;
                         }
+                    } else if (!p.name && p.category === ParameterCategory.Simple && remainingParams.length === 0) {
+                        // Don't bother pushing a position-only separator if it
+                        // is the first remaining param.
+                    } else {
+                        remainingParams.push({
+                            category: p.category,
+                            name: p.name,
+                            isNameSynthesized: p.isNameSynthesized,
+                            hasDefault: !!p.hasDefault,
+                            type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
+                        });
                     }
                 });
-            }
 
-            // Are we assigning to a function with a ParamSpec?
-            if (targetIncludesParamSpec) {
-                const effectiveDestType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destType : srcType;
-                const effectiveSrcType = (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
+                const srcParamSpec = effectiveSrcType.details.paramSpec;
+                const destParamSpec = effectiveDestType.details.paramSpec;
 
-                if (effectiveDestType.details.paramSpec) {
-                    const requiredMatchParamCount = effectiveDestType.details.parameters.filter((p) => {
-                        if (!p.name) {
-                            return false;
-                        }
-                        if (p.category === ParameterCategory.Simple && isParamSpec(p.type)) {
-                            return false;
-                        }
-                        return true;
-                    }).length;
-                    let matchedParamCount = 0;
-                    const remainingParams: ParamSpecEntry[] = [];
-
-                    // If there are parameters in the source that are not matched
-                    // to parameters in the dest, assume these are concatenated on
-                    // to the ParamSpec.
-                    effectiveSrcType.details.parameters.forEach((p, index) => {
-                        if (matchedParamCount < requiredMatchParamCount) {
-                            if (p.name) {
-                                matchedParamCount++;
-                            }
-                        } else if (!p.name && p.category === ParameterCategory.Simple && remainingParams.length === 0) {
-                            // Don't bother pushing a position-only separator if it
-                            // is the first remaining param.
-                        } else {
-                            remainingParams.push({
-                                category: p.category,
-                                name: p.name,
-                                isNameSynthesized: p.isNameSynthesized,
-                                hasDefault: !!p.hasDefault,
-                                type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
-                            });
-                        }
+                if (typeVarContext.hasSolveForScope(destParamSpec.scopeId)) {
+                    // Synthesize a function based on the remaining parameters.
+                    const remainingFunction = FunctionType.createInstance(
+                        '',
+                        '',
+                        '',
+                        effectiveSrcType.details.flags | FunctionTypeFlags.SynthesizedMethod,
+                        effectiveSrcType.details.docString
+                    );
+                    remainingFunction.details.typeVarScopeId = effectiveSrcType.details.typeVarScopeId;
+                    remainingParams.forEach((param) => {
+                        FunctionType.addParameter(remainingFunction, param);
                     });
+                    remainingFunction.details.paramSpec = srcParamSpec
+                        ? (convertToInstance(srcParamSpec) as TypeVarType)
+                        : undefined;
 
-                    const srcParamSpec = effectiveSrcType.details.paramSpec;
-                    const destParamSpec = effectiveDestType.details.paramSpec;
-
-                    if (typeVarContext.hasSolveForScope(destParamSpec.scopeId)) {
-                        // Synthesize a function based on the remaining parameters.
-                        const remainingFunction = FunctionType.createInstance(
-                            '',
-                            '',
-                            '',
-                            effectiveSrcType.details.flags | FunctionTypeFlags.SynthesizedMethod,
-                            effectiveSrcType.details.docString
-                        );
-                        remainingFunction.details.typeVarScopeId = effectiveSrcType.details.typeVarScopeId;
-                        remainingParams.forEach((param) => {
-                            FunctionType.addParameter(remainingFunction, param);
-                        });
-                        remainingFunction.details.paramSpec = srcParamSpec
-                            ? (convertToInstance(srcParamSpec) as TypeVarType)
-                            : undefined;
-
+                    if (
+                        !canAssignTypeToTypeVar(
+                            evaluatorInterface,
+                            destParamSpec,
+                            remainingFunction,
+                            /* diag */ undefined,
+                            typeVarContext
+                        )
+                    ) {
+                        // If we couldn't assign the function to the ParamSpec, see if we can
+                        // assign only the ParamSpec. This is possible if there were no
+                        // remaining parameters.
                         if (
+                            remainingParams.length > 0 ||
+                            !srcParamSpec ||
                             !canAssignTypeToTypeVar(
                                 evaluatorInterface,
                                 destParamSpec,
-                                remainingFunction,
+                                convertToInstance(srcParamSpec) as TypeVarType,
                                 /* diag */ undefined,
                                 typeVarContext
                             )
                         ) {
-                            // If we couldn't assign the function to the ParamSpec, see if we can
-                            // assign only the ParamSpec. This is possible if there were no
-                            // remaining parameters.
-                            if (
-                                remainingParams.length > 0 ||
-                                !srcParamSpec ||
-                                !canAssignTypeToTypeVar(
-                                    evaluatorInterface,
-                                    destParamSpec,
-                                    convertToInstance(srcParamSpec) as TypeVarType,
-                                    /* diag */ undefined,
-                                    typeVarContext
-                                )
-                            ) {
-                                canAssign = false;
-                            }
-                        }
-                    } else {
-                        // If there are any remaining parameters or the source doesn't include the
-                        // dest param spec itself, it is not assignable in this case.
-                        if (
-                            !srcParamSpec ||
-                            !isTypeSame(
-                                srcParamSpec,
-                                destParamSpec,
-                                /* ignorePseudoGeneric */ false,
-                                /* ignoreTypeFlags */ true
-                            ) ||
-                            remainingParams.length > 0
-                        ) {
                             canAssign = false;
                         }
+                    }
+                } else {
+                    // If there are any remaining parameters or the source doesn't include the
+                    // dest param spec itself, it is not assignable in this case.
+                    if (
+                        !srcParamSpec ||
+                        !isTypeSame(
+                            srcParamSpec,
+                            destParamSpec,
+                            /* ignorePseudoGeneric */ false,
+                            /* ignoreTypeFlags */ true
+                        ) ||
+                        remainingParams.length > 0
+                    ) {
+                        canAssign = false;
                     }
                 }
             }
