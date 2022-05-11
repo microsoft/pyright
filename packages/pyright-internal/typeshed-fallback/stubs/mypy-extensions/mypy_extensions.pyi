@@ -1,6 +1,7 @@
 import abc
 from _typeshed import Self
-from typing import Any, Callable, Generic, ItemsView, KeysView, Mapping, TypeVar, ValuesView
+from collections.abc import Callable, ItemsView, KeysView, Mapping, ValuesView
+from typing import Any, Generic, TypeVar
 
 _T = TypeVar("_T")
 _U = TypeVar("_U")

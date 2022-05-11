@@ -69,7 +69,10 @@ def parse_slowlog_get(response, **options): ...
 
 _LockType = TypeVar("_LockType")
 
-class Redis(RedisModuleCommands, CoreCommands[_StrType], SentinelCommands, Generic[_StrType]):
+class AbstractRedis:
+    RESPONSE_CALLBACKS: dict[Any, Any]
+
+class Redis(AbstractRedis, RedisModuleCommands, CoreCommands[_StrType], SentinelCommands, Generic[_StrType]):
     RESPONSE_CALLBACKS: Any
     @overload
     @classmethod

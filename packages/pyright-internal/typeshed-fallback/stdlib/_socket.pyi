@@ -256,6 +256,8 @@ SO_SNDLOWAT: int
 SO_SNDTIMEO: int
 SO_TYPE: int
 SO_USELOOPBACK: int
+if sys.platform == "linux" and sys.version_info >= (3, 11):
+    SO_INCOMING_CPU: int
 TCP_CORK: int
 TCP_DEFER_ACCEPT: int
 TCP_FASTOPEN: int

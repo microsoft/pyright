@@ -1,4 +1,4 @@
-class MessageListener(object):
+class MessageListener:
     def Modified(self) -> None: ...
 
 class NullMessageListener(MessageListener):

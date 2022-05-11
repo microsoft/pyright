@@ -1,4 +1,5 @@
-from typing import Any, Callable, TypeVar, overload
+from collections.abc import Callable
+from typing import Any, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
 _F = TypeVar("_F", bound=Callable[..., Any])

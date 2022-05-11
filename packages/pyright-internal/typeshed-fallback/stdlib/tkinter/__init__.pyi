@@ -6,7 +6,7 @@ from enum import Enum
 from tkinter.constants import *
 from tkinter.font import _FontDescription
 from types import TracebackType
-from typing import Any, Generic, Protocol, TypeVar, Union, overload
+from typing import Any, Generic, NamedTuple, Protocol, TypeVar, Union, overload
 from typing_extensions import Literal, TypeAlias, TypedDict
 
 if sys.version_info >= (3, 9):
@@ -198,6 +198,14 @@ _ScreenUnits: TypeAlias = str | float  # Often the right type instead of int. Ma
 _XYScrollCommand: TypeAlias = str | Callable[[float, float], Any]  # -xscrollcommand and -yscrollcommand in 'options' manual page
 _TakeFocusValue: TypeAlias = Union[int, Literal[""], Callable[[str], bool | None]]  # -takefocus in manual page named 'options'
 
+if sys.version_info >= (3, 11):
+    class _VersionInfoType(NamedTuple):
+        major: int
+        minor: int
+        micro: int
+        releaselevel: str
+        serial: int
+
 class EventType(str, Enum):
     Activate: str
     ButtonPress: str
@@ -377,6 +385,9 @@ class Misc:
     def lower(self, belowThis: Any | None = ...) -> None: ...
     def tkraise(self, aboveThis: Any | None = ...) -> None: ...
     lift = tkraise
+    if sys.version_info >= (3, 11):
+        def info_patchlevel(self) -> _VersionInfoType: ...
+
     def winfo_atom(self, name: str, displayof: Literal[0] | Misc | None = ...) -> int: ...
     def winfo_atomname(self, id: int, displayof: Literal[0] | Misc | None = ...) -> str: ...
     def winfo_cells(self) -> int: ...
@@ -475,6 +486,8 @@ class Misc:
     def unbind_class(self, className: str, sequence: str) -> None: ...
     def mainloop(self, n: int = ...) -> None: ...
     def quit(self) -> None: ...
+    @property
+    def _windowingsystem(self) -> Literal["win32", "aqua", "x11"]: ...
     def nametowidget(self, name: str | Misc | _tkinter.Tcl_Obj) -> Any: ...
     def register(
         self, func: Callable[..., Any], subst: Callable[..., Sequence[Any]] | None = ..., needcleanup: int = ...

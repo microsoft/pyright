@@ -80,6 +80,7 @@ class Transport(Thread, ClosingContextManager):
         gss_kex: bool = ...,
         gss_deleg_creds: bool = ...,
         disabled_algorithms: dict[str, Iterable[str]] | None = ...,
+        server_sig_algs: bool = ...,
     ) -> None: ...
     @property
     def preferred_ciphers(self) -> Sequence[str]: ...

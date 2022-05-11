@@ -1,4 +1,4 @@
-from _typeshed import ReadableBuffer as ReadableBuffer
+from _typeshed import ReadableBuffer
 from collections.abc import Callable
 from hashlib import _Hash
 

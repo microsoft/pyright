@@ -1,4 +1,4 @@
-import typing
+import collections.abc
 from collections.abc import Callable, Mapping
 from typing import Any, Pattern, Union
 from typing_extensions import TypeAlias
@@ -50,7 +50,7 @@ class Regex(Expression):
     ) -> None: ...
 
 class Compound(Expression):
-    members: typing.Sequence[Expression]
+    members: collections.abc.Sequence[Expression]
     def __init__(self, *members: Expression, **kwargs: Any) -> None: ...
 
 class Sequence(Compound): ...

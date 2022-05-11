@@ -1,4 +1,5 @@
-from typing import Any, Callable, Container, Iterable, Mapping, NamedTuple, Sequence
+from collections.abc import Callable, Container, Iterable, Mapping, Sequence
+from typing import Any, NamedTuple
 from typing_extensions import TypeAlias
 
 LATEX_ESCAPE_RULES: dict[str, str]
