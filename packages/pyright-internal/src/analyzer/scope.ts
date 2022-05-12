@@ -61,6 +61,11 @@ export interface SymbolWithScope {
     isBeyondExecutionScope: boolean;
 }
 
+export interface GlobalScopeResult {
+    scope: Scope;
+    isBeyondExecutionScope: boolean;
+}
+
 export class Scope {
     // The scope type, as defined in the enumeration.
     readonly type: ScopeType;
@@ -85,18 +90,24 @@ export class Scope {
         this.parent = parent;
     }
 
-    getGlobalScope(): Scope {
+    getGlobalScope(): GlobalScopeResult {
         let curScope: Scope | undefined = this;
+        let isBeyondExecutionScope = false;
+
         while (curScope) {
             if (curScope.type === ScopeType.Module || curScope.type === ScopeType.Builtin) {
-                return curScope;
+                return { scope: curScope, isBeyondExecutionScope };
+            }
+
+            if (curScope.type === ScopeType.Function) {
+                isBeyondExecutionScope = true;
             }
 
             curScope = curScope.parent;
         }
 
         fail('failed to find scope');
-        return this;
+        return { scope: this, isBeyondExecutionScope };
     }
 
     // Independently-executable scopes are those that are executed independently
@@ -141,8 +152,14 @@ export class Scope {
         }
 
         let parentScope: Scope | undefined;
+        let isNextScopeBeyondExecutionScope = isBeyondExecutionScope || this.isIndependentlyExecutable();
+
         if (this.notLocalBindings.get(name) === NameBindingType.Global) {
-            parentScope = this.getGlobalScope();
+            const globalScopeResult = this.getGlobalScope();
+            parentScope = globalScopeResult.scope;
+            if (globalScopeResult.isBeyondExecutionScope) {
+                isNextScopeBeyondExecutionScope = true;
+            }
         } else {
             parentScope = this.parent;
         }
@@ -154,7 +171,7 @@ export class Scope {
             return parentScope.lookUpSymbolRecursive(
                 name,
                 isOutsideCallerModule || this.type === ScopeType.Module,
-                isBeyondExecutionScope || this.isIndependentlyExecutable()
+                isNextScopeBeyondExecutionScope
             );
         }
 

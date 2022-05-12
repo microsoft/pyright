@@ -17720,12 +17720,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If none of the declarations are reachable from the current node,
             // search for the symbol in outer scopes.
             if (reachableDecls.length === 0) {
-                if (symbolWithScope.scope.type !== ScopeType.Function && symbolWithScope.scope.parent) {
-                    symbolWithScope = symbolWithScope.scope.parent.lookUpSymbolRecursive(
-                        name,
-                        symbolWithScope.isOutsideCallerModule || symbolWithScope.scope.type === ScopeType.Module,
-                        symbolWithScope.isBeyondExecutionScope || symbolWithScope.scope.isIndependentlyExecutable()
-                    );
+                if (symbolWithScope.scope.type !== ScopeType.Function) {
+                    let nextScopeToSearch = symbolWithScope.scope.parent;
+                    const isOutsideCallerModule =
+                        symbolWithScope.isOutsideCallerModule || symbolWithScope.scope.type === ScopeType.Module;
+                    let isBeyondExecutionScope =
+                        symbolWithScope.isBeyondExecutionScope || symbolWithScope.scope.isIndependentlyExecutable();
+
+                    if (symbolWithScope.scope.type === ScopeType.Class) {
+                        // There is an odd documented behavior for classes in that
+                        // symbol resolution skips to the global scope rather than
+                        // the next scope in the chain.
+                        const globalScopeResult = symbolWithScope.scope.getGlobalScope();
+                        nextScopeToSearch = globalScopeResult.scope;
+                        if (globalScopeResult.isBeyondExecutionScope) {
+                            isBeyondExecutionScope = true;
+                        }
+                    }
+
+                    if (nextScopeToSearch) {
+                        symbolWithScope = nextScopeToSearch.lookUpSymbolRecursive(
+                            name,
+                            isOutsideCallerModule,
+                            isBeyondExecutionScope
+                        );
+                    } else {
+                        symbolWithScope = undefined;
+                    }
                 } else {
                     symbolWithScope = undefined;
                 }

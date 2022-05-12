@@ -396,14 +396,7 @@ export class Binder extends ParseTreeWalker {
 
         this.walkMultiple(node.arguments);
 
-        // For nested classes, use the scope that contains the outermost
-        // class rather than the immediate parent.
-        let parentScope = this._currentScope;
-        while (parentScope.type === ScopeType.Class) {
-            parentScope = parentScope.parent!;
-        }
-
-        this._createNewScope(ScopeType.Class, parentScope, () => {
+        this._createNewScope(ScopeType.Class, this._getNonClassParentScope(), () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
             this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
@@ -1431,7 +1424,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitGlobal(node: GlobalNode): boolean {
-        const globalScope = this._currentScope.getGlobalScope();
+        const globalScope = this._currentScope.getGlobalScope().scope;
 
         node.nameList.forEach((name) => {
             const nameValue = name.value;
@@ -1460,7 +1453,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitNonlocal(node: NonlocalNode): boolean {
-        const globalScope = this._currentScope.getGlobalScope();
+        const globalScope = this._currentScope.getGlobalScope().scope;
 
         if (this._currentScope === globalScope) {
             this._addError(Localizer.Diagnostic.nonLocalInModule(), node);
@@ -3123,7 +3116,7 @@ export class Binder extends ParseTreeWalker {
             const scopeToUse =
                 bindingType === NameBindingType.Nonlocal
                     ? this._currentScope.parent!
-                    : this._currentScope.getGlobalScope();
+                    : this._currentScope.getGlobalScope().scope;
             const symbolWithScope = scopeToUse.lookUpSymbolRecursive(name);
             if (symbolWithScope) {
                 return symbolWithScope.symbol;

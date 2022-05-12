@@ -362,6 +362,12 @@ test('NameBindings4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('NameBindings5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['nameBindings5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('GenericTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes1.py']);
 
