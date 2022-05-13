@@ -1859,15 +1859,16 @@ export class Checker extends ParseTreeWalker {
         implementation: FunctionType,
         diag: DiagnosticAddendum | undefined
     ): boolean {
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(implementation));
+        const implTypeVarContext = new TypeVarContext(getTypeVarScopeId(implementation));
+        const overloadTypeVarContext = new TypeVarContext(getTypeVarScopeId(overload));
 
         // First check the parameters to see if they are assignable.
         let isLegal = this._evaluator.canAssignType(
             overload,
             implementation,
             diag,
-            /* destTypeVarContext */ undefined,
-            typeVarContext,
+            overloadTypeVarContext,
+            implTypeVarContext,
             CanAssignFlags.SkipFunctionReturnTypeCheck |
                 CanAssignFlags.ReverseTypeVarMatching |
                 CanAssignFlags.SkipSelfClsTypeCheck
@@ -1878,7 +1879,7 @@ export class Checker extends ParseTreeWalker {
             overload.details.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
         const implementationReturnType = applySolvedTypeVars(
             implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
-            typeVarContext
+            implTypeVarContext
         );
 
         const returnDiag = new DiagnosticAddendum();
@@ -1888,8 +1889,8 @@ export class Checker extends ParseTreeWalker {
                 implementationReturnType,
                 overloadReturnType,
                 returnDiag.createAddendum(),
-                typeVarContext,
-                /* srcTypeVarContext */ undefined,
+                implTypeVarContext,
+                overloadTypeVarContext,
                 CanAssignFlags.SkipSolveTypeVars
             )
         ) {

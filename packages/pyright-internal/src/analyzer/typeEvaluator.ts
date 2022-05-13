@@ -197,6 +197,7 @@ import {
     NoneType,
     OverloadedFunctionType,
     ParamSpecEntry,
+    removeFromUnion,
     removeNoneFromUnion,
     removeUnbound,
     TupleTypeArgument,
@@ -9359,6 +9360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     Localizer.Diagnostic.typeVarTupleMustBeUnpacked(),
                                     argParam.argument.valueExpression ?? errorNode
                                 );
+                                reportedArgError = true;
                             }
 
                             return {
@@ -9786,17 +9788,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // If the return type includes a generic Callable type, set the type var
-        // scope to a wildcard to allow these type vars to be solved. This won't
-        // work with overloads or unions of callables. It's intended for a
-        // specific use case. We may need to make this more sophisticated in
-        // the future.
-        if (isFunction(specializedReturnType) && !specializedReturnType.details.name) {
-            specializedReturnType.details = {
-                ...specializedReturnType.details,
-                typeVarScopeId: WildcardTypeVarScopeId,
-            };
-        }
+        specializedReturnType = adjustCallableReturnType(specializedReturnType);
 
         if (specializedInitSelfType) {
             specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, typeVarContext);
@@ -9809,6 +9801,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             activeParam: matchResults.activeParam,
             specializedInitSelfType,
         };
+    }
+
+    function adjustCallableReturnType(type: Type): Type {
+        // If the return type includes a generic Callable type, set the type var
+        // scope to a wildcard to allow these type vars to be solved. This won't
+        // work with overloads or unions of callables. It's intended for a
+        // specific use case. We may need to make this more sophisticated in
+        // the future.
+        if (isFunction(type) && !type.details.name) {
+            type.details = {
+                ...type.details,
+                typeVarScopeId: WildcardTypeVarScopeId,
+            };
+        }
+
+        return type;
     }
 
     // Tries to assign the call arguments to the function parameter
@@ -12810,15 +12818,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const functionType = FunctionType.createInstantiable(FunctionTypeFlags.None);
         TypeBase.setSpecialForm(functionType);
         functionType.details.declaredReturnType = UnknownType.create();
-
-        const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(errorNode);
-
-        // Handle the case where the Callable has no enclosing scope. This can
-        // happen in the case where a generic function return type is annotated
-        // with a generic type alias that includes a Callable in its definition.
-        functionType.details.typeVarScopeId = enclosingScope
-            ? getScopeIdForNode(enclosingScope)
-            : WildcardTypeVarScopeId;
+        functionType.details.typeVarScopeId = getScopeIdForNode(errorNode);
 
         if (typeArgs && typeArgs.length > 0) {
             if (typeArgs[0].typeList) {
@@ -18810,7 +18810,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type);
         if (specializedReturnType) {
-            return specializedReturnType;
+            return adjustCallableReturnType(specializedReturnType);
         }
 
         if (inferTypeIfNeeded) {
@@ -19755,6 +19755,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isTypeSame(destType, srcType)) {
                 return true;
+            }
+
+            if (isUnion(srcType)) {
+                const srcWithoutAny = removeFromUnion(srcType, (type) => isAnyOrUnknown(type));
+                if (isTypeSame(destType, srcWithoutAny)) {
+                    return true;
+                }
             }
 
             // Handle the special case where both types are Self types. We'll allow
