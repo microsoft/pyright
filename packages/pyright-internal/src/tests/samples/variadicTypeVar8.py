@@ -61,7 +61,7 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     # ---------
 
     v3_1 = func3(a)
-    reveal_type(v3_1, expected_text="_Xs@func3")
+    reveal_type(v3_1, expected_text="Unknown")
 
     # This should generate an error
     v3_2 = func3(d)

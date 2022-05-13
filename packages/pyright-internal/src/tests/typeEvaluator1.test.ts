@@ -1090,12 +1090,6 @@ test('Tuples13', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Tuples14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples14.py']);
-
-    TestUtils.validateResults(analysisResults, 0);
-});
-
 test('Tuples15', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples15.py']);
 

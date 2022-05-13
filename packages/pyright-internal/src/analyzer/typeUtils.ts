@@ -57,6 +57,7 @@ import {
     TypeVarType,
     UnionType,
     UnknownType,
+    WildcardTypeVarScopeId,
 } from './types';
 import { TypeVarContext } from './typeVarContext';
 
@@ -2528,7 +2529,7 @@ class TypeVarTransformer {
 
         if (isUnion(type)) {
             const newUnionType = mapSubtypes(type, (subtype) => {
-                let transformedType = this.apply(subtype, recursionCount);
+                let transformedType: Type = this.apply(subtype, recursionCount);
 
                 // If we're transforming a variadic type variable within a union,
                 // combine the individual types within the variadic type variable.
@@ -2541,14 +2542,14 @@ class TypeVarTransformer {
                     transformedType = combineTypes(subtypesToCombine);
                 }
 
+                if (this.transformUnionSubtype) {
+                    return this.transformUnionSubtype(subtype, transformedType);
+                }
+
                 return transformedType;
             });
 
-            if (this.transformUnion && isUnion(newUnionType)) {
-                return this.transformUnion(newUnionType);
-            }
-
-            return newUnionType;
+            return !isNever(newUnionType) ? newUnionType : UnknownType.create();
         }
 
         if (isClass(type)) {
@@ -2591,8 +2592,8 @@ class TypeVarTransformer {
         return undefined;
     }
 
-    transformUnion(type: UnionType): Type {
-        return type;
+    transformUnionSubtype(preTransform: Type, postTransform: Type): Type | undefined {
+        return postTransform;
     }
 
     private _transformGenericTypeAlias(type: Type, recursionCount: number) {
@@ -2957,7 +2958,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
             // If this typeVar is in scope for what we're solving but the type
             // var map doesn't contain any entry for it, replace with Unknown.
-            if (this._unknownIfNotFound) {
+            if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
                 return UnknownType.create();
             }
         }
@@ -2965,28 +2966,33 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return typeVar;
     }
 
-    override transformUnion(type: UnionType) {
+    override transformUnionSubtype(preTransform: Type, postTransform: Type): Type | undefined {
         // If a union contains unsolved TypeVars within scope, eliminate them
         // unless this results in an empty union. This elimination is needed
-        // in cases where TypeVars can go unmatched due to unions in parameter
+        // in cases where TypeVars can go unsolved due to unions in parameter
         // annotations, like this:
         //   def test(x: Union[str, T]) -> Union[str, T]
         if (this._eliminateUnsolvedInUnions) {
-            const updatedUnion = mapSubtypes(type, (subtype) => {
-                if (
-                    isTypeVar(subtype) &&
-                    subtype.scopeId !== undefined &&
-                    this._typeVarContext.hasSolveForScope(subtype.scopeId)
-                ) {
+            if (
+                isTypeVar(preTransform) &&
+                preTransform.scopeId !== undefined &&
+                this._typeVarContext.hasSolveForScope(preTransform.scopeId)
+            ) {
+                // If the TypeVar was not transformed, then it was unsolved,
+                // and we'll eliminate it.
+                if (preTransform === postTransform) {
                     return undefined;
                 }
-                return subtype;
-            });
 
-            return isNever(updatedUnion) ? type : updatedUnion;
+                // If _unknownIfNotFound is true, the postTransform type will
+                // be Unknown, which we want to eliminate.
+                if (isUnknown(postTransform) && this._unknownIfNotFound) {
+                    return undefined;
+                }
+            }
         }
 
-        return type;
+        return postTransform;
     }
 
     override transformVariadicTypeVar(typeVar: TypeVarType) {
@@ -3007,7 +3013,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return transformedParamSpec;
         }
 
-        if (this._unknownIfNotFound) {
+        if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
             // Convert to the ParamSpec equivalent of "Unknown".
             const paramSpecValue: ParamSpecValue = {
                 flags: FunctionTypeFlags.None,

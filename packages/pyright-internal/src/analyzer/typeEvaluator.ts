@@ -9752,11 +9752,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             eliminateUnsolvedInUnions = false;
         }
 
+        // In general, we want to replace in-scope TypeVars with Unknown
+        // if they were not solved. However, if the return type is a
+        // Callable, we'll leave the TypeVars unsolved because
+        // the call below to adjustCallableReturnType will "detach" these
+        // TypeVars from the scope of this function and "attach" them to
+        // the scope of the callable.
+        const unknownIfUnsolved = !isFunction(returnType);
+
         let specializedReturnType = addConditionToType(
             applySolvedTypeVars(
                 returnType,
                 typeVarContext,
-                /* unknownIfNotFound */ false,
+                unknownIfUnsolved,
                 /* useNarrowBoundOnly */ false,
                 eliminateUnsolvedInUnions
             ),
