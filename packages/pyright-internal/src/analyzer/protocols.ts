@@ -55,7 +55,8 @@ export function canAssignClassToProtocol(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext: TypeVarContext | undefined,
+    destTypeVarContext: TypeVarContext | undefined,
+    srcTypeVarContext: TypeVarContext | undefined,
     flags: CanAssignFlags,
     treatSourceAsInstantiable: boolean,
     recursionCount: number
@@ -84,7 +85,8 @@ export function canAssignClassToProtocol(
             destType,
             srcType,
             diag,
-            typeVarContext,
+            destTypeVarContext,
+            srcTypeVarContext,
             flags,
             treatSourceAsInstantiable,
             recursionCount
@@ -106,7 +108,8 @@ function canAssignClassToProtocolInternal(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext: TypeVarContext | undefined,
+    destTypeVarContext: TypeVarContext | undefined,
+    srcTypeVarContext: TypeVarContext | undefined,
     flags: CanAssignFlags,
     treatSourceAsInstantiable: boolean,
     recursionCount: number
@@ -313,6 +316,7 @@ function canAssignClassToProtocolInternal(
                                         srcMemberType,
                                         subDiag?.createAddendum(),
                                         genericDestTypeVarContext,
+                                        /* srcTypeVarContext */ undefined,
                                         canAssignFlags,
                                         recursionCount
                                     )
@@ -336,6 +340,7 @@ function canAssignClassToProtocolInternal(
                                     srcMemberType,
                                     subDiag?.createAddendum(),
                                     genericDestTypeVarContext,
+                                    /* srcTypeVarContext */ undefined,
                                     isInvariant ? canAssignFlags | CanAssignFlags.EnforceInvariance : canAssignFlags,
                                     recursionCount
                                 )
@@ -399,7 +404,8 @@ function canAssignClassToProtocolInternal(
                 destType,
                 specializedDestProtocol,
                 diag,
-                typeVarContext,
+                destTypeVarContext,
+                srcTypeVarContext,
                 flags,
                 recursionCount
             )
@@ -478,6 +484,7 @@ export function canAssignModuleToProtocol(
                                 srcMemberType,
                                 subDiag?.createAddendum(),
                                 genericDestTypeVarContext,
+                                /* srcTypeVarContext */ undefined,
                                 CanAssignFlags.Default,
                                 recursionCount
                             )
@@ -505,6 +512,7 @@ export function canAssignModuleToProtocol(
                 specializedSrcProtocol,
                 diag,
                 typeVarContext,
+                /* srcTypeVarContext */ undefined,
                 flags,
                 recursionCount
             )
@@ -579,6 +587,7 @@ export function canAssignProtocolClassToSelf(
                             srcMemberType,
                             diag,
                             typeVarContext,
+                            /* srcTypeVarContext */ undefined,
                             flags,
                             recursionCount
                         )

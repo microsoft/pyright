@@ -9467,6 +9467,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     effectiveExpectedType!,
                     /* diag */ undefined,
                     typeVarContextCopy,
+                    /* srcTypeVarContext */ undefined,
                     effectiveFlags | CanAssignFlags.PopulatingExpectedType
                 );
                 speculativeResults = validateFunctionArgumentTypes(
@@ -9520,6 +9521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 effectiveExpectedType,
                 /* diag */ undefined,
                 typeVarContext,
+                /* srcTypeVarContext */ undefined,
                 effectiveFlags | CanAssignFlags.PopulatingExpectedType
             );
         }
@@ -19101,7 +19103,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
         flags: CanAssignFlags,
         recursionCount: number,
         reportErrorsUsingObjType: boolean
@@ -19114,7 +19117,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !ClassType.isSameGenericClass(destType, srcType)
         ) {
             if (
-                !canAssignTypedDict(evaluatorInterface, destType, srcType, diag, typeVarContext, flags, recursionCount)
+                !canAssignTypedDict(
+                    evaluatorInterface,
+                    destType,
+                    srcType,
+                    diag,
+                    destTypeVarContext,
+                    flags,
+                    recursionCount
+                )
             ) {
                 return false;
             }
@@ -19173,7 +19184,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     destType,
                     srcType,
                     diag?.createAddendum(),
-                    typeVarContext,
+                    destTypeVarContext,
+                    srcTypeVarContext,
                     flags,
                     /* treatSourceAsInstantiable */ false,
                     recursionCount
@@ -19200,7 +19212,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     srcType,
                     inheritanceChain,
                     diag,
-                    typeVarContext,
+                    destTypeVarContext,
+                    srcTypeVarContext,
                     flags,
                     recursionCount
                 );
@@ -19315,6 +19328,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         srcTypeArgs[argIndex].type,
                         entryDiag?.createAddendum(),
                         typeVarContext,
+                        /* srcTypeVarContext */ undefined,
                         flags | CanAssignFlags.RetainLiteralsForTypeVar,
                         recursionCount
                     )
@@ -19364,16 +19378,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         srcType: ClassType,
         inheritanceChain: InheritanceChain,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
         flags: CanAssignFlags,
         recursionCount: number
     ): boolean {
         let curSrcType = srcType;
-        let curTypeVarContext = typeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType));
+        let curTypeVarContext = destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType));
         let effectiveFlags = flags;
 
         // If we're using a private typeVarContext, don't skip solving type vars.
-        if (!typeVarContext) {
+        if (!destTypeVarContext) {
             effectiveFlags &= ~CanAssignFlags.SkipSolveTypeVars;
         }
 
@@ -19421,6 +19436,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     curSrcType,
                     diag,
                     curTypeVarContext,
+                    /* srcTypeVarContext */ undefined,
                     effectiveFlags,
                     recursionCount
                 )
@@ -19436,20 +19452,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (destType.typeArguments) {
             // If the dest type is specialized, make sure the specialized source
             // type arguments are assignable to the dest type arguments.
-            if (!verifyTypeArgumentsAssignable(destType, curSrcType, diag, typeVarContext, flags, recursionCount)) {
+            if (
+                !verifyTypeArgumentsAssignable(
+                    destType,
+                    curSrcType,
+                    diag,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    flags,
+                    recursionCount
+                )
+            ) {
                 return false;
             }
         } else if (
-            typeVarContext &&
+            destTypeVarContext &&
             destType.details.typeParameters.length > 0 &&
             curSrcType.typeArguments &&
-            !typeVarContext.isLocked()
+            !destTypeVarContext.isLocked()
         ) {
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                typeVarContext.setTypeVarType(
+                destTypeVarContext.setTypeVarType(
                     destType.details.typeParameters[i],
                     /* narrowBound */ undefined,
                     typeArgType
@@ -19481,7 +19507,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
         flags: CanAssignFlags,
         recursionCount: number
     ): boolean {
@@ -19523,7 +19550,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destTypeArg,
                             srcTypeArg,
                             assignmentDiag,
-                            typeVarContext,
+                            destTypeVarContext,
+                            srcTypeVarContext,
                             flags | CanAssignFlags.RetainLiteralsForTypeVar,
                             recursionCount
                         )
@@ -19547,7 +19575,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             srcTypeArg,
                             destTypeArg,
                             assignmentDiag,
-                            typeVarContext,
+                            srcTypeVarContext,
+                            destTypeVarContext,
                             (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.RetainLiteralsForTypeVar,
                             recursionCount
                         )
@@ -19569,7 +19598,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destTypeArg,
                             srcTypeArg,
                             assignmentDiag,
-                            typeVarContext,
+                            destTypeVarContext,
+                            srcTypeVarContext,
                             flags | CanAssignFlags.EnforceInvariance,
                             recursionCount
                         )
@@ -19605,7 +19635,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        typeVarContext?: TypeVarContext,
+        destTypeVarContext?: TypeVarContext,
+        srcTypeVarContext?: TypeVarContext,
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
@@ -19629,13 +19660,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !destType.details.isParamSpec &&
                 !destType.details.isVariadic &&
                 destType.scopeType === TypeVarScopeType.Class &&
-                typeVarContext &&
-                !typeVarContext.isLocked() &&
-                typeVarContext.hasSolveForScope(destType.scopeId) &&
-                !typeVarContext.getTypeVar(destType) &&
+                destTypeVarContext &&
+                !destTypeVarContext.isLocked() &&
+                destTypeVarContext.hasSolveForScope(destType.scopeId) &&
+                !destTypeVarContext.getTypeVar(destType) &&
                 (flags & (CanAssignFlags.SkipSolveTypeVars | CanAssignFlags.ReverseTypeVarMatching)) === 0
             ) {
-                typeVarContext.setTypeVarType(destType, srcType);
+                destTypeVarContext.setTypeVarType(destType, srcType);
             }
 
             return true;
@@ -19664,7 +19695,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const srcTypeArgs = srcType.typeAliasInfo.typeArguments;
                 destType.typeAliasInfo.typeArguments.forEach((destTypeArg, index) => {
                     const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
-                    if (!canAssignType(destTypeArg, srcTypeArg, diag, typeVarContext, flags, recursionCount)) {
+                    if (
+                        !canAssignType(
+                            destTypeArg,
+                            srcTypeArg,
+                            diag,
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
                         isAssignable = false;
                     }
                 });
@@ -19725,13 +19766,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destType.details.isSynthesizedSelf &&
                 destType.details.boundType
             ) {
-                if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 && typeVarContext) {
+                if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 && destTypeVarContext) {
                     canAssignTypeToTypeVar(
                         evaluatorInterface,
                         destType,
                         srcType,
                         diag,
-                        typeVarContext,
+                        destTypeVarContext,
                         originalFlags,
                         recursionCount
                     );
@@ -19762,13 +19803,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0 || !isTypeVar(srcType)) {
+                const targetTypeVarContext =
+                    (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
                 if (
                     !canAssignTypeToTypeVar(
                         evaluatorInterface,
                         destType,
                         srcType,
                         diag,
-                        typeVarContext ?? new TypeVarContext(),
+                        targetTypeVarContext ?? new TypeVarContext(),
                         originalFlags,
                         recursionCount
                     )
@@ -19790,12 +19833,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // rather than dest. If the type variable is not in the scope of the
                 // provided TypeVarContext, simply verify that the concrete types are
                 // compatible.
-                if (!typeVarContext || !typeVarContext.hasSolveForScope(getTypeVarScopeId(srcType))) {
+                if (!srcTypeVarContext || !srcTypeVarContext.hasSolveForScope(getTypeVarScopeId(srcType))) {
                     return canAssignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
                         diag,
-                        /* typeVarContext */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
                         originalFlags,
                         recursionCount
                     );
@@ -19821,7 +19865,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             srcType as TypeVarType,
                             destType,
                             diag,
-                            typeVarContext,
+                            srcTypeVarContext,
                             effectiveFlags,
                             recursionCount
                         )
@@ -19839,7 +19883,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     srcType as TypeVarType,
                                     destSubtype,
                                     diag,
-                                    typeVarContext,
+                                    srcTypeVarContext,
                                     originalFlags | CanAssignFlags.AllowTypeVarNarrowing,
                                     recursionCount
                                 )
@@ -19884,12 +19928,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isAnyOrUnknown(srcType)) {
-            if (typeVarContext) {
+            const targetTypeVarContext =
+                (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
+            if (targetTypeVarContext) {
                 // If it's an ellipsis type, convert it to a regular "Any"
                 // type. These are functionally equivalent, but "Any" looks
                 // better in the text representation.
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
-                setTypeArgumentsRecursive(destType, typeVarSubstitution, typeVarContext, recursionCount);
+                setTypeArgumentsRecursive(destType, typeVarSubstitution, targetTypeVarContext, recursionCount);
             }
             if ((flags & CanAssignFlags.OverloadOverlapCheck) === 0) {
                 return true;
@@ -19897,8 +19943,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isNever(srcType)) {
-            if (typeVarContext) {
-                setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarContext, recursionCount);
+            const targetTypeVarContext =
+                (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
+            if (targetTypeVarContext) {
+                setTypeArgumentsRecursive(destType, UnknownType.create(), targetTypeVarContext, recursionCount);
             }
             return true;
         }
@@ -19916,7 +19964,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destType,
                         srcType,
                         /* diag */ undefined,
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         originalFlags,
                         recursionCount
                     )
@@ -19924,19 +19973,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
             } else {
-                const clonedTypeVarContext = typeVarContext ? typeVarContext.clone() : undefined;
+                const clonedDestTypeVarContext = destTypeVarContext?.clone();
+                const clonedSrcTypeVarContext = srcTypeVarContext?.clone();
                 if (
                     canAssignToUnionType(
                         destType,
                         srcType,
                         /* diag */ undefined,
-                        clonedTypeVarContext,
+                        clonedDestTypeVarContext,
+                        clonedSrcTypeVarContext,
                         originalFlags,
                         recursionCount
                     )
                 ) {
-                    if (typeVarContext && clonedTypeVarContext) {
-                        typeVarContext.copyFromClone(clonedTypeVarContext);
+                    if (destTypeVarContext && clonedDestTypeVarContext) {
+                        destTypeVarContext.copyFromClone(clonedDestTypeVarContext);
+                    }
+                    if (srcTypeVarContext && clonedSrcTypeVarContext) {
+                        srcTypeVarContext.copyFromClone(clonedSrcTypeVarContext);
                     }
                     return true;
                 }
@@ -19949,14 +20003,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destType,
                 expandedSrcType,
                 diag,
-                typeVarContext,
+                destTypeVarContext,
+                srcTypeVarContext,
                 originalFlags,
                 recursionCount
             );
         }
 
         if (isUnion(destType)) {
-            return canAssignToUnionType(destType, srcType, diag, typeVarContext, originalFlags, recursionCount);
+            return canAssignToUnionType(
+                destType,
+                srcType,
+                diag,
+                destTypeVarContext,
+                srcTypeVarContext,
+                originalFlags,
+                recursionCount
+            );
         }
 
         if (isNoneInstance(destType) && isNoneInstance(srcType)) {
@@ -19990,7 +20053,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destType,
                             convertToInstantiable(srcTypeArgs[0]),
                             diag?.createAddendum(),
-                            typeVarContext,
+                            destTypeVarContext,
+                            srcTypeVarContext,
                             flags,
                             recursionCount
                         )
@@ -20035,7 +20099,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destType,
                         concreteSrcType,
                         diag,
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount,
                         /* reportErrorsUsingObjType */ false
@@ -20064,7 +20129,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destTypeArgs[0],
                             convertToInstance(srcType),
                             diag,
-                            typeVarContext,
+                            destTypeVarContext,
+                            srcTypeVarContext,
                             flags,
                             recursionCount
                         );
@@ -20124,7 +20190,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ClassType.cloneAsInstantiable(destType),
                         ClassType.cloneAsInstantiable(concreteSrcType),
                         diag,
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount,
                         /* reportErrorsUsingObjType */ true
@@ -20142,7 +20209,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destCallbackType,
                         concreteSrcType,
                         diag,
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount
                     );
@@ -20150,7 +20218,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // All functions are objects, so try to assign as an object.
                 if (objectType && isClassInstance(objectType)) {
-                    return canAssignType(destType, objectType, diag, typeVarContext, flags, recursionCount);
+                    return canAssignType(
+                        destType,
+                        objectType,
+                        diag,
+                        destTypeVarContext,
+                        srcTypeVarContext,
+                        flags,
+                        recursionCount
+                    );
                 }
             } else if (isModule(concreteSrcType)) {
                 // Is the destination the built-in "ModuleType"?
@@ -20164,7 +20240,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ClassType.cloneAsInstantiable(destType),
                         concreteSrcType,
                         diag,
-                        typeVarContext,
+                        destTypeVarContext,
                         flags,
                         recursionCount
                     );
@@ -20174,7 +20250,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // class that is effectively a function.
                 const callbackType = getCallbackProtocolType(destType, recursionCount);
                 if (callbackType) {
-                    return canAssignType(callbackType, concreteSrcType, diag, typeVarContext, flags, recursionCount);
+                    return canAssignType(
+                        callbackType,
+                        concreteSrcType,
+                        diag,
+                        destTypeVarContext,
+                        srcTypeVarContext,
+                        flags,
+                        recursionCount
+                    );
                 }
 
                 // If the destType is an instantiation of a Protocol,
@@ -20185,7 +20269,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ClassType.cloneAsInstantiable(destType),
                         concreteSrcType,
                         diag,
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         /* treatSourceAsInstantiable */ true,
                         recursionCount
@@ -20202,7 +20287,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ClassType.cloneAsInstantiable(destType),
                             metaclass,
                             diag,
-                            typeVarContext,
+                            destTypeVarContext,
+                            srcTypeVarContext,
                             flags,
                             recursionCount,
                             /* reportErrorsUsingObjType */ false
@@ -20212,7 +20298,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (isAnyOrUnknown(concreteSrcType)) {
                 return (flags & CanAssignFlags.OverloadOverlapCheck) === 0;
             } else if (isUnion(concreteSrcType)) {
-                return canAssignType(destType, concreteSrcType, diag, typeVarContext, flags, recursionCount);
+                return canAssignType(
+                    destType,
+                    concreteSrcType,
+                    diag,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    flags,
+                    recursionCount
+                );
             }
         }
 
@@ -20250,12 +20344,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!FunctionType.isOverloaded(overload)) {
                         return false;
                     }
-                    const typeVarContextClone = typeVarContext ? typeVarContext.clone() : undefined;
                     return canAssignType(
                         destType,
                         overload,
                         diag?.createAddendum(),
-                        typeVarContextClone,
+                        destTypeVarContext?.clone(),
+                        srcTypeVarContext?.clone(),
                         flags,
                         recursionCount
                     );
@@ -20280,7 +20374,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destType,
                         srcFunction,
                         diag?.createAddendum(),
-                        typeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType)),
+                        destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType)),
+                        srcTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(srcFunction)),
                         flags,
                         recursionCount
                     )
@@ -20299,15 +20394,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                if (typeVarContext) {
-                    typeVarContext.addSolveForScope(getTypeVarScopeId(destOverload));
+                if (destTypeVarContext) {
+                    destTypeVarContext.addSolveForScope(getTypeVarScopeId(destOverload));
                 }
 
                 const result = canAssignType(
                     destOverload,
                     srcType,
                     overloadDiag?.createAddendum(),
-                    typeVarContext || new TypeVarContext(getTypeVarScopeId(destOverload)),
+                    destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destOverload)),
+                    srcTypeVarContext,
                     flags,
                     recursionCount
                 );
@@ -20343,7 +20439,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ClassType.cloneAsInstantiable(destType),
                     noneType,
                     diag,
-                    typeVarContext,
+                    destTypeVarContext,
+                    srcTypeVarContext,
                     flags,
                     /* treatSourceAsInstantiable */ false,
                     recursionCount
@@ -20370,7 +20467,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: Type,
         srcType: UnionType,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
         flags: CanAssignFlags,
         recursionCount: number
     ): boolean {
@@ -20402,7 +20500,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         nonAnySubtypes[0],
                         srcType,
                         /* diag */ undefined,
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount
                     );
@@ -20456,7 +20555,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 remainingDestSubtypes[destTypeIndex],
                                 srcSubtype,
                                 diag?.createAddendum(),
-                                typeVarContext,
+                                destTypeVarContext,
+                                srcTypeVarContext,
                                 flags,
                                 recursionCount
                             )
@@ -20480,7 +20580,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         remainingDestSubtypes[0],
                         combineTypes(remainingSrcSubtypes),
                         diag?.createAddendum(),
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount
                     )
@@ -20501,7 +20602,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return;
             }
 
-            if (!canAssignType(destType, subtype, /* diag */ undefined, typeVarContext, flags, recursionCount)) {
+            if (
+                !canAssignType(
+                    destType,
+                    subtype,
+                    /* diag */ undefined,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    flags,
+                    recursionCount
+                )
+            ) {
                 const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
                 // Determine if the current subtype is subsumed by another subtype
@@ -20517,8 +20628,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             innerSubtype,
                             concreteSubtype,
                             /* diag */ undefined,
-                            /* typeVarContext */ undefined,
-                            /* flags */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            CanAssignFlags.Default,
                             recursionCount
                         )
                     ) {
@@ -20533,7 +20645,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destType,
                         concreteSubtype,
                         diag?.createAddendum(),
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount
                     )
@@ -20560,7 +20673,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: UnionType,
         srcType: Type,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
         flags: CanAssignFlags,
         recursionCount: number
     ): boolean {
@@ -20573,7 +20687,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             doForEachSubtype(destType, (subtype, index) => {
                 if (
                     !isIncompatible &&
-                    !canAssignType(subtype, srcType, diag?.createAddendum(), typeVarContext, flags, recursionCount)
+                    !canAssignType(
+                        subtype,
+                        srcType,
+                        diag?.createAddendum(),
+                        destTypeVarContext,
+                        srcTypeVarContext,
+                        flags,
+                        recursionCount
+                    )
                 ) {
                     // Determine whether this subtype is assignable to
                     // another subtype elsewhere in the union. If so, we can ignore
@@ -20587,7 +20709,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         otherSubtype,
                                         subtype,
                                         /* diag */ undefined,
-                                        /* typeVarContext */ undefined,
+                                        /* destTypeVarContext */ undefined,
+                                        /* srcTypeVarContext */ undefined,
                                         CanAssignFlags.Default,
                                         recursionCount
                                     )
@@ -20627,7 +20750,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isNoneInstance(srcType) && isOptionalType(destType)) {
             foundMatch = true;
         } else {
-            let bestTypeVarContext: TypeVarContext | undefined;
+            let bestDestTypeVarContext: TypeVarContext | undefined;
+            let bestSrcTypeVarContext: TypeVarContext | undefined;
             let bestTypeVarContextScore: number | undefined;
 
             // If the srcType is a literal, try to use the fast-path lookup
@@ -20643,22 +20767,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             doForEachSubtype(destType, (subtype) => {
                 // Make a temporary clone of the typeVarContext. We don't want to modify
                 // the original typeVarContext until we find the "optimal" typeVar mapping.
-                const typeVarContextClone = typeVarContext?.clone();
+                const destTypeVarContextClone = destTypeVarContext?.clone();
+                const srcTypeVarContextClone = srcTypeVarContext?.clone();
                 if (
                     canAssignType(
                         subtype,
                         srcType,
                         diagAddendum?.createAddendum(),
-                        typeVarContextClone,
+                        destTypeVarContextClone,
+                        srcTypeVarContextClone,
                         flags,
                         recursionCount
                     )
                 ) {
                     foundMatch = true;
-                    if (typeVarContextClone) {
+                    if (destTypeVarContextClone) {
                         // Ask the typeVarContext to compute a "score" for the current
                         // contents of the table.
-                        let typeVarContextScore = typeVarContextClone.getScore();
+                        let typeVarContextScore = destTypeVarContextClone.getScore();
 
                         // If the type matches exactly, prefer it over other types.
                         if (isTypeSame(subtype, stripLiteralValue(srcType))) {
@@ -20668,15 +20794,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (bestTypeVarContextScore === undefined || bestTypeVarContextScore <= typeVarContextScore) {
                             // We found a typeVar mapping with a higher score than before.
                             bestTypeVarContextScore = typeVarContextScore;
-                            bestTypeVarContext = typeVarContextClone;
+                            bestDestTypeVarContext = destTypeVarContextClone;
+                            bestSrcTypeVarContext = srcTypeVarContextClone;
                         }
                     }
                 }
             });
 
             // If we found a winning type var mapping, copy it back to typeVarContext.
-            if (typeVarContext && bestTypeVarContext) {
-                typeVarContext.copyFromClone(bestTypeVarContext);
+            if (destTypeVarContext && bestDestTypeVarContext) {
+                destTypeVarContext.copyFromClone(bestDestTypeVarContext);
+            }
+            if (srcTypeVarContext && bestSrcTypeVarContext) {
+                srcTypeVarContext.copyFromClone(bestSrcTypeVarContext);
             }
         }
 
@@ -20688,7 +20818,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     destType,
                     makeTopLevelTypeVarsConcrete(srcType),
                     diagAddendum?.createAddendum(),
-                    typeVarContext,
+                    destTypeVarContext,
+                    srcTypeVarContext,
                     flags,
                     recursionCount
                 );
@@ -20750,8 +20881,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destType.details.boundType,
                             srcSubtype,
                             /* diag */ undefined,
-                            /* typeVarContext */ undefined,
-                            /* flags */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            CanAssignFlags.Default,
                             recursionCount
                         );
                     }
@@ -20766,8 +20898,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destType.details.constraints[condition.constraintIndex],
                             srcSubtype,
                             /* diag */ undefined,
-                            /* typeVarContext */ undefined,
-                            /* flags */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            CanAssignFlags.Default,
                             recursionCount
                         );
                     }
@@ -20969,9 +21102,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     specializedSrcType,
                     specializedDestType,
                     /* diag */ undefined,
+                    srcTypeVarContext,
                     destTypeVarContext,
-                    flags |
-                        CanAssignFlags.ReverseTypeVarMatching |
+                    (flags ^ CanAssignFlags.ReverseTypeVarMatching) |
                         CanAssignFlags.IgnoreTypeVarScope |
                         CanAssignFlags.RetainLiteralsForTypeVar,
                     recursionCount
@@ -20988,7 +21121,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     specializedDestType,
                     /* diag */ undefined,
                     srcTypeVarContext,
-                    (flags & ~CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.IgnoreTypeVarScope,
+                    destTypeVarContext,
+                    (flags ^ CanAssignFlags.ReverseTypeVarMatching) |
+                        CanAssignFlags.IgnoreTypeVarScope |
+                        CanAssignFlags.RetainLiteralsForTypeVar,
                     recursionCount
                 );
 
@@ -21031,7 +21167,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 specializedSrcType,
                 specializedDestType,
                 diag?.createAddendum(),
-                (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? srcTypeVarContext : destTypeVarContext,
+                srcTypeVarContext,
+                destTypeVarContext,
                 flags,
                 recursionCount
             )
@@ -21160,7 +21297,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: FunctionType,
         srcType: FunctionType,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext,
+        destTypeVarContext: TypeVarContext,
+        srcTypeVarContext: TypeVarContext,
         flags: CanAssignFlags,
         recursionCount: number
     ): boolean {
@@ -21174,17 +21312,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const destParamDetails = getParameterListDetails(destType);
         const srcParamDetails = getParameterListDetails(srcType);
         adjustSourceParamDetailsForDestVariadic(srcParamDetails, destParamDetails);
-
-        // The input typeVarContext normally corresponds to the destType, but it
-        // is reversed if the ReverseTypeVarMatching flag is set.
-        const destTypeVarContext =
-            (flags & CanAssignFlags.ReverseTypeVarMatching) === 0
-                ? typeVarContext
-                : new TypeVarContext(getTypeVarScopeId(destType));
-        const srcTypeVarContext =
-            (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0
-                ? typeVarContext
-                : new TypeVarContext(getTypeVarScopeId(srcType));
 
         const targetIncludesParamSpec =
             (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0
@@ -21656,20 +21783,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeVarEntry.typeVar,
                 effectiveSrcTypeVarContext.getTypeVarType(typeVarEntry.typeVar)!,
                 /* diag */ undefined,
-                typeVarContext,
-                /* flags */ undefined,
+                destTypeVarContext,
+                srcTypeVarContext,
+                CanAssignFlags.Default,
                 recursionCount
             );
         });
 
         // Perform partial specialization of type variables to allow for
         // "higher-order" type variables.
-        if (!typeVarContext.isLocked()) {
-            typeVarContext.getTypeVars().forEach((entry) => {
+        if (!destTypeVarContext.isLocked()) {
+            destTypeVarContext.getTypeVars().forEach((entry) => {
                 if (entry.narrowBound) {
-                    const specializedType = applySolvedTypeVars(entry.narrowBound, typeVarContext);
+                    const specializedType = applySolvedTypeVars(entry.narrowBound, destTypeVarContext);
                     if (specializedType !== entry.narrowBound) {
-                        typeVarContext.setTypeVarType(
+                        destTypeVarContext.setTypeVarType(
                             entry.typeVar,
                             specializedType,
                             entry.wideBound,
@@ -21722,8 +21850,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const srcParamSpec = effectiveSrcType.details.paramSpec;
                 const destParamSpec = effectiveDestType.details.paramSpec;
+                const targetTypeVarContext =
+                    (flags & CanAssignFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
 
-                if (typeVarContext.hasSolveForScope(destParamSpec.scopeId)) {
+                if (targetTypeVarContext.hasSolveForScope(destParamSpec.scopeId)) {
                     // Synthesize a function based on the remaining parameters.
                     const remainingFunction = FunctionType.createInstance(
                         '',
@@ -21746,7 +21876,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destParamSpec,
                             remainingFunction,
                             /* diag */ undefined,
-                            typeVarContext
+                            targetTypeVarContext
                         )
                     ) {
                         // If we couldn't assign the function to the ParamSpec, see if we can
@@ -21760,7 +21890,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 destParamSpec,
                                 convertToInstance(srcParamSpec) as TypeVarType,
                                 /* diag */ undefined,
-                                typeVarContext
+                                targetTypeVarContext
                             )
                         ) {
                             canAssign = false;
@@ -21815,7 +21945,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destReturnType,
                         srcReturnType,
                         returnDiag?.createAddendum(),
-                        typeVarContext,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         effectiveFlags,
                         recursionCount
                     )
@@ -21835,7 +21966,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 destReturnType,
                                 ClassType.cloneAsInstance(boolClassType),
                                 returnDiag?.createAddendum(),
-                                typeVarContext,
+                                destTypeVarContext,
+                                srcTypeVarContext,
                                 flags,
                                 recursionCount
                             )
@@ -22134,6 +22266,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             baseParamType,
                             diag.createAddendum(),
                             new TypeVarContext(getTypeVarScopeId(overrideMethod)),
+                            /* srcTypeVarContext */ undefined,
                             CanAssignFlags.SkipSolveTypeVars
                         )
                     ) {
@@ -22178,6 +22311,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         baseParamType,
                         diag.createAddendum(),
                         new TypeVarContext(getTypeVarScopeId(overrideMethod)),
+                        /* srcTypeVarContext */ undefined,
                         CanAssignFlags.SkipSolveTypeVars
                     )
                 ) {
@@ -22222,6 +22356,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         paramInfo.type,
                         diag.createAddendum(),
                         new TypeVarContext(getTypeVarScopeId(overrideMethod)),
+                        /* srcTypeVarContext */ undefined,
                         CanAssignFlags.SkipSolveTypeVars
                     )
                 ) {
@@ -22274,6 +22409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 overrideReturnType,
                 diag.createAddendum(),
                 new TypeVarContext(getTypeVarScopeId(baseMethod)),
+                /* srcTypeVarContext */ undefined,
                 CanAssignFlags.SkipSolveTypeVars
             )
         ) {
@@ -22334,7 +22470,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     destType.details.boundType,
                     effectiveSrcType,
                     diag.createAddendum(),
-                    undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
                 )
@@ -22397,8 +22534,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             destConstraint,
                             sourceConstraint,
                             /* diag */ undefined,
-                            /* typeVarContext */ undefined,
-                            /* flags */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            CanAssignFlags.Default,
                             recursionCount
                         )
                     );
@@ -22416,8 +22554,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         constraint,
                         effectiveSrcType,
                         /* diag */ undefined,
-                        /* typeVarContext */ undefined,
-                        /* flags */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        CanAssignFlags.Default,
                         recursionCount
                     )
                 ) {
@@ -22427,8 +22566,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             bestConstraintSoFar,
                             constraint,
                             /* diag */ undefined,
-                            /* typeVarContext */ undefined,
-                            /* flags */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            CanAssignFlags.Default,
                             recursionCount
                         )
                     ) {
@@ -22677,7 +22817,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     nonLiteralFirstParamType,
                     diag,
                     typeVarContext,
-                    /* flags */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    CanAssignFlags.Default,
                     recursionCount
                 )
             ) {

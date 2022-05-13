@@ -35,7 +35,7 @@ def func4(xs: Sequence[Optional[_T3]]) -> Iterator[_T3]:
 
 
 def func5(xs: Sequence[Optional[_T2]]) -> Iterator[_T2]:
-    # This should generate two errors.
+    # This should generate an error.
     return func3(xs)
 
 

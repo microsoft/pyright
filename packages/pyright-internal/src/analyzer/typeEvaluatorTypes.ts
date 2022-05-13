@@ -387,7 +387,8 @@ export interface TypeEvaluator {
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        typeVarContext?: TypeVarContext,
+        destTypeVarContext?: TypeVarContext,
+        srcTypeVarContext?: TypeVarContext,
         flags?: CanAssignFlags,
         recursionCount?: number
     ) => boolean;
@@ -413,7 +414,8 @@ export interface TypeEvaluator {
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        typeVarContext: TypeVarContext | undefined,
+        destTypeVarContext: TypeVarContext | undefined,
+        srcTypeVarContext: TypeVarContext | undefined,
         flags: CanAssignFlags,
         recursionCount: number
     ) => boolean;

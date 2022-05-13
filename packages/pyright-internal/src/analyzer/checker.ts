@@ -845,6 +845,7 @@ export class Checker extends ParseTreeWalker {
                             returnType,
                             diagAddendum,
                             new TypeVarContext(),
+                            /* srcTypeVarContext */ undefined,
                             CanAssignFlags.AllowBoolTypeGuard
                         )
                     ) {
@@ -878,7 +879,8 @@ export class Checker extends ParseTreeWalker {
                                         adjustedReturnType,
                                         returnType,
                                         diagAddendum,
-                                        /* typeVarContext */ undefined,
+                                        /* destTypeVarContext */ undefined,
+                                        /* srcTypeVarContext */ undefined,
                                         CanAssignFlags.AllowBoolTypeGuard
                                     )
                                 ) {
@@ -1788,6 +1790,7 @@ export class Checker extends ParseTreeWalker {
                         prevReturnType,
                         /* diag */ undefined,
                         new TypeVarContext(),
+                        /* srcTypeVarContext */ undefined,
                         CanAssignFlags.SkipSolveTypeVars | CanAssignFlags.IgnoreTypeVarScope
                     )
                 ) {
@@ -1844,6 +1847,7 @@ export class Checker extends ParseTreeWalker {
             prevOverload,
             /* diag */ undefined,
             new TypeVarContext(getTypeVarScopeId(functionType)),
+            /* srcTypeVarContext */ undefined,
             CanAssignFlags.SkipSolveTypeVars |
                 CanAssignFlags.SkipFunctionReturnTypeCheck |
                 CanAssignFlags.OverloadOverlapCheck
@@ -1862,6 +1866,7 @@ export class Checker extends ParseTreeWalker {
             overload,
             implementation,
             diag,
+            /* destTypeVarContext */ undefined,
             typeVarContext,
             CanAssignFlags.SkipFunctionReturnTypeCheck |
                 CanAssignFlags.ReverseTypeVarMatching |
@@ -1884,6 +1889,7 @@ export class Checker extends ParseTreeWalker {
                 overloadReturnType,
                 returnDiag.createAddendum(),
                 typeVarContext,
+                /* srcTypeVarContext */ undefined,
                 CanAssignFlags.SkipSolveTypeVars
             )
         ) {
@@ -4069,14 +4075,16 @@ export class Checker extends ParseTreeWalker {
                 newMemberType,
                 initMemberType,
                 /* diag */ undefined,
-                /* typeVarContext */ undefined,
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
                 CanAssignFlags.SkipFunctionReturnTypeCheck
             ) ||
             !this._evaluator.canAssignType(
                 initMemberType,
                 newMemberType,
                 /* diag */ undefined,
-                /* typeVarContext */ undefined,
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
                 CanAssignFlags.SkipFunctionReturnTypeCheck
             )
         ) {

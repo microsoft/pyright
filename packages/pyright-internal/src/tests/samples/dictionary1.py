@@ -1,7 +1,7 @@
 # This sample tests the type checker's type inference logic for
 # dictionaries.
 
-from typing import Dict, List, Literal
+from typing import Any, Callable, Dict, List, Literal, Sequence
 
 
 def wantsIntDict(a: Dict[int, int]):
@@ -32,4 +32,11 @@ reveal_type(d3, expected_text="dict[str, int]")
 LitChoices = Literal["ab", "bcd"]
 
 keys: List[LitChoices] = ["ab", "bcd"]
-d1: Dict[LitChoices, int] = {k: len(k) for k in keys}
+d4: Dict[LitChoices, int] = {k: len(k) for k in keys}
+
+
+d5: Dict[str, Callable[[Sequence[Any]], float]] = {
+    "min": min,
+    "max": max,
+    "sum": sum,
+}

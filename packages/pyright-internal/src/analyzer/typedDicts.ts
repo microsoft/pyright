@@ -694,6 +694,7 @@ export function canAssignTypedDict(
                     srcEntry.valueType,
                     subDiag?.createAddendum(),
                     typeVarContext,
+                    /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
                 )

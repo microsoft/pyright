@@ -104,7 +104,8 @@ export function canAssignTypeToTypeVar(
                     evaluator.makeTopLevelTypeVarsConcrete(destType),
                     evaluator.makeTopLevelTypeVarsConcrete(srcType),
                     /* diag */ undefined,
-                    /* typeVarContext */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
                 )
@@ -130,7 +131,8 @@ export function canAssignTypeToTypeVar(
             evaluator.makeTopLevelTypeVarsConcrete(destType),
             evaluator.makeTopLevelTypeVarsConcrete(srcType),
             diag,
-            /* typeVarContext */ undefined,
+            /* destTypeVarContext */ undefined,
+            /* srcTypeVarContext */ undefined,
             flags,
             recursionCount
         );
@@ -189,7 +191,8 @@ export function canAssignTypeToTypeVar(
                     concreteSrcType,
                     /* diag */ undefined,
                     new TypeVarContext(destType.scopeId),
-                    /* flags */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    CanAssignFlags.Default,
                     recursionCount
                 )
             ) {
@@ -227,8 +230,9 @@ export function canAssignTypeToTypeVar(
                             adjustedConstraint,
                             srcSubtype,
                             /* diag */ undefined,
-                            /* typeVarContext */ undefined,
-                            /* flags */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            CanAssignFlags.Default,
                             recursionCount
                         )
                     ) {
@@ -240,8 +244,9 @@ export function canAssignTypeToTypeVar(
                                     : constrainedSubtype,
                                 adjustedConstraint,
                                 /* diag */ undefined,
-                                /* typeVarContext */ undefined,
-                                /* flags */ undefined,
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                CanAssignFlags.Default,
                                 recursionCount
                             )
                         ) {
@@ -291,8 +296,9 @@ export function canAssignTypeToTypeVar(
                         adjustedConstraint,
                         concreteSrcType,
                         /* diag */ undefined,
-                        /* typeVarContext */ undefined,
-                        /* flags */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        CanAssignFlags.Default,
                         recursionCount
                     );
                 });
@@ -318,8 +324,9 @@ export function canAssignTypeToTypeVar(
                     curNarrowTypeBound,
                     constrainedType,
                     /* diag */ undefined,
-                    /* typeVarContext */ undefined,
-                    /* flags */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    CanAssignFlags.Default,
                     recursionCount
                 )
             ) {
@@ -331,8 +338,9 @@ export function canAssignTypeToTypeVar(
                         constrainedType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        /* typeVarContext */ undefined,
-                        /* flags */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        CanAssignFlags.Default,
                         recursionCount
                     )
                 ) {
@@ -405,7 +413,8 @@ export function canAssignTypeToTypeVar(
                     curWideTypeBound,
                     evaluator.makeTopLevelTypeVarsConcrete(adjSrcType),
                     diagAddendum,
-                    /* typeVarContext */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
                     flags & CanAssignFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
@@ -417,7 +426,8 @@ export function canAssignTypeToTypeVar(
                     adjSrcType,
                     curWideTypeBound,
                     diagAddendum,
-                    /* typeVarContext */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
                     flags & CanAssignFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
@@ -442,7 +452,8 @@ export function canAssignTypeToTypeVar(
                     newWideTypeBound!,
                     curNarrowTypeBound,
                     /* diag */ undefined,
-                    /* typeVarContext */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
                     flags & CanAssignFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
@@ -478,6 +489,7 @@ export function canAssignTypeToTypeVar(
                     adjSrcType,
                     diagAddendum,
                     new TypeVarContext(destType.scopeId),
+                    /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
                 )
@@ -493,6 +505,7 @@ export function canAssignTypeToTypeVar(
                         curNarrowTypeBound,
                         /* diag */ undefined,
                         new TypeVarContext(destType.scopeId),
+                        /* srcTypeVarContext */ undefined,
                         flags & CanAssignFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
@@ -531,6 +544,7 @@ export function canAssignTypeToTypeVar(
                         curNarrowTypeBound,
                         /* diag */ undefined,
                         new TypeVarContext(destType.scopeId),
+                        /* srcTypeVarContext */ undefined,
                         flags & CanAssignFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
@@ -592,6 +606,7 @@ export function canAssignTypeToTypeVar(
                         newNarrowTypeBound,
                         diag?.createAddendum(),
                         new TypeVarContext(destType.scopeId),
+                        /* srcTypeVarContext */ undefined,
                         flags & CanAssignFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
@@ -634,6 +649,7 @@ export function canAssignTypeToTypeVar(
                 evaluator.makeTopLevelTypeVarsConcrete(updatedType),
                 diag?.createAddendum(),
                 effectiveTypeVarContext,
+                /* srcTypeVarContext */ undefined,
                 flags & CanAssignFlags.IgnoreTypeVarScope,
                 recursionCount
             )
@@ -732,7 +748,8 @@ function canAssignTypeToParamSpec(
                         existingFunction,
                         assignedFunction,
                         /* diag */ undefined,
-                        /* typeVarContext */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
                         CanAssignFlags.SkipFunctionReturnTypeCheck,
                         recursionCount
                     )
@@ -797,6 +814,7 @@ export function populateTypeVarContextBasedOnExpectedType(
             expectedType,
             /* diag */ undefined,
             typeVarContext,
+            /* srcTypeVarContext */ undefined,
             CanAssignFlags.PopulatingExpectedType
         );
     }
@@ -858,6 +876,7 @@ export function populateTypeVarContextBasedOnExpectedType(
             specializedType,
             /* diag */ undefined,
             syntheticTypeVarContext,
+            /* srcTypeVarContext */ undefined,
             CanAssignFlags.PopulatingExpectedType
         )
     ) {

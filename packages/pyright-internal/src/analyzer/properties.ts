@@ -520,6 +520,7 @@ export function canAssignProperty(
                     boundSrcAccessType,
                     diag,
                     typeVarContext,
+                    /* srcTypeVarContext */ undefined,
                     CanAssignFlags.Default,
                     recursionCount
                 )
