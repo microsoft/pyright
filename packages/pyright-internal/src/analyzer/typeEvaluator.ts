@@ -20585,23 +20585,46 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             }
 
-            // If there is a remaining dest subtype and it's a type variable, attempt
-            // to assign the remaining source subtypes to it.
+            // If there is are remaining dest subtypes and they're all type variables,
+            // attempt to assign the remaining source subtypes to them.
             if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
-                if (
-                    remainingDestSubtypes.length !== 1 ||
-                    !isTypeVar(remainingDestSubtypes[0]) ||
-                    !canAssignType(
-                        remainingDestSubtypes[0],
-                        combineTypes(remainingSrcSubtypes),
-                        diag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
-                        flags,
-                        recursionCount
-                    )
-                ) {
+                if (remainingDestSubtypes.length === 0 || remainingDestSubtypes.some((t) => !isTypeVar(t))) {
                     isIncompatible = true;
+                } else if (remainingDestSubtypes.length === remainingSrcSubtypes.length) {
+                    // If the number of remaining source subtypes is the same as the number
+                    // of dest TypeVars, try to assign each source subtype to its own dest TypeVar.
+                    remainingDestSubtypes.forEach((destSubtype, index) => {
+                        const srcSubtype = remainingSrcSubtypes[index];
+                        if (
+                            !canAssignType(
+                                destSubtype,
+                                srcSubtype,
+                                diag?.createAddendum(),
+                                destTypeVarContext,
+                                srcTypeVarContext,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            isIncompatible = true;
+                        }
+                    });
+                } else {
+                    // Try to assign a union of the remaining source types to
+                    // the first destination TypeVar.
+                    if (
+                        !canAssignType(
+                            remainingDestSubtypes[0],
+                            combineTypes(remainingSrcSubtypes),
+                            diag?.createAddendum(),
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        isIncompatible = true;
+                    }
                 }
             }
 

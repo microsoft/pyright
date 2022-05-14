@@ -56,7 +56,7 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     reveal_type(v2_1, expected_text="int")
 
     v2_2 = func2(d)
-    reveal_type(v2_2, expected_text="str | complex")
+    reveal_type(v2_2, expected_text="complex | str")
 
     # ---------
 
