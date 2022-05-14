@@ -93,6 +93,7 @@ import {
     FlowLabel,
     FlowNarrowForPattern,
     FlowNode,
+    FlowNodeCounter,
     FlowPostContextManagerLabel,
     FlowPostFinally,
     FlowPreFinallyGate,
@@ -141,6 +142,12 @@ interface ClassVarInfo {
     isClassVar: boolean;
     classVarTypeNode: ExpressionNode | undefined;
 }
+
+// For each flow node within an execution context, we'll add a small
+// amount to the complexity factor. Without this, the complexity
+// calculation fails to take into account large numbers of non-cyclical
+// flow nodes. This number is somewhat arbitrary and is tuned empirically.
+const flowNodeComplexityFactor = 0.05;
 
 export class Binder extends ParseTreeWalker {
     private readonly _fileInfo: AnalyzerFileInfo;
@@ -248,6 +255,8 @@ export class Binder extends ParseTreeWalker {
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
             () => {
+                const flowNodeCounter = new FlowNodeCounter();
+
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
                 AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
@@ -275,7 +284,10 @@ export class Binder extends ParseTreeWalker {
                 AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
 
                 AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
+                AnalyzerNodeInfo.setCodeFlowComplexity(
+                    node,
+                    this._codeFlowComplexity + flowNodeCounter.getCount() * flowNodeComplexityFactor
+                );
             }
         );
 
@@ -480,6 +492,7 @@ export class Binder extends ParseTreeWalker {
                 // Create a start node for the function.
                 this._currentFlowNode = this._createStartFlowNode();
                 this._codeFlowComplexity = 0;
+                const flowNodeCounter = new FlowNodeCounter();
 
                 node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
@@ -525,7 +538,10 @@ export class Binder extends ParseTreeWalker {
                 AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
 
                 AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
+                AnalyzerNodeInfo.setCodeFlowComplexity(
+                    node,
+                    this._codeFlowComplexity + flowNodeCounter.getCount() * flowNodeComplexityFactor
+                );
             });
         });
 
