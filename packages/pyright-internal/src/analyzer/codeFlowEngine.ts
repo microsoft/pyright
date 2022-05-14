@@ -35,9 +35,7 @@ import {
     FlowWildcardImport,
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
-import { DeclarationType } from './declaration';
 import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
-import { Symbol } from './symbol';
 import {
     CachedType,
     IncompleteSubtypeInfo,
@@ -56,13 +54,11 @@ import {
     isClassInstance,
     isFunction,
     isInstantiableClass,
-    isModule,
     isNever,
     isOverloadedFunction,
     isTypeSame,
     isTypeVar,
     maxTypeRecursionCount,
-    ModuleType,
     NeverType,
     removeIncompleteUnknownFromUnion,
     Type,
@@ -70,14 +66,7 @@ import {
     UnboundType,
     UnknownType,
 } from './types';
-import {
-    ClassMemberLookupFlags,
-    convertToInstance,
-    doForEachSubtype,
-    isTypeAliasPlaceholder,
-    lookUpClassMember,
-    mapSubtypes,
-} from './typeUtils';
+import { ClassMemberLookupFlags, doForEachSubtype, isTypeAliasPlaceholder, lookUpClassMember } from './typeUtils';
 
 export interface FlowNodeTypeResult {
     type: Type | undefined;
@@ -118,6 +107,7 @@ export function getCodeFlowEngine(
     const isExceptionContextManagerCache = new Map<number, boolean>();
     let flowIncompleteGeneration = 1;
     let noReturnAnalysisDepth = 0;
+    let contextManagerAnalysisDepth = 0;
 
     // Creates a new code flow analyzer that can be used to narrow the types
     // of the expressions within an execution context. Each code flow analyzer
@@ -410,7 +400,7 @@ export function getCodeFlowEngine(
                             // suppression. If not, none of its antecedents are reachable.
                             const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
                             const contextManagerSwallowsExceptions = contextMgrNode.expressions.some((expr) =>
-                                isExceptionContextManager(expr, contextMgrNode.isAsync)
+                                isExceptionContextManager(evaluator, expr, contextMgrNode.isAsync)
                             );
 
                             if (contextManagerSwallowsExceptions === contextMgrNode.blockIfSwallowsExceptions) {
@@ -968,7 +958,7 @@ export function getCodeFlowEngine(
                         const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
                         if (
                             !contextMgrNode.expressions.some((expr) =>
-                                isExceptionContextManager(expr, contextMgrNode.isAsync)
+                                isExceptionContextManager(evaluator, expr, contextMgrNode.isAsync)
                             )
                         ) {
                             return false;
@@ -1428,7 +1418,7 @@ export function getCodeFlowEngine(
     // that returns a bool response (as opposed to a None). This function is
     // called during code flow, so it can't rely on full type evaluation. It
     // makes some simplifying assumptions that work in most cases.
-    function isExceptionContextManager(node: ExpressionNode, isAsync: boolean) {
+    function isExceptionContextManager(evaluator: TypeEvaluator, node: ExpressionNode, isAsync: boolean) {
         // See if this information is cached already.
         if (isExceptionContextManagerCache.has(node.id)) {
             return isExceptionContextManagerCache.get(node.id);
@@ -1437,38 +1427,28 @@ export function getCodeFlowEngine(
         // Initially set to false to avoid infinite recursion.
         isExceptionContextManagerCache.set(node.id, false);
 
-        let cmSwallowsExceptions = false;
-        let cmType: Type | undefined;
-
-        if (node.nodeType === ParseNodeType.Call) {
-            const callType = getDeclaredCallBaseType(node.leftExpression);
-            if (callType) {
-                if (isInstantiableClass(callType)) {
-                    cmType = convertToInstance(callType);
-                } else if (isFunction(callType)) {
-                    cmType = callType.details.declaredReturnType;
-                } else if (isOverloadedFunction(callType)) {
-                    // Handle the overloaded case. As a simple heuristic, we'll simply
-                    // look at the first overloaded signature and ignore the remainder.
-                    // This works for pytype.raises, which is a common case.
-                    const firstOverload = callType.overloads.find((overload) => FunctionType.isOverloaded(overload));
-                    if (firstOverload) {
-                        cmType = firstOverload.details.declaredReturnType;
-                    }
-                }
-            }
-        } else if (node.nodeType === ParseNodeType.Name) {
-            cmType = evaluator.getDeclaredTypeForExpression(node);
+        // See if we've exceeded the max recursion depth.
+        if (contextManagerAnalysisDepth > maxTypeRecursionCount) {
+            return false;
         }
 
-        if (cmType && isClassInstance(cmType)) {
-            const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-            const exitType = evaluator.getTypeOfObjectMember(node, cmType, exitMethodName)?.type;
+        contextManagerAnalysisDepth++;
+        let cmSwallowsExceptions = false;
 
-            if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
-                const returnType = exitType.details.declaredReturnType;
-                cmSwallowsExceptions = isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool');
+        try {
+            const cmType = evaluator.getTypeOfExpression(node).type;
+
+            if (cmType && isClassInstance(cmType)) {
+                const exitMethodName = isAsync ? '__aexit__' : '__exit__';
+                const exitType = evaluator.getTypeOfObjectMember(node, cmType, exitMethodName)?.type;
+
+                if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
+                    const returnType = exitType.details.declaredReturnType;
+                    cmSwallowsExceptions = isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool');
+                }
             }
+        } finally {
+            contextManagerAnalysisDepth--;
         }
 
         // Cache the value for next time.
@@ -1492,106 +1472,6 @@ export function getCodeFlowEngine(
         }
 
         return evaluator.getInferredTypeOfDeclaration(symbolWithScope!.symbol, wildcardDecl) || UnknownType.create();
-    }
-
-    function getDeclaredTypeOfSymbol(symbol: Symbol, isBeyondExecutionScope: boolean): Type | undefined {
-        const type = evaluator.getDeclaredTypeOfSymbol(symbol);
-        if (type) {
-            return type;
-        }
-
-        // There was no declared type. Before we give up, see if the
-        // symbol is a function parameter whose value can be inferred
-        // or an imported symbol.
-        // Use the last declaration that is not within an except suite.
-        const declarations = symbol.getDeclarations().filter((decl) => !decl.isInExceptSuite);
-        if (declarations.length === 0) {
-            return undefined;
-        }
-
-        const decl = declarations[declarations.length - 1];
-        if (decl.type === DeclarationType.Parameter) {
-            return evaluator.evaluateTypeForSubnode(decl.node.name!, () => {
-                evaluator.evaluateTypeOfParameter(decl.node);
-            })?.type;
-        }
-
-        // If it is a symbol from an outer execution scope or an alias, it
-        // is safe to infer its type. Calling this under other circumstances
-        // can result in extreme performance degradation and stack overflows.
-        if (decl.type === DeclarationType.Alias || isBeyondExecutionScope) {
-            return evaluator.getInferredTypeOfDeclaration(symbol, decl);
-        }
-
-        return undefined;
-    }
-
-    // When we're evaluating a call to determine whether it returns NoReturn,
-    // we don't want to do a full type evaluation, which would be expensive
-    // and create circular dependencies in type evaluation. Instead, we do
-    // a best-effort evaluation using only declared types (functions, parameters,
-    // etc.).
-    function getDeclaredCallBaseType(node: ExpressionNode): Type | undefined {
-        if (node.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
-            if (!symbolWithScope) {
-                return undefined;
-            }
-
-            return getDeclaredTypeOfSymbol(symbolWithScope.symbol, symbolWithScope.isBeyondExecutionScope);
-        }
-
-        if (node.nodeType === ParseNodeType.MemberAccess) {
-            const memberName = node.memberName.value;
-            let baseType = getDeclaredCallBaseType(node.leftExpression);
-            if (!baseType) {
-                return undefined;
-            }
-
-            baseType = evaluator.makeTopLevelTypeVarsConcrete(baseType);
-
-            const declaredTypeOfSymbol = mapSubtypes(baseType, (subtype) => {
-                let symbol: Symbol | undefined;
-                if (isModule(subtype)) {
-                    symbol = ModuleType.getField(subtype, memberName);
-                } else if (isClass(subtype)) {
-                    const classMemberInfo = lookUpClassMember(subtype, memberName);
-                    symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
-                }
-
-                if (!symbol) {
-                    return UnknownType.create();
-                }
-
-                // We want to limit the evaluation to declared types only, so
-                // we use getDeclaredTypeOfSymbol rather than getEffectiveTypeOfSymbol.
-                // Set isBeyondExecutionScope to false so we don't attempt to infer
-                // the symbol type. This can lead to very bad performance.
-                return getDeclaredTypeOfSymbol(symbol, /* isBeyondExecutionScope */ false) ?? UnknownType.create();
-            });
-
-            if (!isNever(declaredTypeOfSymbol)) {
-                return declaredTypeOfSymbol;
-            }
-        }
-
-        if (node.nodeType === ParseNodeType.Call) {
-            const baseType = getDeclaredCallBaseType(node.leftExpression);
-            if (!baseType) {
-                return undefined;
-            }
-
-            if (baseType && isInstantiableClass(baseType)) {
-                const inst = convertToInstance(baseType);
-                return inst;
-            }
-
-            if (isFunction(baseType)) {
-                return baseType.details.declaredReturnType;
-            }
-        }
-
-        return undefined;
     }
 
     function printControlFlowGraph(
