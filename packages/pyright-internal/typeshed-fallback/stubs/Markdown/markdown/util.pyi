@@ -1,6 +1,6 @@
 from typing import Any, Pattern
 
-PY37: Any
+PY37: bool
 __deprecated__: Any
 BLOCK_LEVEL_ELEMENTS: Any
 STX: str
@@ -15,7 +15,7 @@ TAG_PLACEHOLDER: Any
 INSTALLED_EXTENSIONS: Any
 RTL_BIDI_RANGES: Any
 
-def deprecated(message, stacklevel: int = ...): ...
+def deprecated(message: str, stacklevel: int = ...): ...
 def isBlockLevel(tag): ...
 def parseBoolValue(value, fail_on_errors: bool = ..., preserve_none: bool = ...): ...
 def code_escape(text): ...
