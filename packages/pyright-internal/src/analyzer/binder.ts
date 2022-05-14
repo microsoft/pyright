@@ -1095,8 +1095,9 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitMemberAccess(node: MemberAccessNode): boolean {
+        this.walk(node.leftExpression);
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
-        return true;
+        return false;
     }
 
     override visitName(node: NameNode): boolean {
