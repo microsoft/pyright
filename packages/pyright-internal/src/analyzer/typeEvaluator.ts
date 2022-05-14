@@ -7964,6 +7964,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedType: Type | undefined,
         typeVarContext: TypeVarContext
     ): Type {
+        let unsolvedTypeVarsAreUnknown = true;
+
         if (expectedType) {
             const specializedExpectedType = mapSubtypes(expectedType, (expectedSubtype) => {
                 return applyExpectedSubtypeForConstructor(type, expectedSubtype, typeVarContext);
@@ -7972,9 +7974,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!isNever(specializedExpectedType)) {
                 return specializedExpectedType;
             }
+
+            // If the expected type didn't provide TypeVar values, remaining
+            // unsolved TypeVars should be considered Unknown unless they were
+            // provided explicitly in the constructor call.
+            if (type.typeArguments) {
+                unsolvedTypeVarsAreUnknown = false;
+            }
         }
 
-        const specializedType = applySolvedTypeVars(type, typeVarContext, /* unknownIfNotFound */ true) as ClassType;
+        const specializedType = applySolvedTypeVars(type, typeVarContext, unsolvedTypeVarsAreUnknown) as ClassType;
         return ClassType.cloneAsInstance(specializedType);
     }
 
