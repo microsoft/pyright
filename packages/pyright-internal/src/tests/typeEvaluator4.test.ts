@@ -773,7 +773,7 @@ test('ParamSpec12', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec12.py'], configOptions);
-    TestUtils.validateResults(results, 12);
+    TestUtils.validateResults(results, 16);
 });
 
 test('ParamSpec13', () => {

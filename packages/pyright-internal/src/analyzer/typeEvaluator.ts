@@ -10998,6 +10998,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                if (
+                    !validateTypeArg(leftTypeResult, { allowVariadicTypeVar: true, allowUnpackedTuples: true }) ||
+                    !validateTypeArg(rightTypeResult, { allowVariadicTypeVar: true, allowUnpackedTuples: true })
+                ) {
+                    return { type: UnknownType.create(), node };
+                }
+
                 const newUnion = combineTypes([adjustedLeftType, adjustedRightType]);
                 if (isUnion(newUnion)) {
                     TypeBase.setSpecialForm(newUnion);
