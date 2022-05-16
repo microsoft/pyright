@@ -126,6 +126,12 @@ test('Await1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Await2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['await2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Coroutines1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py']);
 

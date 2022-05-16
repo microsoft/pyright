@@ -2212,6 +2212,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // If errorNode is undefined, no errors are reported.
     function getTypeOfAwaitable(type: Type, errorNode?: ParseNode): Type {
         return mapSubtypes(type, (subtype) => {
+            subtype = makeTopLevelTypeVarsConcrete(subtype);
+
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
