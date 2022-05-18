@@ -43,12 +43,14 @@ import { FileBasedCancellationStrategy } from './cancellationUtils';
 
 let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 
+let languageClient: LanguageClient | undefined;
+
 const pythonPathChangedListenerMap = new Map<string, string>();
 
 // Request a heap size of 3GB. This is reasonable for modern systems.
 const defaultHeapSize = 3072;
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     // See if Pylance is installed. If so, don't activate the Pyright extension.
     // Doing so will generate "command already registered" errors and redundant
     // hover text, etc.because the two extensions overlap in functionality.
@@ -129,10 +131,10 @@ export function activate(context: ExtensionContext) {
                         const pythonPathPromises: Promise<string | undefined>[] = params.items.map((item) => {
                             if (item.section === 'python') {
                                 const uri = item.scopeUri ? Uri.parse(item.scopeUri) : undefined;
-                                return getPythonPathFromPythonExtension(languageClient.outputChannel, uri, () => {
+                                return getPythonPathFromPythonExtension(client.outputChannel, uri, () => {
                                     // Posts a "workspace/didChangeConfiguration" message to the service
                                     // so it re-queries the settings for all workspaces.
-                                    languageClient.sendNotification(DidChangeConfigurationNotification.type, {
+                                    client.sendNotification(DidChangeConfigurationNotification.type, {
                                         settings: null,
                                     });
                                 });
@@ -164,12 +166,8 @@ export function activate(context: ExtensionContext) {
     };
 
     // Create the language client and start the client.
-    const languageClient = new LanguageClient('python', 'Pyright', serverOptions, clientOptions);
-    const disposable = languageClient.start();
-
-    // Push the disposable to the context's subscriptions so that the
-    // client can be deactivated on extension deactivation.
-    context.subscriptions.push(disposable);
+    const client = new LanguageClient('python', 'Pyright', serverOptions, clientOptions);
+    languageClient = client;
 
     // Register our custom commands.
     const textEditorCommands = [Commands.orderImports, Commands.addMissingOptionalToParam];
@@ -183,23 +181,18 @@ export function activate(context: ExtensionContext) {
                         arguments: [editor.document.uri.toString(), ...args],
                     };
 
-                    languageClient
-                        .sendRequest<TextEdit[] | undefined>('workspace/executeCommand', cmd)
-                        .then((edits) => {
-                            if (edits && edits.length > 0) {
-                                editor.edit((editBuilder) => {
-                                    edits.forEach((edit) => {
-                                        const startPos = new Position(
-                                            edit.range.start.line,
-                                            edit.range.start.character
-                                        );
-                                        const endPos = new Position(edit.range.end.line, edit.range.end.character);
-                                        const range = new Range(startPos, endPos);
-                                        editBuilder.replace(range, edit.newText);
-                                    });
+                    client.sendRequest<TextEdit[] | undefined>('workspace/executeCommand', cmd).then((edits) => {
+                        if (edits && edits.length > 0) {
+                            editor.edit((editBuilder) => {
+                                edits.forEach((edit) => {
+                                    const startPos = new Position(edit.range.start.line, edit.range.start.character);
+                                    const endPos = new Position(edit.range.end.line, edit.range.end.character);
+                                    const range = new Range(startPos, endPos);
+                                    editBuilder.replace(range, edit.newText);
                                 });
-                            }
-                        });
+                            });
+                        }
+                    });
                 },
                 () => {
                     // Error received. For now, do nothing.
@@ -212,10 +205,12 @@ export function activate(context: ExtensionContext) {
     genericCommands.forEach((command) => {
         context.subscriptions.push(
             commands.registerCommand(command, (...args: any[]) => {
-                languageClient.sendRequest('workspace/executeCommand', { command, arguments: args });
+                client.sendRequest('workspace/executeCommand', { command, arguments: args });
             })
         );
     });
+
+    await client.start();
 }
 
 export function deactivate() {
@@ -224,10 +219,10 @@ export function deactivate() {
         cancellationStrategy = undefined;
     }
 
-    // Return undefined rather than a promise to indicate
-    // that deactivation is done synchronously. We don't have
-    // anything to do here.
-    return undefined;
+    const client = languageClient;
+    languageClient = undefined;
+
+    return client?.stop();
 }
 
 // The VS Code Python extension manages its own internal store of configuration settings.

@@ -100,7 +100,7 @@ import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/fileSystem';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
-import { convertPathToUri, normalizeSlashes } from './common/pathUtils';
+import { convertPathToUri } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
@@ -201,6 +201,7 @@ interface ClientCapabilities {
     hasVisualStudioExtensionsCapability: boolean;
     hasWorkspaceFoldersCapability: boolean;
     hasWatchFileCapability: boolean;
+    hasWatchFileRelativePathCapability: boolean;
     hasActiveParameterCapability: boolean;
     hasSignatureLabelOffsetCapability: boolean;
     hasHierarchicalDocumentSymbolCapability: boolean;
@@ -244,6 +245,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         hasVisualStudioExtensionsCapability: false,
         hasWorkspaceFoldersCapability: false,
         hasWatchFileCapability: false,
+        hasWatchFileRelativePathCapability: false,
         hasActiveParameterCapability: false,
         hasSignatureLabelOffsetCapability: false,
         hasHierarchicalDocumentSymbolCapability: false,
@@ -509,6 +511,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         const capabilities = params.capabilities;
         this.client.hasConfigurationCapability = !!capabilities.workspace?.configuration;
         this.client.hasWatchFileCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
+        this.client.hasWatchFileRelativePathCapability =
+            !!capabilities.workspace?.didChangeWatchedFiles?.relativePatternSupport;
         this.client.hasWorkspaceFoldersCapability = !!capabilities.workspace?.workspaceFolders;
         this.client.hasVisualStudioExtensionsCapability = !!(capabilities as any).supportsVisualStudioExtensions;
         this.client.hasActiveParameterCapability =
@@ -604,6 +608,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     this._workspaceMap.set(rootPath, newWorkspace);
                     await this.updateSettingsForWorkspace(newWorkspace);
                 });
+
+                this._setupFileWatcher();
             });
 
             this._setupFileWatcher();
@@ -630,13 +636,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         ];
 
         // Add all python search paths to watch list
-        for (const workspace of this._workspaceMap.getNonDefaultWorkspaces()) {
-            workspace.searchPathsToWatch.forEach((p) => {
-                watchers.push({
-                    globPattern: `${normalizeSlashes(this.fs.realCasePath(p), '/')}/**`,
-                    kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+        if (this.client.hasWatchFileRelativePathCapability) {
+            for (const workspace of this._workspaceMap.getNonDefaultWorkspaces()) {
+                workspace.searchPathsToWatch.forEach((p) => {
+                    watchers.push({
+                        globPattern: { baseUri: convertPathToUri(this.fs, p), pattern: '**' },
+                        kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                    });
                 });
-            });
+            }
         }
 
         this._connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
@@ -1265,11 +1273,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     updateSettingsForAllWorkspaces(): void {
+        const tasks: Promise<void>[] = [];
         this._workspaceMap.forEach((workspace) => {
-            this.updateSettingsForWorkspace(workspace).ignoreErrors();
+            tasks.push(this.updateSettingsForWorkspace(workspace));
         });
 
-        this._setupFileWatcher();
+        Promise.all(tasks).then(() => {
+            this._setupFileWatcher();
+        });
     }
 
     protected getCompletionOptions(params?: CompletionParams) {
