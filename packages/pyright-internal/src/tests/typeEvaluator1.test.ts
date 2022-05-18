@@ -1243,7 +1243,7 @@ test('Partial2', () => {
 test('TotalOrdering1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['totalOrdering1.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TupleUnpack1', () => {
