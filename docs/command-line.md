@@ -15,7 +15,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | -p, --project `<FILE OR DIRECTORY>`     | Use the configuration file at this location          |
 | --pythonplatform `<PLATFORM>`           | Analyze for platform (Darwin, Linux, Windows)        |
 | --pythonversion `<VERSION>`             | Analyze for version (3.3, 3.4, etc.)                 |
-| --skipunannotated                       | Skip type analysis of unannotated functions?         |
+| --skipunannotated                       | Skip type analysis of unannotated functions          |
 | --stats                                 | Print detailed performance stats                     |
 | -t, --typeshed-path `<DIRECTORY>`       | Use typeshed type stubs at this location (2)         |
 | -v, --venv-path `<DIRECTORY>`           | Directory that contains virtual environments (3)     |

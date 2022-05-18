@@ -644,7 +644,7 @@ function printUsage() {
             '  -p,--project <FILE OR DIRECTORY>   Use the configuration file at this location\n' +
             '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
             '  --pythonversion <VERSION>          Analyze for a specific version (3.3, 3.4, etc.)\n' +
-            '  --skipunannotated                  Do not analyze functions and methods with no type annotations\n' +
+            '  --skipunannotated                  Skip analysis of functions with no type annotations\n' +
             '  --stats                            Print detailed performance stats\n' +
             '  -t,--typeshed-path <DIRECTORY>     Use typeshed type stubs at this location\n' +
             '  -v,--venv-path <DIRECTORY>         Directory that contains virtual environments\n' +
