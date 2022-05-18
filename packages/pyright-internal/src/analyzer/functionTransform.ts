@@ -22,8 +22,9 @@ import {
     isFunction,
     isInstantiableClass,
     OverloadedFunctionType,
+    Type,
 } from './types';
-import { ClassMemberLookupFlags, lookUpObjectMember, synthesizeTypeVarForSelfCls } from './typeUtils';
+import { ClassMember, ClassMemberLookupFlags, lookUpObjectMember, synthesizeTypeVarForSelfCls } from './typeUtils';
 
 export function applyFunctionTransform(
     evaluator: TypeEvaluator,
@@ -62,11 +63,16 @@ function applyTotalOrderingTransform(
     const instanceType = ClassType.cloneAsInstance(classType);
 
     // Verify that the class has at least one of the required functions.
+    let firstMemberFound: ClassMember | undefined;
     const missingMethods = orderingMethods.filter((methodName) => {
-        return !lookUpObjectMember(instanceType, methodName, ClassMemberLookupFlags.SkipInstanceVariables);
+        const memberInfo = lookUpObjectMember(instanceType, methodName, ClassMemberLookupFlags.SkipInstanceVariables);
+        if (memberInfo && !firstMemberFound) {
+            firstMemberFound = memberInfo;
+        }
+        return !memberInfo;
     });
 
-    if (missingMethods.length === orderingMethods.length) {
+    if (!firstMemberFound) {
         evaluator.addDiagnostic(
             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
@@ -76,9 +82,26 @@ function applyTotalOrderingTransform(
         return result;
     }
 
-    const objectType = evaluator.getBuiltInObject(errorNode, 'object');
-    if (!objectType || !isClassInstance(objectType)) {
-        return result;
+    // Determine what type to use for the parameter corresponding to
+    // the second operand. This will be taken from the existing method.
+    let operandType: Type | undefined;
+
+    const firstMemberType = evaluator.getTypeOfMember(firstMemberFound);
+    if (
+        isFunction(firstMemberType) &&
+        firstMemberType.details.parameters.length >= 2 &&
+        firstMemberType.details.parameters[1].hasDeclaredType
+    ) {
+        operandType = firstMemberType.details.parameters[1].type;
+    }
+
+    // If there was no provided operand type, fall back to object.
+    if (!operandType) {
+        const objectType = evaluator.getBuiltInObject(errorNode, 'object');
+        if (!objectType || !isClassInstance(objectType)) {
+            return result;
+        }
+        operandType = objectType;
     }
 
     const boolType = evaluator.getBuiltInObject(errorNode, 'bool');
@@ -96,7 +119,7 @@ function applyTotalOrderingTransform(
     const objParam: FunctionParameter = {
         category: ParameterCategory.Simple,
         name: '__value',
-        type: objectType,
+        type: operandType,
         hasDeclaredType: true,
     };
 
