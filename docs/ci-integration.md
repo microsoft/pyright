@@ -5,17 +5,13 @@
 You can configure pyright to run as a git hook (e.g. prior to each check-in) by using the following hook definition:
 
 ```yml
--   repo: local
-    hooks:
-    -   id: pyright
-        name: pyright
-        entry: pyright
-        language: node
-        pass_filenames: false
-        types: [python]
-        # Replace the version below with the latest pyright version
-        additional_dependencies: ['pyright@1.1.XXX']
+- uses: jakebailey/pyright-action@v1
+  with:
+    version: 1.1.xxx # Optional (if you want to pin the version)
 ```
+
+Refer to the [pyright-action project](https://github.com/jakebailey/pyright-action) for more options.
+
 
 ### Running Pyright from a CI script
 
