@@ -1,8 +1,8 @@
 ## Integrating Pyright into Continuous Integration (CI)
 
-### Running Pyright as a pre-commit hook
+### Running Pyright as a github action
 
-You can configure pyright to run as a git hook (e.g. prior to each check-in) by using the following hook definition:
+You can configure pyright to run as a github action.
 
 ```yml
 - uses: jakebailey/pyright-action@v1
@@ -12,6 +12,22 @@ You can configure pyright to run as a git hook (e.g. prior to each check-in) by 
 
 Refer to the [pyright-action project](https://github.com/jakebailey/pyright-action) for more options.
 
+### Running Pyright as a pre-commit hook
+
+If you do not use github, the following git hook will also work.
+
+```yml
+-   repo: local
+    hooks:
+    -   id: pyright
+        name: pyright
+        entry: pyright
+        language: node
+        pass_filenames: false
+        types: [python]
+        # Replace the version below with the latest pyright version
+        additional_dependencies: ['pyright@1.1.XXX']
+```
 
 ### Running Pyright from a CI script
 
