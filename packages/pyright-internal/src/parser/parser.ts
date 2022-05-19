@@ -3256,7 +3256,8 @@ export class Parser {
                         ErrorExpressionCategory.MissingMemberAccessName,
                         Localizer.Diagnostic.expectedMemberName(),
                         startOfTrailerToken,
-                        atomExpression
+                        atomExpression,
+                        [TokenType.Keyword]
                     );
                 }
                 atomExpression = MemberAccessNode.create(atomExpression, NameNode.create(memberName));
