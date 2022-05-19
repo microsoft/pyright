@@ -25,6 +25,8 @@ def foo(self) -> str:
     return 3
 ```
 
+If your code relies on symbols that are imported from a third-party library, include the associated import statements and specify which versions of those libraries you have installed.
+
 **VS Code extension or command-line**
 Are you running pyright as a VS Code extension or a command-line tool? Which version? You can find the version of the VS Code extension by clicking on the Pyright icon in the extensions panel.
 
