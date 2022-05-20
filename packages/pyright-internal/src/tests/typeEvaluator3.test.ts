@@ -654,6 +654,11 @@ test('MethodOverride3', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('MethodOverride4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 

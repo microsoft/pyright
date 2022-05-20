@@ -22328,7 +22328,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             baseParamType,
                             diag.createAddendum(),
                             new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                            /* srcTypeVarContext */ undefined,
+                            new TypeVarContext(getTypeVarScopeId(baseMethod)),
                             CanAssignFlags.SkipSolveTypeVars
                         )
                     ) {
