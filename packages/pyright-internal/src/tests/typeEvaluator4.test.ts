@@ -233,6 +233,15 @@ test('DunderAll2', () => {
     TestUtils.validateResults(analysisResults, 0, 0);
 });
 
+test('DunderAll3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Turn on error.
+    configOptions.diagnosticRuleSet.reportUnsupportedDunderAll = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll3.pyi'], configOptions);
+    TestUtils.validateResults(analysisResults, 0, 0);
+});
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     TestUtils.validateResults(analysisResults, 2);

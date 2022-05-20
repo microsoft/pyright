@@ -1963,13 +1963,13 @@ export class Checker extends ParseTreeWalker {
 
             case ParseNodeType.StatementList: {
                 for (const substatement of statement.statements) {
+                    let isValid = true;
+
                     switch (substatement.nodeType) {
                         case ParseNodeType.Assert:
                         case ParseNodeType.AssignmentExpression:
-                        case ParseNodeType.AugmentedAssignment:
                         case ParseNodeType.Await:
                         case ParseNodeType.BinaryOperation:
-                        case ParseNodeType.Call:
                         case ParseNodeType.Constant:
                         case ParseNodeType.Del:
                         case ParseNodeType.Dictionary:
@@ -1997,13 +1997,36 @@ export class Checker extends ParseTreeWalker {
                         case ParseNodeType.WithItem:
                         case ParseNodeType.Yield:
                         case ParseNodeType.YieldFrom: {
-                            this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
-                                DiagnosticRule.reportInvalidStubStatement,
-                                Localizer.Diagnostic.invalidStubStatement(),
-                                substatement
-                            );
+                            isValid = false;
+                            break;
                         }
+
+                        case ParseNodeType.AugmentedAssignment: {
+                            // Exempt __all__ manipulations.
+                            isValid =
+                                substatement.operator === OperatorType.AddEqual &&
+                                substatement.leftExpression.nodeType === ParseNodeType.Name &&
+                                substatement.leftExpression.value === '__all__';
+                            break;
+                        }
+
+                        case ParseNodeType.Call: {
+                            // Exempt __all__ manipulations.
+                            isValid =
+                                substatement.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                                substatement.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                                substatement.leftExpression.leftExpression.value === '__all__';
+                            break;
+                        }
+                    }
+
+                    if (!isValid) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
+                            DiagnosticRule.reportInvalidStubStatement,
+                            Localizer.Diagnostic.invalidStubStatement(),
+                            substatement
+                        );
                     }
                 }
             }
