@@ -706,7 +706,12 @@ export function validateDataClassTransformDecorator(
                 break;
             }
 
-            case 'field_descriptors': {
+            // Earlier versions of the dataclass_transform spec used the name "field_descriptors"
+            // rather than "field_specifiers". The older name is now deprecated but still supported
+            // for the time being because some libraries shipped with the older __dataclass_transform__
+            // form that supported this older parameter name.
+            case 'field_descriptors':
+            case 'field_specifiers': {
                 const valueType = evaluator.getTypeOfExpression(arg.valueExpression).type;
                 if (
                     !isClassInstance(valueType) ||
@@ -720,7 +725,7 @@ export function validateDataClassTransformDecorator(
                     )
                 ) {
                     evaluator.addError(
-                        Localizer.Diagnostic.dataClassTransformFieldDescriptor().format({
+                        Localizer.Diagnostic.dataClassTransformFieldSpecifier().format({
                             type: evaluator.printType(valueType),
                         }),
                         arg.valueExpression

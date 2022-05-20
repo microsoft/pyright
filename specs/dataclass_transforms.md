@@ -162,7 +162,7 @@ def dataclass_transform(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_descriptors: Tuple[type, ...] = (()),
+    field_specifiers: Tuple[type, ...] = (()),
 ) -> Callable[[_T], _T]: ...
 ```
 
@@ -178,7 +178,7 @@ to False (the default assumption for dataclass).
 assumed to be True or False if it is omitted by the caller. If not specified,
 it will default to False (the default assumption for dataclass).
 
-`field_descriptors` specifies a static list of supported classes that describe
+`field_specifiers` specifies a static list of supported classes that describe
 fields. Some libraries also supply functions to allocate instances of field
 descriptors, and those functions may also be specified in this tuple. If not
 specified, it will default to an empty tuple (no field descriptors supported).
@@ -319,7 +319,7 @@ def model_field(
         init: bool = True,
     ) -> Any: ...
 
-@typing.dataclass_transform(kw_only_default=True, field_descriptors=(model_field, ))
+@typing.dataclass_transform(kw_only_default=True, field_specifiers=(model_field, ))
 def create_model(
     *,
     init: bool = True
@@ -349,7 +349,7 @@ def dataclass_transform(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
 ) -> Callable[[_T], _T]:
     return lambda a: a
 ```
@@ -422,7 +422,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
 ) -> Callable[[_T], _T]:
     # If used within a stub file, the following implementation can be
     # replaced with "...".
@@ -516,7 +516,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
 ) -> Callable[[_T], _T]: ...
 ```
 
@@ -525,7 +525,7 @@ It is an overloaded function with two overloads. Paste the following line
 between `@overload` and `def attrs(`. Repeat this for each of the two overloads.
 
 ```python
-@__dataclass_transform__(order_default=True, field_descriptors=(attrib, field))
+@__dataclass_transform__(order_default=True, field_specifiers=(attrib, field))
 ```
 
 Step 3: Within the same file, search for the definition of the `define`
@@ -533,7 +533,7 @@ function. Paste the following line between `@overload` and `def define(`. Repeat
 this for each of the two overloads.
 
 ```python
-@__dataclass_transform__(field_descriptors=(attrib, field))
+@__dataclass_transform__(field_specifiers=(attrib, field))
 ```
 
 
@@ -554,7 +554,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
 ) -> Callable[[_T], _T]:
     return lambda a: a
 ```
@@ -562,7 +562,7 @@ def __dataclass_transform__(
 Step 2: Add the following decorator to the `ModelMetaclass` class definition:
 
 ```python
-@__dataclass_transform__(kw_only_default=True, field_descriptors=(Field, FieldInfo))
+@__dataclass_transform__(kw_only_default=True, field_specifiers=(Field, FieldInfo))
 ```
 
 

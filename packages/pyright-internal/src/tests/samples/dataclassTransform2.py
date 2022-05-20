@@ -20,7 +20,7 @@ def model_field(
 
 @dataclass_transform(
     kw_only_default=True,
-    field_descriptors=(ModelField, model_field),
+    field_specifiers=(ModelField, model_field),
 )
 class ModelMeta(type):
     def __init_subclass__(

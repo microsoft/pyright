@@ -61,14 +61,14 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
 ) -> Callable[[T], T]:
     # If used within a stub file, the following implementation can be
     # replaced with "...".
     return lambda a: a
 
 
-@__dataclass_transform__(kw_only_default=True, field_descriptors=(field,))
+@__dataclass_transform__(kw_only_default=True, field_specifiers=(field,))
 def create_model(*, init: bool = True) -> Callable[[Type[T]], Type[T]]:
     ...
 
