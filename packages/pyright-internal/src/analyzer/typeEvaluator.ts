@@ -9222,7 +9222,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Handle the case where a *args: P.args is passed as an argument to
                         // a function that accepts a ParamSpec.
                         if (type.details.paramSpec) {
-                            const argType = getTypeOfArgument(argList[argIndex]).type;
+                            const argTypeResult = getTypeOfArgument(argList[argIndex]);
+                            const argType = argTypeResult.type;
+
+                            if (argTypeResult.isIncomplete) {
+                                isTypeIncomplete = true;
+                            }
+
                             if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                                 validateArgTypeParams.push({
                                     paramCategory: ParameterCategory.VarArgList,
@@ -9713,12 +9719,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else if (type.details.paramSpec) {
             if (!sawParamSpecArgs || !sawParamSpecKwargs) {
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.paramSpecArgsMissing().format({ type: printType(type.details.paramSpec) }),
-                    errorNode
-                );
+                if (!isTypeIncomplete) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.paramSpecArgsMissing().format({ type: printType(type.details.paramSpec) }),
+                        errorNode
+                    );
+                }
                 argumentErrors = true;
             }
         }
