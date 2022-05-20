@@ -1113,11 +1113,13 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                     // is important in cases where a variable is a callable type because
                     // we don't want to bind it to the instance like we would for a
                     // class member.
-                    if (ClassType.isDataClass(specializedMroClass) || ClassType.isTypedDictClass(specializedMroClass)) {
+                    const isDataclass = ClassType.isDataClass(specializedMroClass);
+                    const isTypedDict = ClassType.isTypedDictClass(specializedMroClass);
+                    if (isDataclass || isTypedDict) {
                         const decls = symbol.getDeclarations();
                         if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
                             isInstanceMember = true;
-                            isClassMember = false;
+                            isClassMember = isDataclass;
                         }
                     }
 
