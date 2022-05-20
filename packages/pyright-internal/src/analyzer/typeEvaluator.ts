@@ -4032,13 +4032,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 return false;
                             }
 
-                            // Functions and lambdas do not create a new flow node, so it's
-                            // possible that they share the flow node of the declaration. In this
-                            // case, the declaration must come before, so it's safe.
-                            if (declCodeFlowNode === innerScopeCodeFlowNode) {
-                                return true;
-                            }
-
                             return !codeFlowEngine.isFlowNodeReachable(declCodeFlowNode, innerScopeCodeFlowNode);
                         })
                     ) {

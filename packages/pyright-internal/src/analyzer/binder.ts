@@ -432,6 +432,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitFunction(node: FunctionNode): boolean {
+        this._createVariableAnnotationFlowNode();
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
@@ -552,6 +553,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitLambda(node: LambdaNode): boolean {
+        this._createVariableAnnotationFlowNode();
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         // Analyze the parameter defaults in the context of the parent's scope
