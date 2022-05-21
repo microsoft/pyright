@@ -9315,7 +9315,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ) {
                                 validateArgTypeParams.push({
                                     paramCategory: param.category,
-                                    paramType: param.type,
+                                    paramType: paramInfo.type,
                                     requiresTypeVarMatching: true,
                                     argument: {
                                         argumentCategory: ArgumentCategory.Simple,
