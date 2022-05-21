@@ -58,10 +58,10 @@ import {
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
-// Assigns the source type to the dest type var in the type map. If an existing type is
-// already associated with that type var name, it attempts to either widen or narrow
-// the type (depending on the value of the isContravariant parameter). The goal is to
-// produce the narrowest type that meets all of the requirements. If the type var map
+// Assigns the source type to the dest type var in the type var context. If an existing
+// type is already associated with that type var name, it attempts to either widen or
+// narrow the type (depending on the value of the isContravariant parameter). The goal is
+// to produce the narrowest type that meets all of the requirements. If the type var context
 // has been "locked", it simply validates that the srcType is compatible (with no attempt
 // to widen or narrow).
 export function assignTypeToTypeVar(
