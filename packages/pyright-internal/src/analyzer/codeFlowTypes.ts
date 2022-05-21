@@ -60,16 +60,6 @@ export function getUniqueFlowNodeId() {
     return _nextFlowNodeId++;
 }
 
-export class FlowNodeCounter {
-    private _startingNodeId = _nextFlowNodeId;
-
-    // Return the number of flow nodes that have been allocated
-    // since the counter was allocated.
-    getCount() {
-        return _nextFlowNodeId - this._startingNodeId;
-    }
-}
-
 export interface FlowNode {
     flags: FlowFlags;
     id: number;

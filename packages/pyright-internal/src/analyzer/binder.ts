@@ -93,7 +93,6 @@ import {
     FlowLabel,
     FlowNarrowForPattern,
     FlowNode,
-    FlowNodeCounter,
     FlowPostContextManagerLabel,
     FlowPostFinally,
     FlowPreFinallyGate,
@@ -255,8 +254,6 @@ export class Binder extends ParseTreeWalker {
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
             () => {
-                const flowNodeCounter = new FlowNodeCounter();
-
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
                 AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
@@ -284,10 +281,7 @@ export class Binder extends ParseTreeWalker {
                 AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
 
                 AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-                AnalyzerNodeInfo.setCodeFlowComplexity(
-                    node,
-                    this._codeFlowComplexity + flowNodeCounter.getCount() * flowNodeComplexityFactor
-                );
+                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
             }
         );
 
@@ -493,7 +487,6 @@ export class Binder extends ParseTreeWalker {
                 // Create a start node for the function.
                 this._currentFlowNode = this._createStartFlowNode();
                 this._codeFlowComplexity = 0;
-                const flowNodeCounter = new FlowNodeCounter();
 
                 node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
@@ -539,10 +532,7 @@ export class Binder extends ParseTreeWalker {
                 AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
 
                 AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentScopeCodeFlowExpressions!);
-                AnalyzerNodeInfo.setCodeFlowComplexity(
-                    node,
-                    this._codeFlowComplexity + flowNodeCounter.getCount() * flowNodeComplexityFactor
-                );
+                AnalyzerNodeInfo.setCodeFlowComplexity(node, this._codeFlowComplexity);
             });
         });
 
@@ -1338,7 +1328,7 @@ export class Binder extends ParseTreeWalker {
 
         const preFinallyGate: FlowPreFinallyGate = {
             flags: FlowFlags.PreFinallyGate,
-            id: getUniqueFlowNodeId(),
+            id: this._getUniqueFlowNodeId(),
             antecedent: preFinallyReturnOrRaiseLabel,
             isGateClosed: false,
         };
@@ -1411,7 +1401,7 @@ export class Binder extends ParseTreeWalker {
             // we'll set the "ignore" flag in the pre-finally node.
             const postFinallyNode: FlowPostFinally = {
                 flags: FlowFlags.PostFinally,
-                id: getUniqueFlowNodeId(),
+                id: this._getUniqueFlowNodeId(),
                 finallyNode: node.finallySuite,
                 antecedent: this._currentFlowNode!,
                 preFinallyGate,
@@ -2458,7 +2448,7 @@ export class Binder extends ParseTreeWalker {
     private _createStartFlowNode() {
         const flowNode: FlowNode = {
             flags: FlowFlags.Start,
-            id: getUniqueFlowNodeId(),
+            id: this._getUniqueFlowNodeId(),
         };
         return flowNode;
     }
@@ -2466,7 +2456,7 @@ export class Binder extends ParseTreeWalker {
     private _createBranchLabel(preBranchAntecedent?: FlowNode) {
         const flowNode: FlowBranchLabel = {
             flags: FlowFlags.BranchLabel,
-            id: getUniqueFlowNodeId(),
+            id: this._getUniqueFlowNodeId(),
             antecedents: [],
             preBranchAntecedent,
             affectedExpressions: undefined,
@@ -2480,7 +2470,7 @@ export class Binder extends ParseTreeWalker {
     private _createFlowNarrowForPattern(subjectExpression: ExpressionNode, statement: CaseNode | MatchNode) {
         const flowNode: FlowNarrowForPattern = {
             flags: FlowFlags.NarrowForPattern,
-            id: getUniqueFlowNodeId(),
+            id: this._getUniqueFlowNodeId(),
             subjectExpression,
             statement,
             antecedent: this._currentFlowNode!,
@@ -2496,7 +2486,7 @@ export class Binder extends ParseTreeWalker {
     ) {
         const flowNode: FlowPostContextManagerLabel = {
             flags: FlowFlags.PostContextManager | FlowFlags.BranchLabel,
-            id: getUniqueFlowNodeId(),
+            id: this._getUniqueFlowNodeId(),
             antecedents: [],
             expressions,
             affectedExpressions: undefined,
@@ -2509,7 +2499,7 @@ export class Binder extends ParseTreeWalker {
     private _createLoopLabel() {
         const flowNode: FlowLabel = {
             flags: FlowFlags.LoopLabel,
-            id: getUniqueFlowNodeId(),
+            id: this._getUniqueFlowNodeId(),
             antecedents: [],
             affectedExpressions: undefined,
         };
@@ -2672,7 +2662,7 @@ export class Binder extends ParseTreeWalker {
 
         const conditionalFlowNode: FlowCondition = {
             flags,
-            id: getUniqueFlowNodeId(),
+            id: this._getUniqueFlowNodeId(),
             reference: filteredExprList.length > 0 ? (filteredExprList[0] as NameNode) : undefined,
             expression,
             antecedent,
@@ -2971,7 +2961,7 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowCall = {
                 flags: FlowFlags.Call,
-                id: getUniqueFlowNodeId(),
+                id: this._getUniqueFlowNodeId(),
                 node,
                 antecedent: this._currentFlowNode!,
             };
@@ -2990,7 +2980,7 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowVariableAnnotation = {
                 flags: FlowFlags.VariableAnnotation,
-                id: getUniqueFlowNodeId(),
+                id: this._getUniqueFlowNodeId(),
                 antecedent: this._currentFlowNode!,
             };
 
@@ -3010,7 +3000,7 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable() && isCodeFlowSupportedForReference(node)) {
             const flowNode: FlowAssignment = {
                 flags: FlowFlags.Assignment,
-                id: getUniqueFlowNodeId(),
+                id: this._getUniqueFlowNodeId(),
                 node,
                 antecedent: this._currentFlowNode!,
                 targetSymbolId,
@@ -3045,7 +3035,7 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowWildcardImport = {
                 flags: FlowFlags.WildcardImport,
-                id: getUniqueFlowNodeId(),
+                id: this._getUniqueFlowNodeId(),
                 node,
                 names,
                 antecedent: this._currentFlowNode!,
@@ -3062,7 +3052,7 @@ export class Binder extends ParseTreeWalker {
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowExhaustedMatch = {
                 flags: FlowFlags.ExhaustedMatch,
-                id: getUniqueFlowNodeId(),
+                id: this._getUniqueFlowNodeId(),
                 node,
                 antecedent: this._currentFlowNode!,
             };
@@ -4008,6 +3998,11 @@ export class Binder extends ParseTreeWalker {
         }
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+    }
+
+    private _getUniqueFlowNodeId() {
+        this._codeFlowComplexity += flowNodeComplexityFactor;
+        return getUniqueFlowNodeId();
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
