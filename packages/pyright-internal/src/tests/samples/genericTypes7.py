@@ -14,6 +14,7 @@ class Foo(Generic[T]):
         return self._bar
 
     def bar_method(self) -> T:
+        reveal_type(self._bar, expected_text="T@Foo")
         return self._bar
 
 

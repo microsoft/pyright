@@ -5230,7 +5230,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     }
                                 }
 
-                                const boundMethodType = bindFunctionToClassOrObject(
+                                let boundMethodType = bindFunctionToClassOrObject(
                                     lookupClass,
                                     methodType,
                                     bindToClass,
@@ -5240,13 +5240,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     isAccessedThroughMetaclass ? concreteSubtype : undefined
                                 );
 
+                                // The synthesized access method for the property may contain
+                                // type variables associated with the "bindToClass", so we need
+                                // to specialize those here.
                                 if (
                                     boundMethodType &&
                                     (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))
                                 ) {
                                     const typeVarContext = new TypeVarContext(getTypeVarScopeId(boundMethodType));
                                     if (bindToClass) {
-                                        typeVarContext.addSolveForScope(getTypeVarScopeId(bindToClass));
+                                        const specializedBoundType = partiallySpecializeType(
+                                            boundMethodType,
+                                            bindToClass,
+                                            baseTypeClass
+                                        );
+                                        if (specializedBoundType) {
+                                            if (
+                                                isFunction(specializedBoundType) ||
+                                                isOverloadedFunction(specializedBoundType)
+                                            ) {
+                                                boundMethodType = specializedBoundType;
+                                            }
+                                        }
                                     }
 
                                     const callResult = validateCallArguments(
