@@ -1225,7 +1225,7 @@ export class CompletionProvider {
         isProperty: boolean,
         decl: FunctionDeclaration
     ) {
-        let sb = '    ';
+        let sb = this._parseResults.tokenizerOutput.predominantTabSequence;
 
         if (
             classType.details.baseClasses.length === 1 &&
