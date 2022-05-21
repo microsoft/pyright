@@ -68,7 +68,7 @@ class Random(_random.Random):
     def __init__(self, x: Any = ...) -> None: ...
     # Using other `seed` types is deprecated since 3.9 and removed in 3.11
     if sys.version_info >= (3, 9):
-        def seed(self, a: int | float | str | bytes | bytearray | None = ..., version: int = ...) -> None: ...  # type: ignore[override]
+        def seed(self, a: float | str | bytes | bytearray | None = ..., version: int = ...) -> None: ...  # type: ignore[override]
     else:
         def seed(self, a: Any = ..., version: int = ...) -> None: ...
 

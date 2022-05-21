@@ -13,12 +13,12 @@ __all__ = ["clear_cache", "cmp", "dircmp", "cmpfiles", "DEFAULT_IGNORES"]
 DEFAULT_IGNORES: list[str]
 BUFSIZE: Literal[8192]
 
-def cmp(f1: StrOrBytesPath, f2: StrOrBytesPath, shallow: int | bool = ...) -> bool: ...
+def cmp(f1: StrOrBytesPath, f2: StrOrBytesPath, shallow: bool | Literal[0, 1] = ...) -> bool: ...
 def cmpfiles(
     a: AnyStr | PathLike[AnyStr],
     b: AnyStr | PathLike[AnyStr],
     common: Iterable[AnyStr | PathLike[AnyStr]],
-    shallow: int | bool = ...,
+    shallow: bool | Literal[0, 1] = ...,
 ) -> tuple[list[AnyStr], list[AnyStr], list[AnyStr]]: ...
 
 class dircmp(Generic[AnyStr]):

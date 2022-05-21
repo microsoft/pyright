@@ -1,19 +1,18 @@
-from typing import Any
+from typing import Any, TypeVar
+
+from sqlalchemy.orm.query import Query
+from sqlalchemy.orm.session import Session
 
 from . import utils as utils
 from .model import DefaultMeta as DefaultMeta, Model as Model
 
-# SQLAlchemy is not part of typeshed
-_Query = Any
-_SessionBase = Any
-
 models_committed: Any
 before_models_committed: Any
 
-class SignallingSession(_SessionBase):
+class SignallingSession(Session):
     app: Any
     def __init__(self, db, autocommit: bool = ..., autoflush: bool = ..., **options) -> None: ...
-    def get_bind(self, mapper: Any | None = ..., clause: Any | None = ...): ...
+    def get_bind(self, mapper: Any | None = ..., clause: Any | None = ...): ...  # type: ignore[override]
 
 def get_debug_queries(): ...
 
@@ -40,7 +39,9 @@ class Pagination:
         self, left_edge: int = ..., left_current: int = ..., right_current: int = ..., right_edge: int = ...
     ) -> None: ...
 
-class BaseQuery(_Query):
+_T = TypeVar("_T")
+
+class BaseQuery(Query[_T]):
     def get_or_404(self, ident, description: Any | None = ...): ...
     def first_or_404(self, description: Any | None = ...): ...
     def paginate(

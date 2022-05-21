@@ -250,46 +250,99 @@ class CodeType:
     def co_freevars(self) -> tuple[str, ...]: ...
     @property
     def co_cellvars(self) -> tuple[str, ...]: ...
-    if sys.version_info >= (3, 8):
+    if sys.version_info >= (3, 10):
+        @property
+        def co_linetable(self) -> bytes: ...
+        def co_lines(self) -> Iterator[tuple[int, int, int | None]]: ...
+    if sys.version_info >= (3, 11):
+        @property
+        def co_exceptiontable(self) -> bytes: ...
+        @property
+        def co_qualname(self) -> str: ...
+        def co_positions(self) -> Iterable[tuple[int | None, int | None, int | None, int | None]]: ...
+
+    if sys.version_info >= (3, 11):
         def __init__(
             self,
-            argcount: int,
-            posonlyargcount: int,
-            kwonlyargcount: int,
-            nlocals: int,
-            stacksize: int,
-            flags: int,
-            codestring: bytes,
-            constants: tuple[Any, ...],
-            names: tuple[str, ...],
-            varnames: tuple[str, ...],
-            filename: str,
-            name: str,
-            firstlineno: int,
-            lnotab: bytes,
-            freevars: tuple[str, ...] = ...,
-            cellvars: tuple[str, ...] = ...,
+            __argcount: int,
+            __posonlyargcount: int,
+            __kwonlyargcount: int,
+            __nlocals: int,
+            __stacksize: int,
+            __flags: int,
+            __codestring: bytes,
+            __constants: tuple[object, ...],
+            __names: tuple[str, ...],
+            __varnames: tuple[str, ...],
+            __filename: str,
+            __name: str,
+            __qualname: str,
+            __firstlineno: int,
+            __linetable: bytes,
+            __exceptiontable: bytes,
+            __freevars: tuple[str, ...] = ...,
+            __cellvars: tuple[str, ...] = ...,
+        ) -> None: ...
+    elif sys.version_info >= (3, 10):
+        def __init__(
+            self,
+            __argcount: int,
+            __posonlyargcount: int,
+            __kwonlyargcount: int,
+            __nlocals: int,
+            __stacksize: int,
+            __flags: int,
+            __codestring: bytes,
+            __constants: tuple[object, ...],
+            __names: tuple[str, ...],
+            __varnames: tuple[str, ...],
+            __filename: str,
+            __name: str,
+            __firstlineno: int,
+            __linetable: bytes,
+            __freevars: tuple[str, ...] = ...,
+            __cellvars: tuple[str, ...] = ...,
+        ) -> None: ...
+    elif sys.version_info >= (3, 8):
+        def __init__(
+            self,
+            __argcount: int,
+            __posonlyargcount: int,
+            __kwonlyargcount: int,
+            __nlocals: int,
+            __stacksize: int,
+            __flags: int,
+            __codestring: bytes,
+            __constants: tuple[object, ...],
+            __names: tuple[str, ...],
+            __varnames: tuple[str, ...],
+            __filename: str,
+            __name: str,
+            __firstlineno: int,
+            __lnotab: bytes,
+            __freevars: tuple[str, ...] = ...,
+            __cellvars: tuple[str, ...] = ...,
         ) -> None: ...
     else:
         def __init__(
             self,
-            argcount: int,
-            kwonlyargcount: int,
-            nlocals: int,
-            stacksize: int,
-            flags: int,
-            codestring: bytes,
-            constants: tuple[Any, ...],
-            names: tuple[str, ...],
-            varnames: tuple[str, ...],
-            filename: str,
-            name: str,
-            firstlineno: int,
-            lnotab: bytes,
-            freevars: tuple[str, ...] = ...,
-            cellvars: tuple[str, ...] = ...,
+            __argcount: int,
+            __kwonlyargcount: int,
+            __nlocals: int,
+            __stacksize: int,
+            __flags: int,
+            __codestring: bytes,
+            __constants: tuple[object, ...],
+            __names: tuple[str, ...],
+            __varnames: tuple[str, ...],
+            __filename: str,
+            __name: str,
+            __firstlineno: int,
+            __lnotab: bytes,
+            __freevars: tuple[str, ...] = ...,
+            __cellvars: tuple[str, ...] = ...,
         ) -> None: ...
-    if sys.version_info >= (3, 10):
+    if sys.version_info >= (3, 11):
         def replace(
             self,
             *,
@@ -301,18 +354,38 @@ class CodeType:
             co_flags: int = ...,
             co_firstlineno: int = ...,
             co_code: bytes = ...,
-            co_consts: tuple[Any, ...] = ...,
+            co_consts: tuple[object, ...] = ...,
             co_names: tuple[str, ...] = ...,
             co_varnames: tuple[str, ...] = ...,
             co_freevars: tuple[str, ...] = ...,
             co_cellvars: tuple[str, ...] = ...,
             co_filename: str = ...,
             co_name: str = ...,
-            co_linetable: object = ...,
+            co_qualname: str = ...,
+            co_linetable: bytes = ...,
+            co_exceptiontable: bytes = ...,
         ) -> CodeType: ...
-        def co_lines(self) -> Iterator[tuple[int, int, int | None]]: ...
-        @property
-        def co_linetable(self) -> object: ...
+    elif sys.version_info >= (3, 10):
+        def replace(
+            self,
+            *,
+            co_argcount: int = ...,
+            co_posonlyargcount: int = ...,
+            co_kwonlyargcount: int = ...,
+            co_nlocals: int = ...,
+            co_stacksize: int = ...,
+            co_flags: int = ...,
+            co_firstlineno: int = ...,
+            co_code: bytes = ...,
+            co_consts: tuple[object, ...] = ...,
+            co_names: tuple[str, ...] = ...,
+            co_varnames: tuple[str, ...] = ...,
+            co_freevars: tuple[str, ...] = ...,
+            co_cellvars: tuple[str, ...] = ...,
+            co_filename: str = ...,
+            co_name: str = ...,
+            co_linetable: bytes = ...,
+        ) -> CodeType: ...
     elif sys.version_info >= (3, 8):
         def replace(
             self,
@@ -325,7 +398,7 @@ class CodeType:
             co_flags: int = ...,
             co_firstlineno: int = ...,
             co_code: bytes = ...,
-            co_consts: tuple[Any, ...] = ...,
+            co_consts: tuple[object, ...] = ...,
             co_names: tuple[str, ...] = ...,
             co_varnames: tuple[str, ...] = ...,
             co_freevars: tuple[str, ...] = ...,
@@ -334,8 +407,6 @@ class CodeType:
             co_name: str = ...,
             co_lnotab: bytes = ...,
         ) -> CodeType: ...
-    if sys.version_info >= (3, 11):
-        def co_positions(self) -> Iterable[tuple[int | None, int | None, int | None, int | None]]: ...
 
 @final
 class MappingProxyType(Mapping[_KT, _VT_co], Generic[_KT, _VT_co]):
@@ -386,6 +457,9 @@ class GeneratorType(Generator[_T_co, _T_contra, _V_co]):
     def gi_running(self) -> bool: ...
     @property
     def gi_yieldfrom(self) -> GeneratorType[_T_co, _T_contra, Any] | None: ...
+    if sys.version_info >= (3, 11):
+        @property
+        def gi_suspended(self) -> bool: ...
     __name__: str
     __qualname__: str
     def __iter__(self) -> GeneratorType[_T_co, _T_contra, _V_co]: ...
@@ -439,6 +513,9 @@ class CoroutineType(Coroutine[_T_co, _T_contra, _V_co]):
     if sys.version_info >= (3, 7):
         @property
         def cr_origin(self) -> tuple[tuple[str, int, str], ...] | None: ...
+    if sys.version_info >= (3, 11):
+        @property
+        def cr_suspended(self) -> bool: ...
 
     def close(self) -> None: ...
     def __await__(self) -> Generator[Any, None, _V_co]: ...

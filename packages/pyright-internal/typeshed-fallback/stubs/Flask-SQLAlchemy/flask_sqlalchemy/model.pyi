@@ -1,6 +1,6 @@
 from typing import Any, Pattern
 
-_DeclarativeMeta = Any  # SQLAlchemy is not part of typeshed
+from sqlalchemy.ext.declarative import DeclarativeMeta
 
 def should_set_tablename(cls: type) -> bool: ...
 
@@ -15,7 +15,7 @@ class NameMetaMixin(type):
 class BindMetaMixin(type):
     def __init__(cls, name, bases, d) -> None: ...
 
-class DefaultMeta(NameMetaMixin, BindMetaMixin, _DeclarativeMeta): ...
+class DefaultMeta(NameMetaMixin, BindMetaMixin, DeclarativeMeta): ...
 
 class Model:
     query_class: Any | None

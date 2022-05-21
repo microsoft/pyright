@@ -31,7 +31,8 @@ AT_LOCALE: dict[_NamedIntConstant, _NamedIntConstant]
 AT_UNICODE: dict[_NamedIntConstant, _NamedIntConstant]
 CH_LOCALE: dict[_NamedIntConstant, _NamedIntConstant]
 CH_UNICODE: dict[_NamedIntConstant, _NamedIntConstant]
-SRE_FLAG_TEMPLATE: int
+if sys.version_info < (3, 11):
+    SRE_FLAG_TEMPLATE: int
 SRE_FLAG_IGNORECASE: int
 SRE_FLAG_LOCALE: int
 SRE_FLAG_MULTILINE: int
@@ -55,7 +56,8 @@ ASSERT: _NamedIntConstant
 ASSERT_NOT: _NamedIntConstant
 AT: _NamedIntConstant
 BRANCH: _NamedIntConstant
-CALL: _NamedIntConstant
+if sys.version_info < (3, 11):
+    CALL: _NamedIntConstant
 CATEGORY: _NamedIntConstant
 CHARSET: _NamedIntConstant
 BIGCHARSET: _NamedIntConstant
