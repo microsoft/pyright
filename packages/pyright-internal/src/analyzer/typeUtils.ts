@@ -135,7 +135,7 @@ export const enum ClassIteratorFlags {
     SkipTypeBaseClass = 1 << 3,
 }
 
-export const enum CanAssignFlags {
+export const enum AssignTypeFlags {
     Default = 0,
 
     // Require invariance with respect to class matching? Normally

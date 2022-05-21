@@ -12,7 +12,7 @@ import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { Localizer } from '../localization/localize';
 import { DeclarationType } from './declaration';
-import { canAssignProperty } from './properties';
+import { assignProperty } from './properties';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
@@ -28,8 +28,8 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
+    AssignTypeFlags,
     buildTypeVarContextFromSpecializedClass,
-    CanAssignFlags,
     ClassMember,
     containsLiteralType,
     getTypeVarScopeId,
@@ -50,14 +50,14 @@ const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
 
 // If treatSourceAsInstantiable is true, we're comparing the class object against the
 // protocol. If it's false, we're comparing the class instance against the protocol.
-export function canAssignClassToProtocol(
+export function assignClassToProtocol(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
     destTypeVarContext: TypeVarContext | undefined,
     srcTypeVarContext: TypeVarContext | undefined,
-    flags: CanAssignFlags,
+    flags: AssignTypeFlags,
     treatSourceAsInstantiable: boolean,
     recursionCount: number
 ): boolean {
@@ -80,7 +80,7 @@ export function canAssignClassToProtocol(
     let isCompatible = true;
 
     try {
-        isCompatible = canAssignClassToProtocolInternal(
+        isCompatible = assignClassToProtocolInternal(
             evaluator,
             destType,
             srcType,
@@ -103,18 +103,18 @@ export function canAssignClassToProtocol(
     return isCompatible;
 }
 
-function canAssignClassToProtocolInternal(
+function assignClassToProtocolInternal(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
     destTypeVarContext: TypeVarContext | undefined,
     srcTypeVarContext: TypeVarContext | undefined,
-    flags: CanAssignFlags,
+    flags: AssignTypeFlags,
     treatSourceAsInstantiable: boolean,
     recursionCount: number
 ): boolean {
-    if ((flags & CanAssignFlags.EnforceInvariance) !== 0) {
+    if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
         return isTypeSame(destType, srcType);
     }
 
@@ -138,9 +138,9 @@ function canAssignClassToProtocolInternal(
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
     const srcClassTypeVarContext = buildTypeVarContextFromSpecializedClass(srcType);
-    const canAssignFlags = containsLiteralType(srcType, /* includeTypeArgs */ true)
-        ? CanAssignFlags.RetainLiteralsForTypeVar
-        : CanAssignFlags.Default;
+    const assignTypeFlags = containsLiteralType(srcType, /* includeTypeArgs */ true)
+        ? AssignTypeFlags.RetainLiteralsForTypeVar
+        : AssignTypeFlags.Default;
 
     destType.details.mro.forEach((mroClass) => {
         if (!isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
@@ -284,7 +284,7 @@ function canAssignClassToProtocolInternal(
                                 !treatSourceAsInstantiable
                             ) {
                                 if (
-                                    !canAssignProperty(
+                                    !assignProperty(
                                         evaluator,
                                         ClassType.cloneAsInstantiable(destMemberType),
                                         ClassType.cloneAsInstantiable(srcMemberType),
@@ -311,13 +311,13 @@ function canAssignClassToProtocolInternal(
                                 );
                                 if (
                                     !getterType ||
-                                    !evaluator.canAssignType(
+                                    !evaluator.assignType(
                                         getterType,
                                         srcMemberType,
                                         subDiag?.createAddendum(),
                                         genericDestTypeVarContext,
                                         /* srcTypeVarContext */ undefined,
-                                        canAssignFlags,
+                                        assignTypeFlags,
                                         recursionCount
                                     )
                                 ) {
@@ -335,13 +335,13 @@ function canAssignClassToProtocolInternal(
                             const primaryDecl = symbol.getDeclarations()[0];
                             const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
                             if (
-                                !evaluator.canAssignType(
+                                !evaluator.assignType(
                                     destMemberType,
                                     srcMemberType,
                                     subDiag?.createAddendum(),
                                     genericDestTypeVarContext,
                                     /* srcTypeVarContext */ undefined,
-                                    isInvariant ? canAssignFlags | CanAssignFlags.EnforceInvariance : canAssignFlags,
+                                    isInvariant ? assignTypeFlags | AssignTypeFlags.EnforceInvariance : assignTypeFlags,
                                     recursionCount
                                 )
                             ) {
@@ -417,13 +417,13 @@ function canAssignClassToProtocolInternal(
     return typesAreConsistent;
 }
 
-export function canAssignModuleToProtocol(
+export function assignModuleToProtocol(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ModuleType,
     diag: DiagnosticAddendum | undefined,
     typeVarContext: TypeVarContext | undefined,
-    flags: CanAssignFlags,
+    flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
     if (recursionCount > maxTypeRecursionCount) {
@@ -479,13 +479,13 @@ export function canAssignModuleToProtocol(
                         const subDiag = diag?.createAddendum();
 
                         if (
-                            !evaluator.canAssignType(
+                            !evaluator.assignType(
                                 destMemberType,
                                 srcMemberType,
                                 subDiag?.createAddendum(),
                                 genericDestTypeVarContext,
                                 /* srcTypeVarContext */ undefined,
-                                CanAssignFlags.Default,
+                                AssignTypeFlags.Default,
                                 recursionCount
                             )
                         ) {
@@ -526,7 +526,7 @@ export function canAssignModuleToProtocol(
 
 // This function is used to validate the variance of type variables
 // within a protocol class.
-export function canAssignProtocolClassToSelf(
+export function assignProtocolClassToSelf(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType,
@@ -559,7 +559,7 @@ export function canAssignProtocolClassToSelf(
                     ClassType.isPropertyClass(srcMemberType)
                 ) {
                     if (
-                        !canAssignProperty(
+                        !assignProperty(
                             evaluator,
                             ClassType.cloneAsInstantiable(destMemberType),
                             ClassType.cloneAsInstantiable(srcMemberType),
@@ -579,10 +579,10 @@ export function canAssignProtocolClassToSelf(
                     // enforce invariance.
                     const flags =
                         primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal
-                            ? CanAssignFlags.EnforceInvariance
-                            : CanAssignFlags.Default;
+                            ? AssignTypeFlags.EnforceInvariance
+                            : AssignTypeFlags.Default;
                     if (
-                        !evaluator.canAssignType(
+                        !evaluator.assignType(
                             destMemberType,
                             srcMemberType,
                             diag,
@@ -611,12 +611,7 @@ export function canAssignProtocolClassToSelf(
             const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
             const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
             if (
-                !canAssignProtocolClassToSelf(
-                    evaluator,
-                    specializedDestBaseClass,
-                    specializedSrcBaseClass,
-                    recursionCount
-                )
+                !assignProtocolClassToSelf(evaluator, specializedDestBaseClass, specializedSrcBaseClass, recursionCount)
             ) {
                 isAssignable = false;
             }

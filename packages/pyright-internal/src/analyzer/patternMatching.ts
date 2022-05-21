@@ -423,7 +423,7 @@ function narrowTypeBasedOnLiteralPattern(
                 isLiteralType(literalType) &&
                 isClassInstance(subtype) &&
                 isLiteralType(subtype) &&
-                evaluator.canAssignType(literalType, subtype)
+                evaluator.assignType(literalType, subtype)
             ) {
                 return undefined;
             }
@@ -449,7 +449,7 @@ function narrowTypeBasedOnLiteralPattern(
     }
 
     return mapSubtypes(type, (subtype) => {
-        if (evaluator.canAssignType(subtype, literalType)) {
+        if (evaluator.assignType(subtype, literalType)) {
             return literalType;
         }
         return undefined;
@@ -495,7 +495,7 @@ function narrowTypeBasedOnClassPattern(
                     return subjectSubtypeUnexpanded;
                 }
 
-                if (!evaluator.canAssignType(classInstance, subjectSubtypeExpanded)) {
+                if (!evaluator.assignType(classInstance, subjectSubtypeExpanded)) {
                     return subjectSubtypeExpanded;
                 }
 
@@ -508,7 +508,7 @@ function narrowTypeBasedOnClassPattern(
                 // We might be able to narrow further based on arguments, but only
                 // if the types match exactly or the subtype is a final class and
                 // therefore cannot be subclassed.
-                if (!evaluator.canAssignType(subjectSubtypeExpanded, classInstance)) {
+                if (!evaluator.assignType(subjectSubtypeExpanded, classInstance)) {
                     if (!ClassType.isFinal(subjectSubtypeExpanded)) {
                         return subjectSubtypeExpanded;
                     }
@@ -575,14 +575,14 @@ function narrowTypeBasedOnClassPattern(
                             let resultType: Type;
 
                             if (
-                                evaluator.canAssignType(
+                                evaluator.assignType(
                                     expandedSubtype,
                                     ClassType.cloneAsInstantiable(subjectSubtypeExpanded)
                                 )
                             ) {
                                 resultType = subjectSubtypeExpanded;
                             } else if (
-                                evaluator.canAssignType(
+                                evaluator.assignType(
                                     ClassType.cloneAsInstantiable(subjectSubtypeExpanded),
                                     expandedSubtype
                                 )

@@ -114,7 +114,7 @@ function applyPartialTransform(
                     );
                     const diag = new DiagnosticAddendum();
 
-                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -152,7 +152,7 @@ function applyPartialTransform(
                 const diag = new DiagnosticAddendum();
                 const paramName = paramListDetails.params[argIndex].param.name ?? '';
 
-                if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                     evaluator.addDiagnostic(
                         getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -194,7 +194,7 @@ function applyPartialTransform(
                     );
                     const diag = new DiagnosticAddendum();
 
-                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -226,7 +226,7 @@ function applyPartialTransform(
                 } else {
                     const diag = new DiagnosticAddendum();
 
-                    if (!evaluator.canAssignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         evaluator.addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,

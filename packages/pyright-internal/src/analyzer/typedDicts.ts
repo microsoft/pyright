@@ -57,8 +57,8 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
+    AssignTypeFlags,
     buildTypeVarContextFromSpecializedClass,
-    CanAssignFlags,
     computeMroLinearization,
     getTypeVarScopeId,
     isLiteralType,
@@ -645,13 +645,13 @@ function getTypedDictMembersForClassRecursive(
     });
 }
 
-export function canAssignTypedDict(
+export function assignTypedDictToTypedDict(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
     typeVarContext: TypeVarContext | undefined,
-    flags: CanAssignFlags,
+    flags: AssignTypeFlags,
     recursionCount = 0
 ) {
     let typesAreConsistent = true;
@@ -689,7 +689,7 @@ export function canAssignTypedDict(
 
             const subDiag = diag?.createAddendum();
             if (
-                !evaluator.canAssignType(
+                !evaluator.assignType(
                     destEntry.valueType,
                     srcEntry.valueType,
                     subDiag?.createAddendum(),
@@ -768,7 +768,7 @@ export function assignToTypedDict(
                 // Can we assign the value to the declared type?
                 const subDiag = diagAddendum?.createAddendum();
                 if (
-                    !evaluator.canAssignType(
+                    !evaluator.assignType(
                         symbolEntry.valueType,
                         valueTypes[index],
                         subDiag?.createAddendum(),
@@ -890,7 +890,7 @@ export function getTypeOfIndexedTypedDict(
             }
 
             if (usage.method === 'set') {
-                if (!evaluator.canAssignType(entry.valueType, usage.setType || AnyType.create(), diag)) {
+                if (!evaluator.assignType(entry.valueType, usage.setType || AnyType.create(), diag)) {
                     allDiagsInvolveNotRequiredKeys = false;
                 }
             } else if (usage.method === 'del' && entry.isRequired) {

@@ -41,8 +41,8 @@ import {
 } from './types';
 import {
     addConditionToType,
+    AssignTypeFlags,
     buildTypeVarContextFromSpecializedClass,
-    CanAssignFlags,
     containsLiteralType,
     convertParamSpecValueToType,
     convertToInstance,
@@ -64,17 +64,17 @@ import { TypeVarContext } from './typeVarContext';
 // produce the narrowest type that meets all of the requirements. If the type var map
 // has been "locked", it simply validates that the srcType is compatible (with no attempt
 // to widen or narrow).
-export function canAssignTypeToTypeVar(
+export function assignTypeToTypeVar(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
     srcType: Type,
     diag: DiagnosticAddendum | undefined,
     typeVarContext: TypeVarContext,
-    flags = CanAssignFlags.Default,
+    flags = AssignTypeFlags.Default,
     recursionCount = 0
 ): boolean {
     let isTypeVarInScope = true;
-    const isContravariant = (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0;
+    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
     // If the TypeVar doesn't have a scope ID, then it's being used
     // outside of a valid TypeVar scope. This will be reported as a
@@ -92,7 +92,7 @@ export function canAssignTypeToTypeVar(
 
         // If we're in "ignore type var scope" mode, don't generate
         // an error in this path.
-        if ((flags & CanAssignFlags.IgnoreTypeVarScope) !== 0) {
+        if ((flags & AssignTypeFlags.IgnoreTypeVarScope) !== 0) {
             return true;
         }
 
@@ -100,7 +100,7 @@ export function canAssignTypeToTypeVar(
         // the concrete type is assignable.
         if (isContravariant) {
             if (
-                evaluator.canAssignType(
+                evaluator.assignType(
                     evaluator.makeTopLevelTypeVarsConcrete(destType),
                     evaluator.makeTopLevelTypeVarsConcrete(srcType),
                     /* diag */ undefined,
@@ -126,8 +126,8 @@ export function canAssignTypeToTypeVar(
         }
     }
 
-    if ((flags & CanAssignFlags.SkipSolveTypeVars) !== 0) {
-        return evaluator.canAssignType(
+    if ((flags & AssignTypeFlags.SkipSolveTypeVars) !== 0) {
+        return evaluator.assignType(
             evaluator.makeTopLevelTypeVarsConcrete(destType),
             evaluator.makeTopLevelTypeVarsConcrete(srcType),
             diag,
@@ -139,7 +139,7 @@ export function canAssignTypeToTypeVar(
     }
 
     if (destType.details.isParamSpec) {
-        return canAssignTypeToParamSpec(evaluator, destType, srcType, diag, typeVarContext, recursionCount);
+        return assignTypeToParamSpec(evaluator, destType, srcType, diag, typeVarContext, recursionCount);
     }
 
     if (destType.details.isVariadic) {
@@ -186,13 +186,13 @@ export function canAssignTypeToTypeVar(
 
         if (isTypeVar(srcType)) {
             if (
-                evaluator.canAssignType(
+                evaluator.assignType(
                     destType,
                     concreteSrcType,
                     /* diag */ undefined,
                     new TypeVarContext(destType.scopeId),
                     /* srcTypeVarContext */ undefined,
-                    CanAssignFlags.Default,
+                    AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
@@ -226,19 +226,19 @@ export function canAssignTypeToTypeVar(
                         ? convertToInstantiable(constraint)
                         : constraint;
                     if (
-                        evaluator.canAssignType(
+                        evaluator.assignType(
                             adjustedConstraint,
                             srcSubtype,
                             /* diag */ undefined,
                             /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
-                            CanAssignFlags.Default,
+                            AssignTypeFlags.Default,
                             recursionCount
                         )
                     ) {
                         if (
                             !constrainedSubtype ||
-                            evaluator.canAssignType(
+                            evaluator.assignType(
                                 TypeBase.isInstantiable(destType)
                                     ? convertToInstantiable(constrainedSubtype)
                                     : constrainedSubtype,
@@ -246,7 +246,7 @@ export function canAssignTypeToTypeVar(
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
-                                CanAssignFlags.Default,
+                                AssignTypeFlags.Default,
                                 recursionCount
                             )
                         ) {
@@ -292,13 +292,13 @@ export function canAssignTypeToTypeVar(
                     const adjustedConstraint = TypeBase.isInstantiable(destType)
                         ? convertToInstantiable(constraint)
                         : constraint;
-                    return evaluator.canAssignType(
+                    return evaluator.assignType(
                         adjustedConstraint,
                         concreteSrcType,
                         /* diag */ undefined,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        CanAssignFlags.Default,
+                        AssignTypeFlags.Default,
                         recursionCount
                     );
                 });
@@ -320,13 +320,13 @@ export function canAssignTypeToTypeVar(
 
         if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
             if (
-                !evaluator.canAssignType(
+                !evaluator.assignType(
                     curNarrowTypeBound,
                     constrainedType,
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    CanAssignFlags.Default,
+                    AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
@@ -334,13 +334,13 @@ export function canAssignTypeToTypeVar(
                 // version of another constrained type that was previously assigned
                 // to the type variable.
                 if (
-                    evaluator.canAssignType(
+                    evaluator.assignType(
                         constrainedType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        CanAssignFlags.Default,
+                        AssignTypeFlags.Default,
                         recursionCount
                     )
                 ) {
@@ -375,7 +375,7 @@ export function canAssignTypeToTypeVar(
     // Strip literals if the existing value contains no literals. This allows
     // for explicit (but no implicit) literal specialization of a generic class.
     const retainLiterals =
-        (flags & CanAssignFlags.RetainLiteralsForTypeVar) !== 0 ||
+        (flags & AssignTypeFlags.RetainLiteralsForTypeVar) !== 0 ||
         typeVarContext.getRetainLiterals(destType) ||
         (destType.details.boundType && containsLiteralType(destType.details.boundType)) ||
         destType.details.constraints.some((t) => containsLiteralType(t));
@@ -395,7 +395,7 @@ export function canAssignTypeToTypeVar(
         }
     }
 
-    if (isContravariant || (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0) {
+    if (isContravariant || (flags & AssignTypeFlags.AllowTypeVarNarrowing) !== 0) {
         // Update the wide type bound.
         if (!curWideTypeBound) {
             newWideTypeBound = adjSrcType;
@@ -409,26 +409,26 @@ export function canAssignTypeToTypeVar(
             )
         ) {
             if (
-                evaluator.canAssignType(
+                evaluator.assignType(
                     curWideTypeBound,
                     evaluator.makeTopLevelTypeVarsConcrete(adjSrcType),
                     diagAddendum,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    flags & CanAssignFlags.IgnoreTypeVarScope,
+                    flags & AssignTypeFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
             ) {
                 // The srcType is narrower than the current wideTypeBound, so replace it.
                 newWideTypeBound = adjSrcType;
             } else if (
-                !evaluator.canAssignType(
+                !evaluator.assignType(
                     adjSrcType,
                     curWideTypeBound,
                     diagAddendum,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    flags & CanAssignFlags.IgnoreTypeVarScope,
+                    flags & AssignTypeFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
             ) {
@@ -448,13 +448,13 @@ export function canAssignTypeToTypeVar(
         // Make sure we haven't narrowed it beyond the current narrow bound.
         if (curNarrowTypeBound) {
             if (
-                !evaluator.canAssignType(
+                !evaluator.assignType(
                     newWideTypeBound!,
                     curNarrowTypeBound,
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    flags & CanAssignFlags.IgnoreTypeVarScope,
+                    flags & AssignTypeFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
             ) {
@@ -484,7 +484,7 @@ export function canAssignTypeToTypeVar(
             )
         ) {
             if (
-                evaluator.canAssignType(
+                evaluator.assignType(
                     curNarrowTypeBound,
                     adjSrcType,
                     diagAddendum,
@@ -500,13 +500,13 @@ export function canAssignTypeToTypeVar(
                 if (
                     isPartlyUnknown(curNarrowTypeBound) &&
                     !isUnknown(adjSrcType) &&
-                    evaluator.canAssignType(
+                    evaluator.assignType(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
                         new TypeVarContext(destType.scopeId),
                         /* srcTypeVarContext */ undefined,
-                        flags & CanAssignFlags.IgnoreTypeVarScope,
+                        flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
                 ) {
@@ -539,13 +539,13 @@ export function canAssignTypeToTypeVar(
                 }
 
                 if (
-                    evaluator.canAssignType(
+                    evaluator.assignType(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
                         new TypeVarContext(destType.scopeId),
                         /* srcTypeVarContext */ undefined,
-                        flags & CanAssignFlags.IgnoreTypeVarScope,
+                        flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
                 ) {
@@ -601,13 +601,13 @@ export function canAssignTypeToTypeVar(
                 }
 
                 if (
-                    !evaluator.canAssignType(
+                    !evaluator.assignType(
                         makeConcrete ? evaluator.makeTopLevelTypeVarsConcrete(curWideTypeBound) : curWideTypeBound,
                         newNarrowTypeBound,
                         diag?.createAddendum(),
                         new TypeVarContext(destType.scopeId),
                         /* srcTypeVarContext */ undefined,
-                        flags & CanAssignFlags.IgnoreTypeVarScope,
+                        flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
                 ) {
@@ -630,7 +630,7 @@ export function canAssignTypeToTypeVar(
         const updatedType = (newNarrowTypeBound || newWideTypeBound)!;
 
         // If the dest is a Type[T] but the source is not a valid Type,
-        // skip the canAssignType check and the diagnostic addendum, which will
+        // skip the assignType check and the diagnostic addendum, which will
         // be confusing and inaccurate.
         if (TypeBase.isInstantiable(destType) && !TypeBase.isInstantiable(srcType)) {
             return false;
@@ -644,13 +644,13 @@ export function canAssignTypeToTypeVar(
             : new TypeVarContext(destType.scopeId);
 
         if (
-            !evaluator.canAssignType(
+            !evaluator.assignType(
                 destType.details.boundType,
                 evaluator.makeTopLevelTypeVarsConcrete(updatedType),
                 diag?.createAddendum(),
                 effectiveTypeVarContext,
                 /* srcTypeVarContext */ undefined,
-                flags & CanAssignFlags.IgnoreTypeVarScope,
+                flags & AssignTypeFlags.IgnoreTypeVarScope,
                 recursionCount
             )
         ) {
@@ -676,7 +676,7 @@ export function canAssignTypeToTypeVar(
     return true;
 }
 
-function canAssignTypeToParamSpec(
+function assignTypeToParamSpec(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
     srcType: Type,
@@ -744,13 +744,13 @@ function canAssignTypeToParamSpec(
                 );
 
                 if (
-                    evaluator.canAssignType(
+                    evaluator.assignType(
                         existingFunction,
                         assignedFunction,
                         /* diag */ undefined,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        CanAssignFlags.SkipFunctionReturnTypeCheck,
+                        AssignTypeFlags.SkipFunctionReturnTypeCheck,
                         recursionCount
                     )
                 ) {
@@ -809,13 +809,13 @@ export function populateTypeVarContextBasedOnExpectedType(
     // If the expected type is generic (but not specialized), we can't proceed.
     const expectedTypeArgs = expectedType.typeArguments;
     if (!expectedTypeArgs) {
-        return evaluator.canAssignType(
+        return evaluator.assignType(
             type,
             expectedType,
             /* diag */ undefined,
             typeVarContext,
             /* srcTypeVarContext */ undefined,
-            CanAssignFlags.PopulatingExpectedType
+            AssignTypeFlags.PopulatingExpectedType
         );
     }
 
@@ -871,13 +871,13 @@ export function populateTypeVarContextBasedOnExpectedType(
     const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ true);
     const syntheticTypeVarContext = new TypeVarContext(expectedTypeScopeId);
     if (
-        evaluator.canAssignType(
+        evaluator.assignType(
             genericExpectedType,
             specializedType,
             /* diag */ undefined,
             syntheticTypeVarContext,
             /* srcTypeVarContext */ undefined,
-            CanAssignFlags.PopulatingExpectedType
+            AssignTypeFlags.PopulatingExpectedType
         )
     ) {
         let isResultValid = true;

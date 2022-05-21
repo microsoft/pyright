@@ -747,8 +747,8 @@ function narrowTypeForUserDefinedTypeGuard(
     // For strict type guards, narrow the current type.
     return mapSubtypes(type, (subtype) => {
         return mapSubtypes(typeGuardType, (typeGuardSubtype) => {
-            const isSubType = evaluator.canAssignType(typeGuardType, subtype);
-            const isSuperType = evaluator.canAssignType(subtype, typeGuardSubtype);
+            const isSubType = evaluator.assignType(typeGuardType, subtype);
+            const isSuperType = evaluator.assignType(subtype, typeGuardSubtype);
 
             if (isPositiveTest) {
                 if (isSubType) {
@@ -800,7 +800,7 @@ function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositi
         const typeOfEntry = evaluator.makeTopLevelTypeVarsConcrete(tupleType.tupleTypeArguments[indexValue].type);
 
         if (isPositiveTest) {
-            if (!evaluator.canAssignType(typeOfEntry, NoneType.createInstance())) {
+            if (!evaluator.assignType(typeOfEntry, NoneType.createInstance())) {
                 return undefined;
             }
         } else {
@@ -942,13 +942,13 @@ function narrowTypeForIsInstance(
                     (ClassType.isDerivedFrom(varType, concreteFilterType) ||
                         (isInstanceCheck &&
                             ClassType.isProtocolClass(concreteFilterType) &&
-                            evaluator.canAssignType(concreteFilterType, varType)) ||
+                            evaluator.assignType(concreteFilterType, varType)) ||
                         (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType)));
                 const filterIsSubclass =
                     ClassType.isDerivedFrom(concreteFilterType, varType) ||
                     (isInstanceCheck &&
                         ClassType.isProtocolClass(varType) &&
-                        evaluator.canAssignType(varType, concreteFilterType));
+                        evaluator.assignType(varType, concreteFilterType));
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
@@ -1135,7 +1135,7 @@ function narrowTypeForIsInstance(
             for (const filterType of classTypeList) {
                 const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
-                if (evaluator.canAssignType(varType, convertToInstance(concreteFilterType))) {
+                if (evaluator.assignType(varType, convertToInstance(concreteFilterType))) {
                     // If the filter type is a Callable, use the original type. If the
                     // filter type is a callback protocol, use the filter type.
                     if (isFunction(filterType)) {
@@ -1154,7 +1154,7 @@ function narrowTypeForIsInstance(
                     return false;
                 }
 
-                return evaluator.canAssignType(varType, convertToInstance(concreteFilterType));
+                return evaluator.assignType(varType, convertToInstance(concreteFilterType));
             })
         ) {
             filteredTypes.push(unexpandedType);
@@ -1347,11 +1347,11 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
             return referenceSubtype;
         }
 
-        if (evaluator.canAssignType(elementType, referenceSubtype)) {
+        if (evaluator.assignType(elementType, referenceSubtype)) {
             return referenceSubtype;
         }
 
-        if (evaluator.canAssignType(elementTypeWithoutLiteral, referenceSubtype)) {
+        if (evaluator.assignType(elementTypeWithoutLiteral, referenceSubtype)) {
             return mapSubtypes(elementType, (elementSubtype) => {
                 if (isClassInstance(elementSubtype) && isSameWithoutLiteralValue(referenceSubtype, elementSubtype)) {
                     return elementSubtype;
@@ -1447,9 +1447,9 @@ function narrowTypeForDiscriminatedDictEntryComparison(
 
             if (tdEntry && isLiteralTypeOrUnion(tdEntry.valueType)) {
                 if (isPositiveTest) {
-                    return evaluator.canAssignType(tdEntry.valueType, literalType) ? subtype : undefined;
+                    return evaluator.assignType(tdEntry.valueType, literalType) ? subtype : undefined;
                 } else {
-                    return evaluator.canAssignType(literalType, tdEntry.valueType) ? undefined : subtype;
+                    return evaluator.assignType(literalType, tdEntry.valueType) ? undefined : subtype;
                 }
             }
         }
@@ -1482,9 +1482,9 @@ function narrowTypeForDiscriminatedTupleComparison(
                 const tupleEntryType = subtype.tupleTypeArguments[indexValue]?.type;
                 if (tupleEntryType && isLiteralTypeOrUnion(tupleEntryType)) {
                     if (isPositiveTest) {
-                        return evaluator.canAssignType(tupleEntryType, literalType) ? subtype : undefined;
+                        return evaluator.assignType(tupleEntryType, literalType) ? subtype : undefined;
                     } else {
-                        return evaluator.canAssignType(literalType, tupleEntryType) ? undefined : subtype;
+                        return evaluator.assignType(literalType, tupleEntryType) ? undefined : subtype;
                     }
                 }
             }
@@ -1537,9 +1537,9 @@ function narrowTypeForDiscriminatedLiteralFieldComparison(
 
             if (isLiteralTypeOrUnion(memberType)) {
                 if (isPositiveTest) {
-                    return evaluator.canAssignType(memberType, literalType) ? subtype : undefined;
+                    return evaluator.assignType(memberType, literalType) ? subtype : undefined;
                 } else {
-                    return evaluator.canAssignType(literalType, memberType) ? undefined : subtype;
+                    return evaluator.assignType(literalType, memberType) ? undefined : subtype;
                 }
             }
         }

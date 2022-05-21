@@ -128,10 +128,10 @@ export function createTypeEvaluatorWithTracker(
             run('getCallSignatureInfo', () => typeEvaluator.getCallSignatureInfo(n, i, a), n),
         getAbstractMethods: (c) => run('getAbstractMethods', () => typeEvaluator.getAbstractMethods(c), c),
         narrowConstrainedTypeVar: typeEvaluator.narrowConstrainedTypeVar,
-        canAssignType: (d, s, a, dc, sc, f, r) =>
-            run('canAssignType', () => typeEvaluator.canAssignType(d, s, a, dc, sc, f, r), d),
-        canOverrideMethod: (b, o, d, e) =>
-            run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d, e), o),
+        assignType: (d, s, a, dc, sc, f, r) =>
+            run('assignType', () => typeEvaluator.assignType(d, s, a, dc, sc, f, r), d),
+        validateOverrideMethod: (b, o, d, e) =>
+            run('validateOverrideMethod', () => typeEvaluator.validateOverrideMethod(b, o, d, e), o),
         assignTypeToExpression: typeEvaluator.assignTypeToExpression,
         getBuiltInObject: typeEvaluator.getBuiltInObject,
         getTypedDictClassType: typeEvaluator.getTypedDictClassType,

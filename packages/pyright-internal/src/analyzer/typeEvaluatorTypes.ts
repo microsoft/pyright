@@ -43,7 +43,7 @@ import {
     TypeCondition,
     TypeVarType,
 } from './types';
-import { CanAssignFlags, ClassMember } from './typeUtils';
+import { AssignTypeFlags, ClassMember } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
@@ -383,16 +383,16 @@ export interface TypeEvaluator {
     getAbstractMethods: (classType: ClassType) => AbstractMethod[];
     narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
 
-    canAssignType: (
+    assignType: (
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
         destTypeVarContext?: TypeVarContext,
         srcTypeVarContext?: TypeVarContext,
-        flags?: CanAssignFlags,
+        flags?: AssignTypeFlags,
         recursionCount?: number
     ) => boolean;
-    canOverrideMethod: (
+    validateOverrideMethod: (
         baseMethod: Type,
         overrideMethod: FunctionType,
         diag: DiagnosticAddendum,
@@ -416,7 +416,7 @@ export interface TypeEvaluator {
         diag: DiagnosticAddendum | undefined,
         destTypeVarContext: TypeVarContext | undefined,
         srcTypeVarContext: TypeVarContext | undefined,
-        flags: CanAssignFlags,
+        flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;

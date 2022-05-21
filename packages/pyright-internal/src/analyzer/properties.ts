@@ -34,7 +34,7 @@ import {
 } from './types';
 import {
     applySolvedTypeVars,
-    CanAssignFlags,
+    AssignTypeFlags,
     computeMroLinearization,
     getTypeVarScopeId,
     isProperty,
@@ -151,7 +151,7 @@ export function clonePropertyWithSetter(
                 // The setter type should be assignable to the getter type.
                 if (fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch !== 'none') {
                     const diag = new DiagnosticAddendum();
-                    if (!evaluator.canAssignType(fgetType, fsetType, diag)) {
+                    if (!evaluator.assignType(fgetType, fsetType, diag)) {
                         evaluator.addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch,
                             DiagnosticRule.reportPropertyTypeMismatch,
@@ -443,7 +443,7 @@ function addDecoratorMethodsToPropertySymbolTable(propertyObject: ClassType) {
     });
 }
 
-export function canAssignProperty(
+export function assignProperty(
     evaluator: TypeEvaluator,
     destPropertyType: ClassType,
     srcPropertyType: ClassType,
@@ -515,13 +515,13 @@ export function canAssignProperty(
             if (
                 !boundDestAccessType ||
                 !boundSrcAccessType ||
-                !evaluator.canAssignType(
+                !evaluator.assignType(
                     boundDestAccessType,
                     boundSrcAccessType,
                     diag,
                     typeVarContext,
                     /* srcTypeVarContext */ undefined,
-                    CanAssignFlags.Default,
+                    AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
