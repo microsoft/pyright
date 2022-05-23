@@ -5858,14 +5858,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         });
                     });
 
-                    assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, typeVarContext);
+                    assignTypeToTypeVar(
+                        evaluatorInterface,
+                        param,
+                        functionType,
+                        diag,
+                        typeVarContext,
+                        AssignTypeFlags.RetainLiteralsForTypeVar
+                    );
                 } else if (isParamSpec(typeArgType)) {
                     assignTypeToTypeVar(
                         evaluatorInterface,
                         param,
                         convertToInstance(typeArgType),
                         diag,
-                        typeVarContext
+                        typeVarContext,
+                        AssignTypeFlags.RetainLiteralsForTypeVar
                     );
                 } else if (isInstantiableClass(typeArgType) && ClassType.isBuiltIn(typeArgType, 'Concatenate')) {
                     const concatTypeArgs = typeArgType.typeArguments;
@@ -5896,7 +5904,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         });
                     }
 
-                    assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, typeVarContext);
+                    assignTypeToTypeVar(
+                        evaluatorInterface,
+                        param,
+                        functionType,
+                        diag,
+                        typeVarContext,
+                        AssignTypeFlags.RetainLiteralsForTypeVar
+                    );
                 } else if (isEllipsisType(typeArgType)) {
                     const functionType = FunctionType.createInstantiable(
                         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
@@ -5914,7 +5929,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const typeArgType: Type =
                     index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
-                assignTypeToTypeVar(evaluatorInterface, param, typeArgType, diag, typeVarContext);
+                assignTypeToTypeVar(
+                    evaluatorInterface,
+                    param,
+                    typeArgType,
+                    diag,
+                    typeVarContext,
+                    AssignTypeFlags.RetainLiteralsForTypeVar
+                );
             }
         });
 

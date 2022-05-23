@@ -2,7 +2,7 @@
 # TypeVars.
 
 from datetime import datetime
-from typing import IO, Dict, Generic, List, Type, TypeVar, Union
+from typing import IO, Dict, Generic, List, Literal, Type, TypeVar, Union
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -18,6 +18,12 @@ MyUnion4 = MyUnion1[MyUnion2, IO]
 # This should generate an error because only two type
 # arguments are expected.
 MyUnion5 = MyUnion1[MyUnion2, IO, str]
+
+MyUnion6 = MyUnion1[Literal[0], Literal["a"]]
+reveal_type(
+    MyUnion6,
+    expected_text="Type[int] | Type[str] | Type[List[Literal[0]]] | Type[Literal[0, 'a']]",
+)
 
 
 class Foo:
