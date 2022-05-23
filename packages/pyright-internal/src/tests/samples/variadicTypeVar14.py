@@ -53,3 +53,20 @@ class Foo:
     @classmethod
     def foo(cls, *shape: *Ts) -> tuple[*Ts]:
         ...
+
+
+
+def call_with_params2(target: Callable[[*Ts], int]) -> tuple[*Ts]:
+    ...
+
+
+def callback4(a: int, b: str, /) -> int:
+    ...
+
+
+def g(action: Callable[[int, str], int]):
+    v1 = call_with_params2(callback4)
+    reveal_type(v1, expected_text="tuple[int, str]")
+
+    v2 = call_with_params2(action)
+    reveal_type(v2, expected_text="tuple[int, str]")

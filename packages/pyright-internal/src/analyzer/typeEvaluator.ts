@@ -21360,7 +21360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     },
                     type: srcPositionalsType,
                     index: -1,
-                    source: ParameterSource.PositionOrKeyword,
+                    source: ParameterSource.PositionOnly,
                 },
                 ...srcDetails.params.slice(
                     destDetails.argsIndex + srcPositionalsToPack.length,
@@ -21382,6 +21382,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 (param) => param.source === ParameterSource.KeywordOnly
             );
             srcDetails.firstKeywordOnlyIndex = firstKeywordOnlyIndex >= 0 ? firstKeywordOnlyIndex : undefined;
+
+            srcDetails.positionOnlyParamCount = Math.max(
+                0,
+                srcDetails.params.findIndex(
+                    (p) =>
+                        p.source !== ParameterSource.PositionOnly ||
+                        p.param.category !== ParameterCategory.Simple ||
+                        p.param.hasDefault
+                )
+            );
         }
     }
 
