@@ -23,3 +23,5 @@ def func2(x: type[None]):
 
 func2(None.__class__)
 func2(type(None))
+
+reveal_type(type(None).__name__, expected_text="str")

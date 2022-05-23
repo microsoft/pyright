@@ -4455,18 +4455,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const getTypeOfNoneBase = () => {
+        const getTypeOfNoneBase = (subtype: NoneType) => {
             if (noneType && isInstantiableClass(noneType)) {
-                const typeResult = getTypeOfObjectMember(
-                    node.memberName,
-                    noneType,
-                    memberName,
-                    usage,
-                    diag,
-                    /* memberAccessFlags */ undefined,
-                    baseTypeResult.bindToType
-                );
-                return typeResult;
+                if (TypeBase.isInstance(subtype)) {
+                    return getTypeOfObjectMember(node.memberName, noneType, memberName, usage, diag);
+                } else {
+                    return getTypeOfClassMember(node.memberName, noneType, memberName, usage, diag);
+                }
             }
             return undefined;
         };
@@ -4711,7 +4706,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case TypeCategory.Union: {
                 type = mapSubtypes(baseType, (subtype) => {
                     if (isNoneInstance(subtype)) {
-                        const typeResult = getTypeOfNoneBase();
+                        const typeResult = getTypeOfNoneBase(subtype);
                         if (typeResult) {
                             type = addConditionToType(typeResult.type, getTypeCondition(baseType));
                             if (typeResult.isIncomplete) {
@@ -4780,7 +4775,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.None: {
-                const typeResult = getTypeOfNoneBase();
+                const typeResult = getTypeOfNoneBase(baseType);
                 if (typeResult) {
                     type = addConditionToType(typeResult.type, getTypeCondition(baseType));
                     if (typeResult.isIncomplete) {
