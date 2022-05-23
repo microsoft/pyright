@@ -58,6 +58,7 @@ import {
     NameNode,
     NonlocalNode,
     ParameterCategory,
+    ParameterNode,
     ParseNode,
     ParseNodeArray,
     ParseNodeType,
@@ -167,6 +168,9 @@ import { TypeVarContext } from './typeVarContext';
 
 interface LocalTypeVarInfo {
     isExempt: boolean;
+    returnTypeUsageCount: number;
+    paramTypeUsageCount: number;
+    paramTypeWithEllipsisUsageCount: number;
     nodes: NameNode[];
 }
 
@@ -601,6 +605,8 @@ export class Checker extends ParseTreeWalker {
                 functionTypeResult.functionType,
                 containingClassNode !== undefined
             );
+
+            this._validateFunctionTypeVarUsage(node, functionTypeResult.functionType);
         }
 
         // If we're at the module level within a stub file, report a diagnostic
@@ -619,8 +625,6 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._scopedNodes.push(node);
-
-        this._validateFunctionTypeVarUsage(node);
 
         if (functionTypeResult && isOverloadedFunction(functionTypeResult.decoratedType)) {
             const overloads = functionTypeResult.decoratedType.overloads;
@@ -1665,7 +1669,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     // Verifies that each local type variable is used more than once.
-    private _validateFunctionTypeVarUsage(node: FunctionNode) {
+    private _validateFunctionTypeVarUsage(node: FunctionNode, type: FunctionType) {
         // Skip this check entirely if it's disabled.
         if (this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse === 'none') {
             return;
@@ -1673,6 +1677,7 @@ export class Checker extends ParseTreeWalker {
 
         const localTypeVarUsage = new Map<string, LocalTypeVarInfo>();
         let exemptBoundTypeVar = true;
+        let curParamNode: ParameterNode | undefined;
 
         const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode, subscriptIndex, baseExpression) => {
             const nameType = this._evaluator.getType(nameNode);
@@ -1703,13 +1708,26 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (!localTypeVarUsage.has(nameType.details.name)) {
+                    const existingEntry = localTypeVarUsage.get(nameType.details.name);
+                    if (!existingEntry) {
                         localTypeVarUsage.set(nameType.details.name, {
                             nodes: [nameNode],
+                            paramTypeUsageCount: curParamNode !== undefined ? 1 : 0,
+                            paramTypeWithEllipsisUsageCount:
+                                curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis ? 1 : 0,
+                            returnTypeUsageCount: curParamNode === undefined ? 1 : 0,
                             isExempt,
                         });
                     } else {
-                        localTypeVarUsage.get(nameType.details.name)!.nodes.push(nameNode);
+                        existingEntry.nodes.push(nameNode);
+                        if (curParamNode !== undefined) {
+                            existingEntry.paramTypeUsageCount += 1;
+                            if (curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis) {
+                                existingEntry.paramTypeWithEllipsisUsageCount += 1;
+                            }
+                        } else {
+                            existingEntry.returnTypeUsageCount += 1;
+                        }
                     }
                 }
             }
@@ -1719,9 +1737,11 @@ export class Checker extends ParseTreeWalker {
         node.parameters.forEach((param) => {
             const annotation = param.typeAnnotation || param.typeAnnotationComment;
             if (annotation) {
+                curParamNode = param;
                 nameWalker.walk(annotation);
             }
         });
+        curParamNode = undefined;
 
         if (node.returnTypeAnnotation) {
             // Don't exempt the use of a bound TypeVar when used as a type argument
@@ -1731,8 +1751,8 @@ export class Checker extends ParseTreeWalker {
             nameWalker.walk(node.returnTypeAnnotation);
         }
 
-        // Report errors for all local type variables that appear only once.
         localTypeVarUsage.forEach((usage) => {
+            // Report error for local type variable that appears only once.
             if (usage.nodes.length === 1 && !usage.isExempt) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse,
@@ -1740,6 +1760,44 @@ export class Checker extends ParseTreeWalker {
                     Localizer.Diagnostic.typeVarUsedOnlyOnce().format({
                         name: usage.nodes[0].value,
                     }),
+                    usage.nodes[0]
+                );
+            }
+
+            // Report error for local type variable that appears in return type
+            // (but not as a top-level TypeVar within a union) and appears only
+            // within parameters that have default values. These may go unsolved.
+            let isUsedInReturnType = usage.returnTypeUsageCount > 0;
+            if (usage.returnTypeUsageCount === 1 && type.details.declaredReturnType) {
+                // If the TypeVar appears only once in the return type and it's a top-level
+                // TypeVar within a union, exempt it from this check. Although these
+                // TypeVars may go unsolved, they can be safely eliminated from the union
+                // without generating an Unknown type.
+                const returnType = type.details.declaredReturnType;
+                if (
+                    isUnion(returnType) &&
+                    returnType.subtypes.some(
+                        (subtype) => isTypeVar(subtype) && subtype.details.name === usage.nodes[0].value
+                    )
+                ) {
+                    isUsedInReturnType = false;
+                }
+            }
+
+            if (
+                isUsedInReturnType &&
+                usage.paramTypeWithEllipsisUsageCount > 0 &&
+                usage.paramTypeUsageCount === usage.paramTypeWithEllipsisUsageCount
+            ) {
+                const diag = new DiagnosticAddendum();
+                diag.addMessage(Localizer.DiagnosticAddendum.typeVarUnsolvableRemedy());
+
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse,
+                    DiagnosticRule.reportInvalidTypeVarUse,
+                    Localizer.Diagnostic.typeVarPossiblyUnsolvable().format({
+                        name: usage.nodes[0].value,
+                    }) + diag.getString(),
                     usage.nodes[0]
                 );
             }
