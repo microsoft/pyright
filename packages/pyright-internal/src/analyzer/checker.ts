@@ -171,6 +171,7 @@ interface LocalTypeVarInfo {
     returnTypeUsageCount: number;
     paramTypeUsageCount: number;
     paramTypeWithEllipsisUsageCount: number;
+    paramWithEllipsis: string | undefined;
     nodes: NameNode[];
 }
 
@@ -1709,21 +1710,27 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     const existingEntry = localTypeVarUsage.get(nameType.details.name);
+                    const isParmaTypeWithEllipsisUsage =
+                        curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis;
+
                     if (!existingEntry) {
                         localTypeVarUsage.set(nameType.details.name, {
                             nodes: [nameNode],
                             paramTypeUsageCount: curParamNode !== undefined ? 1 : 0,
-                            paramTypeWithEllipsisUsageCount:
-                                curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis ? 1 : 0,
+                            paramTypeWithEllipsisUsageCount: isParmaTypeWithEllipsisUsage ? 1 : 0,
                             returnTypeUsageCount: curParamNode === undefined ? 1 : 0,
+                            paramWithEllipsis: isParmaTypeWithEllipsisUsage ? curParamNode?.name?.value : undefined,
                             isExempt,
                         });
                     } else {
                         existingEntry.nodes.push(nameNode);
                         if (curParamNode !== undefined) {
                             existingEntry.paramTypeUsageCount += 1;
-                            if (curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis) {
+                            if (isParmaTypeWithEllipsisUsage) {
                                 existingEntry.paramTypeWithEllipsisUsageCount += 1;
+                                if (!existingEntry.paramWithEllipsis) {
+                                    existingEntry.paramWithEllipsis = curParamNode?.name?.value;
+                                }
                             }
                         } else {
                             existingEntry.returnTypeUsageCount += 1;
@@ -1797,6 +1804,7 @@ export class Checker extends ParseTreeWalker {
                     DiagnosticRule.reportInvalidTypeVarUse,
                     Localizer.Diagnostic.typeVarPossiblyUnsolvable().format({
                         name: usage.nodes[0].value,
+                        param: usage.paramWithEllipsis ?? '',
                     }) + diag.getString(),
                     usage.nodes[0]
                 );

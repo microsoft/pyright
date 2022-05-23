@@ -856,7 +856,9 @@ export namespace Localizer {
         export const typeVarNotUsedByOuterScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarNotUsedByOuterScope'));
         export const typeVarPossiblyUnsolvable = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarPossiblyUnsolvable'));
+            new ParameterizedString<{ name: string; param: string }>(
+                getRawString('Diagnostic.typeVarPossiblyUnsolvable')
+            );
         export const typeVarSingleConstraint = () => getRawString('Diagnostic.typeVarSingleConstraint');
         export const typeVarsNotInGenericOrProtocol = () => getRawString('Diagnostic.typeVarsNotInGenericOrProtocol');
         export const typeVarTupleMustBeUnpacked = () => getRawString('Diagnostic.typeVarTupleMustBeUnpacked');
