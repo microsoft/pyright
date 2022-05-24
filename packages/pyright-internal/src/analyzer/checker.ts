@@ -166,7 +166,7 @@ import {
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
-interface LocalTypeVarInfo {
+interface TypeVarUsageInfo {
     isExempt: boolean;
     returnTypeUsageCount: number;
     paramTypeUsageCount: number;
@@ -1676,14 +1676,28 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const localTypeVarUsage = new Map<string, LocalTypeVarInfo>();
+        const localTypeVarUsage = new Map<string, TypeVarUsageInfo>();
+        const classTypeVarUsage = new Map<string, TypeVarUsageInfo>();
         let exemptBoundTypeVar = true;
         let curParamNode: ParameterNode | undefined;
+
+        // Is this a constructor (an __init__ method) for a generic class?
+        let constructorClass: ClassType | undefined;
+        if (FunctionType.isInstanceMethod(type) && node.name.value === '__init__') {
+            const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(node);
+            if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
+                const classType = this._evaluator.getTypeOfClass(containingClassNode);
+                if (classType && isClass(classType.classType)) {
+                    constructorClass = classType.classType;
+                }
+            }
+        }
 
         const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode, subscriptIndex, baseExpression) => {
             const nameType = this._evaluator.getType(nameNode);
             ``;
             if (nameType && isTypeVar(nameType)) {
+                // Does this name refer to a TypeVar that is scoped to this function?
                 if (nameType.scopeId === this._evaluator.getScopeIdForNode(node)) {
                     // We exempt constrained TypeVars, bound TypeVars that are type arguments of
                     // other types, and ParamSpecs. There are legitimate uses for singleton
@@ -1710,23 +1724,23 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     const existingEntry = localTypeVarUsage.get(nameType.details.name);
-                    const isParmaTypeWithEllipsisUsage =
+                    const isParamTypeWithEllipsisUsage =
                         curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis;
 
                     if (!existingEntry) {
                         localTypeVarUsage.set(nameType.details.name, {
                             nodes: [nameNode],
                             paramTypeUsageCount: curParamNode !== undefined ? 1 : 0,
-                            paramTypeWithEllipsisUsageCount: isParmaTypeWithEllipsisUsage ? 1 : 0,
+                            paramTypeWithEllipsisUsageCount: isParamTypeWithEllipsisUsage ? 1 : 0,
                             returnTypeUsageCount: curParamNode === undefined ? 1 : 0,
-                            paramWithEllipsis: isParmaTypeWithEllipsisUsage ? curParamNode?.name?.value : undefined,
+                            paramWithEllipsis: isParamTypeWithEllipsisUsage ? curParamNode?.name?.value : undefined,
                             isExempt,
                         });
                     } else {
                         existingEntry.nodes.push(nameNode);
                         if (curParamNode !== undefined) {
                             existingEntry.paramTypeUsageCount += 1;
-                            if (isParmaTypeWithEllipsisUsage) {
+                            if (isParamTypeWithEllipsisUsage) {
                                 existingEntry.paramTypeWithEllipsisUsageCount += 1;
                                 if (!existingEntry.paramWithEllipsis) {
                                     existingEntry.paramWithEllipsis = curParamNode?.name?.value;
@@ -1734,6 +1748,36 @@ export class Checker extends ParseTreeWalker {
                             }
                         } else {
                             existingEntry.returnTypeUsageCount += 1;
+                        }
+                    }
+                }
+
+                // Does this name refer to a TypeVar that is scoped to the class associated with
+                // this constructor method?
+                if (constructorClass && nameType.scopeId === constructorClass.details.typeVarScopeId) {
+                    const existingEntry = classTypeVarUsage.get(nameType.details.name);
+                    const isParamTypeWithEllipsisUsage =
+                        curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis;
+
+                    if (!existingEntry) {
+                        classTypeVarUsage.set(nameType.details.name, {
+                            nodes: [nameNode],
+                            paramTypeUsageCount: curParamNode !== undefined ? 1 : 0,
+                            paramTypeWithEllipsisUsageCount: isParamTypeWithEllipsisUsage ? 1 : 0,
+                            returnTypeUsageCount: 0,
+                            paramWithEllipsis: isParamTypeWithEllipsisUsage ? curParamNode?.name?.value : undefined,
+                            isExempt: false,
+                        });
+                    } else {
+                        existingEntry.nodes.push(nameNode);
+                        if (curParamNode !== undefined) {
+                            existingEntry.paramTypeUsageCount += 1;
+                            if (isParamTypeWithEllipsisUsage) {
+                                existingEntry.paramTypeWithEllipsisUsageCount += 1;
+                                if (!existingEntry.paramWithEllipsis) {
+                                    existingEntry.paramWithEllipsis = curParamNode?.name?.value;
+                                }
+                            }
                         }
                     }
                 }
@@ -1793,6 +1837,28 @@ export class Checker extends ParseTreeWalker {
 
             if (
                 isUsedInReturnType &&
+                usage.paramTypeWithEllipsisUsageCount > 0 &&
+                usage.paramTypeUsageCount === usage.paramTypeWithEllipsisUsageCount
+            ) {
+                const diag = new DiagnosticAddendum();
+                diag.addMessage(Localizer.DiagnosticAddendum.typeVarUnsolvableRemedy());
+
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse,
+                    DiagnosticRule.reportInvalidTypeVarUse,
+                    Localizer.Diagnostic.typeVarPossiblyUnsolvable().format({
+                        name: usage.nodes[0].value,
+                        param: usage.paramWithEllipsis ?? '',
+                    }) + diag.getString(),
+                    usage.nodes[0]
+                );
+            }
+        });
+
+        // Report error for a class type variable that appears only within
+        // constructor parameters that have default values. These may go unsolved.
+        classTypeVarUsage.forEach((usage) => {
+            if (
                 usage.paramTypeWithEllipsisUsageCount > 0 &&
                 usage.paramTypeUsageCount === usage.paramTypeWithEllipsisUsageCount
             ) {
