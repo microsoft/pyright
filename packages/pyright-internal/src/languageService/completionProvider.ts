@@ -904,8 +904,9 @@ export class CompletionProvider {
         }
 
         const printFlags = isStubFile(this._filePath)
-            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations
-            : undefined;
+            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations |
+              ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
+            : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
 
         const completionMap = new CompletionMap();
         symbolTable.forEach((symbol, name) => {
@@ -1145,8 +1146,9 @@ export class CompletionProvider {
         }
 
         const printFlags = isStubFile(this._filePath)
-            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations
-            : undefined;
+            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations |
+              ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
+            : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
 
         const paramList = node.parameters
             .map((param, index) => {

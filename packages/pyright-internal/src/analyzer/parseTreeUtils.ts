@@ -50,6 +50,10 @@ export const enum PrintExpressionFlags {
 
     // Don't use string literals for forward declarations.
     ForwardDeclarations = 1 << 0,
+
+    // By default, strings are truncated. If this flag
+    // is specified, the full original string is used.
+    DoNotLimitStringLength = 1 << 1,
 }
 
 // Returns the depth of the node as measured from the root
@@ -237,18 +241,23 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 exprString += 'f';
             }
 
-            const maxStringLength = 32;
+            let escapedString = node.token.escapedValue;
+            if ((flags & PrintExpressionFlags.DoNotLimitStringLength) === 0) {
+                const maxStringLength = 32;
+                escapedString = escapedString.substring(0, maxStringLength);
+            }
+
             if (node.token.flags & StringTokenFlags.Triplicate) {
                 if (node.token.flags & StringTokenFlags.SingleQuote) {
-                    exprString += `'''${node.token.escapedValue.substring(0, maxStringLength)}'''`;
+                    exprString += `'''${escapedString}'''`;
                 } else {
-                    exprString += `"""${node.token.escapedValue.substring(0, maxStringLength)}"""`;
+                    exprString += `"""${escapedString}"""`;
                 }
             } else {
                 if (node.token.flags & StringTokenFlags.SingleQuote) {
-                    exprString += `'${node.token.escapedValue.substring(0, maxStringLength)}'`;
+                    exprString += `'${escapedString}'`;
                 } else {
-                    exprString += `"${node.token.escapedValue.substring(0, maxStringLength)}"`;
+                    exprString += `"${escapedString}"`;
                 }
             }
 

@@ -640,10 +640,12 @@ export class TypeStubWriter extends ParseTreeWalker {
         const importSymbolWalker = new ImportSymbolWalker(this._accessedImportedSymbols, treatStringsAsSymbols);
         importSymbolWalker.analyze(node);
 
-        return ParseTreeUtils.printExpression(
-            node,
-            isType ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations : ParseTreeUtils.PrintExpressionFlags.None
-        );
+        let expressionFlags = isType
+            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations
+            : ParseTreeUtils.PrintExpressionFlags.None;
+        expressionFlags |= ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
+
+        return ParseTreeUtils.printExpression(node, expressionFlags);
     }
 
     private _printTrackedImports() {
