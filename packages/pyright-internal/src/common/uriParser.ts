@@ -13,10 +13,10 @@ import { FileSystem } from './fileSystem';
 import { convertUriToPath } from './pathUtils';
 
 export class UriParser {
-    constructor(private _fs: FileSystem) {}
+    constructor(protected readonly _fs: FileSystem) {}
 
     public decodeTextDocumentPosition(textDocument: TextDocumentIdentifier, position: Position) {
-        const filePath = convertUriToPath(this._fs, textDocument.uri);
+        const filePath = this.decodeTextDocumentUri(textDocument.uri);
         return { filePath, position };
     }
 

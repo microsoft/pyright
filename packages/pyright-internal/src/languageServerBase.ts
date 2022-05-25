@@ -270,7 +270,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     constructor(
         protected _serverOptions: ServerOptions,
         protected _connection: Connection,
-        readonly console: ConsoleInterface
+        readonly console: ConsoleInterface,
+        uriParserFactory = (fs: FileSystem) => new UriParser(fs)
     ) {
         // Stash the base directory into a global variable.
         // This must happen before fs.getModulePath().
@@ -288,7 +289,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._fileWatcherProvider = this._serverOptions.fileWatcherProvider;
 
         this.fs = new PyrightFileSystem(this._serverOptions.fileSystem);
-        this._uriParser = new UriParser(this.fs);
+        this._uriParser = uriParserFactory(this.fs);
 
         // Set the working directory to a known location within
         // the extension directory. Otherwise the execution of
