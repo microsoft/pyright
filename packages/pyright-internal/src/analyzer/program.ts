@@ -313,9 +313,6 @@ export class Program {
                 options?.ipythonMode ?? false
             );
 
-            // ChainedSourceFile can only be set by open file. And once it is set,
-            // it can't be changed. It can only be removed (deleted). File from fs
-            // can't set chained source file.
             const chainedFilePath = options?.chainedFilePath;
             sourceFileInfo = {
                 sourceFile,
@@ -343,6 +340,18 @@ export class Program {
         }
 
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
+    }
+
+    updateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
+        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        if (sourceFileInfo) {
+            sourceFileInfo.chainedSourceFile = chainedFilePath
+                ? this._getSourceFileInfoFromPath(chainedFilePath)
+                : undefined;
+
+            sourceFileInfo.sourceFile.markDirty();
+            this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
+        }
     }
 
     setFileClosed(filePath: string): FileDiagnostics[] {

@@ -116,6 +116,13 @@ export class BackgroundAnalysisBase {
         });
     }
 
+    updateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
+        this.enqueueRequest({
+            requestType: 'updateChainedFilePath',
+            data: { filePath, chainedFilePath },
+        });
+    }
+
     setFileClosed(filePath: string) {
         this.enqueueRequest({ requestType: 'setFileClosed', data: filePath });
     }
@@ -417,6 +424,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
+            case 'updateChainedFilePath': {
+                const { filePath, chainedFilePath } = msg.data;
+                this.program.updateChainedFilePath(filePath, chainedFilePath);
+                break;
+            }
+
             case 'setFileClosed': {
                 const diagnostics = this.program.setFileClosed(msg.data);
                 this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
@@ -566,6 +579,7 @@ export interface AnalysisRequest {
         | 'setAllowedThirdPartyImports'
         | 'ensurePartialStubPackages'
         | 'setFileOpened'
+        | 'updateChainedFilePath'
         | 'setFileClosed'
         | 'markAllFilesDirty'
         | 'markFilesDirty'
