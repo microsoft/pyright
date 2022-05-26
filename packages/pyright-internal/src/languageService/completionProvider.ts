@@ -2075,29 +2075,38 @@ export class CompletionProvider {
         }
 
         const baseType = this._evaluator.getType(indexNode.baseExpression);
-        if (!baseType || !isClassInstance(baseType)) {
+        if (!baseType) {
             return false;
         }
 
-        // We currently handle only TypedDict objects.
-        if (!ClassType.isTypedDictClass(baseType)) {
-            return false;
-        }
+        let foundTypedDict = false;
 
-        const entries = getTypedDictMembersForClass(this._evaluator, baseType, /* allowNarrowed */ true);
-        const quoteValue = this._getQuoteInfo(priorText);
+        doForEachSubtype(baseType, (subtype) => {
+            if (!isClassInstance(subtype)) {
+                return;
+            }
 
-        entries.forEach((_, key) => {
-            this._addStringLiteralToCompletions(
-                key,
-                quoteValue.stringValue,
-                postText,
-                quoteValue.quoteCharacter,
-                completionMap
-            );
+            if (!ClassType.isTypedDictClass(subtype)) {
+                return;
+            }
+
+            const entries = getTypedDictMembersForClass(this._evaluator, subtype, /* allowNarrowed */ true);
+            const quoteValue = this._getQuoteInfo(priorText);
+
+            entries.forEach((_, key) => {
+                this._addStringLiteralToCompletions(
+                    key,
+                    quoteValue.stringValue,
+                    postText,
+                    quoteValue.quoteCharacter,
+                    completionMap
+                );
+            });
+
+            foundTypedDict = true;
         });
 
-        return true;
+        return foundTypedDict;
     }
 
     private _addStringLiteralToCompletions(
