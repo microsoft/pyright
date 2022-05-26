@@ -3886,19 +3886,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                 // Verify that the name does not refer to a (non type alias) variable.
                 if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
-                    // Disable for TypeVar and Unknown types as well as assignments
-                    // in the typings.pyi file, since it defines special forms.
-                    if (
-                        !isTypeAliasPlaceholder(type) &&
-                        !isTypeVar(type) &&
-                        !isUnknown(type) &&
-                        !fileInfo.isTypingStubFile
-                    ) {
+                    let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
+                    if (isClass(type) && !type.includeSubclasses) {
+                        // This check exempts class types that are created by calling
+                        // NewType, NamedTuple, and by invoking a metaclass directly.
+                        isAllowedTypeForVariable = true;
+                    }
+
+                    // Disable for assignments in the typings.pyi file, since it defines special forms.
+                    if (!isAllowedTypeForVariable && !fileInfo.isTypingStubFile) {
                         // This might be a union that was previously a type alias
                         // but was reconstituted in such a way that we lost the
                         // typeAliasInfo. Avoid the false positive error by suppressing
                         // the error when it looks like a plausible type alias type.
-                        if (!TypeBase.isInstantiable(type) || (flags & EvaluatorFlags.DoNotSpecialize) !== 0) {
+                        if (
+                            effectiveTypeInfo.includesIllegalTypeAliasDecl ||
+                            !TypeBase.isInstantiable(type) ||
+                            (flags & EvaluatorFlags.DoNotSpecialize) !== 0
+                        ) {
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
@@ -18588,12 +18593,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If there's a declared type, it takes precedence over inferred types.
         if (symbol.hasTypedDeclarations()) {
             const declaredType = getDeclaredTypeOfSymbol(symbol, usageNode);
+            const typedDecls = symbol.getTypedDeclarations();
+
             return {
                 type: declaredType ?? UnknownType.create(),
                 isIncomplete: false,
-                includesVariableDecl: symbol
-                    .getTypedDeclarations()
-                    .some((decl) => decl.type === DeclarationType.Variable),
+                includesVariableDecl: typedDecls.some((decl) => decl.type === DeclarationType.Variable),
+                includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                 isRecursiveDefinition: !declaredType,
             };
         }
@@ -18628,6 +18634,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type: UnknownType.create(),
                 isIncomplete: false,
                 includesVariableDecl: false,
+                includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                 isRecursiveDefinition: false,
             };
         }
@@ -18732,6 +18739,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type: combineTypes(typesToCombine),
                 isIncomplete: false,
                 includesVariableDecl,
+                includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                 isRecursiveDefinition: false,
             };
 
@@ -18752,6 +18760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type: UnboundType.create(),
             isIncomplete,
             includesVariableDecl,
+            includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
             isRecursiveDefinition: false,
         };
     }

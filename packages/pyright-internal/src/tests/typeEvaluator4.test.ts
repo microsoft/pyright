@@ -704,7 +704,7 @@ test('ParamSpec2', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
-    TestUtils.validateResults(analysisResults39, 5);
+    TestUtils.validateResults(analysisResults39, 9);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults310 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
@@ -1078,7 +1078,7 @@ test('Annotated1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
-    TestUtils.validateResults(analysisResults38, 2);
+    TestUtils.validateResults(analysisResults38, 3);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);

@@ -34,7 +34,7 @@ def d():
 
 
 class Foo:
-    # This should generate an error because of an
+    # This should generate an error because aa is redeclared.
     aa: int
 
     def aa(self):

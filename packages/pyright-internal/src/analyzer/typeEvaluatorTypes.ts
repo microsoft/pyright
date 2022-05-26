@@ -239,6 +239,7 @@ export interface EffectiveTypeResult {
     type: Type;
     isIncomplete: boolean;
     includesVariableDecl: boolean;
+    includesIllegalTypeAliasDecl: boolean;
     isRecursiveDefinition: boolean;
 }
 

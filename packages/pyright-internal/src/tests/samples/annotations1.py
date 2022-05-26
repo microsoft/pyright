@@ -87,3 +87,12 @@ class ClassH:
     # This should generate an error because uuid refers to the local
     # symbol in this case.
     uuid: uuid.UUID = uuid.uuid4()
+
+
+def func11():
+    for t in [str, float]:
+        # This should generate an error because t is not a valid annotation.
+        def f(x: str) -> t:
+            return t(x) + 1
+
+        f("")
