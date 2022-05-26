@@ -71,6 +71,7 @@ import { ClassMemberLookupFlags, doForEachSubtype, isTypeAliasPlaceholder, lookU
 export interface FlowNodeTypeResult {
     type: Type | undefined;
     isIncomplete: boolean;
+    isRecursionSentinel?: boolean;
     generationCount?: number | undefined;
     incompleteType?: Type | undefined;
     incompleteSubtypes?: IncompleteSubtypeInfo[] | undefined;
@@ -142,7 +143,8 @@ export function getCodeFlowEngine(
             function setCacheEntry(
                 flowNode: FlowNode,
                 type: Type | undefined,
-                isIncomplete: boolean
+                isIncomplete: boolean,
+                isRecursionSentinel?: boolean
             ): FlowNodeTypeResult {
                 if (!isIncomplete) {
                     flowIncompleteGeneration++;
@@ -167,6 +169,7 @@ export function getCodeFlowEngine(
                           type,
                           incompleteSubtypes: [],
                           generationCount: flowIncompleteGeneration,
+                          isRecursionSentinel,
                       }
                     : type;
 
@@ -176,6 +179,7 @@ export function getCodeFlowEngine(
                 return {
                     type,
                     isIncomplete,
+                    isRecursionSentinel,
                     generationCount: flowIncompleteGeneration,
                     incompleteSubtypes: isIncomplete ? [] : undefined,
                 };
@@ -256,6 +260,7 @@ export function getCodeFlowEngine(
                     isIncomplete: true,
                     incompleteSubtypes: cachedEntry.incompleteSubtypes,
                     generationCount: cachedEntry.generationCount,
+                    isRecursionSentinel: cachedEntry.isRecursionSentinel,
                 };
             }
 
@@ -352,7 +357,7 @@ export function getCodeFlowEngine(
                                 // If there was a cache entry already, that means we hit a recursive
                                 // case (something like "int: int = 4"). Avoid infinite recursion
                                 // by returning an undefined type.
-                                if (cachedEntry && cachedEntry.type === undefined) {
+                                if (cachedEntry?.isRecursionSentinel) {
                                     return { type: undefined, isIncomplete: true };
                                 }
 
@@ -361,7 +366,8 @@ export function getCodeFlowEngine(
                                 setCacheEntry(
                                     curFlowNode,
                                     reference ? undefined : initialType,
-                                    /* isIncomplete */ true
+                                    /* isIncomplete */ true,
+                                    /* isRecursionSentinel */ true
                                 );
                                 let flowTypeResult = evaluateAssignmentFlowNode(assignmentFlowNode);
                                 if (flowTypeResult) {
@@ -455,13 +461,18 @@ export function getCodeFlowEngine(
 
                         if (reference) {
                             // Was an incomplete entry added to prevent recursion?
-                            if (cachedEntry && cachedEntry.type === undefined) {
+                            if (cachedEntry?.isRecursionSentinel) {
                                 return cachedEntry;
                             }
 
                             // Before calling getTypeNarrowingCallback, set the type
                             // of this flow node in the cache to prevent recursion.
-                            setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ true);
+                            setCacheEntry(
+                                curFlowNode,
+                                /* type */ undefined,
+                                /* isIncomplete */ true,
+                                /* isRecursionSentinel */ true
+                            );
 
                             try {
                                 const typeNarrowingCallback = getTypeNarrowingCallback(
@@ -518,7 +529,8 @@ export function getCodeFlowEngine(
                                     setCacheEntry(
                                         curFlowNode,
                                         reference ? undefined : initialType,
-                                        /* isIncomplete */ true
+                                        /* isIncomplete */ true,
+                                        /* isRecursionSentinel */ true
                                     );
 
                                     try {
@@ -625,7 +637,12 @@ export function getCodeFlowEngine(
                             const nameValue = reference.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 // Before calling getTypeFromWildcardImport, set the cache entry to prevent infinite recursion.
-                                setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ true);
+                                setCacheEntry(
+                                    curFlowNode,
+                                    /* type */ undefined,
+                                    /* isIncomplete */ true,
+                                    /* isRecursionSentinel */ true
+                                );
 
                                 try {
                                     const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
@@ -655,7 +672,12 @@ export function getCodeFlowEngine(
 
                 // Set the cache entry to undefined before evaluating the
                 // expression in case it depends on itself.
-                setCacheEntry(branchNode, reference ? undefined : initialType, /* isIncomplete */ true);
+                setCacheEntry(
+                    branchNode,
+                    reference ? undefined : initialType,
+                    /* isIncomplete */ true,
+                    /* isRecursionSentinel */ true
+                );
 
                 branchNode.antecedents.forEach((antecedent) => {
                     // If we're solving for "reachability", and we have now proven
@@ -699,7 +721,12 @@ export function getCodeFlowEngine(
 
                 if (cacheEntry === undefined) {
                     // We haven't been here before, so create a new incomplete cache entry.
-                    cacheEntry = setCacheEntry(loopNode, reference ? undefined : initialType, /* isIncomplete */ true);
+                    cacheEntry = setCacheEntry(
+                        loopNode,
+                        reference ? undefined : initialType,
+                        /* isIncomplete */ true,
+                        /* isRecursionSentinel */ true
+                    );
                 } else if (cacheEntry.incompleteSubtypes?.some((subtype) => subtype.isPending)) {
                     // If there are pending entries that have not been evaluated even once,
                     // treat it as incomplete.
@@ -812,7 +839,12 @@ export function getCodeFlowEngine(
                 }
 
                 // Before recursively calling, set the cache entry to prevent infinite recursion.
-                setCacheEntry(preFinallyFlowNode, reference ? undefined : initialType, /* isIncomplete */ true);
+                setCacheEntry(
+                    preFinallyFlowNode,
+                    reference ? undefined : initialType,
+                    /* isIncomplete */ true,
+                    /* isRecursionSentinel */ true
+                );
 
                 try {
                     const flowTypeResult = getTypeFromFlowNode(preFinallyFlowNode.antecedent);

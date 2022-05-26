@@ -42,6 +42,10 @@ export interface IncompleteType {
     // doesn't match the global "incomplete generation count", this
     // cached value is stale
     generationCount: number;
+
+    // Indicates that the cache entry represents a sentinel
+    // value used to detect and prevent recursion.
+    isRecursionSentinel?: boolean;
 }
 
 // Define a user type guard function for IncompleteType.
