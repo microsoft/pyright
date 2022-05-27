@@ -87,3 +87,15 @@ d = D()
 
 # This should generate an error because __add__ is not a class variable.
 _ = d + d
+
+
+class E:
+    __slots__ = ("__add__",)
+
+    def __init__(self):
+        self.__add__ = lambda x: x
+
+
+e = E()
+
+_ = e + e

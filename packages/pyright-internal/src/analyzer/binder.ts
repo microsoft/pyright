@@ -2152,10 +2152,7 @@ export class Binder extends ParseTreeWalker {
 
             let symbol = this._currentScope.lookUpSymbol(slotName);
             if (!symbol) {
-                symbol = this._currentScope.addSymbol(
-                    slotName,
-                    SymbolFlags.InitiallyUnbound | SymbolFlags.InstanceMember
-                );
+                symbol = this._currentScope.addSymbol(slotName, SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
                 const honorPrivateNaming = this._fileInfo.diagnosticRuleSet.reportPrivateUsage !== 'none';
                 if (isPrivateOrProtectedName(slotName) && honorPrivateNaming) {
                     symbol.setIsPrivateMember();

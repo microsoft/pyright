@@ -77,3 +77,12 @@ class A:
 # instance variable.
 for a in A():
     ...
+
+class B:
+    __slots__ = ("__iter__",)
+    def __init__(self):
+        self.__iter__ = lambda: iter([])
+
+
+for b in B():
+    ...
