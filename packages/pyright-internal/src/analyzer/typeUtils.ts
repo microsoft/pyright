@@ -1105,7 +1105,7 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
             if (symbol && symbol.isClassMember()) {
                 const hasDeclaredType = symbol.hasTypedDeclarations();
                 if (!declaredTypesOnly || hasDeclaredType) {
-                    let isInstanceMember = false;
+                    let isInstanceMember = symbol.isInstanceMember();
                     let isClassMember = true;
 
                     // For data classes and typed dicts, variables that are declared

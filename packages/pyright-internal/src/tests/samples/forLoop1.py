@@ -65,3 +65,15 @@ def testGetItemIterator() -> str:
 # This should generate a syntax error.
 for in range(3):
     pass
+
+
+class A:
+    def __init__(self):
+        self.__iter__ = lambda: iter([])
+
+
+# This should generate an error because A
+# is not iterable. The __iter__ method is an
+# instance variable.
+for a in A():
+    ...

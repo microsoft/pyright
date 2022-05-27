@@ -1729,6 +1729,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const memberInfo = getTypeOfClassMemberName(
             errorNode,
             ClassType.cloneAsInstantiable(objectType),
+            /* isAccessedThroughObject */ true,
             memberName,
             usage,
             diag,
@@ -1774,6 +1775,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             memberInfo = getTypeOfClassMemberName(
                 errorNode,
                 classType,
+                /* isAccessedThroughObject */ false,
                 memberName,
                 usage,
                 diag,
@@ -1812,6 +1814,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 memberInfo = getTypeOfClassMemberName(
                     errorNode,
                     metaclass,
+                    /* isAccessedThroughObject */ true,
                     memberName,
                     usage,
                     /* diag */ undefined,
@@ -4873,14 +4876,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfClassMemberName(
         errorNode: ExpressionNode,
         classType: ClassType,
+        isAccessedThroughObject: boolean,
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum | undefined,
         flags: MemberAccessFlags,
         bindToType?: ClassType | TypeVarType
     ): ClassMemberLookup | undefined {
-        // If this is a special type (like "List") that has an alias class (like
-        // "list"), switch to the alias, which defines the members.
         let classLookupFlags = ClassMemberLookupFlags.Default;
         if (flags & MemberAccessFlags.AccessClassMembersOnly) {
             classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
@@ -4983,7 +4985,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 memberInfo,
                 classType,
                 bindToType,
-                /* isAccessedThroughObject */ (flags & MemberAccessFlags.AccessClassMembersOnly) === 0,
+                isAccessedThroughObject,
                 flags,
                 errorNode,
                 memberName,
@@ -5012,7 +5014,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (
                     isInstantiableClass(memberInfo.classType) &&
                     ClassType.isFrozenDataClass(memberInfo.classType) &&
-                    (flags & MemberAccessFlags.AccessClassMembersOnly) === 0
+                    isAccessedThroughObject
                 ) {
                     diag?.addMessage(
                         Localizer.DiagnosticAddendum.dataClassFrozen().format({
@@ -7789,6 +7791,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 constructorMethodInfo = getTypeOfClassMemberName(
                     errorNode,
                     metaclass,
+                    /* isAccessedThroughObject */ true,
                     '__call__',
                     { method: 'get' },
                     /* diag */ undefined,
@@ -7807,6 +7810,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 constructorMethodInfo = getTypeOfClassMemberName(
                     errorNode,
                     type,
+                    /* isAccessedThroughObject */ false,
                     '__new__',
                     { method: 'get' },
                     /* diag */ undefined,
@@ -11678,7 +11682,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     magicMethodName,
                     /* usage */ undefined,
                     /* diag */ undefined,
-                    MemberAccessFlags.SkipAttributeAccessOverride,
+                    MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.AccessClassMembersOnly,
                     subtype
                 )?.type;
             } else if (isInstantiableClass(concreteSubtype)) {
@@ -14945,6 +14949,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const initSubclassMethodInfo = getTypeOfClassMemberName(
             errorNode,
             classType,
+            /* isAccessedThroughObject */ false,
             '__init_subclass__',
             { method: 'get' },
             /* diag */ undefined,

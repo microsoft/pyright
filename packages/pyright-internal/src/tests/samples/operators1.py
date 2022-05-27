@@ -4,12 +4,12 @@
 from typing import Union
 
 
-class Foo(object):
+class A(object):
     def __eq__(self, Foo):
         return "equal"
 
 
-class Bar(object):
+class B(object):
     def __ne__(self, Bar):
         return self
 
@@ -35,7 +35,7 @@ def needs_a_string_or_bool(val: Union[bool, str]):
 
 
 def test():
-    a = Foo()
+    a = A()
     needs_a_string(a == a)
 
     # This should generate an error because there
@@ -44,7 +44,7 @@ def test():
     needs_a_string(a != a)
 
     if True:
-        a = Bar()
+        a = B()
 
     # At this point, a should be of type Union[Foo, Bar],
     # so the == operator should return either a str or
@@ -57,14 +57,14 @@ def test():
     # This should generate an error.
     needs_a_string_or_bool(a != a)
 
-    b = Bar()
+    b = B()
     needs_a_string(b < b)
     needs_a_string(b > b)
     needs_a_string(b <= b)
     needs_a_string(b >= b)
 
 
-class ClassA:
+class C:
     def __getattr__(self, name: str, /):
         if name == "__add__":
             return lambda _: 0
@@ -76,3 +76,14 @@ a.__add__
 # This should generate an error because __getattr__ is not used
 # when looking up operator overload methods.
 b = a + 0
+
+
+class D:
+    def __init__(self):
+        self.__add__ = lambda x: x
+
+
+d = D()
+
+# This should generate an error because __add__ is not a class variable.
+_ = d + d
