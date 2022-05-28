@@ -8,18 +8,22 @@ foo = 3
 
 T = TypeVar("T")
 
+
 class ClassA:
     __match_args__ = ("attr_a", "attr_b")
     attr_a: int
     attr_b: str
+
 
 class ClassB(Generic[T]):
     __match_args__ = ("attr_a", "attr_b")
     attr_a: T
     attr_b: str
 
+
 class ClassC:
     ...
+
 
 class ClassD(ClassC):
     ...
@@ -35,6 +39,7 @@ def test_unknown(value_to_match):
         # This should generate an error because foo isn't instantiable.
         case foo() as a3:
             pass
+
 
 def test_any(value_to_match: Any):
     match value_to_match:
@@ -87,6 +92,7 @@ def test_literal(value_to_match: Literal[3]):
 
 TFloat = TypeVar("TFloat", bound=float)
 
+
 def test_bound_typevar(value_to_match: TFloat) -> TFloat:
     match value_to_match:
         case int() as a1:
@@ -106,7 +112,10 @@ def test_bound_typevar(value_to_match: TFloat) -> TFloat:
 
 TInt = TypeVar("TInt", bound=int)
 
-def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TInt, Literal[3], float, str]:
+
+def test_union(
+    value_to_match: Union[TInt, Literal[3], float, str]
+) -> Union[TInt, Literal[3], float, str]:
     match value_to_match:
         case int() as a1:
             reveal_type(a1, expected_text="int* | int")
@@ -124,6 +133,7 @@ def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TIn
 
 
 T = TypeVar("T")
+
 
 class Point(Generic[T]):
     __match_args__ = ("x", "y")
@@ -196,6 +206,7 @@ class Dataclass1:
     val2: str = field(init=False)
     val3: complex
 
+
 @dataclass
 class Dataclass2:
     val1: int
@@ -221,6 +232,7 @@ def func5(subj: object):
 NT1 = NamedTuple("NT1", [("val1", int), ("val2", complex)])
 NT2 = NamedTuple("NT2", [("val1", int), ("val2", str), ("val3", float)])
 
+
 def func6(subj: object):
     match subj:
         case NT1(a, b):
@@ -241,6 +253,7 @@ def func7(subj: object):
             reveal_type(a, expected_text="float")
             reveal_type(b, expected_text="float")
 
+
 T2 = TypeVar("T2")
 
 
@@ -259,53 +272,57 @@ class Child2(Parent[T], Generic[T, T2]):
 def func8(subj: Parent[int]):
     match subj:
         case Child1() as a1:
-            reveal_type(a1, expected_text='Child1[int]')
-            reveal_type(subj, expected_text='Child1[int]')
+            reveal_type(a1, expected_text="Child1[int]")
+            reveal_type(subj, expected_text="Child1[int]")
 
         case Child2() as b1:
-            reveal_type(b1, expected_text='Child2[int, Unknown]')
-            reveal_type(subj, expected_text='Child2[int, Unknown]')
+            reveal_type(b1, expected_text="Child2[int, Unknown]")
+            reveal_type(subj, expected_text="Child2[int, Unknown]")
+
 
 T3 = TypeVar("T3")
+
 
 def func9(v: T3) -> Optional[T3]:
     match v:
         case str():
-            reveal_type(v, expected_text='str*')
+            reveal_type(v, expected_text="str*")
             return v
-        
+
         case _:
             return None
 
 
 T4 = TypeVar("T4", int, str)
 
+
 def func10(v: T4) -> Optional[T4]:
     match v:
         case str():
-            reveal_type(v, expected_text='str*')
+            reveal_type(v, expected_text="str*")
             return v
-        
+
         case int():
-            reveal_type(v, expected_text='int*')
+            reveal_type(v, expected_text="int*")
             return v
-        
+
         case list():
-            reveal_type(v, expected_text='Never')
+            reveal_type(v, expected_text="Never")
             return v
-        
+
         case _:
             return None
+
 
 def func11(subj: Any):
     match subj:
         case Child1() as a1:
-            reveal_type(a1, expected_text='Child1[Unknown]')
-            reveal_type(subj, expected_text='Child1[Unknown]')
+            reveal_type(a1, expected_text="Child1[Unknown]")
+            reveal_type(subj, expected_text="Child1[Unknown]")
 
         case Child2() as b1:
-            reveal_type(b1, expected_text='Child2[Unknown, Unknown]')
-            reveal_type(subj, expected_text='Child2[Unknown, Unknown]')
+            reveal_type(b1, expected_text="Child2[Unknown, Unknown]")
+            reveal_type(subj, expected_text="Child2[Unknown, Unknown]")
 
 
 def func12(subj: int, flt_cls: type[float], union_val: float | int):
@@ -320,7 +337,6 @@ def func12(subj: int, flt_cls: type[float], union_val: float | int):
             pass
 
     match subj:
-        # This should generate an error because flt_cls is not a class.
         case flt_cls():
             pass
 
@@ -334,15 +350,15 @@ def func13(subj: tuple[Literal[0]]):
         case tuple((1,)) as a:
             reveal_type(subj, expected_text="Never")
             reveal_type(a, expected_text="Never")
-        
-        case tuple((0,0)) as b:
+
+        case tuple((0, 0)) as b:
             reveal_type(subj, expected_text="Never")
             reveal_type(b, expected_text="Never")
-        
+
         case tuple((0,)) as c:
             reveal_type(subj, expected_text="tuple[Literal[0]]")
             reveal_type(c, expected_text="tuple[Literal[0]]")
-        
+
         case d:
             reveal_type(subj, expected_text="Never")
             reveal_type(d, expected_text="Never")

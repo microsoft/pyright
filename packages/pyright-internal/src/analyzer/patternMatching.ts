@@ -1322,7 +1322,7 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
             Localizer.Diagnostic.classPatternTypeAlias().format({ type: evaluator.printType(exprType) }),
             pattern.className
         );
-    } else if (!isInstantiableClass(exprType) || exprType.includeSubclasses) {
+    } else if (!isInstantiableClass(exprType)) {
         if (!isNever(exprType)) {
             evaluator.addDiagnostic(
                 getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
