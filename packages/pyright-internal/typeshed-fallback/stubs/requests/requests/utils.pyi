@@ -4,7 +4,6 @@ from typing import Any, AnyStr
 from . import compat, cookies, exceptions, structures
 
 OrderedDict = compat.OrderedDict
-RequestsCookieJar = cookies.RequestsCookieJar
 cookiejar_from_dict = cookies.cookiejar_from_dict
 CaseInsensitiveDict = structures.CaseInsensitiveDict
 InvalidURL = exceptions.InvalidURL

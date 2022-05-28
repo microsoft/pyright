@@ -1,18 +1,18 @@
 from collections.abc import Iterable, Iterator
 from typing import Any, TypeVar, overload
+from typing_extensions import TypeAlias
 
-CallExpr = Any  # from mypy.nodes
-Context = Any  # from mypy.nodes
-Expression = Any  # from mypy.nodes
-JsonDict = Any  # from mypy.nodes
-NameExpr = Any  # from mypy.nodes
-Statement = Any  # from mypy.nodes
-TypeInfo = Any  # from mypy.nodes
-AttributeContext = Any  # from mypy.plugin
-ClassDefContext = Any  # from mypy.plugin
-DynamicClassDefContext = Any  # from mypy.plugin
-SemanticAnalyzerPluginInterface = Any  # from mypy.plugin
-Type = Any  # from mypy.types
+CallExpr: TypeAlias = Any  # from mypy.nodes
+Context: TypeAlias = Any  # from mypy.nodes
+Expression: TypeAlias = Any  # from mypy.nodes
+JsonDict: TypeAlias = Any  # from mypy.nodes
+NameExpr: TypeAlias = Any  # from mypy.nodes
+Statement: TypeAlias = Any  # from mypy.nodes
+TypeInfo: TypeAlias = Any  # from mypy.nodes
+ClassDefContext: TypeAlias = Any  # from mypy.plugin
+DynamicClassDefContext: TypeAlias = Any  # from mypy.plugin
+SemanticAnalyzerPluginInterface: TypeAlias = Any  # from mypy.plugin
+Type: TypeAlias = Any  # from mypy.types
 
 _TArgType = TypeVar("_TArgType", bound=CallExpr | NameExpr)
 

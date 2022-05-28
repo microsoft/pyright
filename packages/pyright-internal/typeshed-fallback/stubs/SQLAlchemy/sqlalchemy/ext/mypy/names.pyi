@@ -1,16 +1,16 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 from ...util import symbol
 
-ClassDef = Any  # from mypy.nodes
-Expression = Any  # from mypy.nodes
-MemberExpr = Any  # from mypy.nodes
-NameExpr = Any  # from mypy.nodes
-SymbolNode = Any  # from mypy.nodes
-TypeInfo = Any  # from mypy.nodes
-StrExpr = Any  # from mypy.nodes
-SemanticAnalyzerPluginInterface = Any  # from mypy.plugin
-UnboundType = Any  # from mypy.types
+ClassDef: TypeAlias = Any  # from mypy.nodes
+Expression: TypeAlias = Any  # from mypy.nodes
+MemberExpr: TypeAlias = Any  # from mypy.nodes
+NameExpr: TypeAlias = Any  # from mypy.nodes
+SymbolNode: TypeAlias = Any  # from mypy.nodes
+TypeInfo: TypeAlias = Any  # from mypy.nodes
+SemanticAnalyzerPluginInterface: TypeAlias = Any  # from mypy.plugin
+UnboundType: TypeAlias = Any  # from mypy.types
 
 COLUMN: symbol
 RELATIONSHIP: symbol

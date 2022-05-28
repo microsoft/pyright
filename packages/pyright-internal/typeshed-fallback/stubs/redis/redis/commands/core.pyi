@@ -635,20 +635,43 @@ class ScanCommands(Generic[_StrType]):
     def hscan_iter(
         self, name: _Key, match: _Key | None = ..., count: int | None = ...
     ) -> Iterator[tuple[_StrType, _StrType]]: ...
+    @overload
+    def zscan(
+        self, name: _Key, cursor: int = ..., match: _Key | None = ..., count: int | None = ...
+    ) -> tuple[int, list[tuple[_StrType, float]]]: ...
+    @overload
     def zscan(
         self,
         name: _Key,
         cursor: int = ...,
         match: _Key | None = ...,
         count: int | None = ...,
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        *,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> tuple[int, list[tuple[_StrType, _ScoreCastFuncReturn]]]: ...
+    @overload
+    def zscan(
+        self,
+        name: _Key,
+        cursor: int,
+        match: _Key | None,
+        count: int | None,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
+    ) -> tuple[int, list[tuple[_StrType, _ScoreCastFuncReturn]]]: ...
+    @overload
+    def zscan_iter(self, name: _Key, match: _Key | None = ..., count: int | None = ...) -> Iterator[tuple[_StrType, float]]: ...
+    @overload
     def zscan_iter(
         self,
         name: _Key,
         match: _Key | None = ...,
         count: int | None = ...,
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        *,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
+    ) -> Iterator[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zscan_iter(
+        self, name: _Key, match: _Key | None, count: int | None, score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn]
     ) -> Iterator[tuple[_StrType, _ScoreCastFuncReturn]]: ...
 
 class AsyncScanCommands(Generic[_StrType]):
@@ -673,20 +696,45 @@ class AsyncScanCommands(Generic[_StrType]):
     def hscan_iter(
         self, name: _Key, match: _Key | None = ..., count: int | None = ...
     ) -> AsyncIterator[tuple[_StrType, _StrType]]: ...
+    @overload
+    async def zscan(
+        self, name: _Key, cursor: int = ..., match: _Key | None = ..., count: int | None = ...
+    ) -> tuple[int, list[tuple[_StrType, float]]]: ...
+    @overload
     async def zscan(
         self,
         name: _Key,
         cursor: int = ...,
         match: _Key | None = ...,
         count: int | None = ...,
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        *,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> tuple[int, list[tuple[_StrType, _ScoreCastFuncReturn]]]: ...
+    @overload
+    async def zscan(
+        self,
+        name: _Key,
+        cursor: int,
+        match: _Key | None,
+        count: int | None,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
+    ) -> tuple[int, list[tuple[_StrType, _ScoreCastFuncReturn]]]: ...
+    @overload
+    def zscan_iter(
+        self, name: _Key, match: _Key | None = ..., count: int | None = ...
+    ) -> AsyncIterator[tuple[_StrType, float]]: ...
+    @overload
     def zscan_iter(
         self,
         name: _Key,
         match: _Key | None = ...,
         count: int | None = ...,
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        *,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
+    ) -> AsyncIterator[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zscan_iter(
+        self, name: _Key, match: _Key | None, count: int | None, score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn]
     ) -> AsyncIterator[tuple[_StrType, _ScoreCastFuncReturn]]: ...
 
 class SetCommands(Generic[_StrType]):

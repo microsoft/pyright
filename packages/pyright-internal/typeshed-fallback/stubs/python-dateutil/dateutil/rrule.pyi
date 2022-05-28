@@ -15,6 +15,7 @@ SECONDLY: int
 
 class weekday(weekdaybase): ...
 
+weekdays: tuple[weekday, weekday, weekday, weekday, weekday, weekday, weekday]
 MO: weekday
 TU: weekday
 WE: weekday

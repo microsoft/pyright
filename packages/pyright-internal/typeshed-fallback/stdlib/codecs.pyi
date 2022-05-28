@@ -1,10 +1,11 @@
-import sys
 import types
 from _typeshed import Self
 from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterable
-from typing import Any, BinaryIO, Protocol, TextIO, overload
-from typing_extensions import Literal, TypeAlias
+from typing import Any, BinaryIO, Protocol, TextIO
+from typing_extensions import Literal
+
+from _codecs import *
 
 __all__ = [
     "register",
@@ -94,49 +95,6 @@ class _IncrementalEncoder(Protocol):
 class _IncrementalDecoder(Protocol):
     def __call__(self, errors: str = ...) -> IncrementalDecoder: ...
 
-# The type ignore on `encode` and `decode` is to avoid issues with overlapping overloads, for more details, see #300
-# https://docs.python.org/3/library/codecs.html#binary-transforms
-_BytesToBytesEncoding: TypeAlias = Literal[
-    "base64",
-    "base_64",
-    "base64_codec",
-    "bz2",
-    "bz2_codec",
-    "hex",
-    "hex_codec",
-    "quopri",
-    "quotedprintable",
-    "quoted_printable",
-    "quopri_codec",
-    "uu",
-    "uu_codec",
-    "zip",
-    "zlib",
-    "zlib_codec",
-]
-# https://docs.python.org/3/library/codecs.html#text-transforms
-_StrToStrEncoding: TypeAlias = Literal["rot13", "rot_13"]
-
-@overload
-def encode(obj: bytes, encoding: _BytesToBytesEncoding, errors: str = ...) -> bytes: ...
-@overload
-def encode(obj: str, encoding: _StrToStrEncoding, errors: str = ...) -> str: ...  # type: ignore[misc]
-@overload
-def encode(obj: str, encoding: str = ..., errors: str = ...) -> bytes: ...
-@overload
-def decode(obj: bytes, encoding: _BytesToBytesEncoding, errors: str = ...) -> bytes: ...  # type: ignore[misc]
-@overload
-def decode(obj: str, encoding: _StrToStrEncoding, errors: str = ...) -> str: ...
-
-# hex is officially documented as a bytes to bytes encoding, but it appears to also work with str
-@overload
-def decode(obj: str, encoding: Literal["hex", "hex_codec"], errors: str = ...) -> bytes: ...
-@overload
-def decode(obj: bytes, encoding: str = ..., errors: str = ...) -> str: ...
-def lookup(__encoding: str) -> CodecInfo: ...
-def utf_16_be_decode(__data: bytes, __errors: str | None = ..., __final: bool = ...) -> tuple[str, int]: ...  # undocumented
-def utf_16_be_encode(__str: str, __errors: str | None = ...) -> tuple[bytes, int]: ...  # undocumented
-
 class CodecInfo(tuple[_Encoder, _Decoder, _StreamReader, _StreamWriter]):
     @property
     def encode(self) -> _Encoder: ...
@@ -170,16 +128,12 @@ def getincrementalencoder(encoding: str) -> _IncrementalEncoder: ...
 def getincrementaldecoder(encoding: str) -> _IncrementalDecoder: ...
 def getreader(encoding: str) -> _StreamReader: ...
 def getwriter(encoding: str) -> _StreamWriter: ...
-def register(__search_function: Callable[[str], CodecInfo | None]) -> None: ...
 def open(
     filename: str, mode: str = ..., encoding: str | None = ..., errors: str = ..., buffering: int = ...
 ) -> StreamReaderWriter: ...
 def EncodedFile(file: _Stream, data_encoding: str, file_encoding: str | None = ..., errors: str = ...) -> StreamRecoder: ...
 def iterencode(iterator: Iterable[str], encoding: str, errors: str = ...) -> Generator[bytes, None, None]: ...
 def iterdecode(iterator: Iterable[bytes], encoding: str, errors: str = ...) -> Generator[str, None, None]: ...
-
-if sys.version_info >= (3, 10):
-    def unregister(__search_function: Callable[[str], CodecInfo | None]) -> None: ...
 
 BOM: Literal[b"\xff\xfe", b"\xfe\xff"]  # depends on `sys.byteorder`
 BOM_BE: Literal[b"\xfe\xff"]
@@ -192,11 +146,6 @@ BOM_UTF32: Literal[b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff"]  # depends on `sys.
 BOM_UTF32_BE: Literal[b"\x00\x00\xfe\xff"]
 BOM_UTF32_LE: Literal[b"\xff\xfe\x00\x00"]
 
-# It is expected that different actions be taken depending on which of the
-# three subclasses of `UnicodeError` is actually ...ed. However, the Union
-# is still needed for at least one of the cases.
-def register_error(__errors: str, __handler: Callable[[UnicodeError], tuple[str | bytes, int]]) -> None: ...
-def lookup_error(__name: str) -> Callable[[UnicodeError], tuple[str | bytes, int]]: ...
 def strict_errors(exception: UnicodeError) -> tuple[str | bytes, int]: ...
 def replace_errors(exception: UnicodeError) -> tuple[str | bytes, int]: ...
 def ignore_errors(exception: UnicodeError) -> tuple[str | bytes, int]: ...

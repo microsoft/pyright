@@ -72,7 +72,23 @@ def task(
     autoprint: bool = ...,
     iterable: Iterable[str] | None = ...,
     incrementable: Iterable[str] | None = ...,
-    klass: type[_TaskT] = ...,
+) -> Callable[[Callable[..., Any]], Task]: ...
+@overload
+def task(
+    *args: Task,
+    name: str | None = ...,
+    aliases: tuple[str, ...] = ...,
+    positional: Iterable[str] | None = ...,
+    optional: Iterable[str] = ...,
+    default: bool = ...,
+    auto_shortflags: bool = ...,
+    help: dict[str, str] | None = ...,
+    pre: list[Task] | None = ...,
+    post: list[Task] | None = ...,
+    autoprint: bool = ...,
+    iterable: Iterable[str] | None = ...,
+    incrementable: Iterable[str] | None = ...,
+    klass: type[_TaskT],
 ) -> Callable[[Callable[..., Any]], _TaskT]: ...
 
 class Call:

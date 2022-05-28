@@ -230,7 +230,7 @@ class _patcher:
         self,
         target: Any,
         attribute: str,
-        new: _T = ...,
+        new: _T,
         spec: Any | None = ...,
         create: bool = ...,
         spec_set: Any | None = ...,

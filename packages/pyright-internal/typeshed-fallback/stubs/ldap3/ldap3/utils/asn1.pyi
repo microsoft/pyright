@@ -1,9 +1,9 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 # Enable when pyasn1 gets stubs:
-# from pyasn1.codec.ber.encoder import AbstractItemEncoder, BooleanEncoder
-AbstractItemEncoder = Any
-BooleanEncoder = Any
+# from pyasn1.codec.ber.encoder import AbstractItemEncoder
+AbstractItemEncoder: TypeAlias = Any
 
 CLASSES: Any
 

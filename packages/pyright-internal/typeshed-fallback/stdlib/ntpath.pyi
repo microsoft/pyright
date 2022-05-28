@@ -43,6 +43,7 @@ from posixpath import (
     supports_unicode_filenames as supports_unicode_filenames,
 )
 from typing import AnyStr, overload
+from typing_extensions import LiteralString
 
 if sys.version_info >= (3, 7) or sys.platform != "win32":
     __all__ = [
@@ -130,11 +131,13 @@ else:
 
     def splitunc(p: AnyStr) -> tuple[AnyStr, AnyStr]: ...  # deprecated
 
-altsep: str
+altsep: LiteralString
 
 # First parameter is not actually pos-only,
 # but must be defined as pos-only in the stub or cross-platform code doesn't type-check,
 # as the parameter name is different in posixpath.join()
+@overload
+def join(__path: LiteralString, *paths: LiteralString) -> LiteralString: ...
 @overload
 def join(__path: StrPath, *paths: StrPath) -> str: ...
 @overload

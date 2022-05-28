@@ -24,7 +24,7 @@ PyCF_ONLY_AST: int
 
 # ast classes
 
-identifier = str
+_identifier: TypeAlias = str
 
 class AST:
     _attributes: tuple[str, ...]
@@ -55,7 +55,7 @@ class stmt(AST):
     col_offset: int
 
 class FunctionDef(stmt):
-    name: identifier
+    name: _identifier
     args: arguments
     body: list[stmt]
     decorator_list: list[expr]
@@ -63,7 +63,7 @@ class FunctionDef(stmt):
     type_comment: str | None
 
 class AsyncFunctionDef(stmt):
-    name: identifier
+    name: _identifier
     args: arguments
     body: list[stmt]
     decorator_list: list[expr]
@@ -71,7 +71,7 @@ class AsyncFunctionDef(stmt):
     type_comment: str | None
 
 class ClassDef(stmt):
-    name: identifier
+    name: _identifier
     bases: list[expr]
     keywords: list[keyword]
     body: list[stmt]
@@ -151,15 +151,15 @@ class Import(stmt):
     names: list[alias]
 
 class ImportFrom(stmt):
-    module: identifier | None
+    module: _identifier | None
     names: list[alias]
     level: int | None
 
 class Global(stmt):
-    names: list[identifier]
+    names: list[_identifier]
 
 class Nonlocal(stmt):
-    names: list[identifier]
+    names: list[_identifier]
 
 class Expr(stmt):
     value: expr
@@ -276,7 +276,7 @@ class Ellipsis(expr): ...
 
 class Attribute(expr):
     value: expr
-    attr: identifier
+    attr: _identifier
     ctx: expr_context
 
 class Subscript(expr):
@@ -289,7 +289,7 @@ class Starred(expr):
     ctx: expr_context
 
 class Name(expr):
-    id: identifier
+    id: _identifier
     ctx: expr_context
 
 class List(expr):
@@ -349,7 +349,7 @@ class comprehension(AST):
 
 class ExceptHandler(AST):
     type: expr | None
-    name: identifier | None
+    name: _identifier | None
     body: list[stmt]
     lineno: int
     col_offset: int
@@ -363,19 +363,19 @@ class arguments(AST):
     defaults: list[expr]
 
 class arg(AST):
-    arg: identifier
+    arg: _identifier
     annotation: expr | None
     lineno: int
     col_offset: int
     type_comment: str | None
 
 class keyword(AST):
-    arg: identifier | None
+    arg: _identifier | None
     value: expr
 
 class alias(AST):
-    name: identifier
-    asname: identifier | None
+    name: _identifier
+    asname: _identifier | None
 
 class withitem(AST):
     context_expr: expr
