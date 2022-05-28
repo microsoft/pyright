@@ -9811,7 +9811,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // the call below to adjustCallableReturnType will "detach" these
         // TypeVars from the scope of this function and "attach" them to
         // the scope of the callable.
-        const unknownIfUnsolved = !isFunction(returnType);
+        let unknownIfUnsolved = !isFunction(returnType);
+
+        // We'll also leave TypeVars unsolved if the call is a recursive
+        // call to a generic function.
+        const typeVarScopes = getTypeVarScopesForNode(errorNode);
+        if (typeVarScopes.some(typeVarScope => typeVarContext.hasSolveForScope(typeVarScope))) {
+            unknownIfUnsolved = false;
+        }
 
         let specializedReturnType = addConditionToType(
             applySolvedTypeVars(
