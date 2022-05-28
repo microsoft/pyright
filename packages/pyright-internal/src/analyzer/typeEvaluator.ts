@@ -20725,7 +20725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // in the same union. If so, we can ignore this.
                 let isSubtypeSubsumed = false;
                 doForEachSubtype(srcType, (innerSubtype, innerSubtypeIndex) => {
-                    if (isSubtypeSubsumed || subtypeIndex === innerSubtypeIndex) {
+                    if (isSubtypeSubsumed || subtypeIndex === innerSubtypeIndex || isAnyOrUnknown(innerSubtype)) {
                         return;
                     }
 
