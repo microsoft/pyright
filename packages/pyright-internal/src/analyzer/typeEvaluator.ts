@@ -9816,7 +9816,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // We'll also leave TypeVars unsolved if the call is a recursive
         // call to a generic function.
         const typeVarScopes = getTypeVarScopesForNode(errorNode);
-        if (typeVarScopes.some(typeVarScope => typeVarContext.hasSolveForScope(typeVarScope))) {
+        if (typeVarScopes.some((typeVarScope) => typeVarContext.hasSolveForScope(typeVarScope))) {
             unknownIfUnsolved = false;
         }
 
