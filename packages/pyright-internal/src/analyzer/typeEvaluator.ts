@@ -18684,8 +18684,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
+        let sawExplicitTypeAlias = false;
         decls.forEach((decl, index) => {
             let considerDecl = declIndexToConsider === undefined || index === declIndexToConsider;
+
+            // If we have already seen an explicit type alias, do not consider
+            // additional decls. This can happen if multiple TypeAlias declarations
+            // are provided -- normally an error, but it can happen in stdlib stubs
+            // if the user sets the pythonPlatform to "All".
+            if (sawExplicitTypeAlias) {
+                considerDecl = false;
+            }
 
             if (usageNode !== undefined) {
                 if (decl.type !== DeclarationType.Alias) {
@@ -18703,6 +18712,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (considerDecl) {
                 const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(decl);
                 const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasDeclaration(decl);
+
+                if (isExplicitTypeAlias) {
+                    sawExplicitTypeAlias = true;
+                }
 
                 // If this is a type alias, evaluate it outside of the recursive symbol
                 // resolution check so we can evaluate the full assignment statement.
