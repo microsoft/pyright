@@ -55,8 +55,10 @@ export type AlternateSymbolNameMap = Map<string, string[]>;
 
 export interface PackageTypeReport {
     packageName: string;
+    moduleName: string;
     ignoreExternal: boolean;
-    rootDirectory: string | undefined;
+    packageRootDirectory: string | undefined;
+    moduleRootDirectory: string | undefined;
     pyTypedPath: string | undefined;
     missingFunctionDocStringCount: number;
     missingClassDocStringCount: number;
@@ -80,11 +82,19 @@ export interface PackageTypeReport {
     symbols: Map<string, SymbolInfo>;
 }
 
-export function getEmptyReport(packageName: string, rootDirectory: string, ignoreExternal: boolean) {
+export function getEmptyReport(
+    packageName: string,
+    packageRootDirectory: string,
+    moduleName: string,
+    moduleRootDirectory: string,
+    ignoreExternal: boolean
+) {
     const report: PackageTypeReport = {
         packageName,
         ignoreExternal,
-        rootDirectory,
+        packageRootDirectory,
+        moduleName,
+        moduleRootDirectory,
         pyTypedPath: undefined,
         missingFunctionDocStringCount: 0,
         missingClassDocStringCount: 0,

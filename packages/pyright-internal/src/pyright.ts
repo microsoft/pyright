@@ -59,8 +59,10 @@ interface PyrightSymbolCount {
 
 interface PyrightTypeCompletenessReport {
     packageName: string;
-    ignoreUnknownTypesFromImports: boolean;
     packageRootDirectory?: string | undefined;
+    moduleName: string;
+    moduleRootDirectory?: string | undefined;
+    ignoreUnknownTypesFromImports: boolean;
     pyTypedPath?: string | undefined;
     exportedSymbolCounts: PyrightSymbolCount;
     otherSymbolCounts: PyrightSymbolCount;
@@ -447,8 +449,10 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
 
     report.typeCompleteness = {
         packageName,
+        packageRootDirectory: completenessReport.packageRootDirectory,
+        moduleName: completenessReport.moduleName,
+        moduleRootDirectory: completenessReport.moduleRootDirectory,
         ignoreUnknownTypesFromImports: completenessReport.ignoreExternal,
-        packageRootDirectory: completenessReport.rootDirectory,
         pyTypedPath: completenessReport.pyTypedPath,
         exportedSymbolCounts: {
             withKnownType: 0,
@@ -533,9 +537,12 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
 function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOutput: boolean) {
     const completenessReport = results.typeCompleteness!;
 
-    console.log(`Package name: "${completenessReport.packageName}"`);
+    console.log(`Module name: "${completenessReport.moduleName}"`);
     if (completenessReport.packageRootDirectory !== undefined) {
         console.log(`Package directory: "${completenessReport.packageRootDirectory}"`);
+    }
+    if (completenessReport.moduleRootDirectory !== undefined) {
+        console.log(`Module directory: "${completenessReport.moduleRootDirectory}"`);
     }
 
     if (completenessReport.pyTypedPath !== undefined) {
