@@ -2567,7 +2567,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* reference */ undefined,
             /* targetSymbolId */ undefined,
             /* initialType */ UnboundType.create(),
-            /* isInitialTypeIncomplete */ false
+            /* isInitialTypeIncomplete */ false,
+            /* ignoreNoReturn */ true
         );
 
         return codeFlowResult.type !== undefined;
@@ -2588,7 +2589,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return allowSelf;
         }
 
-        return codeFlowEngine.isFlowNodeReachable(sinkFlowNode, sourceFlowNode);
+        return codeFlowEngine.isFlowNodeReachable(sinkFlowNode, sourceFlowNode, /* ignoreNoReturn */ true);
     }
 
     // Determines whether the specified string literal is part
@@ -3854,7 +3855,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node,
                     symbol.id,
                     typeAtStart,
-                    /* isInitialTypeIncomplete */ false
+                    /* isInitialTypeIncomplete */ false,
+                    /* startNode */ undefined,
+                    /* ignoreNoReturn */ symbol.hasTypedDeclarations()
                 );
                 if (codeFlowTypeResult.type) {
                     type = codeFlowTypeResult.type;
@@ -4040,7 +4043,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 return false;
                             }
 
-                            return !codeFlowEngine.isFlowNodeReachable(declCodeFlowNode, innerScopeCodeFlowNode);
+                            return !codeFlowEngine.isFlowNodeReachable(
+                                declCodeFlowNode,
+                                innerScopeCodeFlowNode,
+                                /* ignoreNoReturn */ true
+                            );
                         })
                     ) {
                         return getFlowTypeOfReference(
@@ -4048,7 +4055,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             symbolWithScope.symbol.id,
                             effectiveType,
                             /* isInitialTypeIncomplete */ false,
-                            innerScopeNode
+                            innerScopeNode,
+                            /* ignoreNoReturn */ true
                         );
                     }
                 }
@@ -17251,7 +17259,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         targetSymbolId: number,
         initialType: Type | undefined,
         isInitialTypeIncomplete: boolean,
-        startNode?: FunctionNode | LambdaNode
+        startNode?: FunctionNode | LambdaNode,
+        ignoreNoReturn = false
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
         const referenceKey = createKeyForReference(reference);
@@ -17284,7 +17293,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: undefined, isIncomplete: false };
         }
 
-        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, initialType, isInitialTypeIncomplete);
+        return analyzer.getTypeFromCodeFlow(
+            flowNode!,
+            reference,
+            targetSymbolId,
+            initialType,
+            isInitialTypeIncomplete,
+            ignoreNoReturn
+        );
     }
 
     // Specializes the specified (potentially generic) class type using
@@ -17790,7 +17806,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // to the source, see if the usage node is reachable by
                             // any path.
                             const flowNode = AnalyzerNodeInfo.getFlowNode(node);
-                            const isReachable = flowNode && codeFlowEngine.isFlowNodeReachable(flowNode);
+                            const isReachable =
+                                flowNode &&
+                                codeFlowEngine.isFlowNodeReachable(
+                                    flowNode,
+                                    /* sourceFlowNode */ undefined,
+                                    /* ignoreNoReturn */ true
+                                );
                             return !isReachable;
                         }
                     }

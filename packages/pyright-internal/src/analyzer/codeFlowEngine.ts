@@ -83,13 +83,14 @@ export interface CodeFlowAnalyzer {
         reference: CodeFlowReferenceExpressionNode | undefined,
         targetSymbolId: number | undefined,
         initialType: Type | undefined,
-        isInitialTypeIncomplete: boolean
+        isInitialTypeIncomplete: boolean,
+        ignoreNoReturn: boolean
     ) => FlowNodeTypeResult;
 }
 
 export interface CodeFlowEngine {
     createCodeFlowAnalyzer: () => CodeFlowAnalyzer;
-    isFlowNodeReachable: (flowNode: FlowNode, sourceFlowNode?: FlowNode) => boolean;
+    isFlowNodeReachable: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => boolean;
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
 }
 
@@ -121,7 +122,8 @@ export function getCodeFlowEngine(
             reference: CodeFlowReferenceExpressionNode | undefined,
             targetSymbolId: number | undefined,
             initialType: Type | undefined,
-            isInitialTypeIncomplete: boolean
+            isInitialTypeIncomplete: boolean,
+            ignoreNoReturn: boolean
         ): FlowNodeTypeResult {
             if (isPrintControlFlowGraphEnabled) {
                 printControlFlowGraph(flowNode, reference, 'getTypeFromCodeFlow');
@@ -329,7 +331,7 @@ export function getCodeFlowEngine(
                         // If this function returns a "NoReturn" type, that means
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
-                        if (isCallNoReturn(evaluator, callFlowNode)) {
+                        if (!ignoreNoReturn && isCallNoReturn(evaluator, callFlowNode)) {
                             return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                         }
 
@@ -907,7 +909,7 @@ export function getCodeFlowEngine(
     // control flow path within the execution context. If sourceFlowNode
     // is specified, it returns true only if at least one control flow
     // path passes through sourceFlowNode.
-    function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode): boolean {
+    function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn = false): boolean {
         const visitedFlowNodeMap = new Set<number>();
 
         if (isPrintControlFlowGraphEnabled) {
@@ -975,7 +977,7 @@ export function getCodeFlowEngine(
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    if (isCallNoReturn(evaluator, callFlowNode)) {
+                    if (!ignoreNoReturn && isCallNoReturn(evaluator, callFlowNode)) {
                         return false;
                     }
 
