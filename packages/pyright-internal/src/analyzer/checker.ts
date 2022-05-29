@@ -1491,6 +1491,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        const getMessage = () => {
+            return node.operator === OperatorType.Equals
+                ? Localizer.Diagnostic.comparisonAlwaysFalse()
+                : Localizer.Diagnostic.comparisonAlwaysTrue();
+        };
+
         // Check for the special case where the LHS and RHS are both literals.
         if (isLiteralTypeOrUnion(rightType) && isLiteralTypeOrUnion(leftType)) {
             if (evaluateStaticBoolExpression(node, this._fileInfo.executionEnvironment) === undefined) {
@@ -1506,7 +1512,7 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
                         DiagnosticRule.reportUnnecessaryComparison,
-                        Localizer.Diagnostic.comparisonAlwaysFalse().format({
+                        getMessage().format({
                             leftType: this._evaluator.printType(leftType, /* expandTypeAlias */ true),
                             rightType: this._evaluator.printType(rightType, /* expandTypeAlias */ true),
                         }),
@@ -1540,15 +1546,10 @@ export class Checker extends ParseTreeWalker {
                 const leftTypeText = this._evaluator.printType(leftType, /* expandTypeAlias */ true);
                 const rightTypeText = this._evaluator.printType(rightType, /* expandTypeAlias */ true);
 
-                const message =
-                    node.operator === OperatorType.Equals
-                        ? Localizer.Diagnostic.comparisonAlwaysFalse()
-                        : Localizer.Diagnostic.comparisonAlwaysTrue();
-
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
                     DiagnosticRule.reportUnnecessaryComparison,
-                    message.format({
+                    getMessage().format({
                         leftType: leftTypeText,
                         rightType: rightTypeText,
                     }),
