@@ -2814,8 +2814,8 @@ export class Binder extends ParseTreeWalker {
                     }
                 }
 
-                // Look for "X in Y".
-                if (expression.operator === OperatorType.In) {
+                // Look for "X in Y" or "X not in Y".
+                if (expression.operator === OperatorType.In || expression.operator === OperatorType.NotIn) {
                     return this._isNarrowingExpression(
                         expression.leftExpression,
                         expressionList,

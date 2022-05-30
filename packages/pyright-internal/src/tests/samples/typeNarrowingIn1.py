@@ -69,3 +69,17 @@ def func2(a: Literal[1, 2, 3]):
         reveal_type(a, expected_text="Literal[1, 2]")
     else:
         reveal_type(a, expected_text="Literal[1, 2, 3]")
+
+
+def func3(val: str | None, container: frozenset[str]):
+    if val in container:
+        reveal_type(val, expected_text="str")
+    else:
+        reveal_type(val, expected_text="str | None")
+
+
+def func4(val: str | None, container: list[str]):
+    if val not in container:
+        reveal_type(val, expected_text="str | None")
+    else:
+        reveal_type(val, expected_text="str")

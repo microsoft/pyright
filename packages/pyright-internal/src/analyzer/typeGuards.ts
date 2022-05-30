@@ -389,17 +389,20 @@ export function getTypeNarrowingCallback(
             }
         }
 
-        if (testExpression.operator === OperatorType.In) {
-            // Look for "x in y" where y is one of several built-in types.
-            if (isPositiveTest && ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
-                return (type: Type) => {
-                    return narrowTypeForContains(evaluator, type, rightType);
-                };
-            }
-        }
-
         if (testExpression.operator === OperatorType.In || testExpression.operator === OperatorType.NotIn) {
+            // Look for "x in y" or "x not in y" where y is one of several built-in types.
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+                const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                const adjIsPositiveTest =
+                    testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+
+                if (adjIsPositiveTest) {
+                    return (type: Type) => {
+                        return narrowTypeForContains(evaluator, type, rightType);
+                    };
+                }
+            }
+
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
                 // Look for <string literal> in y where y is a union that contains
                 // one or more TypedDicts.
@@ -1342,16 +1345,18 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
     const elementTypeWithoutLiteral = stripLiteralValue(elementType);
 
     const narrowedType = mapSubtypes(referenceType, (referenceSubtype) => {
-        if (isAnyOrUnknown(referenceSubtype)) {
+        const concreteReferenceType = evaluator.makeTopLevelTypeVarsConcrete(referenceSubtype);
+
+        if (isAnyOrUnknown(concreteReferenceType)) {
             canNarrow = false;
             return referenceSubtype;
         }
 
-        if (evaluator.assignType(elementType, referenceSubtype)) {
+        if (evaluator.assignType(elementType, concreteReferenceType)) {
             return referenceSubtype;
         }
 
-        if (evaluator.assignType(elementTypeWithoutLiteral, referenceSubtype)) {
+        if (evaluator.assignType(elementTypeWithoutLiteral, concreteReferenceType)) {
             return mapSubtypes(elementType, (elementSubtype) => {
                 if (isClassInstance(elementSubtype) && isSameWithoutLiteralValue(referenceSubtype, elementSubtype)) {
                     return elementSubtype;
