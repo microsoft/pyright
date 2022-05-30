@@ -2048,8 +2048,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return false;
     }
 
-    // Determines whether the specified expression is a symbol with a declared type
-    // (either a simple name or a member variable). If so, the type is returned.
+    // Determines whether the specified expression is a symbol with a declared type.
     function getDeclaredTypeForExpression(expression: ExpressionNode, usage?: EvaluatorUsage): Type | undefined {
         let symbol: Symbol | undefined;
         let classOrObjectBase: ClassType | undefined;
@@ -2130,7 +2129,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Index: {
-                const baseType = getDeclaredTypeForExpression(expression.baseExpression);
+                const baseType = makeTopLevelTypeVarsConcrete(
+                    getTypeOfExpression(expression.baseExpression, EvaluatorFlags.DoNotSpecialize).type
+                );
+
                 if (baseType && isClassInstance(baseType)) {
                     const setItemMember = lookUpClassMember(baseType, '__setitem__');
                     if (setItemMember) {
