@@ -83,3 +83,15 @@ def func4(val: str | None, container: list[str]):
         reveal_type(val, expected_text="str | None")
     else:
         reveal_type(val, expected_text="str")
+
+
+def func5(x: str | None, y: int | None, z: dict[str, str]):
+    if x in z:
+        reveal_type(x, expected_text="str")
+    else:
+        reveal_type(x, expected_text="str | None")
+
+    if y not in z:
+        reveal_type(y, expected_text="int | None")
+    else:
+        reveal_type(y, expected_text="Never")
