@@ -479,6 +479,10 @@ interface ClassDetails {
     inheritedSlotsNames?: string[];
     localSlotsNames?: string[];
 
+    // A cache of protocol classes (indexed by the class full name)
+    // that have been determined to be compatible with this class.
+    compatibleProtocols?: Set<string>;
+
     // Transforms to apply if this class is used as a metaclass
     // or a base class.
     classDataClassTransform?: DataClassBehaviors | undefined;

@@ -76,6 +76,16 @@ export function assignClassToProtocol(
         return true;
     }
 
+    // See if we've already determined that this class is compatible with this protocol.
+    if (
+        !treatSourceAsInstantiable &&
+        destType.details.typeParameters.length === 0 &&
+        srcType.details.typeParameters.length === 0 &&
+        srcType.details.compatibleProtocols?.has(destType.details.fullName)
+    ) {
+        return true;
+    }
+
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
 
@@ -99,6 +109,22 @@ export function assignClassToProtocol(
     }
 
     protocolAssignmentStack.pop();
+
+    // If the destination protocol is not generic and the source type is not
+    // generic and the two are compatible, cache that information so we can
+    // skip the check next time.
+    if (
+        isCompatible &&
+        !treatSourceAsInstantiable &&
+        destType.details.typeParameters.length === 0 &&
+        srcType.details.typeParameters.length === 0
+    ) {
+        if (!srcType.details.compatibleProtocols) {
+            srcType.details.compatibleProtocols = new Set<string>();
+        }
+
+        srcType.details.compatibleProtocols.add(destType.details.fullName);
+    }
 
     return isCompatible;
 }
