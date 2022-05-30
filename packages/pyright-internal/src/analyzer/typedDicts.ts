@@ -915,7 +915,7 @@ export function getTypeOfIndexedTypedDict(
     // If we have an "expected type" diagnostic addendum (used for assignments),
     // use that rather than the local diagnostic information because it will
     // be more informative.
-    if (usage.setExpectedTypeDiag) {
+    if (usage.setExpectedTypeDiag && !diag.isEmpty() && !usage.setExpectedTypeDiag.isEmpty()) {
         diag = usage.setExpectedTypeDiag;
     }
 
