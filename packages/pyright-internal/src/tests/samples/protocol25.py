@@ -2,7 +2,7 @@
 # __class_getitem__ during protocol matching.
 
 
-from typing import Any, Final, Iterable, Protocol
+from typing import Any, Iterable, Protocol
 
 
 class B:
