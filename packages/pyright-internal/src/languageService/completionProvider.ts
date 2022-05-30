@@ -1306,6 +1306,15 @@ export class CompletionProvider {
                 subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
                 if (isClass(subtype)) {
+                    // Handle LiteralString specially. Treat it like a 'str' for purposes
+                    // of completion suggestions.
+                    if (ClassType.isBuiltIn(subtype, 'LiteralString')) {
+                        const strObject = this._evaluator.getBuiltInObject(leftExprNode, 'str');
+                        if (strObject && isClassInstance(strObject)) {
+                            subtype = strObject;
+                        }
+                    }
+
                     getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ TypeBase.isInstance(subtype));
                 } else if (isModule(subtype)) {
                     getMembersForModule(subtype, symbolTable);
