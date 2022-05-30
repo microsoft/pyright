@@ -147,7 +147,19 @@ function assignClassToProtocolInternal(
             return;
         }
 
+        // If we've already determined that the types are not consistent and the caller
+        // hasn't requested detailed diagnostic output, we can shortcut the remainder.
+        if (!typesAreConsistent && !diag) {
+            return;
+        }
+
         mroClass.details.fields.forEach((symbol, name) => {
+            // If we've already determined that the types are not consistent and the caller
+            // hasn't requested detailed diagnostic output, we can shortcut the remainder.
+            if (!typesAreConsistent && !diag) {
+                return;
+            }
+
             if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch() && !checkedSymbolSet.has(name)) {
                 let isMemberFromMetaclass = false;
                 let srcMemberInfo: ClassMember | undefined;
