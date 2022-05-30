@@ -11751,11 +11751,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isClassInstance(subtype) || isInstantiableClass(subtype) || isTypeVar(subtype)) {
                 return handleSubtype(subtype);
             } else if (isNoneInstance(subtype)) {
-                // NoneType derives from 'object', so do the lookup on 'object'
-                // in this case.
-                const obj = getBuiltInObject(errorNode, 'object');
-                if (isClassInstance(obj)) {
-                    return handleSubtype(obj);
+                if (objectType && isClassInstance(objectType)) {
+                    // Use 'object' for 'None'.
+                    return handleSubtype(objectType);
+                }
+            } else if (isNoneTypeClass(subtype)) {
+                if (typeClassType && isInstantiableClass(typeClassType)) {
+                    // Use 'type' for 'type[None]'.
+                    return handleSubtype(ClassType.cloneAsInstance(typeClassType));
                 }
             }
 
