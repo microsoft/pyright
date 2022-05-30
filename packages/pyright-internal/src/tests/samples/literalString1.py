@@ -39,3 +39,5 @@ def func2(a: str):
 def func3(a: LiteralString):
     func2(a)
     a.lower()
+
+    _ = a + "hi" + a.capitalize()

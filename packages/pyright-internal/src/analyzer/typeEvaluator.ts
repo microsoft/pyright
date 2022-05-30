@@ -11750,14 +11750,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
+            if (
+                isClassInstance(subtype) &&
+                ClassType.isBuiltIn(subtype, 'LiteralString') &&
+                strClassType &&
+                isInstantiableClass(strClassType)
+            ) {
+                return handleSubtype(ClassType.cloneAsInstance(strClassType));
+            }
+
             if (isClassInstance(subtype) || isInstantiableClass(subtype) || isTypeVar(subtype)) {
                 return handleSubtype(subtype);
-            } else if (isNoneInstance(subtype)) {
+            }
+
+            if (isNoneInstance(subtype)) {
                 if (objectType && isClassInstance(objectType)) {
                     // Use 'object' for 'None'.
                     return handleSubtype(objectType);
                 }
-            } else if (isNoneTypeClass(subtype)) {
+            }
+
+            if (isNoneTypeClass(subtype)) {
                 if (typeClassType && isInstantiableClass(typeClassType)) {
                     // Use 'type' for 'type[None]'.
                     return handleSubtype(ClassType.cloneAsInstance(typeClassType));
