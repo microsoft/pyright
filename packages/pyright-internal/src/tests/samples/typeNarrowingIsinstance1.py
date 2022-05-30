@@ -150,3 +150,13 @@ def handler(node: Base1) -> Any:
         reveal_type(node.value, expected_text="Base1")
         if isinstance(node.value, Sub1):
             reveal_type(node.value, expected_text="Sub1")
+
+
+def func8(a: int | list[int] | dict[str, int] | None):
+    if isinstance(
+        a,
+        (str, (int, list, type(None))),
+    ):
+        reveal_type(a, expected_text="int | list[int] | None")
+    else:
+        reveal_type(a, expected_text="dict[str, int]")

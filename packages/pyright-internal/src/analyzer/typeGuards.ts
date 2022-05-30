@@ -859,8 +859,8 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
 // The "isinstance" and "issubclass" calls support two forms - a simple form
 // that accepts a single class, and a more complex form that accepts a tuple
-// of classes. This method determines which form and returns a list of classes
-// or undefined.
+// of classes (including arbitrarily-nested tuples). This method determines
+// which form and returns a list of classes or undefined.
 function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType | FunctionType)[] | undefined {
     let foundNonClassType = false;
     const classTypeList: (ClassType | TypeVarType | NoneType | FunctionType)[] = [];
@@ -886,16 +886,24 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
         });
     };
 
-    doForEachSubtype(argType, (subtype) => {
+    const addClassTypesRecursive = (subtype: Type, recursionCount = 0) => {
+        if (recursionCount > maxTypeRecursionCount) {
+            return;
+        }
+
         if (isClass(subtype) && TypeBase.isInstance(subtype) && isTupleClass(subtype)) {
             if (subtype.tupleTypeArguments) {
-                addClassTypesToList(subtype.tupleTypeArguments.map((t) => t.type));
+                subtype.tupleTypeArguments.forEach((tupleEntry) => {
+                    addClassTypesRecursive(tupleEntry.type, recursionCount + 1);
+                });
             }
         } else {
             addClassTypesToList([subtype]);
         }
+    };
 
-        return undefined;
+    doForEachSubtype(argType, (subtype) => {
+        addClassTypesRecursive(subtype);
     });
 
     return foundNonClassType ? undefined : classTypeList;
