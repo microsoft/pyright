@@ -13385,7 +13385,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeArgType;
     }
 
-    function createUnpackType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
+    function createUnpackType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
+    ): Type {
+        // If no type arguments are provided, the resulting type
+        // depends on whether we're evaluating a type annotation or
+        // we're in some other context.
+        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+            return classType;
+        }
+
         if (!typeArgs || typeArgs.length !== 1) {
             addError(Localizer.Diagnostic.unpackArgCount(), errorNode);
             return UnknownType.create();
@@ -17426,7 +17438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Unpack': {
-                    return createUnpackType(errorNode, typeArgs, flags);
+                    return createUnpackType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Required':

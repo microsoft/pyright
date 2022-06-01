@@ -56,3 +56,8 @@ def func11(*v11: Unpack[tuple[int, ...]]):
 
 def func12(*v11: Unpack[tuple[int, int]]):
     pass
+
+
+def func13(t: type):
+    if t is Unpack:
+        ...
