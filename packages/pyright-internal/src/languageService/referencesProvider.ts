@@ -15,6 +15,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { assertNever } from '../common/debug';
@@ -243,8 +244,14 @@ function isVisibleOutside(
         return false;
     });
 
-    function isExternallyVisible(symbol: Symbol): boolean {
-        // Return true if the symbol is visible outside of current module. false if not.
+    // Return true if the symbol is visible outside of current module, false if not.
+    function isExternallyVisible(symbol: Symbol, recursionCount = 0): boolean {
+        if (recursionCount > maxTypeRecursionCount) {
+            return false;
+        }
+
+        recursionCount++;
+
         if (symbol.isExternallyHidden()) {
             return false;
         }
@@ -262,14 +269,14 @@ function isVisibleOutside(
 
                 case DeclarationType.Class:
                 case DeclarationType.Function:
-                    return isVisible && isContainerExternallyVisible(decl.node.name);
+                    return isVisible && isContainerExternallyVisible(decl.node.name, recursionCount);
 
                 case DeclarationType.Parameter:
-                    return isVisible && isContainerExternallyVisible(decl.node.name!);
+                    return isVisible && isContainerExternallyVisible(decl.node.name!, recursionCount);
 
                 case DeclarationType.Variable: {
                     if (decl.node.nodeType === ParseNodeType.Name) {
-                        return isVisible && isContainerExternallyVisible(decl.node);
+                        return isVisible && isContainerExternallyVisible(decl.node, recursionCount);
                     }
 
                     // Symbol without name is not visible outside.
@@ -282,14 +289,16 @@ function isVisibleOutside(
         }, /* visible */ true);
     }
 
-    function isContainerExternallyVisible(node: NameNode) {
+    // Return true if the scope that contains the specified node is visible
+    // outside of the current module, false if not.
+    function isContainerExternallyVisible(node: NameNode, recursionCount: number) {
         const scopingNode = ParseTreeUtils.getEvaluationScopeNode(node);
         switch (scopingNode.nodeType) {
             case ParseNodeType.Class:
             case ParseNodeType.Function: {
                 const name = scopingNode.name;
                 const result = evaluator.lookUpSymbolRecursive(name, name.value, /* honorCodeFlow */ false);
-                return result ? isExternallyVisible(result.symbol) : true;
+                return result ? isExternallyVisible(result.symbol, recursionCount) : true;
             }
 
             case ParseNodeType.Lambda:
