@@ -517,6 +517,11 @@ const maxReturnTypeInferenceCodeFlowComplexity = 8;
 // to avoid excessive computation.
 const maxEntriesToUseForInference = 64;
 
+// How many assignments to an unannotated variable should be used
+// when inferring its type? We need to cut it off at some point
+// to avoid excessive computation.
+const maxDeclarationsToUseForInference = 64;
+
 // Maximum number of combinatoric union type expansions allowed
 // when resolving an overload.
 const maxOverloadUnionExpansionCount = 64;
@@ -18692,8 +18697,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let declIndexToConsider: number | undefined;
 
         // Limit the number of declarations to explore.
-        const maxDeclsToConsider = 16;
-        if (decls.length > maxDeclsToConsider) {
+        if (decls.length > maxDeclarationsToUseForInference) {
             return {
                 type: UnknownType.create(),
                 isIncomplete: false,
