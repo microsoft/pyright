@@ -528,7 +528,7 @@ const maxOverloadUnionExpansionCount = 64;
 
 // Maximum number of recursive function return type inference attempts
 // that can be concurrently pending before we give up.
-const maxInferFunctionReturnRecursionCount = 16;
+const maxInferFunctionReturnRecursionCount = 12;
 
 // This switch enables a special debug mode that attempts to catch
 // bugs due to inconsistent evaluation flags used when reading types
