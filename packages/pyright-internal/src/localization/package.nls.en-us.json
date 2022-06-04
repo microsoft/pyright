@@ -72,6 +72,7 @@
         "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",
         "dataClassFieldWithDefault": "Fields without default values cannot appear after fields with default values",
+        "dataClassFieldWithoutAnnotation": "Dataclass field without type annotation will cause runtime exception",
         "dataClassPostInitParamCount": "Dataclass __post_init__ incorrect parameter count; number of InitVar fields is {expected}",
         "dataClassPostInitType": "Dataclass __post_init__ method parameter type mismatch for field \"{fieldName}\"",
         "dataClassSlotsOverwrite": "__slots__ is already defined in class",

@@ -294,6 +294,7 @@ export namespace Localizer {
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
+        export const dataClassFieldWithoutAnnotation = () => getRawString('Diagnostic.dataClassFieldWithoutAnnotation');
         export const dataClassPostInitParamCount = () =>
             new ParameterizedString<{ expected: number }>(getRawString('Diagnostic.dataClassPostInitParamCount'));
         export const dataClassPostInitType = () =>

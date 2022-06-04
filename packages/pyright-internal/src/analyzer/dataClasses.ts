@@ -116,7 +116,7 @@ export function synthesizeDataClassMethods(
     const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: EntryTypeEvaluator }[] = [];
     let sawKeywordOnlySeparator = false;
 
-    classType.details.fields.forEach((symbol, name) => {
+    classType.details.fields.forEach((symbol) => {
         if (!symbol.isIgnoredForProtocolMatch()) {
             // Only variables (not functions, classes, etc.) are considered.
             const lastDecl = getLastTypedDeclaredForSymbol(symbol);
@@ -389,6 +389,46 @@ export function synthesizeDataClassMethods(
                                 evaluator.addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
                             }
                         }
+                    }
+                }
+            } else {
+                // The symbol had no declared type, so it is (mostly) ignored by dataclasses.
+                // However, if it is assigned a field descriptor, it will result in a
+                // runtime exception.
+                const declarations = symbol.getDeclarations();
+                if (declarations.length === 0) {
+                    return;
+                }
+                const lastDecl = declarations[declarations.length - 1];
+                if (lastDecl.type !== DeclarationType.Variable) {
+                    return;
+                }
+
+                const statement = lastDecl.node.parent;
+                if (!statement || statement.nodeType !== ParseNodeType.Assignment) {
+                    return;
+                }
+
+                // If the RHS of the assignment is assigning a field instance where the
+                // "init" parameter is set to false, do not include it in the init method.
+                if (statement.rightExpression.nodeType === ParseNodeType.Call) {
+                    const callType = evaluator.getTypeOfExpression(
+                        statement.rightExpression.leftExpression,
+                        EvaluatorFlags.DoNotSpecialize
+                    ).type;
+
+                    if (
+                        isDataclassFieldConstructor(
+                            callType,
+                            classType.details.dataClassBehaviors?.fieldDescriptorNames || []
+                        )
+                    ) {
+                        evaluator.addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.dataClassFieldWithoutAnnotation(),
+                            statement.rightExpression
+                        );
                     }
                 }
             }
