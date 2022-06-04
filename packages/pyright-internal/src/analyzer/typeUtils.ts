@@ -203,6 +203,7 @@ export enum ParameterSource {
 export interface VirtualParameterDetails {
     param: FunctionParameter;
     type: Type;
+    defaultArgType?: Type | undefined;
     index: number;
     source: ParameterSource;
 }
@@ -276,7 +277,12 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
     let sawKeywordOnlySeparator = false;
 
-    const addVirtualParameter = (param: FunctionParameter, index: number, typeOverride?: Type) => {
+    const addVirtualParameter = (
+        param: FunctionParameter,
+        index: number,
+        typeOverride?: Type,
+        defaultArgTypeOverride?: Type
+    ) => {
         if (param.name) {
             let source: ParameterSource;
             if (param.category === ParameterCategory.VarArgList) {
@@ -293,6 +299,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                 param,
                 index,
                 type: typeOverride ?? FunctionType.getEffectiveParameterType(type, index),
+                defaultArgType: defaultArgTypeOverride,
                 source,
             });
         }
@@ -390,7 +397,14 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                 result.positionParamCount++;
             }
 
-            addVirtualParameter(param, index);
+            addVirtualParameter(
+                param,
+                index,
+                /* typeOverride */ undefined,
+                type.specializedTypes?.parameterDefaultArgs
+                    ? type.specializedTypes?.parameterDefaultArgs[index]
+                    : undefined
+            );
         }
     });
 
@@ -2803,11 +2817,24 @@ class TypeVarTransformer {
 
         let variadicParamIndex: number | undefined;
         let variadicTypesToUnpack: TupleTypeArgument[] | undefined;
+        const specializedDefaultArgs: (Type | undefined)[] = [];
 
         for (let i = 0; i < functionType.details.parameters.length; i++) {
             const paramType = FunctionType.getEffectiveParameterType(functionType, i);
             const specializedType = this.apply(paramType, recursionCount);
             specializedParameters.parameterTypes.push(specializedType);
+
+            // Do we need to specialize the default argument type for this parameter?
+            let defaultArgType = FunctionType.getEffectiveParameterDefaultArgType(functionType, i);
+            if (defaultArgType) {
+                const specializedArgType = this.apply(defaultArgType, recursionCount);
+                if (specializedArgType !== defaultArgType) {
+                    defaultArgType = specializedArgType;
+                    typesRequiredSpecialization = true;
+                }
+            }
+            specializedDefaultArgs.push(defaultArgType);
+
             if (
                 variadicParamIndex === undefined &&
                 isVariadicTypeVar(paramType) &&
@@ -2832,6 +2859,10 @@ class TypeVarTransformer {
         let specializedInferredReturnType: Type | undefined;
         if (functionType.inferredReturnType) {
             specializedInferredReturnType = this.apply(functionType.inferredReturnType, recursionCount);
+        }
+
+        if (specializedDefaultArgs.some((t) => t !== undefined)) {
+            specializedParameters.parameterDefaultArgs = specializedDefaultArgs;
         }
 
         // If there was no unpacked variadic type variable, we're done.

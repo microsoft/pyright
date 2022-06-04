@@ -1108,7 +1108,17 @@ interface FunctionDetails {
 }
 
 export interface SpecializedFunctionTypes {
+    // Specialized types for each of the parameters in the "parameters" array.
     parameterTypes: Type[];
+
+    // Specialized types of default arguments for each parameter in
+    // the "parameters" array. If an entry is undefined or the entire array
+    // is missing, there is no specialized type, and the original "defaultType"
+    // should be used.
+    parameterDefaultArgs?: (Type | undefined)[];
+
+    // Specialized type of the declared return type. Undefined if there is
+    // no declared return type.
     returnType?: Type | undefined;
 }
 
@@ -1242,6 +1252,9 @@ export namespace FunctionType {
                 parameterTypes: stripFirstParam
                     ? type.specializedTypes.parameterTypes.slice(1)
                     : type.specializedTypes.parameterTypes,
+                parameterDefaultArgs: stripFirstParam
+                    ? type.specializedTypes.parameterDefaultArgs?.slice(1)
+                    : type.specializedTypes.parameterDefaultArgs,
                 returnType: type.specializedTypes.returnType,
             };
         }
@@ -1283,6 +1296,9 @@ export namespace FunctionType {
         newFunction.details = type.details;
 
         assert(specializedTypes.parameterTypes.length === type.details.parameters.length);
+        if (specializedTypes.parameterDefaultArgs) {
+            assert(specializedTypes.parameterDefaultArgs.length === type.details.parameters.length);
+        }
         newFunction.specializedTypes = specializedTypes;
 
         if (specializedInferredReturnType) {
@@ -1347,8 +1363,16 @@ export namespace FunctionType {
                     parameterTypes: [...type.specializedTypes.parameterTypes],
                     returnType: type.specializedTypes.returnType,
                 };
+                if (type.specializedTypes.parameterDefaultArgs) {
+                    newFunction.specializedTypes.parameterDefaultArgs = [...type.specializedTypes.parameterDefaultArgs];
+                }
                 paramSpecValue.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
+                    if (newFunction.specializedTypes!.parameterDefaultArgs) {
+                        // Assume that the parameters introduced via paramSpec have no specialized
+                        // default arg types. Fall back on the original default arg type in this case.
+                        newFunction.specializedTypes!.parameterDefaultArgs.push(undefined);
+                    }
                 });
             }
 
@@ -1437,6 +1461,13 @@ export namespace FunctionType {
                 0,
                 newFunction.specializedTypes.parameterTypes.length - 2
             );
+            if (newFunction.specializedTypes.parameterDefaultArgs) {
+                newFunction.specializedTypes.parameterDefaultArgs =
+                    newFunction.specializedTypes.parameterDefaultArgs.slice(
+                        0,
+                        newFunction.specializedTypes.parameterDefaultArgs.length - 2
+                    );
+            }
         }
 
         if (!newFunction.details.paramSpec) {
@@ -1588,6 +1619,19 @@ export namespace FunctionType {
         }
 
         return type.details.parameters[index].type;
+    }
+
+    export function getEffectiveParameterDefaultArgType(type: FunctionType, index: number): Type | undefined {
+        assert(index < type.details.parameters.length, 'Parameter types array overflow');
+
+        if (type.specializedTypes?.parameterDefaultArgs && index < type.specializedTypes.parameterDefaultArgs.length) {
+            const defaultArgType = type.specializedTypes.parameterDefaultArgs[index];
+            if (defaultArgType) {
+                return defaultArgType;
+            }
+        }
+
+        return type.details.parameters[index].defaultType;
     }
 
     export function addParameter(type: FunctionType, param: FunctionParameter) {

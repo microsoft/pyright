@@ -9364,9 +9364,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (param.category === ParameterCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name)!;
                         if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                            const defaultArgType = paramInfo.defaultArgType ?? param.defaultType;
+
                             if (
-                                param.defaultType &&
-                                !isEllipsisType(param.defaultType) &&
+                                defaultArgType &&
+                                !isEllipsisType(defaultArgType) &&
                                 requiresSpecialization(param.type)
                             ) {
                                 validateArgTypeParams.push({
@@ -9375,7 +9377,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     requiresTypeVarMatching: true,
                                     argument: {
                                         argumentCategory: ArgumentCategory.Simple,
-                                        type: param.defaultType,
+                                        type: defaultArgType,
                                     },
                                     errorNode: errorNode,
                                     paramName: param.name,
