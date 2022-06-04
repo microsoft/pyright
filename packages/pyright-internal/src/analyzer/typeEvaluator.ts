@@ -1766,7 +1766,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): TypeResult | undefined {
         let memberInfo: ClassMemberLookup | undefined;
 
-        if (ClassType.isPartiallyConstructed(classType)) {
+        if (ClassType.isPartiallyEvaluated(classType)) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -6115,7 +6115,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         concreteSubtype.details.typeParameters?.length > 0 ||
                         ClassType.isSpecialBuiltIn(concreteSubtype) ||
                         ClassType.isBuiltIn(concreteSubtype, 'type') ||
-                        ClassType.isPartiallyConstructed(concreteSubtype);
+                        ClassType.isPartiallyEvaluated(concreteSubtype);
                     const isFinalAnnotation =
                         isInstantiableClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'Final');
                     const isClassVarAnnotation =
@@ -14310,7 +14310,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (classDecl && classSymbol) {
             setSymbolResolutionPartialType(classSymbol, classDecl, classType);
         }
-        classType.details.flags |= ClassTypeFlags.PartiallyConstructed;
+        classType.details.flags |= ClassTypeFlags.PartiallyEvaluated;
         writeTypeCache(node, classType, /* flags */ undefined, /* isIncomplete */ false);
         writeTypeCache(node.name, classType, /* flags */ undefined, /* isIncomplete */ false);
 
@@ -14782,7 +14782,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Clear the "partially constructed" flag.
-        classType.details.flags &= ~ClassTypeFlags.PartiallyConstructed;
+        classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
 
         // Synthesize TypedDict methods.
         if (ClassType.isTypedDictClass(classType)) {
@@ -17523,7 +17523,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (typeArgs) {
             if (typeArgCount > typeParameters.length) {
-                if (!ClassType.isPartiallyConstructed(classType) && !ClassType.isTupleClass(classType)) {
+                if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (typeParameters.length === 0) {
                         addDiagnostic(
@@ -17696,7 +17696,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeArgType = adjustedTypeArgType;
                 } else {
                     // Avoid emitting this error for a partially-constructed class.
-                    if (!isClassInstance(typeArgType) || !ClassType.isPartiallyConstructed(typeArgType)) {
+                    if (!isClassInstance(typeArgType) || !ClassType.isPartiallyEvaluated(typeArgType)) {
                         const fileInfo = AnalyzerNodeInfo.getFileInfo(typeArgs![index].node);
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,

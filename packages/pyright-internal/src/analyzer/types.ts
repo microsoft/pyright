@@ -410,11 +410,11 @@ export const enum ClassTypeFlags {
     // The type is defined in the typing_extensions.pyi file.
     TypingExtensionClass = 1 << 16,
 
-    // The class type is in the process of being constructed and
+    // The class type is in the process of being evaluated and
     // is not yet complete. This allows us to detect cases where
     // the class refers to itself (e.g. uses itself as a type
     // argument to one of its generic base classes).
-    PartiallyConstructed = 1 << 17,
+    PartiallyEvaluated = 1 << 17,
 
     // The class or one of its ancestors defines a __class_getitem__
     // method that is used for subscripting. This is not set if the
@@ -835,8 +835,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.TypingExtensionClass);
     }
 
-    export function isPartiallyConstructed(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.PartiallyConstructed);
+    export function isPartiallyEvaluated(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.PartiallyEvaluated);
     }
 
     export function hasCustomClassGetItem(classType: ClassType) {
