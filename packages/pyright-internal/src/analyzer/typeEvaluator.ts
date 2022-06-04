@@ -3864,7 +3864,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeAtStart,
                     /* isInitialTypeIncomplete */ false,
                     /* startNode */ undefined,
-                    /* ignoreNoReturn */ symbol.hasTypedDeclarations()
+                    /* ignoreNoReturn */ false
                 );
                 if (codeFlowTypeResult.type) {
                     type = codeFlowTypeResult.type;
