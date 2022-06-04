@@ -12502,11 +12502,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfLambda(node: LambdaNode, expectedType: Type | undefined): TypeResult {
+        let isIncomplete = false;
         const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
         functionType.details.typeVarScopeId = getScopeIdForNode(node);
 
-        // Pre-cache the newly-created function type.
-        writeTypeCache(node, functionType, EvaluatorFlags.None, /* isIncomplete */ false);
+        // Pre-cache the incomplete function type in case the evaluation of the
+        // lambda depends on itself.
+        writeTypeCache(node, functionType, EvaluatorFlags.None, /* isIncomplete */ true);
 
         let expectedFunctionTypes: FunctionType[] = [];
         if (expectedType) {
@@ -12631,27 +12633,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we're speculatively evaluating the lambda, create another speculative
         // evaluation scope for the return expression and do not allow retention
         // of the cached types.
+        const inferLambdaReturnType = () => {
+            const returnTypeResult = getTypeOfExpression(node.expression, /* flags */ undefined, expectedReturnType);
+            functionType.inferredReturnType = returnTypeResult.type;
+            if (returnTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+        };
+
         if (speculativeTypeTracker.isSpeculative(node)) {
             useSpeculativeMode(
                 node.expression,
                 () => {
-                    functionType.inferredReturnType = getTypeOfExpression(
-                        node.expression,
-                        /* flags */ undefined,
-                        expectedReturnType
-                    ).type;
+                    inferLambdaReturnType();
                 },
                 /* allowCacheRetention */ false
             );
         } else {
-            functionType.inferredReturnType = getTypeOfExpression(
-                node.expression,
-                /* flags */ undefined,
-                expectedReturnType
-            ).type;
+            inferLambdaReturnType();
         }
 
-        return { type: functionType, node };
+        return { type: functionType, node, isIncomplete };
     }
 
     function getTypeOfListComprehension(node: ListComprehensionNode, expectedType?: Type): TypeResult {
