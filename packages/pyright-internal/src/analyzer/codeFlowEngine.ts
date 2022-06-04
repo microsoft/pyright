@@ -1266,7 +1266,6 @@ export function getCodeFlowEngine(
                 // Track the number of subtypes we've examined.
                 subtypeCount++;
 
-                let functionType: FunctionType | undefined;
                 if (isInstantiableClass(callSubtype)) {
                     // Does the class have a custom metaclass that implements a `__call__` method?
                     // If so, it will be called instead of `__init__` or `__new__`. We'll assume
@@ -1333,91 +1332,33 @@ export function getCodeFlowEngine(
                     }
                 }
 
+                const isCallAwaited = node.parent?.nodeType === ParseNodeType.Await;
                 if (isFunction(callSubtype)) {
-                    functionType = callSubtype;
+                    if (isFunctionNoReturn(callSubtype, isCallAwaited)) {
+                        noReturnTypeCount++;
+                    }
                 } else if (isOverloadedFunction(callSubtype)) {
-                    // Use the last overload, which should be the most general.
-                    const overloadedFunction = callSubtype;
-                    functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
-                }
+                    let overloadCount = 0;
+                    let noReturnOverloadCount = 0;
 
-                if (functionType) {
-                    const returnType = functionType.details.declaredReturnType;
-                    if (FunctionType.isAsync(functionType)) {
-                        if (
-                            returnType &&
-                            isClassInstance(returnType) &&
-                            ClassType.isBuiltIn(returnType, 'Coroutine') &&
-                            returnType.typeArguments &&
-                            returnType.typeArguments.length >= 3
-                        ) {
-                            if (isNever(returnType.typeArguments[2])) {
-                                if (node.parent?.nodeType === ParseNodeType.Await) {
-                                    noReturnTypeCount++;
-                                }
+                    callSubtype.overloads.forEach((overload) => {
+                        if (FunctionType.isOverloaded(overload)) {
+                            overloadCount++;
+
+                            if (isFunctionNoReturn(overload, isCallAwaited)) {
+                                noReturnOverloadCount++;
                             }
                         }
-                    } else if (returnType) {
-                        if (isNever(returnType)) {
+                    });
+
+                    // Was at least one of the overloaded return types NoReturn?
+                    if (noReturnOverloadCount > 0) {
+                        if (noReturnOverloadCount === overloadCount) {
                             noReturnTypeCount++;
                         }
-                    } else if (functionType.details.declaration) {
-                        // If the function has yield expressions, it's a generator, and
-                        // we'll assume the yield statements are reachable. Also, don't
-                        // infer a "no return" type for abstract methods.
-                        if (
-                            !functionType.details.declaration.yieldStatements &&
-                            !FunctionType.isAbstractMethod(functionType) &&
-                            !FunctionType.isStubDefinition(functionType) &&
-                            !FunctionType.isPyTypedDefinition(functionType)
-                        ) {
-                            // Check specifically for a common idiom where the only statement
-                            // (other than a possible docstring) is a "raise NotImplementedError".
-                            const functionStatements = functionType.details.declaration.node.suite.statements;
 
-                            let foundRaiseNotImplemented = false;
-                            for (const statement of functionStatements) {
-                                if (
-                                    statement.nodeType !== ParseNodeType.StatementList ||
-                                    statement.statements.length !== 1
-                                ) {
-                                    break;
-                                }
-
-                                const simpleStatement = statement.statements[0];
-                                if (simpleStatement.nodeType === ParseNodeType.StringList) {
-                                    continue;
-                                }
-
-                                if (
-                                    simpleStatement.nodeType === ParseNodeType.Raise &&
-                                    simpleStatement.typeExpression
-                                ) {
-                                    // Check for "raise NotImplementedError" or "raise NotImplementedError()"
-                                    const isNotImplementedName = (node: ParseNode) => {
-                                        return (
-                                            node?.nodeType === ParseNodeType.Name &&
-                                            node.value === 'NotImplementedError'
-                                        );
-                                    };
-
-                                    if (isNotImplementedName(simpleStatement.typeExpression)) {
-                                        foundRaiseNotImplemented = true;
-                                    } else if (
-                                        simpleStatement.typeExpression.nodeType === ParseNodeType.Call &&
-                                        isNotImplementedName(simpleStatement.typeExpression.leftExpression)
-                                    ) {
-                                        foundRaiseNotImplemented = true;
-                                    }
-                                }
-
-                                break;
-                            }
-
-                            if (!foundRaiseNotImplemented && !isAfterNodeReachable(evaluator, functionType)) {
-                                noReturnTypeCount++;
-                            }
-                        }
+                        // For now, assume that if some (but not all) overloads return
+                        // NoReturn that the call is not a NoReturn.
                     }
                 }
             });
@@ -1436,6 +1377,75 @@ export function getCodeFlowEngine(
         } finally {
             noReturnAnalysisDepth--;
         }
+    }
+
+    function isFunctionNoReturn(functionType: FunctionType, isCallAwaited: boolean) {
+        const returnType = functionType.details.declaredReturnType;
+        if (FunctionType.isAsync(functionType)) {
+            if (
+                returnType &&
+                isClassInstance(returnType) &&
+                ClassType.isBuiltIn(returnType, 'Coroutine') &&
+                returnType.typeArguments &&
+                returnType.typeArguments.length >= 3
+            ) {
+                if (isNever(returnType.typeArguments[2]) && isCallAwaited) {
+                    return true;
+                }
+            }
+        } else if (returnType) {
+            return isNever(returnType);
+        } else if (functionType.details.declaration) {
+            // If the function has yield expressions, it's a generator, and
+            // we'll assume the yield statements are reachable. Also, don't
+            // infer a "no return" type for abstract methods.
+            if (
+                !functionType.details.declaration.yieldStatements &&
+                !FunctionType.isAbstractMethod(functionType) &&
+                !FunctionType.isStubDefinition(functionType) &&
+                !FunctionType.isPyTypedDefinition(functionType)
+            ) {
+                // Check specifically for a common idiom where the only statement
+                // (other than a possible docstring) is a "raise NotImplementedError".
+                const functionStatements = functionType.details.declaration.node.suite.statements;
+
+                let foundRaiseNotImplemented = false;
+                for (const statement of functionStatements) {
+                    if (statement.nodeType !== ParseNodeType.StatementList || statement.statements.length !== 1) {
+                        break;
+                    }
+
+                    const simpleStatement = statement.statements[0];
+                    if (simpleStatement.nodeType === ParseNodeType.StringList) {
+                        continue;
+                    }
+
+                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.typeExpression) {
+                        // Check for "raise NotImplementedError" or "raise NotImplementedError()"
+                        const isNotImplementedName = (node: ParseNode) => {
+                            return node?.nodeType === ParseNodeType.Name && node.value === 'NotImplementedError';
+                        };
+
+                        if (isNotImplementedName(simpleStatement.typeExpression)) {
+                            foundRaiseNotImplemented = true;
+                        } else if (
+                            simpleStatement.typeExpression.nodeType === ParseNodeType.Call &&
+                            isNotImplementedName(simpleStatement.typeExpression.leftExpression)
+                        ) {
+                            foundRaiseNotImplemented = true;
+                        }
+                    }
+
+                    break;
+                }
+
+                if (!foundRaiseNotImplemented && !isAfterNodeReachable(evaluator, functionType)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     function isAfterNodeReachable(evaluator: TypeEvaluator, functionType: FunctionType) {
