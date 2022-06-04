@@ -195,6 +195,7 @@ export interface ClassTypeResult {
 export interface FunctionTypeResult {
     functionType: FunctionType;
     decoratedType: Type;
+    isIncomplete: boolean;
 }
 
 export interface CallSignature {

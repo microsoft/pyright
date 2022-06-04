@@ -1076,6 +1076,13 @@ export const enum FunctionTypeFlags {
     // This function represents the value bound to a ParamSpec, so its return
     // type is not meaningful.
     ParamSpecValue = 1 << 16,
+
+    // The function type is in the process of being evaluated and
+    // is not yet complete. This allows us to detect cases where
+    // the function refers to itself (e.g. uses a type annotation
+    // that contains a forward reference that requires the function
+    // type itself to be evaluated first).
+    PartiallyEvaluated = 1 << 17,
 }
 
 interface FunctionDetails {
@@ -1567,6 +1574,10 @@ export namespace FunctionType {
 
     export function isParamSpecValue(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.ParamSpecValue) !== 0;
+    }
+
+    export function isPartiallyEvaluated(type: FunctionType) {
+        return !!(type.details.flags & FunctionTypeFlags.PartiallyEvaluated);
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

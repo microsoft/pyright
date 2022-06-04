@@ -12503,7 +12503,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfLambda(node: LambdaNode, expectedType: Type | undefined): TypeResult {
         let isIncomplete = false;
-        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
+        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
         functionType.details.typeVarScopeId = getScopeIdForNode(node);
 
         // Pre-cache the incomplete function type in case the evaluation of the
@@ -12652,6 +12652,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             inferLambdaReturnType();
         }
+
+        // Mark the function type as no longer being evaluated.
+        functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
 
         return { type: functionType, node, isIncomplete };
     }
@@ -15134,6 +15137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return {
                 functionType: cachedFunctionType,
                 decoratedType: readTypeCache(node, EvaluatorFlags.None) || UnknownType.create(),
+                isIncomplete: FunctionType.isPartiallyEvaluated(cachedFunctionType),
             };
         }
 
@@ -15179,7 +15183,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.name.value,
             getFunctionFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
-            functionFlags,
+            functionFlags | FunctionTypeFlags.PartiallyEvaluated,
             ParseTreeUtils.getDocString(node.suite.statements)
         );
 
@@ -15518,6 +15522,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Clear the "partially evaluated" flag to indicate that the functionType
+        // is fully evaluated.
+        functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
+
         // If it's an async function, wrap the return type in an Awaitable or Generator.
         const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
 
@@ -15561,7 +15569,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(node.name, functionType, EvaluatorFlags.None, /* isIncomplete */ false);
         writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
 
-        return { functionType, decoratedType };
+        return { functionType, decoratedType, isIncomplete: false };
     }
 
     function adjustParameterAnnotatedType(param: ParameterNode, type: Type): Type {
@@ -18665,10 +18673,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (symbol.hasTypedDeclarations()) {
             const declaredType = getDeclaredTypeOfSymbol(symbol, usageNode);
             const typedDecls = symbol.getTypedDeclarations();
+            let isIncomplete = false;
+
+            if (declaredType && isFunction(declaredType) && FunctionType.isPartiallyEvaluated(declaredType)) {
+                isIncomplete = true;
+            }
 
             return {
                 type: declaredType ?? UnknownType.create(),
-                isIncomplete: false,
+                isIncomplete,
                 includesVariableDecl: typedDecls.some((decl) => decl.type === DeclarationType.Variable),
                 includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                 isRecursiveDefinition: !declaredType,
