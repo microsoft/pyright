@@ -9103,7 +9103,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     isPositionalOnly: false,
                                 });
                             } else {
-                                diag.addMessage(Localizer.Diagnostic.paramNameMissing().format({ name }));
+                                // If the function doesn't have a **kwargs parameter, we need to emit an error. 
+                                // However, it's possible that there was a **kwargs but it was eliminated by
+                                // getParameterListDetails because it was associated with an unpacked TypedDict.
+                                // In this case, we can skip the error.
+                                if (!paramDetails.hasUnpackedTypedDict) {
+                                    diag.addMessage(Localizer.Diagnostic.paramNameMissing().format({ name }));
+                                }
                             }
                         });
 

@@ -224,6 +224,7 @@ export interface ParameterListDetails {
 
     // Other information
     hasUnpackedVariadicTypeVar: boolean;
+    hasUnpackedTypedDict: boolean;
 }
 
 // Examines the input parameters within a function signature and creates a
@@ -236,6 +237,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         positionOnlyParamCount: 0,
         params: [],
         hasUnpackedVariadicTypeVar: false,
+        hasUnpackedTypedDict: false,
     };
 
     let positionOnlyIndex = type.details.parameters.findIndex(
@@ -381,6 +383,8 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         entry.valueType
                     );
                 });
+
+                result.hasUnpackedTypedDict = true;
             } else if (param.name) {
                 if (result.kwargsIndex === undefined) {
                     result.kwargsIndex = result.params.length;

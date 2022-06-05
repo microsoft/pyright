@@ -58,6 +58,8 @@ def func3():
 
     func1(**{"v1": 2, "v3": "4", "v4": 4})
 
+    func2(**td2)
+
     # This should generate an error because v1 is already specified.
     func1(v1=2, **td2)
 
