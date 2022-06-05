@@ -15145,7 +15145,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return {
                 functionType: cachedFunctionType,
                 decoratedType: readTypeCache(node, EvaluatorFlags.None) || UnknownType.create(),
-                isIncomplete: FunctionType.isPartiallyEvaluated(cachedFunctionType),
             };
         }
 
@@ -15577,7 +15576,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(node.name, functionType, EvaluatorFlags.None, /* isIncomplete */ false);
         writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
 
-        return { functionType, decoratedType, isIncomplete: false };
+        return { functionType, decoratedType };
     }
 
     function adjustParameterAnnotatedType(param: ParameterNode, type: Type): Type {
@@ -18683,8 +18682,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typedDecls = symbol.getTypedDeclarations();
             let isIncomplete = false;
 
-            if (declaredType && isFunction(declaredType) && FunctionType.isPartiallyEvaluated(declaredType)) {
-                isIncomplete = true;
+            if (declaredType) {
+                if (isFunction(declaredType) && FunctionType.isPartiallyEvaluated(declaredType)) {
+                    isIncomplete = true;
+                } else if (isClass(declaredType) && ClassType.isPartiallyEvaluated(declaredType)) {
+                    isIncomplete = true;
+                }
             }
 
             return {
