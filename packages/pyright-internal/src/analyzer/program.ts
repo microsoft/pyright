@@ -627,17 +627,21 @@ export class Program {
     // Prints import dependency information for each of the files in
     // the program, skipping any typeshed files.
     printDependencies(projectRootDir: string, verbose: boolean) {
+        const fs = this._importResolver.fileSystem;
         const sortedFiles = this._sourceFileList
             .filter((s) => !s.isTypeshedFile)
             .sort((a, b) => {
-                return a.sourceFile.getFilePath() < b.sourceFile.getFilePath() ? 1 : -1;
+                return fs.getOriginalFilePath(a.sourceFile.getFilePath()) <
+                    fs.getOriginalFilePath(b.sourceFile.getFilePath())
+                    ? 1
+                    : -1;
             });
 
         const zeroImportFiles: SourceFile[] = [];
 
         sortedFiles.forEach((sfInfo) => {
             this._console.info('');
-            let filePath = sfInfo.sourceFile.getFilePath();
+            let filePath = fs.getOriginalFilePath(sfInfo.sourceFile.getFilePath());
             const relPath = getRelativePath(filePath, projectRootDir);
             if (relPath) {
                 filePath = relPath;
@@ -650,7 +654,7 @@ export class Program {
             );
             if (verbose) {
                 sfInfo.imports.forEach((importInfo) => {
-                    this._console.info(`    ${importInfo.sourceFile.getFilePath()}`);
+                    this._console.info(`    ${fs.getOriginalFilePath(importInfo.sourceFile.getFilePath())}`);
                 });
             }
 
@@ -659,7 +663,7 @@ export class Program {
             );
             if (verbose) {
                 sfInfo.importedBy.forEach((importInfo) => {
-                    this._console.info(`    ${importInfo.sourceFile.getFilePath()}`);
+                    this._console.info(`    ${fs.getOriginalFilePath(importInfo.sourceFile.getFilePath())}`);
                 });
             }
 
@@ -674,7 +678,7 @@ export class Program {
                 `${zeroImportFiles.length} file${zeroImportFiles.length === 1 ? '' : 's'}` + ` not explicitly imported`
             );
             zeroImportFiles.forEach((importFile) => {
-                this._console.info(`    ${importFile.getFilePath()}`);
+                this._console.info(`    ${fs.getOriginalFilePath(importFile.getFilePath())}`);
             });
         }
     }
