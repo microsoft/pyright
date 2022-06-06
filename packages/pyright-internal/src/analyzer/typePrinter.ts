@@ -80,11 +80,7 @@ export function printType(
     const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
     const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
     const annotationFormat = (printTypeFlags & PrintTypeFlags.AnnotationFormat) !== 0;
-    printTypeFlags &= ~(
-        PrintTypeFlags.ParenthesizeUnion |
-        PrintTypeFlags.ParenthesizeCallable |
-        PrintTypeFlags.AnnotationFormat
-    );
+    printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
 
     // If this is a type alias, see if we should use its name rather than
     // the type it represents.
@@ -253,7 +249,7 @@ export function printType(
                 // If it's a Callable with a ParamSpec, use the
                 // Callable notation.
                 const parts = printFunctionParts(type, printTypeFlags, returnTypeCallback, recursionTypes);
-                const paramSignature = annotationFormat ? `${parts[0].join(', ')}` : `(${parts[0].join(', ')})`; // no brackets if it's an annotation
+                const paramSignature = annotationFormat ? `${parts[0].join(', ')}` : `(${parts[0].join(', ')})`;
 
                 if (FunctionType.isParamSpecValue(type)) {
                     return paramSignature;
