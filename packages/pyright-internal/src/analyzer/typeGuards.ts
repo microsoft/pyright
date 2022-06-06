@@ -1060,7 +1060,14 @@ function narrowTypeForIsInstance(
                             ]) as ClassType;
                         }
 
-                        filteredTypes.push(isInstanceCheck ? ClassType.cloneAsInstance(newClassType) : newClassType);
+                        const newClassInstanceType = ClassType.cloneAsInstance(newClassType);
+
+                        // If this is a issubclass check, we do a double conversion from instantiable
+                        // to instance back to instantiable to make sure that the includeSubclasses flag
+                        // gets cleared.
+                        filteredTypes.push(
+                            isInstanceCheck ? newClassInstanceType : ClassType.cloneAsInstantiable(newClassInstanceType)
+                        );
                     }
                 }
             } else if (isTypeVar(filterType) && TypeBase.isInstantiable(filterType)) {
@@ -1198,7 +1205,14 @@ function narrowTypeForIsInstance(
                         combineTypes(classTypeList.map((classType) => convertToInstance(classType)))
                     );
                 } else {
-                    anyOrUnknownSubstitutions.push(combineTypes(classTypeList));
+                    // We perform a double conversion from instance to instantiable
+                    // here to make sure that the includeSubclasses flag is cleared
+                    // if it's a class.
+                    anyOrUnknownSubstitutions.push(
+                        combineTypes(
+                            classTypeList.map((classType) => convertToInstantiable(convertToInstance(classType)))
+                        )
+                    );
                 }
 
                 anyOrUnknown.push(subtype);
