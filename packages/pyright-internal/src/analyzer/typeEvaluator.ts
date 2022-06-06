@@ -23090,11 +23090,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return TypePrinter.printFunctionParts(type, evaluatorOptions.printTypeFlags, getFunctionEffectiveReturnType);
     }
 
-    function printType(type: Type, expandTypeAlias = false): string {
+    function printType(type: Type, expandTypeAlias = false, annotationFormat = false): string {
         let flags = evaluatorOptions.printTypeFlags;
 
         if (expandTypeAlias) {
             flags |= TypePrinter.PrintTypeFlags.ExpandTypeAlias;
+        }
+
+        if (annotationFormat) {
+            flags |= TypePrinter.PrintTypeFlags.AnnotationFormat;
         }
 
         return TypePrinter.printType(type, flags, getFunctionEffectiveReturnType);

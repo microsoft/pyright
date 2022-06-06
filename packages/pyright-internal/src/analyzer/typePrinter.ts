@@ -64,6 +64,9 @@ export const enum PrintTypeFlags {
 
     // Include a parentheses around a callable.
     ParenthesizeCallable = 1 << 7,
+
+    // Print types as valid python annotations. ie. include the "Callable" keyword when printing functions
+    AnnotationFormat = 1 << 8,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -76,7 +79,12 @@ export function printType(
 ): string {
     const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
     const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
-    printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
+    const annotationFormat = (printTypeFlags & PrintTypeFlags.AnnotationFormat) !== 0;
+    printTypeFlags &= ~(
+        PrintTypeFlags.ParenthesizeUnion |
+        PrintTypeFlags.ParenthesizeCallable |
+        PrintTypeFlags.AnnotationFormat
+    );
 
     // If this is a type alias, see if we should use its name rather than
     // the type it represents.
@@ -245,11 +253,14 @@ export function printType(
                 // If it's a Callable with a ParamSpec, use the
                 // Callable notation.
                 const parts = printFunctionParts(type, printTypeFlags, returnTypeCallback, recursionTypes);
-                const paramSignature = `(${parts[0].join(', ')})`;
+                const paramSignature = annotationFormat ? `${parts[0].join(', ')}` : `(${parts[0].join(', ')})`; // no brackets if it's an annotation
+
                 if (FunctionType.isParamSpecValue(type)) {
                     return paramSignature;
                 }
-                const fullSignature = `${paramSignature} -> ${parts[1]}`;
+                const fullSignature = annotationFormat
+                    ? `Callable[${paramSignature}, ${parts[1]}]`
+                    : `${paramSignature} -> ${parts[1]}`;
 
                 if (parenthesizeCallable) {
                     return `(${fullSignature})`;
