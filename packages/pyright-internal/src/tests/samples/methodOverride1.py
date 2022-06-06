@@ -141,6 +141,12 @@ class ParentClass:
     def my_method34(self, /) -> None:
         ...
 
+    def my_method35(self, *, a: int) -> None:
+        ...
+        
+    def my_method36(self, *, a: int) -> None:
+        ...
+
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -180,10 +186,10 @@ class ChildClass(ParentClass):
     def my_method9(self, a: int, b: int, c: int = 4):
         return 1
 
-    def my_method10(self, a: int, b: int, *varg):
+    def my_method10(self, a: int, b: int, *args):
         return 1
 
-    def my_method11(self, a: int, b: int, *, c: str = "", **kwarg):
+    def my_method11(self, a: int, b: int, *, c: str = "", **kwargs):
         return 1
 
     # This should generate an error because the type of 'a' is
@@ -284,6 +290,15 @@ class ChildClass(ParentClass):
     # This should generate an error because it is not an instance method.
     @staticmethod
     def my_method34(a: Type[ParentClass], /) -> None:
+        ...
+
+    def my_method35(self, **kwargs: int) -> None:
+        ...
+
+    # This should generate an error because the method in the parent
+    # class has a keyword-only parameter that is type 'int', and this
+    # isn't compatible with 'str'.
+    def my_method36(self, **kwargs: str) -> None:
         ...
 
 

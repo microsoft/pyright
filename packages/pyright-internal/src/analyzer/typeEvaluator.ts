@@ -22621,7 +22621,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         baseKwOnlyParams.forEach((paramInfo) => {
             const overrideParamInfo = overrideWkOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
 
-            if (!overrideParamInfo) {
+            if (!overrideParamInfo && overrideParamDetails.kwargsIndex === undefined) {
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.overrideParamNameMissing().format({
                         name: paramInfo.param.name ?? '?',
@@ -22629,9 +22629,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
                 canOverride = false;
             } else {
+                let targetParamType = overrideParamInfo?.type;
+                if (!targetParamType) {
+                    targetParamType = overrideParamDetails.params[overrideParamDetails.kwargsIndex!].type;
+                }
+
                 if (
                     !assignType(
-                        overrideParamInfo.type,
+                        targetParamType,
                         paramInfo.type,
                         diag.createAddendum(),
                         new TypeVarContext(getTypeVarScopeId(overrideMethod)),
@@ -22643,19 +22648,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.DiagnosticAddendum.overrideParamKeywordType().format({
                             name: paramInfo.param.name ?? '?',
                             baseType: printType(paramInfo.type),
-                            overrideType: printType(overrideParamInfo.type),
+                            overrideType: printType(targetParamType),
                         })
                     );
                     canOverride = false;
                 }
 
-                if (paramInfo.param.hasDefault && !overrideParamInfo.param.hasDefault) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.overrideParamKeywordNoDefault().format({
-                            name: overrideParamInfo.param.name ?? '?',
-                        })
-                    );
-                    canOverride = false;
+                if (overrideParamInfo) {
+                    if (paramInfo.param.hasDefault && !overrideParamInfo.param.hasDefault) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.overrideParamKeywordNoDefault().format({
+                                name: overrideParamInfo.param.name ?? '?',
+                            })
+                        );
+                        canOverride = false;
+                    }
                 }
             }
         });

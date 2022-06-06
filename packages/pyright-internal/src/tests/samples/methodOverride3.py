@@ -86,12 +86,12 @@ _T_F = TypeVar("_T_F")
 
 
 class F1(Generic[_T_F]):
-    def dostuff(self) -> Iterable[_T_F]:
+    def do_stuff(self) -> Iterable[_T_F]:
         ...
 
 
 class F2(F1[_T_F]):
-    def dostuff(self) -> Iterable[_T_F]:
+    def do_stuff(self) -> Iterable[_T_F]:
         ...
 
 
