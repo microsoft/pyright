@@ -7656,75 +7656,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return newExpandedArgTypes;
     }
 
-    function validateConstructorMethodWithExpectedType(
-        errorNode: ExpressionNode,
-        argList: FunctionArgument[],
-        type: ClassType,
-        skipUnknownArgCheck: boolean,
-        expectedType: Type,
-        constructorMethodType: Type
-    ): CallResult | undefined {
-        let isTypeIncomplete = false;
-        let argumentErrors = false;
-
-        const returnType = mapSubtypes(expectedType, (expectedSubType) => {
-            expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-            if (
-                populateTypeVarContextBasedOnExpectedType(
-                    evaluatorInterface,
-                    ClassType.cloneAsInstance(type),
-                    expectedSubType,
-                    typeVarContext,
-                    getTypeVarScopesForNode(errorNode)
-                )
-            ) {
-                let callResult: CallResult | undefined;
-                useSpeculativeMode(errorNode, () => {
-                    callResult = validateCallArguments(
-                        errorNode,
-                        argList,
-                        { type: constructorMethodType },
-                        typeVarContext.clone(),
-                        skipUnknownArgCheck,
-                        NoneType.createInstance()
-                    );
-                });
-
-                if (!callResult?.argumentErrors) {
-                    // Call validateCallArguments again, this time without speculative
-                    // mode, so any errors are reported.
-                    const callResult = validateCallArguments(
-                        errorNode,
-                        argList,
-                        { type: constructorMethodType },
-                        typeVarContext,
-                        skipUnknownArgCheck,
-                        NoneType.createInstance()
-                    );
-
-                    if (callResult.isTypeIncomplete) {
-                        isTypeIncomplete = true;
-                    }
-
-                    if (callResult.argumentErrors) {
-                        argumentErrors = true;
-                    }
-
-                    return applyExpectedSubtypeForConstructor(type, expectedSubType, typeVarContext);
-                }
-            }
-
-            return undefined;
-        });
-
-        if (isNever(returnType)) {
-            return undefined;
-        }
-
-        return { returnType, isTypeIncomplete, argumentErrors };
-    }
-
     // Tries to match the arguments of a call to the constructor for a class.
     // If successful, it returns the resulting (specialized) object type that
     // is allocated by the constructor. If unsuccessful, it records diagnostic
@@ -8045,6 +7976,76 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const result: CallResult = { argumentErrors: reportedErrors, returnType, isTypeIncomplete };
 
         return result;
+    }
+
+    // For a constructor call that targets a generic class and an "expected type"
+    // (i.e. bidirectional inference), this function attempts to infer the correct
+    // specialized return type for the constructor.
+    function validateConstructorMethodWithExpectedType(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        type: ClassType,
+        skipUnknownArgCheck: boolean,
+        expectedType: Type,
+        constructorMethodType: Type
+    ): CallResult | undefined {
+        let isTypeIncomplete = false;
+        let argumentErrors = false;
+
+        const returnType = mapSubtypes(expectedType, (expectedSubType) => {
+            expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
+            const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
+            if (
+                populateTypeVarContextBasedOnExpectedType(
+                    evaluatorInterface,
+                    ClassType.cloneAsInstance(type),
+                    expectedSubType,
+                    typeVarContext,
+                    getTypeVarScopesForNode(errorNode)
+                )
+            ) {
+                let callResult: CallResult | undefined;
+                useSpeculativeMode(errorNode, () => {
+                    callResult = validateCallArguments(
+                        errorNode,
+                        argList,
+                        { type: constructorMethodType },
+                        typeVarContext.clone(),
+                        skipUnknownArgCheck
+                    );
+                });
+
+                if (!callResult?.argumentErrors) {
+                    // Call validateCallArguments again, this time without speculative
+                    // mode, so any errors are reported.
+                    const callResult = validateCallArguments(
+                        errorNode,
+                        argList,
+                        { type: constructorMethodType },
+                        typeVarContext,
+                        skipUnknownArgCheck
+                    );
+
+                    if (callResult.isTypeIncomplete) {
+                        isTypeIncomplete = true;
+                    }
+
+                    if (callResult.argumentErrors) {
+                        argumentErrors = true;
+                    }
+
+                    return applyExpectedSubtypeForConstructor(type, expectedSubType, typeVarContext);
+                }
+            }
+
+            return undefined;
+        });
+
+        if (isNever(returnType)) {
+            return undefined;
+        }
+
+        return { returnType, isTypeIncomplete, argumentErrors };
     }
 
     function applyExpectedSubtypeForConstructor(
