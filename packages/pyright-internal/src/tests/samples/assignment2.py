@@ -27,7 +27,7 @@ reveal_type(v4["bbb"], expected_text="Literal['bbb']")
 reveal_type(v4["ccc"], expected_text="int | str")
 
 
-class Assymetric:
+class Asymmetric:
     def __setitem__(self, i: int, value: object) -> None:
         ...
 
@@ -35,6 +35,6 @@ class Assymetric:
         ...
 
 
-v5 = Assymetric()
+v5 = Asymmetric()
 v5[0] = 3
 reveal_type(v5[0], expected_text="int")

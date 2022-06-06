@@ -183,8 +183,8 @@ export function clonePropertyWithSetter(
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
     computeMroLinearization(propertyClass);
 
-    const propertyObject = ClassType.cloneAsInstance(propertyClass);
     propertyClass.isAsymmetricDescriptor = isAsymmetricDescriptor;
+    const propertyObject = ClassType.cloneAsInstance(propertyClass);
 
     // Clone the symbol table of the old class type.
     const fields = propertyClass.details.fields;

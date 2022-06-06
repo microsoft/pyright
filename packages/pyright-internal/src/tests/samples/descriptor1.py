@@ -21,12 +21,20 @@ class A:
     def prop2(self, val: int) -> None:
         ...
 
+    @prop2.deleter
+    def prop2(self) -> None:
+        ...
+
     @property
     def prop3(self) -> int:
         ...
 
     @prop3.setter
     def prop3(self, val: Optional[int]) -> None:
+        ...
+
+    @prop3.deleter
+    def prop3(self) -> None:
         ...
 
 
