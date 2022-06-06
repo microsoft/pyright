@@ -14203,6 +14203,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }),
                                 node.rightExpression
                             );
+
+                            rightHandType = UnknownType.create();
                         }
 
                         // Set the resulting type to the boundType of the original type alias
