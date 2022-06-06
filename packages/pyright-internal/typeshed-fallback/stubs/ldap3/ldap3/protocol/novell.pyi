@@ -1,11 +1,12 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 # Enable when pyasn1 gets stubs:
 # from pyasn1.type.univ import Integer, OctetString, Sequence, SequenceOf
-Integer = Any
-OctetString = Any
-Sequence = Any
-SequenceOf = Any
+Integer: TypeAlias = Any
+OctetString: TypeAlias = Any
+Sequence: TypeAlias = Any
+SequenceOf: TypeAlias = Any
 
 NMAS_LDAP_EXT_VERSION: int
 

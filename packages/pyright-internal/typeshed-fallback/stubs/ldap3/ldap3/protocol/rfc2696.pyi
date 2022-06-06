@@ -1,10 +1,11 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 # Enable when pyasn1 gets stubs:
 # from pyasn1.type.univ import Integer, OctetString, Sequence
-Integer = Any
-OctetString = Any
-Sequence = Any
+Integer: TypeAlias = Any
+OctetString: TypeAlias = Any
+Sequence: TypeAlias = Any
 
 MAXINT: Any
 rangeInt0ToMaxConstraint: Any

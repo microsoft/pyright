@@ -1,12 +1,13 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 from . import util
 
-AssignmentStmt = Any  # from mypy.nodes
-NameExpr = Any  # from mypy.nodes
-StrExpr = Any  # from mypy.nodes
-SemanticAnalyzerPluginInterface = Any  # from mypy.plugin
-ProperType = Any  # from mypy.types
+AssignmentStmt: TypeAlias = Any  # from mypy.nodes
+NameExpr: TypeAlias = Any  # from mypy.nodes
+StrExpr: TypeAlias = Any  # from mypy.nodes
+SemanticAnalyzerPluginInterface: TypeAlias = Any  # from mypy.plugin
+ProperType: TypeAlias = Any  # from mypy.types
 
 def apply_mypy_mapped_attr(
     cls, api: SemanticAnalyzerPluginInterface, item: NameExpr | StrExpr, attributes: list[util.SQLAlchemyAttribute]

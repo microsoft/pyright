@@ -40,7 +40,11 @@ else:
     __all__ = ["Package", "Resource", "contents", "is_resource", "open_binary", "open_text", "path", "read_binary", "read_text"]
 
 Package: TypeAlias = str | ModuleType
-Resource: TypeAlias = str | os.PathLike[Any]
+
+if sys.version_info >= (3, 11):
+    Resource: TypeAlias = str
+else:
+    Resource: TypeAlias = str | os.PathLike[Any]
 
 def open_binary(package: Package, resource: Resource) -> BinaryIO: ...
 def open_text(package: Package, resource: Resource, encoding: str = ..., errors: str = ...) -> TextIO: ...

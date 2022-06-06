@@ -731,6 +731,8 @@ if sys.version_info >= (3, 9):
         if sys.version_info >= (3, 11):
             @property
             def __unpacked__(self) -> bool: ...
+            @property
+            def __typing_unpacked_tuple_args__(self) -> tuple[Any, ...] | None: ...
 
         def __getattr__(self, name: str) -> Any: ...  # incomplete
 

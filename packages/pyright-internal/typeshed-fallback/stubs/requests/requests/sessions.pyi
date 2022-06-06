@@ -48,12 +48,16 @@ class SessionRedirectMixin:
 _Data: TypeAlias = str | bytes | Mapping[str, Any] | Iterable[tuple[str, str | None]] | IO[Any]
 _Auth: TypeAlias = Union[tuple[str, str], _auth.AuthBase, Callable[[PreparedRequest], PreparedRequest]]
 _Cert: TypeAlias = Union[str, tuple[str, str]]
-_Files: TypeAlias = (
-    Mapping[str, SupportsRead[str | bytes] | str | bytes]
-    | Mapping[str, tuple[str | None, SupportsRead[str | bytes] | str | bytes]]
-    | Mapping[str, tuple[str | None, SupportsRead[str | bytes] | str | bytes, str]]
-    | Mapping[str, tuple[str | None, SupportsRead[str | bytes] | str | bytes, str, _TextMapping]]
-)
+# Files is passed to requests.utils.to_key_val_list()
+_FileName: TypeAlias = str | None
+_FileContent: TypeAlias = SupportsRead[str | bytes] | str | bytes
+_FileContentType: TypeAlias = str
+_FileCustomHeaders: TypeAlias = Mapping[str, str]
+_FileSpecTuple2: TypeAlias = tuple[_FileName, _FileContent]
+_FileSpecTuple3: TypeAlias = tuple[_FileName, _FileContent, _FileContentType]
+_FileSpecTuple4: TypeAlias = tuple[_FileName, _FileContent, _FileContentType, _FileCustomHeaders]
+_FileSpec: TypeAlias = _FileContent | _FileSpecTuple2 | _FileSpecTuple3 | _FileSpecTuple4
+_Files: TypeAlias = Mapping[str, _FileSpec] | Iterable[tuple[str, _FileSpec]]
 _Hook: TypeAlias = Callable[[Response], Any]
 _HooksInput: TypeAlias = Mapping[str, Iterable[_Hook] | _Hook]
 

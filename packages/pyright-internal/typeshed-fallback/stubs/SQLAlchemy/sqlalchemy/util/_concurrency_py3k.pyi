@@ -1,10 +1,11 @@
 import asyncio as asyncio
 from collections.abc import Callable, Coroutine
 from typing import Any
+from typing_extensions import TypeAlias
 
 from .langhelpers import memoized_property
 
-_greenlet = Any  # actually greenlet.greenlet
+_greenlet: TypeAlias = Any  # actually greenlet.greenlet
 
 def is_exit_exception(e): ...
 

@@ -91,6 +91,8 @@ class TCPServer(BaseServer):
     def get_request(self) -> tuple[_socket, Any]: ...
 
 class UDPServer(BaseServer):
+    if sys.version_info >= (3, 11):
+        allow_reuse_port: bool
     max_packet_size: ClassVar[int]
     def get_request(self) -> tuple[tuple[bytes, _socket], Any]: ...
 

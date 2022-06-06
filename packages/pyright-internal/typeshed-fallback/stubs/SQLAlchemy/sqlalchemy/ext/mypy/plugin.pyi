@@ -1,12 +1,13 @@
 from collections.abc import Callable
 from typing import Any
+from typing_extensions import TypeAlias
 
-MypyFile = Any  # from mypy.nodes
-AttributeContext = Any  # from mypy.plugin
-ClassDefContext = Any  # from mypy.plugin
-DynamicClassDefContext = Any  # from mypy.plugin
-Plugin = Any  # from mypy.plugin
-Type = Any  # from mypy.types
+MypyFile: TypeAlias = Any  # from mypy.nodes
+AttributeContext: TypeAlias = Any  # from mypy.plugin
+ClassDefContext: TypeAlias = Any  # from mypy.plugin
+DynamicClassDefContext: TypeAlias = Any  # from mypy.plugin
+Plugin: TypeAlias = Any  # from mypy.plugin
+Type: TypeAlias = Any  # from mypy.types
 
 class SQLAlchemyPlugin(Plugin):
     def get_dynamic_class_hook(self, fullname: str) -> Callable[[DynamicClassDefContext], None] | None: ...

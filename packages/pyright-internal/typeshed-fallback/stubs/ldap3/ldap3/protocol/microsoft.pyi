@@ -1,8 +1,9 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 # Enable when pyasn1 gets stubs:
 # from pyasn1.type.univ import Sequence
-Sequence = Any
+Sequence: TypeAlias = Any
 
 class SicilyBindResponse(Sequence):
     tagSet: Any

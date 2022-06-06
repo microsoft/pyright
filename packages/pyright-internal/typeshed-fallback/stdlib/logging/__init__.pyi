@@ -12,50 +12,97 @@ from typing_extensions import Literal, TypeAlias
 if sys.version_info >= (3, 11):
     from types import GenericAlias
 
-__all__ = [
-    "BASIC_FORMAT",
-    "BufferingFormatter",
-    "CRITICAL",
-    "DEBUG",
-    "ERROR",
-    "FATAL",
-    "FileHandler",
-    "Filter",
-    "Formatter",
-    "Handler",
-    "INFO",
-    "LogRecord",
-    "Logger",
-    "LoggerAdapter",
-    "NOTSET",
-    "NullHandler",
-    "StreamHandler",
-    "WARN",
-    "WARNING",
-    "addLevelName",
-    "basicConfig",
-    "captureWarnings",
-    "critical",
-    "debug",
-    "disable",
-    "error",
-    "exception",
-    "fatal",
-    "getLevelName",
-    "getLogger",
-    "getLoggerClass",
-    "info",
-    "log",
-    "makeLogRecord",
-    "setLoggerClass",
-    "shutdown",
-    "warn",
-    "warning",
-    "getLogRecordFactory",
-    "setLogRecordFactory",
-    "lastResort",
-    "raiseExceptions",
-]
+if sys.version_info >= (3, 11):
+    __all__ = [
+        "BASIC_FORMAT",
+        "BufferingFormatter",
+        "CRITICAL",
+        "DEBUG",
+        "ERROR",
+        "FATAL",
+        "FileHandler",
+        "Filter",
+        "Formatter",
+        "Handler",
+        "INFO",
+        "LogRecord",
+        "Logger",
+        "LoggerAdapter",
+        "NOTSET",
+        "NullHandler",
+        "StreamHandler",
+        "WARN",
+        "WARNING",
+        "addLevelName",
+        "basicConfig",
+        "captureWarnings",
+        "critical",
+        "debug",
+        "disable",
+        "error",
+        "exception",
+        "fatal",
+        "getLevelName",
+        "getLogger",
+        "getLoggerClass",
+        "info",
+        "log",
+        "makeLogRecord",
+        "setLoggerClass",
+        "shutdown",
+        "warn",
+        "warning",
+        "getLogRecordFactory",
+        "setLogRecordFactory",
+        "lastResort",
+        "raiseExceptions",
+        "getLevelNamesMapping",
+    ]
+else:
+    __all__ = [
+        "BASIC_FORMAT",
+        "BufferingFormatter",
+        "CRITICAL",
+        "DEBUG",
+        "ERROR",
+        "FATAL",
+        "FileHandler",
+        "Filter",
+        "Formatter",
+        "Handler",
+        "INFO",
+        "LogRecord",
+        "Logger",
+        "LoggerAdapter",
+        "NOTSET",
+        "NullHandler",
+        "StreamHandler",
+        "WARN",
+        "WARNING",
+        "addLevelName",
+        "basicConfig",
+        "captureWarnings",
+        "critical",
+        "debug",
+        "disable",
+        "error",
+        "exception",
+        "fatal",
+        "getLevelName",
+        "getLogger",
+        "getLoggerClass",
+        "info",
+        "log",
+        "makeLogRecord",
+        "setLoggerClass",
+        "shutdown",
+        "warn",
+        "warning",
+        "getLogRecordFactory",
+        "setLogRecordFactory",
+        "lastResort",
+        "raiseExceptions",
+    ]
 
 _SysExcInfoType: TypeAlias = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
 _ExcInfoType: TypeAlias = None | bool | _SysExcInfoType | BaseException
@@ -711,6 +758,10 @@ else:
 
 def addLevelName(level: int, levelName: str) -> None: ...
 def getLevelName(level: _Level) -> Any: ...
+
+if sys.version_info >= (3, 11):
+    def getLevelNamesMapping() -> dict[str, int]: ...
+
 def makeLogRecord(dict: Mapping[str, object]) -> LogRecord: ...
 
 if sys.version_info >= (3, 9):
@@ -825,8 +876,8 @@ class PercentStyle:  # undocumented
     def format(self, record: Any) -> str: ...
 
 class StrFormatStyle(PercentStyle):  # undocumented
-    fmt_spec = Any
-    field_spec = Any
+    fmt_spec: Pattern[str]
+    field_spec: Pattern[str]
 
 class StringTemplateStyle(PercentStyle):  # undocumented
     _tpl: Template

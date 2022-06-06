@@ -1,9 +1,10 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 # Enable when pyasn1 gets stubs:
 # from pyasn1.type.univ import Enumerated, Sequence
-Enumerated = Any
-Sequence = Any
+Enumerated: TypeAlias = Any
+Sequence: TypeAlias = Any
 
 class PersistentSearchControl(Sequence):
     componentType: Any

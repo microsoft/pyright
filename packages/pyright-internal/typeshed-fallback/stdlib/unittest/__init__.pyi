@@ -32,6 +32,39 @@ if sys.version_info >= (3, 8):
 
     from .case import addModuleCleanup as addModuleCleanup
 
+if sys.version_info >= (3, 11):
+    from .case import doModuleCleanups as doModuleCleanups, enterModuleContext as enterModuleContext
+
+if sys.version_info >= (3, 11):
+    __all__ = [
+        "TestResult",
+        "TestCase",
+        "IsolatedAsyncioTestCase",
+        "TestSuite",
+        "TextTestRunner",
+        "TestLoader",
+        "FunctionTestCase",
+        "main",
+        "defaultTestLoader",
+        "SkipTest",
+        "skip",
+        "skipIf",
+        "skipUnless",
+        "expectedFailure",
+        "TextTestResult",
+        "installHandler",
+        "registerResult",
+        "removeResult",
+        "removeHandler",
+        "addModuleCleanup",
+        "doModuleCleanups",
+        "enterModuleContext",
+        "getTestCaseNames",
+        "makeSuite",
+        "findTestCases",
+    ]
+
+elif sys.version_info >= (3, 8):
     __all__ = [
         "TestResult",
         "TestCase",

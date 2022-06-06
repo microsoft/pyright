@@ -1,14 +1,15 @@
 from collections.abc import Sequence
 from typing import Any
+from typing_extensions import TypeAlias
 
-AssignmentStmt = Any  # from mypy.nodes
-Expression = Any  # from mypy.nodes
-RefExpr = Any  # from mypy.nodes
-TypeInfo = Any  # from mypy.nodes
-Var = Any  # from mypy.nodes
-StrExpr = Any  # from mypy.nodes
-SemanticAnalyzerPluginInterface = Any  # from mypy.plugin
-ProperType = Any  # from mypy.types
+AssignmentStmt: TypeAlias = Any  # from mypy.nodes
+Expression: TypeAlias = Any  # from mypy.nodes
+RefExpr: TypeAlias = Any  # from mypy.nodes
+TypeInfo: TypeAlias = Any  # from mypy.nodes
+Var: TypeAlias = Any  # from mypy.nodes
+StrExpr: TypeAlias = Any  # from mypy.nodes
+SemanticAnalyzerPluginInterface: TypeAlias = Any  # from mypy.plugin
+ProperType: TypeAlias = Any  # from mypy.types
 
 def infer_type_from_right_hand_nameexpr(
     api: SemanticAnalyzerPluginInterface,

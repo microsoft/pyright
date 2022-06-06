@@ -1,9 +1,10 @@
 from typing import Any
+from typing_extensions import TypeAlias
 
 # Enable when pyasn1 gets stubs:
 # from pyasn1.type.univ import OctetString, Sequence
-OctetString = Any
-Sequence = Any
+OctetString: TypeAlias = Any
+Sequence: TypeAlias = Any
 
 class UserIdentity(OctetString):
     tagSet: Any
