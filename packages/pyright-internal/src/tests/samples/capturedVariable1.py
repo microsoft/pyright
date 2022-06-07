@@ -1,7 +1,7 @@
 # This sample tests the code flow analysis used to determine
 # whether it is safe to narrow the type of a captured variable.
 
-from typing import Optional
+from typing import NoReturn, Optional
 
 
 def get_optional_int() -> Optional[int]:
@@ -90,3 +90,17 @@ def func7():
         lambda: v1 + 5
 
         v1: Optional[int] = 3
+
+
+def func8() -> NoReturn:
+    ...
+
+
+def func9(x: str | None):
+    if not x:
+        func8()
+
+    def foo() -> str:
+        return x.upper()
+
+    return x.upper()

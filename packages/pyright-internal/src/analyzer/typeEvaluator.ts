@@ -3863,8 +3863,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     symbol.id,
                     typeAtStart,
                     /* isInitialTypeIncomplete */ false,
-                    /* startNode */ undefined,
-                    /* ignoreNoReturn */ false
+                    /* startNode */ undefined
                 );
                 if (codeFlowTypeResult.type) {
                     type = codeFlowTypeResult.type;
@@ -4062,8 +4061,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             symbolWithScope.symbol.id,
                             effectiveType,
                             /* isInitialTypeIncomplete */ false,
-                            innerScopeNode,
-                            /* ignoreNoReturn */ true
+                            innerScopeNode
                         );
                     }
                 }
