@@ -143,8 +143,20 @@ class ParentClass:
 
     def my_method35(self, *, a: int) -> None:
         ...
-        
+
     def my_method36(self, *, a: int) -> None:
+        ...
+
+    def my_method37(self, a: int, /) -> None:
+        ...
+
+    def my_method38(self, a: int, /) -> None:
+        ...
+
+    def my_method39(self, a: int, /) -> None:
+        ...
+
+    def my_method40(self, a: int, /) -> None:
         ...
 
 
@@ -299,6 +311,22 @@ class ChildClass(ParentClass):
     # class has a keyword-only parameter that is type 'int', and this
     # isn't compatible with 'str'.
     def my_method36(self, **kwargs: str) -> None:
+        ...
+
+    def my_method37(self, *args: Any) -> None:
+        ...
+
+    # This should generate an error because the number of position-only
+    # parameters doesn't match.
+    def my_method38(self, **kwargs: Any) -> None:
+        ...
+
+    def my_method39(self, *args: Any) -> None:
+        ...
+
+    # This should generate an error because the number of position-only
+    # parameters doesn't match.
+    def my_method40(self, **kwargs: Any) -> None:
         ...
 
 
