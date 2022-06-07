@@ -14399,6 +14399,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const initSubclassArgs: FunctionArgument[] = [];
         let metaclassNode: ExpressionNode | undefined;
+        let isBaseClassPartiallyEvaluated = false;
         let exprFlags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.AllowGenericClassType |
@@ -14435,6 +14436,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                         argType = UnknownType.create();
                     } else {
+                        if (ClassType.isPartiallyEvaluated(argType)) {
+                            isBaseClassPartiallyEvaluated = true;
+                        }
+
                         if (ClassType.isBuiltIn(argType, 'Protocol')) {
                             if (
                                 !fileInfo.isStubFile &&
@@ -14748,6 +14753,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 classType.details.declaredMetaclass = metaclassType;
                 if (isInstantiableClass(metaclassType)) {
+                    if (ClassType.isPartiallyEvaluated(metaclassType)) {
+                        isBaseClassPartiallyEvaluated = true;
+                    }
+
                     if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
                         classType.details.flags |= ClassTypeFlags.EnumClass;
                     } else if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
@@ -14855,101 +14864,109 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             applyDataClassClassBehaviorOverrides(evaluatorInterface, classType, initSubclassArgs);
         }
 
-        // Clear the "partially constructed" flag.
-        classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
+        // If one of the base classes was partially evaluated (i.e. there
+        // was a circular dependency), the class type we constructed may
+        // be corrupt (e.g. bad MRO), so discard it.
+        if (isBaseClassPartiallyEvaluated) {
+            deleteTypeCacheEntry(node.name);
+            deleteTypeCacheEntry(node);
+        } else {
+            // Clear the "partially constructed" flag.
+            classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
 
-        // Synthesize TypedDict methods.
-        if (ClassType.isTypedDictClass(classType)) {
-            synthesizeTypedDictClassMethods(
-                evaluatorInterface,
-                node,
-                classType,
-                isClass(decoratedType) && ClassType.isFinal(decoratedType)
-            );
-        }
+            // Synthesize TypedDict methods.
+            if (ClassType.isTypedDictClass(classType)) {
+                synthesizeTypedDictClassMethods(
+                    evaluatorInterface,
+                    node,
+                    classType,
+                    isClass(decoratedType) && ClassType.isFinal(decoratedType)
+                );
+            }
 
-        // Synthesize dataclass methods.
-        if (ClassType.isDataClass(classType)) {
-            const skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
-            let hasExistingInitMethod = skipSynthesizedInit;
+            // Synthesize dataclass methods.
+            if (ClassType.isDataClass(classType)) {
+                const skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
+                let hasExistingInitMethod = skipSynthesizedInit;
 
-            // See if there's already a non-synthesized __init__ method.
-            // We shouldn't override it.
-            if (!skipSynthesizedInit) {
-                const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
-                if (initSymbol) {
-                    const initSymbolType = getTypeOfMember(initSymbol);
-                    if (isFunction(initSymbolType)) {
-                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
+                // See if there's already a non-synthesized __init__ method.
+                // We shouldn't override it.
+                if (!skipSynthesizedInit) {
+                    const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
+                    if (initSymbol) {
+                        const initSymbolType = getTypeOfMember(initSymbol);
+                        if (isFunction(initSymbolType)) {
+                            if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
+                                hasExistingInitMethod = true;
+                            }
+                        } else {
                             hasExistingInitMethod = true;
                         }
-                    } else {
-                        hasExistingInitMethod = true;
                     }
                 }
-            }
 
-            let skipSynthesizeHash = false;
-            const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
-            if (hashSymbol) {
-                const hashSymbolType = getTypeOfMember(hashSymbol);
-                if (isFunction(hashSymbolType) && !FunctionType.isSynthesizedMethod(hashSymbolType)) {
-                    skipSynthesizeHash = true;
+                let skipSynthesizeHash = false;
+                const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
+                if (hashSymbol) {
+                    const hashSymbolType = getTypeOfMember(hashSymbol);
+                    if (isFunction(hashSymbolType) && !FunctionType.isSynthesizedMethod(hashSymbolType)) {
+                        skipSynthesizeHash = true;
+                    }
                 }
+
+                synthesizeDataClassMethods(
+                    evaluatorInterface,
+                    node,
+                    classType,
+                    skipSynthesizedInit,
+                    hasExistingInitMethod,
+                    skipSynthesizeHash
+                );
             }
 
-            synthesizeDataClassMethods(
-                evaluatorInterface,
-                node,
-                classType,
-                skipSynthesizedInit,
-                hasExistingInitMethod,
-                skipSynthesizeHash
-            );
-        }
+            // Build a complete list of all slots names defined by the class hierarchy.
+            // This needs to be done after dataclass processing.
+            if (classType.details.localSlotsNames) {
+                let isLimitedToSlots = true;
+                const extendedSlotsNames = [...classType.details.localSlotsNames];
 
-        // Build a complete list of all slots names defined by the class hierarchy.
-        // This needs to be done after dataclass processing.
-        if (classType.details.localSlotsNames) {
-            let isLimitedToSlots = true;
-            const extendedSlotsNames = [...classType.details.localSlotsNames];
-
-            classType.details.baseClasses.forEach((baseClass) => {
-                if (isInstantiableClass(baseClass)) {
-                    if (
-                        !ClassType.isBuiltIn(baseClass, 'object') &&
-                        !ClassType.isBuiltIn(baseClass, 'type') &&
-                        !ClassType.isBuiltIn(baseClass, 'Generic')
-                    ) {
-                        if (baseClass.details.inheritedSlotsNames === undefined) {
-                            isLimitedToSlots = false;
-                        } else {
-                            appendArray(extendedSlotsNames, baseClass.details.inheritedSlotsNames);
+                classType.details.baseClasses.forEach((baseClass) => {
+                    if (isInstantiableClass(baseClass)) {
+                        if (
+                            !ClassType.isBuiltIn(baseClass, 'object') &&
+                            !ClassType.isBuiltIn(baseClass, 'type') &&
+                            !ClassType.isBuiltIn(baseClass, 'Generic')
+                        ) {
+                            if (baseClass.details.inheritedSlotsNames === undefined) {
+                                isLimitedToSlots = false;
+                            } else {
+                                appendArray(extendedSlotsNames, baseClass.details.inheritedSlotsNames);
+                            }
                         }
+                    } else {
+                        isLimitedToSlots = false;
                     }
-                } else {
-                    isLimitedToSlots = false;
+                });
+
+                if (isLimitedToSlots) {
+                    classType.details.inheritedSlotsNames = extendedSlotsNames;
                 }
-            });
-
-            if (isLimitedToSlots) {
-                classType.details.inheritedSlotsNames = extendedSlotsNames;
             }
-        }
 
-        // Update the undecorated class type.
-        writeTypeCache(node.name, classType, EvaluatorFlags.None, /* isIncomplete */ false);
+            // Update the undecorated class type.
+            writeTypeCache(node.name, classType, EvaluatorFlags.None, /* isIncomplete */ false);
 
-        // Update the decorated class type.
-        writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
+            // Update the decorated class type.
+            writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
 
-        // Validate __init_subclass__ call or metaclass keyword arguments.
-        validateInitSubclassArgs(node, classType, initSubclassArgs);
+            // Validate __init_subclass__ call or metaclass keyword arguments.
+            validateInitSubclassArgs(node, classType, initSubclassArgs);
 
-        // Stash away a reference to the UnionType class if we encounter it.
-        // There's no easy way to otherwise reference it.
-        if (ClassType.isBuiltIn(classType, 'UnionType')) {
-            unionType = ClassType.cloneAsInstance(classType);
+            // Stash away a reference to the UnionType class if we encounter it.
+            // There's no easy way to otherwise reference it.
+            if (ClassType.isBuiltIn(classType, 'UnionType')) {
+                unionType = ClassType.cloneAsInstance(classType);
+            }
         }
 
         return { classType, decoratedType };
