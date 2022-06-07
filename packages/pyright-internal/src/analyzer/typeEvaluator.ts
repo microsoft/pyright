@@ -4949,7 +4949,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isInstantiableClass(containingClassType) &&
                         ClassType.isSameGenericClass(containingClassType, classType)
                     ) {
-                        type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
+                        type = getDeclaredTypeOfSymbol(memberInfo.symbol) ?? UnknownType.create();
                         if (type && isInstantiableClass(memberInfo.classType)) {
                             type = partiallySpecializeType(type, memberInfo.classType);
                         }
@@ -18289,7 +18289,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (declaration.intrinsicType === 'class') {
                     const classNode = ParseTreeUtils.getEnclosingClass(declaration.node) as ClassNode;
                     const classTypeInfo = getTypeOfClass(classNode);
-                    return classTypeInfo ? classTypeInfo.classType : undefined;
+                    return classTypeInfo?.classType;
                 }
 
                 const strType = getBuiltInObject(declaration.node, 'str');
@@ -18339,7 +18339,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case DeclarationType.Class: {
                 const classTypeInfo = getTypeOfClass(declaration.node);
-                return classTypeInfo ? classTypeInfo.decoratedType : undefined;
+                return classTypeInfo?.decoratedType;
             }
 
             case DeclarationType.SpecialBuiltInClass: {
@@ -18348,7 +18348,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case DeclarationType.Function: {
                 const functionTypeInfo = getTypeOfFunction(declaration.node);
-                return functionTypeInfo ? functionTypeInfo.decoratedType : undefined;
+                return functionTypeInfo?.decoratedType;
             }
 
             case DeclarationType.Parameter: {
