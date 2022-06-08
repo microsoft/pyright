@@ -1942,6 +1942,10 @@ export class TestState {
         assert.strictEqual(actual.insertText, expected.insertionText);
         this._verifyEdit(actual.textEdit as TextEdit, expected.textEdit);
         this._verifyEdits(actual.additionalTextEdits, expected.additionalTextEdits);
+
+        if (expected.detailDescription !== undefined) {
+            assert.strictEqual(actual.labelDetails?.description, expected.detailDescription);
+        }
     }
 }
 

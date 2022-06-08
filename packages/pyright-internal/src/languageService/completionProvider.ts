@@ -313,7 +313,10 @@ interface CompletionDetail {
     funcParensDisabled?: boolean | undefined;
     typeDetail?: string | undefined;
     documentation?: string | undefined;
-    autoImportText?: string | undefined;
+    autoImportText?: {
+        source: string;
+        importText: string;
+    };
     edits?: Edits | undefined;
     sortText?: string | undefined;
     itemDetail?: string | undefined;
@@ -2685,13 +2688,19 @@ export class CompletionProvider {
     private _getAutoImportText(importName: string, importFrom?: string, importAlias?: string) {
         const autoImportText = getAutoImportText(importName, importFrom, importAlias);
 
+        let importText = '';
         if (this._options.format === MarkupKind.Markdown) {
-            return `\`\`\`\n${autoImportText}\n\`\`\``;
+            importText = `\`\`\`\n${autoImportText}\n\`\`\``;
         } else if (this._options.format === MarkupKind.PlainText) {
-            return autoImportText;
+            importText = autoImportText;
         } else {
             fail(`Unsupported markup type: ${this._options.format}`);
         }
+
+        return {
+            source: importFrom ?? '',
+            importText,
+        };
     }
 
     private _addNameToCompletions(
@@ -2707,7 +2716,9 @@ export class CompletionProvider {
             return;
         }
 
-        if (completionMap.has(name, CompletionMap.matchKindAndImportText, itemKind, detail?.autoImportText)) {
+        if (
+            completionMap.has(name, CompletionMap.matchKindAndImportText, itemKind, detail?.autoImportText?.importText)
+        ) {
             return;
         }
 
@@ -2731,9 +2742,17 @@ export class CompletionProvider {
             completionItem.detail = detail.itemDetail;
         } else if (detail?.autoImportText) {
             // Force auto-import entries to the end.
-            completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, detail.autoImportText);
-            completionItemData.autoImportText = detail.autoImportText;
+            completionItem.sortText = this._makeSortText(
+                SortCategory.AutoImport,
+                name,
+                detail.autoImportText.importText
+            );
+            completionItemData.autoImportText = detail.autoImportText.importText;
             completionItem.detail = autoImportDetail;
+
+            if (detail.autoImportText.source) {
+                completionItem.labelDetails = { description: detail.autoImportText.source };
+            }
         } else if (itemKind === CompletionItemKind.EnumMember) {
             // Handle enum members separately so they are sorted above other symbols.
             completionItem.sortText = this._makeSortText(SortCategory.EnumMember, name);
@@ -2755,7 +2774,7 @@ export class CompletionProvider {
             let markdownString = '';
 
             if (detail?.autoImportText) {
-                markdownString += detail.autoImportText;
+                markdownString += detail.autoImportText.importText;
                 if (detail.typeDetail || detail.documentation) {
                     // Micro perf optimization to not create new string from trimEnd.
                     markdownString += '\n\n';
@@ -2783,7 +2802,7 @@ export class CompletionProvider {
             let plainTextString = '';
 
             if (detail?.autoImportText) {
-                plainTextString += detail.autoImportText;
+                plainTextString += detail.autoImportText.importText;
                 if (detail.typeDetail || detail.documentation) {
                     // Micro perf optimization to not create new string from trimEnd.
                     plainTextString += '\n\n';

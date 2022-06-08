@@ -32,6 +32,8 @@ module.exports = (_, { mode }) => {
             all: false,
             errors: true,
             warnings: true,
+            publicPath: true,
+            timings: true,
         },
         resolve: {
             extensions: ['.ts', '.js'],

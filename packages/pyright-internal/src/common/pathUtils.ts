@@ -547,8 +547,17 @@ export function isDirectory(fs: FileSystem, path: string): boolean {
     return tryStat(fs, path)?.isDirectory() ?? false;
 }
 
-export function isFile(fs: FileSystem, path: string): boolean {
-    return tryStat(fs, path)?.isFile() ?? false;
+export function isFile(fs: FileSystem, path: string, treatZipDirectoryAsFile = false): boolean {
+    const stats = tryStat(fs, path);
+    if (stats?.isFile()) {
+        return true;
+    }
+
+    if (!treatZipDirectoryAsFile) {
+        return false;
+    }
+
+    return stats?.isZipDirectory?.() ?? false;
 }
 
 export function tryStat(fs: FileSystem, path: string): Stats | undefined {

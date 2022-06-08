@@ -33,6 +33,7 @@ export interface Stats {
     isSymbolicLink(): boolean;
     isFIFO(): boolean;
     isSocket(): boolean;
+    isZipDirectory?: () => boolean;
 }
 
 export interface MkDirOptions {

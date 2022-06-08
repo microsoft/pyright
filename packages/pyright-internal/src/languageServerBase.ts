@@ -100,7 +100,7 @@ import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/fileSystem';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
-import { convertPathToUri } from './common/pathUtils';
+import { convertPathToUri, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
@@ -575,6 +575,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     triggerCharacters: this.client.hasVisualStudioExtensionsCapability ? ['.', '[', '@'] : ['.', '['],
                     resolveProvider: true,
                     workDoneProgress: true,
+                    completionItem: {
+                        labelDetailsSupport: true,
+                    },
                 },
                 signatureHelpProvider: {
                     triggerCharacters: ['(', ',', ')'],
@@ -622,28 +625,23 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
+        const watchKind = WatchKind.Create | WatchKind.Change | WatchKind.Delete;
+
         // Set default (config files and all workspace files) first.
         const watchers: FileSystemWatcher[] = [
-            ...configFileNames.map((fileName) => {
-                return {
-                    globPattern: `**/${fileName}`,
-                    kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
-                };
-            }),
-            {
-                globPattern: '**',
-                kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
-            },
+            ...configFileNames.map((fileName) => ({ globPattern: `**/${fileName}`, kind: watchKind })),
+            { globPattern: '**', kind: watchKind },
         ];
 
         // Add all python search paths to watch list
         if (this.client.hasWatchFileRelativePathCapability) {
             for (const workspace of this._workspaceMap.getNonDefaultWorkspaces()) {
                 workspace.searchPathsToWatch.forEach((p) => {
-                    watchers.push({
-                        globPattern: { baseUri: convertPathToUri(this.fs, p), pattern: '**' },
-                        kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
-                    });
+                    const globPattern = isFile(this.fs, p, /* treatZipDirectoryAsFile */ true)
+                        ? { baseUri: convertPathToUri(this.fs, getDirectoryPath(p)), pattern: getFileName(p) }
+                        : { baseUri: convertPathToUri(this.fs, p), pattern: '**' };
+
+                    watchers.push({ globPattern, kind: watchKind });
                 });
             }
         }
