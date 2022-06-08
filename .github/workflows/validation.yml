@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-2019, ubuntu-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
 
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

@@ -26,10 +26,10 @@
         "source-map-support": "^0.5.21",
         "tmp": "^0.2.1",
         "typescript-char": "^0.0.0",
-        "vscode-jsonrpc": "8.0.1",
-        "vscode-languageserver": "8.0.1",
-        "vscode-languageserver-textdocument": "^1.0.4",
-        "vscode-languageserver-types": "3.17.1",
+        "vscode-jsonrpc": "8.0.2-next.1",
+        "vscode-languageserver": "8.0.2-next.4",
+        "vscode-languageserver-textdocument": "^1.0.5",
+        "vscode-languageserver-types": "3.17.2-next.2",
         "vscode-uri": "^3.0.3"
     },
     "devDependencies": {

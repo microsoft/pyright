@@ -275,6 +275,7 @@ class RealFileSystem implements FileSystem {
                     ...stat,
                     isFile: () => false,
                     isDirectory: () => true,
+                    isZipDirectory: () => true,
                 };
             }
         }

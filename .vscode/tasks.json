@@ -34,10 +34,10 @@
                 "background": {
                     "activeOnStart": true,
                     "beginsPattern": {
-                        "regexp": "Compiling.*?|Compilation .*?starting"
+                        "regexp": "PublicPath: .*?"
                     },
                     "endsPattern": {
-                        "regexp": "Compiled .*?successfully|Compilation .*?finished"
+                        "regexp": "webpack compiled in .*? ms"
                     }
                 }
             }
