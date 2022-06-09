@@ -4,37 +4,45 @@
 # pyright: strict
 
 from typing import Optional, TypedDict, Union, final
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, Required
 
 
-class Foo(TypedDict, total=False):
-    bar: str
+class TD1(TypedDict):
+    bar: NotRequired[str]
 
 
-foo: Foo = {}
+class TD2(TD1):
+    foo: Required[str]
 
-v1: Optional[str] = foo.get("bar")
 
-v2: str = foo.get("bar", "")
+td1: TD1 = {}
+td2: TD2 = {"foo": "hi"}
 
-v3: Union[str, int] = foo.get("bar", 3)
+v1: Optional[str] = td1.get("bar")
 
-v4: str = foo.setdefault("bar", "1")
+v2: str = td1.get("bar", "")
+
+v3: Union[str, int] = td1.get("bar", 3)
+
+v4: str = td1.setdefault("bar", "1")
 
 # This should generate an error.
-foo.setdefault("bar", 3)
+td1.setdefault("bar", 3)
 
 # This should generate an error.
-foo.setdefault("bar")
+td1.setdefault("bar")
 
 # This should generate an error.
-foo.setdefault("baz", "")
+td1.setdefault("baz", "")
 
-v6: str = foo.pop("bar")
-v7: str = foo.pop("bar", "none")
-v8: Union[str, int] = foo.pop("bar", 3)
+v6: str = td1.pop("bar")
+v7: str = td1.pop("bar", "none")
+v8: Union[str, int] = td1.pop("bar", 3)
 
-foo.__delitem__("bar")
+# This should generate an error.
+v9: str = td2.pop("foo")
+
+td1.__delitem__("bar")
 
 
 @final

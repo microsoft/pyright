@@ -492,7 +492,11 @@ export function synthesizeTypedDictClassMethods(
                 );
             }
 
-            appendArray(popOverloads, createPopMethods(nameLiteralType, entry.valueType));
+            // Add a pop method if the entry is not required.
+            if (!entry.isRequired) {
+                appendArray(popOverloads, createPopMethods(nameLiteralType, entry.valueType));
+            }
+
             setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
         });
 

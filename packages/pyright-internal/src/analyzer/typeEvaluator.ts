@@ -5854,6 +5854,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
+        // Handle the mypy_extensions.FlexibleAlias type specially.
+        if (
+            isInstantiableClass(baseType) &&
+            baseType.details.fullName === 'mypy_extensions.FlexibleAlias' &&
+            typeArgs.length >= 1
+        ) {
+            return { node, type: typeArgs[0].type };
+        }
+
         const typeVarContext = new TypeVarContext(baseType.typeAliasInfo.typeVarScopeId);
         const diag = new DiagnosticAddendum();
         typeParameters.forEach((param, index) => {
