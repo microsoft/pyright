@@ -663,6 +663,10 @@ export class ConfigOptions {
     // A list of file specs that should be analyzed using "strict" mode.
     strict: FileSpec[] = [];
 
+    // A set of defined constants that are used by the binder to determine
+    // whether runtime conditions should evaluate to True or False.
+    defineConstant = new Map<string, boolean | string>();
+
     // Emit verbose information to console?
     verboseOutput?: boolean | undefined;
 
@@ -1026,6 +1030,24 @@ export class ConfigOptions {
                 console.error(`Config "verboseOutput" field must be true or false.`);
             } else {
                 this.verboseOutput = configObj.verboseOutput;
+            }
+        }
+
+        // Read the "defineConstant" setting.
+        if (configObj.defineConstant !== undefined) {
+            if (typeof configObj.defineConstant !== 'object' || Array.isArray(configObj.defineConstant)) {
+                console.error(`Config "defineConstant" field must contain a map indexed by constant names.`);
+            } else {
+                const keys = Object.getOwnPropertyNames(configObj.defineConstant);
+                keys.forEach((key) => {
+                    const value = configObj.defineConstant[key];
+                    const valueType = typeof value;
+                    if (valueType !== 'boolean' && valueType !== 'string') {
+                        console.error(`Defined constant "${key}" must be associated with a boolean or string value.`);
+                    } else {
+                        this.defineConstant.set(key, value);
+                    }
+                });
             }
         }
 

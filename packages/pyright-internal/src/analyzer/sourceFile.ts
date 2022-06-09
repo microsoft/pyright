@@ -1301,6 +1301,7 @@ export class SourceFile {
             fileContents,
             lines: this._parseResults!.tokenizerOutput.lines,
             typingSymbolAliases: this._parseResults!.typingSymbolAliases,
+            definedConstants: configOptions.defineConstant,
             filePath: this._filePath,
             moduleName: this._moduleName,
             isStubFile: this._isStubFile,

@@ -16,6 +16,8 @@ Relative paths specified within the config file are relative to the config file�
 
 **strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, most type-checking rules are enabled. Refer to [this table](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for details about which rules are enabled in strict mode. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
+**defineConstant** [map of constants to values (boolean or string), optional]: Set of identifiers that should be assumed to contain a constant value wherever used within this program. For example, `{ "DEBUG": true }` indicates that pyright should assume that the identifier `DEBUG` will always be equal to `True`. If this identifier is used within a conditional expression (such as `if not DEBUG:`) pyright will use the indicated value to determine whether the guarded block is reachable or not.
+
 **typeshedPath** [path, optional]: Path to a directory that contains typeshed type stub files. Pyright ships with a bundled copy of typeshed type stubs. If you want to use a different version of typeshed stubs, you can clone the [typeshed github repo](https://github.com/python/typeshed) to a local directory and reference the location with this path. This option is useful if you’re actively contributing updates to typeshed.
 
 **stubPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. The default value of this setting is "./typings". (typingsPath is now deprecated)
@@ -204,6 +206,10 @@ The following is an example of a pyright config file:
     "src/oldstuff"
   ],
 
+  "defineConstant": {
+    "DEBUG": true
+  },
+
   "stubPath": "src/stubs",
   "venv": "env367",
 
@@ -253,6 +259,7 @@ exclude = ["**/node_modules",
     "src/typestubs"
 ]
 ignore = ["src/oldstuff"]
+defineConstant = { DEBUG = true }
 stubPath = "src/stubs"
 venv = "env367"
 

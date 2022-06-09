@@ -39,6 +39,7 @@ export interface AnalyzerFileInfo {
     fileContents: string;
     lines: TextRangeCollection<TextRange>;
     typingSymbolAliases: Map<string, string>;
+    definedConstants: Map<string, boolean | string>;
     filePath: string;
     moduleName: string;
     isStubFile: boolean;

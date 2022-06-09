@@ -188,9 +188,11 @@ export function synthesizeDataClassMethods(
                                 (arg) => arg.name?.value === 'init'
                             );
                             if (initArg && initArg.valueExpression) {
+                                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                                 const value = evaluateStaticBoolExpression(
                                     initArg.valueExpression,
-                                    AnalyzerNodeInfo.getFileInfo(node).executionEnvironment
+                                    fileInfo.executionEnvironment,
+                                    fileInfo.definedConstants
                                 );
                                 if (value === false) {
                                     includeInInit = false;
@@ -242,9 +244,11 @@ export function synthesizeDataClassMethods(
                                 (arg) => arg.name?.value === 'kw_only'
                             );
                             if (kwOnlyArg && kwOnlyArg.valueExpression) {
+                                const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                                 const value = evaluateStaticBoolExpression(
                                     kwOnlyArg.valueExpression,
-                                    AnalyzerNodeInfo.getFileInfo(node).executionEnvironment
+                                    fileInfo.executionEnvironment,
+                                    fileInfo.definedConstants
                                 );
                                 if (value === false) {
                                     isKeywordOnly = false;
@@ -705,7 +709,11 @@ export function validateDataClassTransformDecorator(
 
         switch (arg.name.value) {
             case 'kw_only_default': {
-                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                const value = evaluateStaticBoolExpression(
+                    arg.valueExpression,
+                    fileInfo.executionEnvironment,
+                    fileInfo.definedConstants
+                );
                 if (value === undefined) {
                     evaluator.addError(
                         Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
@@ -719,7 +727,11 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'eq_default': {
-                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                const value = evaluateStaticBoolExpression(
+                    arg.valueExpression,
+                    fileInfo.executionEnvironment,
+                    fileInfo.definedConstants
+                );
                 if (value === undefined) {
                     evaluator.addError(
                         Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
@@ -733,7 +745,11 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'order_default': {
-                const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                const value = evaluateStaticBoolExpression(
+                    arg.valueExpression,
+                    fileInfo.executionEnvironment,
+                    fileInfo.definedConstants
+                );
                 if (value === undefined) {
                     evaluator.addError(
                         Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
@@ -839,7 +855,7 @@ function applyDataClassBehaviorOverride(
     argValue: ExpressionNode
 ) {
     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-    const value = evaluateStaticBoolExpression(argValue, fileInfo.executionEnvironment);
+    const value = evaluateStaticBoolExpression(argValue, fileInfo.executionEnvironment, fileInfo.definedConstants);
 
     switch (argName) {
         case 'order':

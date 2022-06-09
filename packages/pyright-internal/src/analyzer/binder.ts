@@ -1132,6 +1132,7 @@ export class Binder extends ParseTreeWalker {
             const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
                 node.testExpression,
                 this._fileInfo.executionEnvironment,
+                this._fileInfo.definedConstants,
                 this._typingImportAliases,
                 this._sysImportAliases
             );
@@ -1171,6 +1172,7 @@ export class Binder extends ParseTreeWalker {
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.testExpression,
             this._fileInfo.executionEnvironment,
+            this._fileInfo.definedConstants,
             this._typingImportAliases,
             this._sysImportAliases
         );
@@ -2634,6 +2636,7 @@ export class Binder extends ParseTreeWalker {
         const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             expression,
             this._fileInfo.executionEnvironment,
+            this._fileInfo.definedConstants,
             this._typingImportAliases,
             this._sysImportAliases
         );

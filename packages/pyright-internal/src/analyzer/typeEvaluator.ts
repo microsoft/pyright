@@ -14203,7 +14203,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If the RHS is a constant boolean expression, assign it a literal type.
                 const constExprValue = evaluateStaticBoolExpression(
                     node.rightExpression,
-                    fileInfo.executionEnvironment
+                    fileInfo.executionEnvironment,
+                    fileInfo.definedConstants
                 );
 
                 if (constExprValue !== undefined) {
@@ -14587,7 +14588,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (arg.name.value === 'total' && ClassType.isTypedDictClass(classType)) {
                 // The "total" parameter name applies only for TypedDict classes.
                 // PEP 589 specifies that the parameter must be either True or False.
-                const constArgValue = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                const constArgValue = evaluateStaticBoolExpression(
+                    arg.valueExpression,
+                    fileInfo.executionEnvironment,
+                    fileInfo.definedConstants
+                );
                 if (constArgValue === undefined) {
                     addError(Localizer.Diagnostic.typedDictTotalParam(), arg.valueExpression);
                 } else if (!constArgValue) {

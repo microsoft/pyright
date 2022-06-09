@@ -67,6 +67,17 @@
         "pattern": "^(.*)$"
       }
     },
+    "defineConstant": {
+      "$id": "#/properties/defineConstant",
+      "type": "object",
+      "title": "Identifiers that should be treated as constants",
+      "properties": {
+      },
+      "additionalProperties": {
+          "type": ["string", "boolean"],
+          "title": "Value of constant (boolean or string)"
+      }
+    },
     "typeCheckingMode": {
       "$id": "#/properties/typeCheckingMode",
       "type": "string",

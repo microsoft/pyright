@@ -17,11 +17,18 @@ import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 export function evaluateStaticBoolExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
+    definedConstants: Map<string, boolean | string>,
     typingImportAliases?: string[],
     sysImportAliases?: string[]
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.AssignmentExpression) {
-        return evaluateStaticBoolExpression(node.rightExpression, execEnv, typingImportAliases, sysImportAliases);
+        return evaluateStaticBoolExpression(
+            node.rightExpression,
+            execEnv,
+            definedConstants,
+            typingImportAliases,
+            sysImportAliases
+        );
     }
 
     if (node.nodeType === ParseNodeType.UnaryOperation) {
@@ -29,6 +36,7 @@ export function evaluateStaticBoolExpression(
             const value = evaluateStaticBoolLikeExpression(
                 node.expression,
                 execEnv,
+                definedConstants,
                 typingImportAliases,
                 sysImportAliases
             );
@@ -42,12 +50,14 @@ export function evaluateStaticBoolExpression(
             const leftValue = evaluateStaticBoolExpression(
                 node.leftExpression,
                 execEnv,
+                definedConstants,
                 typingImportAliases,
                 sysImportAliases
             );
             const rightValue = evaluateStaticBoolExpression(
                 node.rightExpression,
                 execEnv,
+                definedConstants,
                 typingImportAliases,
                 sysImportAliases
             );
@@ -106,6 +116,18 @@ export function evaluateStaticBoolExpression(
             if (expectedOsName !== undefined) {
                 return _evaluateStringBinaryOperation(node.operator, expectedOsName, comparisonOsName);
             }
+        } else {
+            // Handle the special case of <definedConstant> == 'X' or <definedConstant> != 'X'.
+            if (
+                node.leftExpression.nodeType === ParseNodeType.Name &&
+                node.rightExpression.nodeType === ParseNodeType.StringList
+            ) {
+                const constantValue = definedConstants.get(node.leftExpression.value);
+                if (constantValue !== undefined && typeof constantValue === 'string') {
+                    const comparisonStringName = node.rightExpression.strings.map((s) => s.value).join('');
+                    return _evaluateStringBinaryOperation(node.operator, constantValue, comparisonStringName);
+                }
+            }
         }
     } else if (node.nodeType === ParseNodeType.Constant) {
         if (node.constType === KeywordType.True) {
@@ -116,6 +138,11 @@ export function evaluateStaticBoolExpression(
     } else if (node.nodeType === ParseNodeType.Name) {
         if (node.value === 'TYPE_CHECKING') {
             return true;
+        }
+
+        const constant = definedConstants.get(node.value);
+        if (constant !== undefined) {
+            return !!constant;
         }
     } else if (
         typingImportAliases &&
@@ -136,6 +163,7 @@ export function evaluateStaticBoolExpression(
 export function evaluateStaticBoolLikeExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
+    definedConstants: Map<string, boolean | string>,
     typingImportAliases?: string[],
     sysImportAliases?: string[]
 ): boolean | undefined {
@@ -145,7 +173,7 @@ export function evaluateStaticBoolLikeExpression(
         }
     }
 
-    return evaluateStaticBoolExpression(node, execEnv, typingImportAliases, sysImportAliases);
+    return evaluateStaticBoolExpression(node, execEnv, definedConstants, typingImportAliases, sysImportAliases);
 }
 
 function _convertTupleToVersion(node: TupleNode): number | undefined {

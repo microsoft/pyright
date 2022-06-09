@@ -1331,3 +1331,25 @@ test('Dictionary4', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('StaticExpressions1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonPlatform = 'windows';
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['staticExpressions1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 6);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonPlatform = 'Linux';
+
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['staticExpressions1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 3);
+
+    configOptions.defineConstant.set('DEFINED_TRUE', true);
+    configOptions.defineConstant.set('DEFINED_FALSE', false);
+    configOptions.defineConstant.set('DEFINED_STR', 'hi!');
+    const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['staticExpressions1.py'], configOptions);
+    TestUtils.validateResults(analysisResults3, 0);
+});

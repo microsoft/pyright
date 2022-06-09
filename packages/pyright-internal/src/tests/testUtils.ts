@@ -108,6 +108,7 @@ export function buildAnalyzerFileInfo(
         diagnosticSink: analysisDiagnostics,
         executionEnvironment: configOptions.findExecEnvironment(filePath),
         diagnosticRuleSet: cloneDiagnosticRuleSet(configOptions.diagnosticRuleSet),
+        definedConstants: configOptions.defineConstant,
         fileContents,
         lines: parseResults.tokenizerOutput.lines,
         filePath,

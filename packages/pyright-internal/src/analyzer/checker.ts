@@ -1499,7 +1499,13 @@ export class Checker extends ParseTreeWalker {
 
         // Check for the special case where the LHS and RHS are both literals.
         if (isLiteralTypeOrUnion(rightType) && isLiteralTypeOrUnion(leftType)) {
-            if (evaluateStaticBoolExpression(node, this._fileInfo.executionEnvironment) === undefined) {
+            if (
+                evaluateStaticBoolExpression(
+                    node,
+                    this._fileInfo.executionEnvironment,
+                    this._fileInfo.definedConstants
+                ) === undefined
+            ) {
                 let isPossiblyTrue = false;
 
                 doForEachSubtype(leftType, (leftSubtype) => {
