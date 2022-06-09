@@ -1192,13 +1192,17 @@ export class Parser {
         return ifNode;
     }
 
-    private _parseLoopSuite(): SuiteNode {
+    private _parseLoopSuite(disallowTypeComment = false): SuiteNode {
         const wasInLoop = this._isInLoop;
         const wasInFinally = this._isInFinally;
         this._isInLoop = true;
         this._isInFinally = false;
 
-        const suite = this._parseSuite(this._isInFunction);
+        const suite = this._parseSuite(this._isInFunction, /* skipBody */ false, () => {
+            if (disallowTypeComment) {
+                this._detectUnsupportedTypeAnnotationComment();
+            }
+        });
 
         this._isInLoop = wasInLoop;
         this._isInFinally = wasInFinally;
@@ -1365,7 +1369,8 @@ export class Parser {
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedInExpr()
             );
-            forSuite = this._parseLoopSuite();
+
+            forSuite = this._parseLoopSuite(/* disallowTypeComment */ true);
 
             // Versions of Python earlier than 3.9 didn't allow unpack operators if the
             // tuple wasn't enclosed in parentheses.
@@ -1965,7 +1970,9 @@ export class Parser {
             }
         }
 
-        const withSuite = this._parseSuite(this._isInFunction);
+        const withSuite = this._parseSuite(this._isInFunction, /* skipBody */ false, () => {
+            this._detectUnsupportedTypeAnnotationComment();
+        });
         const withNode = WithNode.create(withToken, withSuite);
         if (asyncToken) {
             withNode.isAsync = true;
@@ -4254,6 +4261,15 @@ export class Parser {
             0,
             /* comments */ undefined
         );
+    }
+
+    private _detectUnsupportedTypeAnnotationComment(): void {
+        const stringToken = this._getTypeAnnotationCommentText();
+        if (!stringToken) {
+            return undefined;
+        }
+
+        this._addError(Localizer.Diagnostic.annotationNotSupported(), stringToken);
     }
 
     private _parseVariableTypeAnnotationComment(): ExpressionNode | undefined {
