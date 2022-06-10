@@ -223,7 +223,13 @@ export class PyrightServer extends LanguageServerBase {
     }
 
     protected override createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
-        return new ImportResolver(fs, options, host);
+        const importResolver = new ImportResolver(fs, options, host);
+
+        // In case there was cached information in the file system related to
+        // import resolution, invalidate it now.
+        importResolver.invalidateCache();
+
+        return importResolver;
     }
 
     protected executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
