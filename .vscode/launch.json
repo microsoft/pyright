@@ -6,7 +6,6 @@
             "type": "node",
             "request": "launch",
             "program": "${workspaceRoot}/packages/pyright/index.js",
-            "protocol": "inspector",
             "preLaunchTask": "npm: build:cli:dev",
             "args": [
                 "--verifytypes",
@@ -27,7 +26,6 @@
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "disableOptimisticBPs": true,
             "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         },
         {
@@ -43,7 +41,6 @@
                 // isn't enabled, otherwise both are loaded and conflict.
                 "--disable-extension=ms-pyright.pyright"
             ],
-            "stopOnEntry": false,
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": [
@@ -54,7 +51,6 @@
             "name": "Pyright attach server",
             "type": "node",
             "request": "attach",
-            "protocol": "inspector",
             "port": 6600,
             "smartStep": true,
             "sourceMaps": true,
@@ -73,7 +69,6 @@
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "disableOptimisticBPs": true,
             "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         },
         {
@@ -84,7 +79,6 @@
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "disableOptimisticBPs": true,
             "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         },
         {
@@ -99,7 +93,6 @@
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "disableOptimisticBPs": true,
             "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         }
     ]
