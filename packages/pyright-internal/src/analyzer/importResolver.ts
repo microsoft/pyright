@@ -142,8 +142,8 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
     ): ImportResult {
-        // wrap internal call to _resolveImport() to prevent calling any
-        // child class version of resolveImport()
+        // Wrap internal call to _resolveImport() to prevent calling any
+        // child class version of resolveImport().
         return this._resolveImport(sourceFilePath, execEnv, moduleDescriptor);
     }
 
@@ -272,6 +272,7 @@ export class ImportResolver {
         } else {
             // Is it already cached?
             const cachedResults = this._lookUpResultsInCache(execEnv, importName, moduleDescriptor.importedSymbols);
+
             if (cachedResults) {
                 // In most cases, we can simply return a cached entry. However, there are cases
                 // where the cached entry refers to a previously-resolved namespace package
@@ -288,13 +289,24 @@ export class ImportResolver {
                 }
             }
 
-            const bestImport = this._resolveBestAbsoluteImport(sourceFilePath, execEnv, moduleDescriptor, true);
+            const bestImport = this._resolveBestAbsoluteImport(
+                sourceFilePath,
+                execEnv,
+                moduleDescriptor,
+                /* allowPyi */ true
+            );
+
             if (bestImport) {
                 if (bestImport.isStubFile) {
                     bestImport.nonStubImportResult =
-                        this._resolveBestAbsoluteImport(sourceFilePath, execEnv, moduleDescriptor, false) ||
-                        notFoundResult;
+                        this._resolveBestAbsoluteImport(
+                            sourceFilePath,
+                            execEnv,
+                            moduleDescriptor,
+                            /* allowPyi */ false
+                        ) || notFoundResult;
                 }
+
                 return this.addResultsToCache(execEnv, importName, bestImport, moduleDescriptor.importedSymbols);
             }
         }
@@ -1508,6 +1520,7 @@ export class ImportResolver {
                         importName,
                         importFailureInfo
                     );
+
                     if (importInfo.isImportFound) {
                         importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
                         return importInfo;
