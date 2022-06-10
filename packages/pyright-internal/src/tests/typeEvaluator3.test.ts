@@ -1159,6 +1159,17 @@ test('FunctionAnnotation3', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('FunctionAnnotation4', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation4.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportTypeCommentUsage = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation4.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 3);
+});
+
 test('Subscript1', () => {
     const configOptions = new ConfigOptions('.');
 

@@ -388,6 +388,17 @@
                                 "error"
                             ]
                         },
+                        "reportTypeCommentUsage": {
+                            "type": "string",
+                            "description": "Diagnostics for usage of deprecated type comments.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportPrivateImportUsage": {
                             "type": "string",
                             "description": "Diagnostics for incorrect usage of symbol imported from a \"py.typed\" module that is not re-exported from that module.",

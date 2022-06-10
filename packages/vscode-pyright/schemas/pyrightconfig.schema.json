@@ -292,6 +292,12 @@
       "title": "Controls reporting of private variables and functions used outside of the owning class or module and usage of protected members outside of subclasses",
       "default": "none"
     },
+    "reportTypeCommentUsage": {
+      "$id": "#/properties/reportTypeCommentUsage",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of deprecated type comment usage",
+      "default": "none"
+    },
     "reportPrivateImportUsage": {
       "$id": "#/properties/reportPrivateImportUsage",
       "$ref": "#/definitions/diagnostic",

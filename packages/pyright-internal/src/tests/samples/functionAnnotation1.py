@@ -1,6 +1,6 @@
 # This sample tests support for comment-style function annotations.
 
-# pyright: strict, reportMissingParameterType=false
+# pyright: strict, reportMissingParameterType=false, reportTypeCommentUsage=false
 
 from typing import Optional, Literal as _Literal, Union
 

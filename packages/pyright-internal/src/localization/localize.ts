@@ -789,6 +789,7 @@ export namespace Localizer {
                 getRawString('Diagnostic.typeAssignmentMismatch')
             );
         export const typeCallNotAllowed = () => getRawString('Diagnostic.typeCallNotAllowed');
+        export const typeCommentDeprecated = () => getRawString('Diagnostic.typeCommentDeprecated');
         export const typedDictAccess = () => getRawString('Diagnostic.typedDictAccess');
         export const typedDictBadVar = () => getRawString('Diagnostic.typedDictBadVar');
         export const typedDictBaseClass = () => getRawString('Diagnostic.typedDictBaseClass');

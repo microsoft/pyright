@@ -562,6 +562,18 @@ export class Checker extends ParseTreeWalker {
 
         if (node.functionAnnotationComment) {
             this.walk(node.functionAnnotationComment);
+
+            if (
+                this._fileInfo.diagnosticRuleSet.reportTypeCommentUsage !== 'none' &&
+                this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_5
+            ) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportTypeCommentUsage,
+                    DiagnosticRule.reportTypeCommentUsage,
+                    Localizer.Diagnostic.typeCommentDeprecated(),
+                    node.functionAnnotationComment
+                );
+            }
         }
 
         this.walkMultiple(node.decorators);
@@ -1055,6 +1067,18 @@ export class Checker extends ParseTreeWalker {
         this._evaluator.evaluateTypesForStatement(node);
         if (node.typeAnnotationComment) {
             this._evaluator.getType(node.typeAnnotationComment);
+
+            if (
+                this._fileInfo.diagnosticRuleSet.reportTypeCommentUsage !== 'none' &&
+                this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6
+            ) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportTypeCommentUsage,
+                    DiagnosticRule.reportTypeCommentUsage,
+                    Localizer.Diagnostic.typeCommentDeprecated(),
+                    node.typeAnnotationComment
+                );
+            }
         }
 
         return true;

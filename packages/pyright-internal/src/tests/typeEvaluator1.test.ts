@@ -800,6 +800,17 @@ test('AnnotatedVar6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('AnnotatedVar7', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['annotatedVar7.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportTypeCommentUsage = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['annotatedVar7.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 3);
+});
+
 test('CodeFlow1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow1.py']);
 
