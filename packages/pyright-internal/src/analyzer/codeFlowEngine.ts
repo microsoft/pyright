@@ -117,6 +117,16 @@ export function getCodeFlowEngine(
     function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
         const flowNodeTypeCacheSet = new Map<string, TypeCache>();
 
+        function getFlowNodeTypeCacheForReference(referenceKey: string) {
+            let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKey);
+            if (!flowNodeTypeCache) {
+                flowNodeTypeCache = new Map<number, CachedType | undefined>();
+                flowNodeTypeCacheSet.set(referenceKey, flowNodeTypeCache);
+            }
+
+            return flowNodeTypeCache;
+        }
+
         function getTypeFromCodeFlow(
             flowNode: FlowNode,
             reference: CodeFlowReferenceExpressionNode | undefined,
@@ -135,11 +145,7 @@ export function getCodeFlowEngine(
                 referenceKey !== undefined && targetSymbolId !== undefined
                     ? referenceKey + `.${targetSymbolId.toString()}`
                     : '.';
-            let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKeyWithSymbolId);
-            if (!flowNodeTypeCache) {
-                flowNodeTypeCache = new Map<number, CachedType | undefined>();
-                flowNodeTypeCacheSet.set(referenceKeyWithSymbolId, flowNodeTypeCache);
-            }
+            const flowNodeTypeCache = getFlowNodeTypeCacheForReference(referenceKeyWithSymbolId);
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
             function setCacheEntry(
@@ -151,7 +157,7 @@ export function getCodeFlowEngine(
                 if (!isIncomplete) {
                     flowIncompleteGeneration++;
                 } else if (type) {
-                    const prevEntry = flowNodeTypeCache!.get(flowNode.id);
+                    const prevEntry = flowNodeTypeCache.get(flowNode.id);
                     if (prevEntry === undefined) {
                         flowIncompleteGeneration++;
                     } else if ((prevEntry as IncompleteType).isIncompleteType) {
@@ -175,8 +181,8 @@ export function getCodeFlowEngine(
                       }
                     : type;
 
-                flowNodeTypeCache!.set(flowNode.id, entry);
-                speculativeTypeTracker.trackEntry(flowNodeTypeCache!, flowNode.id);
+                flowNodeTypeCache.set(flowNode.id, entry);
+                speculativeTypeTracker.trackEntry(flowNodeTypeCache, flowNode.id);
 
                 return {
                     type,
@@ -195,7 +201,7 @@ export function getCodeFlowEngine(
                 isPending: boolean,
                 evaluationCount: number
             ) {
-                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
+                const cachedEntry = flowNodeTypeCache.get(flowNode.id);
                 if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
                     fail('setIncompleteSubtype can be called only on a valid incomplete cache entry');
                 }
@@ -224,11 +230,11 @@ export function getCodeFlowEngine(
             }
 
             function getCacheEntry(flowNode: FlowNode): FlowNodeTypeResult | undefined {
-                if (!flowNodeTypeCache!.has(flowNode.id)) {
+                if (!flowNodeTypeCache.has(flowNode.id)) {
                     return undefined;
                 }
 
-                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
+                const cachedEntry = flowNodeTypeCache.get(flowNode.id);
                 if (cachedEntry === undefined) {
                     return {
                         type: cachedEntry,
@@ -267,7 +273,7 @@ export function getCodeFlowEngine(
             }
 
             function deleteCacheEntry(flowNode: FlowNode) {
-                flowNodeTypeCache!.delete(flowNode.id);
+                flowNodeTypeCache.delete(flowNode.id);
             }
 
             function evaluateAssignmentFlowNode(flowNode: FlowAssignment): TypeResult | undefined {
