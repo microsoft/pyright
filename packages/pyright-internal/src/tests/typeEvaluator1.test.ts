@@ -811,6 +811,12 @@ test('AnnotatedVar7', () => {
     TestUtils.validateResults(analysisResults2, 3);
 });
 
+test('AnnotatedVar8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar8.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('CodeFlow1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow1.py']);
 

@@ -108,6 +108,7 @@ import {
 import {
     createSynthesizedAliasDeclaration,
     getDeclarationsWithUsesLocalNameRemoved,
+    getNameNodeForDeclaration,
     isExplicitTypeAliasDeclaration,
     isFinalVariableDeclaration,
     isPossibleTypeAliasDeclaration,
@@ -2756,7 +2757,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // We found an existing declared type. Make sure the type is assignable.
         let destType = type;
-        if (declaredType && srcExpression) {
+        if (declaredType) {
             let diagAddendum = new DiagnosticAddendum();
 
             if (!assignType(declaredType, type, diagAddendum)) {
@@ -2773,7 +2774,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         sourceType: printType(type),
                         destType: printType(declaredType),
                     }) + diagAddendum.getString(),
-                    srcExpression || nameNode
+                    srcExpression ?? nameNode
                 );
 
                 // Replace the assigned type with the (unnarrowed) declared type.
@@ -2801,11 +2802,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const varDecl: Declaration | undefined = declarations.find((decl) => decl.type === DeclarationType.Variable);
 
-        if (varDecl && varDecl.type === DeclarationType.Variable && srcExpression) {
+        if (varDecl && varDecl.type === DeclarationType.Variable) {
             if (varDecl.isConstant) {
                 // A constant variable can be assigned only once. If this
                 // isn't the first assignment, generate an error.
-                if (nameNode !== declarations[0].node) {
+                if (nameNode !== getNameNodeForDeclaration(declarations[0])) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportConstantRedefinition,
                         DiagnosticRule.reportConstantRedefinition,
