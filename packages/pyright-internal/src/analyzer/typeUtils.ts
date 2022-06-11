@@ -2235,6 +2235,9 @@ export function requiresSpecialization(
 export function computeMroLinearization(classType: ClassType): boolean {
     let isMroFound = true;
 
+    // Clear out any existing MRO information.
+    classType.details.mro = [];
+
     const filteredBaseClasses = classType.details.baseClasses.filter((baseClass, index) => {
         if (isInstantiableClass(baseClass)) {
             // Generic has some special-case logic (see description of __mro_entries__

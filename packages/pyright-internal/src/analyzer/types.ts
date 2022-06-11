@@ -859,6 +859,16 @@ export namespace ClassType {
         return classType.details.mro.some((baseClass) => isAnyOrUnknown(baseClass));
     }
 
+    // Similar to isPartiallyEvaluated except that it also looks at all of the
+    // classes in the MRO list for this class to see if any of them are still
+    // partially evaluated.
+    export function isHierarchyPartiallyEvaluated(classType: ClassType) {
+        return (
+            ClassType.isPartiallyEvaluated(classType) ||
+            classType.details.mro.some((mroClass) => isClass(mroClass) && ClassType.isPartiallyEvaluated(mroClass))
+        );
+    }
+
     // Same as isSame except that it doesn't compare type arguments.
     export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
         if (recursionCount > maxTypeRecursionCount) {

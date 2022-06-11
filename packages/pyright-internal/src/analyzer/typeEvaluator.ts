@@ -558,6 +558,15 @@ export interface EvaluatorOptions {
     verifyTypeCacheEvaluatorFlags: boolean;
 }
 
+// Describes a "callback hook" that is called when a class type is
+// fully created and the "PartiallyEvaluated" flag has just been cleared.
+// This allows us to properly compute information like the MRO which
+// depends on a full understanding of base classes.
+interface ClassTypeHook {
+    dependency: ClassType;
+    callback: () => void;
+}
+
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const typeCacheFlags = new Map<number, EvaluatorFlags>();
@@ -570,6 +579,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let typeCache: TypeCache = new Map<number, CachedType>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
+    let classTypeHooks: ClassTypeHook[] = [];
     let cancellationToken: CancellationToken | undefined;
     let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
@@ -14444,6 +14454,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                         argType = UnknownType.create();
                     } else {
+                        if (ClassType.isPartiallyEvaluated(argType)) {
+                            // If the base class is partially evaluated, install a callback
+                            // so we can fix up this class (e.g. compute the MRO) when the
+                            // dependent class is completed.
+                            classTypeHooks.push({
+                                dependency: argType,
+                                callback: () => completeClassTypeDeferred(classType, node.name),
+                            });
+                        }
+
                         if (ClassType.isBuiltIn(argType, 'Protocol')) {
                             if (
                                 !fileInfo.isStubFile &&
@@ -14770,57 +14790,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        let effectiveMetaclass = classType.details.declaredMetaclass;
-        let reportedMetaclassConflict = false;
-
-        if (!effectiveMetaclass || isInstantiableClass(effectiveMetaclass)) {
-            for (const baseClass of classType.details.baseClasses) {
-                if (isInstantiableClass(baseClass)) {
-                    const baseClassMeta = baseClass.details.effectiveMetaclass || typeClassType;
-                    if (baseClassMeta && isInstantiableClass(baseClassMeta)) {
-                        // Make sure there is no metaclass conflict.
-                        if (!effectiveMetaclass) {
-                            effectiveMetaclass = baseClassMeta;
-                        } else if (
-                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ false)
-                        ) {
-                            effectiveMetaclass = baseClassMeta;
-                        } else if (
-                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)
-                        ) {
-                            if (!reportedMetaclassConflict) {
-                                addDiagnostic(
-                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.metaclassConflict(),
-                                    node.name
-                                );
-                                // Don't report more than once.
-                                reportedMetaclassConflict = true;
-                            }
-                        }
-                    } else {
-                        effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
-                        break;
-                    }
-                } else {
-                    // If one of the base classes is unknown, then the effective
-                    // metaclass is also unknowable.
-                    effectiveMetaclass = UnknownType.create();
-                    break;
-                }
-            }
-        }
-
-        // If we haven't found an effective metaclass, assume "type", which
-        // is the metaclass for "object".
-        if (!effectiveMetaclass) {
-            const typeMetaclass = getBuiltInType(node, 'type');
-            effectiveMetaclass =
-                typeMetaclass && isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create();
-        }
-
-        classType.details.effectiveMetaclass = effectiveMetaclass;
+        const effectiveMetaclass = computeEffectiveMetaclass(classType, node.name);
 
         // Now determine the decorated type of the class.
         let decoratedType: Type = classType;
@@ -14870,6 +14840,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Clear the "partially constructed" flag.
         classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
+
+        // Run any class hooks that depend on this class.
+        runClassTypeHooks(classType);
 
         // Synthesize TypedDict methods.
         if (ClassType.isTypedDictClass(classType)) {
@@ -14966,6 +14939,62 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return { classType, decoratedType };
+    }
+
+    function computeEffectiveMetaclass(classType: ClassType, errorNode: ParseNode) {
+        let effectiveMetaclass = classType.details.declaredMetaclass;
+        let reportedMetaclassConflict = false;
+
+        if (!effectiveMetaclass || isInstantiableClass(effectiveMetaclass)) {
+            for (const baseClass of classType.details.baseClasses) {
+                if (isInstantiableClass(baseClass)) {
+                    const baseClassMeta = baseClass.details.effectiveMetaclass || typeClassType;
+                    if (baseClassMeta && isInstantiableClass(baseClassMeta)) {
+                        // Make sure there is no metaclass conflict.
+                        if (!effectiveMetaclass) {
+                            effectiveMetaclass = baseClassMeta;
+                        } else if (
+                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ false)
+                        ) {
+                            effectiveMetaclass = baseClassMeta;
+                        } else if (
+                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)
+                        ) {
+                            if (!reportedMetaclassConflict) {
+                                addDiagnostic(
+                                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.metaclassConflict(),
+                                    errorNode
+                                );
+                                // Don't report more than once.
+                                reportedMetaclassConflict = true;
+                            }
+                        }
+                    } else {
+                        effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
+                        break;
+                    }
+                } else {
+                    // If one of the base classes is unknown, then the effective
+                    // metaclass is also unknowable.
+                    effectiveMetaclass = UnknownType.create();
+                    break;
+                }
+            }
+        }
+
+        // If we haven't found an effective metaclass, assume "type", which
+        // is the metaclass for "object".
+        if (!effectiveMetaclass) {
+            const typeMetaclass = getBuiltInType(errorNode, 'type');
+            effectiveMetaclass =
+                typeMetaclass && isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create();
+        }
+
+        classType.details.effectiveMetaclass = effectiveMetaclass;
+
+        return effectiveMetaclass;
     }
 
     // Verifies that the type variables provided outside of "Generic"
@@ -15079,6 +15108,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return getTypeOfDecorator(decoratorNode, inputClassType);
+    }
+
+    // Runs any registered "callback hooks" that depend on the specified class type.
+    // This allows us to complete any work that requires dependent classes to be
+    // completed.
+    function runClassTypeHooks(type: ClassType) {
+        classTypeHooks.forEach((hook) => {
+            if (hook.dependency === type) {
+                hook.callback();
+            }
+        });
+
+        // Remove any hooks that depend on this type.
+        classTypeHooks = classTypeHooks.filter((hook) => hook.dependency !== type);
+    }
+
+    // Recomputes the MRO and effective metaclass for the class after dependent
+    // classes have been fully constructed.
+    function completeClassTypeDeferred(type: ClassType, errorNode: ParseNode) {
+        // Recompute the MRO linearization.
+        if (!computeMroLinearization(type)) {
+            addError(Localizer.Diagnostic.methodOrdering(), errorNode);
+        }
+
+        // Recompute the effective metaclass.
+        computeEffectiveMetaclass(type, errorNode);
     }
 
     function validateInitSubclassArgs(node: ClassNode, classType: ClassType, argList: FunctionArgument[]) {
@@ -19361,6 +19416,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         recursionCount: number,
         reportErrorsUsingObjType: boolean
     ): boolean {
+        // If the source or dest types are partially evaluated (i.e. they are in the
+        // process of being constructed), assume they are assignable rather than risk
+        // emitting false positives.
+        if (ClassType.isHierarchyPartiallyEvaluated(destType) || ClassType.isHierarchyPartiallyEvaluated(srcType)) {
+            return true;
+        }
+
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
         if (
