@@ -766,7 +766,10 @@ export class Tokenizer {
             }
 
             // Try binary => bininteger: "0" ("b" | "B") (["_"] bindigit)+
-            if ((this._cs.nextChar === Char.b || this._cs.nextChar === Char.B) && isBinary(this._cs.lookAhead(2))) {
+            else if (
+                (this._cs.nextChar === Char.b || this._cs.nextChar === Char.B) &&
+                isBinary(this._cs.lookAhead(2))
+            ) {
                 this._cs.advance(2);
                 leadingChars = 2;
                 while (isBinary(this._cs.currentChar)) {
@@ -776,7 +779,7 @@ export class Tokenizer {
             }
 
             // Try octal => octinteger: "0" ("o" | "O") (["_"] octdigit)+
-            if ((this._cs.nextChar === Char.o || this._cs.nextChar === Char.O) && isOctal(this._cs.lookAhead(2))) {
+            else if ((this._cs.nextChar === Char.o || this._cs.nextChar === Char.O) && isOctal(this._cs.lookAhead(2))) {
                 this._cs.advance(2);
                 leadingChars = 2;
                 while (isOctal(this._cs.currentChar)) {
