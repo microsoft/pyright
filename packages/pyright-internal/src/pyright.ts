@@ -324,6 +324,7 @@ async function processArgs(): Promise<ExitStatus> {
                     errorCount += report.warningCount;
                 }
             } else {
+                printVersion();
                 const report = reportDiagnosticsAsText(results.diagnostics);
                 errorCount += report.errorCount;
                 if (treatWarningsAsErrors) {
