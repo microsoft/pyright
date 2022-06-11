@@ -1392,10 +1392,10 @@ export class SourceFile {
     }
 
     private _getPathForLogging(filepath: string) {
-        if (!this.fileSystem.isMappedFilePath(filepath)) {
-            return filepath;
+        if (this.fileSystem.isMappedFilePath(filepath)) {
+            return this.fileSystem.getOriginalFilePath(filepath);
         }
 
-        return '[virtual] ' + filepath;
+        return filepath;
     }
 }

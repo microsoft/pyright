@@ -102,7 +102,7 @@ test('existing stub file', () => {
     const entries = fs.readdirEntriesSync(myLib);
     assert.strictEqual(2, entries.length);
 
-    assert.strictEqual('def test(): pass', fs.readFileSync(stubFile, 'utf8'));
+    assert.strictEqual('def test(): ...', fs.readFileSync(stubFile, 'utf8'));
 
     assert(!fs.existsSync(combinePaths(libraryRoot, 'myLib-stubs')));
 });
