@@ -58,8 +58,13 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         if (!movedEntries || this._realFS.existsSync(path)) {
             entries.push(
                 ...this._realFS.readdirEntriesSync(path).filter((item) => {
-                    // Filter out the stub package directory.
-                    return !this._isMovedEntry(combinePaths(path, item.name));
+                    // Filter out the stub package directory and any
+                    // entries that will be overwritten by stub package
+                    // virtual items.
+                    return (
+                        !this._isMovedEntry(combinePaths(path, item.name)) &&
+                        !movedEntries?.some((movedEntry) => movedEntry.name === item.name)
+                    );
                 })
             );
         }

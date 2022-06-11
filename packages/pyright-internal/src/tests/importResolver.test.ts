@@ -103,7 +103,7 @@ test('side by side files', () => {
     const configOptions = new ConfigOptions(normalizeSlashes('/'));
     const importResolver = new ImportResolver(fs, configOptions, new TestAccessHost(fs.getModulePath(), [libraryRoot]));
 
-    // Real side by side stub file win over virtual one.
+    // Stub package wins over original package (per PEP 561 rules).
     const sideBySideResult = importResolver.resolveImport(myFile, configOptions.findExecEnvironment(myFile), {
         leadingDots: 0,
         nameParts: ['myLib', 'partialStub'],
@@ -115,7 +115,7 @@ test('side by side files', () => {
 
     const sideBySideStubFile = combinePaths(libraryRoot, 'myLib', 'partialStub.pyi');
     assert.strictEqual(1, sideBySideResult.resolvedPaths.filter((f) => f === sideBySideStubFile).length);
-    assert.strictEqual('# empty', fs.readFileSync(sideBySideStubFile, 'utf8'));
+    assert.strictEqual('def test(): ...', fs.readFileSync(sideBySideStubFile, 'utf8'));
 
     // Side by side stub doesn't completely disable partial stub.
     const partialStubResult = importResolver.resolveImport(myFile, configOptions.findExecEnvironment(myFile), {
@@ -312,10 +312,10 @@ test('py.typed file', () => {
         },
     ];
 
-    // If py.typed file exists, then partial stub is disabled for this library.
+    // Partial stub package always overrides original package.
     const importResult = getImportResult(files, ['myLib']);
     assert(importResult.isImportFound);
-    assert(!importResult.isStubFile);
+    assert(importResult.isStubFile);
 });
 
 test('py.typed library', () => {

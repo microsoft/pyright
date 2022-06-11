@@ -15,13 +15,7 @@ import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem, MkDirOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import {
-    changeAnyExtension,
-    combinePaths,
-    ensureTrailingDirectorySeparator,
-    isDirectory,
-    tryStat,
-} from './common/pathUtils';
+import { combinePaths, ensureTrailingDirectorySeparator, isDirectory, tryStat } from './common/pathUtils';
 import { ReadOnlyAugmentedFileSystem } from './readonlyAugmentedFileSystem';
 
 export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
@@ -30,10 +24,6 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
 
     // Partial stub package paths processed
     private readonly _partialStubPackagePaths = new Set<string>();
-
-    // Conflicted files. We keep these in case we want something such as doc string
-    // from files.
-    private readonly _conflictMap = new Map<string, string>();
 
     private readonly _customUriMap = new Map<string, { uri: string; closed: boolean; hasPendingRequest: boolean }>();
 
@@ -172,7 +162,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
                 // We found partially typed stub-packages.
                 this._partialStubPackagePaths.add(partialStubPackagePath);
 
-                // 1. Search the root to see whether we have matching package installed.
+                // Search the root to see whether we have matching package installed.
                 let partialStubs: string[] | undefined;
                 const packageName = entry.name.substr(0, entry.name.length - stubsSuffix.length);
                 for (const root of roots) {
@@ -183,48 +173,11 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
                             continue;
                         }
 
-                        // 2. Check py.typed of the package.
-                        const packagePyTyped = getPyTypedInfo(this._realFS, packagePath);
-                        if (packagePyTyped && !packagePyTyped.isPartiallyTyped) {
-                            // We have fully typed package.
-                            continue;
-                        }
-
-                        // 3. Merge partial stub packages to the library (py.typed not exist or partially typed).
+                        // Merge partial stub packages to the library.
                         partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
                         for (const partialStub of partialStubs) {
                             const originalPyiFile = combinePaths(partialStubPackagePath, partialStub);
                             const mappedPyiFile = combinePaths(packagePath, partialStub);
-
-                            if (this.existsSync(mappedPyiFile)) {
-                                // If we have a conflict, first check whether we should save
-                                // the partial stub for later such as doc string for compiled module,
-                                // otherwise, just skip it.
-                                const mappedPyFile = changeAnyExtension(mappedPyiFile, 'py');
-                                const tmpPyFile = changeAnyExtension(
-                                    combinePaths(this.tmpdir(), 'conflictFiles', packageName, partialStub),
-                                    'py'
-                                );
-
-                                // If no source file exists and never saved the conflict file before,
-                                // save it for doc string.
-                                if (
-                                    !this._conflictMap.has(mappedPyiFile) &&
-                                    !this.existsSync(mappedPyFile) &&
-                                    !this.existsSync(tmpPyFile)
-                                ) {
-                                    // We let people to go from tmpPyFile to originalPyiFile but
-                                    // not the other way around. what that means is that even if a user opens
-                                    // the file explicitly from real file system (ex, vscode open file), it won't
-                                    // go to the fake tmp py file. but open as it is.
-                                    this._recordMovedEntry(tmpPyFile, originalPyiFile, /* reversible */ false);
-
-                                    // This should be the only way to get to the tmp py file. and used internally
-                                    // to get some info like doc string of compiled module.
-                                    this._conflictMap.set(mappedPyiFile, tmpPyFile);
-                                }
-                                continue;
-                            }
 
                             this._recordMovedEntry(mappedPyiFile, originalPyiFile);
                         }
@@ -241,14 +194,6 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
 
         this._rootSearched.clear();
         this._partialStubPackagePaths.clear();
-
-        this._conflictMap.clear();
-    }
-
-    // If we have a conflict file from the partial stub packages for the given file path,
-    // return it.
-    getConflictedFile(filepath: string) {
-        return this._conflictMap.get(filepath);
     }
 
     private _getRelativePathPartialStubs(path: string) {
