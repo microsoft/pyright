@@ -11,6 +11,8 @@ offsets = [] # type: List[int]
 self._target = 3 # type: Union[int, str]
 ```
 
+Future versions of Python will likely deprecate support for type annotation comments. The “reportTypeCommentUsage” diagnostic will report usage of such comments so they can be replaced with inline type annotations.
+
 ## File-level Type Controls
 Strict type checking, where most supported type-checking switches generate errors, can be enabled for a file through the use of a special comment. Typically this comment is placed at or near the top of a code file on its own line.
 
