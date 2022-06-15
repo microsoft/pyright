@@ -195,6 +195,12 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
         this._rootSearched.clear();
         this._partialStubPackagePaths.clear();
     }
+    
+    // If we have a conflict file from the partial stub packages for the given file path,
+    // return it.
+    getConflictedFile(filepath: string) {
+        return this._conflictMap.get(filepath);
+    }
 
     private _getRelativePathPartialStubs(path: string) {
         const paths: string[] = [];
