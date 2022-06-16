@@ -22094,6 +22094,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (
                 !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
                 srcParamDetails.kwargsIndex === undefined &&
+                srcType.details.paramSpec === undefined &&
                 destParamDetails.kwargsIndex !== undefined
             ) {
                 diag?.createAddendum().addMessage(
