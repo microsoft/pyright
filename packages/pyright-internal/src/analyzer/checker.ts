@@ -4422,6 +4422,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Special case the '_' symbol, which is used in single dispatch
+        // code and other cases where the name does not matter.
+        if (memberName === '_') {
+            return;
+        }
+
         let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
         baseType = partiallySpecializeType(baseType, baseClassAndSymbol.classType);
 
@@ -4594,6 +4600,12 @@ export class Checker extends ParseTreeWalker {
         // proceeding with additional checks. Type inference is too inaccurate
         // in this case, plus it would be very slow.
         if (!baseClassAndSymbol.symbol.hasTypedDeclarations()) {
+            return;
+        }
+
+        // Special case the '_' symbol, which is used in single dispatch
+        // code and other cases where the name does not matter.
+        if (memberName === '_') {
             return;
         }
 
