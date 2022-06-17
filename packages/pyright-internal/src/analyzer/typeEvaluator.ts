@@ -23084,19 +23084,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (isOverloadedFunction(memberType)) {
             const newOverloadType = OverloadedFunctionType.create([]);
             memberType.overloads.forEach((overload) => {
-                if (FunctionType.isOverloaded(overload)) {
-                    const boundMethod = bindFunctionToClassOrObject(
-                        baseType,
-                        overload,
-                        memberClass,
-                        /* errorNode */ undefined,
-                        recursionCount,
-                        treatConstructorAsClassMember,
-                        firstParamType
-                    );
-                    if (boundMethod) {
-                        OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
-                    }
+                const boundMethod = bindFunctionToClassOrObject(
+                    baseType,
+                    overload,
+                    memberClass,
+                    /* errorNode */ undefined,
+                    recursionCount,
+                    treatConstructorAsClassMember,
+                    firstParamType
+                );
+                if (boundMethod) {
+                    OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
                 }
             });
 
