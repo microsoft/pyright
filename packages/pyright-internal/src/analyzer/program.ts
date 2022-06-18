@@ -77,6 +77,7 @@ import { findNodeByOffset, getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
+import { isUserCode } from './sourceFileInfoUtils';
 import { isStubFile, SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
@@ -435,7 +436,7 @@ export class Program {
     // Returns the number of files that are considered "user" files and therefore
     // are checked.
     getUserFileCount() {
-        return this._sourceFileList.filter((s) => this._isUserCode(s)).length;
+        return this._sourceFileList.filter((s) => isUserCode(s)).length;
     }
 
     getTracked(): SourceFileInfo[] {
@@ -531,7 +532,7 @@ export class Program {
 
                 // Now do type parsing and analysis of the remaining.
                 for (const sourceFileInfo of this._sourceFileList) {
-                    if (!this._isUserCode(sourceFileInfo)) {
+                    if (!isUserCode(sourceFileInfo)) {
                         continue;
                     }
 
@@ -567,7 +568,7 @@ export class Program {
 
             let count = 0;
             for (const sourceFileInfo of this._sourceFileList) {
-                if (!this._isUserCode(sourceFileInfo) || !sourceFileInfo.sourceFile.isIndexingRequired()) {
+                if (!isUserCode(sourceFileInfo) || !sourceFileInfo.sourceFile.isIndexingRequired()) {
                     continue;
                 }
 
@@ -997,9 +998,7 @@ export class Program {
     ): ModuleSymbolMap {
         // If we have library map, always use the map for library symbols.
         return buildModuleSymbolsMap(
-            this._sourceFileList.filter(
-                (s) => s !== sourceFileToExclude && (userFileOnly ? this._isUserCode(s) : true)
-            ),
+            this._sourceFileList.filter((s) => s !== sourceFileToExclude && (userFileOnly ? isUserCode(s) : true)),
             includeIndexUserSymbols,
             token
         );
@@ -1434,7 +1433,7 @@ export class Program {
                 return;
             }
 
-            const invokedFromUserFile = this._isUserCode(sourceFileInfo);
+            const invokedFromUserFile = isUserCode(sourceFileInfo);
             this._bindFile(sourceFileInfo);
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
@@ -1457,11 +1456,7 @@ export class Program {
 
                     // "Find all references" will only include references from user code
                     // unless the file is explicitly opened in the editor or it is invoked from non user files.
-                    if (
-                        curSourceFileInfo.isOpenByClient ||
-                        !invokedFromUserFile ||
-                        this._isUserCode(curSourceFileInfo)
-                    ) {
+                    if (curSourceFileInfo.isOpenByClient || !invokedFromUserFile || isUserCode(curSourceFileInfo)) {
                         // See if the reference symbol's string is located somewhere within the file.
                         // If not, we can skip additional processing for the file.
                         const fileContents = curSourceFileInfo.sourceFile.getFileContent();
@@ -1582,7 +1577,7 @@ export class Program {
 
             // "Workspace symbols" searches symbols only from user code.
             for (const sourceFileInfo of this._sourceFileList) {
-                if (!this._isUserCode(sourceFileInfo)) {
+                if (!isUserCode(sourceFileInfo)) {
                     continue;
                 }
 
@@ -2002,7 +1997,7 @@ export class Program {
                     for (const curSourceFileInfo of this._sourceFileList) {
                         // Make sure we only add user code to the references to prevent us
                         // from accidentally changing third party library or type stub.
-                        if (this._isUserCode(curSourceFileInfo)) {
+                        if (isUserCode(curSourceFileInfo)) {
                             // Make sure searching symbol name exists in the file.
                             const content = curSourceFileInfo.sourceFile.getFileContent() ?? '';
                             if (content.indexOf(referencesResult.symbolName) < 0) {
@@ -2106,7 +2101,7 @@ export class Program {
         let items: CallHierarchyIncomingCall[] = [];
 
         for (const curSourceFileInfo of this._sourceFileList) {
-            if (this._isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
+            if (isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
                 this._bindFile(curSourceFileInfo);
 
                 const itemsToAdd = CallHierarchyProvider.getIncomingCallsForDeclaration(
@@ -2200,7 +2195,7 @@ export class Program {
         //
         // and Multi file mode.
         // 1. rename public symbols defined in user files on regular workspace (ex, open folder mode).
-        const userFile = this._isUserCode(sourceFileInfo);
+        const userFile = isUserCode(sourceFileInfo);
         if (
             isDefaultWorkspace ||
             (userFile && !referencesResult.requiresGlobalSearch) ||
@@ -2211,7 +2206,7 @@ export class Program {
             return 'singleFileMode';
         }
 
-        if (referencesResult.declarations.every((d) => this._isUserCode(this._getSourceFileInfoFromPath(d.path)))) {
+        if (referencesResult.declarations.every((d) => isUserCode(this._getSourceFileInfoFromPath(d.path)))) {
             return 'multiFileMode';
         }
 
@@ -2222,9 +2217,7 @@ export class Program {
 
     private _supportRenameModule(declarations: Declaration[], isDefaultWorkspace: boolean) {
         // Rename module is not supported for standalone file and all decls must be on a user file.
-        return (
-            !isDefaultWorkspace && declarations.every((d) => this._isUserCode(this._getSourceFileInfoFromPath(d.path)))
-        );
+        return !isDefaultWorkspace && declarations.every((d) => isUserCode(this._getSourceFileInfoFromPath(d.path)));
     }
 
     private _getReferenceResult(
@@ -2275,7 +2268,7 @@ export class Program {
         for (const currentFileInfo of this._sourceFileList) {
             // Make sure we only touch user code to prevent us
             // from accidentally changing third party library or type stub.
-            if (!this._isUserCode(currentFileInfo)) {
+            if (!isUserCode(currentFileInfo)) {
                 continue;
             }
 
@@ -2353,10 +2346,6 @@ export class Program {
         for (const sourceFileInfo of this._sourceFileList) {
             sourceFileInfo.sourceFile.dropParseAndBindInfo();
         }
-    }
-
-    private _isUserCode(fileInfo: SourceFileInfo | undefined) {
-        return fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
     }
 
     // Wrapper function that should be used when invoking this._evaluator
