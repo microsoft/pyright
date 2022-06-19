@@ -2685,8 +2685,8 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
-        const accessedSymbolMap = this._fileInfo.accessedSymbolMap;
-        if (symbol.isIgnoredForProtocolMatch() || accessedSymbolMap.has(symbol.id)) {
+        const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
+        if (symbol.isIgnoredForProtocolMatch() || accessedSymbolSet.has(symbol.id)) {
             return;
         }
 

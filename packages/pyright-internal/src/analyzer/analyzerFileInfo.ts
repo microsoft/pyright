@@ -48,7 +48,7 @@ export interface AnalyzerFileInfo {
     isBuiltInStubFile: boolean;
     isInPyTypedPackage: boolean;
     isIPythonMode: boolean;
-    accessedSymbolMap: Map<number, true>;
+    accessedSymbolSet: Set<number>;
 }
 
 export function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {

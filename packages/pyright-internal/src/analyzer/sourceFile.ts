@@ -1310,7 +1310,7 @@ export class SourceFile {
             isBuiltInStubFile: this._isBuiltInStubFile,
             isInPyTypedPackage: this._isThirdPartyPyTypedPresent,
             isIPythonMode: this._ipythonMode,
-            accessedSymbolMap: new Map<number, true>(),
+            accessedSymbolSet: new Set<number>(),
         };
         return fileInfo;
     }

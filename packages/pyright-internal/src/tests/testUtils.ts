@@ -119,7 +119,7 @@ export function buildAnalyzerFileInfo(
         isTypingExtensionsStubFile: false,
         isBuiltInStubFile: false,
         isIPythonMode: false,
-        accessedSymbolMap: new Map<number, true>(),
+        accessedSymbolSet: new Set<number>(),
         typingSymbolAliases: new Map<string, string>(),
     };
 

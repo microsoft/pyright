@@ -3739,7 +3739,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol, node: ParseNode) {
         if (!speculativeTypeTracker.isSpeculative(node)) {
-            fileInfo.accessedSymbolMap.set(symbol.id, true);
+            fileInfo.accessedSymbolSet.add(symbol.id);
         }
     }
 
