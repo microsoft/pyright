@@ -532,12 +532,26 @@ export function getTypeNarrowingCallback(
             const arg0Expr = testExpression.arguments[0].valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 // Does this look like it's a custom type guard function?
-                if (
-                    isFunction(callType) &&
-                    callType.details.declaredReturnType &&
-                    isClassInstance(callType.details.declaredReturnType) &&
-                    ClassType.isBuiltIn(callType.details.declaredReturnType, ['TypeGuard', 'StrictTypeGuard'])
+                let isPossiblyTypeGuard = false;
+
+                const isFunctionReturnTypeGuard = (type: FunctionType) => {
+                    return (
+                        type.details.declaredReturnType &&
+                        isClassInstance(type.details.declaredReturnType) &&
+                        ClassType.isBuiltIn(type.details.declaredReturnType, ['TypeGuard', 'StrictTypeGuard'])
+                    );
+                };
+
+                if (isFunction(callType) && isFunctionReturnTypeGuard(callType)) {
+                    isPossiblyTypeGuard = true;
+                } else if (
+                    isOverloadedFunction(callType) &&
+                    callType.overloads.some((o) => FunctionType.isOverloaded(o) && isFunctionReturnTypeGuard(o))
                 ) {
+                    isPossiblyTypeGuard = true;
+                }
+
+                if (isPossiblyTypeGuard) {
                     // Evaluate the type guard call expression.
                     const functionReturnType = evaluator.getTypeOfExpression(testExpression).type;
                     if (
@@ -545,10 +559,7 @@ export function getTypeNarrowingCallback(
                         ClassType.isBuiltIn(functionReturnType, 'bool') &&
                         functionReturnType.typeGuardType
                     ) {
-                        const isStrictTypeGuard = ClassType.isBuiltIn(
-                            callType.details.declaredReturnType,
-                            'StrictTypeGuard'
-                        );
+                        const isStrictTypeGuard = !!functionReturnType.isStrictTypeGuard;
                         const typeGuardType = functionReturnType.typeGuardType;
 
                         return (type: Type) => {

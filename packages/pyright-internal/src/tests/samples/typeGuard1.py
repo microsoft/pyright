@@ -51,7 +51,7 @@ def bad2(a: int) -> TypeGuard[str, int]:
 
 
 # This should generate an error because TypeGuard
-# does not accept an elipsis.
+# does not accept an ellipsis.
 def bad3(a: int) -> TypeGuard[...]:
     return True
 
