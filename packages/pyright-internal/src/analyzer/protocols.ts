@@ -61,6 +61,8 @@ export function assignClassToProtocol(
     treatSourceAsInstantiable: boolean,
     recursionCount: number
 ): boolean {
+    const enforceInvariance = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
+
     if (recursionCount > maxTypeRecursionCount) {
         return true;
     }
@@ -78,6 +80,7 @@ export function assignClassToProtocol(
 
     // See if we've already determined that this class is compatible with this protocol.
     if (
+        !enforceInvariance &&
         !treatSourceAsInstantiable &&
         destType.details.typeParameters.length === 0 &&
         srcType.details.typeParameters.length === 0 &&
