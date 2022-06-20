@@ -355,25 +355,27 @@ class TemporaryDirectory(Generic[AnyStr]):
         @overload
         def __init__(
             self: TemporaryDirectory[str],
-            suffix: None = ...,
-            prefix: None = ...,
-            dir: None = ...,
+            suffix: str | None = ...,
+            prefix: str | None = ...,
+            dir: StrPath | None = ...,
             ignore_cleanup_errors: bool = ...,
         ) -> None: ...
         @overload
         def __init__(
-            self,
-            suffix: AnyStr | None = ...,
-            prefix: AnyStr | None = ...,
-            dir: GenericPath[AnyStr] | None = ...,
+            self: TemporaryDirectory[bytes],
+            suffix: bytes | None = ...,
+            prefix: bytes | None = ...,
+            dir: BytesPath | None = ...,
             ignore_cleanup_errors: bool = ...,
         ) -> None: ...
     else:
         @overload
-        def __init__(self: TemporaryDirectory[str], suffix: None = ..., prefix: None = ..., dir: None = ...) -> None: ...
+        def __init__(
+            self: TemporaryDirectory[str], suffix: str | None = ..., prefix: str | None = ..., dir: StrPath | None = ...
+        ) -> None: ...
         @overload
         def __init__(
-            self, suffix: AnyStr | None = ..., prefix: AnyStr | None = ..., dir: GenericPath[AnyStr] | None = ...
+            self: TemporaryDirectory[bytes], suffix: bytes | None = ..., prefix: bytes | None = ..., dir: BytesPath | None = ...
         ) -> None: ...
 
     def cleanup(self) -> None: ...

@@ -20,6 +20,7 @@ from _typeshed import (
     SupportsKeysAndGetItem,
     SupportsLenAndGetItem,
     SupportsNext,
+    SupportsRAdd,
     SupportsRDivMod,
     SupportsRichComparison,
     SupportsRichComparisonT,
@@ -1637,8 +1638,12 @@ def sorted(
 @overload
 def sorted(__iterable: Iterable[_T], *, key: Callable[[_T], SupportsRichComparison], reverse: bool = ...) -> list[_T]: ...
 
-_SumT = TypeVar("_SumT", bound=SupportsAdd)
-_SumS = TypeVar("_SumS", bound=SupportsAdd)
+_AddableT1 = TypeVar("_AddableT1", bound=SupportsAdd[Any, Any])
+_AddableT2 = TypeVar("_AddableT2", bound=SupportsAdd[Any, Any])
+
+class _SupportsSumWithNoDefaultGiven(SupportsAdd[Any, Any], SupportsRAdd[int, Any], Protocol): ...
+
+_SupportsSumNoDefaultT = TypeVar("_SupportsSumNoDefaultT", bound=_SupportsSumWithNoDefaultGiven)
 
 # In general, the return type of `x + x` is *not* guaranteed to be the same type as x.
 # However, we can't express that in the stub for `sum()`
@@ -1653,15 +1658,15 @@ else:
     def sum(__iterable: Iterable[bool], __start: int = ...) -> int: ...  # type: ignore[misc]
 
 @overload
-def sum(__iterable: Iterable[_SumT]) -> _SumT | Literal[0]: ...
+def sum(__iterable: Iterable[_SupportsSumNoDefaultT]) -> _SupportsSumNoDefaultT | Literal[0]: ...
 
 if sys.version_info >= (3, 8):
     @overload
-    def sum(__iterable: Iterable[_SumT], start: _SumS) -> _SumT | _SumS: ...
+    def sum(__iterable: Iterable[_AddableT1], start: _AddableT2) -> _AddableT1 | _AddableT2: ...
 
 else:
     @overload
-    def sum(__iterable: Iterable[_SumT], __start: _SumS) -> _SumT | _SumS: ...
+    def sum(__iterable: Iterable[_AddableT1], __start: _AddableT2) -> _AddableT1 | _AddableT2: ...
 
 # The argument to `vars()` has to have a `__dict__` attribute, so can't be annotated with `object`
 # (A "SupportsDunderDict" protocol doesn't work)

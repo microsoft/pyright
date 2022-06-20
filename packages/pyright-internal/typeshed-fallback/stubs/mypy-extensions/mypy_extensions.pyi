@@ -1,6 +1,6 @@
 import abc
-from _typeshed import Self
-from collections.abc import Callable, ItemsView, KeysView, Mapping, ValuesView
+from _typeshed import IdentityFunction, Self
+from collections.abc import ItemsView, KeysView, Mapping, ValuesView
 from typing import Any, Generic, TypeVar, overload
 
 _T = TypeVar("_T")
@@ -54,6 +54,6 @@ class NoReturn: ...
 # a class decorator, but mypy does not support type[_T] for abstract
 # classes until this issue is resolved, https://github.com/python/mypy/issues/4717.
 def trait(cls: _T) -> _T: ...
-def mypyc_attr(*attrs: str, **kwattrs: object) -> Callable[[_T], _T]: ...
+def mypyc_attr(*attrs: str, **kwattrs: object) -> IdentityFunction: ...
 
 class FlexibleAlias(Generic[_T, _U]): ...

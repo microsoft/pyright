@@ -2,10 +2,11 @@ from _typeshed import Self, SupportsRichComparison
 from collections import deque
 from collections.abc import Callable, Container, Iterable, Sequence
 from typing import Any
+from typing_extensions import TypeAlias
 
 from jsonschema import _utils, protocols
 
-_RelevanceFuncType = Callable[[ValidationError], SupportsRichComparison]
+_RelevanceFuncType: TypeAlias = Callable[[ValidationError], SupportsRichComparison]
 
 WEAK_MATCHES: frozenset[str]
 STRONG_MATCHES: frozenset[str]

@@ -1,12 +1,24 @@
-import datetime
 import logging
 import sys
 import unittest.result
-from _typeshed import Self
+from _typeshed import Self, SupportsDunderGE, SupportsSub
 from collections.abc import Callable, Container, Iterable, Mapping, Sequence, Set as AbstractSet
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Any, AnyStr, ClassVar, Generic, NamedTuple, NoReturn, Pattern, TypeVar, overload
+from typing import (
+    Any,
+    AnyStr,
+    ClassVar,
+    Generic,
+    NamedTuple,
+    NoReturn,
+    Pattern,
+    Protocol,
+    SupportsAbs,
+    SupportsRound,
+    TypeVar,
+    overload,
+)
 from typing_extensions import ParamSpec
 from warnings import WarningMessage
 
@@ -14,6 +26,7 @@ if sys.version_info >= (3, 9):
     from types import GenericAlias
 
 _T = TypeVar("_T")
+_S = TypeVar("_S", bound=SupportsSub[Any, Any])
 _E = TypeVar("_E", bound=BaseException)
 _FT = TypeVar("_FT", bound=Callable[..., Any])
 _P = ParamSpec("_P")
@@ -61,6 +74,8 @@ def skipUnless(condition: object, reason: str) -> Callable[[_FT], _FT]: ...
 
 class SkipTest(Exception):
     def __init__(self, reason: str) -> None: ...
+
+class _SupportsAbsAndDunderGE(SupportsDunderGE, SupportsAbs[Any], Protocol): ...
 
 class TestCase:
     failureException: type[BaseException]
@@ -166,32 +181,34 @@ class TestCase:
         ) -> _AssertLogsContext[None]: ...
 
     @overload
+    def assertAlmostEqual(self, first: _S, second: _S, places: None, msg: Any, delta: _SupportsAbsAndDunderGE) -> None: ...
+    @overload
     def assertAlmostEqual(
-        self, first: float, second: float, places: int | None = ..., msg: Any = ..., delta: float | None = ...
+        self, first: _S, second: _S, places: None = ..., msg: Any = ..., *, delta: _SupportsAbsAndDunderGE
     ) -> None: ...
     @overload
     def assertAlmostEqual(
         self,
-        first: datetime.datetime,
-        second: datetime.datetime,
+        first: SupportsSub[_T, SupportsAbs[SupportsRound[object]]],
+        second: _T,
         places: int | None = ...,
         msg: Any = ...,
-        delta: datetime.timedelta | None = ...,
+        delta: None = ...,
     ) -> None: ...
     @overload
-    def assertNotAlmostEqual(self, first: float, second: float, *, msg: Any = ...) -> None: ...
+    def assertNotAlmostEqual(self, first: _S, second: _S, places: None, msg: Any, delta: _SupportsAbsAndDunderGE) -> None: ...
     @overload
-    def assertNotAlmostEqual(self, first: float, second: float, places: int | None = ..., msg: Any = ...) -> None: ...
-    @overload
-    def assertNotAlmostEqual(self, first: float, second: float, *, msg: Any = ..., delta: float | None = ...) -> None: ...
+    def assertNotAlmostEqual(
+        self, first: _S, second: _S, places: None = ..., msg: Any = ..., *, delta: _SupportsAbsAndDunderGE
+    ) -> None: ...
     @overload
     def assertNotAlmostEqual(
         self,
-        first: datetime.datetime,
-        second: datetime.datetime,
+        first: SupportsSub[_T, SupportsAbs[SupportsRound[object]]],
+        second: _T,
         places: int | None = ...,
         msg: Any = ...,
-        delta: datetime.timedelta | None = ...,
+        delta: None = ...,
     ) -> None: ...
     def assertRegex(self, text: AnyStr, expected_regex: AnyStr | Pattern[AnyStr], msg: Any = ...) -> None: ...
     def assertNotRegex(self, text: AnyStr, unexpected_regex: AnyStr | Pattern[AnyStr], msg: Any = ...) -> None: ...
@@ -249,14 +266,10 @@ class TestCase:
         ) -> None: ...
         @overload
         def failUnlessRaises(self, exception: type[_E] | tuple[type[_E], ...], msg: Any = ...) -> _AssertRaisesContext[_E]: ...
-        def failUnlessAlmostEqual(self, first: float, second: float, places: int = ..., msg: Any = ...) -> None: ...
-        def assertAlmostEquals(
-            self, first: float, second: float, places: int = ..., msg: Any = ..., delta: float = ...
-        ) -> None: ...
-        def failIfAlmostEqual(self, first: float, second: float, places: int = ..., msg: Any = ...) -> None: ...
-        def assertNotAlmostEquals(
-            self, first: float, second: float, places: int = ..., msg: Any = ..., delta: float = ...
-        ) -> None: ...
+        failUnlessAlmostEqual = assertAlmostEqual
+        assertAlmostEquals = assertAlmostEqual
+        failIfAlmostEqual = assertNotAlmostEqual
+        assertNotAlmostEquals = assertNotAlmostEqual
         def assertRegexpMatches(self, text: AnyStr, regex: AnyStr | Pattern[AnyStr], msg: Any = ...) -> None: ...
         def assertNotRegexpMatches(self, text: AnyStr, regex: AnyStr | Pattern[AnyStr], msg: Any = ...) -> None: ...
         @overload

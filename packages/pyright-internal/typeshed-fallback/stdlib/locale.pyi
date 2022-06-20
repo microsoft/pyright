@@ -29,6 +29,9 @@ __all__ = [
     "CHAR_MAX",
 ]
 
+if sys.version_info >= (3, 11):
+    __all__ += ["getencoding"]
+
 # This module defines a function "str()", which is why "str" can't be used
 # as a type annotation or type alias.
 from builtins import str as _str

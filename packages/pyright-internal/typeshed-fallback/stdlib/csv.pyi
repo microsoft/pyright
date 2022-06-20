@@ -79,7 +79,7 @@ class unix_dialect(Dialect):
     lineterminator: str
     quoting: _QuotingType
 
-class DictReader(Generic[_T], Iterator[_DictReadMapping[_T, str]]):
+class DictReader(Generic[_T], Iterator[_DictReadMapping[_T | Any, str | Any]]):
     fieldnames: Sequence[_T] | None
     restkey: str | None
     restval: str | None
@@ -123,7 +123,7 @@ class DictReader(Generic[_T], Iterator[_DictReadMapping[_T, str]]):
         strict: bool = ...,
     ) -> None: ...
     def __iter__(self: Self) -> Self: ...
-    def __next__(self) -> _DictReadMapping[_T, str]: ...
+    def __next__(self) -> _DictReadMapping[_T | Any, str | Any]: ...
     if sys.version_info >= (3, 12):
         def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 

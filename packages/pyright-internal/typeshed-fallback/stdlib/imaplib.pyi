@@ -19,9 +19,9 @@ _CommandResults: TypeAlias = tuple[str, list[Any]]
 _AnyResponseData: TypeAlias = list[None] | list[bytes | tuple[bytes, bytes]]
 
 class IMAP4:
-    error: type[Exception]
-    abort: type[Exception]
-    readonly: type[Exception]
+    class error(Exception): ...
+    class abort(error): ...
+    class readonly(abort): ...
     mustquote: Pattern[str]
     debug: int
     state: str

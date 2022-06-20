@@ -5,65 +5,25 @@ from types import TracebackType
 from typing import IO, Any, ContextManager, Generic, Protocol, TypeVar, overload  # noqa: Y027
 from typing_extensions import ParamSpec, TypeAlias
 
+__all__ = [
+    "contextmanager",
+    "closing",
+    "AbstractContextManager",
+    "ContextDecorator",
+    "ExitStack",
+    "redirect_stdout",
+    "redirect_stderr",
+    "suppress",
+]
+
+if sys.version_info >= (3, 7):
+    __all__ += ["AbstractAsyncContextManager", "AsyncExitStack", "asynccontextmanager", "nullcontext"]
+
+if sys.version_info >= (3, 10):
+    __all__ += ["aclosing"]
+
 if sys.version_info >= (3, 11):
-    __all__ = [
-        "asynccontextmanager",
-        "contextmanager",
-        "closing",
-        "nullcontext",
-        "AbstractContextManager",
-        "AbstractAsyncContextManager",
-        "AsyncExitStack",
-        "ContextDecorator",
-        "ExitStack",
-        "redirect_stdout",
-        "redirect_stderr",
-        "suppress",
-        "aclosing",
-        "chdir",
-    ]
-elif sys.version_info >= (3, 10):
-    __all__ = [
-        "asynccontextmanager",
-        "contextmanager",
-        "closing",
-        "nullcontext",
-        "AbstractContextManager",
-        "AbstractAsyncContextManager",
-        "AsyncExitStack",
-        "ContextDecorator",
-        "ExitStack",
-        "redirect_stdout",
-        "redirect_stderr",
-        "suppress",
-        "aclosing",
-    ]
-elif sys.version_info >= (3, 7):
-    __all__ = [
-        "asynccontextmanager",
-        "contextmanager",
-        "closing",
-        "nullcontext",
-        "AbstractContextManager",
-        "AbstractAsyncContextManager",
-        "AsyncExitStack",
-        "ContextDecorator",
-        "ExitStack",
-        "redirect_stdout",
-        "redirect_stderr",
-        "suppress",
-    ]
-else:
-    __all__ = [
-        "contextmanager",
-        "closing",
-        "AbstractContextManager",
-        "ContextDecorator",
-        "ExitStack",
-        "redirect_stdout",
-        "redirect_stderr",
-        "suppress",
-    ]
+    __all__ += ["chdir"]
 
 AbstractContextManager = ContextManager
 if sys.version_info >= (3, 7):

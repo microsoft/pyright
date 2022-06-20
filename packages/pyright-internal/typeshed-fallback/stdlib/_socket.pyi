@@ -273,6 +273,8 @@ TCP_SYNCNT: int
 TCP_WINDOW_CLAMP: int
 if sys.version_info >= (3, 7):
     TCP_NOTSENT_LOWAT: int
+if sys.version_info >= (3, 10) and sys.platform == "darwin":
+    TCP_KEEPALIVE: int
 if sys.version_info >= (3, 11) and sys.platform == "darwin":
     TCP_CONNECTION_INFO: int
 

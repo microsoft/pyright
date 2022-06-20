@@ -14,6 +14,35 @@ else:
 
 __all__ = ["ChainMap", "Counter", "OrderedDict", "UserDict", "UserList", "UserString", "defaultdict", "deque", "namedtuple"]
 
+if sys.version_info < (3, 7):
+    __all__ += [
+        "Awaitable",
+        "Coroutine",
+        "AsyncIterable",
+        "AsyncIterator",
+        "AsyncGenerator",
+        "Hashable",
+        "Iterable",
+        "Iterator",
+        "Generator",
+        "Reversible",
+        "Sized",
+        "Container",
+        "Callable",
+        "Collection",
+        "Set",
+        "MutableSet",
+        "Mapping",
+        "MutableMapping",
+        "MappingView",
+        "KeysView",
+        "ItemsView",
+        "ValuesView",
+        "Sequence",
+        "MutableSequence",
+        "ByteString",
+    ]
+
 _S = TypeVar("_S")
 _T = TypeVar("_T")
 _T1 = TypeVar("_T1")

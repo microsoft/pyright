@@ -904,7 +904,7 @@ class SortedSetCommands(Generic[_StrType]):
         end: int,
         desc: bool,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
         byscore: bool = ...,
         bylex: bool = ...,
         offset: int | None = ...,
@@ -916,15 +916,42 @@ class SortedSetCommands(Generic[_StrType]):
         name: _Key,
         start: int,
         end: int,
-        desc: bool = ...,
+        desc: bool,
+        withscores: Literal[True],
+        score_cast_func: Callable[[_StrType], float] = ...,
+        byscore: bool = ...,
+        bylex: bool = ...,
+        offset: int | None = ...,
+        num: int | None = ...,
+    ) -> list[tuple[_StrType, float]]: ...
+    @overload
+    def zrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
         *,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
         byscore: bool = ...,
         bylex: bool = ...,
         offset: int | None = ...,
         num: int | None = ...,
     ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        *,
+        withscores: Literal[True],
+        score_cast_func: Callable[[_StrType], float] = ...,
+        byscore: bool = ...,
+        bylex: bool = ...,
+        offset: int | None = ...,
+        num: int | None = ...,
+    ) -> list[tuple[_StrType, float]]: ...
     @overload
     def zrange(
         self,
@@ -946,8 +973,10 @@ class SortedSetCommands(Generic[_StrType]):
         start: int,
         end: int,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrevrange(self, name: _Key, start: int, end: int, withscores: Literal[True]) -> list[tuple[_StrType, float]]: ...
     @overload
     def zrevrange(
         self, name: _Key, start: int, end: int, withscores: bool = ..., score_cast_func: Callable[[Any], Any] = ...
@@ -980,8 +1009,12 @@ class SortedSetCommands(Generic[_StrType]):
         num: int | None = ...,
         *,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrangebyscore(
+        self, name: _Key, min: _Value, max: _Value, start: int | None = ..., num: int | None = ..., *, withscores: Literal[True]
+    ) -> list[tuple[_StrType, float]]: ...
     @overload
     def zrangebyscore(
         self,
@@ -1003,8 +1036,12 @@ class SortedSetCommands(Generic[_StrType]):
         num: int | None = ...,
         *,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrevrangebyscore(
+        self, name: _Key, max: _Value, min: _Value, start: int | None = ..., num: int | None = ..., *, withscores: Literal[True]
+    ) -> list[tuple[_StrType, float]]: ...
     @overload
     def zrevrangebyscore(
         self,
@@ -1068,7 +1105,36 @@ class AsyncSortedSetCommands(Generic[_StrType]):
         end: int,
         desc: bool,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
+        byscore: bool = ...,
+        bylex: bool = ...,
+        offset: int | None = ...,
+        num: int | None = ...,
+    ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    async def zrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool,
+        withscores: Literal[True],
+        score_cast_func: Callable[[_StrType], float] = ...,
+        byscore: bool = ...,
+        bylex: bool = ...,
+        offset: int | None = ...,
+        num: int | None = ...,
+    ) -> list[tuple[_StrType, float]]: ...
+    @overload
+    async def zrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool = ...,
+        *,
+        withscores: Literal[True],
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
         byscore: bool = ...,
         bylex: bool = ...,
         offset: int | None = ...,
@@ -1083,12 +1149,12 @@ class AsyncSortedSetCommands(Generic[_StrType]):
         desc: bool = ...,
         *,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], float] = ...,
         byscore: bool = ...,
         bylex: bool = ...,
         offset: int | None = ...,
         num: int | None = ...,
-    ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    ) -> list[tuple[_StrType, float]]: ...
     @overload
     async def zrange(
         self,
@@ -1110,8 +1176,10 @@ class AsyncSortedSetCommands(Generic[_StrType]):
         start: int,
         end: int,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    async def zrevrange(self, name: _Key, start: int, end: int, withscores: Literal[True]) -> list[tuple[_StrType, float]]: ...
     @overload
     async def zrevrange(
         self, name: _Key, start: int, end: int, withscores: bool = ..., score_cast_func: Callable[[Any], Any] = ...
@@ -1144,8 +1212,12 @@ class AsyncSortedSetCommands(Generic[_StrType]):
         num: int | None = ...,
         *,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    async def zrangebyscore(
+        self, name: _Key, min: _Value, max: _Value, start: int | None = ..., num: int | None = ..., *, withscores: Literal[True]
+    ) -> list[tuple[_StrType, float]]: ...
     @overload
     async def zrangebyscore(
         self,
@@ -1167,8 +1239,12 @@ class AsyncSortedSetCommands(Generic[_StrType]):
         num: int | None = ...,
         *,
         withscores: Literal[True],
-        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn] = ...,
+        score_cast_func: Callable[[_StrType], _ScoreCastFuncReturn],
     ) -> list[tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    async def zrevrangebyscore(
+        self, name: _Key, max: _Value, min: _Value, start: int | None = ..., num: int | None = ..., *, withscores: Literal[True]
+    ) -> list[tuple[_StrType, float]]: ...
     @overload
     async def zrevrangebyscore(
         self,

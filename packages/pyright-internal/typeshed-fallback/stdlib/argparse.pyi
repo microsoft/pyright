@@ -3,47 +3,28 @@ from collections.abc import Callable, Generator, Iterable, Sequence
 from typing import IO, Any, Generic, NewType, NoReturn, Pattern, Protocol, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
+__all__ = [
+    "ArgumentParser",
+    "ArgumentError",
+    "ArgumentTypeError",
+    "FileType",
+    "HelpFormatter",
+    "ArgumentDefaultsHelpFormatter",
+    "RawDescriptionHelpFormatter",
+    "RawTextHelpFormatter",
+    "MetavarTypeHelpFormatter",
+    "Namespace",
+    "Action",
+    "ONE_OR_MORE",
+    "OPTIONAL",
+    "PARSER",
+    "REMAINDER",
+    "SUPPRESS",
+    "ZERO_OR_MORE",
+]
+
 if sys.version_info >= (3, 9):
-    __all__ = [
-        "ArgumentParser",
-        "ArgumentError",
-        "ArgumentTypeError",
-        "BooleanOptionalAction",
-        "FileType",
-        "HelpFormatter",
-        "ArgumentDefaultsHelpFormatter",
-        "RawDescriptionHelpFormatter",
-        "RawTextHelpFormatter",
-        "MetavarTypeHelpFormatter",
-        "Namespace",
-        "Action",
-        "ONE_OR_MORE",
-        "OPTIONAL",
-        "PARSER",
-        "REMAINDER",
-        "SUPPRESS",
-        "ZERO_OR_MORE",
-    ]
-else:
-    __all__ = [
-        "ArgumentParser",
-        "ArgumentError",
-        "ArgumentTypeError",
-        "FileType",
-        "HelpFormatter",
-        "ArgumentDefaultsHelpFormatter",
-        "RawDescriptionHelpFormatter",
-        "RawTextHelpFormatter",
-        "MetavarTypeHelpFormatter",
-        "Namespace",
-        "Action",
-        "ONE_OR_MORE",
-        "OPTIONAL",
-        "PARSER",
-        "REMAINDER",
-        "SUPPRESS",
-        "ZERO_OR_MORE",
-    ]
+    __all__ += ["BooleanOptionalAction"]
 
 _T = TypeVar("_T")
 _ActionT = TypeVar("_ActionT", bound=Action)

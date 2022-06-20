@@ -6,36 +6,26 @@ from socket import socket as _socket
 from typing import Any, BinaryIO, ClassVar, Union
 from typing_extensions import TypeAlias
 
-if sys.platform == "win32":
-    __all__ = [
-        "BaseServer",
-        "TCPServer",
-        "UDPServer",
-        "ThreadingUDPServer",
-        "ThreadingTCPServer",
-        "BaseRequestHandler",
-        "StreamRequestHandler",
-        "DatagramRequestHandler",
-        "ThreadingMixIn",
-    ]
-else:
-    __all__ = [
-        "BaseServer",
-        "TCPServer",
-        "UDPServer",
-        "ThreadingUDPServer",
-        "ThreadingTCPServer",
-        "BaseRequestHandler",
-        "StreamRequestHandler",
-        "DatagramRequestHandler",
-        "ThreadingMixIn",
-        "ForkingUDPServer",
-        "ForkingTCPServer",
+__all__ = [
+    "BaseServer",
+    "TCPServer",
+    "UDPServer",
+    "ThreadingUDPServer",
+    "ThreadingTCPServer",
+    "BaseRequestHandler",
+    "StreamRequestHandler",
+    "DatagramRequestHandler",
+    "ThreadingMixIn",
+]
+if sys.platform != "win32":
+    __all__ += [
         "ForkingMixIn",
-        "UnixStreamServer",
-        "UnixDatagramServer",
-        "ThreadingUnixStreamServer",
+        "ForkingTCPServer",
+        "ForkingUDPServer",
         "ThreadingUnixDatagramServer",
+        "ThreadingUnixStreamServer",
+        "UnixDatagramServer",
+        "UnixStreamServer",
     ]
 
 _RequestType: TypeAlias = Union[_socket, tuple[bytes, _socket]]

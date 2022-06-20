@@ -7,6 +7,7 @@ from .core import (
     emoji_list as emoji_list,
     emojize as emojize,
     get_emoji_regexp as get_emoji_regexp,
+    is_emoji as is_emoji,
     replace_emoji as replace_emoji,
     version as version,
 )

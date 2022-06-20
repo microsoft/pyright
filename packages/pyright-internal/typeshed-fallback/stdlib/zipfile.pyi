@@ -7,37 +7,23 @@ from types import TracebackType
 from typing import IO, Any, Protocol, overload
 from typing_extensions import Literal, TypeAlias
 
+__all__ = [
+    "BadZipFile",
+    "BadZipfile",
+    "error",
+    "ZIP_STORED",
+    "ZIP_DEFLATED",
+    "ZIP_BZIP2",
+    "ZIP_LZMA",
+    "is_zipfile",
+    "ZipInfo",
+    "ZipFile",
+    "PyZipFile",
+    "LargeZipFile",
+]
+
 if sys.version_info >= (3, 8):
-    __all__ = [
-        "BadZipFile",
-        "BadZipfile",
-        "error",
-        "ZIP_STORED",
-        "ZIP_DEFLATED",
-        "ZIP_BZIP2",
-        "ZIP_LZMA",
-        "is_zipfile",
-        "ZipInfo",
-        "ZipFile",
-        "PyZipFile",
-        "LargeZipFile",
-        "Path",
-    ]
-else:
-    __all__ = [
-        "BadZipFile",
-        "BadZipfile",
-        "error",
-        "ZIP_STORED",
-        "ZIP_DEFLATED",
-        "ZIP_BZIP2",
-        "ZIP_LZMA",
-        "is_zipfile",
-        "ZipInfo",
-        "ZipFile",
-        "PyZipFile",
-        "LargeZipFile",
-    ]
+    __all__ += ["Path"]
 
 _DateTuple: TypeAlias = tuple[int, int, int, int, int, int]
 _ReadWriteMode: TypeAlias = Literal["r", "w"]

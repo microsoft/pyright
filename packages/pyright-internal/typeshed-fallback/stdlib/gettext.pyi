@@ -5,69 +5,26 @@ from collections.abc import Callable, Container, Iterable, Sequence
 from typing import Any, Protocol, TypeVar, overload
 from typing_extensions import Final, Literal
 
-if sys.version_info >= (3, 11):
-    __all__ = [
-        "NullTranslations",
-        "GNUTranslations",
-        "Catalog",
-        "bindtextdomain",
-        "find",
-        "translation",
-        "install",
-        "textdomain",
-        "dgettext",
-        "dngettext",
-        "gettext",
-        "ngettext",
-        "pgettext",
-        "dpgettext",
-        "npgettext",
-        "dnpgettext",
-    ]
-elif sys.version_info >= (3, 8):
-    __all__ = [
-        "NullTranslations",
-        "GNUTranslations",
-        "Catalog",
-        "find",
-        "translation",
-        "install",
-        "textdomain",
-        "bindtextdomain",
-        "bind_textdomain_codeset",
-        "dgettext",
-        "dngettext",
-        "gettext",
-        "lgettext",
-        "ldgettext",
-        "ldngettext",
-        "lngettext",
-        "ngettext",
-        "pgettext",
-        "dpgettext",
-        "npgettext",
-        "dnpgettext",
-    ]
-else:
-    __all__ = [
-        "NullTranslations",
-        "GNUTranslations",
-        "Catalog",
-        "find",
-        "translation",
-        "install",
-        "textdomain",
-        "bindtextdomain",
-        "bind_textdomain_codeset",
-        "dgettext",
-        "dngettext",
-        "gettext",
-        "lgettext",
-        "ldgettext",
-        "ldngettext",
-        "lngettext",
-        "ngettext",
-    ]
+__all__ = [
+    "NullTranslations",
+    "GNUTranslations",
+    "Catalog",
+    "find",
+    "translation",
+    "install",
+    "textdomain",
+    "bindtextdomain",
+    "dgettext",
+    "dngettext",
+    "gettext",
+    "ngettext",
+]
+
+if sys.version_info < (3, 11):
+    __all__ += ["bind_textdomain_codeset", "ldgettext", "ldngettext", "lgettext", "lngettext"]
+
+if sys.version_info >= (3, 8):
+    __all__ += ["dnpgettext", "dpgettext", "npgettext", "pgettext"]
 
 class _TranslationsReader(Protocol):
     def read(self) -> bytes: ...

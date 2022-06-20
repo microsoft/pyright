@@ -1,5 +1,4 @@
 import collections
-from _typeshed import Self as Self
 from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime
 from typing import ClassVar, Pattern, overload

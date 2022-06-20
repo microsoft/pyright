@@ -45,27 +45,6 @@ class _NestedDescriptorBase(DescriptorBase):
     def CopyToProto(self, proto): ...
 
 class Descriptor(_NestedDescriptorBase):
-    def __new__(
-        cls,
-        name=...,
-        full_name=...,
-        filename=...,
-        containing_type=...,
-        fields=...,
-        nested_types=...,
-        enum_types=...,
-        extensions=...,
-        options=...,
-        serialized_options=...,
-        is_extendable=...,
-        extension_ranges=...,
-        oneofs=...,
-        file=...,
-        serialized_start=...,
-        serialized_end=...,
-        syntax=...,
-        create_key=...,
-    ): ...
     fields: Any
     fields_by_number: Any
     fields_by_name: Any
@@ -81,27 +60,6 @@ class Descriptor(_NestedDescriptorBase):
     oneofs: Any
     oneofs_by_name: Any
     syntax: Any
-    def __init__(
-        self,
-        name,
-        full_name,
-        filename,
-        containing_type,
-        fields,
-        nested_types,
-        enum_types,
-        extensions,
-        options=...,
-        serialized_options=...,
-        is_extendable=...,
-        extension_ranges=...,
-        oneofs=...,
-        file=...,
-        serialized_start=...,
-        serialized_end=...,
-        syntax=...,
-        create_key=...,
-    ) -> None: ...
     def EnumValueName(self, enum, value): ...
     def CopyToProto(self, proto): ...
     def GetOptions(self) -> MessageOptions: ...
@@ -266,35 +224,9 @@ class OneofDescriptor:
     def GetOptions(self) -> OneofOptions: ...
 
 class ServiceDescriptor(_NestedDescriptorBase):
-    def __new__(
-        cls,
-        name=...,
-        full_name=...,
-        index=...,
-        methods=...,
-        options=...,
-        serialized_options=...,
-        file=...,
-        serialized_start=...,
-        serialized_end=...,
-        create_key=...,
-    ): ...
     index: Any
     methods: Any
     methods_by_name: Any
-    def __init__(
-        self,
-        name,
-        full_name,
-        index,
-        methods,
-        options=...,
-        serialized_options=...,
-        file=...,
-        serialized_start=...,
-        serialized_end=...,
-        create_key=...,
-    ) -> None: ...
     def FindMethodByName(self, name): ...
     def CopyToProto(self, proto): ...
     def GetOptions(self) -> ServiceOptions: ...
