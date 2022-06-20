@@ -763,8 +763,14 @@ export function containsLiteralType(type: Type, includeTypeArgs = false, recursi
     }
     recursionCount++;
 
-    if (isClassInstance(type) && isLiteralType(type)) {
-        return true;
+    if (isClassInstance(type)) {
+        if (isLiteralType(type)) {
+            return true;
+        }
+
+        if (ClassType.isBuiltIn(type, 'LiteralString')) {
+            return true;
+        }
     }
 
     if (includeTypeArgs && isClass(type)) {
