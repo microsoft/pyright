@@ -20967,17 +20967,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return;
                     }
 
-                    if (
-                        assignType(
-                            innerSubtype,
-                            concreteSubtype,
-                            /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.Default,
-                            recursionCount
-                        )
-                    ) {
+                    if (isProperSubtype(innerSubtype, concreteSubtype, recursionCount)) {
                         isSubtypeSubsumed = true;
                     }
                 });
@@ -21011,6 +21001,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return true;
+    }
+
+    // Determines whether the srcType is a subtype of destType but the converse
+    // is not true. It's important that we check both directions to avoid
+    // matches for types like `tuple[Any]` and `tuple[int]` from being considered
+    // proper subtypes of each other.
+    function isProperSubtype(destType: Type, srcType: Type, recursionCount: number) {
+        return (
+            assignType(
+                destType,
+                srcType,
+                /* diag */ undefined,
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
+                AssignTypeFlags.Default,
+                recursionCount
+            ) &&
+            !assignType(
+                srcType,
+                destType,
+                /* diag */ undefined,
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
+                AssignTypeFlags.Default,
+                recursionCount
+            )
+        );
     }
 
     function assignToUnionType(
