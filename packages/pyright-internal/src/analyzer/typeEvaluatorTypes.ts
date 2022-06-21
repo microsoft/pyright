@@ -213,7 +213,6 @@ export interface AbstractMethod {
     symbol: Symbol;
     symbolName: string;
     classType: Type;
-    isAbstract: boolean;
 }
 
 export interface FunctionArgumentBase {

@@ -22977,7 +22977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getAbstractMethods(classType: ClassType): AbstractMethod[] {
         const symbolTable = new Map<string, AbstractMethod>();
 
-        classType.details.mro.forEach((mroClass) => {
+        ClassType.getReverseMro(classType).forEach((mroClass) => {
             if (isInstantiableClass(mroClass)) {
                 // See if this class is introducing a new abstract method that has not been
                 // introduced previously or if it is overriding an abstract method with
@@ -23001,13 +23001,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             isAbstract = false;
                         }
 
-                        if (!symbolTable.has(symbolName)) {
+                        if (isAbstract) {
                             symbolTable.set(symbolName, {
                                 symbol,
                                 symbolName,
-                                isAbstract,
                                 classType: mroClass,
                             });
+                        } else {
+                            symbolTable.delete(symbolName);
                         }
                     }
                 });
@@ -23017,9 +23018,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Create a final list of methods that are abstract.
         const methodList: AbstractMethod[] = [];
         symbolTable.forEach((method) => {
-            if (method.isAbstract) {
-                methodList.push(method);
-            }
+            methodList.push(method);
         });
 
         return methodList;
