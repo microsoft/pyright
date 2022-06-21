@@ -52,6 +52,11 @@ export const enum SymbolFlags {
 
     // Indicates that the symbol is an InitVar as specified in PEP 557.
     InitVar = 1 << 10,
+
+    // Indicates that the symbol is a field in a NamedTuple class, which
+    // is modeled as an instance member but in some respects acts as a
+    // class member.
+    NamedTupleMember = 1 << 11,
 }
 
 let nextSymbolId = 1;
@@ -165,6 +170,10 @@ export class Symbol {
 
     isPrivatePyTypedImport() {
         return !!(this._flags & SymbolFlags.PrivatePyTypedImport);
+    }
+
+    isNamedTupleMemberMember() {
+        return !!(this._flags & SymbolFlags.NamedTupleMember);
     }
 
     addDeclaration(declaration: Declaration) {

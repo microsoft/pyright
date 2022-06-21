@@ -22986,7 +22986,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // We do a quick-and-dirty evaluation of methods based on
                     // decorators to determine which ones are abstract. This allows
                     // us to avoid evaluating the full function types.
-                    if (symbol.isClassMember()) {
+                    // Handle named tuple fields as though they are class members here.
+                    // We model them as instance variables, but they're actually implemented
+                    // using class variable descriptors, and these overwrite a class variable
+                    // abstract method.
+                    if (symbol.isClassMember() || symbol.isNamedTupleMemberMember()) {
                         let isAbstract: boolean;
 
                         const decl = getLastTypedDeclaredForSymbol(symbol);

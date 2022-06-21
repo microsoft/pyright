@@ -264,7 +264,10 @@ export function createNamedTupleType(
                     entryTypes.push(entryType);
                     matchArgsNames.push(entryName);
 
-                    const newSymbol = Symbol.createWithType(SymbolFlags.InstanceMember, entryType);
+                    const newSymbol = Symbol.createWithType(
+                        SymbolFlags.InstanceMember | SymbolFlags.NamedTupleMember,
+                        entryType
+                    );
                     if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
