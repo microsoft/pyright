@@ -1005,6 +1005,10 @@ export namespace ClassType {
 
         return false;
     }
+
+    export function getReverseMro(classType: ClassType): Type[] {
+        return classType.details.mro.slice(0).reverse();
+    }
 }
 
 export interface ParamSpecEntry {

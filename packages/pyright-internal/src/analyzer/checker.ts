@@ -3774,9 +3774,7 @@ export class Checker extends ParseTreeWalker {
 
         // Collect the list of init-only variables in the order they were declared.
         const initOnlySymbolMap = new Map<string, Symbol>();
-        for (let i = classType.details.mro.length - 1; i >= 0; i--) {
-            const mroClass = classType.details.mro[i];
-
+        ClassType.getReverseMro(classType).forEach((mroClass) => {
             if (isClass(mroClass) && ClassType.isDataClass(mroClass)) {
                 mroClass.details.fields.forEach((symbol, name) => {
                     if (symbol.isInitVar()) {
@@ -3784,7 +3782,7 @@ export class Checker extends ParseTreeWalker {
                     }
                 });
             }
-        }
+        });
 
         const postInitType = this._evaluator.getTypeOfMember(postInitMember);
         if (

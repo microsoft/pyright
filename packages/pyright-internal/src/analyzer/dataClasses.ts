@@ -632,9 +632,7 @@ function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
 function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEntry[]) {
     let allAncestorsAreKnown = true;
 
-    for (let i = classType.details.mro.length - 1; i >= 0; i--) {
-        const mroClass = classType.details.mro[i];
-
+    ClassType.getReverseMro(classType).forEach((mroClass) => {
         if (isInstantiableClass(mroClass)) {
             const typeVarContext = buildTypeVarContextFromSpecializedClass(mroClass, /* makeConcrete */ false);
             const dataClassEntries = ClassType.getDataClassEntries(mroClass);
@@ -664,7 +662,7 @@ function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEn
         } else {
             allAncestorsAreKnown = false;
         }
-    }
+    });
 
     return allAncestorsAreKnown;
 }

@@ -1227,30 +1227,29 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
     const memberMap = new Map<string, ClassMember>();
 
     // Evaluate the types of members from the end of the MRO to the beginning.
-    for (let i = classType.details.mro.length - 1; i >= 0; i--) {
-        const mroClass = partiallySpecializeType(classType.details.mro[i], classType);
+    ClassType.getReverseMro(classType).forEach((mroClass) => {
+        const specializedMroClass = partiallySpecializeType(mroClass, classType);
 
-        // If this ancestor class is unknown, throw away all symbols
-        // found so far because they could be overridden by the unknown class.
-        if (!isClass(mroClass)) {
+        if (isClass(specializedMroClass)) {
+            specializedMroClass.details.fields.forEach((symbol, name) => {
+                if (!symbol.isIgnoredForProtocolMatch() && symbol.hasTypedDeclarations()) {
+                    memberMap.set(name, {
+                        classType: specializedMroClass,
+                        symbol,
+                        isInstanceMember: symbol.isInstanceMember(),
+                        isClassMember: symbol.isClassMember(),
+                        isClassVar: symbol.isClassVar(),
+                        isTypeDeclared: true,
+                        skippedUndeclaredType: false,
+                    });
+                }
+            });
+        } else {
+            // If this ancestor class is unknown, throw away all symbols
+            // found so far because they could be overridden by the unknown class.
             memberMap.clear();
-            continue;
         }
-
-        mroClass.details.fields.forEach((symbol, name) => {
-            if (!symbol.isIgnoredForProtocolMatch() && symbol.hasTypedDeclarations()) {
-                memberMap.set(name, {
-                    classType: mroClass,
-                    symbol,
-                    isInstanceMember: symbol.isInstanceMember(),
-                    isClassMember: symbol.isClassMember(),
-                    isClassVar: symbol.isClassVar(),
-                    isTypeDeclared: true,
-                    skippedUndeclaredType: false,
-                });
-            }
-        });
-    }
+    });
 
     return memberMap;
 }
@@ -1758,9 +1757,7 @@ export function convertToInstantiable(type: Type): Type {
 }
 
 export function getMembersForClass(classType: ClassType, symbolTable: SymbolTable, includeInstanceVars: boolean) {
-    for (let i = 0; i < classType.details.mro.length; i++) {
-        const mroClass = classType.details.mro[i];
-
+    classType.details.mro.forEach((mroClass) => {
         if (isInstantiableClass(mroClass)) {
             // Add any new member variables from this class.
             const isClassTypedDict = ClassType.isTypedDictClass(mroClass);
@@ -1782,7 +1779,7 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
                 }
             });
         }
-    }
+    });
 
     // Add members of the metaclass as well.
     if (!includeInstanceVars) {
