@@ -19870,8 +19870,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount
                         )
                     ) {
-                        if (destTypeParam) {
-                            if (diag) {
+                        if (diag) {
+                            if (destTypeParam) {
                                 const childDiag = diag.createAddendum();
                                 childDiag.addMessage(
                                     Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
@@ -19879,6 +19879,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     })
                                 );
                                 childDiag.addAddendum(assignmentDiag);
+                            } else {
+                                diag.addAddendum(assignmentDiag);
                             }
                         }
                         return false;
