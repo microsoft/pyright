@@ -5,17 +5,42 @@
  */
 
 import { createDeferred } from './common/deferred';
-import { LanguageServerBase, WorkspaceServiceInstance } from './languageServerBase';
+import { LanguageServerBase, WellKnownWorkspaceKinds, WorkspaceServiceInstance } from './languageServerBase';
 
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
     private _defaultWorkspacePath = '<default>';
 
-    getNonDefaultWorkspaces(): WorkspaceServiceInstance[] {
+    hasMultipleWorkspaces(kind?: string) {
+        if (this.size === 0 || this.size === 1) {
+            return false;
+        }
+
+        let count = 0;
+        for (const kv of this) {
+            if (!kind || kv[1].kind === kind) {
+                count++;
+            }
+
+            if (count > 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    getNonDefaultWorkspaces(kind?: string): WorkspaceServiceInstance[] {
         const workspaces: WorkspaceServiceInstance[] = [];
         this.forEach((workspace) => {
-            if (workspace.rootPath) {
-                workspaces.push(workspace);
+            if (!workspace.rootPath) {
+                return;
             }
+
+            if (kind && workspace.kind !== kind) {
+                return;
+            }
+
+            workspaces.push(workspace);
         });
 
         return workspaces;
@@ -59,8 +84,10 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     rootPath: '',
                     rootUri: '',
                     serviceInstance: ls.createAnalyzerService(this._defaultWorkspacePath),
+                    kind: WellKnownWorkspaceKinds.Default,
                     disableLanguageServices: false,
                     disableOrganizeImports: false,
+                    disableWorkspaceSymbol: false,
                     isInitialized: createDeferred<boolean>(),
                     searchPathsToWatch: [],
                 };

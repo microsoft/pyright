@@ -297,7 +297,12 @@ async function processArgs(): Promise<ExitStatus> {
     options.watchForSourceChanges = watch;
     options.watchForConfigChanges = watch;
 
-    const service = new AnalyzerService('<default>', fileSystem, output, () => new FullAccessHost(fileSystem));
+    // Refresh service after 2 seconds after the last library file change is detected.
+    const service = new AnalyzerService('<default>', fileSystem, {
+        console: output,
+        hostFactory: () => new FullAccessHost(fileSystem),
+        libraryReanalysisTimeProvider: () => 2 * 1000,
+    });
     const exitStatus = createDeferred<ExitStatus>();
 
     service.setCompletionCallback((results) => {

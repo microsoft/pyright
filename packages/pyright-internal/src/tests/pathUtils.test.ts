@@ -19,6 +19,7 @@ import {
     comparePathsCaseInsensitive,
     comparePathsCaseSensitive,
     containsPath,
+    deduplicateFolders,
     ensureTrailingDirectorySeparator,
     getAnyExtensionFromPath,
     getBaseFileName,
@@ -318,4 +319,25 @@ test('CaseSensitivity', () => {
 
     const fsCaseSensitive = new vfs.TestFileSystem(/*ignoreCase*/ false, { cwd });
     assert.equal(isFileSystemCaseSensitiveInternal(fsCaseSensitive), true);
+});
+
+test('deduplicateFolders', () => {
+    const listOfFolders = [
+        ['/user', '/user/temp', '/xuser/app', '/lib/python', '/home/p/.venv/lib/site-packages'],
+        ['/user', '/user/temp', '/xuser/app', '/lib/python/Python310.zip', '/home/z/.venv/lib/site-packages'],
+        ['/main/python/lib/site-packages', '/home/p'],
+    ];
+
+    const folders = deduplicateFolders(listOfFolders);
+
+    const expected = [
+        '/user',
+        '/xuser/app',
+        '/lib/python',
+        '/home/z/.venv/lib/site-packages',
+        '/main/python/lib/site-packages',
+        '/home/p',
+    ];
+
+    assert.deepStrictEqual(folders.sort(), expected.sort());
 });

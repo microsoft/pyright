@@ -24,6 +24,7 @@ import {
     LanguageServerInterface,
     MessageAction,
     ServerSettings,
+    WellKnownWorkspaceKinds,
     WindowInterface,
     WorkspaceServiceInstance,
 } from '../../../languageServerBase';
@@ -62,16 +63,16 @@ export class TestLanguageService implements LanguageServerInterface {
             workspaceName: '',
             rootPath: '',
             rootUri: '',
-            serviceInstance: new AnalyzerService(
-                'test service',
-                this.fs,
-                this.console,
-                () => new TestAccessHost(),
-                AnalyzerService.createImportResolver,
-                new ConfigOptions('.')
-            ),
+            kind: WellKnownWorkspaceKinds.Test,
+            serviceInstance: new AnalyzerService('test service', this.fs, {
+                console: this.console,
+                hostFactory: () => new TestAccessHost(),
+                importResolverFactory: AnalyzerService.createImportResolver,
+                configOptions: new ConfigOptions('.'),
+            }),
             disableLanguageServices: false,
             disableOrganizeImports: false,
+            disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
         };

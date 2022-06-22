@@ -100,7 +100,7 @@ import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem, FileWatcherEventType, FileWatcherProvider } from './common/fileSystem';
 import { Host } from './common/host';
 import { fromLSPAny } from './common/lspUtils';
-import { convertPathToUri, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
+import { convertPathToUri, deduplicateFolders, getDirectoryPath, getFileName, isFile } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
@@ -138,14 +138,22 @@ export interface ServerSettings {
     typeEvaluationTimeThreshold?: number | undefined;
 }
 
+export enum WellKnownWorkspaceKinds {
+    Default = 'default',
+    Regular = 'regular',
+    Cloned = 'cloned',
+    Test = 'test',
+}
+
 export interface WorkspaceServiceInstance {
     workspaceName: string;
     rootPath: string;
     rootUri: string;
+    kind: string;
     serviceInstance: AnalyzerService;
     disableLanguageServices: boolean;
     disableOrganizeImports: boolean;
-    disableWorkspaceSymbol?: boolean;
+    disableWorkspaceSymbol: boolean;
     isInitialized: Deferred<boolean>;
     searchPathsToWatch: string[];
 }
@@ -407,21 +415,20 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
-    createAnalyzerService(name: string): AnalyzerService {
+    createAnalyzerService(name: string, libraryReanalysisTimeProvider?: () => number): AnalyzerService {
         this.console.log(`Starting service instance "${name}"`);
-        const service = new AnalyzerService(
-            name,
-            this.fs,
-            this.console,
-            this.createHost.bind(this),
-            this.createImportResolver.bind(this),
-            undefined,
-            this._serverOptions.extension,
-            this.createBackgroundAnalysis(),
-            this._serverOptions.maxAnalysisTimeInForeground,
-            this.createBackgroundAnalysisProgram.bind(this),
-            this._serverOptions.cancellationProvider
-        );
+
+        const service = new AnalyzerService(name, this.fs, {
+            console: this.console,
+            hostFactory: this.createHost.bind(this),
+            importResolverFactory: this.createImportResolver.bind(this),
+            extension: this._serverOptions.extension,
+            backgroundAnalysis: this.createBackgroundAnalysis(),
+            maxAnalysisTime: this._serverOptions.maxAnalysisTimeInForeground,
+            backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
+            cancellationProvider: this._serverOptions.cancellationProvider,
+            libraryReanalysisTimeProvider,
+        });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(results));
 
@@ -635,17 +642,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         // Add all python search paths to watch list
         if (this.client.hasWatchFileRelativePathCapability) {
-            for (const workspace of this._workspaceMap.getNonDefaultWorkspaces()) {
-                workspace.searchPathsToWatch.forEach((p) => {
-                    const globPattern = isFile(this.fs, p, /* treatZipDirectoryAsFile */ true)
-                        ? { baseUri: convertPathToUri(this.fs, getDirectoryPath(p)), pattern: getFileName(p) }
-                        : { baseUri: convertPathToUri(this.fs, p), pattern: '**' };
+            // Dedup search paths from all workspaces.
+            const foldersToWatch = deduplicateFolders(
+                this._workspaceMap.getNonDefaultWorkspaces().map((w) => w.searchPathsToWatch)
+            );
 
-                    watchers.push({ globPattern, kind: watchKind });
-                });
-            }
+            foldersToWatch.forEach((p) => {
+                const globPattern = isFile(this.fs, p, /* treatZipDirectoryAsFile */ true)
+                    ? { baseUri: convertPathToUri(this.fs, getDirectoryPath(p)), pattern: getFileName(p) }
+                    : { baseUri: convertPathToUri(this.fs, p), pattern: '**' };
+
+                watchers.push({ globPattern, kind: watchKind });
+            });
         }
 
+        // File watcher is pylance wide service. Dispose all existing file watchers and create new ones.
         this._connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
             if (this._lastFileWatcherRegistration) {
                 this._lastFileWatcherRegistration.dispose();
@@ -1293,13 +1304,27 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected createWorkspaceServiceInstance(
         workspace: WorkspaceFolder | undefined,
-        rootPath: string
+        rootPath: string,
+        kind: string = WellKnownWorkspaceKinds.Regular
     ): WorkspaceServiceInstance {
+        // 5 seconds default
+        const defaultBackOffTime = 5 * 1000;
+
+        // 10 mins back off for multi workspace.
+        const multiWorkspaceBackOffTime = 10 * 60 * 1000;
+
+        const libraryReanalysisTimeProvider =
+            kind === WellKnownWorkspaceKinds.Regular
+                ? () =>
+                      this._workspaceMap.hasMultipleWorkspaces(kind) ? multiWorkspaceBackOffTime : defaultBackOffTime
+                : () => defaultBackOffTime;
+
         return {
             workspaceName: workspace?.name ?? '',
             rootPath,
             rootUri: workspace?.uri ?? '',
-            serviceInstance: this.createAnalyzerService(workspace?.name ?? rootPath),
+            kind,
+            serviceInstance: this.createAnalyzerService(workspace?.name ?? rootPath, libraryReanalysisTimeProvider),
             disableLanguageServices: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,

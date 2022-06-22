@@ -209,8 +209,17 @@ export function getClassDocString(
             isStubFile(resolvedDecl.path) &&
             resolvedDecl.type === DeclarationType.Class
         ) {
-            const implDecls = sourceMapper.findClassDeclarations(resolvedDecl);
-            docString = _getFunctionOrClassDeclsDocString(implDecls);
+            for (const implDecl of sourceMapper.findDeclarations(resolvedDecl)) {
+                if (isVariableDeclaration(implDecl) && !!implDecl.docString) {
+                    docString = implDecl.docString;
+                    break;
+                }
+
+                if (isClassDeclaration(implDecl) || isFunctionDeclaration(implDecl)) {
+                    docString = getFunctionOrClassDeclDocString(implDecl);
+                    break;
+                }
+            }
         }
     }
 

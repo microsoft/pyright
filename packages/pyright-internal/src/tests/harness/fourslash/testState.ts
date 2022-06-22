@@ -59,7 +59,11 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../../../commo
 import { getStringComparer } from '../../../common/stringUtils';
 import { DocumentRange, Position, Range as PositionRange, rangesAreEqual, TextRange } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
-import { LanguageServerInterface, WorkspaceServiceInstance } from '../../../languageServerBase';
+import {
+    LanguageServerInterface,
+    WellKnownWorkspaceKinds,
+    WorkspaceServiceInstance,
+} from '../../../languageServerBase';
 import { AbbreviationInfo } from '../../../languageService/autoImporter';
 import { DefinitionFilter } from '../../../languageService/definitionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
@@ -187,9 +191,11 @@ export class TestState {
             workspaceName: 'test workspace',
             rootPath: this.fs.getModulePath(),
             rootUri: convertPathToUri(this.fs, this.fs.getModulePath()),
+            kind: WellKnownWorkspaceKinds.Test,
             serviceInstance: service,
             disableLanguageServices: false,
             disableOrganizeImports: false,
+            disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
         };
@@ -1820,14 +1826,12 @@ export class TestState {
         configOptions: ConfigOptions
     ) {
         // we do not initiate automatic analysis or file watcher in test.
-        const service = new AnalyzerService(
-            'test service',
-            this.fs,
-            nullConsole,
-            () => testAccessHost,
+        const service = new AnalyzerService('test service', this.fs, {
+            console: nullConsole,
+            hostFactory: () => testAccessHost,
             importResolverFactory,
-            configOptions
-        );
+            configOptions,
+        });
 
         // directly set files to track rather than using fileSpec from config
         // to discover those files from file system
