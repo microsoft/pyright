@@ -780,6 +780,16 @@ export class Checker extends ParseTreeWalker {
 
     override visitFor(node: ForNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
+
+        if (node.typeComment) {
+            this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.annotationNotSupported(),
+                node.typeComment
+            );
+        }
         return true;
     }
 
@@ -824,6 +834,16 @@ export class Checker extends ParseTreeWalker {
         node.withItems.forEach((item) => {
             this._evaluator.evaluateTypesForStatement(item);
         });
+
+        if (node.typeComment) {
+            this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.annotationNotSupported(),
+                node.typeComment
+            );
+        }
 
         return true;
     }

@@ -1192,20 +1192,26 @@ export class Parser {
         return ifNode;
     }
 
-    private _parseLoopSuite(disallowTypeComment = false): SuiteNode {
+    private _parseLoopSuite(): SuiteNode {
         const wasInLoop = this._isInLoop;
         const wasInFinally = this._isInFinally;
         this._isInLoop = true;
         this._isInFinally = false;
 
+        let typeComment: StringToken | undefined;
         const suite = this._parseSuite(this._isInFunction, /* skipBody */ false, () => {
-            if (disallowTypeComment) {
-                this._detectUnsupportedTypeAnnotationComment();
+            const comment = this._getTypeAnnotationCommentText();
+            if (comment) {
+                typeComment = comment;
             }
         });
 
         this._isInLoop = wasInLoop;
         this._isInFinally = wasInFinally;
+
+        if (typeComment) {
+            suite.typeComment = typeComment;
+        }
 
         return suite;
     }
@@ -1370,7 +1376,7 @@ export class Parser {
                 Localizer.Diagnostic.expectedInExpr()
             );
 
-            forSuite = this._parseLoopSuite(/* disallowTypeComment */ true);
+            forSuite = this._parseLoopSuite();
 
             // Versions of Python earlier than 3.9 didn't allow unpack operators if the
             // tuple wasn't enclosed in parentheses.
@@ -1402,6 +1408,10 @@ export class Parser {
             forNode.isAsync = true;
             forNode.asyncToken = asyncToken;
             extendRange(forNode, asyncToken);
+        }
+
+        if (forSuite.typeComment) {
+            forNode.typeComment = forSuite.typeComment;
         }
 
         return forNode;
@@ -1970,14 +1980,22 @@ export class Parser {
             }
         }
 
+        let typeComment: StringToken | undefined;
         const withSuite = this._parseSuite(this._isInFunction, /* skipBody */ false, () => {
-            this._detectUnsupportedTypeAnnotationComment();
+            const comment = this._getTypeAnnotationCommentText();
+            if (comment) {
+                typeComment = comment;
+            }
         });
         const withNode = WithNode.create(withToken, withSuite);
         if (asyncToken) {
             withNode.isAsync = true;
             withNode.asyncToken = asyncToken;
             extendRange(withNode, asyncToken);
+        }
+
+        if (typeComment) {
+            withNode.typeComment = typeComment;
         }
 
         withNode.withItems = withItemList;
@@ -4261,15 +4279,6 @@ export class Parser {
             0,
             /* comments */ undefined
         );
-    }
-
-    private _detectUnsupportedTypeAnnotationComment(): void {
-        const stringToken = this._getTypeAnnotationCommentText();
-        if (!stringToken) {
-            return undefined;
-        }
-
-        this._addError(Localizer.Diagnostic.annotationNotSupported(), stringToken);
     }
 
     private _parseVariableTypeAnnotationComment(): ExpressionNode | undefined {

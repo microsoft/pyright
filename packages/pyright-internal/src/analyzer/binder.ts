@@ -3542,7 +3542,12 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (!declarationHandled) {
-            this._addError(Localizer.Diagnostic.annotationNotSupported(), typeAnnotation);
+            this._addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.annotationNotSupported(),
+                typeAnnotation
+            );
         }
     }
 

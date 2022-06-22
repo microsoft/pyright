@@ -179,6 +179,7 @@ export namespace ModuleNode {
 export interface SuiteNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Suite;
     statements: StatementNode[];
+    typeComment?: StringToken;
 }
 
 export namespace SuiteNode {
@@ -268,6 +269,7 @@ export interface ForNode extends ParseNodeBase {
     iterableExpression: ExpressionNode;
     forSuite: SuiteNode;
     elseSuite?: SuiteNode | undefined;
+    typeComment?: StringToken;
 }
 
 export namespace ForNode {
@@ -548,6 +550,7 @@ export interface WithNode extends ParseNodeBase {
     asyncToken?: Token;
     withItems: WithItemNode[];
     suite: SuiteNode;
+    typeComment?: StringToken;
 }
 
 export namespace WithNode {
