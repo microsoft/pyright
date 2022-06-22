@@ -343,6 +343,11 @@ export class Program {
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
     }
 
+    getChainedFilePath(filePath: string): string | undefined {
+        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        return sourceFileInfo?.chainedSourceFile?.sourceFile.getFilePath();
+    }
+
     updateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (sourceFileInfo) {
@@ -372,6 +377,10 @@ export class Program {
         }
 
         return this._removeUnneededFiles();
+    }
+
+    isFileOpen(filePath: string) {
+        return this._getSourceFileInfoFromPath(filePath) !== undefined;
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {

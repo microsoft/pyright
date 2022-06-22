@@ -985,3 +985,36 @@ export function getDirectoryChangeKind(
 
     return 'Moved';
 }
+
+export function deduplicateFolders(listOfFolders: string[][]): string[] {
+    const foldersToWatch = new Set<string>();
+
+    listOfFolders.forEach((folders) => {
+        folders.forEach((p) => {
+            if (foldersToWatch.has(p)) {
+                // Bail out on exact match.
+                return;
+            }
+
+            for (const existing of foldersToWatch) {
+                // ex) p: "/user/test" existing: "/user"
+                if (p.startsWith(existing)) {
+                    // We already have the parent folder in the watch list
+                    return;
+                }
+
+                // ex) p: "/user" folderToWatch: "/user/test"
+                if (existing.startsWith(p)) {
+                    // We found better one to watch. replace.
+                    foldersToWatch.delete(existing);
+                    foldersToWatch.add(p);
+                    return;
+                }
+            }
+
+            foldersToWatch.add(p);
+        });
+    });
+
+    return [...foldersToWatch];
+}

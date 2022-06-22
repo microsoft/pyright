@@ -160,10 +160,12 @@ function createServiceWithChainedSourceFiles(basePath: string, code: string) {
     const service = new AnalyzerService(
         'test service',
         createFromFileSystem(host.HOST, /*ignoreCase*/ false, { cwd: basePath }),
-        new NullConsole(),
-        () => new TestAccessHost(vfs.MODULE_PATH, [libFolder, distlibFolder]),
-        AnalyzerService.createImportResolver,
-        new ConfigOptions(basePath)
+        {
+            console: new NullConsole(),
+            hostFactory: () => new TestAccessHost(vfs.MODULE_PATH, [libFolder, distlibFolder]),
+            importResolverFactory: AnalyzerService.createImportResolver,
+            configOptions: new ConfigOptions(basePath),
+        }
     );
 
     const data = parseTestData(basePath, code, '');

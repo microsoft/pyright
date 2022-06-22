@@ -96,6 +96,10 @@ export class BackgroundAnalysisProgram {
         this._program.setFileOpened(filePath, version, [{ text: contents }], options);
     }
 
+    getChainedFilePath(filePath: string): string | undefined {
+        return this._program.getChainedFilePath(filePath);
+    }
+
     updateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
         this._backgroundAnalysis?.updateChainedFilePath(filePath, chainedFilePath);
         this._program.updateChainedFilePath(filePath, chainedFilePath);

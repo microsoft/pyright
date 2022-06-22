@@ -19,9 +19,11 @@ import { PythonVersion } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { TestFileSystem } from './harness/vfs/filesystem';
 
+const options = { console: new NullConsole() };
+
 test('FindFilesWithConfigFile', () => {
     const cwd = normalizePath(process.cwd());
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
     commandLineOptions.configFilePath = 'src/tests/samples/project1';
 
@@ -45,7 +47,7 @@ test('FindFilesWithConfigFile', () => {
 
 test('FindFilesVirtualEnvAutoDetectExclude', () => {
     const cwd = normalizePath(process.cwd());
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
     commandLineOptions.configFilePath = 'src/tests/samples/project_with_venv_auto_detect_exclude';
 
@@ -63,7 +65,7 @@ test('FindFilesVirtualEnvAutoDetectExclude', () => {
 
 test('FindFilesVirtualEnvAutoDetectInclude', () => {
     const cwd = normalizePath(process.cwd());
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
     commandLineOptions.configFilePath = 'src/tests/samples/project_with_venv_auto_detect_include';
 
@@ -82,7 +84,7 @@ test('FindFilesVirtualEnvAutoDetectInclude', () => {
 test('FileSpecNotAnArray', () => {
     const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), { console: nullConsole });
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.configFilePath = 'src/tests/samples/project2';
     service.setOptions(commandLineOptions);
@@ -96,7 +98,7 @@ test('FileSpecNotAnArray', () => {
 test('FileSpecNotAString', () => {
     const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), { console: nullConsole });
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.configFilePath = 'src/tests/samples/project3';
     service.setOptions(commandLineOptions);
@@ -110,7 +112,7 @@ test('FileSpecNotAString', () => {
 test('SomeFileSpecsAreInvalid', () => {
     const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.configFilePath = 'src/tests/samples/project4';
     service.setOptions(commandLineOptions);
@@ -135,7 +137,7 @@ test('SomeFileSpecsAreInvalid', () => {
 test('ConfigBadJson', () => {
     const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), { console: nullConsole });
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.configFilePath = 'src/tests/samples/project5';
     service.setOptions(commandLineOptions);
@@ -203,7 +205,7 @@ test('PythonPlatform', () => {
 test('AutoSearchPathsOn', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src'));
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = true;
     service.setOptions(commandLineOptions);
@@ -217,7 +219,7 @@ test('AutoSearchPathsOn', () => {
 test('AutoSearchPathsOff', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src'));
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = false;
     service.setOptions(commandLineOptions);
@@ -230,7 +232,7 @@ test('AutoSearchPathsOff', () => {
 test('AutoSearchPathsOnSrcIsPkg', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_is_pkg'));
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = true;
     service.setOptions(commandLineOptions);
@@ -244,7 +246,7 @@ test('AutoSearchPathsOnSrcIsPkg', () => {
 test('AutoSearchPathsOnWithConfigExecEnv', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_config_extra_paths'));
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.configFilePath = combinePaths(cwd, 'pyrightconfig.json');
     commandLineOptions.autoSearchPaths = true;
@@ -261,7 +263,7 @@ test('AutoSearchPathsOnWithConfigExecEnv', () => {
 test('AutoSearchPathsOnAndExtraPaths', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_config_no_extra_paths'));
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = true;
     commandLineOptions.extraPaths = ['src/_vendored'];
@@ -279,7 +281,7 @@ test('AutoSearchPathsOnAndExtraPaths', () => {
 
 test('BasicPyprojectTomlParsing', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_pyproject_toml'));
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(), options);
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
 
     service.setOptions(commandLineOptions);

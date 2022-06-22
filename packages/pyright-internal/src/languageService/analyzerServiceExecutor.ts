@@ -15,7 +15,12 @@ import { LogLevel } from '../common/console';
 import { createDeferred } from '../common/deferred';
 import { FileSystem } from '../common/fileSystem';
 import { combinePaths } from '../common/pathUtils';
-import { LanguageServerInterface, ServerSettings, WorkspaceServiceInstance } from '../languageServerBase';
+import {
+    LanguageServerInterface,
+    ServerSettings,
+    WellKnownWorkspaceKinds,
+    WorkspaceServiceInstance,
+} from '../languageServerBase';
 
 export class AnalyzerServiceExecutor {
     static runWithOptions(
@@ -49,9 +54,11 @@ export class AnalyzerServiceExecutor {
             workspaceName: `temp workspace for cloned service`,
             rootPath: workspace.rootPath,
             rootUri: workspace.rootUri,
+            kind: WellKnownWorkspaceKinds.Cloned,
             serviceInstance: workspace.serviceInstance.clone('cloned service', backgroundAnalysis, fileSystem),
             disableLanguageServices: true,
             disableOrganizeImports: true,
+            disableWorkspaceSymbol: true,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
         };
