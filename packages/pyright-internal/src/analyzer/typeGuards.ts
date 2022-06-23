@@ -882,6 +882,12 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
         types.forEach((subtype) => {
             if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                 classTypeList.push(subtype);
+
+                // If the subtype is a type[x], we can't use it for narrowing
+                // because it represents all subclasses of x.
+                if (isClass(subtype) && subtype.includeSubclasses) {
+                    foundNonClassType = true;
+                }
             } else if (isNoneTypeClass(subtype)) {
                 classTypeList.push(subtype);
             } else if (
