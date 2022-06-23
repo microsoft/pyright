@@ -380,8 +380,8 @@ test('TypeNarrowingIsinstance8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeNarrowingIsinstance9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance9.py']);
+test('TypeNarrowingIsinstance10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance10.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
