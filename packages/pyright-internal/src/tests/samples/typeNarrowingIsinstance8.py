@@ -14,6 +14,12 @@ class Base(ABC):
         ...
 
 
-def func(cls: Any):
+def func1(cls: Any):
+    assert issubclass(cls, Base)
+    _ = cls()
+
+
+def func2(cls: Any):
+    assert isinstance(cls, type)
     assert issubclass(cls, Base)
     _ = cls()

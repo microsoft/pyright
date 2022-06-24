@@ -1157,7 +1157,10 @@ function narrowTypeForIsInstance(
         }
 
         if (!isInstanceCheck) {
-            return filteredTypes;
+            // We perform a double conversion from instance to instantiable
+            // here to make sure that the includeSubclasses flag is cleared
+            // if it's a class.
+            return filteredTypes.map((t) => (isInstantiableClass(t) ? convertToInstantiable(convertToInstance(t)) : t));
         }
 
         return filteredTypes.map((t) => convertToInstance(t));
