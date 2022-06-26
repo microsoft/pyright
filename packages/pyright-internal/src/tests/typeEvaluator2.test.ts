@@ -120,6 +120,12 @@ test('Assignment10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Assignment11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('AugmentedAssignment1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment1.py']);
 

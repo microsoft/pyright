@@ -15,9 +15,14 @@ import { getFileInfoFromNode } from './parseTreeUtils';
 export function hasTypeForDeclaration(declaration: Declaration): boolean {
     switch (declaration.type) {
         case DeclarationType.Intrinsic:
-        case DeclarationType.Class:
         case DeclarationType.SpecialBuiltInClass:
+            return true;
+
+        case DeclarationType.Class:
         case DeclarationType.Function:
+            if (declaration.node.name.value == '_') {
+                return false;
+            }
             return true;
 
         case DeclarationType.Parameter: {
