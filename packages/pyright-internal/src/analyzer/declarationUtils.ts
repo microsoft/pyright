@@ -20,7 +20,7 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
 
         case DeclarationType.Class:
         case DeclarationType.Function:
-            if (declaration.node.name.value == '_') {
+            if (declaration.node.name.value === '_') {
                 return false;
             }
             return true;
