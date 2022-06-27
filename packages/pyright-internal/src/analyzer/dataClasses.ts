@@ -534,7 +534,10 @@ export function synthesizeDataClassMethods(
             hasDeclaredType: true,
         });
         operatorMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'bool');
-        symbolTable.set(operator, Symbol.createWithType(SymbolFlags.ClassMember, operatorMethod));
+        // If a method of this name already exists, don't override it.
+        if (!symbolTable.get(operator)) {
+            symbolTable.set(operator, Symbol.createWithType(SymbolFlags.ClassMember, operatorMethod));
+        }
     };
 
     // Synthesize comparison operators.
