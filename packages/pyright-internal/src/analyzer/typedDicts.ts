@@ -776,7 +776,9 @@ export function assignToTypedDict(
                         symbolEntry.valueType,
                         valueTypes[index],
                         subDiag?.createAddendum(),
-                        typeVarContext
+                        typeVarContext,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.RetainLiteralsForTypeVar
                     )
                 ) {
                     if (subDiag) {
