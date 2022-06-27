@@ -8,9 +8,7 @@ def a():
     pass
 
 
-# This should generate two errors - one for
-# overriding the function declaration and another
-# for an incompatible assignment.
+# This should generate an error for an incompatible assignment.
 a = 1
 
 # This should generate an error for an obscured type.

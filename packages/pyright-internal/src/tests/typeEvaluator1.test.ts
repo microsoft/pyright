@@ -755,7 +755,7 @@ test('Annotations3', () => {
 test('Annotations4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations4.py']);
 
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Annotations5', () => {

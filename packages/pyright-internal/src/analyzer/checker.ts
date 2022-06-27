@@ -2522,12 +2522,6 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // Special case the '_' symbol, which is used in single dispatch
-        // code and other cases where the name does not matter.
-        if (name === '_') {
-            return;
-        }
-
         let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
 
         // If it's a function, we can skip any other declarations
@@ -2620,32 +2614,43 @@ export class Checker extends ParseTreeWalker {
                 addPrimaryDeclInfo(diag);
             } else if (otherDecl.type === DeclarationType.Function) {
                 const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
+                let duplicateIsOk = false;
 
                 // If the return type has not yet been inferred, do so now.
                 if (primaryType && isFunction(primaryType)) {
                     this._evaluator.getFunctionInferredReturnType(primaryType);
                 }
 
-                let duplicateIsOk = false;
                 const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
 
                 const suite1 = ParseTreeUtils.getEnclosingSuite(primaryDecl.node);
                 const suite2 = ParseTreeUtils.getEnclosingSuite(otherDecl.node);
 
+                // Allow same-signature overrides in cases where the declarations
+                // are not within the same statement suite (e.g. one in the "if"
+                // and another in the "else").
                 const isInSameStatementList = suite1 === suite2;
 
                 // If the return type has not yet been inferred, do so now.
                 if (otherType && isFunction(otherType)) {
                     this._evaluator.getFunctionInferredReturnType(otherType);
+
+                    if (primaryType && isFunction(primaryType)) {
+                        // Special case the '_' symbol, which is used in single dispatch
+                        // code and other cases where the name does not matter.
+                        if (name === '_') {
+                            duplicateIsOk = true;
+                        }
+                    }
                 }
 
                 // If both declarations are functions, it's OK if they
                 // both have the same signatures.
-                if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
+                if (!isInSameStatementList && primaryType && otherType && isTypeSame(primaryType, otherType)) {
                     duplicateIsOk = true;
                 }
 
-                if (!duplicateIsOk || isInSameStatementList) {
+                if (!duplicateIsOk) {
                     const diag = this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -2688,16 +2693,6 @@ export class Checker extends ParseTreeWalker {
                             );
                             addPrimaryDeclInfo(diag);
                         }
-                    }
-                } else if (primaryType && !isProperty(primaryType)) {
-                    if (primaryDecl.type === DeclarationType.Function || primaryDecl.type === DeclarationType.Class) {
-                        const diag = this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.obscuredVariableDeclaration().format({ name }),
-                            otherDecl.node
-                        );
-                        addPrimaryDeclInfo(diag);
                     }
                 }
             }
@@ -4621,18 +4616,18 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // Special case the '_' symbol, which is used in single dispatch
-        // code and other cases where the name does not matter.
-        if (memberName === '_') {
-            return;
-        }
-
         const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClassAndSymbol.classType
         );
 
         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
+            // Special case the '_' symbol, which is used in single dispatch
+            // code and other cases where the name does not matter.
+            if (memberName === '_') {
+                return;
+            }
+
             const diagAddendum = new DiagnosticAddendum();
             let overrideFunction: FunctionType | undefined;
 
