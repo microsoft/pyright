@@ -226,6 +226,7 @@ declare namespace _ {
             predicate: (m: Marker | undefined, d: T | undefined, text: string) => boolean
         ): Range[];
         getPositionRange(markerString: string): PositionRange;
+        getPosition(markerString: string): Position;
         expandPositionRange(range: PositionRange, start: number, end: number): PositionRange;
         convertPositionRange(range: Range): PositionRange;
         convertPathToUri(path: string): string;
@@ -344,6 +345,16 @@ declare namespace _ {
         setCancelled(numberOfCalls: number): void;
         resetCancelled(): void; */
     }
+
+    export interface InlayHint {
+        label: string;
+        position?: _.Position;
+        kind?: Consts.InlayHintKind;
+        tooltip?: string;
+        paddingLeft?: boolean;
+        paddingRight?: boolean;
+        textEdits?: TextEdit[];
+    }
 }
 
 declare var helper: _.Fourslash;
@@ -408,4 +419,12 @@ declare namespace Consts {
         const Operator: 24;
         const TypeParameter: 25;
     }
+
+    namespace InlayHintKind {
+        const Type = 1;
+        const Parameter = 2;
+        function is(value: number): value is InlayHintKind;
+    }
+
+    export type InlayHintKind = 1 | 2;
 }

@@ -57,9 +57,9 @@ test('check chained files', async () => {
         CancellationToken.None
     );
 
-    assert(result?.completionList?.items.some((i) => i.label === 'foo1'));
-    assert(result?.completionList?.items.some((i) => i.label === 'foo2'));
-    assert(result?.completionList?.items.some((i) => i.label === 'foo3'));
+    assert(result?.completionList.items.some((i) => i.label === 'foo1'));
+    assert(result?.completionList.items.some((i) => i.label === 'foo2'));
+    assert(result?.completionList.items.some((i) => i.label === 'foo3'));
 });
 
 test('modify chained files', async () => {
@@ -104,9 +104,9 @@ test('modify chained files', async () => {
 
     assert(result);
 
-    assert(!result.completionList?.items.some((i) => i.label === 'foo1'));
-    assert(!result.completionList?.items.some((i) => i.label === 'foo2'));
-    assert(result.completionList?.items.some((i) => i.label === 'foo3'));
+    assert(!result.completionList.items.some((i) => i.label === 'foo1'));
+    assert(!result.completionList.items.some((i) => i.label === 'foo2'));
+    assert(result.completionList.items.some((i) => i.label === 'foo3'));
 });
 
 test('modify chained files', async () => {

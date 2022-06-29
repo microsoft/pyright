@@ -159,3 +159,10 @@ export function getLastDottedString(text: string) {
     const index = text.lastIndexOf('.');
     return index > 0 ? text.substring(index + 1) : text;
 }
+
+export function truncate(text: string, maxLength: number) {
+    if (text.length > maxLength) {
+        return text.substring(0, maxLength - '...'.length) + '...';
+    }
+    return text;
+}
