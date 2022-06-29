@@ -882,12 +882,6 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
         types.forEach((subtype) => {
             if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                 classTypeList.push(subtype);
-
-                // If the subtype is a type[x], we can't use it for narrowing
-                // because it represents all subclasses of x.
-                if (isClass(subtype) && subtype.includeSubclasses) {
-                    foundNonClassType = true;
-                }
             } else if (isNoneTypeClass(subtype)) {
                 classTypeList.push(subtype);
             } else if (
@@ -933,6 +927,13 @@ export function isIsinstanceFilterSuperclass(
     concreteFilterType: ClassType,
     isInstanceCheck: boolean
 ) {
+    // If the filter type represents all possible subclasses
+    // of a type, we can't make any statements about its superclass
+    // relationship with varType.
+    if (concreteFilterType.includeSubclasses) {
+        return false;
+    }
+
     if (isTypeVar(filterType)) {
         return false;
     }

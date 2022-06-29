@@ -50,3 +50,23 @@ _ = ClassC() < 1
 _ = ClassC() <= 1
 _ = ClassC() > 1
 _ = ClassC() >= 1
+
+
+@total_ordering
+class ClassD:
+    def __init__(self) -> None:
+        self.value: int = 0
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ClassD):
+            return NotImplemented
+
+        reveal_type(other, expected_text="ClassD")
+
+        return self.value == other.value
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, ClassD):
+            return NotImplemented
+
+        return self.value <= other.value
