@@ -269,10 +269,10 @@ interface CompletionResultsBase {
     extensionInfo?: ExtensionInfo | undefined;
 }
 export interface CompletionResultsList extends CompletionResultsBase {
-    completionList: CompletionList | undefined;
+    completionList: CompletionList;
 }
 export interface CompletionResults extends CompletionResultsBase {
-    completionMap: CompletionMap | undefined;
+    completionMap: CompletionMap;
 }
 
 export interface CompletionOptions {
@@ -746,7 +746,7 @@ export class CompletionProvider {
             }
 
             const completionList = this._getExpressionCompletions(curNode, priorWord, priorText, postText);
-            if (completionList?.completionMap) {
+            if (completionList) {
                 completionList.completionMap.delete(curNode.value);
             }
 
@@ -840,7 +840,7 @@ export class CompletionProvider {
             case ErrorExpressionCategory.MissingIndexOrSlice: {
                 let completionResults = this._getLiteralCompletions(node, priorWord, priorText, postText);
 
-                if (!completionResults || !completionResults.completionMap) {
+                if (!completionResults) {
                     completionResults = this._getExpressionCompletions(node, priorWord, priorText, postText);
                 }
 
@@ -2170,11 +2170,7 @@ export class CompletionProvider {
         lazyEdit: boolean,
         completionResults: CompletionResults
     ) {
-        if (
-            !completionResults.completionMap ||
-            !this._configOptions.autoImportCompletions ||
-            !this._options.autoImport
-        ) {
+        if (!this._configOptions.autoImportCompletions || !this._options.autoImport) {
             // If auto import on the server is turned off or this particular invocation
             // is turned off (ex, notebook), don't do any thing.
             return;

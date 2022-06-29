@@ -26,4 +26,5 @@ export namespace Consts {
     }
 
     export import CompletionItemKind = lsp.CompletionItemKind;
+    export import InlayHintKind = lsp.InlayHintKind;
 }

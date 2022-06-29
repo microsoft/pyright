@@ -580,6 +580,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 renameProvider: { prepareProvider: true, workDoneProgress: true },
                 completionProvider: {
                     triggerCharacters: this.client.hasVisualStudioExtensionsCapability ? ['.', '[', '@'] : ['.', '['],
+                    allCommitCharacters: ['.', ';', '(', '['],
                     resolveProvider: true,
                     workDoneProgress: true,
                     completionItem: {
@@ -1001,7 +1002,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             token
         );
 
-        if (completions && completions.completionList) {
+        if (completions) {
             completions.completionList.isIncomplete = completionIncomplete;
         }
 

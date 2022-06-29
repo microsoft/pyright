@@ -1723,19 +1723,19 @@ export class Program {
                     );
                 });
 
-                ls.add(`found ${result?.completionMap?.size ?? 'null'} items`);
+                ls.add(`found ${result?.completionMap.size ?? 'null'} items`);
                 return result;
             }
         );
 
         const completionResultsList: CompletionResultsList = {
-            completionList: CompletionList.create(completionResult?.completionMap?.toArray()),
+            completionList: CompletionList.create(completionResult?.completionMap.toArray()),
             memberAccessInfo: completionResult?.memberAccessInfo,
             autoImportInfo: completionResult?.autoImportInfo,
             extensionInfo: completionResult?.extensionInfo,
         };
 
-        if (!completionResult?.completionMap || !this._extension?.completionListExtension) {
+        if (!completionResult || !this._extension?.completionListExtension) {
             return completionResultsList;
         }
 
