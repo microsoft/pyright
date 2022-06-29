@@ -105,6 +105,7 @@ import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
 import { TypeEvaluator } from './typeEvaluatorTypes';
+import { isIsinstanceFilterSubclass, isIsinstanceFilterSuperclass } from './typeGuards';
 import {
     ClassType,
     combineTypes,
@@ -3029,20 +3030,20 @@ export class Checker extends ParseTreeWalker {
             const filteredTypes: Type[] = [];
 
             for (const filterType of classTypeList) {
-                // Handle the special case where the variable type is a TypedDict and
-                // we're filtering against 'dict'. TypedDict isn't derived from dict,
-                // but at runtime, isinstance returns True.
-                const filterIsSuperclass =
-                    ClassType.isDerivedFrom(varType, filterType) ||
-                    (isInstanceCheck &&
-                        ClassType.isProtocolClass(filterType) &&
-                        this._evaluator.assignType(filterType, varType)) ||
-                    (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
-                const filterIsSubclass =
-                    ClassType.isDerivedFrom(filterType, varType) ||
-                    (isInstanceCheck &&
-                        ClassType.isProtocolClass(varType) &&
-                        this._evaluator.assignType(varType, filterType));
+                const filterIsSuperclass = isIsinstanceFilterSuperclass(
+                    this._evaluator,
+                    varType,
+                    filterType,
+                    filterType,
+                    isInstanceCheck
+                );
+                const filterIsSubclass = isIsinstanceFilterSubclass(
+                    this._evaluator,
+                    varType,
+                    filterType,
+                    filterType,
+                    isInstanceCheck
+                );
 
                 // Normally, a class should never be both a subclass and a
                 // superclass. However, this can happen if one of the classes

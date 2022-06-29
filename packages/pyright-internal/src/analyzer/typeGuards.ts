@@ -926,6 +926,57 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | None
     return foundNonClassType ? undefined : classTypeList;
 }
 
+export function isIsinstanceFilterSuperclass(
+    evaluator: TypeEvaluator,
+    varType: ClassType,
+    filterType: Type,
+    concreteFilterType: ClassType,
+    isInstanceCheck: boolean
+) {
+    if (isTypeVar(filterType)) {
+        return false;
+    }
+
+    if (ClassType.isDerivedFrom(varType, concreteFilterType)) {
+        return true;
+    }
+
+    if (isInstanceCheck) {
+        if (ClassType.isProtocolClass(concreteFilterType) && evaluator.assignType(concreteFilterType, varType)) {
+            return true;
+        }
+    }
+
+    // Handle the special case where the variable type is a TypedDict and
+    // we're filtering against 'dict'. TypedDict isn't derived from dict,
+    // but at runtime, isinstance returns True.
+    if (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType)) {
+        return true;
+    }
+
+    return false;
+}
+
+export function isIsinstanceFilterSubclass(
+    evaluator: TypeEvaluator,
+    varType: ClassType,
+    filterType: Type,
+    concreteFilterType: ClassType,
+    isInstanceCheck: boolean
+) {
+    if (ClassType.isDerivedFrom(concreteFilterType, varType)) {
+        return true;
+    }
+
+    if (isInstanceCheck) {
+        if (ClassType.isProtocolClass(varType) && evaluator.assignType(varType, concreteFilterType)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Attempts to narrow a type (make it more constrained) based on a
 // call to isinstance or issubclass. For example, if the original
 // type of expression "x" is "Mammal" and the test expression is
@@ -962,21 +1013,20 @@ function narrowTypeForIsInstance(
             const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
             if (isInstantiableClass(concreteFilterType)) {
-                // Handle the special case where the variable type is a TypedDict and
-                // we're filtering against 'dict'. TypedDict isn't derived from dict,
-                // but at runtime, isinstance returns True.
-                const filterIsSuperclass =
-                    !isTypeVar(filterType) &&
-                    (ClassType.isDerivedFrom(varType, concreteFilterType) ||
-                        (isInstanceCheck &&
-                            ClassType.isProtocolClass(concreteFilterType) &&
-                            evaluator.assignType(concreteFilterType, varType)) ||
-                        (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType)));
-                const filterIsSubclass =
-                    ClassType.isDerivedFrom(concreteFilterType, varType) ||
-                    (isInstanceCheck &&
-                        ClassType.isProtocolClass(varType) &&
-                        evaluator.assignType(varType, concreteFilterType));
+                const filterIsSuperclass = isIsinstanceFilterSuperclass(
+                    evaluator,
+                    varType,
+                    filterType,
+                    concreteFilterType,
+                    isInstanceCheck
+                );
+                const filterIsSubclass = isIsinstanceFilterSubclass(
+                    evaluator,
+                    varType,
+                    filterType,
+                    concreteFilterType,
+                    isInstanceCheck
+                );
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
