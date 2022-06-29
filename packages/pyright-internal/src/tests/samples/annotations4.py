@@ -1,6 +1,7 @@
 # This sample tests the type checker's reporting of
 # incompatible declared types.
 
+from collections.abc import Callable
 from typing import List
 
 
@@ -50,3 +51,18 @@ def my_func(param1: int, param2):
 e: List[int]
 e = [3]
 e: List[int]
+
+
+def register(fn: Callable[[], None]) -> None:
+    ...
+
+
+# These should be be fine because they use the "_" name.
+@register
+def _():
+    print("Callback 1 called")
+
+
+@register
+def _():
+    print("Callback 2 called")
