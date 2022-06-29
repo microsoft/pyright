@@ -2522,6 +2522,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Special case the '_' symbol, which is used in single dispatch
+        // code and other cases where the name does not matter.
+        if (name === '_') {
+            return;
+        }
+
         let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
 
         // If it's a function, we can skip any other declarations
@@ -2634,14 +2640,6 @@ export class Checker extends ParseTreeWalker {
                 // If the return type has not yet been inferred, do so now.
                 if (otherType && isFunction(otherType)) {
                     this._evaluator.getFunctionInferredReturnType(otherType);
-
-                    if (primaryType && isFunction(primaryType)) {
-                        // Special case the '_' symbol, which is used in single dispatch
-                        // code and other cases where the name does not matter.
-                        if (name === '_') {
-                            duplicateIsOk = true;
-                        }
-                    }
                 }
 
                 // If both declarations are functions, it's OK if they
@@ -4616,18 +4614,18 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Special case the '_' symbol, which is used in single dispatch
+        // code and other cases where the name does not matter.
+        if (memberName === '_') {
+            return;
+        }
+
         const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClassAndSymbol.classType
         );
 
         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
-            // Special case the '_' symbol, which is used in single dispatch
-            // code and other cases where the name does not matter.
-            if (memberName === '_') {
-                return;
-            }
-
             const diagAddendum = new DiagnosticAddendum();
             let overrideFunction: FunctionType | undefined;
 
