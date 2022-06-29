@@ -1,7 +1,7 @@
 name: 'Validation'
 
 env:
-  NODE_VERSION: '16' # Shipped with VS Code.
+  NODE_VERSION: '14' # Shipped with VS Code.
 
 on:
   push:
