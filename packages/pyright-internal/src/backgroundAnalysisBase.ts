@@ -589,7 +589,8 @@ export interface AnalysisRequest {
         | 'writeTypeStub'
         | 'getSemanticTokens'
         | 'setExperimentOptions'
-        | 'setImportResolver';
+        | 'setImportResolver'
+        | 'getInlayHints';
 
     data: any;
     port?: MessagePort | undefined;
