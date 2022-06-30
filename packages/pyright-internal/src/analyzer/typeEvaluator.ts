@@ -7473,7 +7473,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedType: Type | undefined
     ): CallResult {
         let filteredMatchResults: MatchArgsToParamsResult[] = [];
-        let contextFreeArgTypes: Type[] = [];
+        let contextFreeArgTypes: Type[] | undefined;
 
         // Start by evaluating the types of the arguments without any expected
         // type. Also, filter the list of overloads based on the number of
@@ -7499,24 +7499,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     overloadIndex++;
                 }
-            });
-
-            // Also evaluate the types of each argument expression without regard to
-            // the expectedType. We'll use this to determine whether we need to do
-            // union expansion.
-            contextFreeArgTypes = argList.map((arg) => {
-                if (arg.type) {
-                    return arg.type;
-                }
-
-                if (arg.valueExpression) {
-                    const valueExpressionNode = arg.valueExpression;
-                    return useSpeculativeMode(valueExpressionNode, () => {
-                        return getTypeOfExpression(valueExpressionNode).type;
-                    });
-                }
-
-                return AnyType.create();
             });
         });
 
@@ -7598,7 +7580,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // We didn't find an overload match. Try to expand the next union
             // argument type into individual types and retry with the expanded types.
-            expandedArgTypes = expandArgumentUnionTypes(contextFreeArgTypes, expandedArgTypes);
+            if (!contextFreeArgTypes) {
+                useSpeculativeMode(errorNode, () => {
+                    // Evaluate the types of each argument expression without regard to
+                    // the expectedType. We'll use this to determine whether we need to do
+                    // union expansion.
+                    contextFreeArgTypes = argList.map((arg) => {
+                        if (arg.type) {
+                            return arg.type;
+                        }
+
+                        if (arg.valueExpression) {
+                            const valueExpressionNode = arg.valueExpression;
+                            return useSpeculativeMode(valueExpressionNode, () => {
+                                return getTypeOfExpression(valueExpressionNode).type;
+                            });
+                        }
+
+                        return AnyType.create();
+                    });
+                });
+            }
+
+            expandedArgTypes = expandArgumentUnionTypes(contextFreeArgTypes!, expandedArgTypes);
 
             // Check for combinatoric explosion and break out of loop.
             if (!expandedArgTypes || expandedArgTypes.length > maxOverloadUnionExpansionCount) {
