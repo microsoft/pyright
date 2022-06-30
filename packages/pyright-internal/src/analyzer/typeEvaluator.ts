@@ -6950,7 +6950,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const assertedType = convertToInstance(getTypeOfArgumentExpectingType(node.arguments[1]).type);
 
         if (!isTypeSame(assertedType, arg0TypeResult.type)) {
-            addError(
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.assertTypeTypeMismatch().format({
                     expected: printType(assertedType),
                     received: printType(arg0TypeResult.type),
