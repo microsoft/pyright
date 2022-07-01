@@ -167,27 +167,27 @@ export function getTypeNarrowingCallback(
 
             // Look for "type(X) is Y" or "type(X) is not Y".
             if (isOrIsNotOperator && testExpression.leftExpression.nodeType === ParseNodeType.Call) {
-                const callType = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression.leftExpression,
-                    EvaluatorFlags.DoNotSpecialize
-                ).type;
-
                 if (
-                    isInstantiableClass(callType) &&
-                    ClassType.isBuiltIn(callType, 'type') &&
                     testExpression.leftExpression.arguments.length === 1 &&
                     testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple
                 ) {
                     const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                        const classType = evaluator.makeTopLevelTypeVarsConcrete(
-                            evaluator.getTypeOfExpression(testExpression.rightExpression).type
-                        );
+                        const callType = evaluator.getTypeOfExpression(
+                            testExpression.leftExpression.leftExpression,
+                            EvaluatorFlags.DoNotSpecialize
+                        ).type;
 
-                        if (isInstantiableClass(classType)) {
-                            return (type: Type) => {
-                                return narrowTypeForTypeIs(type, classType, adjIsPositiveTest);
-                            };
+                        if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
+                            const classType = evaluator.makeTopLevelTypeVarsConcrete(
+                                evaluator.getTypeOfExpression(testExpression.rightExpression).type
+                            );
+
+                            if (isInstantiableClass(classType)) {
+                                return (type: Type) => {
+                                    return narrowTypeForTypeIs(type, classType, adjIsPositiveTest);
+                                };
+                            }
                         }
                     }
                 }
@@ -424,106 +424,112 @@ export function getTypeNarrowingCallback(
     }
 
     if (testExpression.nodeType === ParseNodeType.Call) {
-        const callType = evaluator.getTypeOfExpression(
-            testExpression.leftExpression,
-            EvaluatorFlags.DoNotSpecialize
-        ).type;
-
         // Look for "isinstance(X, Y)" or "issubclass(X, Y)".
-        if (
-            isFunction(callType) &&
-            (callType.details.builtInName === 'isinstance' || callType.details.builtInName === 'issubclass') &&
-            testExpression.arguments.length === 2
-        ) {
+        if (testExpression.arguments.length === 2) {
             // Make sure the first parameter is a supported expression type
             // and the second parameter is a valid class type or a tuple
             // of valid class types.
-            const isInstanceCheck = callType.details.builtInName === 'isinstance';
             const arg0Expr = testExpression.arguments[0].valueExpression;
             const arg1Expr = testExpression.arguments[1].valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                const arg1Type = evaluator.getTypeOfExpression(
-                    arg1Expr,
-                    EvaluatorFlags.EvaluateStringLiteralAsType |
-                        EvaluatorFlags.ParamSpecDisallowed |
-                        EvaluatorFlags.TypeVarTupleDisallowed
+                const callType = evaluator.getTypeOfExpression(
+                    testExpression.leftExpression,
+                    EvaluatorFlags.DoNotSpecialize
                 ).type;
 
-                const classTypeList = getIsInstanceClassTypes(arg1Type);
+                if (
+                    isFunction(callType) &&
+                    (callType.details.builtInName === 'isinstance' || callType.details.builtInName === 'issubclass')
+                ) {
+                    const isInstanceCheck = callType.details.builtInName === 'isinstance';
+                    const arg1Type = evaluator.getTypeOfExpression(
+                        arg1Expr,
+                        EvaluatorFlags.EvaluateStringLiteralAsType |
+                            EvaluatorFlags.ParamSpecDisallowed |
+                            EvaluatorFlags.TypeVarTupleDisallowed
+                    ).type;
 
-                if (classTypeList) {
-                    return (type: Type) => {
-                        const narrowedType = narrowTypeForIsInstance(
-                            evaluator,
-                            type,
-                            classTypeList,
-                            isInstanceCheck,
-                            isPositiveTest,
-                            /* allowIntersections */ false,
-                            testExpression
-                        );
-                        if (!isNever(narrowedType)) {
-                            return narrowedType;
-                        }
+                    const classTypeList = getIsInstanceClassTypes(arg1Type);
 
-                        // Try again with intersection types allowed.
-                        return narrowTypeForIsInstance(
-                            evaluator,
-                            type,
-                            classTypeList,
-                            isInstanceCheck,
-                            isPositiveTest,
-                            /* allowIntersections */ true,
-                            testExpression
-                        );
-                    };
+                    if (classTypeList) {
+                        return (type: Type) => {
+                            const narrowedType = narrowTypeForIsInstance(
+                                evaluator,
+                                type,
+                                classTypeList,
+                                isInstanceCheck,
+                                isPositiveTest,
+                                /* allowIntersections */ false,
+                                testExpression
+                            );
+                            if (!isNever(narrowedType)) {
+                                return narrowedType;
+                            }
+
+                            // Try again with intersection types allowed.
+                            return narrowTypeForIsInstance(
+                                evaluator,
+                                type,
+                                classTypeList,
+                                isInstanceCheck,
+                                isPositiveTest,
+                                /* allowIntersections */ true,
+                                testExpression
+                            );
+                        };
+                    }
                 }
             }
         }
 
         // Look for "callable(X)"
-        if (
-            isFunction(callType) &&
-            callType.details.builtInName === 'callable' &&
-            testExpression.arguments.length === 1
-        ) {
+        if (testExpression.arguments.length === 1) {
             const arg0Expr = testExpression.arguments[0].valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                return (type: Type) => {
-                    let narrowedType = narrowTypeForCallable(
-                        evaluator,
-                        type,
-                        isPositiveTest,
-                        testExpression,
-                        /* allowIntersections */ false
-                    );
-                    if (isPositiveTest && isNever(narrowedType)) {
-                        // Try again with intersections allowed.
-                        narrowedType = narrowTypeForCallable(
+                const callType = evaluator.getTypeOfExpression(
+                    testExpression.leftExpression,
+                    EvaluatorFlags.DoNotSpecialize
+                ).type;
+
+                if (isFunction(callType) && callType.details.builtInName === 'callable') {
+                    return (type: Type) => {
+                        let narrowedType = narrowTypeForCallable(
                             evaluator,
                             type,
                             isPositiveTest,
                             testExpression,
-                            /* allowIntersections */ true
+                            /* allowIntersections */ false
                         );
-                    }
+                        if (isPositiveTest && isNever(narrowedType)) {
+                            // Try again with intersections allowed.
+                            narrowedType = narrowTypeForCallable(
+                                evaluator,
+                                type,
+                                isPositiveTest,
+                                testExpression,
+                                /* allowIntersections */ true
+                            );
+                        }
 
-                    return narrowedType;
-                };
+                        return narrowedType;
+                    };
+                }
             }
         }
 
         // Look for "bool(X)"
-        if (
-            isInstantiableClass(callType) &&
-            ClassType.isBuiltIn(callType, 'bool') &&
-            testExpression.arguments.length === 1 &&
-            !testExpression.arguments[0].name
-        ) {
+        if (testExpression.arguments.length === 1 && !testExpression.arguments[0].name) {
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.arguments[0].valueExpression)) {
-                return (type: Type) => {
-                    return narrowTypeForTruthiness(evaluator, type, isPositiveTest);
-                };
+                const callType = evaluator.getTypeOfExpression(
+                    testExpression.leftExpression,
+                    EvaluatorFlags.DoNotSpecialize
+                ).type;
+
+                if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'bool')) {
+                    return (type: Type) => {
+                        return narrowTypeForTruthiness(evaluator, type, isPositiveTest);
+                    };
+                }
             }
         }
 
@@ -541,6 +547,11 @@ export function getTypeNarrowingCallback(
                         ClassType.isBuiltIn(type.details.declaredReturnType, ['TypeGuard', 'StrictTypeGuard'])
                     );
                 };
+
+                const callType = evaluator.getTypeOfExpression(
+                    testExpression.leftExpression,
+                    EvaluatorFlags.DoNotSpecialize
+                ).type;
 
                 if (isFunction(callType) && isFunctionReturnTypeGuard(callType)) {
                     isPossiblyTypeGuard = true;
