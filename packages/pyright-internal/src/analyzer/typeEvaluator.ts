@@ -18208,7 +18208,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.parent.nodeType === ParseNodeType.MemberAccess &&
             node === node.parent.memberName
         ) {
-            let baseType = getType(node.parent.leftExpression);
+            let baseType = getTypeOfExpression(node.parent.leftExpression, EvaluatorFlags.DoNotSpecialize).type;
             if (baseType) {
                 baseType = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = node.parent.memberName.value;
