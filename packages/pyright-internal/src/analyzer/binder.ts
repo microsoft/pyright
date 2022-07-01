@@ -1016,11 +1016,18 @@ export class Binder extends ParseTreeWalker {
         this._addAntecedent(preForLabel, this._currentFlowNode!);
         this._currentFlowNode = preForLabel;
         this._addAntecedent(preElseLabel, this._currentFlowNode);
-        this._createAssignmentTargetFlowNodes(node.targetExpression, /* walkTargets */ true, /* unbound */ false);
+        const targetExpressions = this._trackCodeFlowExpressions(() => {
+            this._createAssignmentTargetFlowNodes(node.targetExpression, /* walkTargets */ true, /* unbound */ false);
+        });
 
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.forSuite);
             this._addAntecedent(preForLabel, this._currentFlowNode!);
+
+            // Add any target expressions since they are modified in the loop.
+            targetExpressions.forEach((value) => {
+                this._currentScopeCodeFlowExpressions?.add(value);
+            });
         });
 
         this._currentFlowNode = this._finishFlowLabel(preElseLabel);

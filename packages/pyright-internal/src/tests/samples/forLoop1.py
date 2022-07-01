@@ -86,3 +86,10 @@ class B:
 
 for b in B():
     ...
+
+def func3():
+    x = None
+    for x in range(1):
+        pass
+
+    reveal_type(x, expected_text="int | None")
