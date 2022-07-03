@@ -1460,6 +1460,12 @@ function narrowTypeForContains(evaluator: TypeEvaluator, referenceType: Type, co
             return referenceSubtype;
         }
 
+        // Handle "type" specially.
+        if (isClassInstance(concreteReferenceType) && ClassType.isBuiltIn(concreteReferenceType, 'type')) {
+            canNarrow = false;
+            return referenceSubtype;
+        }
+
         if (evaluator.assignType(elementType, concreteReferenceType)) {
             return referenceSubtype;
         }

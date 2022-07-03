@@ -95,3 +95,10 @@ def func5(x: str | None, y: int | None, z: dict[str, str]):
         reveal_type(y, expected_text="int | None")
     else:
         reveal_type(y, expected_text="Never")
+
+
+def func6(x: type):
+    if x in (str, int, float, bool):
+        reveal_type(x, expected_text="type")
+    else:
+        reveal_type(x, expected_text="type")
