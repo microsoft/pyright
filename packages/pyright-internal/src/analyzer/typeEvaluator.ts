@@ -1137,22 +1137,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Don't update the type cache with an unbound type that results from
-        // a resolution cycle. The cache will be updated when the stack unwinds
-        // and the type is fully evaluated.
-        if (!isTypeAliasPlaceholder(typeResult.type)) {
-            writeTypeCache(
-                node,
-                typeResult.type,
-                flags,
-                !!typeResult.isIncomplete,
-                expectedType,
-                /* allowSpeculativeCaching */ true
-            );
+        writeTypeCache(
+            node,
+            typeResult.type,
+            flags,
+            !!typeResult.isIncomplete,
+            expectedType,
+            /* allowSpeculativeCaching */ true
+        );
 
-            if (expectedType && !isAnyOrUnknown(expectedType) && !isNever(expectedType)) {
-                expectedTypeCache.set(node.id, expectedType);
-            }
+        if (expectedType && !isAnyOrUnknown(expectedType) && !isNever(expectedType)) {
+            expectedTypeCache.set(node.id, expectedType);
         }
 
         if (printExpressionTypes) {
@@ -2081,7 +2076,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // where the type isn't declared in this class but is in
                     // a parent class.
                     if (
-                        getDeclaredTypeOfSymbol(symbol) === undefined &&
+                        getDeclaredTypeOfSymbol(symbol, expression) === undefined &&
                         symbolWithScope.scope.type === ScopeType.Class
                     ) {
                         const enclosingClass = ParseTreeUtils.getEnclosingClassOrFunction(expression);
@@ -2105,7 +2100,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.TypeAnnotation: {
-                return getDeclaredTypeForExpression(expression.valueExpression);
+                return getDeclaredTypeForExpression(expression.valueExpression, usage);
             }
 
             case ParseNodeType.MemberAccess: {
@@ -6025,7 +6020,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 baseTypeResult.type.details.recursiveTypeAliasName!,
                 '',
                 baseTypeResult.type.details.recursiveTypeAliasScopeId!,
-                undefined,
+                baseTypeResult.type.details.recursiveTypeParameters,
                 typeArgTypes
             );
             return { type, node };

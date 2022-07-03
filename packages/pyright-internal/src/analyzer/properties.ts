@@ -488,7 +488,10 @@ export function assignProperty(
                 return;
             }
 
+            evaluator.inferReturnTypeIfNecessary(srcAccessType);
             srcAccessType = partiallySpecializeType(srcAccessType, srcClass) as FunctionType;
+
+            evaluator.inferReturnTypeIfNecessary(destAccessType);
             destAccessType = partiallySpecializeType(destAccessType, destClass) as FunctionType;
 
             // If the caller provided a "self" TypeVar context, replace any Self types.

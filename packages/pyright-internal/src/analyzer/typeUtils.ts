@@ -665,7 +665,10 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
         );
     }
 
-    return findSubtype(type, (subtype) => isTypeSame(typeAliasPlaceholder, subtype)) !== undefined;
+    return (
+        findSubtype(type, (subtype) => isTypeVar(subtype) && subtype.details === typeAliasPlaceholder.details) !==
+        undefined
+    );
 }
 
 export function transformPossibleRecursiveTypeAlias(type: Type): Type;
@@ -2862,13 +2865,16 @@ class TypeVarTransformer {
             }
         }
 
-        if (!typesRequiredSpecialization) {
-            return functionType;
-        }
-
         let specializedInferredReturnType: Type | undefined;
         if (functionType.inferredReturnType) {
             specializedInferredReturnType = this.apply(functionType.inferredReturnType, recursionCount);
+            if (specializedInferredReturnType !== functionType.inferredReturnType) {
+                typesRequiredSpecialization = true;
+            }
+        }
+
+        if (!typesRequiredSpecialization) {
+            return functionType;
         }
 
         if (specializedDefaultArgs.some((t) => t !== undefined)) {
