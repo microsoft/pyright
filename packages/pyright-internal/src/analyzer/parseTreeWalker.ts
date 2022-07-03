@@ -78,7 +78,10 @@ import {
     TernaryNode,
     TryNode,
     TupleNode,
+    TypeAliasNode,
     TypeAnnotationNode,
+    TypeParameterListNode,
+    TypeParameterNode,
     UnaryOperationNode,
     UnpackNode,
     WhileNode,
@@ -149,7 +152,9 @@ export class ParseTreeWalker {
                 return this.visitCase(node) ? [node.pattern, node.guardExpression, node.suite] : [];
 
             case ParseNodeType.Class:
-                return this.visitClass(node) ? [...node.decorators, node.name, ...node.arguments, node.suite] : [];
+                return this.visitClass(node)
+                    ? [...node.decorators, node.name, node.typeParameters, ...node.arguments, node.suite]
+                    : [];
 
             case ParseNodeType.Constant:
                 return this.visitConstant(node) ? [] : [];
@@ -209,6 +214,7 @@ export class ParseTreeWalker {
                     ? [
                           ...node.decorators,
                           node.name,
+                          node.typeParameters,
                           ...node.parameters,
                           node.returnTypeAnnotation,
                           node.functionAnnotationComment,
@@ -334,8 +340,17 @@ export class ParseTreeWalker {
                     ? [node.trySuite, ...node.exceptClauses, node.elseSuite, node.finallySuite]
                     : [];
 
+            case ParseNodeType.TypeAlias:
+                return this.visitTypeAlias(node) ? [node.name, node.typeParameters, node.expression] : [];
+
             case ParseNodeType.TypeAnnotation:
                 return this.visitTypeAnnotation(node) ? [node.valueExpression, node.typeAnnotation] : [];
+
+            case ParseNodeType.TypeParameter:
+                return this.visitTypeParameter(node) ? [node.name, node.boundExpression] : [];
+
+            case ParseNodeType.TypeParameterList:
+                return this.visitTypeParameterList(node) ? [...node.parameters] : [];
 
             case ParseNodeType.UnaryOperation:
                 return this.visitUnaryOperation(node) ? [node.expression] : [];
@@ -629,7 +644,19 @@ export class ParseTreeWalker {
         return true;
     }
 
+    visitTypeAlias(node: TypeAliasNode) {
+        return true;
+    }
+
     visitTypeAnnotation(node: TypeAnnotationNode) {
+        return true;
+    }
+
+    visitTypeParameter(node: TypeParameterNode) {
+        return true;
+    }
+
+    visitTypeParameterList(node: TypeParameterListNode) {
         return true;
     }
 

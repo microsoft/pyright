@@ -14,7 +14,7 @@
 
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
-import { assert } from '../common/debug';
+import { assert, assertNever } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
@@ -76,6 +76,8 @@ import {
     TryNode,
     TupleNode,
     TypeAnnotationNode,
+    TypeParameterListNode,
+    TypeParameterNode,
     UnaryOperationNode,
     UnpackNode,
     WhileNode,
@@ -95,7 +97,6 @@ import { getRelativeModuleName, getTopLevelImports } from './importStatementUtil
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
-import { assignProtocolClassToSelf } from './protocols';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { isStubFile } from './sourceMapper';
@@ -127,7 +128,6 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
-    isVariadicTypeVar,
     NoneType,
     Type,
     TypeBase,
@@ -233,6 +233,9 @@ export class Checker extends ParseTreeWalker {
     // have their own scopes.
     private _scopedNodes: AnalyzerNodeInfo.ScopedNode[] = [];
 
+    // A list of all visited type parameter lists.
+    private _typeParameterLists: TypeParameterListNode[] = [];
+
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
@@ -298,6 +301,9 @@ export class Checker extends ParseTreeWalker {
     override visitClass(node: ClassNode): boolean {
         const classTypeResult = this._evaluator.getTypeOfClass(node);
 
+        if (node.typeParameters) {
+            this.walk(node.typeParameters);
+        }
         this.walk(node.suite);
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
@@ -375,6 +381,10 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitFunction(node: FunctionNode): boolean {
+        if (node.typeParameters) {
+            this.walk(node.typeParameters);
+        }
+
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
 
@@ -542,7 +552,7 @@ export class Checker extends ParseTreeWalker {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
                     if (
                         isTypeVar(paramType) &&
-                        paramType.details.variance === Variance.Covariant &&
+                        paramType.details.declaredVariance === Variance.Covariant &&
                         !paramType.details.isSynthesized &&
                         functionTypeResult.functionType.details.name !== '__init__'
                     ) {
@@ -1366,6 +1376,15 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
+        return false;
+    }
+
+    override visitTypeParameterList(node: TypeParameterListNode): boolean {
+        this._typeParameterLists.push(node);
+        return true;
+    }
+
+    override visitTypeParameter(node: TypeParameterNode): boolean {
         return false;
     }
 
@@ -2327,6 +2346,22 @@ export class Checker extends ParseTreeWalker {
                 });
             }
         }
+
+        // Report unaccessed type parameters.
+        const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
+        for (const paramList of this._typeParameterLists) {
+            for (const param of paramList.parameters) {
+                const symbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
+                assert(symbol);
+
+                if (!accessedSymbolSet.has(symbol.id)) {
+                    const decls = symbol.getDeclarations();
+                    decls.forEach((decl) => {
+                        this._conditionallyReportUnusedDeclaration(decl, /* isPrivate */ false);
+                    });
+                }
+            }
+        }
     }
 
     private _reportInvalidOverload(name: string, symbol: Symbol) {
@@ -2585,6 +2620,8 @@ export class Checker extends ParseTreeWalker {
             primaryDeclInfo = Localizer.DiagnosticAddendum.seeParameterDeclaration();
         } else if (primaryDecl.type === DeclarationType.Variable) {
             primaryDeclInfo = Localizer.DiagnosticAddendum.seeVariableDeclaration();
+        } else if (primaryDecl.type === DeclarationType.TypeAlias) {
+            primaryDeclInfo = Localizer.DiagnosticAddendum.seeTypeAliasDeclaration();
         } else {
             primaryDeclInfo = Localizer.DiagnosticAddendum.seeDeclaration();
         }
@@ -2598,7 +2635,10 @@ export class Checker extends ParseTreeWalker {
                     if (primaryDecl.node.nodeType === ParseNodeType.Name) {
                         primaryDeclNode = primaryDecl.node;
                     }
-                } else if (primaryDecl.type === DeclarationType.Parameter) {
+                } else if (
+                    primaryDecl.type === DeclarationType.Parameter ||
+                    primaryDecl.type === DeclarationType.TypeParameter
+                ) {
                     if (primaryDecl.node.name) {
                         primaryDeclNode = primaryDecl.node.name;
                     }
@@ -2612,13 +2652,23 @@ export class Checker extends ParseTreeWalker {
 
         for (const otherDecl of otherDecls) {
             if (otherDecl.type === DeclarationType.Class) {
-                const diag = this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.obscuredClassDeclaration().format({ name }),
-                    otherDecl.node.name
-                );
-                addPrimaryDeclInfo(diag);
+                let duplicateIsOk = false;
+
+                if (primaryDecl.type === DeclarationType.TypeParameter) {
+                    // The error will be reported elsewhere if a type parameter is
+                    // involved, so don't report it here.
+                    duplicateIsOk = true;
+                }
+
+                if (!duplicateIsOk) {
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.obscuredClassDeclaration().format({ name }),
+                        otherDecl.node.name
+                    );
+                    addPrimaryDeclInfo(diag);
+                }
             } else if (otherDecl.type === DeclarationType.Function) {
                 const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
                 let duplicateIsOk = false;
@@ -2649,6 +2699,12 @@ export class Checker extends ParseTreeWalker {
                     duplicateIsOk = true;
                 }
 
+                if (primaryDecl.type === DeclarationType.TypeParameter) {
+                    // The error will be reported elsewhere if a type parameter is
+                    // involved, so don't report it here.
+                    duplicateIsOk = true;
+                }
+
                 if (!duplicateIsOk) {
                     const diag = this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -2662,13 +2718,24 @@ export class Checker extends ParseTreeWalker {
                 }
             } else if (otherDecl.type === DeclarationType.Parameter) {
                 if (otherDecl.node.name) {
-                    const diag = this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.obscuredParameterDeclaration().format({ name }),
-                        otherDecl.node.name
-                    );
-                    addPrimaryDeclInfo(diag);
+                    let duplicateIsOk = false;
+
+                    if (primaryDecl.type === DeclarationType.TypeParameter) {
+                        // The error will be reported elsewhere if a type parameter is
+                        // involved, so don't report it here.
+                        duplicateIsOk = true;
+                    }
+
+                    if (!duplicateIsOk) {
+                        const message = Localizer.Diagnostic.obscuredParameterDeclaration();
+                        const diag = this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            message.format({ name }),
+                            otherDecl.node.name
+                        );
+                        addPrimaryDeclInfo(diag);
+                    }
                 }
             } else if (otherDecl.type === DeclarationType.Variable) {
                 const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
@@ -2683,6 +2750,12 @@ export class Checker extends ParseTreeWalker {
                             duplicateIsOk = true;
                         }
 
+                        if (primaryDecl.type === DeclarationType.TypeParameter) {
+                            // The error will be reported elsewhere if a type parameter is
+                            // involved, so don't report it here.
+                            duplicateIsOk = true;
+                        }
+
                         if (!duplicateIsOk) {
                             const diag = this._evaluator.addDiagnostic(
                                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -2694,12 +2767,21 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
                 }
+            } else if (otherDecl.type === DeclarationType.TypeAlias) {
+                const diag = this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.obscuredTypeAliasDeclaration().format({ name }),
+                    otherDecl.node.name
+                );
+                addPrimaryDeclInfo(diag);
             }
         }
     }
 
     private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
         const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
+
         if (symbol.isIgnoredForProtocolMatch() || accessedSymbolSet.has(symbol.id)) {
             return;
         }
@@ -2781,6 +2863,7 @@ export class Checker extends ParseTreeWalker {
                 }
                 break;
 
+            case DeclarationType.TypeAlias:
             case DeclarationType.Variable:
             case DeclarationType.Parameter:
                 if (!isPrivate) {
@@ -2806,7 +2889,7 @@ export class Checker extends ParseTreeWalker {
                 } else if (decl.node.nodeType === ParseNodeType.Parameter) {
                     nameNode = decl.node.name;
 
-                    // Don't emit a diagnostic for unused parameters.
+                    // Don't emit a diagnostic for unused parameters or type parameters.
                     diagnosticLevel = 'none';
                 }
 
@@ -2850,18 +2933,31 @@ export class Checker extends ParseTreeWalker {
                 message = Localizer.Diagnostic.unaccessedFunction().format({ name: nameNode.value });
                 break;
 
-            default:
+            case DeclarationType.TypeParameter:
+                // Never report a diagnostic for an unused TypeParameter.
+                diagnosticLevel = 'none';
+                nameNode = decl.node.name;
+                break;
+
+            case DeclarationType.Intrinsic:
+            case DeclarationType.SpecialBuiltInClass:
                 return;
+
+            default:
+                assertNever(decl);
         }
 
-        if (nameNode && rule !== undefined && message) {
-            const action = rule === DiagnosticRule.reportUnusedImport ? { action: Commands.unusedImport } : undefined;
+        const action = rule === DiagnosticRule.reportUnusedImport ? { action: Commands.unusedImport } : undefined;
+        if (nameNode) {
             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                 Localizer.Diagnostic.unaccessedSymbol().format({ name: nameNode.value }),
                 nameNode,
                 action
             );
-            this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
+
+            if (rule !== undefined && message) {
+                this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
+            }
         }
     }
 
@@ -3553,7 +3649,10 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 const diag = new DiagnosticAddendum();
-                if (isTypeVar(declaredReturnType) && declaredReturnType.details.variance === Variance.Contravariant) {
+                if (
+                    isTypeVar(declaredReturnType) &&
+                    declaredReturnType.details.declaredVariance === Variance.Contravariant
+                ) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
                             name: TypeVarType.getReadableName(declaredReturnType),
@@ -4010,10 +4109,8 @@ export class Checker extends ParseTreeWalker {
     // the proper variance (invariant, covariant, contravariant). See PEP 544
     // for an explanation for why this is important to enforce.
     private _validateProtocolTypeParamVariance(errorNode: ClassNode, classType: ClassType) {
-        const origTypeParams = classType.details.typeParameters.filter((typeParam) => !isParamSpec(typeParam));
-
-        // If this isn't a generic protocol, there's nothing to do here.
-        if (origTypeParams.length === 0) {
+        // If this protocol has no TypeVars with specified variance, there's nothing to do here.
+        if (classType.details.typeParameters.length === 0) {
             return;
         }
 
@@ -4023,26 +4120,22 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Replace all of the type parameters with invariant TypeVars.
-        const updatedTypeParams = origTypeParams.map((typeParam) =>
-            isVariadicTypeVar(typeParam) ? typeParam : TypeVarType.cloneAsInvariant(typeParam)
+        const updatedTypeParams = classType.details.typeParameters.map((typeParam) =>
+            TypeVarType.cloneAsInvariant(typeParam)
         );
         const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
 
         const objectObject = ClassType.cloneAsInstance(objectType);
-        const dummyTypeObject = ClassType.createInstantiable(
-            '__protocolVarianceDummy',
-            '',
-            '',
-            '',
-            0,
-            0,
-            undefined,
-            undefined
-        );
+        const dummyTypeObject = ClassType.createInstantiable('__varianceDummy', '', '', '', 0, 0, undefined, undefined);
 
         updatedTypeParams.forEach((param, paramIndex) => {
-            // Skip variadics.
-            if (param.details.isVariadic) {
+            // Skip variadics and ParamSpecs.
+            if (param.details.isVariadic || param.details.isParamSpec) {
+                return;
+            }
+
+            // Skip type variables with auto-variance.
+            if (param.details.declaredVariance === Variance.Auto) {
                 return;
             }
 
@@ -4072,13 +4165,13 @@ export class Checker extends ParseTreeWalker {
                 /* isTypeArgumentExplicit */ true
             );
 
-            const isDestSubtypeOfSrc = assignProtocolClassToSelf(this._evaluator, srcType, destType);
+            const isDestSubtypeOfSrc = this._evaluator.assignClassToSelf(srcType, destType);
 
             let expectedVariance: Variance;
             if (isDestSubtypeOfSrc) {
                 expectedVariance = Variance.Covariant;
             } else {
-                const isSrcSubtypeOfDest = assignProtocolClassToSelf(this._evaluator, destType, srcType);
+                const isSrcSubtypeOfDest = this._evaluator.assignClassToSelf(destType, srcType);
                 if (isSrcSubtypeOfDest) {
                     expectedVariance = Variance.Contravariant;
                 } else {
@@ -4086,7 +4179,7 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            if (expectedVariance !== origTypeParams[paramIndex].details.variance) {
+            if (expectedVariance !== classType.details.typeParameters[paramIndex].details.declaredVariance) {
                 let message: string;
                 if (expectedVariance === Variance.Covariant) {
                     message = Localizer.Diagnostic.protocolVarianceCovariant().format({

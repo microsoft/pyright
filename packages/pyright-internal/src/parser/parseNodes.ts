@@ -104,6 +104,9 @@ export const enum ParseNodeType {
     PatternMappingExpandEntry,
     PatternValue,
     PatternClassArgument,
+    TypeParameter,
+    TypeParameterList,
+    TypeAlias,
 }
 
 export const enum ErrorExpressionCategory {
@@ -412,6 +415,7 @@ export interface FunctionNode extends ParseNodeBase {
     decorators: DecoratorNode[];
     isAsync?: boolean;
     name: NameNode;
+    typeParameters?: TypeParameterListNode;
     parameters: ParameterNode[];
     returnTypeAnnotation?: ExpressionNode | undefined;
     functionAnnotationComment?: FunctionAnnotationNode | undefined;
@@ -419,7 +423,7 @@ export interface FunctionNode extends ParseNodeBase {
 }
 
 export namespace FunctionNode {
-    export function create(defToken: Token, name: NameNode, suite: SuiteNode) {
+    export function create(defToken: Token, name: NameNode, suite: SuiteNode, typeParameters?: TypeParameterListNode) {
         const node: FunctionNode = {
             start: defToken.start,
             length: defToken.length,
@@ -427,12 +431,17 @@ export namespace FunctionNode {
             id: _nextNodeId++,
             decorators: [],
             name,
+            typeParameters,
             parameters: [],
             suite,
         };
 
         name.parent = node;
         suite.parent = node;
+
+        if (typeParameters) {
+            typeParameters.parent = node;
+        }
 
         extendRange(node, suite);
 
@@ -473,12 +482,18 @@ export interface ClassNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Class;
     decorators: DecoratorNode[];
     name: NameNode;
+    typeParameters?: TypeParameterListNode;
     arguments: ArgumentNode[];
     suite: SuiteNode;
 }
 
 export namespace ClassNode {
-    export function create(classToken: Token, name: NameNode, suite: SuiteNode) {
+    export function create(
+        classToken: Token,
+        name: NameNode,
+        suite: SuiteNode,
+        typeParameters?: TypeParameterListNode
+    ) {
         const node: ClassNode = {
             start: classToken.start,
             length: classToken.length,
@@ -486,12 +501,17 @@ export namespace ClassNode {
             id: _nextNodeId++,
             decorators: [],
             name,
+            typeParameters,
             arguments: [],
             suite,
         };
 
         name.parent = node;
         suite.parent = node;
+
+        if (typeParameters) {
+            typeParameters.parent = node;
+        }
 
         extendRange(node, suite);
 
@@ -646,6 +666,7 @@ export type StatementNode =
     | WithNode
     | StatementListNode
     | MatchNode
+    | TypeAliasNode
     | ErrorNode;
 
 export type SmallStatementNode =
@@ -882,6 +903,105 @@ export namespace AssignmentNode {
         rightExpression.parent = node;
 
         extendRange(node, rightExpression);
+
+        return node;
+    }
+}
+
+export enum TypeParameterCategory {
+    TypeVar,
+    TypeVarTuple,
+    ParamSpec,
+}
+
+export interface TypeParameterNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.TypeParameter;
+    name: NameNode;
+    typeParamCategory: TypeParameterCategory;
+    boundExpression?: ExpressionNode;
+}
+
+export namespace TypeParameterNode {
+    export function create(name: NameNode, typeParamCategory: TypeParameterCategory, boundExpression?: ExpressionNode) {
+        const node: TypeParameterNode = {
+            start: name.start,
+            length: name.length,
+            nodeType: ParseNodeType.TypeParameter,
+            id: _nextNodeId++,
+            name,
+            typeParamCategory,
+            boundExpression,
+        };
+
+        name.parent = node;
+
+        if (boundExpression) {
+            boundExpression.parent = node;
+            extendRange(node, boundExpression);
+        }
+
+        return node;
+    }
+}
+
+export interface TypeParameterListNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.TypeParameterList;
+    parameters: TypeParameterNode[];
+}
+
+export namespace TypeParameterListNode {
+    export function create(startToken: Token, endToken: Token, parameters: TypeParameterNode[]) {
+        const node: TypeParameterListNode = {
+            start: startToken.start,
+            length: startToken.length,
+            nodeType: ParseNodeType.TypeParameterList,
+            id: _nextNodeId++,
+            parameters,
+        };
+
+        extendRange(node, endToken);
+
+        parameters.forEach((param) => {
+            extendRange(node, param);
+            param.parent = node;
+        });
+
+        return node;
+    }
+}
+
+export interface TypeAliasNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.TypeAlias;
+    name: NameNode;
+    typeParameters?: TypeParameterListNode;
+    expression: ExpressionNode;
+}
+
+export namespace TypeAliasNode {
+    export function create(
+        typeToken: KeywordToken,
+        name: NameNode,
+        expression: ExpressionNode,
+        typeParameters?: TypeParameterListNode
+    ) {
+        const node: TypeAliasNode = {
+            start: typeToken.start,
+            length: typeToken.length,
+            nodeType: ParseNodeType.TypeAlias,
+            id: _nextNodeId++,
+            name,
+            typeParameters,
+            expression,
+        };
+
+        name.parent = node;
+        expression.parent = node;
+
+        if (typeParameters) {
+            typeParameters.parent = node;
+        }
+
+        extendRange(node, expression);
 
         return node;
     }
@@ -2328,7 +2448,10 @@ export type ParseNode =
     | TernaryNode
     | TupleNode
     | TryNode
+    | TypeAliasNode
     | TypeAnnotationNode
+    | TypeParameterNode
+    | TypeParameterListNode
     | UnaryOperationNode
     | UnpackNode
     | WhileNode
@@ -2339,3 +2462,4 @@ export type ParseNode =
 
 export type EvaluationScopeNode = LambdaNode | FunctionNode | ModuleNode | ClassNode | ListComprehensionNode;
 export type ExecutionScopeNode = LambdaNode | FunctionNode | ModuleNode;
+export type TypeParameterScopeNode = FunctionNode | ClassNode | TypeAliasNode;

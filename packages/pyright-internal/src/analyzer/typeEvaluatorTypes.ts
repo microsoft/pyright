@@ -404,12 +404,14 @@ export interface TypeEvaluator {
         isTypeIncomplete: boolean,
         srcExpr: ExpressionNode
     ) => void;
+    assignClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypedDictClassType: () => Type | undefined;
     getTupleClassType: () => Type | undefined;
     getObjectType: () => Type | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
+    inferTypeParameterVarianceForClass: (type: ClassType) => void;
     verifyTypeArgumentsAssignable: (
         destType: ClassType,
         srcType: ClassType,

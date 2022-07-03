@@ -1,0 +1,63 @@
+# This sample tests the type parameter syntax for generic classes and
+# functions. In particular, it tests various error conditions involving
+# name collisions.
+
+T1 = 0
+
+class ClassA[T1]:
+    ...
+
+def func1[T1]():
+    ...
+
+
+T2: str
+
+class ClassB[T2]:
+    ...
+
+def func2[T2]():
+    ...
+
+
+# This should generate an error because T3 is duplicated.
+class ClassC[T3, S1, T3]:
+    ...
+
+
+# This should generate an error because T3 is duplicated.
+def func3[T3, S1, T3]():
+    ...
+
+# This should generate an error because T4 is duplicated.
+def func4[T4](T4: int):
+    ...
+
+def func5[T5](a: int):
+    # This should generate an error because T5 is already in use.
+    class ClassA[T5]:
+        ...
+
+    # This should generate an error because T5 is already in use.
+    def inner_func1[T5]():
+        ...
+
+def func6[T6](T7: int):
+    class ClassA[T7]:
+        ...
+
+    def inner_func1[T7]():
+        ...
+
+    global T2
+
+    class ClassB[T2]:
+        # This should generate an error because T2 refers to a type param.
+        global T2
+
+
+    class ClassC[T3]:
+        ...
+
+    T3 = 4
+

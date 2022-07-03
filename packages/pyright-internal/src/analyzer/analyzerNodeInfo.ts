@@ -17,6 +17,7 @@ import {
     LambdaNode,
     ListComprehensionNode,
     ModuleNode,
+    NameNode,
     ParseNode,
     ParseNodeType,
     StringNode,
@@ -26,6 +27,7 @@ import { FlowFlags, FlowNode } from './codeFlowTypes';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { Scope } from './scope';
+import { Symbol } from './symbol';
 
 export interface DunderAllInfo {
     names: string[];
@@ -70,6 +72,9 @@ interface AnalyzerNodeInfo {
 
     // List of __all__ symbols in the module.
     dunderAllInfo?: DunderAllInfo | undefined;
+
+    // Indicates that the NameNode refers to a type parameter.
+    typeParameterSymbol?: Symbol;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ListComprehensionNode;
@@ -86,6 +91,7 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     delete analyzerNode.codeFlowExpressions;
     delete analyzerNode.codeFlowComplexity;
     delete analyzerNode.dunderAllInfo;
+    delete analyzerNode.typeParameterSymbol;
 }
 
 export function getImportInfo(node: ParseNode): ImportResult | undefined {
@@ -179,6 +185,16 @@ export function getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
 export function setDunderAllInfo(node: ModuleNode, names: DunderAllInfo | undefined) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.dunderAllInfo = names;
+}
+
+export function getTypeParameterSymbol(node: NameNode) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.typeParameterSymbol;
+}
+
+export function setTypeParameterSymbol(node: NameNode, symbol: Symbol) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.typeParameterSymbol = symbol;
 }
 
 export function isCodeUnreachable(node: ParseNode): boolean {

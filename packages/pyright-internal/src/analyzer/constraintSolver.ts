@@ -819,6 +819,8 @@ export function populateTypeVarContextBasedOnExpectedType(
         );
     }
 
+    evaluator.inferTypeParameterVarianceForClass(type);
+
     // If the expected type is the same as the target type (commonly the case),
     // we can use a faster method.
     if (ClassType.isSameGenericClass(expectedType, type)) {
@@ -832,8 +834,8 @@ export function populateTypeVarContextBasedOnExpectedType(
                 if (!isTypeVar(typeVarType) || typeVarType.scopeId !== type.details.typeVarScopeId) {
                     typeVarContext.setTypeVarType(
                         entry.typeVar,
-                        entry.typeVar.details.variance === Variance.Covariant ? undefined : typeVarType,
-                        entry.typeVar.details.variance === Variance.Contravariant ? undefined : typeVarType,
+                        TypeVarType.getVariance(entry.typeVar) === Variance.Covariant ? undefined : typeVarType,
+                        TypeVarType.getVariance(entry.typeVar) === Variance.Contravariant ? undefined : typeVarType,
                         entry.retainLiteral
                     );
                 }
@@ -849,7 +851,7 @@ export function populateTypeVarContextBasedOnExpectedType(
         typeVar.details.isSynthesized = true;
 
         // Use invariance here so we set the narrow and wide values on the TypeVar.
-        typeVar.details.variance = Variance.Invariant;
+        typeVar.details.declaredVariance = Variance.Invariant;
         typeVar.scopeId = expectedTypeScopeId;
         return typeVar;
     });
@@ -909,8 +911,10 @@ export function populateTypeVarContextBasedOnExpectedType(
                     if (expectedTypeArgValue) {
                         typeVarContext.setTypeVarType(
                             targetTypeVar,
-                            typeVar.details.variance === Variance.Covariant ? undefined : expectedTypeArgValue,
-                            typeVar.details.variance === Variance.Contravariant ? undefined : expectedTypeArgValue
+                            TypeVarType.getVariance(typeVar) === Variance.Covariant ? undefined : expectedTypeArgValue,
+                            TypeVarType.getVariance(typeVar) === Variance.Contravariant
+                                ? undefined
+                                : expectedTypeArgValue
                         );
                     } else {
                         isResultValid = false;

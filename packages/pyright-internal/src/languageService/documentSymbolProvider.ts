@@ -201,6 +201,10 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator?: TypeE
             symbolKind = SymbolKind.Variable;
             break;
 
+        case DeclarationType.TypeParameter:
+            symbolKind = SymbolKind.TypeParameter;
+            break;
+
         case DeclarationType.Variable:
             if (name === '_') {
                 return;

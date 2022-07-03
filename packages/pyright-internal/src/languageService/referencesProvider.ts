@@ -274,7 +274,11 @@ function isVisibleOutside(
                 case DeclarationType.Parameter:
                     return isVisible && isContainerExternallyVisible(decl.node.name!, recursionCount);
 
-                case DeclarationType.Variable: {
+                case DeclarationType.TypeParameter:
+                    return false;
+
+                case DeclarationType.Variable:
+                case DeclarationType.TypeAlias: {
                     if (decl.node.nodeType === ParseNodeType.Name) {
                         return isVisible && isContainerExternallyVisible(decl.node, recursionCount);
                     }

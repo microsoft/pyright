@@ -78,6 +78,7 @@ const _keywords: Map<string, KeywordType> = new Map([
     ['raise', KeywordType.Raise],
     ['return', KeywordType.Return],
     ['try', KeywordType.Try],
+    ['type', KeywordType.Type],
     ['while', KeywordType.While],
     ['with', KeywordType.With],
     ['yield', KeywordType.Yield],

@@ -157,6 +157,7 @@ namespace Keywords {
         'raise',
         'return',
         'try',
+        'type',
         'while',
         'with',
     ];
@@ -2498,7 +2499,8 @@ export class CompletionProvider {
                             switch (primaryDecl.type) {
                                 case DeclarationType.Intrinsic:
                                 case DeclarationType.Variable:
-                                case DeclarationType.Parameter: {
+                                case DeclarationType.Parameter:
+                                case DeclarationType.TypeParameter: {
                                     let expandTypeAlias = false;
                                     if (type && TypeBase.isInstantiable(type)) {
                                         const typeAliasInfo = getTypeAliasInfo(type);
@@ -2921,10 +2923,16 @@ export class CompletionProvider {
             case DeclarationType.Parameter:
                 return CompletionItemKind.Variable;
 
+            case DeclarationType.TypeParameter:
+                return CompletionItemKind.TypeParameter;
+
             case DeclarationType.Variable:
                 return resolvedDeclaration.isConstant || resolvedDeclaration.isFinal
                     ? CompletionItemKind.Constant
                     : CompletionItemKind.Variable;
+
+            case DeclarationType.TypeAlias:
+                return CompletionItemKind.Variable;
 
             case DeclarationType.Function: {
                 if (this._isPossiblePropertyDeclaration(resolvedDeclaration)) {

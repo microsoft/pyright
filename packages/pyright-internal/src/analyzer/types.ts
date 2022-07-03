@@ -486,6 +486,13 @@ interface ClassDetails {
     // Transforms to apply if this class is used as a metaclass
     // or a base class.
     classDataClassTransform?: DataClassBehaviors | undefined;
+
+    // Variance of type parameters, inferred if necessary.
+    typeParameterVariance?: Variance[];
+
+    // Indicates that one or more type parameters has an
+    // autovariance, so variance must be inferred.
+    requiresVarianceInference?: boolean;
 }
 
 export interface TupleTypeArgument {
@@ -668,6 +675,7 @@ export namespace ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.details = { ...newClassType.details };
         newClassType.details.typeParameters = typeParams;
+        newClassType.details.requiresVarianceInference = false;
         return newClassType;
     }
 
@@ -1104,6 +1112,7 @@ interface FunctionDetails {
     fullName: string;
     moduleName: string;
     flags: FunctionTypeFlags;
+    typeParameters: TypeVarType[];
     parameters: FunctionParameter[];
     declaredReturnType?: Type | undefined;
     declaration?: FunctionDeclaration | undefined;
@@ -1208,6 +1217,7 @@ export namespace FunctionType {
                 moduleName,
                 flags: functionFlags,
                 parameters: [],
+                typeParameters: [],
                 docString,
             },
             flags: typeFlags,
@@ -1934,6 +1944,7 @@ export namespace UnionType {
 }
 
 export const enum Variance {
+    Auto,
     Invariant,
     Covariant,
     Contravariant,
@@ -1943,15 +1954,20 @@ export interface TypeVarDetails {
     name: string;
     constraints: Type[];
     boundType?: Type | undefined;
-    variance: Variance;
+
     isParamSpec: boolean;
     isVariadic: boolean;
+
+    declaredVariance: Variance;
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
     isSynthesizedSelf?: boolean | undefined;
     synthesizedIndex?: number | undefined;
     isExemptFromBoundCheck?: boolean;
+
+    // Does this type variable originate from new type parameter syntax?
+    isTypeParamSyntax?: boolean;
 
     // Used for recursive type aliases.
     recursiveTypeAliasName?: string | undefined;
@@ -1997,6 +2013,9 @@ export interface TypeVarType extends TypeBase {
 
     // Represents access to "args" or "kwargs" of a ParamSpec.
     paramSpecAccess?: ParamSpecAccess;
+
+    // May be different from declaredVariance if the latter is Auto.
+    computedVariance?: Variance;
 }
 
 export namespace TypeVarType {
@@ -2052,13 +2071,18 @@ export namespace TypeVarType {
     }
 
     // Creates a "simplified" version of the TypeVar with invariance
-    // and no bound or constraints. ParamSpecs and variadics are left unmodified.
+    // and no bound or constraints. ParamSpecs and variadics are left
+    // unmodified. So are auto-variant type variables.
     export function cloneAsInvariant(type: TypeVarType): TypeVarType {
         if (type.details.isParamSpec || type.details.isVariadic) {
             return type;
         }
 
-        if (type.details.variance === Variance.Invariant) {
+        if (type.details.declaredVariance === Variance.Auto) {
+            return type;
+        }
+
+        if (type.details.declaredVariance === Variance.Invariant) {
             if (type.details.boundType === undefined && type.details.constraints.length === 0) {
                 return type;
             }
@@ -2066,7 +2090,7 @@ export namespace TypeVarType {
 
         const newInstance = TypeBase.cloneType(type);
         newInstance.details = { ...newInstance.details };
-        newInstance.details.variance = Variance.Invariant;
+        newInstance.details.declaredVariance = Variance.Invariant;
         newInstance.details.boundType = undefined;
         newInstance.details.constraints = [];
         return newInstance;
@@ -2096,7 +2120,7 @@ export namespace TypeVarType {
             details: {
                 name,
                 constraints: [],
-                variance: Variance.Invariant,
+                declaredVariance: Variance.Invariant,
                 isParamSpec,
                 isVariadic: false,
                 isSynthesized: false,
@@ -2121,6 +2145,15 @@ export namespace TypeVarType {
         }
 
         return typeVarType.details.name;
+    }
+
+    export function getVariance(type: TypeVarType) {
+        const variance = type.computedVariance ?? type.details.declaredVariance;
+
+        // By this point, the variance should have been inferred.
+        assert(variance !== Variance.Auto);
+
+        return variance;
     }
 }
 
@@ -2521,7 +2554,7 @@ export function isTypeSame(
                 type1.details.isParamSpec !== type2TypeVar.details.isParamSpec ||
                 type1.details.isVariadic !== type2TypeVar.details.isVariadic ||
                 type1.details.isSynthesized !== type2TypeVar.details.isSynthesized ||
-                type1.details.variance !== type2TypeVar.details.variance ||
+                type1.details.declaredVariance !== type2TypeVar.details.declaredVariance ||
                 type1.scopeId !== type2TypeVar.scopeId
             ) {
                 return false;

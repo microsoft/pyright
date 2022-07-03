@@ -141,10 +141,13 @@ export const enum KeywordType {
     Return,
     True,
     Try,
+    Type,
     While,
     With,
     Yield,
 }
+
+export const softKeywords = [KeywordType.Debug, KeywordType.Match, KeywordType.Case, KeywordType.Type];
 
 export const enum StringTokenFlags {
     None = 0,

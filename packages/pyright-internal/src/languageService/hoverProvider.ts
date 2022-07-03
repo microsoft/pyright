@@ -35,7 +35,7 @@ import {
     lookUpClassMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { fail } from '../common/debug';
+import { assertNever, fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -230,6 +230,16 @@ export class HoverProvider {
                 break;
             }
 
+            case DeclarationType.TypeParameter: {
+                this._addResultsPart(
+                    parts,
+                    '(type parameter) ' + node.value + this._getTypeText(node, evaluator),
+                    /* python */ true
+                );
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
+                break;
+            }
+
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
                 if (this._addInitMethodInsteadIfCallNode(format, node, evaluator, parts, sourceMapper, resolvedDecl)) {
@@ -275,6 +285,16 @@ export class HoverProvider {
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
+
+            case DeclarationType.TypeAlias: {
+                const typeText = node.value + this._getTypeText(node, evaluator, /* expandTypeAlias */ true);
+                this._addResultsPart(parts, `(type alias) ${typeText}`, /* python */ true);
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
+                break;
+            }
+
+            default:
+                assertNever(resolvedDecl);
         }
     }
 

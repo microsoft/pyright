@@ -30,7 +30,11 @@ import {
     StatementListNode,
     StringNode,
     TryNode,
+    TypeAliasNode,
     TypeAnnotationNode,
+    TypeParameterCategory,
+    TypeParameterListNode,
+    TypeParameterNode,
     WhileNode,
     WithNode,
 } from '../parser/parseNodes';
@@ -189,6 +193,10 @@ export class TypeStubWriter extends ParseTreeWalker {
         this._emitDecorators(node.decorators);
         let line = `class ${className}`;
 
+        if (node.typeParameters) {
+            line += this._printTypeParameters(node.typeParameters);
+        }
+
         // Remove "object" from the list, since it's implied
         const args = node.arguments.filter(
             (arg) =>
@@ -235,6 +243,11 @@ export class TypeStubWriter extends ParseTreeWalker {
             this._emitDecorators(node.decorators);
             let line = node.isAsync ? 'async ' : '';
             line += `def ${functionName}`;
+
+            if (node.typeParameters) {
+                line += this._printTypeParameters(node.typeParameters);
+            }
+
             line += `(${node.parameters.map((param, index) => this._printParameter(param, node, index)).join(', ')})`;
 
             let returnAnnotation: string | undefined;
@@ -347,6 +360,21 @@ export class TypeStubWriter extends ParseTreeWalker {
             }
             this._ifNestCount--;
         }
+
+        return false;
+    }
+
+    override visitTypeAlias(node: TypeAliasNode): boolean {
+        let line = '';
+        line = this._printExpression(node.name);
+
+        if (node.typeParameters) {
+            line += this._printTypeParameters(node.typeParameters);
+        }
+
+        line += ' = ';
+        line += this._printExpression(node.expression);
+        this._emitLine(line);
 
         return false;
     }
@@ -588,6 +616,29 @@ export class TypeStubWriter extends ParseTreeWalker {
         }
 
         this._typeStubText += line + this._lineEnd;
+    }
+
+    private _printTypeParameters(node: TypeParameterListNode): string {
+        return `[${node.parameters.map((typeParam) => this._printTypeParameter(typeParam)).join(',')}]`;
+    }
+
+    private _printTypeParameter(node: TypeParameterNode): string {
+        let line = '';
+
+        if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
+            line += '*';
+        } else if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
+            line += '**';
+        }
+
+        line += node.name.value;
+
+        if (node.boundExpression) {
+            line += ': ';
+            line += this._printExpression(node.boundExpression);
+        }
+
+        return line;
     }
 
     private _printModuleName(node: ModuleNameNode): string {

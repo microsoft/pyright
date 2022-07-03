@@ -24,7 +24,9 @@ import {
     RaiseNode,
     ReturnNode,
     StringListNode,
+    TypeAliasNode,
     TypeAnnotationNode,
+    TypeParameterNode,
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
@@ -33,6 +35,8 @@ export const enum DeclarationType {
     Intrinsic,
     Variable,
     Parameter,
+    TypeParameter,
+    TypeAlias,
     Function,
     Class,
     SpecialBuiltInClass,
@@ -96,6 +100,16 @@ export interface FunctionDeclaration extends DeclarationBase {
 export interface ParameterDeclaration extends DeclarationBase {
     type: DeclarationType.Parameter;
     node: ParameterNode;
+}
+
+export interface TypeParameterDeclaration extends DeclarationBase {
+    type: DeclarationType.TypeParameter;
+    node: TypeParameterNode;
+}
+
+export interface TypeAliasDeclaration extends DeclarationBase {
+    type: DeclarationType.TypeAlias;
+    node: TypeAliasNode;
 }
 
 export interface VariableDeclaration extends DeclarationBase {
@@ -220,6 +234,8 @@ export type Declaration =
     | SpecialBuiltInClassDeclaration
     | FunctionDeclaration
     | ParameterDeclaration
+    | TypeParameterDeclaration
+    | TypeAliasDeclaration
     | VariableDeclaration
     | AliasDeclaration;
 
@@ -233,6 +249,14 @@ export function isClassDeclaration(decl: Declaration): decl is ClassDeclaration 
 
 export function isParameterDeclaration(decl: Declaration): decl is ParameterDeclaration {
     return decl.type === DeclarationType.Parameter;
+}
+
+export function isTypeParameterDeclaration(decl: Declaration): decl is TypeParameterDeclaration {
+    return decl.type === DeclarationType.TypeParameter;
+}
+
+export function isTypeAliasDeclaration(decl: Declaration): decl is TypeAliasDeclaration {
+    return decl.type === DeclarationType.TypeAlias;
 }
 
 export function isVariableDeclaration(decl: Declaration): decl is VariableDeclaration {

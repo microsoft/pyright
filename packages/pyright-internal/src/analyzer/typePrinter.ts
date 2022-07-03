@@ -184,7 +184,16 @@ export function printType(
         }
 
         if (type.typeAliasInfo) {
-            return type.typeAliasInfo.name;
+            if (!type.typeAliasInfo.typeParameters) {
+                return type.typeAliasInfo.name;
+            }
+
+            return printType(
+                type,
+                printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,
+                returnTypeCallback,
+                recursionTypes
+            );
         }
 
         return '...';

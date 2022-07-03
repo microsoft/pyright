@@ -3117,7 +3117,8 @@ class ExpectedConstructorTypeTransformer extends TypeVarTransformer {
         newTypeVar.details.constraints = prevTypeVar.details.constraints;
 
         // Also copy the variance.
-        newTypeVar.details.variance = prevTypeVar.details.variance;
+        newTypeVar.details.declaredVariance = prevTypeVar.details.declaredVariance;
+        newTypeVar.computedVariance = prevTypeVar.computedVariance;
 
         ExpectedConstructorTypeTransformer.synthesizedTypeVarIndexForExpectedType++;
         return newTypeVar;

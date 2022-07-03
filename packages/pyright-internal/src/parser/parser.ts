@@ -104,7 +104,11 @@ import {
     TernaryNode,
     TryNode,
     TupleNode,
+    TypeAliasNode,
     TypeAnnotationNode,
+    TypeParameterCategory,
+    TypeParameterListNode,
+    TypeParameterNode,
     UnaryOperationNode,
     UnpackNode,
     WhileNode,
@@ -124,6 +128,7 @@ import {
     NumberToken,
     OperatorToken,
     OperatorType,
+    softKeywords,
     StringToken,
     StringTokenFlags,
     Token,
@@ -408,6 +413,7 @@ export class Parser {
                         return matchStatement;
                     }
                 }
+                break;
             }
         }
 
@@ -436,6 +442,108 @@ export class Parser {
         this._addError(Localizer.Diagnostic.unexpectedAsyncToken(), asyncToken);
 
         return undefined;
+    }
+
+    // type_alias_stmt: "type" name [type_param_seq] = expr
+    private _parseTypeAliasStatement(): TypeAliasNode {
+        const typeToken = this._getKeywordToken(KeywordType.Type);
+
+        if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_12) {
+            this._addError(Localizer.Diagnostic.typeAliasStatementIllegal(), typeToken);
+        }
+
+        const nameToken = this._getTokenIfIdentifier();
+        assert(nameToken !== undefined);
+        const name = NameNode.create(nameToken);
+
+        let typeParameters: TypeParameterListNode | undefined;
+        if (this._peekToken().type === TokenType.OpenBracket) {
+            typeParameters = this._parseTypeParameterList();
+        }
+
+        const assignToken = this._peekToken();
+        if (
+            assignToken.type !== TokenType.Operator ||
+            (assignToken as OperatorToken).operatorType !== OperatorType.Assign
+        ) {
+            this._addError(Localizer.Diagnostic.expectedEquals(), assignToken);
+        } else {
+            this._getNextToken();
+        }
+
+        const expression = this._parseOrTest();
+
+        return TypeAliasNode.create(typeToken, name, expression, typeParameters);
+    }
+
+    // type_param_seq: '[' (type_param ',')+ ']'
+    private _parseTypeParameterList(): TypeParameterListNode {
+        const typeVariableNodes: TypeParameterNode[] = [];
+
+        const openBracketToken = this._getNextToken();
+        assert(openBracketToken.type === TokenType.OpenBracket);
+
+        while (true) {
+            const firstToken = this._peekToken();
+
+            if (firstToken.type === TokenType.CloseBracket) {
+                if (typeVariableNodes.length === 0) {
+                    this._addError(Localizer.Diagnostic.typeParametersMissing(), this._peekToken());
+                }
+                break;
+            }
+
+            const typeVarNode = this._parseTypeParameter();
+            if (!typeVarNode) {
+                break;
+            }
+
+            typeVariableNodes.push(typeVarNode);
+
+            if (!this._consumeTokenIfType(TokenType.Comma)) {
+                break;
+            }
+        }
+
+        const closingToken = this._peekToken();
+        if (closingToken.type !== TokenType.CloseBracket) {
+            this._addError(Localizer.Diagnostic.expectedCloseBracket(), this._peekToken());
+            this._consumeTokensUntilType([TokenType.NewLine, TokenType.CloseBracket, TokenType.Colon]);
+        } else {
+            this._getNextToken();
+        }
+
+        return TypeParameterListNode.create(openBracketToken, closingToken, typeVariableNodes);
+    }
+
+    // type_param: ['*' | '**'] NAME [':' expr]
+    private _parseTypeParameter(): TypeParameterNode | undefined {
+        let typeParamCategory = TypeParameterCategory.TypeVar;
+        if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
+            typeParamCategory = TypeParameterCategory.TypeVarTuple;
+        } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
+            typeParamCategory = TypeParameterCategory.ParamSpec;
+        }
+
+        const nameToken = this._getTokenIfIdentifier();
+        if (!nameToken) {
+            this._addError(Localizer.Diagnostic.expectedTypeParameterName(), this._peekToken());
+            return undefined;
+        }
+
+        const name = NameNode.create(nameToken);
+
+        let boundExpression: ExpressionNode | undefined;
+        if (this._peekTokenType() === TokenType.Colon) {
+            this._getNextToken();
+            boundExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
+
+            if (typeParamCategory !== TypeParameterCategory.TypeVar) {
+                this._addError(Localizer.Diagnostic.typeParameterBoundNotAllowed(), boundExpression);
+            }
+        }
+
+        return TypeParameterNode.create(name, typeParamCategory, boundExpression);
     }
 
     // match_stmt: "match" subject_expr ':' NEWLINE INDENT case_block+ DEDENT
@@ -1653,6 +1761,15 @@ export class Parser {
             );
         }
 
+        let typeParameters: TypeParameterListNode | undefined;
+        const possibleOpenBracket = this._peekToken();
+        if (possibleOpenBracket.type === TokenType.OpenBracket) {
+            typeParameters = this._parseTypeParameterList();
+
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_12) {
+                this._addError(Localizer.Diagnostic.functionTypeParametersIllegal(), typeParameters);
+            }
+        }
         const openParenToken = this._peekToken();
         if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
             this._addError(Localizer.Diagnostic.expectedOpenParen(), this._peekToken());
@@ -1683,7 +1800,7 @@ export class Parser {
             }
         });
 
-        const functionNode = FunctionNode.create(defToken, NameNode.create(nameToken), suite);
+        const functionNode = FunctionNode.create(defToken, NameNode.create(nameToken), suite, typeParameters);
         if (asyncToken) {
             functionNode.isAsync = true;
             extendRange(functionNode, asyncToken);
@@ -2112,6 +2229,16 @@ export class Parser {
             nameToken = IdentifierToken.create(0, 0, '', /* comments */ undefined);
         }
 
+        let typeParameters: TypeParameterListNode | undefined;
+        const possibleOpenBracket = this._peekToken();
+        if (possibleOpenBracket.type === TokenType.OpenBracket) {
+            typeParameters = this._parseTypeParameterList();
+
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_12) {
+                this._addError(Localizer.Diagnostic.classTypeParametersIllegal(), typeParameters);
+            }
+        }
+
         let argList: ArgumentNode[] = [];
         const openParenToken = this._peekToken();
         if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
@@ -2124,7 +2251,7 @@ export class Parser {
 
         const suite = this._parseSuite(/* isFunction */ false, this._parseOptions.skipFunctionAndClassBody);
 
-        const classNode = ClassNode.create(classToken, NameNode.create(nameToken), suite);
+        const classNode = ClassNode.create(classToken, NameNode.create(nameToken), suite, typeParameters);
         classNode.arguments = argList;
         argList.forEach((arg) => {
             arg.parent = classNode;
@@ -2669,6 +2796,31 @@ export class Parser {
 
             case KeywordType.Yield:
                 return this._parseYieldExpression();
+
+            case KeywordType.Type: {
+                // Type is considered a "soft" keyword, so we will treat it
+                // as an identifier if it is followed by an unexpected token.
+
+                const peekToken1 = this._peekToken(1);
+                const peekToken2 = this._peekToken(2);
+                let isInvalidTypeToken = true;
+
+                if (peekToken1.type === TokenType.Identifier || peekToken1.type === TokenType.Keyword) {
+                    if (peekToken2.type === TokenType.OpenBracket) {
+                        isInvalidTypeToken = false;
+                    } else if (
+                        peekToken2.type === TokenType.Operator &&
+                        (peekToken2 as OperatorToken).operatorType === OperatorType.Assign
+                    ) {
+                        isInvalidTypeToken = false;
+                    }
+                }
+
+                if (!isInvalidTypeToken) {
+                    return this._parseTypeAliasStatement();
+                }
+                break;
+            }
         }
 
         return this._parseExpressionStatement();
@@ -4775,7 +4927,6 @@ export class Parser {
         // If this is a "soft keyword", it can be converted into an identifier.
         if (nextToken.type === TokenType.Keyword) {
             const keywordType = this._peekKeywordType();
-            const softKeywords = [KeywordType.Debug, KeywordType.Match, KeywordType.Case];
             if (softKeywords.find((type) => type === keywordType)) {
                 const keywordText = this._fileContents!.substr(nextToken.start, nextToken.length);
                 this._getNextToken();

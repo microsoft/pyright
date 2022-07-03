@@ -8,7 +8,6 @@
  * (structural subtyping) classes.
  */
 
-import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { Localizer } from '../localization/localize';
 import { DeclarationType } from './declaration';
@@ -37,7 +36,6 @@ import {
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
     removeParamSpecVariadicsFromSignature,
-    specializeForBaseClass,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -563,101 +561,4 @@ export function assignModuleToProtocol(
     }
 
     return typesAreConsistent;
-}
-
-// This function is used to validate the variance of type variables
-// within a protocol class.
-export function assignProtocolClassToSelf(
-    evaluator: TypeEvaluator,
-    destType: ClassType,
-    srcType: ClassType,
-    recursionCount = 0
-): boolean {
-    assert(ClassType.isProtocolClass(destType));
-    assert(ClassType.isProtocolClass(srcType));
-    assert(ClassType.isSameGenericClass(destType, srcType));
-    assert(destType.details.typeParameters.length > 0);
-
-    const diag = new DiagnosticAddendum();
-    const typeVarContext = new TypeVarContext();
-    let isAssignable = true;
-
-    destType.details.fields.forEach((symbol, name) => {
-        if (isAssignable && symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
-            const memberInfo = lookUpClassMember(srcType, name);
-            assert(memberInfo !== undefined);
-
-            let destMemberType = evaluator.getDeclaredTypeOfSymbol(symbol);
-            if (destMemberType) {
-                const srcMemberType = evaluator.getTypeOfMember(memberInfo!);
-                destMemberType = partiallySpecializeType(destMemberType, destType);
-
-                // Properties require special processing.
-                if (
-                    isClassInstance(destMemberType) &&
-                    ClassType.isPropertyClass(destMemberType) &&
-                    isClassInstance(srcMemberType) &&
-                    ClassType.isPropertyClass(srcMemberType)
-                ) {
-                    if (
-                        !assignProperty(
-                            evaluator,
-                            ClassType.cloneAsInstantiable(destMemberType),
-                            ClassType.cloneAsInstantiable(srcMemberType),
-                            destType,
-                            srcType,
-                            diag,
-                            typeVarContext,
-                            /* selfTypeVarContext */ undefined,
-                            recursionCount
-                        )
-                    ) {
-                        isAssignable = false;
-                    }
-                } else {
-                    const primaryDecl = symbol.getDeclarations()[0];
-                    // Class and instance variables that are mutable need to
-                    // enforce invariance.
-                    const flags =
-                        primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal
-                            ? AssignTypeFlags.EnforceInvariance
-                            : AssignTypeFlags.Default;
-                    if (
-                        !evaluator.assignType(
-                            destMemberType,
-                            srcMemberType,
-                            diag,
-                            typeVarContext,
-                            /* srcTypeVarContext */ undefined,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        isAssignable = false;
-                    }
-                }
-            }
-        }
-    });
-
-    // Now handle generic base classes.
-    destType.details.baseClasses.forEach((baseClass) => {
-        if (
-            isInstantiableClass(baseClass) &&
-            ClassType.isProtocolClass(baseClass) &&
-            !ClassType.isBuiltIn(baseClass, 'object') &&
-            !ClassType.isBuiltIn(baseClass, 'Protocol') &&
-            baseClass.details.typeParameters.length > 0
-        ) {
-            const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
-            const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
-            if (
-                !assignProtocolClassToSelf(evaluator, specializedDestBaseClass, specializedSrcBaseClass, recursionCount)
-            ) {
-                isAssignable = false;
-            }
-        }
-    });
-
-    return isAssignable;
 }

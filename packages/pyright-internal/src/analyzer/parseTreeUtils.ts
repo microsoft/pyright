@@ -39,6 +39,7 @@ import {
     StringNode,
     SuiteNode,
     TypeAnnotationNode,
+    TypeParameterScopeNode,
 } from '../parser/parseNodes';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
@@ -792,30 +793,30 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
     return undefined!;
 }
 
-// Returns the parse node corresponding to the function or class that
-// contains the specified typeVar reference.
-export function getTypeVarScopeNode(node: ParseNode, allowInFunctionSignature = false): EvaluationScopeNode {
+// Returns the parse node corresponding to the function, class, or type alias
+// that contains the specified typeVar reference.
+export function getTypeVarScopeNode(node: ParseNode): TypeParameterScopeNode {
     let prevNode: ParseNode | undefined;
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
         switch (curNode.nodeType) {
             case ParseNodeType.Function: {
-                if (prevNode === curNode.suite || allowInFunctionSignature) {
-                    if (!curNode.decorators.some((decorator) => decorator === prevNode)) {
-                        return curNode;
-                    }
+                if (!curNode.decorators.some((decorator) => decorator === prevNode)) {
+                    return curNode;
                 }
                 break;
             }
 
             case ParseNodeType.Class: {
-                if (prevNode === curNode.suite) {
-                    if (!curNode.decorators.some((decorator) => decorator === prevNode)) {
-                        return curNode;
-                    }
+                if (!curNode.decorators.some((decorator) => decorator === prevNode)) {
+                    return curNode;
                 }
                 break;
+            }
+
+            case ParseNodeType.TypeAlias: {
+                return curNode;
             }
         }
 
@@ -1776,6 +1777,15 @@ export function printParseNodeType(type: ParseNodeType) {
 
         case ParseNodeType.PatternClassArgument:
             return 'PatternClassArgument';
+
+        case ParseNodeType.TypeParameter:
+            return 'TypeParameter';
+
+        case ParseNodeType.TypeParameterList:
+            return 'TypeParameterList';
+
+        case ParseNodeType.TypeAlias:
+            return 'TypeAlias';
     }
 
     assertNever(type);

@@ -136,11 +136,17 @@ export function createTracePrinter(roots: string[]): TracePrinter {
                 case DeclarationType.Parameter:
                     return `Parameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
 
+                case DeclarationType.TypeParameter:
+                    return `TypeParameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+
                 case DeclarationType.SpecialBuiltInClass:
                     return `SpecialBuiltInClass, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
 
                 case DeclarationType.Variable:
                     return `Variable, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+
+                case DeclarationType.TypeAlias:
+                    return `TypeAlias, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
 
                 default:
                     assertNever(decl);

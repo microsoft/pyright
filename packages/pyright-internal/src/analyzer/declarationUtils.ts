@@ -18,6 +18,8 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
         case DeclarationType.Class:
         case DeclarationType.SpecialBuiltInClass:
         case DeclarationType.Function:
+        case DeclarationType.TypeParameter:
+        case DeclarationType.TypeAlias:
             return true;
 
         case DeclarationType.Parameter: {
@@ -151,6 +153,7 @@ export function getNameFromDeclaration(declaration: Declaration) {
 
         case DeclarationType.Class:
         case DeclarationType.Function:
+        case DeclarationType.TypeParameter:
             return declaration.node.name.value;
 
         case DeclarationType.Parameter:
@@ -180,8 +183,7 @@ export function getNameNodeForDeclaration(declaration: Declaration): NameNode | 
 
         case DeclarationType.Class:
         case DeclarationType.Function:
-            return declaration.node.name;
-
+        case DeclarationType.TypeParameter:
         case DeclarationType.Parameter:
             return declaration.node.name;
 
