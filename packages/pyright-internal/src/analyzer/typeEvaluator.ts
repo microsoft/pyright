@@ -8208,6 +8208,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                         }
 
+                        // Handle the NewType specially, replacing the normal return type.
+                        if (expandedSubtype.details.builtInName === 'NewType') {
+                            return createNewType(errorNode, argList);
+                        }
+
                         let effectiveTypeVarContext = typeVarContext;
                         if (!effectiveTypeVarContext) {
                             // If a typeVarContext wasn't provided by the caller, allocate one here.
@@ -8263,11 +8268,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (transformed.argumentErrors) {
                                 argumentErrors = true;
                             }
-                        }
-
-                        // Handle the NewType specially, replacing the normal return type.
-                        if (!functionResult.argumentErrors && expandedSubtype.details.builtInName === 'NewType') {
-                            return createNewType(errorNode, argList);
                         }
 
                         if (expandedSubtype.details.builtInName === '__import__') {
