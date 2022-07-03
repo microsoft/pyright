@@ -4,6 +4,9 @@ from typing_extensions import SupportsIndex, final
 
 VERSION: str
 XXHASH_VERSION: str
+VERSION_TUPLE: tuple[int, ...]
+
+algorithms_available: set[str]
 
 class _IntDigestHash(_Hash):
     @property

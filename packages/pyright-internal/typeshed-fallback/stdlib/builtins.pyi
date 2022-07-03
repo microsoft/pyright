@@ -192,6 +192,7 @@ class super:
 
 _PositiveInteger: TypeAlias = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
 _NegativeInteger: TypeAlias = Literal[-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20]
+_LiteralInteger = _PositiveInteger | _NegativeInteger | Literal[0]  # noqa: Y026  # TODO: Use TypeAlias once mypy bugs are fixed
 
 class int:
     @overload
@@ -1648,14 +1649,14 @@ _SupportsSumNoDefaultT = TypeVar("_SupportsSumNoDefaultT", bound=_SupportsSumWit
 # In general, the return type of `x + x` is *not* guaranteed to be the same type as x.
 # However, we can't express that in the stub for `sum()`
 # without creating many false-positive errors (see #7578).
-# Instead, we special-case the most common example of this: bool.
+# Instead, we special-case the most common examples of this: bool and literal integers.
 if sys.version_info >= (3, 8):
     @overload
-    def sum(__iterable: Iterable[bool], start: int = ...) -> int: ...  # type: ignore[misc]
+    def sum(__iterable: Iterable[bool | _LiteralInteger], start: int = ...) -> int: ...  # type: ignore[misc]
 
 else:
     @overload
-    def sum(__iterable: Iterable[bool], __start: int = ...) -> int: ...  # type: ignore[misc]
+    def sum(__iterable: Iterable[bool | _LiteralInteger], __start: int = ...) -> int: ...  # type: ignore[misc]
 
 @overload
 def sum(__iterable: Iterable[_SupportsSumNoDefaultT]) -> _SupportsSumNoDefaultT | Literal[0]: ...

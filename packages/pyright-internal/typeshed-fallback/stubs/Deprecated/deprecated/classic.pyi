@@ -5,6 +5,8 @@ from typing_extensions import Literal, TypeAlias
 _F = TypeVar("_F", bound=Callable[..., Any])
 _Actions: TypeAlias = Literal["default", "error", "ignore", "always", "module", "once"]
 
+string_types: tuple[type, ...]
+
 class ClassicAdapter:
     reason: str
     version: str

@@ -366,12 +366,12 @@ class Attribute(expr):
     ctx: expr_context
 
 if sys.version_info >= (3, 9):
-    _SliceT: TypeAlias = expr
+    _Slice: TypeAlias = expr
 else:
     class slice(AST): ...
-    _SliceT: TypeAlias = slice
+    _Slice: TypeAlias = slice
 
-class Slice(_SliceT):
+class Slice(_Slice):
     if sys.version_info >= (3, 10):
         __match_args__ = ("lower", "upper", "step")
     lower: expr | None
@@ -389,7 +389,7 @@ class Subscript(expr):
     if sys.version_info >= (3, 10):
         __match_args__ = ("value", "slice", "ctx")
     value: expr
-    slice: _SliceT
+    slice: _Slice
     ctx: expr_context
 
 class Starred(expr):

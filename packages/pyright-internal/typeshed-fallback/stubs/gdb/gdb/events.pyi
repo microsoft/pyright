@@ -27,8 +27,8 @@ class StopEvent(ThreadEvent):
     stop_signal: str
 
 class BreakpointEvent(StopEvent):
-    breakpoints = Sequence[gdb.Breakpoint]
-    breakkpoint: gdb.Breakpoint
+    breakpoints: Sequence[gdb.Breakpoint]
+    breakpoint: gdb.Breakpoint
 
 class StopEventRegistry:
     def connect(self, __object: Callable[[StopEvent], object]) -> None: ...

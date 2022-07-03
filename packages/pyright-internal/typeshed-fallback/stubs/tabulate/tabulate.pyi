@@ -45,4 +45,5 @@ def tabulate(
     showindex: str | bool | Iterable[Any] = ...,
     disable_numparse: bool | Iterable[int] = ...,
     colalign: Iterable[str | None] | None = ...,
+    maxcolwidths: int | Iterable[int | None] | None = ...,
 ) -> str: ...

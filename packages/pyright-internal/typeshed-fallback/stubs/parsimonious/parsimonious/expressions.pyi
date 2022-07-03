@@ -47,6 +47,7 @@ class Regex(Expression):
         dot_all: bool = ...,
         unicode: bool = ...,
         verbose: bool = ...,
+        ascii: bool = ...,
     ) -> None: ...
 
 class Compound(Expression):

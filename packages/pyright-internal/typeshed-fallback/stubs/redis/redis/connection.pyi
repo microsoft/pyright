@@ -1,5 +1,5 @@
 from _typeshed import Self
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 from typing_extensions import TypeAlias
 
@@ -14,6 +14,7 @@ SERVER_CLOSED_CONNECTION_ERROR: Any
 
 # Options as passed to Pool.get_connection().
 _ConnectionPoolOptions: TypeAlias = Any
+_ConnectFunc: TypeAlias = Callable[[Connection], object]
 
 class BaseParser:
     EXCEPTION_CLASSES: Any
@@ -76,7 +77,7 @@ class Connection:
     encoding_errors: Any
     decode_responses: Any
     retry: Retry
-    redis_connect_func: Any | None
+    redis_connect_func: _ConnectFunc | None
     def __init__(
         self,
         host: str = ...,
@@ -99,7 +100,7 @@ class Connection:
         client_name: str | None = ...,
         username: str | None = ...,
         retry: Retry | None = ...,
-        redis_connect_func: Any | None = ...,
+        redis_connect_func: _ConnectFunc | None = ...,
     ) -> None: ...
     def __del__(self): ...
     def register_connect_callback(self, callback): ...
@@ -176,7 +177,7 @@ class UnixDomainSocketConnection(Connection):
         health_check_interval: int = ...,
         client_name=...,
         retry: Retry | None = ...,
-        redis_connect_func: Any | None = ...,
+        redis_connect_func: _ConnectFunc | None = ...,
     ) -> None: ...
     def repr_pieces(self) -> list[tuple[str, str]]: ...
 

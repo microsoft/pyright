@@ -22,3 +22,5 @@ EMOJI_UNICODE: dict[str, dict[str, str]]
 UNICODE_EMOJI: dict[str, dict[str, str]]
 
 EMOJI_DATA: dict[str, dict[str, str]]
+
+STATUS: dict[str, int]

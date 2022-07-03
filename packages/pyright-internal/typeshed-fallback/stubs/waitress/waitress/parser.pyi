@@ -6,8 +6,6 @@ from waitress.adjustments import Adjustments
 from waitress.receiver import ChunkedReceiver, FixedStreamReceiver
 from waitress.utilities import Error
 
-from .rfc7230 import HEADER_FIELD as HEADER_FIELD
-
 class ParsingError(Exception): ...
 class TransferEncodingNotImplemented(Exception): ...
 

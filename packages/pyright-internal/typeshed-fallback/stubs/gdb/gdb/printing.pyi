@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 
 import gdb
 from gdb import _PrettyPrinterLookupFunction
@@ -18,8 +18,6 @@ class SubPrettyPrinter:
     enabled: bool
 
     def __init__(self, name: str) -> None: ...
-
-GenPrinterFunction = Callable[[gdb.Value], PrettyPrinter]
 
 class RegexpCollectionPrettyPrinter(PrettyPrinter):
     def __init__(self, name: str) -> None: ...
