@@ -3065,7 +3065,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
             // Convert to the ParamSpec equivalent of "Unknown".
             const paramSpecValue: ParamSpecValue = {
-                flags: FunctionTypeFlags.None,
+                flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
                 parameters: FunctionType.getDefaultParameters(/* useUnknown */ true),
                 typeVarScopeId: undefined,
                 docString: undefined,

@@ -24,6 +24,6 @@ def f2() -> TA2:
 g2 = f2()
 reveal_type(
     g2,
-    expected_text="((Unknown) -> Unknown) | ((*args: Unknown, **kwargs: Unknown) -> Unknown)",
+    expected_text="((Unknown) -> Unknown) | ((...) -> Unknown)",
 )
 reveal_type(g2(42), expected_text="Unknown")
