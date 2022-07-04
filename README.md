@@ -31,6 +31,8 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 673](https://www.python.org/dev/peps/pep-0673/) Self type
 * [PEP 675](https://www.python.org/dev/peps/pep-0675/) arbitrary literal strings
 * [PEP 681](https://www.python.org/dev/peps/pep-0681/) dataclass transform
+* [PEP 692](https://www.python.org/dev/peps/pep-0692/) (draft) TypedDict for kwargs typing
+* [PEP 695](https://www.python.org/dev/peps/pep-0695/) (draft) Type parameter syntax
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
