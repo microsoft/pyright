@@ -6526,33 +6526,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Speculatively attempt the call. We may need to replace the index
         // type with 'int', and we don't want to emit errors before we know
         // which type to use.
-        useSpeculativeMode(node, () => {
-            callResult = validateCallArguments(node, argList, { type: itemMethodType });
+        if (keywordArgs.length === 0 && unpackedDictArgs.length === 0 && positionalArgs.length === 1) {
+            useSpeculativeMode(node, () => {
+                callResult = validateCallArguments(node, argList, { type: itemMethodType });
 
-            if (callResult.argumentErrors) {
-                // If the object supports "__index__" magic method, convert
-                // the index it to an int and try again.
-                if (isClassInstance(positionalIndexType) && keywordArgs.length === 0 && unpackedDictArgs.length === 0) {
-                    const altArgList = [...argList];
-                    altArgList[0] = { ...altArgList[0] };
-                    const indexMethod = getTypeOfObjectMember(node, positionalIndexType, '__index__');
+                if (callResult.argumentErrors) {
+                    // If the object supports "__index__" magic method, convert
+                    // the index to an int and try again.
+                    if (isClassInstance(positionalIndexType)) {
+                        const altArgList = [...argList];
+                        altArgList[0] = { ...altArgList[0] };
+                        const indexMethod = getTypeOfObjectMember(node, positionalIndexType, '__index__');
 
-                    if (indexMethod) {
-                        const intType = getBuiltInObject(node, 'int');
-                        if (isClassInstance(intType)) {
-                            altArgList[0].type = intType;
+                        if (indexMethod) {
+                            const intType = getBuiltInObject(node, 'int');
+                            if (isClassInstance(intType)) {
+                                altArgList[0].type = intType;
+                            }
+                        }
+
+                        callResult = validateCallArguments(node, altArgList, { type: itemMethodType });
+
+                        // We were successful, so replace the arg list.
+                        if (!callResult.argumentErrors) {
+                            argList = altArgList;
                         }
                     }
-
-                    callResult = validateCallArguments(node, altArgList, { type: itemMethodType });
-
-                    // We were successful, so replace the arg list.
-                    if (!callResult.argumentErrors) {
-                        argList = altArgList;
-                    }
                 }
-            }
-        });
+            });
+        }
 
         callResult = validateCallArguments(node, argList, { type: itemMethodType });
 
