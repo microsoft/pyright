@@ -371,15 +371,21 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
 
         case ParseNodeType.Slice: {
             let result = '';
-            if (node.startValue) {
-                result += printExpression(node.startValue, flags);
+
+            if (node.startValue || node.endValue || node.stepValue) {
+                if (node.startValue) {
+                    result += printExpression(node.startValue, flags);
+                }
+                if (node.endValue) {
+                    result += ': ' + printExpression(node.endValue, flags);
+                }
+                if (node.stepValue) {
+                    result += ': ' + printExpression(node.stepValue, flags);
+                }
+            } else {
+                result += ':';
             }
-            if (node.endValue) {
-                result += ': ' + printExpression(node.endValue, flags);
-            }
-            if (node.stepValue) {
-                result += ': ' + printExpression(node.stepValue, flags);
-            }
+
             return result;
         }
 
