@@ -13002,17 +13002,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfSlice(node: SliceNode): TypeResult {
-        // Evaluate the expressions to report errors and record symbol references.
-        if (node.startValue) {
-            getTypeOfExpression(node.startValue);
-        }
+        // Evaluate the expressions to report errors and record symbol
+        // references. We can skip this if we're executing speculatively.
+        if (!speculativeTypeTracker.isSpeculative(node)) {
+            if (node.startValue) {
+                getTypeOfExpression(node.startValue);
+            }
 
-        if (node.endValue) {
-            getTypeOfExpression(node.endValue);
-        }
+            if (node.endValue) {
+                getTypeOfExpression(node.endValue);
+            }
 
-        if (node.stepValue) {
-            getTypeOfExpression(node.stepValue);
+            if (node.stepValue) {
+                getTypeOfExpression(node.stepValue);
+            }
         }
 
         return { type: getBuiltInObject(node, 'slice'), node };
