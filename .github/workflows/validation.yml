@@ -65,7 +65,7 @@ jobs:
       - run: npm run install:all
 
       - name: Check diff after npm install
-        run: git diff -w --exit-code --name-only
+        run: git diff --exit-code --name-only
 
       - run: npm run check
 

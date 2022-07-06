@@ -13,6 +13,7 @@
 
 import Char from 'typescript-char';
 
+import { IPythonMode } from '../analyzer/sourceFile';
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
@@ -152,7 +153,7 @@ export class ParseOptions {
         this.pythonVersion = latestStablePythonVersion;
         this.reportInvalidStringEscapeSequence = false;
         this.skipFunctionAndClassBody = false;
-        this.ipythonMode = false;
+        this.ipythonMode = IPythonMode.None;
         this.reportErrorsForParsedStringContents = false;
     }
 
@@ -160,7 +161,7 @@ export class ParseOptions {
     pythonVersion: PythonVersion;
     reportInvalidStringEscapeSequence: boolean;
     skipFunctionAndClassBody: boolean;
-    ipythonMode: boolean;
+    ipythonMode: IPythonMode;
     reportErrorsForParsedStringContents: boolean;
 }
 

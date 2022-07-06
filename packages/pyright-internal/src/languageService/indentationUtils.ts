@@ -10,7 +10,6 @@ import Char from 'typescript-char';
 
 import {
     findNodeByOffset,
-    getFirstAncestorOrSelf,
     getFirstAncestorOrSelfOfKind,
     getStringValueRange,
     getTokenAt,
@@ -32,6 +31,7 @@ import {
     Token,
     TokenType,
 } from '../parser/tokenizerTypes';
+import { getContainer } from './insertionPointUtils';
 
 interface TokenInfo extends TextRange {
     range: Range;
@@ -165,10 +165,7 @@ function _getIndentation(
     const suiteSpan = convertTextRangeToRange(suite, parseResults.tokenizerOutput.lines);
     if (preferDedent || suiteSpan.start.line === suiteSpan.end.line) {
         // Go one more level up.
-        const outerContainer = getFirstAncestorOrSelf(
-            suite,
-            (n) => n !== suite && n.nodeType === ParseNodeType.Suite
-        ) as SuiteNode | undefined;
+        const outerContainer = getContainer(suite, /*includeSelf*/ false);
         return _getIndentationForNode(parseResults, outerContainer ?? parseResults.parseTree, suite);
     }
 
@@ -190,11 +187,7 @@ function _getIndentationForNode(
 
     if (_containsNoIndentBeforeFirstStatement(parseResults, container)) {
         const tabSize = _getTabSize(parseResults);
-        const outerContainer = getFirstAncestorOrSelf(
-            container,
-            (n) => n !== container && n.nodeType === ParseNodeType.Suite
-        ) as SuiteNode | undefined;
-
+        const outerContainer = getContainer(container, /*includeSelf*/ false);
         const result = _getIndentationForNode(parseResults, outerContainer ?? parseResults.parseTree, container);
         return {
             token: result.token,

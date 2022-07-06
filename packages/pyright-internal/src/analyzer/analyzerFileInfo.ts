@@ -13,6 +13,7 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
+import { IPythonMode } from './sourceFile';
 import { SymbolTable } from './symbol';
 
 // Maps import paths to the symbol table for the imported module.
@@ -47,7 +48,7 @@ export interface AnalyzerFileInfo {
     isTypingExtensionsStubFile: boolean;
     isBuiltInStubFile: boolean;
     isInPyTypedPackage: boolean;
-    isIPythonMode: boolean;
+    ipythonMode: IPythonMode;
     accessedSymbolSet: Set<number>;
 }
 

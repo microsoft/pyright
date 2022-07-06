@@ -12,6 +12,7 @@
 
 import Char from 'typescript-char';
 
+import { IPythonMode } from '../analyzer/sourceFile';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import {
@@ -223,14 +224,14 @@ export class Tokenizer {
     private _doubleQuoteCount = 0;
 
     // ipython mode
-    private _ipythonMode = false;
+    private _ipythonMode = IPythonMode.None;
 
     tokenize(
         text: string,
         start?: number,
         length?: number,
         initialParenDepth = 0,
-        ipythonMode = false
+        ipythonMode = IPythonMode.None
     ): TokenizerOutput {
         if (start === undefined) {
             start = 0;

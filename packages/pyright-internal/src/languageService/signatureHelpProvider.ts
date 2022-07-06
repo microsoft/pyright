@@ -70,8 +70,10 @@ export class SignatureHelpProvider {
         while (curOffset >= 0) {
             // Don't scan back across a comma because commas separate
             // arguments, and we don't want to mistakenly think that we're
-            // pointing to a previous argument.
-            if (parseResults.text.substr(curOffset, 1) === ',') {
+            // pointing to a previous argument. Don't scan across open parenthesis so that
+            // we don't go into the wrong function call
+            const ch = parseResults.text.substr(curOffset, 1);
+            if (ch === ',' || ch === '(') {
                 break;
             }
             const curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);

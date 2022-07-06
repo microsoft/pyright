@@ -77,6 +77,18 @@ interface ResolveImportResult {
     ipythonDisplayImportResult?: ImportResult | undefined;
 }
 
+// Indicates whether IPython syntax is supported and if so, what
+// type of notebook support is in use.
+export enum IPythonMode {
+    // Not a notebook. This is the only falsy enum value, so you
+    // can test if IPython is supported via "if (ipythonMode)"
+    None = 0,
+    // All cells are concatenated into a single document.
+    ConcatDoc,
+    // Each cell is its own document.
+    CellDocs,
+}
+
 export class SourceFile {
     // Console interface to use for debugging.
     private _console: ConsoleInterface;
@@ -175,7 +187,7 @@ export class SourceFile {
     private _indexingNeeded = true;
 
     // Indicate whether this file is for ipython or not.
-    private _ipythonMode = false;
+    private _ipythonMode = IPythonMode.None;
 
     // Information about implicit and explicit imports from this file.
     private _imports: ImportResult[] | undefined;
@@ -193,7 +205,7 @@ export class SourceFile {
         isThirdPartyPyTypedPresent: boolean,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
-        ipythonMode = false
+        ipythonMode = IPythonMode.None
     ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
@@ -1279,7 +1291,7 @@ export class SourceFile {
     }
 
     test_enableIPythonMode(enable: boolean) {
-        this._ipythonMode = enable;
+        this._ipythonMode = enable ? IPythonMode.ConcatDoc : IPythonMode.None;
     }
 
     private _buildFileInfo(
@@ -1309,7 +1321,7 @@ export class SourceFile {
             isTypingExtensionsStubFile: this._isTypingExtensionsStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
             isInPyTypedPackage: this._isThirdPartyPyTypedPresent,
-            isIPythonMode: this._ipythonMode,
+            ipythonMode: this._ipythonMode,
             accessedSymbolSet: new Set<number>(),
         };
         return fileInfo;
