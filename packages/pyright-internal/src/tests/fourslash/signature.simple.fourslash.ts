@@ -24,6 +24,13 @@
 //// def bar(b:str): ...
 ////
 //// bar([|/*nestedString1*/|]foo([|/*nestedString2*/|]))
+////
+//// def nested(x:int):
+////     def inside(y:int):
+////         return x + y
+////     return inside
+////
+//// nested(1)([|/*nestedString3*/|])
 {
     const simpleSignatures = [
         {
@@ -96,6 +103,15 @@
                 {
                     label: '(f: str) -> None',
                     parameters: ['f: str'],
+                },
+            ],
+            activeParameters: [0],
+        },
+        nestedString3: {
+            signatures: [
+                {
+                    label: '(y: int) -> int',
+                    parameters: ['y: int'],
                 },
             ],
             activeParameters: [0],

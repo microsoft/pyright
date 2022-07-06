@@ -12,6 +12,7 @@ import { MarkupKind } from 'vscode-languageserver-types';
 
 import { Program } from '../analyzer/program';
 import { AnalyzerService } from '../analyzer/service';
+import { IPythonMode } from '../analyzer/sourceFile';
 import { ConfigOptions } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { normalizeSlashes } from '../common/pathUtils';
@@ -172,7 +173,7 @@ function createServiceWithChainedSourceFiles(basePath: string, code: string) {
 
     let chainedFilePath: string | undefined;
     for (const file of data.files) {
-        service.setFileOpened(file.fileName, 1, file.content, false, chainedFilePath);
+        service.setFileOpened(file.fileName, 1, file.content, IPythonMode.None, chainedFilePath);
         chainedFilePath = file.fileName;
     }
     return { data, service };

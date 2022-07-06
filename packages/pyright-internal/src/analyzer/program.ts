@@ -76,7 +76,7 @@ import { ImportResult, ImportType } from './importResult';
 import { findNodeByOffset, getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
-import { SourceFile } from './sourceFile';
+import { IPythonMode, SourceFile } from './sourceFile';
 import { isUserCode } from './sourceFileInfoUtils';
 import { isStubFile, SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
@@ -156,7 +156,7 @@ export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvalu
 
 export interface OpenFileOptions {
     isTracked: boolean;
-    ipythonMode: boolean;
+    ipythonMode: IPythonMode;
     chainedFilePath: string | undefined;
 }
 
@@ -311,7 +311,7 @@ export class Program {
                 /* isInPyTypedPackage */ false,
                 this._console,
                 this._logTracker,
-                options?.ipythonMode ?? false
+                options?.ipythonMode ?? IPythonMode.None
             );
 
             const chainedFilePath = options?.chainedFilePath;

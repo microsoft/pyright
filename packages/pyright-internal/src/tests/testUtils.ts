@@ -15,6 +15,7 @@ import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import { Binder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
+import { IPythonMode } from '../analyzer/sourceFile';
 import { NameTypeWalker, TestWalker } from '../analyzer/testWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
@@ -118,7 +119,7 @@ export function buildAnalyzerFileInfo(
         isInPyTypedPackage: false,
         isTypingExtensionsStubFile: false,
         isBuiltInStubFile: false,
-        isIPythonMode: false,
+        ipythonMode: IPythonMode.None,
         accessedSymbolSet: new Set<number>(),
         typingSymbolAliases: new Map<string, string>(),
     };

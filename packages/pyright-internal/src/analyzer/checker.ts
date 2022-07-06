@@ -99,6 +99,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
+import { IPythonMode } from './sourceFile';
 import { isStubFile } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
@@ -2782,7 +2783,11 @@ export class Checker extends ParseTreeWalker {
     private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
         const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
 
-        if (symbol.isIgnoredForProtocolMatch() || accessedSymbolSet.has(symbol.id)) {
+        if (
+            symbol.isIgnoredForProtocolMatch() ||
+            accessedSymbolSet.has(symbol.id) ||
+            this._fileInfo.ipythonMode === IPythonMode.CellDocs
+        ) {
             return;
         }
 

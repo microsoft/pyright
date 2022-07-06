@@ -81,6 +81,7 @@ import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram'
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames } from './analyzer/service';
+import { IPythonMode } from './analyzer/sourceFile';
 import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter, CancellationProvider } from './common/cancellationUtils';
@@ -1147,7 +1148,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return callItems;
     }
 
-    protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = false) {
+    protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = IPythonMode.None) {
         const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
 
         if (!(this.fs as PyrightFileSystem).addUriMap(params.textDocument.uri, filePath)) {
@@ -1164,7 +1165,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         );
     }
 
-    protected async onDidChangeTextDocument(params: DidChangeTextDocumentParams, ipythonMode = false) {
+    protected async onDidChangeTextDocument(params: DidChangeTextDocumentParams, ipythonMode = IPythonMode.None) {
         this.recordUserInteractionTime();
 
         const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);

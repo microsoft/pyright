@@ -1533,7 +1533,7 @@ export class Binder extends ParseTreeWalker {
         // Make sure this is within an async lambda or function.
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
-            if (this._fileInfo.isIPythonMode && enclosingFunction === undefined) {
+            if (this._fileInfo.ipythonMode && enclosingFunction === undefined) {
                 // Top level await is allowed in ipython mode.
                 return true;
             }

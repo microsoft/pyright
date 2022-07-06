@@ -66,6 +66,7 @@ import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './b
 import { createImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
+import { IPythonMode } from './sourceFile';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 
 export const configFileNames = ['pyrightconfig.json'];
@@ -247,7 +248,7 @@ export class AnalyzerService {
         path: string,
         version: number | null,
         contents: string,
-        ipythonMode = false,
+        ipythonMode = IPythonMode.None,
         chainedFilePath?: string
     ) {
         this._backgroundAnalysisProgram.setFileOpened(path, version, contents, {
@@ -271,7 +272,7 @@ export class AnalyzerService {
         path: string,
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
-        ipythonMode = false,
+        ipythonMode = IPythonMode.None,
         chainedFilePath?: string
     ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, {
