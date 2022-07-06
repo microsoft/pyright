@@ -603,14 +603,16 @@ export namespace ClassType {
         return newClass;
     }
 
-    export function cloneAsInstance(type: ClassType): ClassType {
+    export function cloneAsInstance(type: ClassType, includeSubclasses = true): ClassType {
         if (TypeBase.isInstance(type)) {
             return type;
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type);
         newInstance.flags &= ~TypeFlags.SpecialForm;
-        newInstance.includeSubclasses = true;
+        if (includeSubclasses) {
+            newInstance.includeSubclasses = true;
+        }
         return newInstance;
     }
 

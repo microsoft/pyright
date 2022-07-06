@@ -1668,7 +1668,7 @@ export function isEffectivelyInstantiable(type: Type): boolean {
     return false;
 }
 
-export function convertToInstance(type: Type): Type {
+export function convertToInstance(type: Type, includeSubclasses = true): Type {
     let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
@@ -1681,7 +1681,7 @@ export function convertToInstance(type: Type): Type {
                     }
                 }
 
-                return ClassType.cloneAsInstance(subtype);
+                return ClassType.cloneAsInstance(subtype, includeSubclasses);
             }
 
             case TypeCategory.None: {

@@ -201,7 +201,7 @@ export function assignTypeToTypeVar(
                 // If the source and dest are both instantiables (type[T]), then
                 // we need to convert to an instance (T) for the
                 if (TypeBase.isInstantiable(srcType)) {
-                    constrainedType = convertToInstance(srcType);
+                    constrainedType = convertToInstance(srcType, /* includeSubclasses */ false);
                 }
             }
         } else {
@@ -383,7 +383,7 @@ export function assignTypeToTypeVar(
 
     if (TypeBase.isInstantiable(destType)) {
         if (isEffectivelyInstantiable(adjSrcType)) {
-            adjSrcType = convertToInstance(adjSrcType);
+            adjSrcType = convertToInstance(adjSrcType, /* includeSubclasses */ false);
         } else {
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
