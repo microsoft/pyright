@@ -219,14 +219,13 @@ export interface FunctionArgumentBase {
     argumentCategory: ArgumentCategory;
     node?: ArgumentNode | undefined;
     name?: NameNode | undefined;
-    type?: Type | undefined;
-    isTypeIncomplete?: boolean;
+    typeResult?: SimpleTypeResult | undefined;
     valueExpression?: ExpressionNode | undefined;
     active?: boolean | undefined;
 }
 
 export interface FunctionArgumentWithType extends FunctionArgumentBase {
-    type: Type;
+    typeResult: SimpleTypeResult;
 }
 
 export interface FunctionArgumentWithExpression extends FunctionArgumentBase {
@@ -366,7 +365,7 @@ export interface TypeEvaluator {
     ) => FunctionType | OverloadedFunctionType | undefined;
     getTypeOfMagicMethodReturn: (
         objType: Type,
-        args: Type[],
+        args: SimpleTypeResult[],
         magicMethodName: string,
         errorNode: ExpressionNode,
         expectedType: Type | undefined

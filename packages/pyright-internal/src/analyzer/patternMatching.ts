@@ -797,7 +797,7 @@ function narrowTypeBasedOnValuePattern(
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
                             evaluator.getTypeOfMagicMethodReturn(
                                 valueSubtypeExpanded,
-                                [subjectSubtypeExpanded],
+                                [{ type: subjectSubtypeExpanded }],
                                 '__eq__',
                                 pattern.expression,
                                 /* expectedType */ undefined

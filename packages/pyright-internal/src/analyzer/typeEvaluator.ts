@@ -1457,10 +1457,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionOrClassType;
         }
 
-        const argList = [
+        const argList: FunctionArgument[] = [
             {
                 argumentCategory: ArgumentCategory.Simple,
-                type: functionOrClassType,
+                typeResult: { type: functionOrClassType },
             },
         ];
 
@@ -1911,7 +1911,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         function addFakeArg() {
             argList.push({
                 argumentCategory: previousCategory,
-                type: UnknownType.create(),
+                typeResult: { type: UnknownType.create() },
                 active: true,
             });
         }
@@ -5246,11 +5246,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             {
                                 // Provide "obj" argument.
                                 argumentCategory: ArgumentCategory.Simple,
-                                type: ClassType.isClassProperty(lookupClass)
-                                    ? baseTypeClass
-                                    : isAccessedThroughObject
-                                    ? bindToType || ClassType.cloneAsInstance(baseTypeClass)
-                                    : NoneType.createInstance(),
+                                typeResult: {
+                                    type: ClassType.isClassProperty(lookupClass)
+                                        ? baseTypeClass
+                                        : isAccessedThroughObject
+                                        ? bindToType || ClassType.cloneAsInstance(baseTypeClass)
+                                        : NoneType.createInstance(),
+                                },
                             },
                         ];
 
@@ -5258,13 +5260,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Provide "objtype" argument.
                             argList.push({
                                 argumentCategory: ArgumentCategory.Simple,
-                                type: baseTypeClass,
+                                typeResult: { type: baseTypeClass },
                             });
                         } else if (usage.method === 'set') {
                             // Provide "value" argument.
                             argList.push({
                                 argumentCategory: ArgumentCategory.Simple,
-                                type: usage.setType ?? UnknownType.create(),
+                                typeResult: { type: usage.setType ?? UnknownType.create() },
                             });
                         }
 
@@ -5617,11 +5619,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 getAttrType = getBestOverloadForArguments(errorNode, getAttrType, [
                     {
                         argumentCategory: ArgumentCategory.Simple,
-                        type: AnyType.create(),
+                        typeResult: { type: AnyType.create() },
                     },
                     {
                         argumentCategory: ArgumentCategory.Simple,
-                        type: nameLiteralType,
+                        typeResult: { type: nameLiteralType },
                     },
                 ]);
             }
@@ -6500,8 +6502,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let argList: FunctionArgument[] = [
             {
                 argumentCategory: ArgumentCategory.Simple,
-                type: positionalIndexType,
-                isTypeIncomplete: isPositionalIndexTypeIncomplete,
+                typeResult: { type: positionalIndexType, isIncomplete: isPositionalIndexTypeIncomplete },
             },
         ];
 
@@ -6516,8 +6517,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,
-                type: setType,
-                isTypeIncomplete: isPositionalIndexTypeIncomplete,
+                typeResult: { type: setType, isIncomplete: isPositionalIndexTypeIncomplete },
             });
         }
 
@@ -6558,7 +6558,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (indexMethod) {
                             const intType = getBuiltInObject(node, 'int');
                             if (isClassInstance(intType)) {
-                                altArgList[0].type = intType;
+                                altArgList[0].typeResult = { type: intType };
                             }
                         }
 
@@ -7673,8 +7673,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // the expectedType. We'll use this to determine whether we need to do
                     // union expansion.
                     contextFreeArgTypes = argList.map((arg) => {
-                        if (arg.type) {
-                            return arg.type;
+                        if (arg.typeResult) {
+                            return arg.typeResult.type;
                         }
 
                         if (arg.valueExpression) {
@@ -9036,7 +9036,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const funcArg: FunctionArgument | undefined = listElementType
                     ? {
                           argumentCategory: ArgumentCategory.Simple,
-                          type: listElementType,
+                          typeResult: { type: listElementType, isIncomplete: argTypeResult.isIncomplete },
                       }
                     : undefined;
                 if (funcArg && argTypeResult.isIncomplete) {
@@ -9244,7 +9244,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         requiresTypeVarMatching: requiresSpecialization(paramType),
                                         argument: {
                                             argumentCategory: ArgumentCategory.Simple,
-                                            type: entry.valueType,
+                                            typeResult: { type: entry.valueType },
                                         },
                                         errorNode: argList[argIndex].valueExpression || errorNode,
                                         paramName: name,
@@ -9258,7 +9258,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: {
                                         argumentCategory: ArgumentCategory.Simple,
-                                        type: entry.valueType,
+                                        typeResult: { type: entry.valueType },
                                     },
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: name,
@@ -9491,7 +9491,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: {
                                 argumentCategory: ArgumentCategory.Simple,
-                                type: unpackedDictionaryArgType!,
+                                typeResult: { type: unpackedDictionaryArgType! },
                             },
                             errorNode:
                                 argList.find((arg) => arg.argumentCategory === ArgumentCategory.UnpackedDictionary)
@@ -9551,7 +9551,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     requiresTypeVarMatching: true,
                                     argument: {
                                         argumentCategory: ArgumentCategory.Simple,
-                                        type: defaultArgType,
+                                        typeResult: { type: defaultArgType },
                                     },
                                     errorNode: errorNode,
                                     paramName: param.name,
@@ -9624,7 +9624,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             paramCategory: ParameterCategory.VarArgList,
                             paramType,
                             requiresTypeVarMatching: true,
-                            argument: { argumentCategory: ArgumentCategory.Simple, type: specializedTuple },
+                            argument: {
+                                argumentCategory: ArgumentCategory.Simple,
+                                typeResult: { type: specializedTuple },
+                            },
                             errorNode,
                             paramName: paramDetails.params[paramDetails.argsIndex].param.name,
                             isParamNameSynthesized: paramDetails.params[paramDetails.argsIndex].param.isNameSynthesized,
@@ -10335,7 +10338,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Was the argument's type precomputed by the caller?
             if (argParam.argType) {
                 argType = argParam.argType;
-            } else if (argParam.expectingType && !argParam.argument.type && argParam.argument.valueExpression) {
+            } else if (argParam.expectingType && !argParam.argument.typeResult && argParam.argument.valueExpression) {
                 const argTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     EvaluatorFlags.EvaluateStringLiteralAsType |
@@ -10597,7 +10600,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     } else {
                         const argType =
-                            argList[i].type ??
+                            argList[i].typeResult?.type ??
                             getTypeOfExpressionExpectingType(
                                 argList[i].valueExpression!,
                                 /* allowFinal */ undefined,
@@ -10640,7 +10643,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 } else {
                     const argType =
-                        argList[i].type ??
+                        argList[i].typeResult?.type ??
                         getTypeOfExpressionExpectingType(
                             argList[i].valueExpression!,
                             /* allowFinal */ undefined,
@@ -11280,8 +11283,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isLiteralMathAllowed = !ParseTreeUtils.isWithinLoop(node);
         let type = validateBinaryOperation(
             node.operator,
-            leftType,
-            rightType,
+            { type: leftType, isIncomplete: leftTypeResult.isIncomplete },
+            { type: rightType, isIncomplete: rightTypeResult.isIncomplete },
             node,
             expectedType,
             diag,
@@ -11404,7 +11407,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const magicMethodName = operatorMap[node.operator][0];
                             let returnType = getTypeOfMagicMethodReturn(
                                 leftSubtypeUnexpanded,
-                                [rightSubtypeUnexpanded],
+                                [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                 magicMethodName,
                                 node,
                                 expectedType
@@ -11414,7 +11417,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // Try with the expanded left type.
                                 returnType = getTypeOfMagicMethodReturn(
                                     leftSubtypeExpanded,
-                                    [rightSubtypeUnexpanded],
+                                    [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                     magicMethodName,
                                     node,
                                     expectedType
@@ -11425,7 +11428,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // Try with the expanded left and right type.
                                 returnType = getTypeOfMagicMethodReturn(
                                     leftSubtypeExpanded,
-                                    [rightSubtypeExpanded],
+                                    [{ type: rightSubtypeExpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                     magicMethodName,
                                     node,
                                     expectedType
@@ -11448,8 +11451,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 returnType = validateBinaryOperation(
                                     binaryOperator,
-                                    leftSubtypeUnexpanded,
-                                    rightSubtypeUnexpanded,
+                                    { type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete },
+                                    { type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete },
                                     node,
                                     expectedType,
                                     diag,
@@ -11493,13 +11496,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function validateBinaryOperation(
         operator: OperatorType,
-        leftType: Type,
-        rightType: Type,
+        leftTypeResult: SimpleTypeResult,
+        rightTypeResult: SimpleTypeResult,
         errorNode: ExpressionNode,
         expectedType: Type | undefined,
         diag: DiagnosticAddendum,
         isLiteralMathAllowed: boolean
     ): Type | undefined {
+        const leftType = leftTypeResult.type;
+        const rightType = rightTypeResult.type;
         let type: Type | undefined;
         let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
 
@@ -11565,7 +11570,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 let returnType = getTypeOfMagicMethodReturn(
                                     rightSubtypeExpanded,
-                                    [leftSubtype],
+                                    [{ type: leftSubtype, isIncomplete: leftTypeResult.isIncomplete }],
                                     '__contains__',
                                     errorNode,
                                     /* expectedType */ undefined
@@ -11766,7 +11771,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const magicMethodName = binaryOperatorMap[operator][0];
                                 let resultType = getTypeOfMagicMethodReturn(
                                     convertFunctionToObject(leftSubtypeUnexpanded),
-                                    [rightSubtypeUnexpanded],
+                                    [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                     magicMethodName,
                                     errorNode,
                                     expectedType
@@ -11776,7 +11781,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     // Try the expanded left type.
                                     resultType = getTypeOfMagicMethodReturn(
                                         convertFunctionToObject(leftSubtypeExpanded),
-                                        [rightSubtypeUnexpanded],
+                                        [{ type: rightSubtypeUnexpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                         magicMethodName,
                                         errorNode,
                                         expectedType
@@ -11787,7 +11792,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     // Try the expanded left and right type.
                                     resultType = getTypeOfMagicMethodReturn(
                                         convertFunctionToObject(leftSubtypeExpanded),
-                                        [rightSubtypeExpanded],
+                                        [{ type: rightSubtypeExpanded, isIncomplete: rightTypeResult.isIncomplete }],
                                         magicMethodName,
                                         errorNode,
                                         expectedType
@@ -11799,7 +11804,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     const altMagicMethodName = binaryOperatorMap[operator][1];
                                     resultType = getTypeOfMagicMethodReturn(
                                         convertFunctionToObject(rightSubtypeUnexpanded),
-                                        [leftSubtypeUnexpanded],
+                                        [{ type: leftSubtypeUnexpanded, isIncomplete: leftTypeResult.isIncomplete }],
                                         altMagicMethodName,
                                         errorNode,
                                         expectedType
@@ -11809,7 +11814,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         // Try the expanded right type.
                                         resultType = getTypeOfMagicMethodReturn(
                                             convertFunctionToObject(rightSubtypeExpanded),
-                                            [leftSubtypeUnexpanded],
+                                            [
+                                                {
+                                                    type: leftSubtypeUnexpanded,
+                                                    isIncomplete: leftTypeResult.isIncomplete,
+                                                },
+                                            ],
                                             altMagicMethodName,
                                             errorNode,
                                             expectedType
@@ -11820,7 +11830,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         // Try the expanded right and left type.
                                         resultType = getTypeOfMagicMethodReturn(
                                             convertFunctionToObject(rightSubtypeExpanded),
-                                            [leftSubtypeExpanded],
+                                            [{ type: leftSubtypeExpanded, isIncomplete: leftTypeResult.isIncomplete }],
                                             altMagicMethodName,
                                             errorNode,
                                             expectedType
@@ -11861,7 +11871,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfMagicMethodReturn(
         objType: Type,
-        args: Type[],
+        args: SimpleTypeResult[],
         magicMethodName: string,
         errorNode: ExpressionNode,
         expectedType: Type | undefined
@@ -11895,10 +11905,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (magicMethodType) {
-                const functionArgs = args.map((arg) => {
+                const functionArgs: FunctionArgument[] = args.map((arg) => {
                     return {
                         argumentCategory: ArgumentCategory.Simple,
-                        type: arg,
+                        typeResult: arg,
                     };
                 });
 
@@ -18213,8 +18223,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfArgument(arg: FunctionArgument): SimpleTypeResult {
-        if (arg.type) {
-            return { type: arg.type, isIncomplete: !!arg.isTypeIncomplete };
+        if (arg.typeResult) {
+            return { type: arg.typeResult.type, isIncomplete: arg.typeResult.isIncomplete };
         }
 
         if (!arg.valueExpression) {
@@ -18232,8 +18242,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // and therefore follows the normal rules of types (e.g. they
     // can be forward-declared in stubs, etc.).
     function getTypeOfArgumentExpectingType(arg: FunctionArgument): SimpleTypeResult {
-        if (arg.type) {
-            return { type: arg.type };
+        if (arg.typeResult) {
+            return { type: arg.typeResult.type, isIncomplete: arg.typeResult.isIncomplete };
         }
 
         // If there was no defined type provided, there should always

@@ -54,7 +54,7 @@ function applyTotalOrderingTransform(
     }
 
     // This function is meant to apply to a concrete instantiable class.
-    const classType = argList[0].type;
+    const classType = argList[0].typeResult?.type;
     if (!classType || !isInstantiableClass(classType) || classType.includeSubclasses) {
         return result;
     }
