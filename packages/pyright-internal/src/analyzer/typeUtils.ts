@@ -1521,7 +1521,7 @@ export function buildTypeVarContext(
                     } else if (isAnyOrUnknown(typeArgType)) {
                         // Fill in an empty signature if the arg type is Any or Unknown.
                         typeVarContext.setParamSpec(typeParam, {
-                            flags: FunctionTypeFlags.None,
+                            flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,
                             parameters: FunctionType.getDefaultParameters(),
                             typeVarScopeId: undefined,
                             docString: undefined,

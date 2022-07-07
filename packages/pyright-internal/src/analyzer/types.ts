@@ -1431,6 +1431,12 @@ export namespace FunctionType {
             newFunction.details.parameters.length - 2
         );
 
+        // Update the flags of the function.
+        newFunction.details.flags &= ~FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+        if (paramSpecValue.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) {
+            newFunction.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+        }
+
         // If there is a position-only separator in the captured param spec signature,
         // remove the position-only separator in the existing signature. Otherwise,
         // we'll end up with redundant position-only separators.
