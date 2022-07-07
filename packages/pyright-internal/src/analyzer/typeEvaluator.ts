@@ -21522,6 +21522,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // matches for types like `tuple[Any]` and `tuple[int]` from being considered
     // proper subtypes of each other.
     function isProperSubtype(destType: Type, srcType: Type, recursionCount: number) {
+        // Shortcut the check if either type is Any or Unknown.
+        if (isAnyOrUnknown(destType) || isAnyOrUnknown(srcType)) {
+            return true;
+        }
+
+        // Shortcut the check if either type is a class whose hierarchy contains an unknown type.
+        if (isClass(destType) && destType.details.mro.some((mro) => isAnyOrUnknown(mro))) {
+            return true;
+        }
+
+        if (isClass(srcType) && srcType.details.mro.some((mro) => isAnyOrUnknown(mro))) {
+            return true;
+        }
+
         return (
             assignType(
                 destType,
