@@ -1254,6 +1254,12 @@ test('Decorator6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Decorator7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator7.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 

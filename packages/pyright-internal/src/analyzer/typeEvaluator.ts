@@ -14991,6 +14991,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const effectiveMetaclass = computeEffectiveMetaclass(classType, node.name);
 
+        // Clear the "partially constructed" flag.
+        classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
+
         // Now determine the decorated type of the class.
         let decoratedType: Type = classType;
         let foundUnknown = false;
@@ -15036,9 +15039,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
             applyDataClassClassBehaviorOverrides(evaluatorInterface, classType, initSubclassArgs);
         }
-
-        // Clear the "partially constructed" flag.
-        classType.details.flags &= ~ClassTypeFlags.PartiallyEvaluated;
 
         // Run any class hooks that depend on this class.
         runClassTypeHooks(classType);
