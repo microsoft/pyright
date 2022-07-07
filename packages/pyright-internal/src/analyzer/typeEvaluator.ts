@@ -15176,6 +15176,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
+        // Presumptively mark the variance inference as complete. This
+        // prevents potential recursion.
+        classType.details.requiresVarianceInference = false;
+
+        // Presumptively mark the computed variance to "in progress". We'll
+        // replace this below once the variance has been inferred.
+        classType.details.typeParameters.forEach((param) => {
+            if (param.details.declaredVariance === Variance.Auto) {
+                param.computedVariance = Variance.Unknown;
+            }
+        });
+
         // Replace all of the type parameters with invariant TypeVars.
         const updatedTypeParams = classType.details.typeParameters.map((typeParam) =>
             TypeVarType.cloneAsInvariant(typeParam)
@@ -15240,9 +15252,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // class scope.
             classType.details.typeParameters[paramIndex].computedVariance = inferredVariance;
         });
-
-        // Note that variance inference is complete.
-        classType.details.requiresVarianceInference = false;
     }
 
     function evaluateTypeParameterList(node: TypeParameterListNode): TypeVarType[] {

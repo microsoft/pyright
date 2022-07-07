@@ -1953,6 +1953,7 @@ export namespace UnionType {
 
 export const enum Variance {
     Auto,
+    Unknown,
     Invariant,
     Covariant,
     Contravariant,
