@@ -43,6 +43,7 @@ import {
     FunctionType,
     FunctionTypeFlags,
     isAnyOrUnknown,
+    isClass,
     isClassInstance,
     isInstantiableClass,
     isTypeSame,
@@ -63,6 +64,7 @@ import {
     getTypeVarScopeId,
     isLiteralType,
     mapSubtypes,
+    partiallySpecializeType,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -592,7 +594,9 @@ function getTypedDictMembersForClassRecursive(
 
     classType.details.baseClasses.forEach((baseClassType) => {
         if (isInstantiableClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
-            getTypedDictMembersForClassRecursive(evaluator, baseClassType, keyMap, recursionCount);
+            const specializedBaseClassType = partiallySpecializeType(baseClassType, classType);
+            assert(isClass(specializedBaseClassType));
+            getTypedDictMembersForClassRecursive(evaluator, specializedBaseClassType, keyMap, recursionCount);
         }
     });
 

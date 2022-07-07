@@ -65,3 +65,46 @@ def func3(a: TD5[_T1]) -> _T1:
 
 reveal_type(func3({"x": 1, "y": 1}), expected_text="int")
 reveal_type(func3({"x": "1", "y": 1}), expected_text="str | int")
+
+
+class TD6(TD5[Literal[1]]):
+    z: str
+
+
+def func4(a: TD6) -> Literal[1]:
+    ...
+
+
+func4({"x": 1, "y": 1, "z": "a"})
+f2: TD6 = {"x": 1, "y": 1, "z": "a"}
+
+reveal_type(func4({"x": 1, "y": 1, "z": "a"}))
+
+
+class TD7(TD5[_T1], Generic[_T1]):
+    z: str
+
+
+def func5(a: TD7[Literal[1]]) -> Literal[1]:
+    return a["x"]
+
+
+func5({"x": 1, "y": 1, "z": "a"})
+f3: TD7[Literal[1]] = {"x": 1, "y": 1, "z": "a"}
+
+reveal_type(func5({"x": 1, "y": 1, "z": "a"}))
+
+
+class TD8(TD7[Literal[1]]):
+    ...
+
+
+# errors from this point onwards
+def func6(a: TD8) -> Literal[1]:
+    return a["x"]
+
+
+func6({"x": 1, "y": 1, "z": "a"})
+f4: TD8 = {"x": 1, "y": 1, "z": "a"}
+
+reveal_type(func6({"x": 1, "y": 1, "z": "a"}))
