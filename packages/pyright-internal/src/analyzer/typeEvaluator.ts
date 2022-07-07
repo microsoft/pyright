@@ -6458,9 +6458,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         let positionalIndexType: Type;
+        let isPositionalIndexTypeIncomplete = false;
+
         if (positionalArgs.length === 1 && unpackedListArgs.length === 0 && !node.trailingComma) {
             // Handle the common case where there is a single positional argument.
-            positionalIndexType = getTypeOfExpression(positionalArgs[0].valueExpression).type;
+            const typeResult = getTypeOfExpression(positionalArgs[0].valueExpression);
+            positionalIndexType = typeResult.type;
+            if (typeResult.isIncomplete) {
+                isPositionalIndexTypeIncomplete = true;
+            }
         } else if (positionalArgs.length === 0 && unpackedListArgs.length === 0) {
             // Handle the case where there are no positionals provided but there are keywords.
             positionalIndexType =
@@ -6471,10 +6477,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Package up all of the positionals into a tuple.
             const tupleEntries: Type[] = [];
             positionalArgs.forEach((arg) => {
-                tupleEntries.push(getTypeOfExpression(arg.valueExpression).type);
+                const typeResult = getTypeOfExpression(arg.valueExpression);
+                tupleEntries.push(typeResult.type);
+                if (typeResult.isIncomplete) {
+                    isPositionalIndexTypeIncomplete = true;
+                }
             });
+
             unpackedListArgs.forEach((arg) => {
-                const exprType = getTypeOfExpression(arg.valueExpression).type;
+                const typeResult = getTypeOfExpression(arg.valueExpression);
+                const exprType = typeResult.type;
+                if (typeResult.isIncomplete) {
+                    isPositionalIndexTypeIncomplete = true;
+                }
                 const iterableType = getTypeOfIterator(exprType, /* isAsync */ false, arg) || UnknownType.create();
                 tupleEntries.push(iterableType);
             });
@@ -6486,6 +6501,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             {
                 argumentCategory: ArgumentCategory.Simple,
                 type: positionalIndexType,
+                isTypeIncomplete: isPositionalIndexTypeIncomplete,
             },
         ];
 
@@ -6501,6 +6517,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,
                 type: setType,
+                isTypeIncomplete: isPositionalIndexTypeIncomplete,
             });
         }
 
@@ -18197,7 +18214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfArgument(arg: FunctionArgument): SimpleTypeResult {
         if (arg.type) {
-            return { type: arg.type };
+            return { type: arg.type, isIncomplete: !!arg.isTypeIncomplete };
         }
 
         if (!arg.valueExpression) {

@@ -220,6 +220,7 @@ export interface FunctionArgumentBase {
     node?: ArgumentNode | undefined;
     name?: NameNode | undefined;
     type?: Type | undefined;
+    isTypeIncomplete?: boolean;
     valueExpression?: ExpressionNode | undefined;
     active?: boolean | undefined;
 }

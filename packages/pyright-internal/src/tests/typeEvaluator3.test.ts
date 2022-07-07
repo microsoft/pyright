@@ -311,6 +311,12 @@ test('Loops26', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Loops27', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops27.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ForLoop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop1.py']);
 
