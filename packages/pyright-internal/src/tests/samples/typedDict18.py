@@ -99,7 +99,6 @@ class TD8(TD7[Literal[1]]):
     ...
 
 
-# errors from this point onwards
 def func6(a: TD8) -> Literal[1]:
     return a["x"]
 
