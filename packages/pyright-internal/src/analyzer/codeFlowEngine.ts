@@ -1494,7 +1494,12 @@ export function getCodeFlowEngine(
 
                 if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
                     const returnType = exitType.details.declaredReturnType;
-                    cmSwallowsExceptions = isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool');
+                    cmSwallowsExceptions = false;
+                    if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
+                        if (returnType.literalValue === undefined || returnType.literalValue === true) {
+                            cmSwallowsExceptions = true;
+                        }
+                    }
                 }
             }
         } finally {
