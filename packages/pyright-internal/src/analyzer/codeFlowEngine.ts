@@ -1493,7 +1493,8 @@ export function getCodeFlowEngine(
                 const exitType = evaluator.getTypeOfObjectMember(node, cmType, exitMethodName)?.type;
 
                 if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
-                    cmSwallowsExceptions = evaluator.canBeTruthy(exitType.details.declaredReturnType);
+                    const returnType = exitType.details.declaredReturnType;
+                    cmSwallowsExceptions = isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool');
                 }
             }
         } finally {
