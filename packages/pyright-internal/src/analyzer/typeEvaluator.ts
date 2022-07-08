@@ -5585,80 +5585,71 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         usage: EvaluatorUsage,
         memberName: string
     ): Type | undefined {
-        if (usage.method === 'get') {
+        const getAttributeAccessMember = (name: string) => {
             // See if the class has a "__getattribute__" or "__getattr__" method.
             // If so, arbitrary members are supported.
-            let getAttrType = getTypeOfClassMember(
+            return getTypeOfClassMember(
                 errorNode,
                 classType,
-                '__getattribute__',
+                name,
                 { method: 'get' },
                 /* diag */ undefined,
                 MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
             )?.type;
+        };
 
-            if (!getAttrType) {
-                getAttrType = getTypeOfClassMember(
-                    errorNode,
-                    classType,
-                    '__getattr__',
-                    { method: 'get' },
-                    /* diag */ undefined,
-                    MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
-                )?.type;
-            }
-
-            // If it's an overload, it might be based on the member name. Create
-            // a literal str type based on the member name and find the best overload.
-            if (getAttrType && isOverloadedFunction(getAttrType)) {
-                let nameLiteralType: Type = AnyType.create();
-                if (strClassType && isInstantiableClass(strClassType)) {
-                    nameLiteralType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClassType), memberName);
-                }
-
-                getAttrType = getBestOverloadForArguments(errorNode, getAttrType, [
-                    {
-                        argumentCategory: ArgumentCategory.Simple,
-                        typeResult: { type: AnyType.create() },
-                    },
-                    {
-                        argumentCategory: ArgumentCategory.Simple,
-                        typeResult: { type: nameLiteralType },
-                    },
-                ]);
-            }
-
-            if (getAttrType && isFunction(getAttrType)) {
-                return getFunctionEffectiveReturnType(getAttrType);
-            }
+        let accessMemberType: Type | undefined;
+        if (usage.method === 'get') {
+            accessMemberType = getAttributeAccessMember('__getattribute__') ?? getAttributeAccessMember('__getattr__');
         } else if (usage.method === 'set') {
-            const setAttrType = getTypeOfClassMember(
-                errorNode,
-                classType,
-                '__setattr__',
-                { method: 'get' },
-                /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
-            )?.type;
-            if (setAttrType) {
-                // The type doesn't matter for a set usage. We just need
-                // to return a defined type.
-                return AnyType.create();
-            }
+            accessMemberType = getAttributeAccessMember('__setattr__');
         } else {
             assert(usage.method === 'del');
-            const delAttrType = getTypeOfClassMember(
-                errorNode,
-                classType,
-                '__detattr__',
-                { method: 'get' },
-                /* diag */ undefined,
-                MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
-            )?.type;
-            if (delAttrType) {
-                // The type doesn't matter for a delete usage. We just need
-                // to return a defined type.
-                return AnyType.create();
+            accessMemberType = getAttributeAccessMember('__delattr__');
+        }
+
+        if (accessMemberType) {
+            let nameLiteralType: Type = AnyType.create();
+            if (strClassType && isInstantiableClass(strClassType)) {
+                nameLiteralType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(strClassType), memberName);
+            }
+
+            const argList: FunctionArgument[] = [
+                {
+                    // Provide "self" argument.
+                    argumentCategory: ArgumentCategory.Simple,
+                    typeResult: { type: ClassType.cloneAsInstance(classType) },
+                },
+                {
+                    // Provide "name" argument.
+                    argumentCategory: ArgumentCategory.Simple,
+                    typeResult: { type: nameLiteralType },
+                },
+            ];
+
+            if (usage.method === 'set') {
+                argList.push({
+                    // Provide "value" argument.
+                    argumentCategory: ArgumentCategory.Simple,
+                    typeResult: { type: usage.setType ?? UnknownType.create() },
+                });
+            }
+
+            if (isFunction(accessMemberType) || isOverloadedFunction(accessMemberType)) {
+                const boundMethodType = bindFunctionToClassOrObject(classType, accessMemberType, classType, errorNode);
+
+                if (boundMethodType && (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))) {
+                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(boundMethodType));
+                    const callResult = validateCallArguments(
+                        errorNode,
+                        argList,
+                        { type: boundMethodType },
+                        typeVarContext,
+                        /* skipUnknownArgCheck */ true
+                    );
+
+                    return callResult.returnType ?? UnknownType.create();
+                }
             }
         }
 

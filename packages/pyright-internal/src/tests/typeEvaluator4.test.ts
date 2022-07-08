@@ -458,6 +458,11 @@ test('MemberAccess18', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MemberAccess19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess19.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
 test('DataClass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 
