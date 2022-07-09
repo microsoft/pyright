@@ -316,7 +316,7 @@ export namespace ModuleType {
         if (moduleType.loaderFields) {
             if (!symbol) {
                 symbol = moduleType.loaderFields.get(name);
-            } else if (symbol.isExternallyHidden()) {
+            } else {
                 // If the symbol is hidden when accessed via the module but is
                 // also accessible through a loader field, use the latter so it
                 // isn't flagged as an error.
