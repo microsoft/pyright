@@ -565,6 +565,7 @@
         "overloadWithImplementation": "The body of a function overload should be \"...\"",
         "overriddenMethod": "Overridden method",
         "overriddenSymbol": "Overridden symbol",
+        "overrideNoOverloadMatches": "No overload signature in override is compatible with base method",
         "overrideNotClassMethod": "Base method is declared as a classmethod but override is not",
         "overrideNotInstanceMethod": "Base method is declared as an instance method but override is not",
         "overrideNotStaticMethod": "Base method is declared as a staticmethod but override is not",

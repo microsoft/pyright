@@ -1692,8 +1692,17 @@ export namespace OverloadedFunctionType {
         return newType;
     }
 
+    // Adds a new overload or an implementation.
     export function addOverload(type: OverloadedFunctionType, functionType: FunctionType) {
         type.overloads.push(functionType);
+    }
+
+    export function getOverloads(type: OverloadedFunctionType): FunctionType[] {
+        return type.overloads.filter((func) => FunctionType.isOverloaded(func));
+    }
+
+    export function getImplementation(type: OverloadedFunctionType): FunctionType | undefined {
+        return type.overloads.find((func) => !FunctionType.isOverloaded(func));
     }
 }
 

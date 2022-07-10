@@ -60,6 +60,7 @@ import {
     isTypeVar,
     maxTypeRecursionCount,
     NeverType,
+    OverloadedFunctionType,
     removeIncompleteUnknownFromUnion,
     Type,
     TypeVarType,
@@ -1347,13 +1348,11 @@ export function getCodeFlowEngine(
                     let overloadCount = 0;
                     let noReturnOverloadCount = 0;
 
-                    callSubtype.overloads.forEach((overload) => {
-                        if (FunctionType.isOverloaded(overload)) {
-                            overloadCount++;
+                    OverloadedFunctionType.getOverloads(callSubtype).forEach((overload) => {
+                        overloadCount++;
 
-                            if (isFunctionNoReturn(overload, isCallAwaited)) {
-                                noReturnOverloadCount++;
-                            }
+                        if (isFunctionNoReturn(overload, isCallAwaited)) {
+                            noReturnOverloadCount++;
                         }
                     });
 

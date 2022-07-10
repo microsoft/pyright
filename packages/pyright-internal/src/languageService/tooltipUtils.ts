@@ -38,9 +38,9 @@ export function getOverloadedFunctionTooltip(
     columnThreshold = 70
 ) {
     let content = '';
-    const overloads = type.overloads
-        .filter((o) => FunctionType.isOverloaded(o))
-        .map((o) => o.details.name + evaluator.printType(o, /* expandTypeAlias */ false));
+    const overloads = OverloadedFunctionType.getOverloads(type).map(
+        (o) => o.details.name + evaluator.printType(o, /* expandTypeAlias */ false)
+    );
 
     for (let i = 0; i < overloads.length; i++) {
         if (i !== 0 && overloads[i].length > columnThreshold && overloads[i - 1].length <= columnThreshold) {

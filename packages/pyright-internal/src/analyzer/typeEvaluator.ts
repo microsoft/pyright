@@ -1965,10 +1965,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isFunction(type)) {
                 addOneFunctionToSignature(type);
             } else {
-                type.overloads.forEach((func) => {
-                    if (FunctionType.isOverloaded(func)) {
-                        addOneFunctionToSignature(func);
-                    }
+                OverloadedFunctionType.getOverloads(type).forEach((func) => {
+                    addOneFunctionToSignature(func);
                 });
             }
         }
@@ -5424,7 +5422,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (isFunction(concreteSubtype)) {
                         isFinal = FunctionType.isFinal(concreteSubtype);
                     } else {
-                        const impl = concreteSubtype.overloads.find((f) => !FunctionType.isOverloaded(f));
+                        const impl = OverloadedFunctionType.getImplementation(concreteSubtype);
                         if (impl) {
                             isFinal = FunctionType.isFinal(impl);
                         }
@@ -7488,22 +7486,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let matches: MatchArgsToParamsResult[] = [];
 
         // Create a list of potential overload matches based on arguments.
-        type.overloads.forEach((overload) => {
+        OverloadedFunctionType.getOverloads(type).forEach((overload) => {
             useSpeculativeMode(errorNode, () => {
-                if (FunctionType.isOverloaded(overload)) {
-                    const matchResults = matchFunctionArgumentsToParameters(
-                        errorNode,
-                        argList,
-                        overload,
-                        overloadIndex
-                    );
+                const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, overload, overloadIndex);
 
-                    if (!matchResults.argumentErrors) {
-                        matches.push(matchResults);
-                    }
-
-                    overloadIndex++;
+                if (!matchResults.argumentErrors) {
+                    matches.push(matchResults);
                 }
+
+                overloadIndex++;
             });
         });
 
@@ -7560,23 +7551,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // cache or record any diagnostics at this stage.
         useSpeculativeMode(errorNode, () => {
             let overloadIndex = 0;
-            type.overloads.forEach((overload) => {
+            OverloadedFunctionType.getOverloads(type).forEach((overload) => {
                 // Consider only the functions that have the @overload decorator,
                 // not the final function that omits the overload. This is the
                 // intended behavior according to PEP 484.
-                if (FunctionType.isOverloaded(overload)) {
-                    const matchResults = matchFunctionArgumentsToParameters(
-                        errorNode,
-                        argList,
-                        overload,
-                        overloadIndex
-                    );
-                    if (!matchResults.argumentErrors) {
-                        filteredMatchResults.push(matchResults);
-                    }
-
-                    overloadIndex++;
+                const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, overload, overloadIndex);
+                if (!matchResults.argumentErrors) {
+                    filteredMatchResults.push(matchResults);
                 }
+
+                overloadIndex++;
             });
         });
 
@@ -21201,11 +21185,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Find first overloaded function that matches the parameters.
                 // We don't want to pollute the current typeVarContext, so we'll
                 // make a copy of the existing one if it's specified.
-                const overloads = concreteSrcType.overloads;
+                const overloads = OverloadedFunctionType.getOverloads(concreteSrcType);
                 const overloadIndex = overloads.findIndex((overload) => {
-                    if (!FunctionType.isOverloaded(overload)) {
-                        return false;
-                    }
                     return assignType(
                         destType,
                         overload,
@@ -21251,11 +21232,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const overloadDiag = diag?.createAddendum();
 
             // All overloads in the dest must be assignable.
-            const isAssignable = destType.overloads.every((destOverload) => {
-                if (!FunctionType.isOverloaded(destOverload)) {
-                    return true;
-                }
-
+            const isAssignable = OverloadedFunctionType.getOverloads(destType).every((destOverload) => {
                 if (destTypeVarContext) {
                     destTypeVarContext.addSolveForScope(getTypeVarScopeId(destOverload));
                 }
@@ -23035,29 +23012,67 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function validateOverrideMethod(
         baseMethod: Type,
-        overrideMethod: FunctionType,
+        overrideMethod: FunctionType | OverloadedFunctionType,
         diag: DiagnosticAddendum,
         enforceParamNames = true
     ): boolean {
-        // If we're overriding an overloaded method, uses the implementation.
-        if (isOverloadedFunction(baseMethod)) {
-            const implementation = baseMethod.overloads.find((overload) => !FunctionType.isOverloaded(overload));
-
-            // If the overloaded method doesn't have an implementation, skip the check.
-            if (!implementation) {
-                return true;
-            }
-
-            baseMethod = implementation;
-        }
-
         // If we're overriding a non-method with a method, report it as an error.
         // This occurs when a non-property overrides a property.
-        if (!isFunction(baseMethod)) {
+        if (!isFunction(baseMethod) && !isOverloadedFunction(baseMethod)) {
             diag.addMessage(Localizer.DiagnosticAddendum.overrideType().format({ type: printType(baseMethod) }));
             return false;
         }
 
+        if (isFunction(baseMethod)) {
+            // Handle the easy case - a simple function overriding another simple function.
+            if (isFunction(overrideMethod)) {
+                return validateOverrideMethodInternal(baseMethod, overrideMethod, diag, enforceParamNames);
+            }
+
+            // For an overload overriding a base method, at least one overload
+            // must be compatible with the base method.
+            if (
+                OverloadedFunctionType.getOverloads(overrideMethod).some((overrideOverload) => {
+                    return validateOverrideMethodInternal(
+                        baseMethod,
+                        overrideOverload,
+                        /* diag */ undefined,
+                        enforceParamNames
+                    );
+                })
+            ) {
+                return true;
+            }
+
+            // Or the implementation must be compatible.
+            const overrideImplementation = OverloadedFunctionType.getImplementation(overrideMethod);
+            if (overrideImplementation) {
+                if (
+                    validateOverrideMethodInternal(
+                        baseMethod,
+                        overrideImplementation,
+                        /* diag */ undefined,
+                        enforceParamNames
+                    )
+                ) {
+                    return true;
+                }
+            }
+
+            diag.addMessage(Localizer.DiagnosticAddendum.overrideNoOverloadMatches());
+            return false;
+        }
+
+        // TODO - need to implement the case where the base method is overloaded
+        return true;
+    }
+
+    function validateOverrideMethodInternal(
+        baseMethod: FunctionType,
+        overrideMethod: FunctionType,
+        diag: DiagnosticAddendum | undefined,
+        enforceParamNames: boolean
+    ): boolean {
         const baseParamDetails = getParameterListDetails(baseMethod);
         const overrideParamDetails = getParameterListDetails(overrideMethod);
 
@@ -23067,18 +23082,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // an incompatible type.
         if (FunctionType.isStaticMethod(baseMethod)) {
             if (!FunctionType.isStaticMethod(overrideMethod)) {
-                diag.addMessage(Localizer.DiagnosticAddendum.overrideNotStaticMethod());
+                diag?.addMessage(Localizer.DiagnosticAddendum.overrideNotStaticMethod());
                 canOverride = false;
             }
         } else if (FunctionType.isClassMethod(baseMethod)) {
             if (!FunctionType.isClassMethod(overrideMethod)) {
-                diag.addMessage(Localizer.DiagnosticAddendum.overrideNotClassMethod());
+                diag?.addMessage(Localizer.DiagnosticAddendum.overrideNotClassMethod());
                 canOverride = false;
             }
         }
         if (FunctionType.isInstanceMethod(baseMethod)) {
             if (!FunctionType.isInstanceMethod(overrideMethod)) {
-                diag.addMessage(Localizer.DiagnosticAddendum.overrideNotInstanceMethod());
+                diag?.addMessage(Localizer.DiagnosticAddendum.overrideNotInstanceMethod());
                 canOverride = false;
             }
         }
@@ -23110,7 +23125,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (foundParamCountMismatch) {
-            diag.addMessage(
+            diag?.addMessage(
                 Localizer.DiagnosticAddendum.overridePositionalParamCount().format({
                     baseCount: baseParamDetails.params.length,
                     overrideCount: overrideParamDetails.params.length,
@@ -23150,14 +23165,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (overrideParam.category === ParameterCategory.Simple) {
                     if (enforceParamNames) {
                         if (overrideParamDetails.params[i].source === ParameterSource.PositionOnly) {
-                            diag.addMessage(
+                            diag?.addMessage(
                                 Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
                                     index: i + 1,
                                     baseName: baseParam.name || '*',
                                 })
                             );
                         } else {
-                            diag.addMessage(
+                            diag?.addMessage(
                                 Localizer.DiagnosticAddendum.overrideParamName().format({
                                     index: i + 1,
                                     baseName: baseParam.name || '*',
@@ -23172,7 +23187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 i < overrideParamDetails.positionOnlyParamCount &&
                 i >= baseParamDetails.positionOnlyParamCount
             ) {
-                diag.addMessage(
+                diag?.addMessage(
                     Localizer.DiagnosticAddendum.overrideParamNamePositionOnly().format({
                         index: i + 1,
                         baseName: baseParam.name || '*',
@@ -23192,13 +23207,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !assignType(
                             overrideParamType,
                             baseParamType,
-                            diag.createAddendum(),
+                            diag?.createAddendum(),
                             new TypeVarContext(getTypeVarScopeId(overrideMethod)),
                             new TypeVarContext(getTypeVarScopeId(baseMethod)),
                             AssignTypeFlags.SkipSolveTypeVars
                         )
                     ) {
-                        diag.addMessage(
+                        diag?.addMessage(
                             Localizer.DiagnosticAddendum.overrideParamType().format({
                                 index: i + 1,
                                 baseType: printType(baseParamType),
@@ -23210,7 +23225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (baseParamDetails.params[i].param.hasDefault && !overrideParamDetails.params[i].param.hasDefault) {
-                    diag.addMessage(
+                    diag?.addMessage(
                         Localizer.DiagnosticAddendum.overrideParamNoDefault().format({
                             index: i + 1,
                         })
@@ -23223,7 +23238,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Check for a *args match.
         if (baseParamDetails.argsIndex !== undefined) {
             if (overrideParamDetails.argsIndex === undefined) {
-                diag.addMessage(
+                diag?.addMessage(
                     Localizer.DiagnosticAddendum.overrideParamNameMissing().format({
                         name: baseParamDetails.params[baseParamDetails.argsIndex].param.name ?? '?',
                     })
@@ -23237,13 +23252,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !assignType(
                         overrideParamType,
                         baseParamType,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         new TypeVarContext(getTypeVarScopeId(overrideMethod)),
                         /* srcTypeVarContext */ undefined,
                         AssignTypeFlags.SkipSolveTypeVars
                     )
                 ) {
-                    diag.addMessage(
+                    diag?.addMessage(
                         Localizer.DiagnosticAddendum.overrideParamKeywordType().format({
                             name: overrideParamDetails.params[overrideParamDetails.argsIndex].param.name ?? '?',
                             baseType: printType(baseParamType),
@@ -23271,7 +23286,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const overrideParamInfo = overrideWkOnlyParams.find((pi) => paramInfo.param.name === pi.param.name);
 
             if (!overrideParamInfo && overrideParamDetails.kwargsIndex === undefined) {
-                diag.addMessage(
+                diag?.addMessage(
                     Localizer.DiagnosticAddendum.overrideParamNameMissing().format({
                         name: paramInfo.param.name ?? '?',
                     })
@@ -23287,13 +23302,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !assignType(
                         targetParamType,
                         paramInfo.type,
-                        diag.createAddendum(),
+                        diag?.createAddendum(),
                         new TypeVarContext(getTypeVarScopeId(overrideMethod)),
                         /* srcTypeVarContext */ undefined,
                         AssignTypeFlags.SkipSolveTypeVars
                     )
                 ) {
-                    diag.addMessage(
+                    diag?.addMessage(
                         Localizer.DiagnosticAddendum.overrideParamKeywordType().format({
                             name: paramInfo.param.name ?? '?',
                             baseType: printType(paramInfo.type),
@@ -23305,7 +23320,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (overrideParamInfo) {
                     if (paramInfo.param.hasDefault && !overrideParamInfo.param.hasDefault) {
-                        diag.addMessage(
+                        diag?.addMessage(
                             Localizer.DiagnosticAddendum.overrideParamKeywordNoDefault().format({
                                 name: overrideParamInfo.param.name ?? '?',
                             })
@@ -23324,7 +23339,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!baseParamInfo) {
                 if (baseParamDetails.kwargsIndex === undefined) {
                     if (!paramInfo.param.hasDefault) {
-                        diag.addMessage(
+                        diag?.addMessage(
                             Localizer.DiagnosticAddendum.overrideParamNameExtra().format({
                                 name: paramInfo.param.name ?? '?',
                             })
@@ -23342,13 +23357,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !assignType(
                 baseReturnType,
                 overrideReturnType,
-                diag.createAddendum(),
+                diag?.createAddendum(),
                 new TypeVarContext(getTypeVarScopeId(baseMethod)),
                 /* srcTypeVarContext */ undefined,
                 AssignTypeFlags.SkipSolveTypeVars
             )
         ) {
-            diag.addMessage(
+            diag?.addMessage(
                 Localizer.DiagnosticAddendum.overrideReturnType().format({
                     baseType: printType(baseReturnType),
                     overrideType: printType(overrideReturnType),
