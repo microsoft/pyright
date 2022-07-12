@@ -4,8 +4,6 @@ from typing import Any
 from pkg_resources import Environment
 from setuptools import Command, SetuptoolsDeprecationWarning
 
-def samefile(p1, p2): ...
-
 class easy_install(Command):
     description: str
     command_consumes_arguments: bool

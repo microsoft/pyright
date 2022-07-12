@@ -63,7 +63,6 @@ ast: 2.7-
 asynchat: 2.7-
 asyncio: 3.4-
 asyncio.mixins: 3.10-
-asyncio.compat: 3.4-3.6
 asyncio.exceptions: 3.8-
 asyncio.format_helpers: 3.7-
 asyncio.runners: 3.7-
@@ -164,7 +163,6 @@ locale: 2.7-
 logging: 2.7-
 lzma: 3.3-
 macpath: 2.7-3.7
-macurl2path: 2.7-3.6
 mailbox: 2.7-
 mailcap: 2.7-
 marshal: 2.7-

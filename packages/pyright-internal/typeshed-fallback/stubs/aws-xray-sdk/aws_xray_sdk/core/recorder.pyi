@@ -77,7 +77,7 @@ class AWSXRayRecorder:
         kwargs: dict[str, Any],
         name: str,
         namespace: str,
-        meta_processor: Callable[..., Any],
+        meta_processor: Callable[..., object],
     ) -> Any: ...
     @property
     def enabled(self) -> bool: ...

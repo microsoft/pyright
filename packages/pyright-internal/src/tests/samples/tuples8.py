@@ -2,13 +2,15 @@
 # analogously to "Tuple" type.
 
 from typing import Iterable, Tuple, TypeVar
+from typing_extensions import Self
 
 
 _T = TypeVar("_T")
 
 
 class ClassA(tuple[int, str, int, _T]):
-    pass
+    def __new__(cls) -> Self:
+        ...
 
 
 objA = ClassA[complex]()
@@ -37,7 +39,8 @@ for aaa in objA:
 
 
 class ClassB(tuple[_T, ...]):
-    pass
+    def __new__(cls) -> Self:
+        ...
 
 
 objB = ClassB[complex]()

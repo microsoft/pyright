@@ -517,6 +517,10 @@ const maxReturnTypeInferenceArgumentCount = 6;
 // pretty low because this can be very costly.
 const maxReturnTypeInferenceCodeFlowComplexity = 8;
 
+// What is the max number of return types cached per function
+// when using call-site inference?
+const maxCallSiteReturnTypeCacheSize = 8;
+
 // How many entries in a list, set, or dict should we examine
 // when inferring the type? We need to cut it off at some point
 // to avoid excessive computation.
@@ -19696,6 +19700,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
+        const paramTypes: Type[] = [];
+        let isResultFromCache = false;
+
         // Suppress diagnostics because we don't want to generate errors.
         suppressDiagnostics(functionNode, () => {
             // Allocate a new temporary type cache for the context of just
@@ -19715,6 +19722,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (param.name) {
                         let paramType: Type | undefined;
                         const arg = args.find((arg) => param.name!.value === arg.paramName);
+
                         if (arg && arg.argument.valueExpression) {
                             paramType = getTypeOfExpression(arg.argument.valueExpression).type;
                             if (!isUnknown(paramType)) {
@@ -19744,6 +19752,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             paramType = UnknownType.create();
                         }
 
+                        paramTypes.push(paramType);
                         writeTypeCache(param.name, paramType, EvaluatorFlags.None, /* isIncomplete */ false);
                     }
                 });
@@ -19751,10 +19760,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Don't bother trying to determine the contextual return
                 // type if none of the argument types are known.
                 if (!allArgTypesAreUnknown) {
-                    contextualReturnType = inferFunctionReturnType(
-                        functionNode,
-                        FunctionType.isAbstractMethod(type)
-                    )?.type;
+                    // See if the return type is already cached. If so, skip the
+                    // inference step, which is potentially very expensive.
+                    const cacheEntry = functionType.functionType.callSiteReturnTypeCache?.find((entry) => {
+                        return (
+                            entry.paramTypes.length === paramTypes.length &&
+                            entry.paramTypes.every((t, i) => isTypeSame(t, paramTypes[i]))
+                        );
+                    });
+
+                    if (cacheEntry) {
+                        contextualReturnType = cacheEntry.returnType;
+                        isResultFromCache = true;
+                    } else {
+                        contextualReturnType = inferFunctionReturnType(
+                            functionNode,
+                            FunctionType.isAbstractMethod(type)
+                        )?.type;
+                    }
                 }
             } finally {
                 returnTypeInferenceContextStack.pop();
@@ -19772,6 +19795,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     contextualReturnType,
                     !!type.details.declaration?.isGenerator
                 );
+            }
+
+            if (!isResultFromCache) {
+                // Cache the resulting type.
+                if (!functionType.functionType.callSiteReturnTypeCache) {
+                    functionType.functionType.callSiteReturnTypeCache = [];
+                }
+                if (functionType.functionType.callSiteReturnTypeCache.length >= maxCallSiteReturnTypeCacheSize) {
+                    functionType.functionType.callSiteReturnTypeCache =
+                        functionType.functionType.callSiteReturnTypeCache.slice(1);
+                }
+                functionType.functionType.callSiteReturnTypeCache.push({
+                    paramTypes,
+                    returnType: contextualReturnType,
+                });
             }
 
             return contextualReturnType;

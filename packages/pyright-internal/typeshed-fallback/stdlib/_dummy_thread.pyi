@@ -1,12 +1,8 @@
-import sys
 from collections.abc import Callable
 from types import TracebackType
 from typing import Any, NoReturn
 
-__all__ = ["error", "start_new_thread", "exit", "get_ident", "allocate_lock", "interrupt_main", "LockType"]
-
-if sys.version_info >= (3, 7):
-    __all__ += ["RLock"]
+__all__ = ["error", "start_new_thread", "exit", "get_ident", "allocate_lock", "interrupt_main", "LockType", "RLock"]
 
 TIMEOUT_MAX: int
 error = RuntimeError
@@ -26,8 +22,7 @@ class LockType:
     def release(self) -> bool: ...
     def locked(self) -> bool: ...
 
-if sys.version_info >= (3, 7):
-    class RLock(LockType):
-        def release(self) -> None: ...  # type: ignore[override]
+class RLock(LockType):
+    def release(self) -> None: ...  # type: ignore[override]
 
 def interrupt_main() -> None: ...
