@@ -2867,12 +2867,30 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
         }
     }
 
+    const isPseudoGeneric = isClass(typeToAdd) && ClassType.isPseudoGenericClass(typeToAdd);
+
     for (let i = 0; i < unionType.subtypes.length; i++) {
         const type = unionType.subtypes[i];
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd)) {
             return;
+        }
+
+        // Handle the case where pseudo-generic classes with different
+        // type arguments are being combined. Rather than add multiple
+        // specialized types, we will replace them with a single specialized
+        // type that is specialized with Unknowns. This is important because
+        // we can hit recursive cases (where a pseudo-generic class is
+        // parameterized with its own class) ad infinitum.
+        if (isPseudoGeneric) {
+            if (isTypeSame(type, typeToAdd, /* ignorePseudoGeneric */ true)) {
+                unionType.subtypes[i] = ClassType.cloneForSpecialization(
+                    typeToAdd,
+                    typeToAdd.details.typeParameters.map(() => UnknownType.create()),
+                    /* isTypeArgumentExplicit */ true
+                );
+            }
         }
 
         // If the typeToAdd is a literal value and there's already
