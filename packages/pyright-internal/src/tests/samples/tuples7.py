@@ -2,12 +2,14 @@
 # of specific types within a tuple.
 
 from typing import Generic, List, Optional, Tuple, TypeVar
+from typing_extensions import Self
 
 _T = TypeVar("_T")
 
 
-class ClassA(Tuple[int, str, int, _T]):
-    pass
+class ClassA(tuple[int, str, int, _T]):
+    def __new__(cls) -> Self:
+        ...
 
 
 objA = ClassA[complex]()
@@ -35,7 +37,8 @@ for aaa in objA:
 
 
 class ClassB(Tuple[_T, ...]):
-    pass
+    def __new__(cls) -> Self:
+        ...
 
 
 objB = ClassB[complex]()

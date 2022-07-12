@@ -22,10 +22,8 @@ __all__ = [
     "quotedata",
     "SMTP",
     "SMTP_SSL",
+    "SMTPNotSupportedError",
 ]
-
-if sys.version_info >= (3, 7):
-    __all__ += ["SMTPNotSupportedError"]
 
 _Reply: TypeAlias = tuple[int, bytes]
 _SendErrs: TypeAlias = dict[str, _Reply]

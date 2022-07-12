@@ -18,6 +18,8 @@ _CommandResults: TypeAlias = tuple[str, list[Any]]
 
 _AnyResponseData: TypeAlias = list[None] | list[bytes | tuple[bytes, bytes]]
 
+Commands: dict[str, tuple[str, ...]]
+
 class IMAP4:
     class error(Exception): ...
     class abort(error): ...

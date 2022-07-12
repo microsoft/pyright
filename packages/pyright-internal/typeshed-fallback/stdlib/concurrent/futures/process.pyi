@@ -8,7 +8,7 @@ from types import TracebackType
 from typing import Any, Generic, TypeVar
 from weakref import ref
 
-from ._base import Executor, Future
+from ._base import BrokenExecutor, Executor, Future
 
 _threads_wakeups: MutableMapping[Any, Any]
 _global_shutdown: bool
@@ -68,27 +68,26 @@ class _CallItem:
     kwargs: Mapping[str, Any]
     def __init__(self, work_id: int, fn: Callable[..., Any], args: Iterable[Any], kwargs: Mapping[str, Any]) -> None: ...
 
-if sys.version_info >= (3, 7):
-    class _SafeQueue(Queue[Future[Any]]):
-        pending_work_items: dict[int, _WorkItem[Any]]
-        shutdown_lock: Lock
-        thread_wakeup: _ThreadWakeup
-        if sys.version_info >= (3, 9):
-            def __init__(
-                self,
-                max_size: int | None = ...,
-                *,
-                ctx: BaseContext,
-                pending_work_items: dict[int, _WorkItem[Any]],
-                shutdown_lock: Lock,
-                thread_wakeup: _ThreadWakeup,
-            ) -> None: ...
-        else:
-            def __init__(
-                self, max_size: int | None = ..., *, ctx: BaseContext, pending_work_items: dict[int, _WorkItem[Any]]
-            ) -> None: ...
+class _SafeQueue(Queue[Future[Any]]):
+    pending_work_items: dict[int, _WorkItem[Any]]
+    shutdown_lock: Lock
+    thread_wakeup: _ThreadWakeup
+    if sys.version_info >= (3, 9):
+        def __init__(
+            self,
+            max_size: int | None = ...,
+            *,
+            ctx: BaseContext,
+            pending_work_items: dict[int, _WorkItem[Any]],
+            shutdown_lock: Lock,
+            thread_wakeup: _ThreadWakeup,
+        ) -> None: ...
+    else:
+        def __init__(
+            self, max_size: int | None = ..., *, ctx: BaseContext, pending_work_items: dict[int, _WorkItem[Any]]
+        ) -> None: ...
 
-        def _on_queue_feeder_error(self, e: Exception, obj: _CallItem) -> None: ...
+    def _on_queue_feeder_error(self, e: Exception, obj: _CallItem) -> None: ...
 
 def _get_chunks(*iterables: Any, chunksize: int) -> Generator[tuple[Any, ...], None, None]: ...
 def _process_chunk(fn: Callable[..., Any], chunk: tuple[Any, None, None]) -> Generator[Any, None, None]: ...
@@ -116,16 +115,13 @@ if sys.version_info >= (3, 11):
         max_tasks: int | None = ...,
     ) -> None: ...
 
-elif sys.version_info >= (3, 7):
+else:
     def _process_worker(
         call_queue: Queue[_CallItem],
         result_queue: SimpleQueue[_ResultItem],
         initializer: Callable[..., object] | None,
         initargs: tuple[Any, ...],
     ) -> None: ...
-
-else:
-    def _process_worker(call_queue: Queue[_CallItem], result_queue: SimpleQueue[_ResultItem]) -> None: ...
 
 if sys.version_info >= (3, 9):
     class _ExecutorManagerThread(Thread):
@@ -155,13 +151,7 @@ _system_limited: bool | None
 def _check_system_limits() -> None: ...
 def _chain_from_iterable_of_lists(iterable: Iterable[MutableSequence[Any]]) -> Any: ...
 
-if sys.version_info >= (3, 7):
-    from ._base import BrokenExecutor
-
-    class BrokenProcessPool(BrokenExecutor): ...
-
-else:
-    class BrokenProcessPool(RuntimeError): ...
+class BrokenProcessPool(BrokenExecutor): ...
 
 class ProcessPoolExecutor(Executor):
     _mp_context: BaseContext | None = ...
@@ -189,7 +179,7 @@ class ProcessPoolExecutor(Executor):
             *,
             max_tasks_per_child: int | None = ...,
         ) -> None: ...
-    elif sys.version_info >= (3, 7):
+    else:
         def __init__(
             self,
             max_workers: int | None = ...,
@@ -197,8 +187,6 @@ class ProcessPoolExecutor(Executor):
             initializer: Callable[..., object] | None = ...,
             initargs: tuple[Any, ...] = ...,
         ) -> None: ...
-    else:
-        def __init__(self, max_workers: int | None = ...) -> None: ...
     if sys.version_info >= (3, 9):
         def _start_executor_manager_thread(self) -> None: ...
 

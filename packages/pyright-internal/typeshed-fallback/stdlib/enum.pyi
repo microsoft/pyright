@@ -161,8 +161,7 @@ class Enum(metaclass=EnumMeta):
     def value(self) -> Any: ...
     _name_: str
     _value_: Any
-    if sys.version_info >= (3, 7):
-        _ignore_: str | list[str]
+    _ignore_: str | list[str]
     _order_: str
     __order__: str
     @classmethod

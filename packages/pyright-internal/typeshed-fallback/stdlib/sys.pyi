@@ -75,19 +75,17 @@ _xoptions: dict[Any, Any]
 
 # Type alias used as a mixin for structseq classes that cannot be instantiated at runtime
 # This can't be represented in the type system, so we just use `structseq[Any]`
-_uninstantiable_structseq: TypeAlias = structseq[Any]
+_UninstantiableStructseq: TypeAlias = structseq[Any]
 
 flags: _flags
 
 if sys.version_info >= (3, 10):
     _FlagTuple: TypeAlias = tuple[int, int, int, int, int, int, int, int, int, int, int, int, int, bool, int, int]
-elif sys.version_info >= (3, 7):
-    _FlagTuple: TypeAlias = tuple[int, int, int, int, int, int, int, int, int, int, int, int, int, bool, int]
 else:
-    _FlagTuple: TypeAlias = tuple[int, int, int, int, int, int, int, int, int, int, int, int, int]
+    _FlagTuple: TypeAlias = tuple[int, int, int, int, int, int, int, int, int, int, int, int, int, bool, int]
 
 @final
-class _flags(_uninstantiable_structseq, _FlagTuple):
+class _flags(_UninstantiableStructseq, _FlagTuple):
     @property
     def debug(self) -> int: ...
     @property
@@ -114,11 +112,10 @@ class _flags(_uninstantiable_structseq, _FlagTuple):
     def hash_randomization(self) -> int: ...
     @property
     def isolated(self) -> int: ...
-    if sys.version_info >= (3, 7):
-        @property
-        def dev_mode(self) -> bool: ...
-        @property
-        def utf8_mode(self) -> int: ...
+    @property
+    def dev_mode(self) -> bool: ...
+    @property
+    def utf8_mode(self) -> int: ...
     if sys.version_info >= (3, 10):
         @property
         def warn_default_encoding(self) -> int: ...  # undocumented
@@ -198,7 +195,7 @@ class _int_info(structseq[int], tuple[int, int]):
     def sizeof_digit(self) -> int: ...
 
 @final
-class _version_info(_uninstantiable_structseq, tuple[int, int, int, str, int]):
+class _version_info(_UninstantiableStructseq, tuple[int, int, int, str, int]):
     @property
     def major(self) -> int: ...
     @property
@@ -249,7 +246,7 @@ def settrace(tracefunc: TraceFunction | None) -> None: ...
 if sys.platform == "win32":
     # A tuple of length 5, even though it has more than 5 attributes.
     @final
-    class _WinVersion(_uninstantiable_structseq, tuple[int, int, int, int, str]):
+    class _WinVersion(_UninstantiableStructseq, tuple[int, int, int, int, str]):
         @property
         def major(self) -> int: ...
         @property
@@ -276,9 +273,9 @@ if sys.platform == "win32":
 def intern(__string: str) -> str: ...
 def is_finalizing() -> bool: ...
 
-if sys.version_info >= (3, 7):
-    __breakpointhook__: Any  # contains the original value of breakpointhook
-    def breakpointhook(*args: Any, **kwargs: Any) -> Any: ...
+__breakpointhook__: Any  # contains the original value of breakpointhook
+
+def breakpointhook(*args: Any, **kwargs: Any) -> Any: ...
 
 if sys.platform != "win32":
     def setdlopenflags(__flags: int) -> None: ...
@@ -323,9 +320,8 @@ def set_asyncgen_hooks(firstiter: _AsyncgenHook = ..., finalizer: _AsyncgenHook 
 if sys.platform == "win32":
     def _enablelegacywindowsfsencoding() -> None: ...
 
-if sys.version_info >= (3, 7):
-    def get_coroutine_origin_tracking_depth() -> int: ...
-    def set_coroutine_origin_tracking_depth(depth: int) -> None: ...
+def get_coroutine_origin_tracking_depth() -> int: ...
+def set_coroutine_origin_tracking_depth(depth: int) -> None: ...
 
 if sys.version_info < (3, 8):
     _CoroWrapper: TypeAlias = Callable[[Coroutine[Any, Any, Any]], Any]

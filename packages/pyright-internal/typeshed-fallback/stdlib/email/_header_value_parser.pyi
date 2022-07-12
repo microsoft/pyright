@@ -20,8 +20,7 @@ EXTENDED_ATTRIBUTE_ENDS: Final[set[str]]
 
 def quote_string(value: Any) -> str: ...
 
-if sys.version_info >= (3, 7):
-    rfc2047_matcher: Pattern[str]
+rfc2047_matcher: Pattern[str]
 
 class TokenList(list[TokenList | Terminal]):
     token_type: str | None

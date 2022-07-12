@@ -1,0 +1,3 @@
+from collections.abc import Sequence
+
+def main(fp=..., argv: Sequence[str] | None = ...) -> None: ...
