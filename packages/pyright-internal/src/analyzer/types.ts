@@ -1147,6 +1147,11 @@ export interface SpecializedFunctionTypes {
     returnType?: Type | undefined;
 }
 
+export interface CallSiteInferenceTypeCacheEntry {
+    paramTypes: Type[];
+    returnType: Type;
+}
+
 export interface FunctionType extends TypeBase {
     category: TypeCategory.Function;
 
@@ -1156,8 +1161,11 @@ export interface FunctionType extends TypeBase {
     // variables replaced by a concrete type).
     specializedTypes?: SpecializedFunctionTypes | undefined;
 
-    // Filled in lazily
+    // Inferred return type. Filled in lazily.
     inferredReturnType?: Type | undefined;
+
+    // Call-site return type inference cache.
+    callSiteReturnTypeCache?: CallSiteInferenceTypeCacheEntry[];
 
     // If this is a bound function where the first parameter
     // was stripped from the original unbound function, the
