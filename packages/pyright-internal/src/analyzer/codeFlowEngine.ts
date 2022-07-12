@@ -442,6 +442,11 @@ export function getCodeFlowEngine(
                             }
                         }
 
+                        // Was an incomplete entry added to prevent recursion?
+                        if (cachedEntry?.isRecursionSentinel) {
+                            return cachedEntry;
+                        }
+
                         return getTypeFromBranchFlowNode(curFlowNode as FlowLabel);
                     }
 
@@ -462,7 +467,7 @@ export function getCodeFlowEngine(
                             }
                         }
 
-                        return getTypeFromLoopFlowNode(loopNode);
+                        return getTypeFromLoopFlowNode(loopNode, cachedEntry);
                     }
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
@@ -533,6 +538,11 @@ export function getCodeFlowEngine(
                                     /* honorCodeFlow */ false
                                 );
                                 if (symbolWithScope && symbolWithScope.symbol.getTypedDeclarations().length > 0) {
+                                    // Was an incomplete entry added to prevent recursion?
+                                    if (cachedEntry?.isRecursionSentinel) {
+                                        return cachedEntry;
+                                    }
+
                                     // Before calling getTypeNarrowingCallback, set the type
                                     // of this flow node in the cache to prevent recursion.
                                     setCacheEntry(
@@ -645,6 +655,10 @@ export function getCodeFlowEngine(
                         if (reference && reference.nodeType === ParseNodeType.Name) {
                             const nameValue = reference.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
+                                // Was an incomplete entry added to prevent recursion?
+                                if (cachedEntry?.isRecursionSentinel) {
+                                    return cachedEntry;
+                                }
                                 // Before calling getTypeFromWildcardImport, set the cache entry to prevent infinite recursion.
                                 setCacheEntry(
                                     curFlowNode,
@@ -719,14 +733,16 @@ export function getCodeFlowEngine(
                 return setCacheEntry(branchNode, effectiveType, sawIncomplete);
             }
 
-            function getTypeFromLoopFlowNode(loopNode: FlowLabel) {
-                // See if we've been here before. If so, there will be an incomplete cache entry.
-                let cacheEntry = getCacheEntry(loopNode);
-
+            function getTypeFromLoopFlowNode(loopNode: FlowLabel, cacheEntry: FlowNodeTypeResult | undefined) {
                 // The type result from one antecedent may depend on the type
                 // result from another, so loop up to one time for each
                 // antecedent in the loop.
                 const maxAttemptCount = loopNode.antecedents.length;
+
+                // Was an incomplete entry added to prevent recursion?
+                if (cacheEntry?.isRecursionSentinel) {
+                    return cacheEntry;
+                }
 
                 if (cacheEntry === undefined) {
                     // We haven't been here before, so create a new incomplete cache entry.
