@@ -954,3 +954,27 @@ export function getTypeOfIndexedTypedDict(
 
     return { node, type: resultingType, isIncomplete: !!indexTypeResult.isIncomplete };
 }
+
+// If the specified type has a non-required key, this method marks the
+// key as present.
+export function narrowForKeyAssignment(classType: ClassType, key: string) {
+    assert(ClassType.isTypedDictClass(classType));
+    assert(classType.details.typedDictEntries);
+
+    const tdEntry = classType.details.typedDictEntries.get(key);
+    if (!tdEntry || tdEntry.isRequired) {
+        return classType;
+    }
+
+    const narrowedTdEntry = classType.typedDictNarrowedEntries?.get(key);
+    if (narrowedTdEntry?.isProvided) {
+        return classType;
+    }
+
+    const narrowedEntries = classType.typedDictNarrowedEntries
+        ? new Map<string, TypedDictEntry>(classType.typedDictNarrowedEntries)
+        : new Map<string, TypedDictEntry>();
+    narrowedEntries.set(key, { isProvided: true, isRequired: false, valueType: tdEntry.valueType });
+
+    return ClassType.cloneForNarrowedTypedDictEntries(classType, narrowedEntries);
+}

@@ -419,7 +419,7 @@ test('TypeNarrowingTuple1', () => {
 test('TypeNarrowingTypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingTypedDict1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypeNarrowingTypedDict2', () => {
