@@ -168,6 +168,39 @@ test('uri tests', () => {
     assert(!fs.removeUriMap('file://test.pyi', file));
 });
 
+test('bundled partial stubs', () => {
+    const bundledPath = combinePaths(normalizeSlashes('/'), 'bundled');
+
+    const files = [
+        {
+            path: combinePaths(bundledPath, 'myLib-stubs', 'partialStub.pyi'),
+            content: 'def test(): ...',
+        },
+        {
+            path: combinePaths(bundledPath, 'myLib-stubs', 'py.typed'),
+            content: 'partial\n',
+        },
+        {
+            path: combinePaths(libraryRoot, 'myLib', 'partialStub.py'),
+            content: 'def test(): pass',
+        },
+        {
+            path: combinePaths(libraryRoot, 'myLib', 'py.typed'),
+            content: '',
+        },
+    ];
+
+    const fs = createFileSystem(files);
+    fs.processPartialStubPackages([bundledPath], [libraryRoot], bundledPath);
+
+    const stubFile = combinePaths(libraryRoot, 'myLib', 'partialStub.pyi');
+    assert(!fs.existsSync(stubFile));
+
+    const myLib = combinePaths(libraryRoot, 'myLib');
+    const entries = fs.readdirEntriesSync(myLib);
+    assert.strictEqual(2, entries.length);
+});
+
 function createFileSystem(files: { path: string; content: string }[]): PyrightFileSystem {
     const fs = new TestFileSystem(/* ignoreCase */ false, { cwd: normalizeSlashes('/') });
 

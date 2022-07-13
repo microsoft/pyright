@@ -60,6 +60,7 @@ declare namespace _ {
         textEdit?: TextEdit;
         additionalTextEdits?: TextEdit[];
         detailDescription?: string;
+        commitCharacters?: string[];
     }
 
     interface TextRange {

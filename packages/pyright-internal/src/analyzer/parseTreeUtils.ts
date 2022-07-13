@@ -1538,13 +1538,63 @@ export function getCallNodeAndActiveParameterIndex(
     }
 }
 
-export function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
+export function getTokenIndexAtLeft(
+    tokens: TextRangeCollection<Token>,
+    position: number,
+    includeWhitespace = false,
+    includeZeroLengthToken = false
+) {
     const index = tokens.getItemAtPosition(position);
+    if (index < 0) {
+        return -1;
+    }
+
+    for (let i = index; i >= 0; i--) {
+        const token = tokens.getItemAt(i);
+        if (!includeZeroLengthToken && token.length === 0) {
+            continue;
+        }
+
+        if (!includeWhitespace && isWhitespace(token)) {
+            continue;
+        }
+
+        if (TextRange.getEnd(token) <= position) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+export function getTokenAtLeft(
+    tokens: TextRangeCollection<Token>,
+    position: number,
+    includeWhitespace = false,
+    includeZeroLengthToken = false
+) {
+    const index = getTokenIndexAtLeft(tokens, position, includeWhitespace, includeZeroLengthToken);
     if (index < 0) {
         return undefined;
     }
 
     return tokens.getItemAt(index);
+}
+
+function isWhitespace(token: Token) {
+    return token.type === TokenType.NewLine || token.type === TokenType.Indent || token.type === TokenType.Dedent;
+}
+
+export function getTokenAtIndex(tokens: TextRangeCollection<Token>, index: number) {
+    if (index < 0) {
+        return undefined;
+    }
+
+    return tokens.getItemAt(index);
+}
+
+export function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
+    return getTokenAtIndex(tokens, tokens.getItemAtPosition(position));
 }
 
 export function getTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {

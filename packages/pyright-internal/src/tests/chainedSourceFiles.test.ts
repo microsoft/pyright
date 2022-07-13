@@ -53,6 +53,7 @@ test('check chained files', async () => {
             lazyEdit: false,
             snippet: false,
             autoImport: false,
+            extraCommitChars: false,
         },
         undefined,
         CancellationToken.None
@@ -98,6 +99,7 @@ test('modify chained files', async () => {
             lazyEdit: false,
             snippet: false,
             autoImport: false,
+            extraCommitChars: false,
         },
         undefined,
         CancellationToken.None

@@ -218,6 +218,7 @@ interface ClientCapabilities {
     hasGoToDeclarationCapability: boolean;
     hasDocumentChangeCapability: boolean;
     hasDocumentAnnotationCapability: boolean;
+    hasCompletionCommitCharCapability: boolean;
     hoverContentFormat: MarkupKind;
     completionDocFormat: MarkupKind;
     completionSupportsSnippet: boolean;
@@ -262,6 +263,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         hasGoToDeclarationCapability: false,
         hasDocumentChangeCapability: false,
         hasDocumentAnnotationCapability: false,
+        hasCompletionCommitCharCapability: false,
         hoverContentFormat: MarkupKind.PlainText,
         completionDocFormat: MarkupKind.PlainText,
         completionSupportsSnippet: false,
@@ -534,6 +536,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             !!capabilities.workspace?.workspaceEdit?.documentChanges &&
             !!capabilities.workspace.workspaceEdit?.resourceOperations;
         this.client.hasDocumentAnnotationCapability = !!capabilities.workspace?.workspaceEdit?.changeAnnotationSupport;
+        this.client.hasCompletionCommitCharCapability =
+            !!capabilities.textDocument?.completion?.completionList?.itemDefaults &&
+            !!capabilities.textDocument.completion.completionItem?.commitCharactersSupport;
 
         this.client.hoverContentFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.hover?.contentFormat);
         this.client.completionDocFormat = this._getCompatibleMarkupKind(
@@ -644,8 +649,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // Add all python search paths to watch list
         if (this.client.hasWatchFileRelativePathCapability) {
             // Dedup search paths from all workspaces.
+            // Get rid of any search path under workspace root since it is already watched by
+            // "**" above.
             const foldersToWatch = deduplicateFolders(
-                this._workspaceMap.getNonDefaultWorkspaces().map((w) => w.searchPathsToWatch)
+                this._workspaceMap
+                    .getNonDefaultWorkspaces()
+                    .map((w) => w.searchPathsToWatch.filter((p) => !p.startsWith(w.rootPath)))
             );
 
             foldersToWatch.forEach((p) => {
@@ -998,7 +1007,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             filePath,
             position,
             workspace.rootPath,
-            this.getCompletionOptions(params),
+            this.getCompletionOptions(workspace, params),
             token
         );
 
@@ -1259,7 +1268,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         workspace.serviceInstance.resolveCompletionItem(
             filePath,
             item,
-            this.getCompletionOptions(),
+            this.getCompletionOptions(workspace),
             /* nameMap */ undefined,
             token
         );
@@ -1294,12 +1303,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
     }
 
-    protected getCompletionOptions(params?: CompletionParams) {
+    protected getCompletionOptions(workspace: WorkspaceServiceInstance, params?: CompletionParams): CompletionOptions {
         return {
             format: this.client.completionDocFormat,
             snippet: this.client.completionSupportsSnippet,
             lazyEdit: this.client.completionItemResolveSupportsAdditionalTextEdits,
             autoImport: true,
+            extraCommitChars: false,
         };
     }
 
