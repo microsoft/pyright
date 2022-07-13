@@ -782,15 +782,16 @@ export class ImportResolver {
         const fs = this.fileSystem;
         const ignored: string[] = [];
         const paths: string[] = [];
+        const typeshedPathEx = this.getTypeshedPathEx(execEnv, ignored);
 
         // Add paths to search stub packages.
         addPaths(this._configOptions.stubPath);
         addPaths(execEnv.root);
         execEnv.extraPaths.forEach((p) => addPaths(p));
-        addPaths(this.getTypeshedPathEx(execEnv, ignored));
+        addPaths(typeshedPathEx);
         this.getPythonSearchPaths(ignored).forEach((p) => addPaths(p));
 
-        this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv));
+        this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv), typeshedPathEx);
         this._invalidateFileSystemCache();
         return true;
 

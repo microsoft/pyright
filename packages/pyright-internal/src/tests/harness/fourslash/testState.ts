@@ -65,6 +65,7 @@ import {
     WorkspaceServiceInstance,
 } from '../../../languageServerBase';
 import { AbbreviationInfo } from '../../../languageService/autoImporter';
+import { CompletionOptions } from '../../../languageService/completionProvider';
 import { DefinitionFilter } from '../../../languageService/definitionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseNode } from '../../../parser/parseNodes';
@@ -1089,7 +1090,13 @@ export class TestState {
             const expectedCompletions = map[markerName].completions;
             const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
 
-            const options = { format: docFormat, snippet: true, lazyEdit: true, autoImport: true };
+            const options: CompletionOptions = {
+                format: docFormat,
+                snippet: true,
+                lazyEdit: true,
+                autoImport: true,
+                extraCommitChars: true,
+            };
             const nameMap = abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined;
             const result = await this.workspace.serviceInstance.getCompletionsForPosition(
                 filePath,
@@ -1958,6 +1965,10 @@ export class TestState {
 
         if (expected.detailDescription !== undefined) {
             assert.strictEqual(actual.labelDetails?.description, expected.detailDescription);
+        }
+
+        if (expected.commitCharacters !== undefined) {
+            expect(expected.commitCharacters.sort()).toEqual(actual.commitCharacters?.sort());
         }
     }
 }

@@ -127,7 +127,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
         return this._rootSearched.has(path);
     }
 
-    processPartialStubPackages(paths: string[], roots: string[]) {
+    processPartialStubPackages(paths: string[], roots: string[], bundledStubPath?: string) {
         for (const path of paths) {
             this._rootSearched.add(path);
 
@@ -143,6 +143,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
                 // Leave empty set of dir entries to process.
             }
 
+            const isBundledStub = path === bundledStubPath;
             for (const entry of dirEntries) {
                 const partialStubPackagePath = combinePaths(path, entry.name);
                 const isDirectory = !entry.isSymbolicLink()
@@ -171,6 +172,16 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
                         const stat = tryStat(this._realFS, packagePath);
                         if (!stat?.isDirectory()) {
                             continue;
+                        }
+
+                        if (isBundledStub) {
+                            // If partial stub we found is from bundled stub and library installed is marked as py.typed
+                            // ignore bundled partial stub.
+                            const packagePyTyped = getPyTypedInfo(this._realFS, packagePath);
+                            if (packagePyTyped && !packagePyTyped.isPartiallyTyped) {
+                                // We have fully typed package.
+                                continue;
+                            }
                         }
 
                         // Merge partial stub packages to the library.

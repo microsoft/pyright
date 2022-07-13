@@ -229,16 +229,16 @@ export interface CompletionItemData {
     filePath: string;
     workspacePath: string;
     position: Position;
-    autoImportText?: string | undefined;
-    symbolLabel?: string | undefined;
-    funcParensDisabled?: boolean | undefined;
+    autoImportText?: string;
+    symbolLabel?: string;
+    funcParensDisabled?: boolean;
 }
 
 // MemberAccessInfo attempts to gather info for unknown types
 export interface MemberAccessInfo {
-    lastKnownModule?: string | undefined;
-    lastKnownMemberName?: string | undefined;
-    unknownMemberName?: string | undefined;
+    lastKnownModule?: string;
+    lastKnownMemberName?: string;
+    unknownMemberName?: string;
 }
 
 export interface AutoImportInfo {
@@ -265,9 +265,9 @@ export interface ExtensionInfo {
 }
 
 interface CompletionResultsBase {
-    memberAccessInfo?: MemberAccessInfo | undefined;
-    autoImportInfo?: AutoImportInfo | undefined;
-    extensionInfo?: ExtensionInfo | undefined;
+    memberAccessInfo?: MemberAccessInfo;
+    autoImportInfo?: AutoImportInfo;
+    extensionInfo?: ExtensionInfo;
 }
 export interface CompletionResultsList extends CompletionResultsBase {
     completionList: CompletionList;
@@ -281,13 +281,14 @@ export interface CompletionOptions {
     snippet: boolean;
     lazyEdit: boolean;
     autoImport: boolean;
+    extraCommitChars: boolean;
 }
 
 export type AbbreviationMap = Map<string, AbbreviationInfo>;
 
 export interface AutoImportMaps {
-    nameMap?: AbbreviationMap | undefined;
-    libraryMap?: Map<string, IndexResults> | undefined;
+    nameMap?: AbbreviationMap;
+    libraryMap?: Map<string, IndexResults>;
     getModuleSymbolsMap: () => ModuleSymbolMap;
 }
 
@@ -297,30 +298,32 @@ interface RecentCompletionInfo {
 }
 
 interface Edits {
-    format?: InsertTextFormat | undefined;
-    textEdit?: TextEdit | undefined;
-    additionalTextEdits?: TextEditAction[] | undefined;
+    format?: InsertTextFormat;
+    textEdit?: TextEdit;
+    additionalTextEdits?: TextEditAction[];
 }
 
-interface SymbolDetail {
-    funcParensDisabled?: boolean | undefined;
-    autoImportSource?: string | undefined;
-    autoImportAlias?: string | undefined;
-    boundObjectOrClass?: ClassType | undefined;
-    edits?: Edits | undefined;
+interface CommonDetail {
+    funcParensDisabled?: boolean;
+    edits?: Edits;
+    extraCommitChars?: boolean;
 }
 
-interface CompletionDetail {
-    funcParensDisabled?: boolean | undefined;
-    typeDetail?: string | undefined;
-    documentation?: string | undefined;
+interface SymbolDetail extends CommonDetail {
+    autoImportSource?: string;
+    autoImportAlias?: string;
+    boundObjectOrClass?: ClassType;
+}
+
+interface CompletionDetail extends CommonDetail {
+    typeDetail?: string;
+    documentation?: string;
     autoImportText?: {
         source: string;
         importText: string;
     };
-    edits?: Edits | undefined;
-    sortText?: string | undefined;
-    itemDetail?: string | undefined;
+    sortText?: string;
+    itemDetail?: string;
 }
 
 export const autoImportDetail = 'Auto-import';
@@ -833,7 +836,46 @@ export class CompletionProvider {
                 return this._createSingleKeywordCompletion('else');
             }
 
-            case ErrorExpressionCategory.MissingExpression:
+            case ErrorExpressionCategory.MissingExpression: {
+                // Don't show completion after random dots.
+                const tokenizerOutput = this._parseResults.tokenizerOutput;
+                const offset = convertPositionToOffset(this._position, tokenizerOutput.lines);
+                const index = ParseTreeUtils.getTokenIndexAtLeft(tokenizerOutput.tokens, offset!);
+                const token = ParseTreeUtils.getTokenAtIndex(tokenizerOutput.tokens, index);
+                if (token?.type === TokenType.Dot || token?.type === TokenType.Ellipsis) {
+                    break;
+                }
+
+                // ex) class MyType:
+                //         def is_str(self): ...
+                //     myType = MyType()
+                //
+                // In incomplete code such as "myType.is" <= "is" will be tokenized as keyword not identifier,
+                // so even if user's intention is writing "is_str", completion after "is" won't include "is_str"
+                // since parser won't see "is" as partially written member name instead it will see it as
+                // expression statement with missing expression after "is" keyword.
+                // In such case, use "MyType." to get completion.
+                if (token?.type !== TokenType.Keyword || TextRange.getEnd(token) !== offset) {
+                    return this._getExpressionCompletions(node, priorWord, priorText, postText);
+                }
+
+                const previousToken = ParseTreeUtils.getTokenAtIndex(tokenizerOutput.tokens, index - 1);
+                if (previousToken?.type !== TokenType.Dot) {
+                    return this._getExpressionCompletions(node, priorWord, priorText, postText);
+                }
+
+                const previousOffset = TextRange.getEnd(previousToken);
+                const previousNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, previousOffset);
+                if (
+                    previousNode?.nodeType !== ParseNodeType.Error ||
+                    previousNode.category !== ErrorExpressionCategory.MissingMemberAccessName
+                ) {
+                    return this._getExpressionCompletions(node, priorWord, priorText, postText);
+                }
+
+                return this._getMissingMemberAccessNameCompletions(previousNode, previousOffset, priorWord);
+            }
+
             case ErrorExpressionCategory.MissingDecoratorCallName: {
                 return this._getExpressionCompletions(node, priorWord, priorText, postText);
             }
@@ -849,10 +891,8 @@ export class CompletionProvider {
             }
 
             case ErrorExpressionCategory.MissingMemberAccessName: {
-                if (node.child && isExpressionNode(node.child)) {
-                    return this._getMemberAccessCompletions(node.child, priorWord);
-                }
-                break;
+                const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
+                return this._getMissingMemberAccessNameCompletions(node, offset!, priorWord);
             }
 
             case ErrorExpressionCategory.MissingFunctionParameterList: {
@@ -870,6 +910,21 @@ export class CompletionProvider {
         }
 
         return undefined;
+    }
+
+    private _getMissingMemberAccessNameCompletions(node: ErrorNode, offset: number, priorWord: string) {
+        const index = ParseTreeUtils.getTokenIndexAtLeft(this._parseResults.tokenizerOutput.tokens, offset) - 1;
+        const previousToken = ParseTreeUtils.getTokenAtIndex(this._parseResults.tokenizerOutput.tokens, index);
+        if (previousToken?.type === TokenType.Dot || previousToken?.type === TokenType.Ellipsis) {
+            // Don't allow multiple dot bring up completions.
+            return undefined;
+        }
+
+        if (!node.child || !isExpressionNode(node.child)) {
+            return undefined;
+        }
+
+        return this._getMemberAccessCompletions(node.child, priorWord);
     }
 
     private _isOverload(node: DecoratorNode): boolean {
@@ -2210,6 +2265,7 @@ export class CompletionProvider {
         for (const result of results) {
             if (result.symbol) {
                 this._addSymbol(result.name, result.symbol, priorWord, completionResults.completionMap, {
+                    extraCommitChars: true,
                     autoImportSource: result.source,
                     autoImportAlias: result.alias,
                     edits: {
@@ -2224,6 +2280,7 @@ export class CompletionProvider {
                     priorWord,
                     completionResults.completionMap,
                     {
+                        extraCommitChars: true,
                         autoImportText: this._getAutoImportText(result.name, result.source, result.alias),
                         edits: {
                             textEdit: this._createReplaceEdits(priorWord, /* node */ undefined, result.insertionText),
@@ -2436,6 +2493,7 @@ export class CompletionProvider {
                     this._addSymbol(name, symbol, priorWord, completionMap, {
                         boundObjectOrClass,
                         funcParensDisabled: isInImport,
+                        extraCommitChars: !isInImport,
                     });
                 }
             }
@@ -2667,6 +2725,7 @@ export class CompletionProvider {
 
             this._addNameToCompletions(detail.autoImportAlias ?? name, itemKind, priorWord, completionMap, {
                 autoImportText,
+                extraCommitChars: detail.extraCommitChars,
                 funcParensDisabled: detail.funcParensDisabled,
                 edits: detail.edits,
             });
@@ -2676,6 +2735,7 @@ export class CompletionProvider {
             if (synthesizedType) {
                 const itemKind: CompletionItemKind = CompletionItemKind.Variable;
                 this._addNameToCompletions(name, itemKind, priorWord, completionMap, {
+                    extraCommitChars: detail.extraCommitChars,
                     funcParensDisabled: detail.funcParensDisabled,
                     edits: detail.edits,
                 });
@@ -2722,6 +2782,10 @@ export class CompletionProvider {
 
         const completionItem = CompletionItem.create(name);
         completionItem.kind = itemKind;
+
+        if (detail?.extraCommitChars) {
+            this._addExtraCommitChar(completionItem, ...this._getExtraCommitCharsForKind(itemKind));
+        }
 
         const completionItemData: CompletionItemData = {
             workspacePath: this._workspacePath,
@@ -2992,10 +3056,34 @@ export class CompletionProvider {
             const completionItem = CompletionItem.create(completionName);
             completionItem.kind = CompletionItemKind.Module;
             completionItem.sortText = this._makeSortText(SortCategory.ImportModuleName, completionName);
+            this._addExtraCommitChar(completionItem, '.');
             completionMap.set(completionItem);
         });
 
         return { completionMap };
+    }
+
+    private _getExtraCommitCharsForKind(kind: CompletionItemKind) {
+        switch (kind) {
+            case CompletionItemKind.Class:
+                return ['.', '('];
+            case CompletionItemKind.Function:
+            case CompletionItemKind.Method:
+                return ['('];
+            case CompletionItemKind.Module:
+            case CompletionItemKind.Enum:
+                return ['.'];
+            default:
+                return [];
+        }
+    }
+
+    private _addExtraCommitChar(item: CompletionItem, ...commitChars: string[]) {
+        if (!this._options.extraCommitChars || commitChars.length === 0) {
+            return;
+        }
+
+        item.commitCharacters = commitChars;
     }
 
     private _isPossiblePropertyDeclaration(decl: FunctionDeclaration) {

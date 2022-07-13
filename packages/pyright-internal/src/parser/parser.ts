@@ -3816,12 +3816,21 @@ export class Parser {
         additionalStopTokens?: TokenType[]
     ): ErrorNode {
         this._addError(errorMsg, targetToken ?? this._peekToken());
-        const expr = ErrorNode.create(this._peekToken(), category, childNode);
+
         const stopTokens = [TokenType.NewLine];
         if (additionalStopTokens) {
             appendArray(stopTokens, additionalStopTokens);
         }
+
+        // Using token that is not consumed by error node will mess up spans in parse node.
+        // Sibling nodes in parse tree shouldn't overlap each other.
+        const nextToken = this._peekToken();
+        const initialRange: TextRange = stopTokens.some((k) => nextToken.type === k)
+            ? targetToken ?? childNode ?? TextRange.create(nextToken.start, /* length */ 0)
+            : nextToken;
+        const expr = ErrorNode.create(initialRange, category, childNode);
         this._consumeTokensUntilType(stopTokens);
+
         return expr;
     }
 

@@ -1416,6 +1416,7 @@ export class AnalyzerService {
         this._removeLibraryFileWatcher();
 
         if (!this._watchForLibraryChanges) {
+            this._librarySearchPathsToWatch = undefined;
             return;
         }
 
