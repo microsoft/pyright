@@ -555,7 +555,7 @@ const maxLiteralMathSubtypeCount = 64;
 // off code flow analysis at some point for code flow graphs that are too
 // complex. Otherwise we risk overflowing the stack or incurring extremely
 // long analysis times. This number has been tuned empirically.
-export const maxCodeComplexity = 512;
+export const maxCodeComplexity = 768;
 
 export interface EvaluatorOptions {
     printTypeFlags: TypePrinter.PrintTypeFlags;
