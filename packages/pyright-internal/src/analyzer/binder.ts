@@ -844,8 +844,7 @@ export class Binder extends ParseTreeWalker {
             ) {
                 if (
                     target.baseExpression.nodeType === ParseNodeType.Name ||
-                    target.baseExpression.nodeType === ParseNodeType.MemberAccess ||
-                    target.baseExpression.nodeType === ParseNodeType.Index
+                    target.baseExpression.nodeType === ParseNodeType.MemberAccess
                 ) {
                     const baseExprReferenceKey = createKeyForReference(target.baseExpression);
                     this._currentScopeCodeFlowExpressions!.add(baseExprReferenceKey);
