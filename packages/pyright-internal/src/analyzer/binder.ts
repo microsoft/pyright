@@ -831,6 +831,27 @@ export class Binder extends ParseTreeWalker {
             createdAssignmentTargetFlowNodes = true;
         }
 
+        // If the assignment target base expression is potentially a
+        // TypedDict, add the base expression to the flow expressions set
+        // to accommodate TypedDict type narrowing.
+        if (node.leftExpression.nodeType === ParseNodeType.Index) {
+            const target = node.leftExpression;
+
+            if (
+                target.items.length === 1 &&
+                !target.trailingComma &&
+                target.items[0].valueExpression.nodeType === ParseNodeType.StringList
+            ) {
+                if (
+                    target.baseExpression.nodeType === ParseNodeType.Name ||
+                    target.baseExpression.nodeType === ParseNodeType.MemberAccess
+                ) {
+                    const baseExprReferenceKey = createKeyForReference(target.baseExpression);
+                    this._currentScopeCodeFlowExpressions!.add(baseExprReferenceKey);
+                }
+            }
+        }
+
         this.walk(node.rightExpression);
 
         let isPossibleTypeAlias = true;

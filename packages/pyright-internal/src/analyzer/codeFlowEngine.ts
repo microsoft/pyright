@@ -13,7 +13,7 @@
 
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgumentCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -44,6 +44,7 @@ import {
     SpeculativeTypeTracker,
     TypeCache,
 } from './typeCache';
+import { narrowForKeyAssignment } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
@@ -67,7 +68,13 @@ import {
     UnboundType,
     UnknownType,
 } from './types';
-import { ClassMemberLookupFlags, doForEachSubtype, isTypeAliasPlaceholder, lookUpClassMember } from './typeUtils';
+import {
+    ClassMemberLookupFlags,
+    doForEachSubtype,
+    isTypeAliasPlaceholder,
+    lookUpClassMember,
+    mapSubtypes,
+} from './typeUtils';
 
 export interface FlowNodeTypeResult {
     type: Type | undefined;
@@ -366,6 +373,7 @@ export function getCodeFlowEngine(
 
                     if (curFlowNode.flags & FlowFlags.Assignment) {
                         const assignmentFlowNode = curFlowNode as FlowAssignment;
+                        const targetNode = assignmentFlowNode.node;
 
                         // Are we targeting the same symbol? We need to do this extra check because the same
                         // symbol name might refer to different symbols in different scopes (e.g. a list
@@ -373,7 +381,7 @@ export function getCodeFlowEngine(
                         if (reference) {
                             if (
                                 targetSymbolId === assignmentFlowNode.targetSymbolId &&
-                                isMatchingExpression(reference, assignmentFlowNode.node)
+                                isMatchingExpression(reference, targetNode)
                             ) {
                                 // Is this a special "unbind" assignment? If so,
                                 // we can handle it immediately without any further evaluation.
@@ -389,23 +397,66 @@ export function getCodeFlowEngine(
                                         flowTypeResult = undefined;
                                     } else if (
                                         reference.nodeType === ParseNodeType.MemberAccess &&
-                                        evaluator.isAsymmetricDescriptorAssignment(assignmentFlowNode.node)
+                                        evaluator.isAsymmetricDescriptorAssignment(targetNode)
                                     ) {
                                         flowTypeResult = undefined;
                                     }
                                 }
                                 return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
-                            } else if (isPartialMatchingExpression(reference, assignmentFlowNode.node)) {
-                                // If the node partially matches the reference, we need to "kill" any narrowed
-                                // types further above this point. For example, if we see the sequence
-                                //    a.b = 3
-                                //    a = Foo()
-                                //    x = a.b
-                                // The type of "a.b" can no longer be assumed to be Literal[3].
-                                return {
-                                    type: initialType,
-                                    isIncomplete: isInitialTypeIncomplete,
-                                };
+                            } else {
+                                // Is this a simple assignment to an index expression? If so, it could
+                                // be assigning to a TypedDict, which requires narrowing of the expression's
+                                // base type.
+                                if (
+                                    targetNode.nodeType === ParseNodeType.Index &&
+                                    isMatchingExpression(reference, targetNode.baseExpression)
+                                ) {
+                                    if (
+                                        targetNode.parent?.nodeType === ParseNodeType.Assignment &&
+                                        targetNode.items.length === 1 &&
+                                        !targetNode.trailingComma &&
+                                        !targetNode.items[0].name &&
+                                        targetNode.items[0].argumentCategory === ArgumentCategory.Simple &&
+                                        targetNode.items[0].valueExpression.nodeType === ParseNodeType.StringList &&
+                                        targetNode.items[0].valueExpression.strings.length === 1 &&
+                                        targetNode.items[0].valueExpression.strings[0].nodeType === ParseNodeType.String
+                                    ) {
+                                        const keyValue = targetNode.items[0].valueExpression.strings[0].value;
+                                        const narrowedResult = preventRecursion(assignmentFlowNode, () => {
+                                            const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
+
+                                            if (flowTypeResult.type) {
+                                                flowTypeResult.type = mapSubtypes(flowTypeResult.type, (subtype) => {
+                                                    if (isClass(subtype) && ClassType.isTypedDictClass(subtype)) {
+                                                        return narrowForKeyAssignment(subtype, keyValue);
+                                                    }
+                                                    return subtype;
+                                                });
+                                            }
+
+                                            return flowTypeResult;
+                                        });
+
+                                        return setCacheEntry(
+                                            curFlowNode,
+                                            narrowedResult?.type,
+                                            !!narrowedResult?.isIncomplete
+                                        );
+                                    }
+                                }
+
+                                if (isPartialMatchingExpression(reference, targetNode)) {
+                                    // If the node partially matches the reference, we need to "kill" any narrowed
+                                    // types further above this point. For example, if we see the sequence
+                                    //    a.b = 3
+                                    //    a = Foo()
+                                    //    x = a.b
+                                    // The type of "a.b" can no longer be assumed to be Literal[3].
+                                    return {
+                                        type: initialType,
+                                        isIncomplete: isInitialTypeIncomplete,
+                                    };
+                                }
                             }
                         }
 

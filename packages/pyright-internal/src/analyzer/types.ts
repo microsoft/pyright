@@ -724,6 +724,37 @@ export namespace ClassType {
         return type1.literalValue === type2.literalValue;
     }
 
+    export function isTypedDictNarrowedEntriesSame(type1: ClassType, type2: ClassType): boolean {
+        if (type1.typedDictNarrowedEntries) {
+            if (!type2.typedDictNarrowedEntries) {
+                return false;
+            }
+
+            const tdEntries1 = type1.typedDictNarrowedEntries;
+            const tdEntries2 = type2.typedDictNarrowedEntries;
+
+            if (tdEntries1.size !== tdEntries2.size) {
+                return false;
+            }
+
+            let key: string;
+            let entry1: TypedDictEntry;
+            for ([key, entry1] of tdEntries1.entries()) {
+                const entry2 = tdEntries2.get(key);
+                if (!entry2) {
+                    return false;
+                }
+                if (entry1.isProvided !== entry2.isProvided) {
+                    return false;
+                }
+            }
+        } else if (type2.typedDictNarrowedEntries) {
+            return false;
+        }
+
+        return true;
+    }
+
     // Is the class generic but not specialized?
     export function isUnspecialized(classType: ClassType) {
         return classType.details.typeParameters.length > 0 && classType.typeArguments === undefined;
@@ -2399,6 +2430,10 @@ export function isTypeSame(
             }
 
             if (!ClassType.isLiteralValueSame(type1, classType2)) {
+                return false;
+            }
+
+            if (!ClassType.isTypedDictNarrowedEntriesSame(type1, classType2)) {
                 return false;
             }
 
