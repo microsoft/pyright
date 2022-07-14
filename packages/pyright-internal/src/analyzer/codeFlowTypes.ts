@@ -165,7 +165,9 @@ export interface FlowPostContextManagerLabel extends FlowLabel {
     blockIfSwallowsExceptions: boolean;
 }
 
-export function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {
+export function isCodeFlowSupportedForReference(
+    reference: ExpressionNode
+): reference is CodeFlowReferenceExpressionNode {
     if (reference.nodeType === ParseNodeType.Name) {
         return true;
     }
