@@ -597,6 +597,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let functionObj: Type | undefined;
     let tupleClassType: Type | undefined;
     let boolClassType: Type | undefined;
+    let intClassType: Type | undefined;
     let strClassType: Type | undefined;
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
@@ -872,6 +873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
             tupleClassType = getBuiltInType(node, 'tuple');
             boolClassType = getBuiltInType(node, 'bool');
+            intClassType = getBuiltInType(node, 'int');
             strClassType = getBuiltInType(node, 'str');
             dictClassType = getBuiltInType(node, 'dict');
             typedDictClassType = getTypingType(node, '_TypedDict');
@@ -2232,7 +2234,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // the result. According to PEP 492, await operates on an Awaitable
     // (object that provides an __await__ that returns a generator object).
     // If errorNode is undefined, no errors are reported.
-    function getTypeOfAwaitable(type: Type, errorNode?: ParseNode): Type {
+    function getTypeOfAwaitable(type: Type, errorNode?: ExpressionNode): Type {
         return mapSubtypes(type, (subtype) => {
             subtype = makeTopLevelTypeVarsConcrete(subtype);
 
@@ -2241,14 +2243,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isClassInstance(subtype)) {
-                const awaitReturnType = getSpecializedReturnType(subtype, '__await__', errorNode);
+                const awaitReturnType = getSpecializedReturnType(subtype, '__await__', [], errorNode);
                 if (awaitReturnType) {
                     if (isAnyOrUnknown(awaitReturnType)) {
                         return awaitReturnType;
                     }
 
                     if (isClassInstance(awaitReturnType)) {
-                        const iterReturnType = getSpecializedReturnType(awaitReturnType, '__iter__', errorNode);
+                        const iterReturnType = getSpecializedReturnType(awaitReturnType, '__iter__', [], errorNode);
 
                         if (iterReturnType) {
                             const generatorReturnType = getReturnTypeFromGenerator(awaitReturnType);
@@ -2276,7 +2278,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Validates that the type is an iterator and returns the iterated type
     // (i.e. the type returned from the '__next__' or '__anext__' method).
-    function getTypeOfIterator(type: Type, isAsync: boolean, errorNode: ParseNode | undefined): Type | undefined {
+    function getTypeOfIterator(type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined): Type | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         let isValidIterator = true;
@@ -2316,7 +2318,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return NeverType.createNever();
                     }
 
-                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, errorNode);
+                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, [], errorNode);
                 } else if (
                     TypeBase.isInstantiable(subtype) &&
                     subtype.details.effectiveMetaclass &&
@@ -2325,6 +2327,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     iterReturnType = getSpecializedReturnType(
                         ClassType.cloneAsInstance(subtype.details.effectiveMetaclass),
                         iterMethodName,
+                        [],
                         errorNode,
                         subtype
                     );
@@ -2333,8 +2336,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!iterReturnType) {
                     // There was no __iter__. See if we can fall back to
                     // the __getitem__ method instead.
-                    if (isClassInstance(subtype)) {
-                        const getItemReturnType = getSpecializedReturnType(subtype, '__getitem__', errorNode);
+                    if (!isAsync && isClassInstance(subtype)) {
+                        const getItemReturnType = getSpecializedReturnType(
+                            subtype,
+                            '__getitem__',
+                            [
+                                {
+                                    argumentCategory: ArgumentCategory.Simple,
+                                    typeResult: {
+                                        type:
+                                            intClassType && isInstantiableClass(intClassType)
+                                                ? ClassType.cloneAsInstance(intClassType)
+                                                : UnknownType.create(),
+                                    },
+                                },
+                            ],
+                            errorNode
+                        );
                         if (getItemReturnType) {
                             return getItemReturnType;
                         }
@@ -2353,7 +2371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
 
                             if (isClassInstance(subtype)) {
-                                const nextReturnType = getSpecializedReturnType(subtype, nextMethodName, errorNode);
+                                const nextReturnType = getSpecializedReturnType(subtype, nextMethodName, [], errorNode);
 
                                 if (!nextReturnType) {
                                     iterReturnTypeDiag.addMessage(
@@ -2406,7 +2424,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Validates that the type is an iterable and returns the iterable type argument.
-    function getTypeOfIterable(type: Type, isAsync: boolean, errorNode: ParseNode | undefined): Type | undefined {
+    function getTypeOfIterable(type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined): Type | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         let isValidIterable = true;
 
@@ -2433,7 +2451,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let iterReturnType: Type | undefined;
 
                 if (TypeBase.isInstance(subtype)) {
-                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, errorNode);
+                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, [], errorNode);
                 } else if (
                     TypeBase.isInstantiable(subtype) &&
                     subtype.details.effectiveMetaclass &&
@@ -2442,6 +2460,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     iterReturnType = getSpecializedReturnType(
                         ClassType.cloneAsInstance(subtype.details.effectiveMetaclass),
                         iterMethodName,
+                        [],
                         errorNode,
                         subtype
                     );
@@ -3766,7 +3785,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getSpecializedReturnType(
         objType: ClassType,
         memberName: string,
-        errorNode: ParseNode | undefined,
+        argList: FunctionArgument[],
+        errorNode: ExpressionNode | undefined,
         bindToClass?: ClassType
     ) {
         const classMember = lookUpObjectMember(objType, memberName, ClassMemberLookupFlags.SkipInstanceVariables);
@@ -3779,7 +3799,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return memberType;
         }
 
-        if (isFunction(memberType)) {
+        if (isFunction(memberType) || isOverloadedFunction(memberType)) {
             const methodType = bindFunctionToClassOrObject(
                 bindToClass || objType,
                 memberType,
@@ -3790,7 +3810,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* firstParamType */ bindToClass
             );
             if (methodType) {
-                return getFunctionEffectiveReturnType(methodType as FunctionType);
+                if (isOverloadedFunction(methodType)) {
+                    if (errorNode) {
+                        const bestOverload = getBestOverloadForArguments(errorNode, methodType, argList);
+                        if (bestOverload) {
+                            return getFunctionEffectiveReturnType(bestOverload);
+                        }
+                    }
+                } else {
+                    return getFunctionEffectiveReturnType(methodType);
+                }
             }
         }
 
@@ -6485,7 +6514,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (typeResult.isIncomplete) {
                     isPositionalIndexTypeIncomplete = true;
                 }
-                const iterableType = getTypeOfIterator(exprType, /* isAsync */ false, arg) || UnknownType.create();
+                const iterableType =
+                    getTypeOfIterator(exprType, /* isAsync */ false, arg.valueExpression) || UnknownType.create();
                 tupleEntries.push(iterableType);
             });
 
@@ -16797,7 +16827,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const exceptionTypes = getTypeOfExpression(node.typeExpression!).type;
 
-        function getExceptionType(exceptionType: Type, errorNode: ParseNode) {
+        function getExceptionType(exceptionType: Type, errorNode: ExpressionNode) {
             exceptionType = makeTopLevelTypeVarsConcrete(exceptionType);
 
             if (isAnyOrUnknown(exceptionType)) {
@@ -16901,7 +16931,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // For "async while", an implicit "await" is performed.
                     if (isAsync) {
-                        memberReturnType = getTypeOfAwaitable(memberReturnType, node);
+                        memberReturnType = getTypeOfAwaitable(memberReturnType, node.expression);
                     }
 
                     return memberReturnType;

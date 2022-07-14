@@ -1,14 +1,14 @@
 # This sample tests 'for' operations (both simple for loops
 # and list comprehension for loops).
 
-from typing import AsyncIterator, List, Iterator
+from typing import Union, overload
 
 
 def requires_int(val: int):
     pass
 
 
-list1 = [1, 2, 3]  # type: List[int]
+list1: list[int] = [1, 2, 3]
 
 for a in list1:
     requires_int(a)
@@ -93,3 +93,26 @@ def func3():
         pass
 
     reveal_type(x, expected_text="int | None")
+
+
+class C:
+    @overload
+    def __getitem__(self, i: int) -> str:
+        ...
+
+    @overload
+    def __getitem__(self, i: slice) -> list[str]:
+        ...
+
+    def __getitem__(self, i: Union[int, slice]) -> Union[str, list[str]]:
+        ...
+
+
+c = C()
+
+for c1 in iter(c):
+    reveal_type(c1, expected_text="str")
+
+for c2 in c:
+    reveal_type(c2, expected_text="str")
+
