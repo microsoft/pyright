@@ -493,6 +493,7 @@
         "unusedCoroutine": "Result of async function call is not used; use \"await\" or assign result to variable",
         "unusedExpression": "Expression value is unused",
         "varAnnotationIllegal": "Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions",
+        "variableFinalOverride": "Variable \"{name}\" is marked Final and overrides non-Final variable of same name in class \"{className}\"",
         "variadicTypeArgsTooMany": "Type argument list can have at most one unpacked TypeVarTuple or Tuple",
         "variadicTypeParamTooManyAlias": "Type alias can have at most one TypeVarTuple type parameter but received multiple ({names})",
         "variadicTypeParamTooManyClass": "Generic class can have at most one TypeVarTuple type parameter but received multiple ({names})",

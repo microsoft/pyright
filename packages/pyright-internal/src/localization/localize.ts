@@ -953,6 +953,10 @@ export namespace Localizer {
         export const unusedCoroutine = () => getRawString('Diagnostic.unusedCoroutine');
         export const unusedExpression = () => getRawString('Diagnostic.unusedExpression');
         export const varAnnotationIllegal = () => getRawString('Diagnostic.varAnnotationIllegal');
+        export const variableFinalOverride = () =>
+            new ParameterizedString<{ className: string; name: string }>(
+                getRawString('Diagnostic.variableFinalOverride')
+            );
         export const variadicTypeArgsTooMany = () => getRawString('Diagnostic.variadicTypeArgsTooMany');
         export const variadicTypeParamTooManyAlias = () =>
             new ParameterizedString<{ names: string }>(getRawString('Diagnostic.variadicTypeParamTooManyAlias'));

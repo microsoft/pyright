@@ -4655,7 +4655,7 @@ export class Checker extends ParseTreeWalker {
 
             // If the symbol has no declaration, and the type is inferred,
             // skip this check.
-            if (!symbol.hasTypedDeclarations()) {
+            if (!symbol.hasTypedDeclarations() && !isFinalVariable(symbol)) {
                 return;
             }
 
@@ -4958,6 +4958,30 @@ export class Checker extends ParseTreeWalker {
                                 Localizer.DiagnosticAddendum.overriddenSymbol(),
                                 origDecl.path,
                                 origDecl.range
+                            );
+                        }
+                    }
+
+                    // Verify that there is not a Final mismatch.
+                    const isBaseVarFinal = isFinalVariable(baseClassAndSymbol.symbol);
+                    const overrideFinalVarDecl = decls.find((d) => isFinalVariableDeclaration(d));
+
+                    if (!isBaseVarFinal && overrideFinalVarDecl) {
+                        const diag = this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            Localizer.Diagnostic.variableFinalOverride().format({
+                                name: memberName,
+                                className: baseClassAndSymbol.classType.details.name,
+                            }),
+                            lastDecl.node
+                        );
+
+                        if (diag) {
+                            diag.addRelatedInfo(
+                                Localizer.DiagnosticAddendum.overriddenSymbol(),
+                                overrideFinalVarDecl.path,
+                                overrideFinalVarDecl.range
                             );
                         }
                     }

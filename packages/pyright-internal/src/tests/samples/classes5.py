@@ -39,6 +39,8 @@ class Subclass1(ParentClass1):
 
     cv3 = 3
 
+    # This should generate an error if reportIncompatibleVariableOverride
+    # is enabled because it's overriding a non-final with a final.
     cv4: Final = 3
 
     # This should generate an error if reportIncompatibleVariableOverride is
@@ -116,7 +118,7 @@ class ParentClass2:
         self.iv_infer_3 = 1.0
 
 
-class SublassDeclared2(ParentClass2):
+class SubclassDeclared2(ParentClass2):
     cv_decl_1: int
 
     # This should generate an error if reportIncompatibleVariableOverride
@@ -161,7 +163,7 @@ class SublassDeclared2(ParentClass2):
         self.iv_infer_3: Optional[float]
 
 
-class SublassInferred2(ParentClass2):
+class SubclassInferred2(ParentClass2):
     cv_decl_1 = 1
 
     # This should generate an error.
@@ -200,11 +202,11 @@ class SublassInferred2(ParentClass2):
         self.iv_infer_3 = None
 
 
-class SublassTuple1(ParentClass2):
+class SubclassTuple1(ParentClass2):
     cv_decl_1, cv_decl_2, cv_decl_3 = (3, 4.5, 6.0)
 
 
-class SublassTuple2(ParentClass2):
+class SubclassTuple2(ParentClass2):
     # This should generate an error.
     cv_decl_1, cv_decl_2, cv_decl_3 = (3, 4.5, None)
 
@@ -258,3 +260,20 @@ class PeerClass2:
 # is enabled.
 class MultipleInheritance1(PeerClass1, PeerClass2):
     pass
+
+
+class ParentClass4(Protocol):
+    x: ClassVar[int]
+    y: int
+
+
+class ChildClass4(ParentClass4):
+    # This should generate 2 errors if reportIncompatibleVariableOverride
+    # is enabled, one for overriding a classvar with an instance var, the
+    # other for overriding a non-final with a final.
+    x: Final = 0
+
+    # This should generate 1 error if reportIncompatibleVariableOverride
+    # is enabled because it is overriding a non-final with a final.
+    y: Final = 0
+
