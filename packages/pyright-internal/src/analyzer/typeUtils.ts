@@ -464,9 +464,94 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
     return transformedSubtype;
 }
 
-export function doForEachSubtype(type: Type, callback: (type: Type, index: number) => void): void {
+// Sorts types into a deterministic order.
+export function sortTypes(types: Type[]): Type[] {
+    return types.sort((a, b) => {
+        if (a.category !== b.category) {
+            return a.category - b.category;
+        }
+
+        switch (a.category) {
+            case TypeCategory.Unbound:
+            case TypeCategory.Unknown:
+            case TypeCategory.Any:
+            case TypeCategory.None:
+            case TypeCategory.Never:
+            case TypeCategory.Union: {
+                return 0;
+            }
+
+            case TypeCategory.Function: {
+                const aName = a.details.name;
+                const bName = (b as FunctionType).details.name;
+                return aName < bName ? -1 : aName === bName ? 0 : 1;
+            }
+
+            case TypeCategory.OverloadedFunction: {
+                const aName = a.overloads[0].details.name;
+                const bName = (b as OverloadedFunctionType).overloads[0].details.name;
+                return aName < bName ? -1 : aName === bName ? 0 : 1;
+            }
+
+            case TypeCategory.Class: {
+                const bClass = b as ClassType;
+
+                // Sort instances before instantiables.
+                if (isClassInstance(a) && isInstantiableClass(bClass)) {
+                    return -1;
+                } else if (isInstantiableClass(a) && isClassInstance(bClass)) {
+                    return 1;
+                }
+
+                // Sort literals before non-literals.
+                if (isLiteralType(a)) {
+                    if (!isLiteralType(bClass)) {
+                        return -1;
+                    }
+                } else if (isLiteralType(bClass)) {
+                    return 1;
+                }
+
+                // Sort non-generics before generics.
+                if (a.details.typeParameters.length > 0 || isTupleClass(a)) {
+                    if (bClass.details.typeParameters.length === 0) {
+                        return 1;
+                    }
+                } else if (bClass.details.typeParameters.length > 0 || isTupleClass(bClass)) {
+                    return -1;
+                }
+
+                // Sort by class name.
+                const aName = a.details.name;
+                const bName = (b as ClassType).details.name;
+                return aName < bName ? -1 : aName === bName ? 0 : 1;
+            }
+
+            case TypeCategory.Module: {
+                const aName = a.moduleName;
+                const bName = (b as ModuleType).moduleName;
+                return aName < bName ? -1 : aName === bName ? 0 : 1;
+            }
+
+            case TypeCategory.TypeVar: {
+                const aName = a.details.name;
+                const bName = (b as TypeVarType).details.name;
+                return aName < bName ? -1 : aName === bName ? 0 : 1;
+            }
+        }
+
+        return 1;
+    });
+}
+
+export function doForEachSubtype(
+    type: Type,
+    callback: (type: Type, index: number) => void,
+    sortSubtypes = false
+): void {
     if (isUnion(type)) {
-        type.subtypes.forEach((subtype, index) => {
+        const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
+        subtypes.forEach((subtype, index) => {
             callback(subtype, index);
         });
     } else {

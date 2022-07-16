@@ -34,9 +34,9 @@ def is_list(val: object) -> StrictTypeGuard[list[Any]]:
 
 def func3(val: dict[str, str] | list[str] | list[int] | Sequence[int]):
     if is_list(val):
-        reveal_type(val, expected_text="list[str] | list[int] | list[Any]")
+        reveal_type(val, expected_text="list[Any] | list[str] | list[int]")
     else:
-        reveal_type(val, expected_text="dict[str, str] | Sequence[int]")
+        reveal_type(val, expected_text="Sequence[int] | dict[str, str]")
 
 
 def func4(val: dict[str, str] | list[str] | list[int] | tuple[int]):

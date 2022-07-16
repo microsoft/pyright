@@ -46,7 +46,7 @@ def func4(a: Union[str, A]):
     if type(a) is B:
         reveal_type(a, expected_text="B")
     else:
-        reveal_type(a, expected_text="str | A")
+        reveal_type(a, expected_text="A | str")
 
 
 T = TypeVar("T")
