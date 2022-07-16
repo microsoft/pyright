@@ -16,7 +16,7 @@ import { Binder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
 import { IPythonMode } from '../analyzer/sourceFile';
-import { NameTypeWalker, TestWalker } from '../analyzer/testWalker';
+import { NameTypeWalker } from '../analyzer/testWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { fail } from '../common/debug';
@@ -137,10 +137,6 @@ export function bindSampleFile(fileName: string, configOptions = new ConfigOptio
     const fileInfo = buildAnalyzerFileInfo(filePath, parseInfo.fileContents, parseInfo.parseResults, configOptions);
     const binder = new Binder(fileInfo);
     binder.bindModule(parseInfo.parseResults.parseTree);
-
-    // Walk the AST to verify internal consistency.
-    const testWalker = new TestWalker();
-    testWalker.walk(parseInfo.parseResults.parseTree);
 
     return {
         filePath,
