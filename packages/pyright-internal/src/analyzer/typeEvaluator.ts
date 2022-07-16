@@ -18575,7 +18575,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.parent.nodeType === ParseNodeType.MemberAccess &&
             node === node.parent.memberName
         ) {
-            let baseType = getTypeOfExpression(node.parent.leftExpression, EvaluatorFlags.DoNotSpecialize).type;
+            let baseType = getType(node.parent.leftExpression);
             if (baseType) {
                 baseType = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = node.parent.memberName.value;
@@ -18653,10 +18653,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const argNode = node.parent;
             const paramName = node.value;
             if (argNode.parent && argNode.parent.nodeType === ParseNodeType.Call) {
-                const baseType = getTypeOfExpression(
-                    argNode.parent.leftExpression,
-                    EvaluatorFlags.DoNotSpecialize
-                ).type;
+                const baseType = getType(argNode.parent.leftExpression);
 
                 if (baseType) {
                     if (isFunction(baseType) && baseType.details.declaration) {
