@@ -31,7 +31,7 @@ import { fromLSPAny } from '../common/lspUtils';
 import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
-import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/textRange';
+import { DocumentRange, getEmptyRange, Position, Range, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
@@ -284,7 +284,11 @@ export class SourceFile {
         if (this._diagnosticRuleSet.enableTypeIgnoreComments) {
             if (this._typeIgnoreLines.size > 0) {
                 diagList = diagList.filter((d) => {
-                    if (d.category !== DiagnosticCategory.UnusedCode && d.category !== DiagnosticCategory.Deprecated) {
+                    if (
+                        d.category !== DiagnosticCategory.UnusedCode &&
+                        d.category !== DiagnosticCategory.UnreachableCode &&
+                        d.category !== DiagnosticCategory.Deprecated
+                    ) {
                         for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                             if (this._typeIgnoreLines.has(line)) {
                                 typeIgnoreLinesClone.delete(line);
@@ -301,7 +305,11 @@ export class SourceFile {
         // Filter the diagnostics based on "pyright: ignore" lines.
         if (this._pyrightIgnoreLines.size > 0) {
             diagList = diagList.filter((d) => {
-                if (d.category !== DiagnosticCategory.UnusedCode && d.category !== DiagnosticCategory.Deprecated) {
+                if (
+                    d.category !== DiagnosticCategory.UnusedCode &&
+                    d.category !== DiagnosticCategory.UnreachableCode &&
+                    d.category !== DiagnosticCategory.Deprecated
+                ) {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                         const pyrightIgnoreComment = this._pyrightIgnoreLines.get(line);
                         if (pyrightIgnoreComment) {
@@ -359,65 +367,82 @@ export class SourceFile {
                     diag.category === DiagnosticCategory.Information
             );
 
-            if (prefilteredErrorList.length === 0 && this._typeIgnoreAll !== undefined) {
-                unnecessaryTypeIgnoreDiags.push(
-                    new Diagnostic(
-                        diagCategory,
-                        Localizer.Diagnostic.unnecessaryTypeIgnore(),
-                        convertOffsetsToRange(
-                            this._typeIgnoreAll.range.start,
-                            this._typeIgnoreAll.range.start + this._typeIgnoreAll.range.length,
-                            this._parseResults!.tokenizerOutput.lines!
-                        )
-                    )
+            const isUnreachableCodeRange = (range: Range) => {
+                return prefilteredDiagList.find(
+                    (diag) =>
+                        diag.category === DiagnosticCategory.UnreachableCode &&
+                        diag.range.start.line <= range.start.line &&
+                        diag.range.end.line >= range.end.line
                 );
+            };
+
+            if (prefilteredErrorList.length === 0 && this._typeIgnoreAll !== undefined) {
+                const rangeStart = this._typeIgnoreAll.range.start;
+                const rangeEnd = rangeStart + this._typeIgnoreAll.range.length;
+                const range = convertOffsetsToRange(rangeStart, rangeEnd, this._parseResults!.tokenizerOutput.lines!);
+
+                if (!isUnreachableCodeRange(range)) {
+                    unnecessaryTypeIgnoreDiags.push(
+                        new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryTypeIgnore(), range)
+                    );
+                }
             }
 
             typeIgnoreLinesClone.forEach((ignoreComment) => {
                 if (this._parseResults?.tokenizerOutput.lines) {
-                    unnecessaryTypeIgnoreDiags.push(
-                        new Diagnostic(
-                            diagCategory,
-                            Localizer.Diagnostic.unnecessaryTypeIgnore(),
-                            convertOffsetsToRange(
-                                ignoreComment.range.start,
-                                ignoreComment.range.start + ignoreComment.range.length,
-                                this._parseResults!.tokenizerOutput.lines!
-                            )
-                        )
+                    const rangeStart = ignoreComment.range.start;
+                    const rangeEnd = rangeStart + ignoreComment.range.length;
+                    const range = convertOffsetsToRange(
+                        rangeStart,
+                        rangeEnd,
+                        this._parseResults!.tokenizerOutput.lines!
                     );
+
+                    if (!isUnreachableCodeRange(range)) {
+                        unnecessaryTypeIgnoreDiags.push(
+                            new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryTypeIgnore(), range)
+                        );
+                    }
                 }
             });
 
             pyrightIgnoreLinesClone.forEach((ignoreComment) => {
                 if (this._parseResults?.tokenizerOutput.lines) {
                     if (!ignoreComment.rulesList) {
-                        unnecessaryTypeIgnoreDiags.push(
-                            new Diagnostic(
-                                diagCategory,
-                                Localizer.Diagnostic.unnecessaryPyrightIgnore(),
-                                convertOffsetsToRange(
-                                    ignoreComment.range.start,
-                                    ignoreComment.range.start + ignoreComment.range.length,
-                                    this._parseResults!.tokenizerOutput.lines!
-                                )
-                            )
+                        const rangeStart = ignoreComment.range.start;
+                        const rangeEnd = rangeStart + ignoreComment.range.length;
+                        const range = convertOffsetsToRange(
+                            rangeStart,
+                            rangeEnd,
+                            this._parseResults!.tokenizerOutput.lines!
                         );
+
+                        if (!isUnreachableCodeRange(range)) {
+                            unnecessaryTypeIgnoreDiags.push(
+                                new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryPyrightIgnore(), range)
+                            );
+                        }
                     } else {
                         ignoreComment.rulesList.forEach((unusedRule) => {
-                            unnecessaryTypeIgnoreDiags.push(
-                                new Diagnostic(
-                                    diagCategory,
-                                    Localizer.Diagnostic.unnecessaryPyrightIgnoreRule().format({
-                                        name: unusedRule.text,
-                                    }),
-                                    convertOffsetsToRange(
-                                        unusedRule.range.start,
-                                        unusedRule.range.start + unusedRule.range.length,
-                                        this._parseResults!.tokenizerOutput.lines!
-                                    )
-                                )
+                            const rangeStart = unusedRule.range.start;
+                            const rangeEnd = rangeStart + unusedRule.range.length;
+                            const range = convertOffsetsToRange(
+                                rangeStart,
+                                rangeEnd,
+                                this._parseResults!.tokenizerOutput.lines!
                             );
+
+                            if (!isUnreachableCodeRange(range)) {
+                                unnecessaryTypeIgnoreDiags.push(
+                                    new Diagnostic(
+                                        diagCategory,
+                                        Localizer.Diagnostic.unnecessaryPyrightIgnoreRule().format({
+                                            name: unusedRule.text,
+                                        }),
+                                        range
+                                    )
+                                );
+                            }
                         });
                     }
                 }
@@ -480,7 +505,9 @@ export class SourceFile {
         if (!includeWarningsAndErrors) {
             diagList = diagList.filter(
                 (diag) =>
-                    diag.category === DiagnosticCategory.UnusedCode || diag.category === DiagnosticCategory.Deprecated
+                    diag.category === DiagnosticCategory.UnusedCode ||
+                    diag.category === DiagnosticCategory.UnreachableCode ||
+                    diag.category === DiagnosticCategory.Deprecated
             );
         }
 

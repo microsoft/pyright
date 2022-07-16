@@ -2665,6 +2665,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
+    function addUnreachableCode(node: ParseNode, textRange: TextRange) {
+        if (!isDiagnosticSuppressedForNode(node)) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange);
+        }
+    }
+
     function addDeprecated(message: string, node: ParseNode) {
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
@@ -24036,6 +24043,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         addWarning,
         addInformation,
         addUnusedCode,
+        addUnreachableCode,
         addDeprecated,
         addDiagnostic,
         addDiagnosticForTextRange,

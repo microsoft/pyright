@@ -39,6 +39,7 @@ export interface FileAnalysisResult {
     warnings: Diagnostic[];
     infos: Diagnostic[];
     unusedCodes: Diagnostic[];
+    unreachableCodes: Diagnostic[];
     deprecateds: Diagnostic[];
 }
 
@@ -148,6 +149,7 @@ export function bindSampleFile(fileName: string, configOptions = new ConfigOptio
         warnings: fileInfo.diagnosticSink.getWarnings(),
         infos: fileInfo.diagnosticSink.getInformation(),
         unusedCodes: fileInfo.diagnosticSink.getUnusedCode(),
+        unreachableCodes: fileInfo.diagnosticSink.getUnreachableCode(),
         deprecateds: fileInfo.diagnosticSink.getDeprecated(),
     };
 }
@@ -190,6 +192,7 @@ export function typeAnalyzeSampleFiles(
                 warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
                 infos: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information),
                 unusedCodes: diagnostics.filter((diag) => diag.category === DiagnosticCategory.UnusedCode),
+                unreachableCodes: diagnostics.filter((diag) => diag.category === DiagnosticCategory.UnreachableCode),
                 deprecateds: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Deprecated),
             };
             return analysisResult;
@@ -203,6 +206,7 @@ export function typeAnalyzeSampleFiles(
                 warnings: [],
                 infos: [],
                 unusedCodes: [],
+                unreachableCodes: [],
                 deprecateds: [],
             };
             return analysisResult;
@@ -232,6 +236,7 @@ export function validateResults(
     warningCount = 0,
     infoCount?: number,
     unusedCode?: number,
+    unreachableCode?: number,
     deprecated?: number
 ) {
     assert.strictEqual(results.length, 1);
@@ -244,6 +249,10 @@ export function validateResults(
 
     if (unusedCode !== undefined) {
         assert.strictEqual(results[0].unusedCodes.length, unusedCode);
+    }
+
+    if (unreachableCode !== undefined) {
+        assert.strictEqual(results[0].unreachableCodes.length, unreachableCode);
     }
 
     if (deprecated !== undefined) {

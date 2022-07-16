@@ -59,6 +59,14 @@ export class DiagnosticSink {
         return this.addDiagnostic(diag);
     }
 
+    addUnreachableCode(message: string, range: Range, action?: DiagnosticAction) {
+        const diag = new Diagnostic(DiagnosticCategory.UnreachableCode, message, range);
+        if (action) {
+            diag.addAction(action);
+        }
+        return this.addDiagnostic(diag);
+    }
+
     addDeprecated(message: string, range: Range, action?: DiagnosticAction) {
         const diag = new Diagnostic(DiagnosticCategory.Deprecated, message, range);
         if (action) {
@@ -100,6 +108,10 @@ export class DiagnosticSink {
         return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
     }
 
+    getUnreachableCode() {
+        return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.UnreachableCode);
+    }
+
     getDeprecated() {
         return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Deprecated);
     }
@@ -134,6 +146,14 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
 
     addUnusedCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
         return this.addUnusedCode(
+            message,
+            convertOffsetsToRange(range.start, range.start + range.length, this._lines),
+            action
+        );
+    }
+
+    addUnreachableCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
+        return this.addUnreachableCode(
             message,
             convertOffsetsToRange(range.start, range.start + range.length, this._lines),
             action

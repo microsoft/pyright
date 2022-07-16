@@ -744,7 +744,10 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
     fileDiagnostics.forEach((fileDiagnostics) => {
         // Don't report unused code or deprecated diagnostics.
         const fileErrorsAndWarnings = fileDiagnostics.diagnostics.filter(
-            (diag) => diag.category !== DiagnosticCategory.UnusedCode && diag.category !== DiagnosticCategory.Deprecated
+            (diag) =>
+                diag.category !== DiagnosticCategory.UnusedCode &&
+                diag.category !== DiagnosticCategory.UnreachableCode &&
+                diag.category !== DiagnosticCategory.Deprecated
         );
 
         if (fileErrorsAndWarnings.length > 0) {

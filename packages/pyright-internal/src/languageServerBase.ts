@@ -1488,7 +1488,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const rule = diag.getRule();
             const vsDiag = Diagnostic.create(diag.range, diag.message, severity, rule, this._serverOptions.productName);
 
-            if (diag.category === DiagnosticCategory.UnusedCode) {
+            if (
+                diag.category === DiagnosticCategory.UnusedCode ||
+                diag.category === DiagnosticCategory.UnreachableCode
+            ) {
                 vsDiag.tags = [DiagnosticTag.Unnecessary];
                 vsDiag.severity = DiagnosticSeverity.Hint;
 
@@ -1542,6 +1545,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     return DiagnosticSeverity.Information;
 
                 case DiagnosticCategory.UnusedCode:
+                case DiagnosticCategory.UnreachableCode:
                 case DiagnosticCategory.Deprecated:
                     return DiagnosticSeverity.Hint;
             }

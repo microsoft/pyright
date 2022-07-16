@@ -21,6 +21,7 @@ export const enum DiagnosticCategory {
     Warning,
     Information,
     UnusedCode,
+    UnreachableCode,
     Deprecated,
 }
 

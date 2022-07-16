@@ -2125,7 +2125,7 @@ export class Checker extends ParseTreeWalker {
                     const start = statement.start;
                     const lastStatement = statements[statements.length - 1];
                     const end = TextRange.getEnd(lastStatement);
-                    this._evaluator.addUnusedCode(statement, { start, length: end - start });
+                    this._evaluator.addUnreachableCode(statement, { start, length: end - start });
 
                     reportedUnreachable = true;
                 }
@@ -5442,7 +5442,7 @@ export class Checker extends ParseTreeWalker {
                         Localizer.Diagnostic.unreachableExcept() + diagAddendum.getString(),
                         except.typeExpression
                     );
-                    this._evaluator.addUnusedCode(except, except.exceptSuite);
+                    this._evaluator.addUnreachableCode(except, except.exceptSuite);
                 }
             }
 
