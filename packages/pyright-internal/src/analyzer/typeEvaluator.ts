@@ -2872,14 +2872,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        writeTypeCache(
-            nameNode,
-            destType,
-            EvaluatorFlags.None,
-            isTypeIncomplete,
-            /* expectedType */ undefined,
-            /* allowSpeculativeCaching */ false
-        );
+        writeTypeCache(nameNode, destType, EvaluatorFlags.None, isTypeIncomplete);
     }
 
     function assignTypeToMemberAccessNode(
@@ -2951,22 +2944,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             setAsymmetricDescriptorAssignment(target);
         }
 
-        writeTypeCache(
-            target.memberName,
-            type,
-            EvaluatorFlags.None,
-            isTypeIncomplete,
-            /* expectedType */ undefined,
-            /* allowSpeculativeCaching */ false
-        );
-        writeTypeCache(
-            target,
-            type,
-            EvaluatorFlags.None,
-            isTypeIncomplete,
-            /* expectedType */ undefined,
-            /* allowSpeculativeCaching */ false
-        );
+        writeTypeCache(target.memberName, type, EvaluatorFlags.None, isTypeIncomplete);
+        writeTypeCache(target, type, EvaluatorFlags.None, isTypeIncomplete);
     }
 
     function assignTypeToMemberVariable(
@@ -21710,70 +21689,95 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
         let foundMatch = false;
-        // Run through all subtypes in the union. Don't stop at the first
-        // match we find because we may need to match TypeVars in other
-        // subtypes. We special-case "None" so we can handle Optional[T]
-        // without matching the None to the type var.
-        if (isNoneInstance(srcType) && isOptionalType(destType)) {
-            foundMatch = true;
-        } else {
-            let bestDestTypeVarContext: TypeVarContext | undefined;
-            let bestSrcTypeVarContext: TypeVarContext | undefined;
-            let bestTypeVarContextScore: number | undefined;
 
-            // If the srcType is a literal, try to use the fast-path lookup
-            // in case the destType is a union with hundreds of literals.
-            if (
-                isClassInstance(srcType) &&
-                isLiteralType(srcType) &&
-                UnionType.containsType(destType, srcType, recursionCount)
-            ) {
-                return true;
-            }
-
-            doForEachSubtype(destType, (subtype) => {
-                // Make a temporary clone of the typeVarContext. We don't want to modify
-                // the original typeVarContext until we find the "optimal" typeVar mapping.
-                const destTypeVarContextClone = destTypeVarContext?.clone();
-                const srcTypeVarContextClone = srcTypeVarContext?.clone();
+        // Does the union contain any type variables that need to be solved?
+        // If so, we need to use a slower path.
+        if (!requiresSpecialization(destType)) {
+            for (const subtype of destType.subtypes) {
                 if (
                     assignType(
                         subtype,
                         srcType,
                         diagAddendum?.createAddendum(),
-                        destTypeVarContextClone,
-                        srcTypeVarContextClone,
+                        /* destTypeVarContextClone */ undefined,
+                        /* srcTypeVarContextClone */ undefined,
                         flags,
                         recursionCount
                     )
                 ) {
                     foundMatch = true;
-                    if (destTypeVarContextClone) {
-                        // Ask the typeVarContext to compute a "score" for the current
-                        // contents of the table.
-                        let typeVarContextScore = destTypeVarContextClone.getScore();
+                    break;
+                }
+            }
+        } else {
+            // Run through all subtypes in the union. Don't stop at the first
+            // match we find because we may need to match TypeVars in other
+            // subtypes. We special-case "None" so we can handle Optional[T]
+            // without matching the None to the type var.
+            if (isNoneInstance(srcType) && isOptionalType(destType)) {
+                foundMatch = true;
+            } else {
+                let bestDestTypeVarContext: TypeVarContext | undefined;
+                let bestSrcTypeVarContext: TypeVarContext | undefined;
+                let bestTypeVarContextScore: number | undefined;
 
-                        // If the type matches exactly, prefer it over other types.
-                        if (isTypeSame(subtype, stripLiteralValue(srcType))) {
-                            typeVarContextScore = Number.POSITIVE_INFINITY;
-                        }
+                // If the srcType is a literal, try to use the fast-path lookup
+                // in case the destType is a union with hundreds of literals.
+                if (
+                    isClassInstance(srcType) &&
+                    isLiteralType(srcType) &&
+                    UnionType.containsType(destType, srcType, recursionCount)
+                ) {
+                    return true;
+                }
 
-                        if (bestTypeVarContextScore === undefined || bestTypeVarContextScore <= typeVarContextScore) {
-                            // We found a typeVar mapping with a higher score than before.
-                            bestTypeVarContextScore = typeVarContextScore;
-                            bestDestTypeVarContext = destTypeVarContextClone;
-                            bestSrcTypeVarContext = srcTypeVarContextClone;
+                doForEachSubtype(destType, (subtype) => {
+                    // Make a temporary clone of the typeVarContext. We don't want to modify
+                    // the original typeVarContext until we find the "optimal" typeVar mapping.
+                    const destTypeVarContextClone = destTypeVarContext?.clone();
+                    const srcTypeVarContextClone = srcTypeVarContext?.clone();
+                    if (
+                        assignType(
+                            subtype,
+                            srcType,
+                            diagAddendum?.createAddendum(),
+                            destTypeVarContextClone,
+                            srcTypeVarContextClone,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        foundMatch = true;
+                        if (destTypeVarContextClone) {
+                            // Ask the typeVarContext to compute a "score" for the current
+                            // contents of the table.
+                            let typeVarContextScore = destTypeVarContextClone.getScore();
+
+                            // If the type matches exactly, prefer it over other types.
+                            if (isTypeSame(subtype, stripLiteralValue(srcType))) {
+                                typeVarContextScore = Number.POSITIVE_INFINITY;
+                            }
+
+                            if (
+                                bestTypeVarContextScore === undefined ||
+                                bestTypeVarContextScore <= typeVarContextScore
+                            ) {
+                                // We found a typeVar mapping with a higher score than before.
+                                bestTypeVarContextScore = typeVarContextScore;
+                                bestDestTypeVarContext = destTypeVarContextClone;
+                                bestSrcTypeVarContext = srcTypeVarContextClone;
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            // If we found a winning type var mapping, copy it back to typeVarContext.
-            if (destTypeVarContext && bestDestTypeVarContext) {
-                destTypeVarContext.copyFromClone(bestDestTypeVarContext);
-            }
-            if (srcTypeVarContext && bestSrcTypeVarContext) {
-                srcTypeVarContext.copyFromClone(bestSrcTypeVarContext);
+                // If we found a winning type var mapping, copy it back to typeVarContext.
+                if (destTypeVarContext && bestDestTypeVarContext) {
+                    destTypeVarContext.copyFromClone(bestDestTypeVarContext);
+                }
+                if (srcTypeVarContext && bestSrcTypeVarContext) {
+                    srcTypeVarContext.copyFromClone(bestSrcTypeVarContext);
+                }
             }
         }
 
@@ -21805,6 +21809,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
             return false;
         }
+
         return true;
     }
 
