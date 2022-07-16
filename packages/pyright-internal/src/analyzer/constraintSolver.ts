@@ -516,7 +516,7 @@ export function assignTypeToTypeVar(
                 }
             } else {
                 // We need to widen the type.
-                if (typeVarContext.isLocked() || isTypeVar(adjSrcType)) {
+                if (typeVarContext.isLocked()) {
                     diag?.addMessage(
                         Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
                             sourceType: evaluator.printType(curNarrowTypeBound),
