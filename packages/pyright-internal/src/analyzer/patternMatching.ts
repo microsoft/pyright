@@ -792,7 +792,7 @@ function narrowTypeBasedOnValuePattern(
                                 : AnyType.create();
                         }
 
-                        // Determine if we assignment is supported for this combination of
+                        // Determine if assignment is supported for this combination of
                         // value subtype and matching subtype.
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
                             evaluator.getTypeOfMagicMethodReturn(
