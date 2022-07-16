@@ -2832,6 +2832,9 @@ class TypeVarTransformer {
         let variadicTypesToUnpack: TupleTypeArgument[] | undefined;
         const specializedDefaultArgs: (Type | undefined)[] = [];
 
+        const wasTransformingTypeArg = this._isTransformingTypeArg;
+        this._isTransformingTypeArg = true;
+
         for (let i = 0; i < functionType.details.parameters.length; i++) {
             const paramType = FunctionType.getEffectiveParameterType(functionType, i);
             const specializedType = this.apply(paramType, recursionCount);
@@ -2872,6 +2875,8 @@ class TypeVarTransformer {
                 typesRequiredSpecialization = true;
             }
         }
+
+        this._isTransformingTypeArg = wasTransformingTypeArg;
 
         if (!typesRequiredSpecialization) {
             return functionType;
