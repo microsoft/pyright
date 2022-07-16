@@ -7346,7 +7346,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         resultIsInstance && bindToType && isInstantiableClass(bindToType)
                             ? ClassType.cloneAsInstance(bindToType)
                             : bindToType,
-                    isSuperCall: true,
                 };
             }
         }
@@ -7359,7 +7358,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (targetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
                 return {
                     type: UnknownType.create(),
-                    isSuperCall: true,
                     node,
                 };
             }
@@ -7370,7 +7368,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isInstantiableClass(baseClassType)) {
                     return {
                         type: resultIsInstance ? ClassType.cloneAsInstance(baseClassType) : baseClassType,
-                        isSuperCall: true,
                         node,
                     };
                 }
@@ -7379,7 +7376,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         return {
             type: UnknownType.create(),
-            isSuperCall: true,
             node,
         };
     }
