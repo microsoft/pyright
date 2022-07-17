@@ -7410,11 +7410,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
                 }
 
-                // Clone the typeVarContext so we don't modify the original.
-                const effectiveTypeVarContext = typeVarContext
-                    ? typeVarContext.clone()
-                    : new TypeVarContext(getTypeVarScopeId(overload));
+                // Clone the typeVarContext so we don't modify the original. If this is
+                // not the first time through the loop, clone the type var context
+                // from the previous successful match.
+                const typeVarContextToClone =
+                    matchedOverloads.length > 0
+                        ? matchedOverloads[matchedOverloads.length - 1].typeVarContext.clone()
+                        : typeVarContext;
+                const effectiveTypeVarContext =
+                    typeVarContextToClone?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
                 effectiveTypeVarContext.addSolveForScope(getTypeVarScopeId(overload));
+                effectiveTypeVarContext.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
@@ -7449,34 +7455,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // We found a match for all of the expanded argument lists.
-        // Run through them again to populate the original typeVarContext.
+        // We found a match for all of the expanded argument lists. Copy the
+        // resulting type var context back into the caller's type var context.
+        // Use the type var context from the last matched overload because it
+        // includes the type var solutions for all earlier matched overloads.
         if (typeVarContext) {
-            for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
-                const overload = matchedOverloads[expandedTypesIndex].overload;
-                const matchResults = matchedOverloads[expandedTypesIndex].matchResults;
-
-                useSpeculativeMode(errorNode, () => {
-                    typeVarContext.addSolveForScope(getTypeVarScopeId(overload));
-                    typeVarContext.unlock();
-                    return validateFunctionArgumentTypesWithExpectedType(
-                        errorNode,
-                        matchResults,
-                        typeVarContext,
-                        /* skipUnknownArgCheck */ true,
-                        expectedType
-                    );
-                });
-            }
+            typeVarContext.copyFromClone(matchedOverloads[matchedOverloads.length - 1].typeVarContext);
         }
 
         // And run through the first expanded argument list one more time to
         // populate the type cache.
-        matchedOverloads[0].typeVarContext.unlock();
+        const finalTypeVarContext = typeVarContext ?? matchedOverloads[0].typeVarContext;
+        finalTypeVarContext.unlock();
+        finalTypeVarContext.addSolveForScope(getTypeVarScopeId(matchedOverloads[0].overload));
         const finalCallResult = validateFunctionArgumentTypesWithExpectedType(
             errorNode,
             matchedOverloads[0].matchResults,
-            matchedOverloads[0].typeVarContext,
+            finalTypeVarContext,
             skipUnknownArgCheck,
             expectedType
         );
