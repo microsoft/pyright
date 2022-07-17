@@ -8,7 +8,7 @@
  */
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { assertNever, fail } from '../common/debug';
+import { assert, assertNever, fail } from '../common/debug';
 import { convertPositionToOffset, convertTextRangeToRange } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -933,11 +933,69 @@ export function isNodeContainedWithin(node: ParseNode, potentialContainer: Parse
 
 export function getParentNodeOfType(node: ParseNode, containerType: ParseNodeType): ParseNode | undefined {
     let curNode: ParseNode | undefined = node;
+
     while (curNode) {
         if (curNode.nodeType === containerType) {
             return curNode;
         }
 
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
+
+// If the specified node is contained within an expression that is intended to be
+// interpreted as a type annotation, this function returns the annotation node.
+export function getParentAnnotationNode(node: ExpressionNode): ExpressionNode | undefined {
+    let curNode: ParseNode | undefined = node;
+    let prevNode: ParseNode | undefined;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Function) {
+            if (prevNode === curNode.returnTypeAnnotation) {
+                return prevNode;
+            }
+            return undefined;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Parameter) {
+            if (prevNode === curNode.typeAnnotation || prevNode === curNode.typeAnnotationComment) {
+                return prevNode;
+            }
+            return undefined;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Assignment) {
+            if (prevNode === curNode.typeAnnotationComment) {
+                return prevNode;
+            }
+            return undefined;
+        }
+
+        if (curNode.nodeType === ParseNodeType.TypeAnnotation) {
+            if (prevNode === curNode.typeAnnotation) {
+                return prevNode;
+            }
+            return undefined;
+        }
+
+        if (curNode.nodeType === ParseNodeType.FunctionAnnotation) {
+            if (prevNode === curNode.returnTypeAnnotation || curNode.paramTypeAnnotations.some((p) => p === prevNode)) {
+                assert(!prevNode || isExpressionNode(prevNode));
+                return prevNode;
+            }
+            return undefined;
+        }
+
+        if (curNode.nodeType === ParseNodeType.StringList) {
+            if (prevNode === curNode.typeAnnotation) {
+                return prevNode;
+            }
+            return undefined;
+        }
+
+        prevNode = curNode;
         curNode = curNode.parent;
     }
 

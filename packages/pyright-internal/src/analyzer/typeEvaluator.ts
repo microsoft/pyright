@@ -23,7 +23,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { convertOffsetsToRange } from '../common/positionUtils';
+import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
@@ -670,11 +670,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (evaluatorOptions.verifyTypeCacheEvaluatorFlags || verifyTypeCacheEvaluatorFlags) {
             if (flags !== undefined) {
                 const expectedFlags = typeCacheFlags.get(node.id);
+
                 if (expectedFlags !== undefined && flags !== expectedFlags) {
-                    fail(
-                        `Type cache flag mismatch for node type ${node.nodeType}: ` +
-                            `cached flags = ${expectedFlags}, access flags = ${flags}`
-                    );
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+                    const position = convertOffsetToPosition(node.start, fileInfo.lines);
+
+                    const message =
+                        `Type cache flag mismatch for node type ${node.nodeType} ` +
+                        `(parent ${node.parent?.nodeType ?? 'none'}): ` +
+                        `cached flags = ${expectedFlags}, access flags = ${flags}, ` +
+                        `file = {${fileInfo.filePath} [${position.line + 1}:${position.character + 1}]}`;
+                    if (evaluatorOptions.verifyTypeCacheEvaluatorFlags) {
+                        fail(message);
+                    } else {
+                        console.log(message);
+                    }
                 }
             }
         }
@@ -838,16 +848,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // context. For example, if it's a subexpression of an argument expression,
     // the associated parameter type might inform the expected type.
     function getExpectedType(node: ExpressionNode): ExpectedTypeResult | undefined {
-        evaluateTypesForExpressionInContext(node);
-
+        // Scan up the parse tree to find the top-most expression node
+        // so we can evaluate the entire expression.
+        let topExpression = node;
         let curNode: ParseNode | undefined = node;
-        while (curNode !== undefined) {
+        while (curNode) {
+            if (isExpressionNode(curNode)) {
+                topExpression = curNode;
+            }
+
+            curNode = curNode.parent;
+        }
+
+        // Evaluate the expression. This will have the side effect of
+        // storing an expected type in the expected type cache.
+        evaluateTypesForExpressionInContext(topExpression);
+
+        // Look for the resulting expected type by scanning up the parse tree.
+        curNode = node;
+        while (curNode) {
             const expectedType = expectedTypeCache.get(curNode.id);
             if (expectedType) {
                 return {
                     type: expectedType,
                     node: curNode,
                 };
+            }
+
+            if (curNode === topExpression) {
+                break;
             }
 
             curNode = curNode.parent;
@@ -883,6 +912,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): TypeResult {
         // Is this type already cached?
         const cachedType = readTypeCache(node, flags);
+        const startTime = Date.now();
         if (cachedType) {
             if (printExpressionTypes) {
                 console.log(
@@ -1167,6 +1197,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node
                 )}): Post ${printType(typeResult.type)}${typeResult.isIncomplete ? ' Incomplete' : ''}`
             );
+            const deltaTime = Date.now() - startTime;
+            if (deltaTime > 10) {
+                console.log(`${getPrintExpressionTypesSpaces()}Long expression! ${Math.round(deltaTime)}ms`);
+            }
         }
 
         return typeResult;
@@ -3693,7 +3727,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.MemberAccess: {
-                const baseTypeResult = getTypeOfExpression(node.leftExpression);
+                const baseTypeResult = getTypeOfExpression(node.leftExpression, EvaluatorFlags.DoNotSpecialize);
                 const memberType = getTypeOfMemberAccessWithBaseType(
                     node,
                     baseTypeResult,
@@ -7630,6 +7664,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return evaluateUsingLastMatchingOverload(/* skipUnknownArgCheck */ false);
         }
 
+        if (printExpressionTypes) {
+            console.log(`${getPrintExpressionTypesSpaces()}Evaluating ${filteredMatchResults.length} overloads`);
+        }
+
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
         let isTypeIncomplete = false;
 
@@ -10587,11 +10625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         const argType =
                             argList[i].typeResult?.type ??
-                            getTypeOfExpressionExpectingType(
-                                argList[i].valueExpression!,
-                                /* allowFinal */ undefined,
-                                /* allowRequired */ undefined
-                            ).type;
+                            getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
                         if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
@@ -10630,11 +10664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     const argType =
                         argList[i].typeResult?.type ??
-                        getTypeOfExpressionExpectingType(
-                            argList[i].valueExpression!,
-                            /* allowFinal */ undefined,
-                            /* allowRequired */ undefined
-                        ).type;
+                        getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
 
                     if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
                         addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
@@ -17195,6 +17225,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(node, symbolType, EvaluatorFlags.None, /* isIncomplete */ false);
     }
 
+    function evaluateTypesForTypeAnnotationNode(node: TypeAnnotationNode) {
+        // If this node is part of an assignment statement, use specialized
+        // logic that performs bidirectional inference and assignment
+        // type narrowing.
+        if (node.parent?.nodeType === ParseNodeType.Assignment) {
+            evaluateTypesForAssignmentStatement(node.parent);
+        } else {
+            const annotationType = getTypeOfAnnotation(node.typeAnnotation, {
+                isVariableAnnotation: true,
+                allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.valueExpression),
+                allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(node.valueExpression),
+            });
+
+            writeTypeCache(node.valueExpression, annotationType, EvaluatorFlags.None, /* isIncomplete */ false);
+        }
+    }
+
     function getAliasedSymbolTypeForName(
         node: ImportAsNode | ImportFromAsNode | ImportFromNode,
         name: string
@@ -17285,74 +17332,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // expression or statement that contains it. This contextual evaluation
     // allows for bidirectional type evaluation.
     function evaluateTypesForExpressionInContext(node: ExpressionNode): void {
-        let lastContextualExpression = node;
-        let curNode: ParseNode | undefined = node;
-
-        function isContextual(node: ParseNode) {
-            // Parameters are contextual only for lambdas.
-            if (node.nodeType === ParseNodeType.Parameter && node.parent?.nodeType === ParseNodeType.Lambda) {
-                return true;
-            }
-
-            // Arguments are contextual only for call and index nodes.
-            if (
-                node.nodeType === ParseNodeType.Argument &&
-                (node.parent?.nodeType === ParseNodeType.Call || node.parent?.nodeType === ParseNodeType.Index)
-            ) {
-                return true;
-            }
-
-            // All nodes within a type annotation need to be evaluated
-            // contextually so we pass the "type expected" flag to
-            // the evaluator.
-            if (node.parent?.nodeType === ParseNodeType.TypeAnnotation) {
-                return true;
-            }
-
-            if (
-                node.parent?.nodeType === ParseNodeType.Parameter &&
-                (node === node.parent.typeAnnotation || node === node.parent.typeAnnotationComment)
-            ) {
-                return true;
-            }
-
-            // The | operator is contextual in cases where it is used to describe a
-            // union in type annotations.
-            if (node.nodeType === ParseNodeType.BinaryOperation && node.operator === OperatorType.BitwiseOr) {
-                return true;
-            }
-
-            return (
-                node.nodeType === ParseNodeType.Call ||
-                node.nodeType === ParseNodeType.Index ||
-                node.nodeType === ParseNodeType.Dictionary ||
-                node.nodeType === ParseNodeType.FormatString ||
-                node.nodeType === ParseNodeType.List ||
-                node.nodeType === ParseNodeType.Lambda ||
-                node.nodeType === ParseNodeType.MemberAccess ||
-                node.nodeType === ParseNodeType.Set ||
-                node.nodeType === ParseNodeType.String ||
-                node.nodeType === ParseNodeType.StringList ||
-                node.nodeType === ParseNodeType.Tuple ||
-                node.nodeType === ParseNodeType.Unpack ||
-                node.nodeType === ParseNodeType.DictionaryKeyEntry ||
-                node.nodeType === ParseNodeType.DictionaryExpandEntry ||
-                node.nodeType === ParseNodeType.ListComprehension ||
-                node.nodeType === ParseNodeType.ListComprehensionFor ||
-                node.nodeType === ParseNodeType.ListComprehensionIf ||
-                node.nodeType === ParseNodeType.PatternSequence ||
-                node.nodeType === ParseNodeType.PatternLiteral ||
-                node.nodeType === ParseNodeType.PatternClass ||
-                node.nodeType === ParseNodeType.PatternClassArgument ||
-                node.nodeType === ParseNodeType.PatternAs ||
-                node.nodeType === ParseNodeType.PatternCapture ||
-                node.nodeType === ParseNodeType.PatternMapping ||
-                node.nodeType === ParseNodeType.PatternValue ||
-                node.nodeType === ParseNodeType.PatternMappingKeyEntry ||
-                node.nodeType === ParseNodeType.PatternMappingExpandEntry
-            );
-        }
-
         // Check for a couple of special cases where the node is a NameNode but
         // is technically not part of an expression. We'll handle these here so
         // callers don't need to include special-case logic.
@@ -17360,171 +17339,263 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (node.parent.nodeType === ParseNodeType.Function && node.parent.name === node) {
                 getTypeOfFunction(node.parent);
                 return;
-            } else if (node.parent.nodeType === ParseNodeType.Class && node.parent.name === node) {
+            }
+
+            if (node.parent.nodeType === ParseNodeType.Class && node.parent.name === node) {
                 getTypeOfClass(node.parent);
                 return;
-            } else if (node.parent.nodeType === ParseNodeType.TypeAlias && node.parent.name === node) {
+            }
+
+            if (node.parent.nodeType === ParseNodeType.TypeAlias && node.parent.name === node) {
                 getTypeOfTypeAlias(node.parent);
                 return;
-            } else if (
-                node.parent.nodeType === ParseNodeType.Global ||
-                node.parent.nodeType === ParseNodeType.Nonlocal
-            ) {
+            }
+
+            if (node.parent.nodeType === ParseNodeType.Global || node.parent.nodeType === ParseNodeType.Nonlocal) {
                 // For global and nonlocal statements, allow forward references so
                 // we don't use code flow during symbol lookups.
                 getTypeOfExpression(node, EvaluatorFlags.AllowForwardReferences);
                 return;
             }
-        }
 
-        // Scan up the parse tree until we find a non-expression (while
-        // looking for contextual expressions in the process).
-        while (curNode) {
-            const isNodeContextual = isContextual(curNode);
-            if (!isNodeContextual && !isExpressionNode(curNode)) {
-                break;
-            }
-            if (isNodeContextual) {
-                lastContextualExpression = curNode as ExpressionNode;
-            }
-
-            curNode = curNode.parent;
-        }
-
-        const parent = lastContextualExpression.parent!;
-        if (parent.nodeType === ParseNodeType.Assignment) {
-            if (lastContextualExpression === parent.typeAnnotationComment) {
-                getTypeOfAnnotation(lastContextualExpression, {
-                    isVariableAnnotation: true,
-                    allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.leftExpression),
-                    allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(parent.leftExpression),
-                });
-            } else {
-                evaluateTypesForAssignmentStatement(parent);
-            }
-            return;
-        } else if (parent.nodeType === ParseNodeType.Del) {
-            verifyDeleteExpression(lastContextualExpression);
-            return;
-        }
-
-        // If this is the name node within a type parameter list, see if it's a type alias
-        // definition. If so, we need to evaluate the type alias contextually.
-        if (parent.nodeType === ParseNodeType.TypeParameter && lastContextualExpression === parent.name) {
-            if (
-                parent.parent?.nodeType === ParseNodeType.TypeParameterList &&
-                parent.parent.parent?.nodeType === ParseNodeType.TypeAlias
-            ) {
-                getTypeOfTypeAlias(parent.parent.parent);
+            if (node.parent.nodeType === ParseNodeType.ModuleName) {
+                // A name within a module name isn't an expression,
+                // so there's nothing we can evaluate here.
                 return;
             }
         }
 
-        if (parent.nodeType === ParseNodeType.TypeParameter) {
-            getTypeOfExpression(parent.name);
-            return;
-        }
+        // If the expression is part of a type annotation, we need to evaluate
+        // it with special evaluation flags.
+        const annotationNode = ParseTreeUtils.getParentAnnotationNode(node);
+        if (annotationNode) {
+            // Annotations need to be evaluated with specialized evaluation flags.
+            const annotationParent = annotationNode.parent;
+            assert(annotationParent !== undefined);
 
-        if (parent.nodeType === ParseNodeType.TypeAlias) {
-            getTypeOfTypeAlias(parent);
-            return;
-        }
-
-        if (parent.nodeType === ParseNodeType.AugmentedAssignment) {
-            evaluateTypesForAugmentedAssignment(parent);
-            return;
-        }
-
-        if (parent.nodeType === ParseNodeType.Decorator) {
-            if (parent.parent?.nodeType === ParseNodeType.Class) {
-                getTypeOfClass(parent.parent);
-            } else if (parent.parent?.nodeType === ParseNodeType.Function) {
-                getTypeOfFunction(parent.parent);
+            if (annotationParent.nodeType === ParseNodeType.Assignment) {
+                if (annotationNode === annotationParent.typeAnnotationComment) {
+                    getTypeOfAnnotation(annotationNode, {
+                        isVariableAnnotation: true,
+                        allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(annotationParent.leftExpression),
+                        allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(
+                            annotationParent.leftExpression
+                        ),
+                    });
+                } else {
+                    evaluateTypesForAssignmentStatement(annotationParent);
+                }
+                return;
             }
-            return;
-        }
 
-        const evaluateTypeAnnotationExpression = (node: TypeAnnotationNode) => {
-            const annotationParent = node.parent;
-            if (annotationParent?.nodeType === ParseNodeType.Assignment && annotationParent.leftExpression === parent) {
-                evaluateTypesForAssignmentStatement(annotationParent);
-            } else {
-                const annotationType = getTypeOfAnnotation(node.typeAnnotation, {
-                    isVariableAnnotation: true,
-                    allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.valueExpression),
-                    allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(node.valueExpression),
-                });
-                writeTypeCache(node.valueExpression, annotationType, EvaluatorFlags.None, /* isIncomplete */ false);
+            if (annotationParent.nodeType === ParseNodeType.TypeAnnotation) {
+                evaluateTypesForTypeAnnotationNode(annotationParent);
+                return;
             }
-        };
 
-        if (parent.nodeType === ParseNodeType.Case && lastContextualExpression !== parent.guardExpression) {
-            evaluateTypesForCaseStatement(parent);
-            return;
-        }
-
-        if (parent.nodeType === ParseNodeType.TypeAnnotation) {
-            evaluateTypeAnnotationExpression(parent);
-            return;
-        }
-
-        if (parent.nodeType === ParseNodeType.Parameter && lastContextualExpression !== parent.defaultValue) {
-            evaluateTypeOfParameter(parent);
-            return;
-        }
-
-        if (parent.nodeType === ParseNodeType.Function) {
-            if (lastContextualExpression === parent.returnTypeAnnotation) {
-                getTypeOfAnnotation(lastContextualExpression, {
+            if (
+                annotationParent.nodeType === ParseNodeType.Function &&
+                annotationNode === annotationParent.returnTypeAnnotation
+            ) {
+                getTypeOfAnnotation(annotationNode, {
                     associateTypeVarsWithScope: true,
                     disallowRecursiveTypeAlias: true,
                 });
                 return;
             }
-        }
 
-        if (parent.nodeType === ParseNodeType.ModuleName) {
-            // A name within a module name isn't an expression,
-            // so there's nothing we can evaluate here.
+            getTypeOfAnnotation(annotationNode);
             return;
         }
 
-        if (parent.nodeType === ParseNodeType.Argument && lastContextualExpression === parent.name) {
-            // A name used to specify a named parameter in an argument isn't an
-            // expression, so there's nothing we can evaluate here.
+        // See if the expression is part of a pattern used in a case statement.
+        const caseNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Case);
+        if (caseNode) {
+            evaluateTypesForCaseStatement(caseNode as CaseNode);
             return;
         }
 
-        // A class argument must be evaluated in the context of the class declaration.
-        if (parent.nodeType === ParseNodeType.Argument && parent.parent?.nodeType === ParseNodeType.Class) {
-            getTypeOfClass(parent.parent);
-            return;
+        // Scan up the parse tree until we find a node that doesn't
+        // require any context to be evaluated.
+        let nodeToEvaluate: ExpressionNode = node;
+        let flags = EvaluatorFlags.None;
+
+        while (true) {
+            // If we're within an argument node in a call or index expression, skip
+            // all of the nodes between because the entire argument expression
+            // needs to be evaluated contextually.
+            const argumentNode = ParseTreeUtils.getParentNodeOfType(nodeToEvaluate, ParseNodeType.Argument);
+            if (argumentNode && argumentNode !== nodeToEvaluate) {
+                assert(argumentNode.parent !== undefined);
+
+                if (
+                    argumentNode.parent.nodeType === ParseNodeType.Call ||
+                    argumentNode.parent.nodeType === ParseNodeType.Index
+                ) {
+                    nodeToEvaluate = argumentNode.parent;
+                    continue;
+                }
+            }
+
+            let parent = nodeToEvaluate.parent;
+            if (!parent) {
+                break;
+            }
+
+            // If this is the target of an assignment expression, evaluate the
+            // assignment expression node instead.
+            if (parent.nodeType === ParseNodeType.AssignmentExpression && nodeToEvaluate === parent.name) {
+                nodeToEvaluate = parent;
+                continue;
+            }
+
+            // The left expression of a call or member access expression is not contextual.
+            if (parent.nodeType === ParseNodeType.Call || parent.nodeType === ParseNodeType.MemberAccess) {
+                if (nodeToEvaluate === parent.leftExpression) {
+                    flags = EvaluatorFlags.DoNotSpecialize;
+                    break;
+                }
+            } else if (parent.nodeType === ParseNodeType.Index) {
+                // The base expression of an index expression is not contextual.
+                if (nodeToEvaluate === parent.baseExpression) {
+                    flags = EvaluatorFlags.DoNotSpecialize;
+                    break;
+                }
+            } else {
+                // Check for expression types that are always contextual.
+                if (
+                    nodeToEvaluate.nodeType !== ParseNodeType.Dictionary &&
+                    nodeToEvaluate.nodeType !== ParseNodeType.List &&
+                    nodeToEvaluate.nodeType !== ParseNodeType.Lambda &&
+                    nodeToEvaluate.nodeType !== ParseNodeType.Set &&
+                    nodeToEvaluate.nodeType !== ParseNodeType.Tuple &&
+                    nodeToEvaluate.nodeType !== ParseNodeType.Unpack &&
+                    nodeToEvaluate.nodeType !== ParseNodeType.ListComprehension
+                ) {
+                    break;
+                }
+            }
+
+            if (!isExpressionNode(parent)) {
+                // If we've hit a non-expression node, we generally want to
+                // stop. However, there are a few special "pass through"
+                // node types that we can skip over to get to a known
+                // expression node.
+                if (
+                    parent.nodeType === ParseNodeType.DictionaryKeyEntry ||
+                    parent.nodeType === ParseNodeType.DictionaryExpandEntry ||
+                    parent.nodeType === ParseNodeType.ListComprehensionFor ||
+                    parent.nodeType === ParseNodeType.ListComprehensionIf
+                ) {
+                    assert(parent.parent !== undefined && isExpressionNode(parent.parent));
+                    parent = parent.parent;
+                } else if (parent.nodeType === ParseNodeType.Parameter) {
+                    assert(parent.parent !== undefined);
+
+                    // Parameters are contextual for lambdas.
+                    if (parent.parent.nodeType === ParseNodeType.Lambda) {
+                        parent = parent.parent;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            nodeToEvaluate = parent;
         }
 
-        if (parent.nodeType === ParseNodeType.Return && parent.returnExpression) {
-            const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
-            const declaredReturnType = enclosingFunctionNode
-                ? getFunctionDeclaredReturnType(enclosingFunctionNode)
-                : undefined;
-            getTypeOfExpression(parent.returnExpression, EvaluatorFlags.None, declaredReturnType);
-            return;
-        }
+        const parent = nodeToEvaluate.parent!;
+        assert(parent !== undefined);
 
-        // If the parent is an expression, we'll evaluate it to provide
-        // the context for its child. If it's not, we'll evaluate the
-        // child directly without any context.
-        const nodeToEvaluate =
-            isExpressionNode(parent) && parent.nodeType !== ParseNodeType.Error
-                ? (parent as ExpressionNode)
-                : lastContextualExpression;
+        switch (parent.nodeType) {
+            case ParseNodeType.Del: {
+                verifyDeleteExpression(nodeToEvaluate);
+                return;
+            }
+
+            case ParseNodeType.TypeParameter: {
+                // If this is the name node within a type parameter list, see if it's a type alias
+                // definition. If so, we need to evaluate the type alias contextually.
+                if (
+                    nodeToEvaluate === parent.name &&
+                    parent.parent?.nodeType === ParseNodeType.TypeParameterList &&
+                    parent.parent.parent?.nodeType === ParseNodeType.TypeAlias
+                ) {
+                    getTypeOfTypeAlias(parent.parent.parent);
+                    return;
+                }
+                break;
+            }
+
+            case ParseNodeType.TypeAlias: {
+                getTypeOfTypeAlias(parent);
+                return;
+            }
+
+            case ParseNodeType.Decorator: {
+                if (parent.parent?.nodeType === ParseNodeType.Class) {
+                    getTypeOfClass(parent.parent);
+                } else if (parent.parent?.nodeType === ParseNodeType.Function) {
+                    getTypeOfFunction(parent.parent);
+                }
+                return;
+            }
+
+            case ParseNodeType.Parameter: {
+                if (nodeToEvaluate !== parent.defaultValue) {
+                    evaluateTypeOfParameter(parent);
+                    return;
+                }
+                break;
+            }
+
+            case ParseNodeType.Argument: {
+                if (nodeToEvaluate === parent.name) {
+                    // A name used to specify a named parameter in an argument isn't an
+                    // expression, so there's nothing we can evaluate here.
+                    return;
+                }
+
+                if (parent.parent?.nodeType === ParseNodeType.Class) {
+                    // A class argument must be evaluated in the context of the class declaration.
+                    getTypeOfClass(parent.parent);
+                    return;
+                }
+                break;
+            }
+
+            case ParseNodeType.Return: {
+                // Return expressions must be evaluated in the context of the expected return type.
+                if (parent.returnExpression) {
+                    const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
+                    const declaredReturnType = enclosingFunctionNode
+                        ? getFunctionDeclaredReturnType(enclosingFunctionNode)
+                        : undefined;
+                    getTypeOfExpression(parent.returnExpression, EvaluatorFlags.None, declaredReturnType);
+                    return;
+                }
+                break;
+            }
+
+            case ParseNodeType.TypeAnnotation: {
+                evaluateTypesForTypeAnnotationNode(parent);
+                return;
+            }
+
+            case ParseNodeType.Assignment: {
+                evaluateTypesForAssignmentStatement(parent);
+                return;
+            }
+        }
 
         if (nodeToEvaluate.nodeType === ParseNodeType.TypeAnnotation) {
-            evaluateTypeAnnotationExpression(nodeToEvaluate);
-        } else {
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(nodeToEvaluate);
-            const flags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
-            getTypeOfExpression(nodeToEvaluate, flags);
+            evaluateTypesForTypeAnnotationNode(nodeToEvaluate);
+            return;
         }
+
+        getTypeOfExpression(nodeToEvaluate, flags);
     }
 
     function evaluateTypeOfParameter(node: ParameterNode): void {
