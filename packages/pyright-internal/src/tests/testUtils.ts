@@ -165,7 +165,7 @@ export function typeAnalyzeSampleFiles(
     program.setTrackedFiles(filePaths);
 
     // Set a "pre-check callback" so we can evaluate the types of each NameNode
-    // prior to checking the full document.This will exercise the contextual
+    // prior to checking the full document. This will exercise the contextual
     // evaluation logic.
     program.setPreCheckCallback((parseResults: ParseResults, evaluator: TypeEvaluator) => {
         const nameTypeWalker = new NameTypeWalker(evaluator);
