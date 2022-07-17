@@ -6,8 +6,9 @@ from _typeshed import StrPath
 from collections.abc import Callable
 from logging import FileHandler, Handler, LogRecord
 from queue import Queue, SimpleQueue
+from re import Pattern
 from socket import SocketKind, socket
-from typing import Any, ClassVar, Pattern
+from typing import Any, ClassVar
 
 DEFAULT_TCP_LOGGING_PORT: int
 DEFAULT_UDP_LOGGING_PORT: int

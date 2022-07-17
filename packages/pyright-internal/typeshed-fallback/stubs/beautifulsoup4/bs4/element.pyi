@@ -1,6 +1,7 @@
 from _typeshed import Self
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, Generic, Pattern, TypeVar, overload
+from re import Pattern
+from typing import Any, Generic, TypeVar, overload
 from typing_extensions import TypeAlias
 
 from . import BeautifulSoup

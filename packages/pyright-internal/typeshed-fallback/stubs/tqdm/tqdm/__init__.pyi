@@ -15,6 +15,27 @@ from .std import (
     tqdm as tqdm,
     trange as trange,
 )
+from .version import __version__ as __version__
+
+__all__ = [
+    "tqdm",
+    "tqdm_gui",
+    "trange",
+    "tgrange",
+    "tqdm_pandas",
+    "tqdm_notebook",
+    "tnrange",
+    "main",
+    "TMonitor",
+    "TqdmTypeError",
+    "TqdmKeyError",
+    "TqdmWarning",
+    "TqdmDeprecationWarning",
+    "TqdmExperimentalWarning",
+    "TqdmMonitorWarning",
+    "TqdmSynchronisationWarning",
+    "__version__",
+]
 
 def tqdm_notebook(*args, **kwargs) -> tqdm_notebook_cls[Incomplete]: ...
 def tnrange(*args, **kwargs) -> tqdm_notebook_cls[int]: ...

@@ -969,12 +969,6 @@ test('Operators2', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('Operators3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators3.py']);
-
-    TestUtils.validateResults(analysisResults, 1);
-});
-
 test('Operators4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators4.py']);
 

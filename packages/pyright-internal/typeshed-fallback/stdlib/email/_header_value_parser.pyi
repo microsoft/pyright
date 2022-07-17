@@ -3,7 +3,8 @@ from _typeshed import Self
 from collections.abc import Iterable, Iterator
 from email.errors import HeaderParseError, MessageDefect
 from email.policy import Policy
-from typing import Any, Pattern
+from re import Pattern
+from typing import Any
 from typing_extensions import Final
 
 WSP: Final[set[str]]

@@ -1,6 +1,7 @@
 from collections.abc import Iterable, Mapping
 from decimal import Decimal
-from typing import Any, Pattern
+from re import Pattern
+from typing import Any
 from typing_extensions import Literal, NotRequired, TypedDict
 
 from .adjacency_graphs import _Graph

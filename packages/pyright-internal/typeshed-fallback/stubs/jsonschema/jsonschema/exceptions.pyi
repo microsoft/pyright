@@ -5,6 +5,7 @@ from typing import Any
 from typing_extensions import TypeAlias
 
 from jsonschema import _utils, protocols
+from jsonschema._types import TypeChecker
 
 _RelevanceFuncType: TypeAlias = Callable[[ValidationError], SupportsRichComparison]
 
@@ -36,6 +37,7 @@ class _Error(Exception):
         schema: Any = ...,
         schema_path: Sequence[str | int] = ...,
         parent: _Error | None = ...,
+        type_checker: _utils.Unset | TypeChecker = ...,
     ) -> None: ...
     @classmethod
     def create_from(cls: type[Self], other: _Error) -> Self: ...

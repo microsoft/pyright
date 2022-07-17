@@ -9,7 +9,8 @@ from collections.abc import Callable, ItemsView, Iterable, Iterator as _Iterator
 from functools import wraps as wraps
 from importlib.util import spec_from_loader as spec_from_loader
 from io import BytesIO as BytesIO, StringIO as StringIO
-from typing import Any, AnyStr, NoReturn, Pattern, TypeVar, overload
+from re import Pattern
+from typing import Any, AnyStr, NoReturn, TypeVar, overload
 from typing_extensions import Literal
 
 from . import moves as moves

@@ -3,7 +3,8 @@ import pydoc
 import socketserver
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
-from typing import Any, ClassVar, Pattern, Protocol
+from re import Pattern
+from typing import Any, ClassVar, Protocol
 from typing_extensions import TypeAlias
 from xmlrpc.client import Fault
 

@@ -1,5 +1,6 @@
 from logging import Logger
-from typing import Any, Match, Pattern
+from re import Match, Pattern
+from typing import Any
 from xml.etree.ElementTree import Element
 
 from markdown import Markdown

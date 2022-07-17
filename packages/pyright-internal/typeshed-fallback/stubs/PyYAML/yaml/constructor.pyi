@@ -1,5 +1,6 @@
 from collections.abc import Callable
-from typing import Any, Pattern, TypeVar
+from re import Pattern
+from typing import Any, TypeVar
 from typing_extensions import TypeAlias
 
 from yaml.error import MarkedYAMLError

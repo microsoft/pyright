@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
 from threading import Thread
 
+__all__ = ["TMonitor", "TqdmSynchronisationWarning"]
+
 class TqdmSynchronisationWarning(RuntimeWarning): ...
 
 class TMonitor(Thread):

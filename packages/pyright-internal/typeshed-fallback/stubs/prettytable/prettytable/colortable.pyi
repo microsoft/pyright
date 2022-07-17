@@ -26,7 +26,8 @@ class Theme:
         junction_char: str = ...,
         junction_color: str = ...,
     ) -> None: ...
-    def format_code(s: str) -> str: ...  # type: ignore
+    # The following method is broken in upstream code.
+    def format_code(s: str) -> str: ...  # type: ignore[misc]
 
 class Themes:
     DEFAULT: ClassVar[Theme]

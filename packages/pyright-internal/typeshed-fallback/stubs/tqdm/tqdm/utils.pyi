@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Callable
-from typing import Pattern, Protocol, TypeVar
+from re import Pattern
+from typing import Protocol, TypeVar
 from typing_extensions import ParamSpec
 
 CUR_OS: str

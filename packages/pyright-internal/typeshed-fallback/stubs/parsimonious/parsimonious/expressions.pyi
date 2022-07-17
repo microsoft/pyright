@@ -1,6 +1,7 @@
 import collections.abc
 from collections.abc import Callable, Mapping
-from typing import Any, Pattern, Union
+from re import Pattern
+from typing import Any, Union
 from typing_extensions import TypeAlias
 
 from parsimonious.exceptions import ParseError

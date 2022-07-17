@@ -3,10 +3,11 @@ import threading
 from _typeshed import Self, StrPath, SupportsWrite
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from io import TextIOWrapper
+from re import Pattern
 from string import Template
 from time import struct_time
 from types import FrameType, TracebackType
-from typing import Any, ClassVar, Generic, Pattern, TextIO, TypeVar, Union, overload
+from typing import Any, ClassVar, Generic, TextIO, TypeVar, Union, overload
 from typing_extensions import Literal, TypeAlias
 
 if sys.version_info >= (3, 11):

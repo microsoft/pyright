@@ -105,6 +105,24 @@ if sys.platform == "win32":
     WAIT_ABANDONED_0: Literal[128]
     WAIT_OBJECT_0: Literal[0]
     WAIT_TIMEOUT: Literal[258]
+
+    if sys.version_info >= (3, 11):
+        LOCALE_NAME_INVARIANT: str
+        LOCALE_NAME_MAX_LENGTH: int
+        LOCALE_NAME_SYSTEM_DEFAULT: str
+        LOCALE_NAME_USER_DEFAULT: str | None
+
+        LCMAP_FULLWIDTH: int
+        LCMAP_HALFWIDTH: int
+        LCMAP_HIRAGANA: int
+        LCMAP_KATAKANA: int
+        LCMAP_LINGUISTIC_CASING: int
+        LCMAP_LOWERCASE: int
+        LCMAP_SIMPLIFIED_CHINESE: int
+        LCMAP_TITLECASE: int
+        LCMAP_TRADITIONAL_CHINESE: int
+        LCMAP_UPPERCASE: int
+
     def CloseHandle(__handle: int) -> None: ...
     @overload
     def ConnectNamedPipe(handle: int, overlapped: Literal[True]) -> Overlapped: ...
@@ -163,6 +181,9 @@ if sys.platform == "win32":
     def GetVersion() -> int: ...
     def OpenProcess(__desired_access: int, __inherit_handle: bool, __process_id: int) -> int: ...
     def PeekNamedPipe(__handle: int, __size: int = ...) -> tuple[int, int] | tuple[bytes, int, int]: ...
+    if sys.version_info >= (3, 11):
+        def LCMapStringEx(locale: str, flags: int, src: str) -> str: ...
+
     @overload
     def ReadFile(handle: int, size: int, overlapped: Literal[True]) -> tuple[Overlapped, int]: ...
     @overload

@@ -1,7 +1,8 @@
 from _typeshed.wsgi import StartResponse
 from collections.abc import Iterator, Mapping, Sequence
 from logging import Logger
-from typing import Any, Match, Pattern
+from re import Match, Pattern
+from typing import Any
 
 logger: Logger
 queue_logger: Logger

@@ -1,8 +1,10 @@
 from _typeshed import Incomplete, SupportsWrite
 from collections.abc import Iterable, Iterator, Mapping
-from typing import Generic, TypeVar, overload
+from typing import Generic, NoReturn, TypeVar, overload
 
 from .std import tqdm as std_tqdm, trange as trange
+
+__all__ = ["tqdm_notebook", "tnrange", "tqdm", "trange"]
 
 _T = TypeVar("_T")
 
@@ -30,7 +32,7 @@ class tqdm_notebook(Generic[_T], std_tqdm[_T]):
     @overload
     def __init__(
         self,
-        iterable: Iterable[_T] | None,
+        iterable: Iterable[_T],
         desc: str | None = ...,
         total: float | None = ...,
         leave: bool = ...,
@@ -55,10 +57,13 @@ class tqdm_notebook(Generic[_T], std_tqdm[_T]):
         nrows: int | None = ...,
         colour: str | None = ...,
         delay: float | None = ...,
+        display: bool = ...,
+        **kwargs,
     ) -> None: ...
     @overload
     def __init__(
-        self,
+        self: tqdm_notebook[NoReturn],
+        iterable: None = ...,
         desc: str | None = ...,
         total: float | None = ...,
         leave: bool = ...,
@@ -83,6 +88,8 @@ class tqdm_notebook(Generic[_T], std_tqdm[_T]):
         nrows: int | None = ...,
         colour: str | None = ...,
         delay: float | None = ...,
+        display: bool = ...,
+        **kwargs,
     ) -> None: ...
     def __iter__(self) -> Iterator[_T]: ...
     def update(self, n: int = ...): ...  # type: ignore[override]

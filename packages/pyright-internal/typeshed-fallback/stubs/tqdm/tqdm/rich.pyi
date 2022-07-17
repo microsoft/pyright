@@ -5,6 +5,8 @@ from typing_extensions import TypeAlias
 
 from .std import tqdm as std_tqdm
 
+__all__ = ["tqdm_rich", "trrange", "tqdm", "trange"]
+
 _ProgressColumn: TypeAlias = Any  # Actually rich.progress.ProgressColumn
 
 class FractionColumn(_ProgressColumn):

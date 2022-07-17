@@ -1,6 +1,7 @@
 import sys
 from collections.abc import Callable, Generator, Iterable, Sequence
-from typing import IO, Any, Generic, NewType, NoReturn, Pattern, Protocol, TypeVar, overload
+from re import Pattern
+from typing import IO, Any, Generic, NewType, NoReturn, Protocol, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 
 __all__ = [

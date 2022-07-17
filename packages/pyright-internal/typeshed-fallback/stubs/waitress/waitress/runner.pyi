@@ -1,6 +1,7 @@
 from collections.abc import Callable, Sequence
 from io import TextIOWrapper
-from typing import Any, Pattern
+from re import Pattern
+from typing import Any
 
 HELP: str
 RUNNER_PATTERN: Pattern[Any]

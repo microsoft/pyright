@@ -2,8 +2,9 @@ import unittest.case
 import unittest.result
 import unittest.suite
 from collections.abc import Callable, Sequence
+from re import Pattern
 from types import ModuleType
-from typing import Any, Pattern
+from typing import Any
 from typing_extensions import TypeAlias
 
 _SortComparisonMethod: TypeAlias = Callable[[str, str], int]
