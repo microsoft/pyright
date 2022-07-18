@@ -68,6 +68,8 @@
         "concatenateTypeArgsMissing": "\"Concatenate\" requires at least two type arguments",
         "constantRedefinition": "\"{name}\" is constant (because it is uppercase) and cannot be redefined",
         "constructorParametersMismatch": "Mismatch between signature of __new__ and __init__ in class \"{classType}\"",
+        "containmentAlwaysFalse": "Expression will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
+        "containmentAlwaysTrue": "Expression will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "continueInFinally": "\"continue\" cannot be used within a finally clause",
         "continueOutsideLoop": "\"continue\" can be used only within a loop",
         "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",

@@ -630,6 +630,17 @@
                                 "error"
                             ]
                         },
+                        "reportUnnecessaryContains": {
+                            "type": "string",
+                            "description": "Diagnostics for 'in' operation that is statically determined to be unnecessary. Such operations are sometimes indicative of a programming error.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportAssertAlwaysTrue": {
                             "type": "string",
                             "description": "Diagnostics for 'assert' statement that will provably always assert. This can be indicative of a programming error.",

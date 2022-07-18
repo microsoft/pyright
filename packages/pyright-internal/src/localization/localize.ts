@@ -291,6 +291,14 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.constructorNoArgs'));
         export const constructorParametersMismatch = () =>
             new ParameterizedString<{ classType: string }>(getRawString('Diagnostic.constructorParametersMismatch'));
+        export const containmentAlwaysFalse = () =>
+            new ParameterizedString<{ leftType: string; rightType: string }>(
+                getRawString('Diagnostic.containmentAlwaysFalse')
+            );
+        export const containmentAlwaysTrue = () =>
+            new ParameterizedString<{ leftType: string; rightType: string }>(
+                getRawString('Diagnostic.containmentAlwaysTrue')
+            );
         export const continueInFinally = () => getRawString('Diagnostic.continueInFinally');
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');

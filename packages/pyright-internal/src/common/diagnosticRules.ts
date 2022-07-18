@@ -64,6 +64,7 @@ export enum DiagnosticRule {
     reportUnnecessaryIsInstance = 'reportUnnecessaryIsInstance',
     reportUnnecessaryCast = 'reportUnnecessaryCast',
     reportUnnecessaryComparison = 'reportUnnecessaryComparison',
+    reportUnnecessaryContains = 'reportUnnecessaryContains',
     reportAssertAlwaysTrue = 'reportAssertAlwaysTrue',
     reportSelfClsParameterName = 'reportSelfClsParameterName',
     reportImplicitStringConcatenation = 'reportImplicitStringConcatenation',

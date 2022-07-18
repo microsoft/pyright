@@ -248,6 +248,9 @@ export interface DiagnosticRuleSet {
     // Report == or != operators that always evaluate to True or False.
     reportUnnecessaryComparison: DiagnosticLevel;
 
+    // Report 'in' operations that always evaluate to True or False.
+    reportUnnecessaryContains: DiagnosticLevel;
+
     // Report assert expressions that will always evaluate to true.
     reportAssertAlwaysTrue: DiagnosticLevel;
 
@@ -370,6 +373,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
         DiagnosticRule.reportUnnecessaryComparison,
+        DiagnosticRule.reportUnnecessaryContains,
         DiagnosticRule.reportAssertAlwaysTrue,
         DiagnosticRule.reportSelfClsParameterName,
         DiagnosticRule.reportImplicitStringConcatenation,
@@ -451,6 +455,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
         reportUnnecessaryComparison: 'none',
+        reportUnnecessaryContains: 'none',
         reportAssertAlwaysTrue: 'none',
         reportSelfClsParameterName: 'none',
         reportImplicitStringConcatenation: 'none',
@@ -528,6 +533,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
         reportUnnecessaryComparison: 'none',
+        reportUnnecessaryContains: 'none',
         reportAssertAlwaysTrue: 'warning',
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
@@ -605,6 +611,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
         reportUnnecessaryComparison: 'error',
+        reportUnnecessaryContains: 'error',
         reportAssertAlwaysTrue: 'error',
         reportSelfClsParameterName: 'error',
         reportImplicitStringConcatenation: 'none',

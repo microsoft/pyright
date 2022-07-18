@@ -424,6 +424,12 @@
       "title": "Controls reporting the use of '==' or '!=' comparisons that are unnecessary",
       "default": "none"
     },
+    "reportUnnecessaryContains": {
+      "$id": "#/properties/reportUnnecessaryContains",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting the use of 'in' operations that are unnecessary",
+      "default": "none"
+    },
     "reportAssertAlwaysTrue": {
       "$id": "#/properties/reportAssertAlwaysTrue",
       "$ref": "#/definitions/diagnostic",

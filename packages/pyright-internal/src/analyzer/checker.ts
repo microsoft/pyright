@@ -107,7 +107,12 @@ import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { isIsinstanceFilterSubclass, isIsinstanceFilterSuperclass } from './typeGuards';
+import {
+    getElementTypeForContainerNarrowing,
+    isIsinstanceFilterSubclass,
+    isIsinstanceFilterSuperclass,
+    narrowTypeForContainerElementType,
+} from './typeGuards';
 import {
     ClassType,
     combineTypes,
@@ -1188,6 +1193,11 @@ export class Checker extends ParseTreeWalker {
             if (!ParseTreeUtils.isWithinAssertExpression(node)) {
                 this._validateComparisonTypes(node);
             }
+        } else if (node.operator === OperatorType.In || node.operator === OperatorType.NotIn) {
+            // Don't apply this rule if it's within an assert.
+            if (!ParseTreeUtils.isWithinAssertExpression(node)) {
+                this._validateContainmentTypes(node);
+            }
         }
 
         this._evaluator.getType(node);
@@ -1547,6 +1557,44 @@ export class Checker extends ParseTreeWalker {
                     node
                 );
             }
+        }
+    }
+
+    private _validateContainmentTypes(node: BinaryOperationNode) {
+        const leftType = this._evaluator.getType(node.leftExpression);
+        const containerType = this._evaluator.getType(node.rightExpression);
+
+        if (!leftType || !containerType) {
+            return;
+        }
+
+        if (isNever(leftType) || isNever(containerType)) {
+            return;
+        }
+
+        // Use the common narrowing logic for containment.
+        const elementType = getElementTypeForContainerNarrowing(containerType);
+        if (!elementType) {
+            return;
+        }
+        const narrowedType = narrowTypeForContainerElementType(this._evaluator, leftType, elementType);
+
+        if (isNever(narrowedType)) {
+            const getMessage = () => {
+                return node.operator === OperatorType.In
+                    ? Localizer.Diagnostic.containmentAlwaysFalse()
+                    : Localizer.Diagnostic.containmentAlwaysTrue();
+            };
+
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnnecessaryContains,
+                DiagnosticRule.reportUnnecessaryContains,
+                getMessage().format({
+                    leftType: this._evaluator.printType(leftType, /* expandTypeAlias */ true),
+                    rightType: this._evaluator.printType(elementType, /* expandTypeAlias */ true),
+                }),
+                node
+            );
         }
     }
 
