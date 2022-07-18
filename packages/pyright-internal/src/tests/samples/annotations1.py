@@ -1,7 +1,7 @@
 # This sample tests the handling of type annotations within a
 # python source file (as opposed to a stub file).
 
-from typing import Optional, Union
+from typing import Optional, Type, Union
 import uuid
 
 
@@ -96,3 +96,11 @@ def func11():
             return t(x) + 1
 
         f("")
+
+
+def func12(x: Type[int]):
+    # These should not generate an error because they are used
+    # in a location that is not considered a type annotation, so the
+    # normal annotation limitations do not apply here.
+    print(Union[x, x])
+    print(Optional[x])

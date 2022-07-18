@@ -6724,7 +6724,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let adjustedFlags =
             flags |
             EvaluatorFlags.ExpectingType |
-            EvaluatorFlags.ExpectingTypeAnnotation |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType;
 
