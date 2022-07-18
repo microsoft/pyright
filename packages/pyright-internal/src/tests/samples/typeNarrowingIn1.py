@@ -102,3 +102,16 @@ def func6(x: type):
         reveal_type(x, expected_text="type")
     else:
         reveal_type(x, expected_text="type")
+
+
+def func7(x: object | bytes, y: str, z: int):
+    if x in (y, z):
+        reveal_type(x, expected_text="str | int")
+    else:
+        reveal_type(x, expected_text="object | bytes")
+    reveal_type(x, expected_text="str | int | object | bytes")
+
+
+def func8(x: object):
+    if x in ("a", "b", 2, None):
+        reveal_type(x, expected_text="Literal['a', 'b', 2] | None")
