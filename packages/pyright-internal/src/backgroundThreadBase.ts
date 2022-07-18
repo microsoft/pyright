@@ -65,6 +65,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.stubPath = jsonObject.stubPath;
     configOptions.autoExcludeVenv = jsonObject.autoExcludeVenv;
     configOptions.verboseOutput = jsonObject.verboseOutput;
+    configOptions.defineConstant = new Map<string, boolean | string>(jsonObject.defineConstant);
     configOptions.checkOnlyOpenFiles = jsonObject.checkOnlyOpenFiles;
     configOptions.useLibraryCodeForTypes = jsonObject.useLibraryCodeForTypes;
     configOptions.internalTestMode = jsonObject.internalTestMode;
