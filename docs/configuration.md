@@ -338,6 +338,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnknownVariableType                 | "none"     | "none"     | "error"    |
 | reportUnnecessaryCast                     | "none"     | "none"     | "error"    |
 | reportUnnecessaryComparison               | "none"     | "none"     | "error"    |
+| reportUnnecessaryContains                 | "none"     | "none"     | "error"    |
 | reportUnnecessaryIsInstance               | "none"     | "none"     | "error"    |
 | reportUnusedClass                         | "none"     | "none"     | "error"    |
 | reportUnusedImport                        | "none"     | "none"     | "error"    |
