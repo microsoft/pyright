@@ -7658,10 +7658,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return evaluateUsingLastMatchingOverload(/* skipUnknownArgCheck */ false);
         }
 
-        if (printExpressionTypes) {
-            console.log(`${getPrintExpressionTypesSpaces()}Evaluating ${filteredMatchResults.length} overloads`);
-        }
-
         let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
         let isTypeIncomplete = false;
 
