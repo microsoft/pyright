@@ -25,9 +25,9 @@ import {
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
+import { getEnclosingClassOrFunction } from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
-import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { EvaluatorFlags, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
@@ -119,9 +119,21 @@ export function synthesizeDataClassMethods(
     classType.details.fields.forEach((symbol) => {
         if (!symbol.isIgnoredForProtocolMatch()) {
             // Only variables (not functions, classes, etc.) are considered.
-            const lastDecl = getLastTypedDeclaredForSymbol(symbol);
-            if (lastDecl && lastDecl.type === DeclarationType.Variable) {
-                let statement: ParseNode | undefined = lastDecl.node;
+            const classVarDecl = symbol.getTypedDeclarations().find((decl) => {
+                if (decl.type !== DeclarationType.Variable) {
+                    return false;
+                }
+
+                const container = getEnclosingClassOrFunction(decl.node);
+                if (!container || container.nodeType !== ParseNodeType.Class) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            if (classVarDecl) {
+                let statement: ParseNode | undefined = classVarDecl.node;
 
                 while (statement) {
                     if (statement.nodeType === ParseNodeType.Assignment) {
