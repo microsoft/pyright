@@ -912,7 +912,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): TypeResult {
         // Is this type already cached?
         const cachedType = readTypeCache(node, flags);
-        const startTime = Date.now();
         if (cachedType) {
             if (printExpressionTypes) {
                 console.log(
@@ -1197,10 +1196,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node
                 )}): Post ${printType(typeResult.type)}${typeResult.isIncomplete ? ' Incomplete' : ''}`
             );
-            const deltaTime = Date.now() - startTime;
-            if (deltaTime > 10) {
-                console.log(`${getPrintExpressionTypesSpaces()}Long expression! ${Math.round(deltaTime)}ms`);
-            }
         }
 
         return typeResult;
