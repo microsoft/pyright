@@ -16,7 +16,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { Duration } from '../common/timing';
 import { MaxAnalysisTime, Program } from './program';
 
-export const nullCallback: AnalysisCompleteCallback = (_) => {
+export const nullCallback: AnalysisCompleteCallback = () => {
     /* empty */
 };
 

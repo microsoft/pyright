@@ -740,25 +740,62 @@ export function getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNam
 
 export function getTextRangeForImportNameDeletion(
     nameNodes: ImportAsNode[] | ImportFromAsNode[],
-    nameNodeIndex: number
-): TextRange {
-    let editSpan: TextRange;
-    if (nameNodes.length === 1 && nameNodeIndex === 0) {
-        // get span of "import [|A|]"
-        editSpan = nameNodes[0];
-    } else if (nameNodeIndex === nameNodes.length - 1) {
-        // get span of "import A[|, B|]"
-        const start = TextRange.getEnd(nameNodes[nameNodeIndex - 1]);
-        const length = TextRange.getEnd(nameNodes[nameNodeIndex]) - start;
-        editSpan = { start, length };
-    } else {
-        // get span of "import [|A, |]B"
-        const start = nameNodes[nameNodeIndex].start;
-        const length = nameNodes[nameNodeIndex + 1].start - start;
-        editSpan = { start, length };
+    ...nameNodeIndexToDelete: number[]
+): TextRange[] {
+    const editSpans: TextRange[] = [];
+    for (const pair of getConsecutiveNumberPairs(nameNodeIndexToDelete)) {
+        const startNode = nameNodes[pair.start];
+        const endNode = nameNodes[pair.end];
+
+        if (pair.start === 0 && nameNodes.length === pair.end - pair.start + 1) {
+            // get span of whole statement. ex) "import [|A|]" or "import [|A, B|]"
+            editSpans.push(TextRange.fromBounds(startNode.start, TextRange.getEnd(endNode)));
+        } else if (pair.end === nameNodes.length - 1) {
+            // get span of "import A[|, B|]" or "import A[|, B, C|]"
+            const start = TextRange.getEnd(nameNodes[pair.start - 1]);
+            const length = TextRange.getEnd(endNode) - start;
+            editSpans.push({ start, length });
+        } else {
+            // get span of "import [|A, |]B" or "import [|A, B,|] C"
+            const start = startNode.start;
+            const length = nameNodes[pair.end + 1].start - start;
+            editSpans.push({ start, length });
+        }
+    }
+    return editSpans;
+}
+
+function getConsecutiveNumberPairs(indices: number[]) {
+    if (indices.length === 0) {
+        return [];
     }
 
-    return editSpan;
+    if (indices.length === 1) {
+        return [{ start: indices[0], end: indices[0] }];
+    }
+
+    const pairs: { start: number; end: number }[] = [];
+
+    let start = indices[0];
+    let current = start;
+    for (const index of indices) {
+        if (current === index) {
+            continue;
+        }
+
+        if (current + 1 === index) {
+            current = index;
+            continue;
+        }
+
+        pairs.push({ start, end: current });
+
+        start = index;
+        current = index;
+    }
+
+    pairs.push({ start, end: current });
+    return pairs;
 }
 
 export function getRelativeModuleName(

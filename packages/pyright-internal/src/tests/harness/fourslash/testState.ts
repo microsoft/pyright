@@ -965,9 +965,9 @@ export class TestState {
                         for (const edit of edits) {
                             if (map[name].edits!.filter((e) => this._editsAreEqual(e, edit)).length !== 1) {
                                 this.raiseError(
-                                    `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(
-                                        edits
-                                    )}`
+                                    `${name} doesn't contain expected result: ${stringify(
+                                        map[name]
+                                    )}, actual: ${stringify(edits)}`
                                 );
                             }
                         }

@@ -45,9 +45,8 @@ import {
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { appendArray, getOrAdd, removeArrayElements } from '../common/collectionUtils';
+import { getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions } from '../common/configOptions';
-import { isString } from '../common/core';
 import { assert, assertNever } from '../common/debug';
 import { FileEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
@@ -63,7 +62,8 @@ import {
     stripFileExtension,
 } from '../common/pathUtils';
 import { convertOffsetToPosition, convertTextRangeToRange } from '../common/positionUtils';
-import { doRangesIntersect, extendRange, Range, rangesAreEqual, TextRange } from '../common/textRange';
+import { TextEditTracker } from '../common/textEditUtils';
+import { TextRange } from '../common/textRange';
 import {
     ImportAsNode,
     ImportFromAsNode,
@@ -264,8 +264,8 @@ export class RenameModuleProvider {
     private readonly _moduleNames: string[];
     private readonly _newModuleNames: string[];
     private readonly _onlyNameChanged: boolean;
-    private readonly _results = new Map<string, FileEditAction[]>();
     private readonly _aliasIntroduced = new Set<ImportAsNode>();
+    private readonly _textEditTracker = new TextEditTracker();
 
     private constructor(
         private _fs: FileSystem,
@@ -1130,10 +1130,7 @@ export class RenameModuleProvider {
     }
 
     getEdits(): FileEditAction[] {
-        const edits: FileEditAction[] = [];
-        this._results.forEach((v) => appendArray(edits, v));
-
-        return edits;
+        return this._textEditTracker.getEdits(this._token);
     }
 
     get lastModuleName() {
@@ -1207,12 +1204,12 @@ export class RenameModuleProvider {
         importToDelete: ImportFromAsNode | ImportAsNode,
         importKind: ParseNodeType.ImportFrom | ParseNodeType.Import
     ) {
-        const range = getTextRangeForImportNameDeletion(
+        const ranges = getTextRangeForImportNameDeletion(
             imports,
             imports.findIndex((v) => v === importToDelete)
         );
 
-        this._addResultWithTextRange(filePath, range, parseResults, '');
+        ranges.forEach((r) => this._addResultWithTextRange(filePath, r, parseResults, ''));
 
         // Mark that we don't need to process these node again later.
         nameRemoved.add(importToDelete.id);
@@ -1238,7 +1235,7 @@ export class RenameModuleProvider {
             // ex) [from x import a, b, c] or [import a]
             const importStatement = getFirstAncestorOrSelfOfKind(importToDelete, importKind);
             if (importStatement) {
-                this._addResultWithRange(
+                this._textEditTracker.addEdit(
                     filePath,
                     getFullStatementRange(importStatement, parseResults.tokenizerOutput),
                     ''
@@ -1260,54 +1257,15 @@ export class RenameModuleProvider {
             return;
         }
 
-        this._addResultWithRange(filePath, convertTextRangeToRange(range, parseResults.tokenizerOutput.lines), newName);
+        this._textEditTracker.addEdit(
+            filePath,
+            convertTextRangeToRange(range, parseResults.tokenizerOutput.lines),
+            newName
+        );
     }
 
     private _addResultEdits(edits: FileEditAction[]) {
-        edits.forEach((e) => this._addResultWithRange(e.filePath, e.range, e.replacementText));
-    }
-
-    private _getDeletionsForSpan(filePathOrEdit: string | FileEditAction[], range: Range) {
-        if (isString(filePathOrEdit)) {
-            filePathOrEdit = this._results.get(filePathOrEdit) ?? [];
-        }
-
-        return filePathOrEdit.filter((e) => e.replacementText === '' && doRangesIntersect(e.range, range));
-    }
-
-    private _removeEdits(filePathOrEdit: string | FileEditAction[], edits: FileEditAction[]) {
-        if (isString(filePathOrEdit)) {
-            filePathOrEdit = this._results.get(filePathOrEdit) ?? [];
-        }
-
-        removeArrayElements(filePathOrEdit, (f) => edits.findIndex((e) => e === f) >= 0);
-    }
-
-    private _addResultWithRange(filePath: string, range: Range, replacementText: string) {
-        const edits = getOrAdd(this._results, filePath, () => []);
-        if (replacementText === '') {
-            // If it is a deletion, merge with overlapping deletion edit if there is any.
-            const deletions = this._getDeletionsForSpan(edits, range);
-            if (deletions.length > 0) {
-                // Delete the existing ones.
-                this._removeEdits(edits, deletions);
-
-                // Extend range with deleted ones.
-                extendRange(
-                    range,
-                    deletions.map((d) => d.range)
-                );
-            }
-        }
-
-        // Don't put duplicated edit. It can happen if code has duplicated module import.
-        // ex) from a import b, b, c
-        // If we need to introduce new "from import" statement for "b", we will add new statement twice.
-        if (edits.some((e) => rangesAreEqual(e.range, range) && e.replacementText === replacementText)) {
-            return;
-        }
-
-        edits.push({ filePath, range, replacementText });
+        this._textEditTracker.addEdits(...edits);
     }
 
     private _getTextEditsForNewOrExistingFromImport(
@@ -1334,7 +1292,7 @@ export class RenameModuleProvider {
             // we could create invalid text edits (2 edits that change the same span, or invalid replacement text since
             // texts on the node has changed)
             if (this._onlyNameChanged && importNameInfo.length === 1 && edits.length === 1) {
-                const deletions = this._getDeletionsForSpan(filePath, edits[0].range);
+                const deletions = this._textEditTracker.getDeletionsForSpan(filePath, edits[0].range);
                 if (deletions.length === 0) {
                     return [{ filePath, range: edits[0].range, replacementText: edits[0].replacementText }];
                 } else {
@@ -1347,7 +1305,7 @@ export class RenameModuleProvider {
                         (i) => i.name.value === this.lastModuleName && i.alias?.value === alias
                     );
                     if (importName) {
-                        this._removeEdits(filePath, deletions);
+                        this._textEditTracker.removeEdits(filePath, deletions);
                         if (importName.alias) {
                             nameRemoved.delete(importName.alias.id);
                         }

@@ -845,52 +845,66 @@ export function isLiteralTypeOrUnion(type: Type): boolean {
     return false;
 }
 
-export function containsLiteralType(type: Type, includeTypeArgs = false, recursionCount = 0): boolean {
+export function containsType(
+    type: Type,
+    predicate: (t: Type) => boolean,
+    includeTypeArgs = false,
+    recursionCount = 0
+): boolean {
     if (recursionCount > maxTypeRecursionCount) {
         return false;
     }
     recursionCount++;
 
-    if (isClassInstance(type)) {
-        if (isLiteralType(type)) {
-            return true;
-        }
-
-        if (ClassType.isBuiltIn(type, 'LiteralString')) {
-            return true;
-        }
+    if (predicate(type)) {
+        return true;
     }
 
     if (includeTypeArgs && isClass(type)) {
         const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
         if (typeArgs) {
-            return typeArgs.some((typeArg) => containsLiteralType(typeArg, includeTypeArgs, recursionCount));
+            return typeArgs.some((typeArg) => containsType(typeArg, predicate, includeTypeArgs, recursionCount));
         }
     }
 
     if (isUnion(type)) {
-        return type.subtypes.some((subtype) => containsLiteralType(subtype, includeTypeArgs, recursionCount));
+        return type.subtypes.some((subtype) => containsType(subtype, predicate, includeTypeArgs, recursionCount));
     }
 
     if (isOverloadedFunction(type)) {
-        return type.overloads.some((overload) => containsLiteralType(overload, includeTypeArgs, recursionCount));
+        return type.overloads.some((overload) => containsType(overload, predicate, includeTypeArgs, recursionCount));
     }
 
     if (isFunction(type)) {
         const returnType = FunctionType.getSpecializedReturnType(type);
-        if (returnType && containsLiteralType(returnType, includeTypeArgs, recursionCount)) {
+        if (returnType && containsType(returnType, predicate, includeTypeArgs, recursionCount)) {
             return true;
         }
 
         for (let i = 0; i < type.details.parameters.length; i++) {
             const paramType = FunctionType.getEffectiveParameterType(type, i);
-            if (containsLiteralType(paramType, includeTypeArgs, recursionCount)) {
+            if (containsType(paramType, predicate, includeTypeArgs, recursionCount)) {
                 return true;
             }
         }
     }
 
     return false;
+}
+
+export function containsLiteralType(type: Type, includeTypeArgs = false, recursionCount = 0): boolean {
+    return containsType(
+        type,
+        (t) => {
+            if (!isClassInstance(t)) {
+                return false;
+            }
+
+            return isLiteralType(t) || ClassType.isBuiltIn(t, 'LiteralString');
+        },
+        includeTypeArgs,
+        recursionCount
+    );
 }
 
 // If all of the subtypes are literals with the same built-in class (e.g.
