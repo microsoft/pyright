@@ -18,7 +18,41 @@ import { stubsSuffix } from './common/pathConsts';
 import { combinePaths, ensureTrailingDirectorySeparator, isDirectory, tryStat } from './common/pathUtils';
 import { ReadOnlyAugmentedFileSystem } from './readonlyAugmentedFileSystem';
 
-export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem {
+export interface SupportPartialStubs {
+    isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean;
+    isPathScanned(path: string): boolean;
+    processPartialStubPackages(paths: string[], roots: string[], bundledStubPath?: string): void;
+    clearPartialStubs(): void;
+}
+
+export namespace SupportPartialStubs {
+    export function is(value: any): value is SupportPartialStubs {
+        return (
+            value.isPartialStubPackagesScanned &&
+            value.isPathScanned &&
+            value.processPartialStubPackages &&
+            value.clearPartialStubs
+        );
+    }
+}
+
+export interface SupportUriToPathMapping {
+    hasUriMapEntry(uriString: string, mappedPath: string): boolean;
+    addUriMap(uriString: string, mappedPath: string): boolean;
+    removeUriMap(uriString: string, mappedPath: string): boolean;
+    pendingRequest(mappedPath: string, hasPendingRequest: boolean): void;
+}
+
+export namespace SupportUriToPathMapping {
+    export function is(value: any): value is SupportUriToPathMapping {
+        return value.hasUriMapEntry && value.addUriMap && value.removeUriMap && value.pendingRequest;
+    }
+}
+
+export class PyrightFileSystem
+    extends ReadOnlyAugmentedFileSystem
+    implements SupportPartialStubs, SupportUriToPathMapping
+{
     // Root paths processed
     private readonly _rootSearched = new Set<string>();
 

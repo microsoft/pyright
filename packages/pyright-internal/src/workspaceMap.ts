@@ -10,6 +10,17 @@ import { LanguageServerBase, WellKnownWorkspaceKinds, WorkspaceServiceInstance }
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
     private _defaultWorkspacePath = '<default>';
 
+    override delete(key: string): boolean {
+        const workspace = this.get(key);
+        if (!workspace) {
+            return false;
+        }
+
+        // Make sure we shutdown BG for the workspace.
+        workspace.serviceInstance.backgroundAnalysisProgram.backgroundAnalysis?.shutdown();
+        return super.delete(key);
+    }
+
     hasMultipleWorkspaces(kind?: string) {
         if (this.size === 0 || this.size === 1) {
             return false;

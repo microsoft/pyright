@@ -153,7 +153,7 @@ export class AnalyzerService {
     }
 
     clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase, fs?: FileSystem): AnalyzerService {
-        const service = new AnalyzerService(instanceName, fs ?? this._fs, { ...this._options, backgroundAnalysis });
+        const service = new AnalyzerService(instanceName, fs ?? this.fs, { ...this._options, backgroundAnalysis });
 
         // Make sure we keep editor content (open file) which could be different than one in the file system.
         for (const fileInfo of this.backgroundAnalysisProgram.program.getOpened()) {
@@ -569,7 +569,7 @@ export class AnalyzerService {
                 commandLineOptions.executionRoot,
                 normalizePath(commandLineOptions.configFilePath)
             );
-            if (!this._fs.existsSync(configFilePath)) {
+            if (!this.fs.existsSync(configFilePath)) {
                 this._console.info(`Configuration file not found at ${configFilePath}.`);
                 configFilePath = commandLineOptions.executionRoot;
             } else {
@@ -634,25 +634,25 @@ export class AnalyzerService {
         configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
         configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
         configOptions.ensureDefaultExtraPaths(
-            this._fs,
+            this.fs,
             commandLineOptions.autoSearchPaths || false,
             commandLineOptions.extraPaths
         );
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
-                configOptions.include.push(getFileSpec(this._fs, projectRoot, fileSpec));
+                configOptions.include.push(getFileSpec(this.fs, projectRoot, fileSpec));
             });
         } else if (!configFilePath) {
             // If no config file was found and there are no explicit include
             // paths specified, assume the caller wants to include all source
             // files under the execution root path.
             if (commandLineOptions.executionRoot) {
-                configOptions.include.push(getFileSpec(this._fs, commandLineOptions.executionRoot, '.'));
+                configOptions.include.push(getFileSpec(this.fs, commandLineOptions.executionRoot, '.'));
 
                 // Add a few common excludes to avoid long scan times.
                 defaultExcludes.forEach((exclude) => {
-                    configOptions.exclude.push(getFileSpec(this._fs, commandLineOptions.executionRoot, exclude));
+                    configOptions.exclude.push(getFileSpec(this.fs, commandLineOptions.executionRoot, exclude));
                 });
             }
         }
@@ -674,7 +674,7 @@ export class AnalyzerService {
                 configJsonObj,
                 this._typeCheckingMode,
                 this._console,
-                this._fs,
+                this.fs,
                 host,
                 commandLineOptions.diagnosticSeverityOverrides,
                 commandLineOptions.fileSpecs.length > 0
@@ -686,14 +686,14 @@ export class AnalyzerService {
             // the project should be included.
             if (configOptions.include.length === 0) {
                 this._console.info(`No include entries specified; assuming ${configFileDir}`);
-                configOptions.include.push(getFileSpec(this._fs, configFileDir, '.'));
+                configOptions.include.push(getFileSpec(this.fs, configFileDir, '.'));
             }
 
             // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
             if (configOptions.exclude.length === 0) {
                 defaultExcludes.forEach((exclude) => {
                     this._console.info(`Auto-excluding ${exclude}`);
-                    configOptions.exclude.push(getFileSpec(this._fs, configFileDir, exclude));
+                    configOptions.exclude.push(getFileSpec(this.fs, configFileDir, exclude));
                 });
 
                 if (configOptions.autoExcludeVenv === undefined) {
@@ -768,7 +768,7 @@ export class AnalyzerService {
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.
         if (configOptions.venvPath) {
-            if (!this._fs.existsSync(configOptions.venvPath) || !isDirectory(this._fs, configOptions.venvPath)) {
+            if (!this.fs.existsSync(configOptions.venvPath) || !isDirectory(this.fs, configOptions.venvPath)) {
                 this._console.error(`venvPath ${configOptions.venvPath} is not a valid directory.`);
             }
 
@@ -779,13 +779,13 @@ export class AnalyzerService {
             if (configOptions.venv) {
                 const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.venv);
 
-                if (!this._fs.existsSync(fullVenvPath) || !isDirectory(this._fs, fullVenvPath)) {
+                if (!this.fs.existsSync(fullVenvPath) || !isDirectory(this.fs, fullVenvPath)) {
                     this._console.error(
                         `venv ${configOptions.venv} subdirectory not found in venv path ${configOptions.venvPath}.`
                     );
                 } else {
                     const importFailureInfo: string[] = [];
-                    if (findPythonSearchPaths(this._fs, configOptions, host, importFailureInfo) === undefined) {
+                    if (findPythonSearchPaths(this.fs, configOptions, host, importFailureInfo) === undefined) {
                         this._console.error(
                             `site-packages directory cannot be located for venvPath ` +
                                 `${configOptions.venvPath} and venv ${configOptions.venv}.`
@@ -809,16 +809,13 @@ export class AnalyzerService {
         }
 
         if (configOptions.typeshedPath) {
-            if (
-                !this._fs.existsSync(configOptions.typeshedPath) ||
-                !isDirectory(this._fs, configOptions.typeshedPath)
-            ) {
+            if (!this.fs.existsSync(configOptions.typeshedPath) || !isDirectory(this.fs, configOptions.typeshedPath)) {
                 this._console.error(`typeshedPath ${configOptions.typeshedPath} is not a valid directory.`);
             }
         }
 
         if (configOptions.stubPath) {
-            if (!this._fs.existsSync(configOptions.stubPath) || !isDirectory(this._fs, configOptions.stubPath)) {
+            if (!this.fs.existsSync(configOptions.stubPath) || !isDirectory(this.fs, configOptions.stubPath)) {
                 this._console.warn(`stubPath ${configOptions.stubPath} is not a valid directory.`);
             }
         }
@@ -872,7 +869,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.restart();
     }
 
-    private get _fs() {
+    get fs() {
         return this._backgroundAnalysisProgram.importResolver.fileSystem;
     }
 
@@ -935,8 +932,8 @@ export class AnalyzerService {
 
         try {
             // Generate a new typings directory if necessary.
-            if (!this._fs.existsSync(stubPath)) {
-                this._fs.mkdirSync(stubPath);
+            if (!this.fs.existsSync(stubPath)) {
+                this.fs.mkdirSync(stubPath);
             }
         } catch (e: any) {
             const errMsg = `Could not create typings directory '${stubPath}'`;
@@ -950,8 +947,8 @@ export class AnalyzerService {
 
         try {
             // Generate a new typings subdirectory if necessary.
-            if (!this._fs.existsSync(typingsSubdirHierarchy)) {
-                makeDirectories(this._fs, typingsSubdirHierarchy, stubPath);
+            if (!this.fs.existsSync(typingsSubdirHierarchy)) {
+                makeDirectories(this.fs, typingsSubdirHierarchy, stubPath);
             }
         } catch (e: any) {
             const errMsg = `Could not create typings subdirectory '${typingsSubdirHierarchy}'`;
@@ -969,7 +966,7 @@ export class AnalyzerService {
     private _findConfigFile(searchPath: string): string | undefined {
         for (const name of configFileNames) {
             const fileName = combinePaths(searchPath, name);
-            if (this._fs.existsSync(fileName)) {
+            if (this.fs.existsSync(fileName)) {
                 return fileName;
             }
         }
@@ -982,7 +979,7 @@ export class AnalyzerService {
 
     private _findPyprojectTomlFile(searchPath: string) {
         const fileName = combinePaths(searchPath, pyprojectTomlName);
-        if (this._fs.existsSync(fileName)) {
+        if (this.fs.existsSync(fileName)) {
             return fileName;
         }
         return undefined;
@@ -1021,7 +1018,7 @@ export class AnalyzerService {
         while (true) {
             // Attempt to read the file contents.
             try {
-                fileContents = this._fs.readFileSync(filePath, 'utf8');
+                fileContents = this.fs.readFileSync(filePath, 'utf8');
             } catch {
                 this._console.error(`Config file "${filePath}" could not be read.`);
                 this._reportConfigParseError();
@@ -1090,7 +1087,7 @@ export class AnalyzerService {
 
                 // Determine the directory that contains the root package.
                 const finalResolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-                const isFinalPathFile = isFile(this._fs, finalResolvedPath);
+                const isFinalPathFile = isFile(this.fs, finalResolvedPath);
                 const isFinalPathInitFile =
                     isFinalPathFile && stripFileExtension(getFileName(finalResolvedPath)) === '__init__';
 
@@ -1112,9 +1109,9 @@ export class AnalyzerService {
                     }
                 }
 
-                if (isDirectory(this._fs, rootPackagePath)) {
+                if (isDirectory(this.fs, rootPackagePath)) {
                     this._typeStubTargetPath = rootPackagePath;
-                } else if (isFile(this._fs, rootPackagePath)) {
+                } else if (isFile(this.fs, rootPackagePath)) {
                     // This can occur if there is a "dir/__init__.py" at the same level as a
                     // module "dir/module.py" that is specifically targeted for stub generation.
                     this._typeStubTargetPath = getDirectoryPath(rootPackagePath);
@@ -1186,13 +1183,13 @@ export class AnalyzerService {
             }
 
             if (this._configOptions.autoExcludeVenv) {
-                if (envMarkers.some((f) => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
+                if (envMarkers.some((f) => this.fs.existsSync(combinePaths(absolutePath, ...f)))) {
                     this._console.info(`Auto-excluding ${absolutePath}`);
                     return;
                 }
             }
 
-            const { files, directories } = getFileSystemEntries(this._fs, absolutePath);
+            const { files, directories } = getFileSystemEntries(this.fs, absolutePath);
 
             for (const file of files) {
                 const filePath = combinePaths(absolutePath, file);
@@ -1214,7 +1211,7 @@ export class AnalyzerService {
 
         const seenDirs = new Set<string>();
         const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
-            const realDirPath = tryRealpath(this._fs, absolutePath);
+            const realDirPath = tryRealpath(this.fs, absolutePath);
             if (!realDirPath) {
                 this._console.warn(`Skipping broken link "${absolutePath}"`);
                 return;
@@ -1238,7 +1235,7 @@ export class AnalyzerService {
                 let foundFileSpec = false;
                 let isFileIncluded = true;
 
-                const stat = tryStat(this._fs, includeSpec.wildcardRoot);
+                const stat = tryStat(this.fs, includeSpec.wildcardRoot);
                 if (stat?.isFile()) {
                     if (this._shouldIncludeFile(includeSpec.wildcardRoot)) {
                         results.push(includeSpec.wildcardRoot);
@@ -1287,7 +1284,7 @@ export class AnalyzerService {
                 }
 
                 const isIgnored = ignoredWatchEventFunction(fileList);
-                this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, (event, path) => {
+                this._sourceFileWatcher = this.fs.createFileSystemWatcher(fileList, (event, path) => {
                     if (!path) {
                         return;
                     }
@@ -1305,7 +1302,7 @@ export class AnalyzerService {
                         return;
                     }
 
-                    const eventInfo = getEventInfo(this._fs, this._console, this._program, event, path);
+                    const eventInfo = getEventInfo(this.fs, this._console, this._program, event, path);
                     if (!eventInfo) {
                         // no-op event, return.
                         return;
@@ -1423,7 +1420,7 @@ export class AnalyzerService {
         // Watch the library paths for package install/uninstall.
         const importFailureInfo: string[] = [];
         this._librarySearchPathsToWatch = findPythonSearchPaths(
-            this._fs,
+            this.fs,
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
             importFailureInfo,
@@ -1438,7 +1435,7 @@ export class AnalyzerService {
                     this._console.info(`Adding fs watcher for library directories:\n ${watchList.join('\n')}`);
                 }
                 const isIgnored = ignoredWatchEventFunction(watchList);
-                this._libraryFileWatcher = this._fs.createFileSystemWatcher(watchList, (event, path) => {
+                this._libraryFileWatcher = this.fs.createFileSystemWatcher(watchList, (event, path) => {
                     if (!path) {
                         return;
                     }
@@ -1509,14 +1506,14 @@ export class AnalyzerService {
         }
 
         if (this._configFilePath) {
-            this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], (event) => {
+            this._configFileWatcher = this.fs.createFileSystemWatcher([this._configFilePath], (event) => {
                 if (this._verboseOutput) {
                     this._console.info(`Received fs event '${event}' for config file`);
                 }
                 this._scheduleReloadConfigFile();
             });
         } else if (this._executionRootPath) {
-            this._configFileWatcher = this._fs.createFileSystemWatcher([this._executionRootPath], (event, path) => {
+            this._configFileWatcher = this.fs.createFileSystemWatcher([this._executionRootPath], (event, path) => {
                 if (!path) {
                     return;
                 }
@@ -1577,7 +1574,7 @@ export class AnalyzerService {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
         const importResolver = this._importResolverFactory(
-            this._fs,
+            this.fs,
             this._backgroundAnalysisProgram.configOptions,
             host
         );

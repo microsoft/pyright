@@ -9,7 +9,7 @@
 import * as chokidar from 'chokidar';
 
 import { ConsoleInterface } from './console';
-import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType, FileWatcherProvider } from './fileSystem';
+import { FileWatcher, FileWatcherEventHandler, FileWatcherProvider } from './fileSystem';
 
 const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';
@@ -66,9 +66,5 @@ export class ChokidarFileWatcherProvider implements FileWatcherProvider {
         }
 
         return watcher;
-    }
-
-    onFileChange(_1: FileWatcherEventType, _2: string): void {
-        // Do nothing.
     }
 }

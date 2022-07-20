@@ -44,3 +44,15 @@ export interface DeleteFileOperation extends FileOperation {
     kind: 'delete';
     filePath: string;
 }
+
+export namespace TextEditAction {
+    export function is(value: any): value is TextEditAction {
+        return !!value.range && value.replacementText !== undefined;
+    }
+}
+
+export namespace FileEditAction {
+    export function is(value: any): value is FileEditAction {
+        return value.filePath !== undefined && TextEditAction.is(value);
+    }
+}

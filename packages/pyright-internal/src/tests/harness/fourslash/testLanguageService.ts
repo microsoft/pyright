@@ -43,7 +43,7 @@ export class TestFeatures implements HostSpecificFeatures {
         range: Range,
         token: CancellationToken
     ): Promise<CodeAction[]> {
-        return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, range, token);
+        return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, range, undefined, token);
     }
     execute(ls: LanguageServerInterface, params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         const controller = new CommandController(ls);

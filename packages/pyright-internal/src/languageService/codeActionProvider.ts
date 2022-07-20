@@ -21,6 +21,7 @@ export class CodeActionProvider {
         workspace: WorkspaceServiceInstance,
         filePath: string,
         range: Range,
+        kinds: CodeActionKind[] | undefined,
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);

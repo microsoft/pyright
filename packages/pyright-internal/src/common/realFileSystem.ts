@@ -16,6 +16,7 @@ import {
     FileWatcher,
     FileWatcherEventHandler,
     FileWatcherEventType,
+    FileWatcherHandler,
     FileWatcherProvider,
     MkDirOptions,
     nullFileWatcherProvider,
@@ -398,7 +399,7 @@ interface WorkspaceFileWatcher extends FileWatcher {
     eventHandler: FileWatcherEventHandler;
 }
 
-export class WorkspaceFileWatcherProvider implements FileWatcherProvider {
+export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWatcherHandler {
     private _fileWatchers: WorkspaceFileWatcher[] = [];
 
     createFileWatcher(workspacePaths: string[], listener: FileWatcherEventHandler): FileWatcher {

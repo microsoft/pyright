@@ -8,7 +8,9 @@
 
 import { Position } from 'vscode-languageserver';
 import { TextDocumentIdentifier } from 'vscode-languageserver-protocol';
+import { URI } from 'vscode-uri';
 
+import { isString } from './core';
 import { FileSystem } from './fileSystem';
 import { convertUriToPath } from './pathUtils';
 
@@ -22,5 +24,17 @@ export class UriParser {
 
     public decodeTextDocumentUri(uriString: string) {
         return convertUriToPath(this._fs, uriString);
+    }
+
+    public isLocal(uri: URI | string | undefined) {
+        if (!uri) {
+            return false;
+        }
+
+        if (isString(uri)) {
+            uri = URI.parse(uri);
+        }
+
+        return uri.scheme === 'file';
     }
 }

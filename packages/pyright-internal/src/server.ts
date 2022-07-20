@@ -61,8 +61,8 @@ export class PyrightServer extends LanguageServerBase {
                 rootDirectory,
                 version,
                 workspaceMap,
-                fileSystem: fileSystem,
-                fileWatcherProvider,
+                fileSystem,
+                fileWatcherHandler: fileWatcherProvider,
                 cancellationProvider: new FileBasedCancellationProvider('bg'),
                 maxAnalysisTimeInForeground,
                 supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
@@ -219,7 +219,7 @@ export class PyrightServer extends LanguageServerBase {
     }
 
     protected override createHost() {
-        return new FullAccessHost(this.fs);
+        return new FullAccessHost(this._serviceFS);
     }
 
     protected override createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver {
@@ -248,7 +248,13 @@ export class PyrightServer extends LanguageServerBase {
 
         const filePath = this._uriParser.decodeTextDocumentUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(filePath);
-        return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
+        return CodeActionProvider.getCodeActionsForPosition(
+            workspace,
+            filePath,
+            params.range,
+            params.context.only,
+            token
+        );
     }
 
     protected createProgressReporter(): ProgressReporter {

@@ -18,9 +18,12 @@ export interface FileWatcher {
     close(): void;
 }
 
+export interface FileWatcherHandler {
+    onFileChange(eventType: FileWatcherEventType, path: string): void;
+}
+
 export interface FileWatcherProvider {
     createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
-    onFileChange(eventType: FileWatcherEventType, path: string): void;
 }
 
 export interface Stats {
@@ -110,12 +113,15 @@ const nullFileWatcher: FileWatcher = {
     },
 };
 
+export const nullFileWatcherHandler: FileWatcherHandler = {
+    onFileChange(_1: FileWatcherEventType, _2: string): void {
+        // do nothing
+    },
+};
+
 export const nullFileWatcherProvider: FileWatcherProvider = {
     createFileWatcher(_1: string[], _2: FileWatcherEventHandler): FileWatcher {
         return nullFileWatcher;
-    },
-    onFileChange(_1: FileWatcherEventType, _2: string): void {
-        // do nothing
     },
 };
 

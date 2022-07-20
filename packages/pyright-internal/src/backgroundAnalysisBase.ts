@@ -260,6 +260,10 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'restart', data: null });
     }
 
+    shutdown(): void {
+        this.enqueueRequest({ requestType: 'shutdown', data: null });
+    }
+
     protected enqueueRequest(request: AnalysisRequest) {
         if (this._worker) {
             this._worker.postMessage(request, request.port ? [request.port] : undefined);
@@ -465,6 +469,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
+            case 'shutdown': {
+                parentPort?.close();
+                break;
+            }
+
             default: {
                 debug.fail(`${msg.requestType} is not expected`);
             }
@@ -590,7 +599,8 @@ export interface AnalysisRequest {
         | 'getSemanticTokens'
         | 'setExperimentOptions'
         | 'setImportResolver'
-        | 'getInlayHints';
+        | 'getInlayHints'
+        | 'shutdown';
 
     data: any;
     port?: MessagePort | undefined;
