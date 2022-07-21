@@ -250,7 +250,6 @@ import {
     getUnionSubtypeCount,
     isEllipsisType,
     isLiteralType,
-    isLiteralTypeOrUnion,
     isMaybeDescriptorInstance,
     isOptionalType,
     isPartlyUnknown,
@@ -3287,7 +3286,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             tupleClassType,
                             [],
                             /* isTypeArgumentExplicit */ true,
-                            /* stripLiterals */ true,
                             /* isUnpackedTuple */ true
                         )
                     );
@@ -5861,7 +5859,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 tupleClassType,
                                 variadicTypes,
                                 /* isTypeArgumentExplicit */ true,
-                                /* stripLiterals */ true,
                                 /* isUnpackedTuple */ true
                             )
                         );
@@ -5884,7 +5881,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 tupleClassType,
                                 [],
                                 /* isTypeArgumentExplicit */ true,
-                                /* stripLiterals */ true,
                                 /* isUnpackedTuple */ true
                             )
                         ),
@@ -6863,14 +6859,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             )
         );
 
-        const expectedTypesContainLiterals = expectedTypes.some((type) => isLiteralTypeOrUnion(type));
-
         const type = convertToInstance(
             specializeTupleClass(
                 tupleClassType,
                 buildTupleTypesList(entryTypeResults),
-                /* isTypeArgumentExplicit */ true,
-                /* stripLiterals */ !expectedTypesContainLiterals
+                /* isTypeArgumentExplicit */ true
             )
         );
 
@@ -9629,7 +9622,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 tupleClassType,
                                 tupleTypeArgs,
                                 /* isTypeArgumentExplicit */ true,
-                                /* stripLiterals */ true,
                                 /* isUnpackedTuple */ true
                             )
                         );
@@ -13820,12 +13812,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             }
 
-            returnType = specializeTupleClass(
-                classType,
-                tupleTypeArgTypes,
-                typeArgs !== undefined,
-                /* stripLiterals */ false
-            );
+            returnType = specializeTupleClass(classType, tupleTypeArgTypes, typeArgs !== undefined);
         } else {
             returnType = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
         }
@@ -16200,8 +16187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         specializeTupleClass(
                             tupleClassType,
                             [{ type, isUnbounded: !isVariadicTypeVar(type) }],
-                            /* isTypeArgumentExplicit */ true,
-                            /* stripLiterals */ true
+                            /* isTypeArgumentExplicit */ true
                         )
                     );
                 }
@@ -20235,7 +20221,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     return { type: stripLiteralValue(typeArg.type), isUnbounded: false };
                                 }),
                                 /* isTypeArgumentExplicit */ true,
-                                /* stripLiterals */ true,
                                 /* isUnpackedTuple */ true
                             )
                         );
@@ -22273,7 +22258,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         tupleClassType,
                         srcTupleTypes,
                         /* isTypeArgumentExplicit */ true,
-                        /* stripLiterals */ true,
                         /* isUnpackedTuple */ true
                     )
                 );
@@ -22568,8 +22552,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             specializeTupleClass(
                                 tupleClassType,
                                 [{ type: destArgsType, isUnbounded: true }],
-                                /* isTypeArgumentExplicit */ true,
-                                /* stripLiterals */ true
+                                /* isTypeArgumentExplicit */ true
                             )
                         )
                     );
@@ -22581,8 +22564,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             specializeTupleClass(
                                 tupleClassType,
                                 [{ type: srcArgsType, isUnbounded: true }],
-                                /* isTypeArgumentExplicit */ true,
-                                /* stripLiterals */ true
+                                /* isTypeArgumentExplicit */ true
                             )
                         )
                     );

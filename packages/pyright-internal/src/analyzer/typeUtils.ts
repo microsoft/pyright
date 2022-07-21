@@ -2096,20 +2096,14 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
 
 // Tuples require special handling for specialization. This method computes
 // the "effective" type argument, which is a union of the variadic type
-// arguments. If stripLiterals is true, literal values are stripped when
-// computing the effective type args.
+// arguments.
 export function specializeTupleClass(
     classType: ClassType,
     typeArgs: TupleTypeArgument[],
     isTypeArgumentExplicit = true,
-    stripLiterals = true,
     isUnpackedTuple = false
 ): ClassType {
     let combinedTupleType = combineTypes(typeArgs.map((t) => t.type));
-
-    if (stripLiterals) {
-        combinedTupleType = stripLiteralValue(combinedTupleType);
-    }
 
     // An empty tuple has an effective type of Any.
     if (isNever(combinedTupleType)) {

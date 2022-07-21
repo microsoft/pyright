@@ -152,7 +152,6 @@ export function assignTypeToTypeVar(
                         tupleClassType,
                         [{ type: srcType, isUnbounded: false }],
                         /* isTypeArgumentExplicit */ true,
-                        /* stripLiterals */ true,
                         /* isUnpackedTuple */ true
                     )
                 );
