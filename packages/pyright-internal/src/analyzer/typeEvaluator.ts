@@ -2311,6 +2311,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         let isValidIterator = true;
 
+        type = transformPossibleRecursiveTypeAlias(type);
         type = makeTopLevelTypeVarsConcrete(type);
 
         if (isOptionalType(type)) {
