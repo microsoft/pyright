@@ -17386,10 +17386,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // See if the expression is part of a pattern used in a case statement.
-        const caseNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Case);
-        if (caseNode) {
-            evaluateTypesForCaseStatement(caseNode as CaseNode);
-            return;
+        const possibleCaseNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Case);
+        if (possibleCaseNode) {
+            const caseNode = possibleCaseNode as CaseNode;
+            if (ParseTreeUtils.isNodeContainedWithin(node, caseNode.pattern)) {
+                evaluateTypesForCaseStatement(caseNode);
+                return;
+            }
         }
 
         // Scan up the parse tree until we find a node that doesn't
