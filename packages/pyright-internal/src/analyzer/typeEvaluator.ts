@@ -6133,7 +6133,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type, node };
         }
 
-        let isIncomplete = false;
+        let isIncomplete = baseTypeResult.isIncomplete;
 
         const type = mapSubtypesExpandTypeVars(
             baseTypeResult.type,
@@ -6290,7 +6290,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return UnknownType.create();
                 }
 
-                if (isNoneInstance(concreteSubtype)) {
+                if (isNoneInstance(concreteSubtype) && !isIncomplete) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
                         DiagnosticRule.reportOptionalSubscript,
@@ -6301,7 +6301,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return UnknownType.create();
                 }
 
-                if (!isUnbound(concreteSubtype)) {
+                if (!isUnbound(concreteSubtype) && !isIncomplete) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
