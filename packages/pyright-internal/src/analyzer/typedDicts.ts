@@ -849,7 +849,7 @@ export function getTypeOfIndexedTypedDict(
 ): TypeResult | undefined {
     if (node.items.length !== 1) {
         evaluator.addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
-        return { node, type: UnknownType.create() };
+        return { type: UnknownType.create() };
     }
 
     // Look for subscript types that are not supported by TypedDict.
@@ -952,7 +952,7 @@ export function getTypeOfIndexedTypedDict(
         );
     }
 
-    return { node, type: resultingType, isIncomplete: !!indexTypeResult.isIncomplete };
+    return { type: resultingType, isIncomplete: !!indexTypeResult.isIncomplete };
 }
 
 // If the specified type has a non-required key, this method marks the

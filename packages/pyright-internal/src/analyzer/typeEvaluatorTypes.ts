@@ -137,27 +137,12 @@ export const enum EvaluatorFlags {
     AllowUnpackedTypedDict = 1 << 23,
 }
 
-export interface SimpleTypeResult {
+export interface TypeResult {
     type: Type;
 
     // Is the type incomplete (i.e. not fully evaluated) because
     // some of the paths involve cyclical dependencies?
     isIncomplete?: boolean | undefined;
-}
-
-export interface TypeResult extends SimpleTypeResult {
-    node: ParseNode;
-
-    // Type consistency errors detected when evaluating this type.
-    typeErrors?: boolean | undefined;
-
-    // Variadic type arguments allow the shorthand "()" to
-    // represent an empty tuple (i.e. Tuple[()]).
-    isEmptyTupleShorthand?: boolean | undefined;
-
-    unpackedType?: Type | undefined;
-    typeList?: TypeResult[] | undefined;
-    expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
 
     // Used for the output of "super" calls used on the LHS of
     // a member access. Normally the type of the LHS is the same
@@ -166,6 +151,18 @@ export interface TypeResult extends SimpleTypeResult {
     // bind.
     bindToType?: ClassType | TypeVarType | undefined;
 
+    unpackedType?: Type | undefined;
+    typeList?: TypeResultWithNode[] | undefined;
+
+    // Type consistency errors detected when evaluating this type.
+    typeErrors?: boolean | undefined;
+
+    // Variadic type arguments allow the shorthand "()" to
+    // represent an empty tuple (i.e. Tuple[()]).
+    isEmptyTupleShorthand?: boolean | undefined;
+
+    expectedTypeDiagAddendum?: DiagnosticAddendum | undefined;
+
     // Is member a descriptor object that is asymmetric with respect
     // to __get__ and __set__ types?
     isAsymmetricDescriptor?: boolean;
@@ -173,6 +170,10 @@ export interface TypeResult extends SimpleTypeResult {
     // Is the type wrapped in a "Required" or "NotRequired" class?
     isRequired?: boolean;
     isNotRequired?: boolean;
+}
+
+export interface TypeResultWithNode extends TypeResult {
+    node: ParseNode;
 }
 
 export interface EvaluatorUsage {
@@ -216,13 +217,13 @@ export interface FunctionArgumentBase {
     argumentCategory: ArgumentCategory;
     node?: ArgumentNode | undefined;
     name?: NameNode | undefined;
-    typeResult?: SimpleTypeResult | undefined;
+    typeResult?: TypeResult | undefined;
     valueExpression?: ExpressionNode | undefined;
     active?: boolean | undefined;
 }
 
 export interface FunctionArgumentWithType extends FunctionArgumentBase {
-    typeResult: SimpleTypeResult;
+    typeResult: TypeResult;
 }
 
 export interface FunctionArgumentWithExpression extends FunctionArgumentBase {
@@ -325,7 +326,7 @@ export interface TypeEvaluator {
     getTypeOfIterable: (type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined) => Type | undefined;
     getTypeOfIterator: (type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined) => Type | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
-    getTypeOfArgument: (arg: FunctionArgument) => SimpleTypeResult;
+    getTypeOfArgument: (arg: FunctionArgument) => TypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
     makeTopLevelTypeVarsConcrete: (type: Type) => Type;
@@ -362,7 +363,7 @@ export interface TypeEvaluator {
     ) => FunctionType | OverloadedFunctionType | undefined;
     getTypeOfMagicMethodReturn: (
         objType: Type,
-        args: SimpleTypeResult[],
+        args: TypeResult[],
         magicMethodName: string,
         errorNode: ExpressionNode,
         expectedType: Type | undefined
