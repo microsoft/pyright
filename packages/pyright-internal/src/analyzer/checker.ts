@@ -1577,7 +1577,11 @@ export class Checker extends ParseTreeWalker {
         if (!elementType) {
             return;
         }
-        const narrowedType = narrowTypeForContainerElementType(this._evaluator, leftType, elementType);
+        const narrowedType = narrowTypeForContainerElementType(
+            this._evaluator,
+            leftType,
+            this._evaluator.makeTopLevelTypeVarsConcrete(elementType)
+        );
 
         if (isNever(narrowedType)) {
             const getMessage = () => {

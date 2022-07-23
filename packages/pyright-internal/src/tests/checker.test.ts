@@ -261,7 +261,7 @@ test('UnnecessaryContains1', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportUnnecessaryContains = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryContains1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TypeIgnore1', () => {

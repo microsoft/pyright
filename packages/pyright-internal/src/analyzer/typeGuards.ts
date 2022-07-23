@@ -1429,7 +1429,11 @@ function narrowTypeForContainerType(evaluator: TypeEvaluator, referenceType: Typ
         return referenceType;
     }
 
-    return narrowTypeForContainerElementType(evaluator, referenceType, elementType);
+    return narrowTypeForContainerElementType(
+        evaluator,
+        referenceType,
+        evaluator.makeTopLevelTypeVarsConcrete(elementType)
+    );
 }
 
 export function getElementTypeForContainerNarrowing(containerType: Type) {
