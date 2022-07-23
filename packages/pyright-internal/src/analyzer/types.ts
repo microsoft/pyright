@@ -724,6 +724,9 @@ export namespace ClassType {
         return type1.literalValue === type2.literalValue;
     }
 
+    // Determines whether two typed dict classes are equivalent given
+    // that one or both have narrowed entries (i.e. entries that are
+    // guaranteed to be present).
     export function isTypedDictNarrowedEntriesSame(type1: ClassType, type2: ClassType): boolean {
         if (type1.typedDictNarrowedEntries) {
             if (!type2.typedDictNarrowedEntries) {
@@ -750,6 +753,31 @@ export namespace ClassType {
             }
         } else if (type2.typedDictNarrowedEntries) {
             return false;
+        }
+
+        return true;
+    }
+
+    // Determines whether typed dict class type1 is a narrower form of type2,
+    // i.e. all of the "narrowed entries" found within type2 are also found
+    // within type1.
+    export function isTypedDictNarrower(type1: ClassType, type2: ClassType): boolean {
+        const tdEntries2 = type2.typedDictNarrowedEntries;
+        if (!tdEntries2) {
+            return false;
+        }
+
+        const tdEntries1 = type1.typedDictNarrowedEntries ?? new Map<string, TypedDictEntry>();
+
+        let key: string;
+        let entry2: TypedDictEntry;
+        for ([key, entry2] of tdEntries2.entries()) {
+            if (entry2.isProvided) {
+                const entry1 = tdEntries1.get(key);
+                if (!entry1?.isProvided) {
+                    return false;
+                }
+            }
         }
 
         return true;
@@ -2955,6 +2983,17 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
             ) {
                 if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
                     unionType.subtypes[i] = ClassType.cloneWithLiteral(type, /* value */ undefined);
+                    return;
+                }
+            }
+
+            // If the typeToAdd is a TypedDict that is the same class as the
+            // existing type, see if one of them is a proper subset of the other.
+            if (ClassType.isTypedDictClass(type) && ClassType.isSameGenericClass(type, typeToAdd)) {
+                if (ClassType.isTypedDictNarrower(typeToAdd, type)) {
+                    return;
+                } else if (ClassType.isTypedDictNarrower(type, typeToAdd)) {
+                    unionType.subtypes[i] = typeToAdd;
                     return;
                 }
             }
