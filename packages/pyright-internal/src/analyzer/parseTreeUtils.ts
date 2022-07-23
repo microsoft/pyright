@@ -2256,6 +2256,27 @@ export function isUnannotatedFunction(node: FunctionNode) {
     );
 }
 
+// "Chaining" is when binary operators can be chained together
+// as a shorthand. For example, "a < b < c" is shorthand for
+// "a < b and b < c".
+export function operatorSupportsChaining(op: OperatorType) {
+    switch (op) {
+        case OperatorType.Equals:
+        case OperatorType.NotEquals:
+        case OperatorType.LessThan:
+        case OperatorType.LessThanOrEqual:
+        case OperatorType.GreaterThan:
+        case OperatorType.GreaterThanOrEqual:
+        case OperatorType.Is:
+        case OperatorType.IsNot:
+        case OperatorType.In:
+        case OperatorType.NotIn:
+            return true;
+    }
+
+    return false;
+}
+
 function _getEndPositionIfMultipleStatementsAreOnSameLine(
     range: Range,
     tokenPosition: number,

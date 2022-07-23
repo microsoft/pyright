@@ -1605,8 +1605,20 @@ export class Checker extends ParseTreeWalker {
     // Determines whether the types of the two operands for an == or != operation
     // have overlapping types.
     private _validateComparisonTypes(node: BinaryOperationNode) {
+        let rightExpression = node.rightExpression;
+
+        // Check for chained comparisons.
+        if (
+            rightExpression.nodeType === ParseNodeType.BinaryOperation &&
+            !rightExpression.parenthesized &&
+            ParseTreeUtils.operatorSupportsChaining(rightExpression.operator)
+        ) {
+            // Use the left side of the right expression for comparison purposes.
+            rightExpression = rightExpression.leftExpression;
+        }
+
         const leftType = this._evaluator.getType(node.leftExpression);
-        const rightType = this._evaluator.getType(node.rightExpression);
+        const rightType = this._evaluator.getType(rightExpression);
 
         if (!leftType || !rightType) {
             return;

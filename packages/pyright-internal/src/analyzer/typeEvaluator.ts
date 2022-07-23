@@ -414,34 +414,32 @@ interface CallResult {
 }
 
 // Maps binary operators to the magic methods that implement them.
-// The boolean indicates whether the operators "chain" together.
-const binaryOperatorMap: { [operator: number]: [string, string, boolean] } = {
-    [OperatorType.Add]: ['__add__', '__radd__', false],
-    [OperatorType.Subtract]: ['__sub__', '__rsub__', false],
-    [OperatorType.Multiply]: ['__mul__', '__rmul__', false],
-    [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', false],
-    [OperatorType.Divide]: ['__truediv__', '__rtruediv__', false],
-    [OperatorType.Mod]: ['__mod__', '__rmod__', false],
-    [OperatorType.Power]: ['__pow__', '__rpow__', false],
-    [OperatorType.MatrixMultiply]: ['__matmul__', '__rmatmul__', false],
-    [OperatorType.BitwiseAnd]: ['__and__', '__rand__', false],
-    [OperatorType.BitwiseOr]: ['__or__', '__ror__', false],
-    [OperatorType.BitwiseXor]: ['__xor__', '__rxor__', false],
-    [OperatorType.LeftShift]: ['__lshift__', '__rlshift__', false],
-    [OperatorType.RightShift]: ['__rshift__', '__rrshift__', false],
-    [OperatorType.Equals]: ['__eq__', '__ne__', true],
-    [OperatorType.NotEquals]: ['__ne__', '__eq__', true],
-    [OperatorType.LessThan]: ['__lt__', '__ge__', true],
-    [OperatorType.LessThanOrEqual]: ['__le__', '__gt__', true],
-    [OperatorType.GreaterThan]: ['__gt__', '__le__', true],
-    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__lt__', true],
+const binaryOperatorMap: { [operator: number]: [string, string] } = {
+    [OperatorType.Add]: ['__add__', '__radd__'],
+    [OperatorType.Subtract]: ['__sub__', '__rsub__'],
+    [OperatorType.Multiply]: ['__mul__', '__rmul__'],
+    [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__'],
+    [OperatorType.Divide]: ['__truediv__', '__rtruediv__'],
+    [OperatorType.Mod]: ['__mod__', '__rmod__'],
+    [OperatorType.Power]: ['__pow__', '__rpow__'],
+    [OperatorType.MatrixMultiply]: ['__matmul__', '__rmatmul__'],
+    [OperatorType.BitwiseAnd]: ['__and__', '__rand__'],
+    [OperatorType.BitwiseOr]: ['__or__', '__ror__'],
+    [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
+    [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
+    [OperatorType.RightShift]: ['__rshift__', '__rrshift__'],
+    [OperatorType.Equals]: ['__eq__', '__ne__'],
+    [OperatorType.NotEquals]: ['__ne__', '__eq__'],
+    [OperatorType.LessThan]: ['__lt__', '__ge__'],
+    [OperatorType.LessThanOrEqual]: ['__le__', '__gt__'],
+    [OperatorType.GreaterThan]: ['__gt__', '__le__'],
+    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__lt__'],
 };
 
-// Maps boolean operators to a boolean value indicating whether
-// the operators "chain" together with other comparison operators.
-const booleanOperatorMap: { [operator: number]: boolean } = {
-    [OperatorType.And]: false,
-    [OperatorType.Or]: false,
+// Map of operators that always return a bool result.
+const booleanOperatorMap: { [operator: number]: true } = {
+    [OperatorType.And]: true,
+    [OperatorType.Or]: true,
     [OperatorType.Is]: true,
     [OperatorType.IsNot]: true,
     [OperatorType.In]: true,
@@ -11097,18 +11095,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type, isIncomplete };
     }
 
-    function operatorSupportsComparisonChaining(op: OperatorType) {
-        if (binaryOperatorMap[op] && binaryOperatorMap[op][2]) {
-            return true;
-        }
-
-        if (booleanOperatorMap[op]) {
-            return true;
-        }
-
-        return false;
-    }
-
     function getTypeOfBinaryOperation(
         node: BinaryOperationNode,
         expectedType: Type | undefined,
@@ -11121,11 +11107,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If this is a comparison and the left expression is also a comparison,
         // we need to change the behavior to accommodate python's "chained
         // comparisons" feature.
-        if (operatorSupportsComparisonChaining(node.operator)) {
+        if (ParseTreeUtils.operatorSupportsChaining(node.operator)) {
             if (
                 rightExpression.nodeType === ParseNodeType.BinaryOperation &&
                 !rightExpression.parenthesized &&
-                operatorSupportsComparisonChaining(rightExpression.operator)
+                ParseTreeUtils.operatorSupportsChaining(rightExpression.operator)
             ) {
                 // Evaluate the right expression so it is type checked.
                 getTypeOfBinaryOperation(rightExpression, expectedType, flags);

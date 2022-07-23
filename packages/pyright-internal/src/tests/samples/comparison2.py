@@ -35,3 +35,5 @@ a = [x for x in range(20) if cond]
 
 # This should generate a diagnostic when reportUnnecessaryComparison is enabled.
 a = 1 if cond else 2
+
+b = "1" == "1" == "1"
