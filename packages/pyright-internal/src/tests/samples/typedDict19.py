@@ -2,7 +2,7 @@
 # on an assignment to a not-required key.
 
 from typing import TypedDict
-from typing_extensions import NotRequired, Required
+from typing_extensions import NotRequired, Required, Unpack
 
 
 class TD1(TypedDict):
@@ -38,3 +38,18 @@ def func4(td: TD1 | TD2, opt: bool):
         td["x"] = "hi"
 
     v1 = td["x"]
+
+
+class TD3(TypedDict):
+    x: str
+    y: NotRequired[int]
+
+
+def accepts_td3(**args: Unpack[TD3]):
+    pass
+
+
+def func5(td: TD3, cond: bool):
+    if cond:
+        td["y"] = 5
+    accepts_td3(**td)

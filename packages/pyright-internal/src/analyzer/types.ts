@@ -764,7 +764,7 @@ export namespace ClassType {
     export function isTypedDictNarrower(type1: ClassType, type2: ClassType): boolean {
         const tdEntries2 = type2.typedDictNarrowedEntries;
         if (!tdEntries2) {
-            return false;
+            return true;
         }
 
         const tdEntries1 = type1.typedDictNarrowedEntries ?? new Map<string, TypedDictEntry>();
