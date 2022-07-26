@@ -458,6 +458,12 @@ test('ReturnTypes1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('ReturnTypes2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['returnTypes2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Specialization1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialization1.py']);
 

@@ -16427,7 +16427,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: inferredReturnType, isIncomplete };
         }
 
-        if (functionRecursionMap.has(node.id) && functionRecursionMap.size < maxInferFunctionReturnRecursionCount) {
+        if (functionRecursionMap.has(node.id) || functionRecursionMap.size >= maxInferFunctionReturnRecursionCount) {
             inferredReturnType = UnknownType.create();
             isIncomplete = true;
         } else {
