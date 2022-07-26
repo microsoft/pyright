@@ -106,7 +106,6 @@ import {
     DeclarationType,
     FunctionDeclaration,
     ModuleLoaderActions,
-    VariableDeclaration,
 } from './declaration';
 import {
     createSynthesizedAliasDeclaration,
@@ -116,6 +115,7 @@ import {
     isFinalVariableDeclaration,
     isPossibleTypeAliasDeclaration,
 } from './declarationUtils';
+import { createEnumType, isDeclInEnumClass, isKnownEnumType, transformTypeForPossibleEnumClass } from './enums';
 import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -132,7 +132,7 @@ import { Scope, ScopeType, SymbolWithScope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateName, isPrivateOrProtectedName, isSingleDunderName } from './symbolNameUtils';
+import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { CachedType, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
 import {
@@ -8520,13 +8520,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     return AnyType.create();
                                 }
 
-                                if (
-                                    className === 'Enum' ||
-                                    className === 'IntEnum' ||
-                                    className === 'StrEnum' ||
-                                    className === 'Flag' ||
-                                    className === 'IntFlag'
-                                ) {
+                                if (isKnownEnumType(className)) {
                                     return createEnumType(errorNode, expandedSubtype, argList);
                                 }
 
@@ -10738,105 +10732,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         nameParts.push(moduleName);
 
         return nameParts.reverse().join('.');
-    }
-
-    // Creates a new custom enum class with named values.
-    function createEnumType(
-        errorNode: ExpressionNode,
-        enumClass: ClassType,
-        argList: FunctionArgument[]
-    ): ClassType | undefined {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-        let className = 'enum';
-        if (argList.length === 0) {
-            return undefined;
-        } else {
-            const nameArg = argList[0];
-            if (
-                nameArg.argumentCategory === ArgumentCategory.Simple &&
-                nameArg.valueExpression &&
-                nameArg.valueExpression.nodeType === ParseNodeType.StringList
-            ) {
-                className = nameArg.valueExpression.strings.map((s) => s.value).join('');
-            } else {
-                return undefined;
-            }
-        }
-
-        const classType = ClassType.createInstantiable(
-            className,
-            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-            fileInfo.moduleName,
-            fileInfo.filePath,
-            ClassTypeFlags.EnumClass,
-            ParseTreeUtils.getTypeSourceId(errorNode),
-            /* declaredMetaclass */ undefined,
-            enumClass.details.effectiveMetaclass
-        );
-        classType.details.baseClasses.push(enumClass);
-        computeMroLinearization(classType);
-
-        const classFields = classType.details.fields;
-        classFields.set(
-            '__class__',
-            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
-        );
-
-        if (argList.length < 2) {
-            return undefined;
-        } else {
-            const entriesArg = argList[1];
-            if (
-                entriesArg.argumentCategory !== ArgumentCategory.Simple ||
-                !entriesArg.valueExpression ||
-                entriesArg.valueExpression.nodeType !== ParseNodeType.StringList
-            ) {
-                // Technically, the Enum constructor supports a bunch of different
-                // ways to specify the items: space-delimited string, a string
-                // iterator, an iterator of name/value tuples, and a dictionary
-                // of name/value pairs. We support only the simple space-delimited
-                // string here. For users who are interested in type checking, we
-                // recommend using the more standard class declaration syntax.
-                return undefined;
-            } else {
-                const entries = entriesArg.valueExpression.strings
-                    .map((s) => s.value)
-                    .join('')
-                    .split(' ');
-                entries.forEach((entryName) => {
-                    entryName = entryName.trim();
-                    if (entryName) {
-                        const entryType = UnknownType.create();
-                        const newSymbol = Symbol.createWithType(SymbolFlags.ClassMember, entryType);
-
-                        // We need to associate the declaration with a parse node.
-                        // In this case it's just part of a string literal value.
-                        // The definition provider won't necessarily take the
-                        // user to the exact spot in the string, but it's close enough.
-                        const stringNode = entriesArg.valueExpression!;
-                        assert(stringNode.nodeType === ParseNodeType.StringList);
-                        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-                        const declaration: VariableDeclaration = {
-                            type: DeclarationType.Variable,
-                            node: stringNode as StringListNode,
-                            isRuntimeTypeExpression: true,
-                            path: fileInfo.filePath,
-                            range: convertOffsetsToRange(
-                                stringNode.start,
-                                TextRange.getEnd(stringNode),
-                                fileInfo.lines
-                            ),
-                            moduleName: fileInfo.moduleName,
-                            isInExceptSuite: false,
-                        };
-                        newSymbol.addDeclaration(declaration);
-                        classFields.set(entryName, newSymbol);
-                    }
-                });
-            }
-        }
-
-        return classType;
     }
 
     // Implements the semantics of the NewType call as documented
@@ -13901,62 +13796,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function transformTypeForPossibleEnumClass(node: NameNode, getValueType: () => Type): Type | undefined {
-        // If the node is within a class that derives from the metaclass
-        // "EnumMeta", we need to treat assignments differently.
-        const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
-        if (enclosingClassNode) {
-            const enumClassInfo = getTypeOfClass(enclosingClassNode);
-
-            if (enumClassInfo && ClassType.isEnumClass(enumClassInfo.classType)) {
-                // In ".py" files, the transform applies only to members that are
-                // assigned within the class. In stub files, it applies to most variables
-                // even if they are not assigned. This unfortunate convention means
-                // there is no way in a stub to specify both enum members and instance
-                // variables used within each enum instance. Unless/until there is
-                // a change to this convention and all type checkers and stubs adopt
-                // it, we're stuck with this limitation.
-                let isMemberOfEnumeration =
-                    (node.parent?.nodeType === ParseNodeType.Assignment && node.parent.leftExpression === node) ||
-                    (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-                        node.parent.valueExpression === node &&
-                        node.parent.parent?.nodeType === ParseNodeType.Assignment) ||
-                    (AnalyzerNodeInfo.getFileInfo(node).isStubFile &&
-                        node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-                        node.parent.valueExpression === node);
-
-                // The spec specifically excludes names that start and end with a single underscore.
-                // This also includes dunder names.
-                if (isSingleDunderName(node.value)) {
-                    isMemberOfEnumeration = false;
-                }
-
-                // Specifically exclude "value" and "name". These are reserved by the enum metaclass.
-                if (node.value === 'name' || node.value === 'value') {
-                    isMemberOfEnumeration = false;
-                }
-
-                const valueType = getValueType();
-
-                // The spec excludes descriptors.
-                if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
-                    isMemberOfEnumeration = false;
-                }
-
-                if (isMemberOfEnumeration) {
-                    return ClassType.cloneAsInstance(
-                        ClassType.cloneWithLiteral(
-                            enumClassInfo.classType,
-                            new EnumLiteral(enumClassInfo.classType.details.name, node.value, valueType)
-                        )
-                    );
-                }
-            }
-        }
-
-        return undefined;
-    }
-
     function transformTypeForTypeAlias(
         type: Type,
         name: NameNode,
@@ -14324,7 +14163,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 rightHandType = srcType;
                 if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
                     rightHandType =
-                        transformTypeForPossibleEnumClass(node.leftExpression, () => rightHandType!) || rightHandType;
+                        transformTypeForPossibleEnumClass(
+                            evaluatorInterface,
+                            node.leftExpression,
+                            () => rightHandType!
+                        ) || rightHandType;
                 }
 
                 if (typeAliasNameNode) {
@@ -18948,7 +18791,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Apply enum transform if appropriate.
                         if (declaration.node.nodeType === ParseNodeType.Name) {
                             declaredType =
-                                transformTypeForPossibleEnumClass(declaration.node, () => declaredType) || declaredType;
+                                transformTypeForPossibleEnumClass(
+                                    evaluatorInterface,
+                                    declaration.node,
+                                    () => declaredType
+                                ) || declaredType;
                         }
 
                         if (typeAliasNode && typeAliasNode.valueExpression.nodeType === ParseNodeType.Name) {
@@ -19108,7 +18955,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
                 // See if this is an enum member. If so, we need to handle it as a special case.
-                const enumMemberType = transformTypeForPossibleEnumClass(resolvedDecl.node, () => {
+                const enumMemberType = transformTypeForPossibleEnumClass(evaluatorInterface, resolvedDecl.node, () => {
                     return (
                         evaluateTypeForSubnode(resolvedDecl.inferredTypeSource!, () => {
                             evaluateTypesForStatement(resolvedDecl.inferredTypeSource!);
@@ -19404,7 +19251,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 // Treat enum values declared within an enum class as though they are const even
                                 // though they may not be named as such.
-                                if (isClassInstance(type) && ClassType.isEnumClass(type) && isDeclInEnumClass(decl)) {
+                                if (
+                                    isClassInstance(type) &&
+                                    ClassType.isEnumClass(type) &&
+                                    isDeclInEnumClass(evaluatorInterface, decl)
+                                ) {
                                     isConstant = true;
                                 }
 
@@ -19546,20 +19397,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return undefined;
-    }
-
-    function isDeclInEnumClass(decl: VariableDeclaration): boolean {
-        const classNode = ParseTreeUtils.getEnclosingClass(decl.node, /* stopAtFunction */ true);
-        if (!classNode) {
-            return false;
-        }
-
-        const classInfo = getTypeOfClass(classNode);
-        if (!classInfo) {
-            return false;
-        }
-
-        return ClassType.isEnumClass(classInfo.classType);
     }
 
     function inferReturnTypeIfNecessary(type: Type) {
