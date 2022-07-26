@@ -115,7 +115,13 @@ import {
     isFinalVariableDeclaration,
     isPossibleTypeAliasDeclaration,
 } from './declarationUtils';
-import { createEnumType, isDeclInEnumClass, isKnownEnumType, transformTypeForPossibleEnumClass } from './enums';
+import {
+    createEnumType,
+    getTypeOfEnumMember,
+    isDeclInEnumClass,
+    isKnownEnumType,
+    transformTypeForPossibleEnumClass,
+} from './enums';
 import { applyFunctionTransform } from './functionTransform';
 import { createNamedTupleType } from './namedTuples';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -168,7 +174,6 @@ import {
     ClassTypeFlags,
     combineTypes,
     DataClassBehaviors,
-    EnumLiteral,
     findSubtype,
     FunctionParameter,
     FunctionType,
@@ -4704,23 +4709,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     // Handle the special case of 'name' and 'value' members within an enum.
-                    if (ClassType.isEnumClass(baseType)) {
-                        const literalValue = baseType.literalValue;
-                        if (literalValue instanceof EnumLiteral) {
-                            if (memberName === 'name' || memberName === '_name_') {
-                                const strClass = getBuiltInType(node, 'str');
-                                if (isInstantiableClass(strClass)) {
-                                    return {
-                                        type: ClassType.cloneAsInstance(
-                                            ClassType.cloneWithLiteral(strClass, literalValue.itemName)
-                                        ),
-                                        isIncomplete,
-                                    };
-                                }
-                            } else if (memberName === 'value' || memberName === '_value_') {
-                                return { type: literalValue.itemType, isIncomplete };
-                            }
-                        }
+                    const enumMemberResult = getTypeOfEnumMember(
+                        evaluatorInterface,
+                        node,
+                        baseType,
+                        memberName,
+                        isIncomplete
+                    );
+                    if (enumMemberResult) {
+                        return enumMemberResult;
                     }
 
                     const typeResult = getTypeOfObjectMember(

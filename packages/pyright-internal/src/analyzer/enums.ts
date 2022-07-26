@@ -10,14 +10,29 @@
 import { assert } from '../common/debug';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, ExpressionNode, NameNode, ParseNodeType, StringListNode } from '../parser/parseNodes';
+import {
+    ArgumentCategory,
+    ExpressionNode,
+    NameNode,
+    ParseNode,
+    ParseNodeType,
+    StringListNode,
+} from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
-import { ClassType, ClassTypeFlags, EnumLiteral, isClassInstance, Type, UnknownType } from './types';
+import {
+    ClassType,
+    ClassTypeFlags,
+    EnumLiteral,
+    isClassInstance,
+    isInstantiableClass,
+    Type,
+    UnknownType,
+} from './types';
 import { computeMroLinearization } from './typeUtils';
 
 export function isKnownEnumType(className: string) {
@@ -192,4 +207,32 @@ export function isDeclInEnumClass(evaluator: TypeEvaluator, decl: VariableDeclar
     }
 
     return ClassType.isEnumClass(classInfo.classType);
+}
+
+export function getTypeOfEnumMember(
+    evaluator: TypeEvaluator,
+    errorNode: ParseNode,
+    classType: ClassType,
+    memberName: string,
+    isIncomplete: boolean
+) {
+    // Handle the special case of 'name' and 'value' members within an enum.
+    if (ClassType.isEnumClass(classType)) {
+        const literalValue = classType.literalValue;
+        if (literalValue instanceof EnumLiteral) {
+            if (memberName === 'name' || memberName === '_name_') {
+                const strClass = evaluator.getBuiltInType(errorNode, 'str');
+                if (isInstantiableClass(strClass)) {
+                    return {
+                        type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, literalValue.itemName)),
+                        isIncomplete,
+                    };
+                }
+            } else if (memberName === 'value' || memberName === '_value_') {
+                return { type: literalValue.itemType, isIncomplete };
+            }
+        }
+    }
+
+    return undefined;
 }
