@@ -1,7 +1,7 @@
 # This sample tests the reportUninitializedInstanceVariable functionality.
 
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import Protocol, TypedDict
 
 
 class A:
@@ -25,3 +25,9 @@ class B:
 class C(TypedDict):
     member1: str
     member2: str
+
+
+# Protocol classes are exempt
+class D(Protocol):
+    x: str
+    y: str

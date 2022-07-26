@@ -4098,6 +4098,11 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Protocol classes are exempted from this check.
+        if (ClassType.isProtocolClass(classType)) {
+            return;
+        }
+
         classType.details.fields.forEach((localSymbol, name) => {
             // This applies only to instance members.
             if (!localSymbol.isInstanceMember()) {
