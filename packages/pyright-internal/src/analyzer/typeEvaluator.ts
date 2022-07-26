@@ -14487,6 +14487,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(node, destTypeResult.type, EvaluatorFlags.None, !!destTypeResult.isIncomplete);
     }
 
+    function getPseudoGenericTypeVarName(paramName: string) {
+        return `__type_of_${paramName}`;
+    }
+
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
         // Is this type already cached?
         const cachedClassType = readTypeCache(node.name, EvaluatorFlags.None);
@@ -14915,7 +14919,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         )
                     ) {
                         const genericParams = initParams.filter(
-                            (param, index) => index > 0 && param.name && param.category === ParameterCategory.Simple
+                            (param, index) =>
+                                index > 0 &&
+                                param.name &&
+                                param.category === ParameterCategory.Simple &&
+                                !param.defaultValue
                         );
 
                         if (genericParams.length > 0) {
@@ -14924,7 +14932,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Create a type parameter for each simple, named parameter
                             // in the __init__ method.
                             classType.details.typeParameters = genericParams.map((param) => {
-                                const typeVar = TypeVarType.createInstance(`__type_of_${param.name!.value}`);
+                                const typeVar = TypeVarType.createInstance(
+                                    getPseudoGenericTypeVarName(param.name!.value)
+                                );
                                 typeVar.details.isSynthesized = true;
                                 typeVar.scopeId = getScopeIdForNode(initDeclNode);
                                 typeVar.details.boundType = UnknownType.create();
@@ -15653,7 +15663,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.name.value === '__init__';
 
         const paramTypes: Type[] = [];
-        let typeParamIndex = 0;
 
         // Determine if the first parameter should be skipped for comment-based
         // function annotations.
@@ -15750,9 +15759,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!annotatedType && addGenericParamTypes) {
-                if (index > 0 && param.category === ParameterCategory.Simple && param.name) {
-                    annotatedType = containingClassType!.details.typeParameters[typeParamIndex];
-                    typeParamIndex++;
+                if (index > 0 && param.category === ParameterCategory.Simple && param.name && !param.defaultValue) {
+                    const typeParamName = getPseudoGenericTypeVarName(param.name.value);
+                    annotatedType = containingClassType!.details.typeParameters.find(
+                        (param) => param.details.name === typeParamName
+                    );
                 }
             }
 
@@ -16057,6 +16068,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             const methodName = functionNode.name.value;
+
             const baseClassMemberInfo = lookUpClassMember(
                 containingClassType,
                 methodName,
@@ -17587,38 +17599,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const containingClassNode = ParseTreeUtils.getEnclosingClass(functionNode, /* stopAtFunction */ true);
-        if (containingClassNode) {
-            const classInfo = getTypeOfClass(containingClassNode);
+        const classInfo = containingClassNode ? getTypeOfClass(containingClassNode) : undefined;
 
-            if (classInfo) {
-                // See if the function is a method in a child class. We may be able to
-                // infer the type of the parameter from a method of the same name in
-                // a parent class if it has an annotated type.
-                const functionFlags = getFunctionFlagsFromDecorators(functionNode, /* isInClass */ true);
-                const inferredParamType = inferParameterType(
-                    functionNode,
-                    functionFlags,
-                    paramIndex,
-                    classInfo.classType
-                );
+        if (
+            classInfo &&
+            ClassType.isPseudoGenericClass(classInfo?.classType) &&
+            functionNode.name.value === '__init__'
+        ) {
+            const typeParamName = getPseudoGenericTypeVarName(node.name.value);
+            const paramType = classInfo.classType.details.typeParameters.find(
+                (param) => param.details.name === typeParamName
+            );
 
-                if (inferredParamType) {
-                    writeTypeCache(
-                        node.name!,
-                        transformVariadicParamType(node, node.category, inferredParamType),
-                        EvaluatorFlags.None,
-                        /* isIncomplete */ false
-                    );
-                    return;
-                }
+            if (paramType) {
+                writeTypeCache(node.name!, paramType, EvaluatorFlags.None, /* isIncomplete */ false);
+                return;
             }
         }
 
-        // We weren't able to infer the input parameter type. Set its
-        // type to unknown.
+        // See if the function is a method in a child class. We may be able to
+        // infer the type of the parameter from a method of the same name in
+        // a parent class if it has an annotated type.
+        const functionFlags = getFunctionFlagsFromDecorators(functionNode, /* isInClass */ true);
+        const inferredParamType = inferParameterType(functionNode, functionFlags, paramIndex, classInfo?.classType);
+
         writeTypeCache(
             node.name!,
-            transformVariadicParamType(node, node.category, UnknownType.create()),
+            transformVariadicParamType(node, node.category, inferredParamType ?? UnknownType.create()),
             EvaluatorFlags.None,
             /* isIncomplete */ false
         );

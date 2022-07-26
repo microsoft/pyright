@@ -24,20 +24,14 @@ class Foo(Handler):
         return self._foo_b
 
 
-def test_function(a: int, b: str):
-    return
-
-
 foo1 = Foo(27)
-int_value_1 = foo1.value_a
-str_value_1 = foo1.value_b
-test_function(int_value_1, str_value_1)
+reveal_type(foo1.value_a, expected_text="int")
+reveal_type(foo1.value_b, expected_text="str")
 
 
-foo2 = Foo("hello", 27)
-str_value_2 = foo2.value_a
-int_value_2 = foo2.value_b
-test_function(int_value_2, str_value_2)
+foo2 = Foo("hello", "27")
+reveal_type(foo2.value_a, expected_text="str")
+reveal_type(foo2.value_b, expected_text="str")
 
 # This should generate an error because a pseudo-generic
 # class is not actually generic.
