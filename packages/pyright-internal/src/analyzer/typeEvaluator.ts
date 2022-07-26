@@ -117,6 +117,7 @@ import {
 } from './declarationUtils';
 import {
     createEnumType,
+    getEnumAutoValueType,
     getTypeOfEnumMember,
     isDeclInEnumClass,
     isKnownEnumType,
@@ -1787,6 +1788,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (memberInfo) {
             return {
                 type: memberInfo.type,
+                classType: memberInfo.classType,
                 isIncomplete: !!memberInfo.isTypeIncomplete,
                 isAsymmetricDescriptor: memberInfo.isAsymmetricDescriptor,
             };
@@ -5067,7 +5069,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // to leave the Self type generic (not specialized).
                 const selfClass = bindToType ? undefined : classType;
 
-                const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass);
+                const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
 
                 if (typeResult) {
                     type = typeResult.type;
@@ -8526,7 +8528,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
 
                                 if (className === 'auto' && argList.length === 0) {
-                                    return getBuiltInObject(errorNode, 'int');
+                                    return getEnumAutoValueType(evaluatorInterface, errorNode);
                                 }
                             }
 
@@ -19715,11 +19717,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return UnknownType.create();
     }
 
-    function getTypeOfMemberInternal(
-        node: ParseNode,
-        member: ClassMember,
-        selfClass: ClassType | undefined
-    ): TypeResult | undefined {
+    function getTypeOfMemberInternal(member: ClassMember, selfClass: ClassType | undefined): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
 

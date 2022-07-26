@@ -28,7 +28,9 @@ import {
     ClassType,
     ClassTypeFlags,
     EnumLiteral,
+    isClass,
     isClassInstance,
+    isFunction,
     isInstantiableClass,
     Type,
     UnknownType,
@@ -143,53 +145,52 @@ export function transformTypeForPossibleEnumClass(
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
     const enclosingClassNode = getEnclosingClass(node, /* stopAtFunction */ true);
-    if (enclosingClassNode) {
-        const enumClassInfo = evaluator.getTypeOfClass(enclosingClassNode);
+    if (!enclosingClassNode) {
+        return undefined;
+    }
 
-        if (enumClassInfo && ClassType.isEnumClass(enumClassInfo.classType)) {
-            // In ".py" files, the transform applies only to members that are
-            // assigned within the class. In stub files, it applies to most variables
-            // even if they are not assigned. This unfortunate convention means
-            // there is no way in a stub to specify both enum members and instance
-            // variables used within each enum instance. Unless/until there is
-            // a change to this convention and all type checkers and stubs adopt
-            // it, we're stuck with this limitation.
-            let isMemberOfEnumeration =
-                (node.parent?.nodeType === ParseNodeType.Assignment && node.parent.leftExpression === node) ||
-                (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-                    node.parent.valueExpression === node &&
-                    node.parent.parent?.nodeType === ParseNodeType.Assignment) ||
-                (getFileInfo(node).isStubFile &&
-                    node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-                    node.parent.valueExpression === node);
+    const enumClassInfo = evaluator.getTypeOfClass(enclosingClassNode);
+    if (!enumClassInfo || !ClassType.isEnumClass(enumClassInfo.classType)) {
+        return undefined;
+    }
 
-            // The spec specifically excludes names that start and end with a single underscore.
-            // This also includes dunder names.
-            if (isSingleDunderName(node.value)) {
-                isMemberOfEnumeration = false;
-            }
+    // In ".py" files, the transform applies only to members that are
+    // assigned within the class. In stub files, it applies to most variables
+    // even if they are not assigned. This unfortunate convention means
+    // there is no way in a stub to specify both enum members and instance
+    // variables used within each enum instance. Unless/until there is
+    // a change to this convention and all type checkers and stubs adopt
+    // it, we're stuck with this limitation.
+    let isMemberOfEnumeration =
+        (node.parent?.nodeType === ParseNodeType.Assignment && node.parent.leftExpression === node) ||
+        (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+            node.parent.valueExpression === node &&
+            node.parent.parent?.nodeType === ParseNodeType.Assignment) ||
+        (getFileInfo(node).isStubFile &&
+            node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+            node.parent.valueExpression === node);
 
-            // Specifically exclude "value" and "name". These are reserved by the enum metaclass.
-            if (node.value === 'name' || node.value === 'value') {
-                isMemberOfEnumeration = false;
-            }
+    // The spec specifically excludes names that start and end with a single underscore.
+    // This also includes dunder names.
+    if (isSingleDunderName(node.value)) {
+        isMemberOfEnumeration = false;
+    }
 
-            const valueType = getValueType();
+    // Specifically exclude "value" and "name". These are reserved by the enum metaclass.
+    if (node.value === 'name' || node.value === 'value') {
+        isMemberOfEnumeration = false;
+    }
 
-            // The spec excludes descriptors.
-            if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
-                isMemberOfEnumeration = false;
-            }
+    const valueType = getValueType();
 
-            if (isMemberOfEnumeration) {
-                return ClassType.cloneAsInstance(
-                    ClassType.cloneWithLiteral(
-                        enumClassInfo.classType,
-                        new EnumLiteral(enumClassInfo.classType.details.name, node.value, valueType)
-                    )
-                );
-            }
-        }
+    // The spec excludes descriptors.
+    if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
+        isMemberOfEnumeration = false;
+    }
+
+    if (isMemberOfEnumeration) {
+        const enumLiteral = new EnumLiteral(enumClassInfo.classType.details.name, node.value, valueType);
+        return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(enumClassInfo.classType, enumLiteral));
     }
 
     return undefined;
@@ -217,22 +218,61 @@ export function getTypeOfEnumMember(
     isIncomplete: boolean
 ) {
     // Handle the special case of 'name' and 'value' members within an enum.
-    if (ClassType.isEnumClass(classType)) {
-        const literalValue = classType.literalValue;
-        if (literalValue instanceof EnumLiteral) {
-            if (memberName === 'name' || memberName === '_name_') {
-                const strClass = evaluator.getBuiltInType(errorNode, 'str');
-                if (isInstantiableClass(strClass)) {
-                    return {
-                        type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, literalValue.itemName)),
-                        isIncomplete,
-                    };
+    if (!ClassType.isEnumClass(classType)) {
+        return undefined;
+    }
+
+    const literalValue = classType.literalValue;
+    if (!(literalValue instanceof EnumLiteral)) {
+        return undefined;
+    }
+
+    if (memberName === 'name' || memberName === '_name_') {
+        const strClass = evaluator.getBuiltInType(errorNode, 'str');
+
+        if (isInstantiableClass(strClass)) {
+            return {
+                type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strClass, literalValue.itemName)),
+                isIncomplete,
+            };
+        }
+    }
+
+    if (memberName === 'value' || memberName === '_value_') {
+        return { type: literalValue.itemType, isIncomplete };
+    }
+
+    return undefined;
+}
+
+export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionNode) {
+    const containingClassNode = getEnclosingClass(node);
+
+    if (containingClassNode) {
+        const classTypeInfo = evaluator.getTypeOfClass(containingClassNode);
+        if (classTypeInfo) {
+            const memberInfo = evaluator.getTypeOfObjectMember(
+                node,
+                ClassType.cloneAsInstance(classTypeInfo.classType),
+                '_generate_next_value_'
+            );
+
+            // Did we find a custom _generate_next_value_ sunder override?
+            // Ignore if this comes from Enum because it is declared as
+            // returning an "Any" type in the typeshed stubs.
+            if (
+                memberInfo &&
+                isFunction(memberInfo.type) &&
+                memberInfo.classType &&
+                isClass(memberInfo.classType) &&
+                !ClassType.isBuiltIn(memberInfo.classType, 'Enum')
+            ) {
+                if (memberInfo.type.details.declaredReturnType) {
+                    return memberInfo.type.details.declaredReturnType;
                 }
-            } else if (memberName === 'value' || memberName === '_value_') {
-                return { type: literalValue.itemType, isIncomplete };
             }
         }
     }
 
-    return undefined;
+    return evaluator.getBuiltInObject(node, 'int');
 }

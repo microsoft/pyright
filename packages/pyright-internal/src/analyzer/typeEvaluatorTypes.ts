@@ -42,6 +42,7 @@ import {
     Type,
     TypeCondition,
     TypeVarType,
+    UnknownType,
 } from './types';
 import { AssignTypeFlags, ClassMember } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -156,6 +157,10 @@ export interface TypeResult {
 
     // Type consistency errors detected when evaluating this type.
     typeErrors?: boolean | undefined;
+
+    // Used for getTypeOfObjectMember to indicate that class
+    // that declares the member.
+    classType?: ClassType | UnknownType;
 
     // Variadic type arguments allow the shorthand "()" to
     // represent an empty tuple (i.e. Tuple[()]).

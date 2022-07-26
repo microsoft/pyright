@@ -5120,7 +5120,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        if (node.name && node.name.value === '__new__') {
+        if (node.name?.value === '__new__') {
             // __new__ overrides should have a "cls" parameter.
             if (
                 node.parameters.length === 0 ||
@@ -5138,7 +5138,7 @@ export class Checker extends ParseTreeWalker {
             if (classType) {
                 this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
             }
-        } else if (node.name && node.name.value === '__init_subclass__') {
+        } else if (node.name?.value === '__init_subclass__') {
             // __init_subclass__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
                 this._evaluator.addDiagnostic(
@@ -5152,7 +5152,7 @@ export class Checker extends ParseTreeWalker {
             if (classType) {
                 this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
             }
-        } else if (node.name && node.name.value === '__class_getitem__') {
+        } else if (node.name?.value === '__class_getitem__') {
             // __class_getitem__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
                 this._evaluator.addDiagnostic(
@@ -5166,6 +5166,8 @@ export class Checker extends ParseTreeWalker {
             if (classType) {
                 this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
             }
+        } else if (node.name?.value === '_generate_next_value_') {
+            // Skip this check for _generate_next_value_.
         } else if (FunctionType.isStaticMethod(functionType)) {
             // Static methods should not have "self" or "cls" parameters.
             if (node.parameters.length > 0 && node.parameters[0].name) {
