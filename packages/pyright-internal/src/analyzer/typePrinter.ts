@@ -188,12 +188,18 @@ export function printType(
                 return type.typeAliasInfo.name;
             }
 
-            return printType(
-                type,
-                printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,
-                returnTypeCallback,
-                recursionTypes
-            );
+            try {
+                recursionTypes.push(type);
+
+                return printType(
+                    type,
+                    printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,
+                    returnTypeCallback,
+                    recursionTypes
+                );
+            } finally {
+                recursionTypes.pop();
+            }
         }
 
         return '...';
