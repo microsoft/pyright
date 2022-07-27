@@ -36,6 +36,7 @@ import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importR
 import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService, configFileNames } from '../../../analyzer/service';
+import { CommandResult } from '../../../commands/commandResult';
 import { appendArray } from '../../../common/collectionUtils';
 import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
@@ -79,7 +80,6 @@ import { createFromFileSystem, distlibFolder, libFolder, typeshedFolder } from '
 import * as vfs from '../vfs/filesystem';
 import { parseTestData } from './fourSlashParser';
 import {
-    CompilerSettings,
     FourSlashData,
     FourSlashFile,
     GlobalMetadataOptionNames,
@@ -139,6 +139,9 @@ export class TestState {
         mountPaths?: Map<string, string>,
         hostSpecificFeatures?: HostSpecificFeatures
     ) {
+        const projectRoot = testData.globalOptions[GlobalMetadataOptionNames.projectRoot];
+        basePath = projectRoot ? combinePaths(basePath, projectRoot) : basePath;
+
         this._hostSpecificFeatures = hostSpecificFeatures ?? new TestFeatures();
 
         const nullConsole = new NullConsole();
@@ -176,7 +179,7 @@ export class TestState {
         this.fs = new PyrightFileSystem(this.testFS);
         this._files = sourceFiles;
 
-        const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions, mountPaths);
+        const configOptions = this._convertGlobalOptionsToConfigOptions(basePath, mountPaths);
         if (this.rawConfigJson) {
             configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole, this.fs, testAccessHost);
             this._applyTestConfigOptions(configOptions);
@@ -960,7 +963,7 @@ export class TestState {
                 );
 
                 if (map[name].edits) {
-                    const workspaceEdits = results as WorkspaceEdit;
+                    const workspaceEdits = CommandResult.is(results) ? results.edits : (results as WorkspaceEdit);
                     for (const edits of Object.values(workspaceEdits.changes!)) {
                         for (const edit of edits) {
                             if (map[name].edits!.filter((e) => this._editsAreEqual(e, edit)).length !== 1) {
@@ -1496,12 +1499,7 @@ export class TestState {
         return configFileNames.some((f) => comparer(getBaseFileName(file.fileName), f) === Comparison.EqualTo);
     }
 
-    private _convertGlobalOptionsToConfigOptions(
-        globalOptions: CompilerSettings,
-        mountPaths?: Map<string, string>
-    ): ConfigOptions {
-        const srtRoot: string = GlobalMetadataOptionNames.projectRoot;
-        const projectRoot = normalizeSlashes(globalOptions[srtRoot] ?? vfs.MODULE_PATH);
+    private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {
         const configOptions = new ConfigOptions(projectRoot);
 
         // add more global options as we need them

@@ -158,6 +158,7 @@ export interface WorkspaceServiceInstance {
     disableWorkspaceSymbol: boolean;
     isInitialized: Deferred<boolean>;
     searchPathsToWatch: string[];
+    owns?(filePath: string): boolean;
 }
 
 export interface MessageAction {
@@ -1323,6 +1324,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         workspace: WorkspaceFolder | undefined,
         rootPath: string,
         kind: string = WellKnownWorkspaceKinds.Regular,
+        owns?: (filePath: string) => boolean,
         services?: WorkspaceServices
     ): WorkspaceServiceInstance {
         // 5 seconds default
@@ -1353,6 +1355,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
+            owns,
         };
     }
 

@@ -3056,7 +3056,6 @@ export class CompletionProvider {
             const completionItem = CompletionItem.create(completionName);
             completionItem.kind = CompletionItemKind.Module;
             completionItem.sortText = this._makeSortText(SortCategory.ImportModuleName, completionName);
-            this._addExtraCommitChar(completionItem, '.');
             completionMap.set(completionItem);
         });
 

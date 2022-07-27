@@ -38,6 +38,7 @@ import { ParseResults } from '../parser/parser';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleNameAndType } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
+import { ParseTreeWalker } from './parseTreeWalker';
 import * as SymbolNameUtils from './symbolNameUtils';
 
 export interface ImportStatement {
@@ -107,6 +108,10 @@ export function compareImportStatements(a: ImportStatement, b: ImportStatement) 
     }
 
     return a.moduleName < b.moduleName ? -1 : 1;
+}
+
+export function getAllImports(root: ModuleNode, token: CancellationToken) {
+    return ImportCollector.collect(root, token);
 }
 
 // Looks for top-level 'import' and 'import from' statements and provides
@@ -868,4 +873,58 @@ export function getDirectoryLeadingDotsPointsTo(fromDirectory: string, leadingDo
     }
 
     return currentDirectory;
+}
+
+export function getResolvedFilePath(importResult: ImportResult | undefined) {
+    if (!importResult || !importResult.isImportFound || importResult.resolvedPaths.length === 0) {
+        return undefined;
+    }
+
+    if (importResult.resolvedPaths.length === 1 && importResult.resolvedPaths[0] === '') {
+        // Import is resolved to namespace package folder.
+        if (importResult.packageDirectory) {
+            return importResult.packageDirectory;
+        }
+
+        // Absolute import is partially resolved from the path.
+        if (importResult.searchPath) {
+            return importResult.searchPath;
+        }
+
+        return undefined;
+    }
+
+    // Regular case.
+    return importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+}
+
+class ImportCollector extends ParseTreeWalker {
+    private readonly _imports: (ImportNode | ImportFromNode)[] = [];
+
+    private constructor(private _token: CancellationToken) {
+        super();
+    }
+
+    public static collect(root: ModuleNode, token: CancellationToken) {
+        const collector = new ImportCollector(token);
+        collector.walk(root);
+
+        return collector._imports;
+    }
+
+    override walk(node: ParseNode): void {
+        throwIfCancellationRequested(this._token);
+
+        super.walk(node);
+    }
+
+    override visitImport(node: ImportNode) {
+        this._imports.push(node);
+        return true;
+    }
+
+    override visitImportFrom(node: ImportFromNode) {
+        this._imports.push(node);
+        return true;
+    }
 }

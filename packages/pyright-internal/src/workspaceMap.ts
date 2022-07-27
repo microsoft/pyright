@@ -64,7 +64,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         this.forEach((workspace) => {
             if (workspace.rootPath) {
                 // Is the file is under this workspace folder?
-                if (filePath.startsWith(workspace.rootPath)) {
+                if (filePath.startsWith(workspace.rootPath) || (workspace.owns && workspace.owns(filePath))) {
                     // Is this the fist candidate? If not, is this workspace folder
                     // contained within the previous candidate folder? We always want
                     // to select the innermost folder, since that overrides the

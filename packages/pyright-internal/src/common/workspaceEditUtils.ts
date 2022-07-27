@@ -22,17 +22,21 @@ import { assertNever } from './debug';
 import { FileSystem } from './fileSystem';
 
 export function convertWorkspaceEdits(fs: FileSystem, edits: FileEditAction[]) {
-    const workspaceEdits: WorkspaceEdit = {
+    const workspaceEdit: WorkspaceEdit = {
         changes: {},
     };
 
+    AddToWorkspaceEdit(fs, workspaceEdit, edits);
+
+    return workspaceEdit;
+}
+
+export function AddToWorkspaceEdit(fs: FileSystem, workspaceEdit: WorkspaceEdit, edits: FileEditAction[]) {
     edits.forEach((edit) => {
         const uri = convertPathToUri(fs, edit.filePath);
-        workspaceEdits.changes![uri] = workspaceEdits.changes![uri] || [];
-        workspaceEdits.changes![uri].push({ range: edit.range, newText: edit.replacementText });
+        workspaceEdit.changes![uri] = workspaceEdit.changes![uri] || [];
+        workspaceEdit.changes![uri].push({ range: edit.range, newText: edit.replacementText });
     });
-
-    return workspaceEdits;
 }
 
 export function convertWorkspaceDocumentEdits(
