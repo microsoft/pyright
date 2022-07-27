@@ -16,7 +16,15 @@ import {
     normalizeSlashes,
 } from '../../../common/pathUtils';
 import { distlibFolder, libFolder } from '../vfs/factory';
-import { fileMetadataNames, FourSlashData, FourSlashFile, Marker, MetadataOptionNames, Range } from './fourSlashTypes';
+import {
+    fileMetadataNames,
+    FourSlashData,
+    FourSlashFile,
+    GlobalMetadataOptionNames,
+    Marker,
+    MetadataOptionNames,
+    Range,
+} from './fourSlashTypes';
 
 /**
  * Parse given fourslash markup code and return content with markup/range data
@@ -52,6 +60,8 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
     let currentFileContent: string | undefined;
     let currentFileName = normalizeSlashes(fileName);
     let currentFileOptions: { [s: string]: string } = {};
+
+    let normalizedProjectRoot = normalizedBasePath;
 
     function nextFile() {
         if (currentFileContent === undefined) {
@@ -104,6 +114,10 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                         throw new Error(`Global option '${key}' already exists`);
                     }
                     globalOptions[key] = value;
+
+                    if (key === GlobalMetadataOptionNames.projectRoot) {
+                        normalizedProjectRoot = combinePaths(normalizedBasePath, value);
+                    }
                 } else {
                     switch (key) {
                         case MetadataOptionNames.fileName: {
@@ -112,7 +126,7 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                             const normalizedPath = normalizeSlashes(value);
                             currentFileName = isRootedDiskPath(normalizedPath)
                                 ? normalizedPath
-                                : combinePaths(normalizedBasePath, normalizedPath);
+                                : combinePaths(normalizedProjectRoot, normalizedPath);
                             currentFileOptions[key] = value;
                             break;
                         }

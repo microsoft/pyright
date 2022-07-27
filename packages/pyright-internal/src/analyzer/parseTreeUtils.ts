@@ -2296,9 +2296,15 @@ function _getEndPositionIfMultipleStatementsAreOnSameLine(
         }
     }
 
+    let foundStatementEnd = false;
     for (let index = tokenIndex; index < currentIndex; index++) {
         const token = tokenizerOutput.tokens.getItemAt(index);
         if (token.type === TokenType.Semicolon || token.type === TokenType.NewLine) {
+            foundStatementEnd = true;
+            continue;
+        }
+
+        if (!foundStatementEnd) {
             continue;
         }
 

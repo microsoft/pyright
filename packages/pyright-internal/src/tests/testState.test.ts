@@ -158,7 +158,7 @@ test('ProjectRoot', () => {
 
     const state = parseAndGetTestState(code).state;
 
-    assert.equal(state.cwd(), normalizeSlashes('/'));
+    assert.equal(state.cwd(), normalizeSlashes('/root'));
     assert(state.fs.existsSync(normalizeSlashes('/root/file1.py')));
 
     assert.equal(state.configOptions.projectRoot, normalizeSlashes('/root'));
