@@ -1317,11 +1317,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else {
             // Evaluate the format string expressions in this context.
-            node.strings.forEach((str) => {
-                if (str.nodeType === ParseNodeType.FormatString) {
-                    str.expressions.forEach((expr) => {
-                        getTypeOfExpression(expr);
-                    });
+            let isLiteralString = true;
+            let isIncomplete = false;
+
+            node.strings.forEach((expr) => {
+                const typeResult = getTypeOfString(expr);
+
+                if (typeResult.isIncomplete) {
+                    isIncomplete = true;
+                }
+
+                let isExprLiteralString = false;
+                if (isClassInstance(typeResult.type)) {
+                    if (ClassType.isBuiltIn(typeResult.type, 'str') && typeResult.type.literalValue !== undefined) {
+                        isExprLiteralString = true;
+                    } else if (ClassType.isBuiltIn(typeResult?.type, 'LiteralString')) {
+                        isExprLiteralString = true;
+                    }
+                }
+
+                if (!isExprLiteralString) {
+                    isLiteralString = false;
                 }
             });
 
@@ -1329,9 +1345,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Don't create a literal type if it's an f-string.
             if (node.strings.some((str) => str.nodeType === ParseNodeType.FormatString)) {
-                typeResult = {
-                    type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
-                };
+                if (isLiteralString) {
+                    const literalStringType = getTypingType(node, 'LiteralString');
+                    if (literalStringType && isInstantiableClass(literalStringType)) {
+                        typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
+                    }
+                }
+
+                if (!typeResult) {
+                    typeResult = {
+                        type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
+                        isIncomplete,
+                    };
+                }
             } else {
                 typeResult = {
                     type: cloneBuiltinObjectWithLiteral(
@@ -1339,6 +1365,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isBytes ? 'bytes' : 'str',
                         node.strings.map((s) => s.value).join('')
                     ),
+                    isIncomplete,
                 };
             }
         }
@@ -1348,13 +1375,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfString(node: StringNode | FormatStringNode): TypeResult {
         const isBytes = (node.token.flags & StringTokenFlags.Bytes) !== 0;
-        let typeResult: TypeResult;
+        let typeResult: TypeResult | undefined;
 
         // Don't create a literal type if it's an f-string.
         if (node.nodeType === ParseNodeType.FormatString) {
-            typeResult = {
-                type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
-            };
+            // If all of the format expressions are of type LiteralString, then
+            // the resulting formatted string is also LiteralString.
+            if (
+                !isBytes &&
+                node.expressions.every((expr) => {
+                    const exprType = getTypeOfExpression(expr).type;
+                    if (!isClassInstance(exprType)) {
+                        return false;
+                    }
+
+                    if (ClassType.isBuiltIn(exprType, 'LiteralString')) {
+                        return true;
+                    }
+
+                    if (ClassType.isBuiltIn(exprType, 'str') && exprType.literalValue !== undefined) {
+                        return true;
+                    }
+
+                    return false;
+                })
+            ) {
+                const literalStringType = getTypingType(node, 'LiteralString');
+                if (literalStringType && isInstantiableClass(literalStringType)) {
+                    typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
+                }
+            }
+
+            if (!typeResult) {
+                typeResult = {
+                    type: getBuiltInObject(node, isBytes ? 'bytes' : 'str'),
+                };
+            }
         } else {
             typeResult = {
                 type: cloneBuiltinObjectWithLiteral(node, isBytes ? 'bytes' : 'str', node.value),
@@ -20901,7 +20957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+            let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
             if (isClass(concreteSrcType) && TypeBase.isInstance(concreteSrcType)) {
                 if (destType.literalValue !== undefined) {
                     const srcLiteral = concreteSrcType.literalValue;
@@ -20918,16 +20974,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 // Handle LiteralString special form.
-                if (ClassType.isBuiltIn(destType, 'LiteralString') && ClassType.isBuiltIn(concreteSrcType, 'str')) {
-                    if (concreteSrcType.literalValue !== undefined) {
+                if (ClassType.isBuiltIn(destType, 'LiteralString')) {
+                    if (ClassType.isBuiltIn(concreteSrcType, 'str') && concreteSrcType.literalValue !== undefined) {
+                        return true;
+                    } else if (ClassType.isBuiltIn(concreteSrcType, 'LiteralString')) {
                         return true;
                     }
                 } else if (
                     ClassType.isBuiltIn(concreteSrcType, 'LiteralString') &&
-                    ClassType.isBuiltIn(destType, 'str') &&
-                    destType.literalValue === undefined
+                    strClassType &&
+                    isInstantiableClass(strClassType)
                 ) {
-                    return true;
+                    concreteSrcType = ClassType.cloneAsInstance(strClassType);
                 }
 
                 if (
@@ -23664,10 +23722,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const memberTypeFirstParam = memberType.details.parameters[0];
             const memberTypeFirstParamType = FunctionType.getEffectiveParameterType(memberType, 0);
 
-            // If the type has a literal associated with it, strip it now. This
-            // is needed to handle generic functions in the enum.Flag class.
-            const nonLiteralFirstParamType = stripLiteralValue(firstParamType);
-
             // Fill out the typeVarContext for the "self" or "cls" parameter.
             typeVarContext.addSolveForScope(getTypeVarScopeId(memberType));
             const diag = new DiagnosticAddendum();
@@ -23686,14 +23740,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarContext.setTypeVarType(
                         memberTypeFirstParamType,
                         TypeBase.isInstantiable(memberTypeFirstParamType)
-                            ? convertToInstance(nonLiteralFirstParamType)
-                            : nonLiteralFirstParamType
+                            ? convertToInstance(firstParamType)
+                            : firstParamType
                     );
                 }
             } else if (
                 !assignType(
                     memberTypeFirstParamType,
-                    nonLiteralFirstParamType,
+                    firstParamType,
                     diag,
                     typeVarContext,
                     /* srcTypeVarContext */ undefined,

@@ -1322,7 +1322,7 @@ test('PseudoGeneric1', () => {
 test('LiteralString1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literalString1.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('LiteralString2', () => {
