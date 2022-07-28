@@ -63,7 +63,6 @@ import {
     partiallySpecializeType,
     specializeClassType,
     specializeTupleClass,
-    stripLiteralValue,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -248,7 +247,7 @@ function narrowTypeBasedOnSequencePattern(
                     entry.subtype = ClassType.cloneAsInstance(
                         ClassType.cloneForSpecialization(
                             sequenceType,
-                            [stripLiteralValue(combineTypes(narrowedEntryTypes))],
+                            [evaluator.stripLiteralValue(combineTypes(narrowedEntryTypes))],
                             /* isTypeArgumentExplicit */ true
                         )
                     );
@@ -1033,7 +1032,7 @@ function getTypeOfPatternSequenceEntry(
         // Note that we strip literal types here.
         const starEntryTypes = sequenceInfo.entryTypes
             .slice(starEntryIndex, starEntryIndex + sequenceInfo.entryTypes.length - entryCount + 1)
-            .map((type) => stripLiteralValue(type));
+            .map((type) => evaluator.stripLiteralValue(type));
 
         let entryType = combineTypes(starEntryTypes);
 

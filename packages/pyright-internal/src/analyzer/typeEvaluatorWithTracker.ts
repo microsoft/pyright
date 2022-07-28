@@ -75,6 +75,7 @@ export function createTypeEvaluatorWithTracker(
         evaluateTypeOfParameter: typeEvaluator.evaluateTypeOfParameter,
         canBeTruthy: typeEvaluator.canBeTruthy,
         canBeFalsy: typeEvaluator.canBeFalsy,
+        stripLiteralValue: typeEvaluator.stripLiteralValue,
         removeTruthinessFromType: typeEvaluator.removeTruthinessFromType,
         removeFalsinessFromType: typeEvaluator.removeFalsinessFromType,
         getExpectedType: (n) => run('getExpectedType', () => typeEvaluator.getExpectedType(n), n),

@@ -79,7 +79,6 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
-    stripLiteralValue,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -1457,7 +1456,7 @@ export function getElementTypeForContainerNarrowing(containerType: Type) {
 
 export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, referenceType: Type, elementType: Type) {
     let canNarrow = true;
-    const elementTypeWithoutLiteral = stripLiteralValue(elementType);
+    const elementTypeWithoutLiteral = evaluator.stripLiteralValue(elementType);
 
     // Look for cases where one or more of the reference subtypes are
     // supertypes of the element types. For example, if the element type

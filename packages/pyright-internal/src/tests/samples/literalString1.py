@@ -61,9 +61,5 @@ def func5(
 
     v3: LiteralString = f"{'xxx'}" f"{'xxx'}"
 
-    v4: LiteralString = " " + " ".join(
-        map(lambda items: f"{items[0]} {items[1]}", parts)
-    )
-
     # This should generate an error because "b" is not literal.
-    v5: LiteralString = f"{a} {b}"
+    v4: LiteralString = f"{a} {b}"

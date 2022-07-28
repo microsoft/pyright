@@ -53,7 +53,6 @@ import {
     isPartlyUnknown,
     mapSubtypes,
     specializeTupleClass,
-    stripLiteralValue,
     transformExpectedTypeForConstructor,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -378,7 +377,7 @@ export function assignTypeToTypeVar(
         typeVarContext.getRetainLiterals(destType) ||
         (destType.details.boundType && containsLiteralType(destType.details.boundType)) ||
         destType.details.constraints.some((t) => containsLiteralType(t));
-    let adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
+    let adjSrcType = retainLiterals ? srcType : evaluator.stripLiteralValue(srcType);
 
     if (TypeBase.isInstantiable(destType)) {
         if (isEffectivelyInstantiable(adjSrcType)) {

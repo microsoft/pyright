@@ -303,6 +303,7 @@ export interface TypeEvaluator {
 
     canBeTruthy: (type: Type) => boolean;
     canBeFalsy: (type: Type) => boolean;
+    stripLiteralValue: (type: Type) => Type;
     removeTruthinessFromType: (type: Type) => Type;
     removeFalsinessFromType: (type: Type) => Type;
 

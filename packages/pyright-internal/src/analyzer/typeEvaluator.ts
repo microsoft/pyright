@@ -280,7 +280,6 @@ import {
     specializeClassType,
     specializeForBaseClass,
     specializeTupleClass,
-    stripLiteralValue,
     synthesizeTypeVarForSelfCls,
     transformPossibleRecursiveTypeAlias,
     VirtualParameterDetails,
@@ -1379,27 +1378,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Don't create a literal type if it's an f-string.
         if (node.nodeType === ParseNodeType.FormatString) {
+            let isLiteralString = true;
+
             // If all of the format expressions are of type LiteralString, then
             // the resulting formatted string is also LiteralString.
-            if (
-                !isBytes &&
-                node.expressions.every((expr) => {
-                    const exprType = getTypeOfExpression(expr).type;
-                    if (!isClassInstance(exprType)) {
-                        return false;
-                    }
+            node.expressions.forEach((expr) => {
+                const exprType = getTypeOfExpression(expr).type;
 
-                    if (ClassType.isBuiltIn(exprType, 'LiteralString')) {
-                        return true;
-                    }
+                if (!isClassInstance(exprType)) {
+                    isLiteralString = false;
+                    return;
+                }
 
-                    if (ClassType.isBuiltIn(exprType, 'str') && exprType.literalValue !== undefined) {
-                        return true;
-                    }
+                if (ClassType.isBuiltIn(exprType, 'LiteralString')) {
+                    return;
+                }
 
-                    return false;
-                })
-            ) {
+                if (ClassType.isBuiltIn(exprType, 'str') && exprType.literalValue !== undefined) {
+                    return;
+                }
+
+                isLiteralString = false;
+            });
+
+            if (!isBytes && isLiteralString) {
                 const literalStringType = getTypingType(node, 'LiteralString');
                 if (literalStringType && isInstantiableClass(literalStringType)) {
                     typeResult = { type: ClassType.cloneAsInstance(literalStringType) };
@@ -1418,6 +1420,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return typeResult;
+    }
+
+    function stripLiteralValue(type: Type): Type {
+        if (isClass(type)) {
+            if (type.literalValue !== undefined) {
+                type = ClassType.cloneWithLiteral(type, /* value */ undefined);
+            } else if (ClassType.isBuiltIn(type, 'LiteralString')) {
+                // Handle "LiteralString" specially.
+                if (strClassType && isInstantiableClass(strClassType)) {
+                    type = ClassType.cloneAsInstance(strClassType);
+                }
+            }
+
+            return type;
+        }
+
+        if (isUnion(type)) {
+            return mapSubtypes(type, (subtype) => {
+                return stripLiteralValue(subtype);
+            });
+        }
+
+        return type;
     }
 
     function getTypeOfParameterAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParameterCategory) {
@@ -23896,6 +23921,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         evaluateTypeOfParameter,
         canBeTruthy,
         canBeFalsy,
+        stripLiteralValue,
         removeTruthinessFromType,
         removeFalsinessFromType,
         verifyRaiseExceptionType,

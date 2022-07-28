@@ -654,24 +654,6 @@ export function getFullNameOfType(type: Type): string | undefined {
     return undefined;
 }
 
-export function stripLiteralValue(type: Type): Type {
-    if (isClass(type)) {
-        if (type.literalValue !== undefined) {
-            type = ClassType.cloneWithLiteral(type, /* value */ undefined);
-        }
-
-        return type;
-    }
-
-    if (isUnion(type)) {
-        return mapSubtypes(type, (subtype) => {
-            return stripLiteralValue(subtype);
-        });
-    }
-
-    return type;
-}
-
 export function addConditionToType(type: Type, condition: TypeCondition[] | undefined): Type {
     if (!condition) {
         return type;
