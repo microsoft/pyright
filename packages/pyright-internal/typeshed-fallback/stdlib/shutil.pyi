@@ -82,17 +82,15 @@ else:
         ignore_dangling_symlinks: bool = ...,
     ) -> _PathReturn: ...
 
+_OnErrorCallback: TypeAlias = Callable[[Callable[..., Any], Any, Any], object]
+
 if sys.version_info >= (3, 11):
     def rmtree(
-        path: StrOrBytesPath,
-        ignore_errors: bool = ...,
-        onerror: Callable[[Any, Any, Any], Any] | None = ...,
-        *,
-        dir_fd: int | None = ...,
+        path: StrOrBytesPath, ignore_errors: bool = ..., onerror: _OnErrorCallback | None = ..., *, dir_fd: int | None = ...
     ) -> None: ...
 
 else:
-    def rmtree(path: StrOrBytesPath, ignore_errors: bool = ..., onerror: Callable[[Any, Any, Any], Any] | None = ...) -> None: ...
+    def rmtree(path: StrOrBytesPath, ignore_errors: bool = ..., onerror: _OnErrorCallback | None = ...) -> None: ...
 
 _CopyFn: TypeAlias = Callable[[str, str], object] | Callable[[StrPath, StrPath], object]
 

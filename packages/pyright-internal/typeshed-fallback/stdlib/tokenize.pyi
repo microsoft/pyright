@@ -1,6 +1,5 @@
 import sys
 from _typeshed import StrOrBytesPath
-from builtins import open as _builtin_open
 from collections.abc import Callable, Generator, Iterable, Sequence
 from re import Pattern
 from token import *

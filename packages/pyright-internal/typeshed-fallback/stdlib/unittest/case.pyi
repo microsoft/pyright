@@ -145,7 +145,7 @@ class TestCase:
     def assertRaises(  # type: ignore[misc]
         self,
         expected_exception: type[BaseException] | tuple[type[BaseException], ...],
-        callable: Callable[..., object],
+        callable: Callable[..., Any],
         *args: Any,
         **kwargs: Any,
     ) -> None: ...

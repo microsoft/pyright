@@ -1,5 +1,4 @@
 import unittest.case
-import unittest.result
 import unittest.suite
 from collections.abc import Callable, Sequence
 from re import Pattern

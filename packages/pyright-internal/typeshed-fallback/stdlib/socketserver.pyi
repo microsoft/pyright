@@ -153,7 +153,7 @@ class StreamRequestHandler(BaseRequestHandler):
     wbufsize: ClassVar[int]  # undocumented
     timeout: ClassVar[float | None]  # undocumented
     disable_nagle_algorithm: ClassVar[bool]  # undocumented
-    connection: _socket  # undocumented
+    connection: Any  # undocumented
     rfile: BinaryIO
     wfile: BinaryIO
 

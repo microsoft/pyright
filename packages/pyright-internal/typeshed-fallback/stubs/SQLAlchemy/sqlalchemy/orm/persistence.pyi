@@ -1,7 +1,10 @@
 from typing import Any
+from typing_extensions import Literal, TypeAlias
 
 from ..sql.base import CompileState, Options
 from ..sql.dml import DeleteDMLState, UpdateDMLState
+
+_SynchronizeSessionArgument: TypeAlias = Literal[False, "evaluate", "fetch"]
 
 def save_obj(base_mapper, states, uowtransaction, single: bool = ...) -> None: ...
 def post_update(base_mapper, states, uowtransaction, post_update_cols) -> None: ...

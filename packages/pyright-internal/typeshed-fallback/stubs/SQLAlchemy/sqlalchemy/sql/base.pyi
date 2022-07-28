@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 from .. import util
 from ..util import HasMemoized, hybridmethod, memoized_property
 from . import roles
+from .elements import ColumnElement
 from .traversals import (
     HasCacheKey as HasCacheKey,
     HasCopyInternals as HasCopyInternals,
@@ -151,7 +152,7 @@ class ImmutableColumnCollection(util.ImmutableContainer, ColumnCollection):
     extend: Any
     remove: Any
 
-class ColumnSet(util.ordered_column_set):
+class ColumnSet(util.ordered_column_set[ColumnElement[Any]]):
     def contains_column(self, col): ...
     def extend(self, cols) -> None: ...
     def __add__(self, other): ...

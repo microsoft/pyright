@@ -24,7 +24,7 @@ PyCF_ONLY_AST: int
 
 # ast classes
 
-_identifier: TypeAlias = str
+_Identifier: TypeAlias = str
 
 class AST:
     _attributes: tuple[str, ...]
@@ -55,7 +55,7 @@ class stmt(AST):
     col_offset: int
 
 class FunctionDef(stmt):
-    name: _identifier
+    name: _Identifier
     args: arguments
     body: list[stmt]
     decorator_list: list[expr]
@@ -63,7 +63,7 @@ class FunctionDef(stmt):
     type_comment: str | None
 
 class AsyncFunctionDef(stmt):
-    name: _identifier
+    name: _Identifier
     args: arguments
     body: list[stmt]
     decorator_list: list[expr]
@@ -71,7 +71,7 @@ class AsyncFunctionDef(stmt):
     type_comment: str | None
 
 class ClassDef(stmt):
-    name: _identifier
+    name: _Identifier
     bases: list[expr]
     keywords: list[keyword]
     body: list[stmt]
@@ -151,15 +151,15 @@ class Import(stmt):
     names: list[alias]
 
 class ImportFrom(stmt):
-    module: _identifier | None
+    module: _Identifier | None
     names: list[alias]
     level: int | None
 
 class Global(stmt):
-    names: list[_identifier]
+    names: list[_Identifier]
 
 class Nonlocal(stmt):
-    names: list[_identifier]
+    names: list[_Identifier]
 
 class Expr(stmt):
     value: expr
@@ -169,7 +169,7 @@ class Break(stmt): ...
 class Continue(stmt): ...
 class slice(AST): ...
 
-_slice: TypeAlias = slice  # this lets us type the variable named 'slice' below
+_Slice: TypeAlias = slice  # this lets us type the variable named 'slice' below
 
 class Slice(slice):
     lower: expr | None
@@ -276,12 +276,12 @@ class Ellipsis(expr): ...
 
 class Attribute(expr):
     value: expr
-    attr: _identifier
+    attr: _Identifier
     ctx: expr_context
 
 class Subscript(expr):
     value: expr
-    slice: _slice
+    slice: _Slice
     ctx: expr_context
 
 class Starred(expr):
@@ -289,7 +289,7 @@ class Starred(expr):
     ctx: expr_context
 
 class Name(expr):
-    id: _identifier
+    id: _Identifier
     ctx: expr_context
 
 class List(expr):
@@ -349,7 +349,7 @@ class comprehension(AST):
 
 class ExceptHandler(AST):
     type: expr | None
-    name: _identifier | None
+    name: _Identifier | None
     body: list[stmt]
     lineno: int
     col_offset: int
@@ -363,19 +363,19 @@ class arguments(AST):
     defaults: list[expr]
 
 class arg(AST):
-    arg: _identifier
+    arg: _Identifier
     annotation: expr | None
     lineno: int
     col_offset: int
     type_comment: str | None
 
 class keyword(AST):
-    arg: _identifier | None
+    arg: _Identifier | None
     value: expr
 
 class alias(AST):
-    name: _identifier
-    asname: _identifier | None
+    name: _Identifier
+    asname: _Identifier | None
 
 class withitem(AST):
     context_expr: expr

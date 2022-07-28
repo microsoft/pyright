@@ -5,13 +5,8 @@ from typing import Any
 from typing_extensions import Literal
 
 if sys.platform == "win32":
-    from _msi import (
-        CreateRecord as CreateRecord,
-        FCICreate as FCICreate,
-        OpenDatabase as OpenDatabase,
-        UuidCreate as UuidCreate,
-        _Database,
-    )
+    from _msi import *
+    from _msi import _Database
 
     AMD64: bool
     Win64: bool

@@ -1,6 +1,6 @@
 import ssl
 import sys
-from _typeshed import FileDescriptorLike, Self, WriteableBuffer
+from _typeshed import FileDescriptorLike, Self, StrPath, WriteableBuffer
 from abc import ABCMeta, abstractmethod
 from collections.abc import Awaitable, Callable, Coroutine, Generator, Sequence
 from contextvars import Context
@@ -57,7 +57,7 @@ else:
 _T = TypeVar("_T")
 _ProtocolT = TypeVar("_ProtocolT", bound=BaseProtocol)
 _Context: TypeAlias = dict[str, Any]
-_ExceptionHandler: TypeAlias = Callable[[AbstractEventLoop, _Context], Any]
+_ExceptionHandler: TypeAlias = Callable[[AbstractEventLoop, _Context], object]
 _ProtocolFactory: TypeAlias = Callable[[], BaseProtocol]
 _SSLContext: TypeAlias = bool | None | ssl.SSLContext
 
@@ -70,7 +70,7 @@ class Handle:
     _cancelled: bool
     _args: Sequence[Any]
     def __init__(
-        self, callback: Callable[..., Any], args: Sequence[Any], loop: AbstractEventLoop, context: Context | None = ...
+        self, callback: Callable[..., object], args: Sequence[Any], loop: AbstractEventLoop, context: Context | None = ...
     ) -> None: ...
     def cancel(self) -> None: ...
     def _run(self) -> None: ...
@@ -80,7 +80,7 @@ class TimerHandle(Handle):
     def __init__(
         self,
         when: float,
-        callback: Callable[..., Any],
+        callback: Callable[..., object],
         args: Sequence[Any],
         loop: AbstractEventLoop,
         context: Context | None = ...,
@@ -133,22 +133,22 @@ class AbstractEventLoop:
     # Methods scheduling callbacks.  All these return Handles.
     if sys.version_info >= (3, 9):  # "context" added in 3.9.10/3.10.2
         @abstractmethod
-        def call_soon(self, callback: Callable[..., Any], *args: Any, context: Context | None = ...) -> Handle: ...
+        def call_soon(self, callback: Callable[..., object], *args: Any, context: Context | None = ...) -> Handle: ...
         @abstractmethod
         def call_later(
-            self, delay: float, callback: Callable[..., Any], *args: Any, context: Context | None = ...
+            self, delay: float, callback: Callable[..., object], *args: Any, context: Context | None = ...
         ) -> TimerHandle: ...
         @abstractmethod
         def call_at(
-            self, when: float, callback: Callable[..., Any], *args: Any, context: Context | None = ...
+            self, when: float, callback: Callable[..., object], *args: Any, context: Context | None = ...
         ) -> TimerHandle: ...
     else:
         @abstractmethod
-        def call_soon(self, callback: Callable[..., Any], *args: Any) -> Handle: ...
+        def call_soon(self, callback: Callable[..., object], *args: Any) -> Handle: ...
         @abstractmethod
-        def call_later(self, delay: float, callback: Callable[..., Any], *args: Any) -> TimerHandle: ...
+        def call_later(self, delay: float, callback: Callable[..., object], *args: Any) -> TimerHandle: ...
         @abstractmethod
-        def call_at(self, when: float, callback: Callable[..., Any], *args: Any) -> TimerHandle: ...
+        def call_at(self, when: float, callback: Callable[..., object], *args: Any) -> TimerHandle: ...
 
     @abstractmethod
     def time(self) -> float: ...
@@ -181,10 +181,10 @@ class AbstractEventLoop:
     # Methods for interacting with threads
     if sys.version_info >= (3, 9):  # "context" added in 3.9.10/3.10.2
         @abstractmethod
-        def call_soon_threadsafe(self, callback: Callable[..., Any], *args: Any, context: Context | None = ...) -> Handle: ...
+        def call_soon_threadsafe(self, callback: Callable[..., object], *args: Any, context: Context | None = ...) -> Handle: ...
     else:
         @abstractmethod
-        def call_soon_threadsafe(self, callback: Callable[..., Any], *args: Any) -> Handle: ...
+        def call_soon_threadsafe(self, callback: Callable[..., object], *args: Any) -> Handle: ...
 
     @abstractmethod
     def run_in_executor(self, executor: Any, func: Callable[..., _T], *args: Any) -> Future[_T]: ...
@@ -373,7 +373,7 @@ class AbstractEventLoop:
         async def create_unix_server(
             self,
             protocol_factory: _ProtocolFactory,
-            path: str | None = ...,
+            path: StrPath | None = ...,
             *,
             sock: socket | None = ...,
             backlog: int = ...,
@@ -433,7 +433,7 @@ class AbstractEventLoop:
         async def create_unix_server(
             self,
             protocol_factory: _ProtocolFactory,
-            path: str | None = ...,
+            path: StrPath | None = ...,
             *,
             sock: socket | None = ...,
             backlog: int = ...,
@@ -577,7 +577,7 @@ class AbstractEventLoop:
         async def sock_sendto(self, sock: socket, data: bytes, address: _Address) -> None: ...
     # Signal handling.
     @abstractmethod
-    def add_signal_handler(self, sig: int, callback: Callable[..., Any], *args: Any) -> None: ...
+    def add_signal_handler(self, sig: int, callback: Callable[..., object], *args: Any) -> None: ...
     @abstractmethod
     def remove_signal_handler(self, sig: int) -> bool: ...
     # Error handlers.

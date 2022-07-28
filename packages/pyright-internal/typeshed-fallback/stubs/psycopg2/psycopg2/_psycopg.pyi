@@ -112,7 +112,7 @@ class cursor:
     def __iter__(self: Self) -> Self: ...
     def __next__(self) -> tuple[Any, ...]: ...
 
-_cursor: TypeAlias = cursor
+_Cursor: TypeAlias = cursor
 
 class AsIs:
     adapted: Any
@@ -246,7 +246,7 @@ class Diagnostics:
     def __init__(self, __err: Error) -> None: ...
 
 class Error(Exception):
-    cursor: _cursor | None
+    cursor: _Cursor | None
     diag: Diagnostics
     pgcode: str | None
     pgerror: str | None
@@ -357,7 +357,7 @@ class Xid:
     def __getitem__(self, __index): ...
     def __len__(self): ...
 
-_T_cur = TypeVar("_T_cur", bound=_cursor)
+_T_cur = TypeVar("_T_cur", bound=cursor)
 
 class connection:
     DataError: Any
@@ -377,7 +377,7 @@ class connection:
     def binary_types(self) -> Any: ...
     @property
     def closed(self) -> int: ...
-    cursor_factory: Callable[..., _cursor]
+    cursor_factory: Callable[..., _Cursor]
     @property
     def dsn(self) -> str: ...
     @property
@@ -415,7 +415,7 @@ class connection:
     def close(self) -> None: ...
     def commit(self) -> None: ...
     @overload
-    def cursor(self, name: str | bytes | None = ..., *, withhold: bool = ..., scrollable: bool | None = ...) -> _cursor: ...
+    def cursor(self, name: str | bytes | None = ..., *, withhold: bool = ..., scrollable: bool | None = ...) -> _Cursor: ...
     @overload
     def cursor(
         self,

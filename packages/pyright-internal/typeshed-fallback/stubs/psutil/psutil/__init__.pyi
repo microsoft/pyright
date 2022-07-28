@@ -3,7 +3,6 @@ from _typeshed import Self
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import AbstractContextManager
 from typing import Any
-from typing_extensions import TypeAlias
 
 from ._common import (
     AIX as AIX,
@@ -109,8 +108,8 @@ elif sys.platform == "darwin":
 elif sys.platform == "win32":
     from ._pswindows import pfullmem, pmem
 else:
-    pmem: TypeAlias = Any
-    pfullmem: TypeAlias = Any
+    class pmem(Any): ...
+    class pfullmem(Any): ...
 
 if sys.platform == "linux":
     PROCFS_PATH: str

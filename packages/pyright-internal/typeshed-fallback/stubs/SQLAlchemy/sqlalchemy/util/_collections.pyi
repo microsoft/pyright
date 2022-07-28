@@ -2,10 +2,8 @@ import collections.abc
 from _typeshed import Self, SupportsKeysAndGetItem
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import Any, Generic, NoReturn, TypeVar, overload
-from typing_extensions import TypeAlias
 
 from ..cimmutabledict import immutabledict as immutabledict
-from ..sql.elements import ColumnElement
 
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
@@ -163,7 +161,11 @@ class WeakPopulateDict(dict[Any, Any]):
 
 column_set = set
 column_dict = dict
-ordered_column_set: TypeAlias = OrderedSet[ColumnElement[Any]]
+# Ignore Y026, this isn't a type alias.
+# We have to do `ordered_column_set = OrderedSet[_T]
+# instead of `ordered_column_set = OrderedSet`,
+# or pyright complains
+ordered_column_set = OrderedSet[_T]  # noqa: Y026
 
 def unique_list(seq: Iterable[_T], hashfunc: Callable[[_T], Any] | None = ...) -> list[_T]: ...
 

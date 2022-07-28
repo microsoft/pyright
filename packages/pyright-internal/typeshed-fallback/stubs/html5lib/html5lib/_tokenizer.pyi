@@ -1,8 +1,7 @@
 from typing import Any
-from typing_extensions import TypeAlias
 
 entitiesTrie: Any
-attributeMap: TypeAlias = dict[Any, Any]
+attributeMap = dict
 
 class HTMLTokenizer:
     stream: Any

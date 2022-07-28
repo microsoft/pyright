@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Generic
 from redis.client import PubSub
 from redis.commands import RedisClusterCommands
 from redis.commands.core import _StrType
-from redis.connection import DefaultParser, Encoder
+from redis.connection import BaseParser, Encoder
 from redis.exceptions import RedisError
 
 def get_node_name(host, port): ...
@@ -24,8 +24,8 @@ READ_COMMANDS: Any
 
 def cleanup_kwargs(**kwargs): ...
 
-class ClusterParser(DefaultParser):
-    EXCEPTION_CLASSES: Any
+# It uses `DefaultParser` in real life, but it is a dynamic base class.
+class ClusterParser(BaseParser): ...
 
 class RedisCluster(RedisClusterCommands[_StrType], Generic[_StrType]):
     RedisClusterRequestTTL: ClassVar[int]
