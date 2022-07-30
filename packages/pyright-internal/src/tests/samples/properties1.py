@@ -62,3 +62,14 @@ val = a.deletable_prop
 a.deletable_prop = val
 
 del a.deletable_prop
+
+
+class ClassWithProperty:
+    @property
+    def name(self) -> str:
+        return "bar"
+
+
+p1: property = ClassA.read_only_prop
+p2: property = ClassA.read_write_prop
+p3: property = ClassA.deletable_prop

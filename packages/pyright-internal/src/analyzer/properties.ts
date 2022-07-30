@@ -70,7 +70,7 @@ export function createProperty(
         getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
         fileInfo.moduleName,
         fileInfo.filePath,
-        ClassTypeFlags.PropertyClass,
+        ClassTypeFlags.PropertyClass | ClassTypeFlags.BuiltInClass,
         typeSourceId,
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()

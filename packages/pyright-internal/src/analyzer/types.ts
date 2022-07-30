@@ -1056,6 +1056,16 @@ export namespace ClassType {
             return true;
         }
 
+        // Handle the case where both source and dest are property objects. This
+        // special case is needed because we synthesize a new class for each
+        // property declaration.
+        if (ClassType.isBuiltIn(subclassType, 'property') && ClassType.isBuiltIn(parentClassType, 'property')) {
+            if (inheritanceChain) {
+                inheritanceChain.push(subclassType);
+            }
+            return true;
+        }
+
         for (const baseClass of subclassType.details.baseClasses) {
             if (isInstantiableClass(baseClass)) {
                 if (isDerivedFrom(baseClass, parentClassType, inheritanceChain)) {
