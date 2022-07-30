@@ -17336,6 +17336,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // The left expression of a call or member access expression is not contextual.
             if (parent.nodeType === ParseNodeType.Call || parent.nodeType === ParseNodeType.MemberAccess) {
                 if (nodeToEvaluate === parent.leftExpression) {
+                    // Handle the special case where the LHS is a call to super().
+                    if (
+                        nodeToEvaluate.nodeType === ParseNodeType.Call &&
+                        nodeToEvaluate.leftExpression.nodeType === ParseNodeType.Name &&
+                        nodeToEvaluate.leftExpression.value === 'super'
+                    ) {
+                        nodeToEvaluate = parent;
+                        continue;
+                    }
+
                     flags = EvaluatorFlags.DoNotSpecialize;
                     break;
                 }
