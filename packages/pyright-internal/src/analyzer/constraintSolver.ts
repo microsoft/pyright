@@ -800,6 +800,10 @@ export function populateTypeVarContextBasedOnExpectedType(
         return true;
     }
 
+    if (isTypeVar(expectedType) && expectedType.details.isSynthesizedSelf && expectedType.details.boundType) {
+        expectedType = expectedType.details.boundType;
+    }
+
     if (!isClass(expectedType)) {
         return false;
     }
