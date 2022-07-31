@@ -217,6 +217,7 @@ export class Parser {
     private _isInFinally = false;
     private _isParsingTypeAnnotation = false;
     private _isParsingIndexTrailer = false;
+    private _isParsingQuotedText = false;
     private _futureImportMap = new Map<string, boolean>();
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
@@ -288,8 +289,10 @@ export class Parser {
 
         let parseTree: ExpressionNode | FunctionAnnotationNode | undefined;
         if (parseTextMode === ParseTextMode.VariableAnnotation) {
+            this._isParsingQuotedText = true;
             parseTree = this._parseTypeAnnotation();
         } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
+            this._isParsingQuotedText = true;
             parseTree = this._parseFunctionTypeAnnotation();
         } else {
             const exprListResult = this._parseTestOrStarExpressionList(
@@ -3524,7 +3527,9 @@ export class Parser {
 
             if (argType !== ArgumentCategory.Simple) {
                 const unpackAllowed =
-                    this._parseOptions.isStubFile || this._getLanguageVersion() >= PythonVersion.V3_11;
+                    this._parseOptions.isStubFile ||
+                    this._isParsingQuotedText ||
+                    this._getLanguageVersion() >= PythonVersion.V3_11;
 
                 if (argType === ArgumentCategory.UnpackedDictionary || !unpackAllowed) {
                     this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), argNode);
@@ -4357,7 +4362,11 @@ export class Parser {
         if (isUnpack) {
             if (!allowUnpack) {
                 this._addError(Localizer.Diagnostic.unpackInAnnotation(), startToken);
-            } else if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_11) {
+            } else if (
+                !this._parseOptions.isStubFile &&
+                !this._isParsingQuotedText &&
+                this._getLanguageVersion() < PythonVersion.V3_11
+            ) {
                 this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), startToken);
             }
         }
