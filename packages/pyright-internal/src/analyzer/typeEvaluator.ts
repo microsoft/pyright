@@ -584,7 +584,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: ParseNode[] = [];
 
-    let functionRecursionMap = new Map<number, true>();
+    let functionRecursionMap = new Set<number>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     let typeCache: TypeCache = new Map<number, CachedType>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
@@ -635,7 +635,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // circular references in complex data structures, so it fails
     // to clean up the objects if we don't help it out.
     function disposeEvaluator() {
-        functionRecursionMap = new Map<number, true>();
+        functionRecursionMap = new Set<number>();
         codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
         typeCache = new Map<number, CachedType>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
@@ -16512,7 +16512,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             inferredReturnType = UnknownType.create();
             isIncomplete = true;
         } else {
-            functionRecursionMap.set(node.id, true);
+            functionRecursionMap.add(node.id);
 
             try {
                 let functionDecl: FunctionDeclaration | undefined;
