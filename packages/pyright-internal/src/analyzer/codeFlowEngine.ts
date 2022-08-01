@@ -172,11 +172,14 @@ export function getCodeFlowEngine(
                     flowIncompleteGeneration++;
                 } else if (type) {
                     const prevEntry = flowNodeTypeCache.cache.get(flowNode.id);
-                    if (prevEntry === undefined) {
-                        flowIncompleteGeneration++;
-                    } else if ((prevEntry as IncompleteType).isIncompleteType) {
+                    if (prevEntry) {
                         const prevIncompleteType = prevEntry as IncompleteType;
-                        if (prevIncompleteType.type && !isTypeSame(prevIncompleteType.type, type)) {
+
+                        if (
+                            prevIncompleteType.isIncompleteType &&
+                            prevIncompleteType.type &&
+                            !isTypeSame(prevIncompleteType.type, type)
+                        ) {
                             flowIncompleteGeneration++;
                         }
                     }
