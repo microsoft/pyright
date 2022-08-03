@@ -12347,6 +12347,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
         let isIncomplete = false;
+        let typeErrors = false;
 
         if (!isClassInstance(expectedType)) {
             return undefined;
@@ -12392,6 +12393,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entryTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
+            if (entryTypeResult.typeErrors) {
+                typeErrors = true;
+            }
         });
 
         const isExpectedTypeListOrSet =
@@ -12406,7 +12410,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const type = getBuiltInObject(node, builtInClassName, [specializedEntryType]);
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     // Attempts to infer the type of a list or set statement with no "expected type".
@@ -12414,6 +12418,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
         let isEmptyContainer = false;
         let isIncomplete = false;
+        let typeErrors = false;
 
         let entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
@@ -12431,6 +12436,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (entryTypeResult.isIncomplete) {
                 isIncomplete = true;
+            }
+            if (entryTypeResult.typeErrors) {
+                typeErrors = true;
             }
 
             if (index < maxEntriesToUseForInference) {
@@ -12475,7 +12483,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
               )
             : UnknownType.create();
 
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     function inferTypeArgFromExpectedType(
@@ -12549,12 +12557,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const typesToCombine: Type[] = [];
         let isIncomplete = false;
+        let typeErrors = false;
 
         if (isNodeReachable(node.ifExpression)) {
             const ifType = getTypeOfExpression(node.ifExpression, flags, expectedType);
             typesToCombine.push(ifType.type);
             if (ifType.isIncomplete) {
                 isIncomplete = true;
+            }
+            if (ifType.typeErrors) {
+                typeErrors = true;
             }
         }
 
@@ -12564,9 +12576,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (elseType.isIncomplete) {
                 isIncomplete = true;
             }
+            if (elseType.typeErrors) {
+                typeErrors = true;
+            }
         }
 
-        return { type: combineTypes(typesToCombine), isIncomplete };
+        return { type: combineTypes(typesToCombine), isIncomplete, typeErrors };
     }
 
     function getTypeOfYield(node: YieldNode): TypeResult {
@@ -12790,10 +12805,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfListComprehension(node: ListComprehensionNode, expectedType?: Type): TypeResult {
         let isIncomplete = false;
+        let typeErrors = false;
 
         const elementTypeResult = getElementTypeFromListComprehension(node);
         if (elementTypeResult.isIncomplete) {
             isIncomplete = true;
+        }
+        if (elementTypeResult.typeErrors) {
+            typeErrors = true;
         }
         const elementType = elementTypeResult.type;
 
@@ -12834,7 +12853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     function reportPossibleUnknownAssignment(
@@ -12917,6 +12936,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedKeyType?: Type
     ): TypeResult {
         let isIncomplete = false;
+        let typeErrors = false;
 
         // "Execute" the list comprehensions from start to finish.
         for (const forIfNode of node.forIfNodes) {
@@ -12936,6 +12956,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (keyTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
+            if (keyTypeResult.typeErrors) {
+                typeErrors = true;
+            }
             let keyType = keyTypeResult.type;
             if (!expectedKeyType || !containsLiteralType(expectedKeyType)) {
                 keyType = stripLiteralValue(keyType);
@@ -12948,6 +12971,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
             if (valueTypeResult.isIncomplete) {
                 isIncomplete = true;
+            }
+            if (valueTypeResult.typeErrors) {
+                typeErrors = true;
             }
             let valueType = valueTypeResult.type;
             if (!expectedValueOrElementType || !containsLiteralType(expectedValueOrElementType)) {
@@ -12967,10 +12993,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (exprTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
+            if (exprTypeResult.typeErrors) {
+                typeErrors = true;
+            }
             type = exprTypeResult.type;
         }
 
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     function getTypeOfSlice(node: SliceNode): TypeResult {

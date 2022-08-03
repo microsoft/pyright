@@ -993,6 +993,11 @@ test('List1', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('List2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['list2.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Comparison1', () => {
     const configOptions = new ConfigOptions('.');
 
