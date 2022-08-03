@@ -52,6 +52,7 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { ImportFormat } from './autoImporter';
 
 export interface ImportData {
     containsUnreferenceableSymbols: boolean;
@@ -79,6 +80,7 @@ export class ImportAdder {
         result: ImportData,
         parseResults: ParseResults,
         insertionPosition: number,
+        importFormat: ImportFormat,
         token: CancellationToken
     ): TextEditAction[] {
         throwIfCancellationRequested(token);
@@ -94,6 +96,7 @@ export class ImportAdder {
                 continue;
             }
 
+            const relativePath = getRelativeModuleName(this._importResolver.fileSystem, filePath, importInfo.filePath);
             const moduleAndType = this._importResolver.getModuleNameForImport(importInfo.filePath, execEnv);
             if (!moduleAndType.moduleName) {
                 if (!importInfo.nameInfo.name) {
@@ -103,16 +106,17 @@ export class ImportAdder {
                 // module can't be addressed by absolute path in "from import" statement.
                 // ex) namespace package at [workspace root] or [workspace root]\__init__.py(i)
                 // use relative path
-                moduleAndType.moduleName = getRelativeModuleName(
-                    this._importResolver.fileSystem,
-                    filePath,
-                    importInfo.filePath
-                );
+                importFormat = ImportFormat.Relative;
             }
 
             addIfUnique(
                 importNameInfo,
-                { module: moduleAndType, name: importInfo.nameInfo.name, alias: importInfo.nameInfo.alias },
+                {
+                    name: importInfo.nameInfo.name,
+                    alias: importInfo.nameInfo.alias,
+                    module: moduleAndType,
+                    nameForImportFrom: importFormat === ImportFormat.Relative ? relativePath : undefined,
+                },
                 (a, b) => this._areSame(a, b)
             );
         }

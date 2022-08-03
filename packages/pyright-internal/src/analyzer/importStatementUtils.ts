@@ -38,7 +38,6 @@ import { ParseResults } from '../parser/parser';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleNameAndType } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import { ParseTreeWalker } from './parseTreeWalker';
 import * as SymbolNameUtils from './symbolNameUtils';
 
 export interface ImportStatement {
@@ -72,6 +71,12 @@ export interface ImportNameInfo {
 
 export interface ImportNameWithModuleInfo extends ImportNameInfo {
     module: ModuleNameAndType;
+    nameForImportFrom?: string;
+}
+
+export interface ModuleNameInfo {
+    name: string;
+    nameForImportFrom?: string;
 }
 
 // Determines which import grouping should be used when sorting imports.
@@ -108,10 +113,6 @@ export function compareImportStatements(a: ImportStatement, b: ImportStatement) 
     }
 
     return a.moduleName < b.moduleName ? -1 : 1;
-}
-
-export function getAllImports(root: ModuleNode, token: CancellationToken) {
-    return ImportCollector.collect(root, token);
 }
 
 // Looks for top-level 'import' and 'import from' statements and provides
@@ -338,13 +339,13 @@ export function getTextEditsForAutoImportInsertions(
         return [];
     }
 
-    const map = createMapFromItems(importNameInfo, (i) => i.module.moduleName);
+    const map = createMapFromItems(importNameInfo, (i) => `${i.module.moduleName}-${i.nameForImportFrom ?? ''}`);
     for (const importInfo of map.values()) {
         insertionEdits.push(
             ..._getInsertionEditsForAutoImportInsertion(
                 importInfo,
+                { name: importInfo[0].module.moduleName, nameForImportFrom: importInfo[0].nameForImportFrom },
                 importStatements,
-                importInfo[0].module.moduleName,
                 getImportGroupFromModuleNameAndType(importInfo[0].module),
                 parseResults,
                 invocationPosition
@@ -357,16 +358,16 @@ export function getTextEditsForAutoImportInsertions(
 
 export function getTextEditsForAutoImportInsertion(
     importNameInfo: ImportNameInfo[] | ImportNameInfo,
+    moduleNameInfo: ModuleNameInfo,
     importStatements: ImportStatements,
-    moduleName: string,
     importGroup: ImportGroup,
     parseResults: ParseResults,
     invocationPosition: Position
 ): TextEditAction[] {
     const insertionEdits = _getInsertionEditsForAutoImportInsertion(
         importNameInfo,
+        moduleNameInfo,
         importStatements,
-        moduleName,
         importGroup,
         parseResults,
         invocationPosition
@@ -423,8 +424,8 @@ function _convertInsertionEditsToTextEdits(parseResults: ParseResults, insertion
 
 function _getInsertionEditsForAutoImportInsertion(
     importNameInfo: ImportNameInfo[] | ImportNameInfo,
+    moduleNameInfo: ModuleNameInfo,
     importStatements: ImportStatements,
-    moduleName: string,
     importGroup: ImportGroup,
     parseResults: ParseResults,
     invocationPosition: Position
@@ -449,7 +450,10 @@ function _getInsertionEditsForAutoImportInsertion(
     // Add from import statements next.
     const fromImports = map.get('from');
     if (fromImports) {
-        appendToEdits(fromImports, (names) => `from ${moduleName} import ${names.join(', ')}`);
+        appendToEdits(
+            fromImports,
+            (names) => `from ${moduleNameInfo.nameForImportFrom ?? moduleNameInfo.name} import ${names.join(', ')}`
+        );
     }
 
     return insertionEdits;
@@ -464,7 +468,7 @@ function _getInsertionEditsForAutoImportInsertion(
 
     function appendToEdits(importNameInfo: ImportNameInfo[], importStatementGetter: (n: string[]) => string) {
         const importNames = importNameInfo
-            .map((i) => getImportAsText(i, moduleName))
+            .map((i) => getImportAsText(i, moduleNameInfo.name))
             .sort((a, b) => _compareImportNames(a.sortText, b.sortText))
             .reduce((set, v) => addIfUnique(set, v.text), [] as string[]);
 
@@ -472,7 +476,7 @@ function _getInsertionEditsForAutoImportInsertion(
             _getInsertionEditForAutoImportInsertion(
                 importStatementGetter(importNames),
                 importStatements,
-                moduleName,
+                moduleNameInfo.name,
                 importGroup,
                 parseResults,
                 invocationPosition
@@ -896,35 +900,4 @@ export function getResolvedFilePath(importResult: ImportResult | undefined) {
 
     // Regular case.
     return importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-}
-
-class ImportCollector extends ParseTreeWalker {
-    private readonly _imports: (ImportNode | ImportFromNode)[] = [];
-
-    private constructor(private _token: CancellationToken) {
-        super();
-    }
-
-    public static collect(root: ModuleNode, token: CancellationToken) {
-        const collector = new ImportCollector(token);
-        collector.walk(root);
-
-        return collector._imports;
-    }
-
-    override walk(node: ParseNode): void {
-        throwIfCancellationRequested(this._token);
-
-        super.walk(node);
-    }
-
-    override visitImport(node: ImportNode) {
-        this._imports.push(node);
-        return true;
-    }
-
-    override visitImportFrom(node: ImportFromNode) {
-        this._imports.push(node);
-        return true;
-    }
 }

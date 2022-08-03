@@ -65,7 +65,7 @@ import {
     WellKnownWorkspaceKinds,
     WorkspaceServiceInstance,
 } from '../../../languageServerBase';
-import { AbbreviationInfo } from '../../../languageService/autoImporter';
+import { AbbreviationInfo, ImportFormat } from '../../../languageService/autoImporter';
 import { CompletionOptions } from '../../../languageService/completionProvider';
 import { DefinitionFilter } from '../../../languageService/definitionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
@@ -1099,6 +1099,7 @@ export class TestState {
                 lazyEdit: true,
                 autoImport: true,
                 extraCommitChars: true,
+                importFormat: ImportFormat.Absolute,
             };
             const nameMap = abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined;
             const result = await this.workspace.serviceInstance.getCompletionsForPosition(

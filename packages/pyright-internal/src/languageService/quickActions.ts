@@ -100,8 +100,8 @@ function _addMissingOptionalToParam(
     } else {
         const additionalEditActions = getTextEditsForAutoImportInsertion(
             { name: 'Optional' },
+            { name: 'typing' },
             importStatements,
-            'typing',
             ImportGroup.BuiltIn,
             parseResults,
             startPos

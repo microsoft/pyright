@@ -17,6 +17,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { normalizeSlashes } from '../common/pathUtils';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
+import { ImportFormat } from '../languageService/autoImporter';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestAccessHost } from './harness/testAccessHost';
 import * as host from './harness/testHost';
@@ -54,6 +55,7 @@ test('check chained files', async () => {
             snippet: false,
             autoImport: false,
             extraCommitChars: false,
+            importFormat: ImportFormat.Absolute,
         },
         undefined,
         CancellationToken.None
@@ -100,6 +102,7 @@ test('modify chained files', async () => {
             snippet: false,
             autoImport: false,
             extraCommitChars: false,
+            importFormat: ImportFormat.Absolute,
         },
         undefined,
         CancellationToken.None

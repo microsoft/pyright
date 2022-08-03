@@ -55,6 +55,7 @@ import {
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
+import { AutoImportOptions } from '../languageService/autoImporter';
 import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
 import { IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
@@ -316,20 +317,11 @@ export class AnalyzerService {
         range: Range,
         similarityLimit: number,
         nameMap: AbbreviationMap | undefined,
-        lazyEdit: boolean,
-        allowVariableInAll: boolean,
+        options: AutoImportOptions,
         token: CancellationToken
     ) {
-        return this._program.getAutoImports(
-            filePath,
-            range,
-            similarityLimit,
-            nameMap,
-            this._backgroundAnalysisProgram.getIndexing(filePath),
-            lazyEdit,
-            allowVariableInAll,
-            token
-        );
+        options.libraryMap = options.libraryMap ?? this._backgroundAnalysisProgram.getIndexing(filePath);
+        return this._program.getAutoImports(filePath, range, similarityLimit, nameMap, options, token);
     }
 
     getDefinitionForPosition(
