@@ -112,7 +112,7 @@ import {
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
-import { AbbreviationInfo, AutoImporter, AutoImportResult, ModuleSymbolMap } from './autoImporter';
+import { AbbreviationInfo, AutoImporter, AutoImportResult, ImportFormat, ModuleSymbolMap } from './autoImporter';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
 import {
@@ -282,6 +282,7 @@ export interface CompletionOptions {
     lazyEdit: boolean;
     autoImport: boolean;
     extraCommitChars: boolean;
+    importFormat: ImportFormat;
 }
 
 export type AbbreviationMap = Map<string, AbbreviationInfo>;
@@ -2241,7 +2242,11 @@ export class CompletionProvider {
             this._position,
             completionResults.completionMap,
             moduleSymbolMap,
-            { libraryMap: this._autoImportMaps.libraryMap, lazyEdit }
+            {
+                libraryMap: this._autoImportMaps.libraryMap,
+                lazyEdit,
+                importFormat: this._options.importFormat,
+            }
         );
 
         const results: AutoImportResult[] = [];

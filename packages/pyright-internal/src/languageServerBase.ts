@@ -107,6 +107,7 @@ import { DocumentRange, Position, Range } from './common/textRange';
 import { UriParser } from './common/uriParser';
 import { convertWorkspaceDocumentEdits } from './common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
+import { ImportFormat } from './languageService/autoImporter';
 import { CompletionItemData, CompletionOptions, CompletionResultsList } from './languageService/completionProvider';
 import { DefinitionFilter } from './languageService/definitionProvider';
 import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService/documentSymbolProvider';
@@ -1317,6 +1318,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             lazyEdit: this.client.completionItemResolveSupportsAdditionalTextEdits,
             autoImport: true,
             extraCommitChars: false,
+            importFormat: ImportFormat.Absolute,
         };
     }
 

@@ -486,8 +486,8 @@ export class RenameModuleProvider {
                     this._addResultEdits(
                         getTextEditsForAutoImportInsertion(
                             [],
+                            { name: this._newModuleName },
                             importStatements,
-                            this._newModuleName,
                             getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
                             parseResults,
                             convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)
@@ -1324,8 +1324,8 @@ export class RenameModuleProvider {
 
         return getTextEditsForAutoImportInsertion(
             importNameInfo,
+            { name: moduleName },
             importStatements,
-            moduleName,
             getImportGroupFromModuleNameAndType(this._newModuleNameAndType),
             parseResults,
             convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)

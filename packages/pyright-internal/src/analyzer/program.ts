@@ -47,6 +47,7 @@ import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } f
 import { Duration, timingStats } from '../common/timing';
 import {
     AutoImporter,
+    AutoImportOptions,
     AutoImportResult,
     buildModuleSymbolsMap,
     ModuleSymbolMap,
@@ -1254,9 +1255,7 @@ export class Program {
         range: Range,
         similarityLimit: number,
         nameMap: AbbreviationMap | undefined,
-        libraryMap: Map<string, IndexResults> | undefined,
-        lazyEdit: boolean,
-        allowVariableInAll: boolean,
+        options: AutoImportOptions,
         token: CancellationToken
     ): AutoImportResult[] {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
@@ -1288,10 +1287,14 @@ export class Program {
             const writtenWord = fileContents.substr(textRange.start, textRange.length);
             const map = this._buildModuleSymbolsMap(
                 sourceFileInfo,
-                !!libraryMap,
+                !!options.libraryMap,
                 /* includeIndexUserSymbols */ true,
                 token
             );
+
+            options.patternMatcher =
+                options.patternMatcher ?? ((p, t) => computeCompletionSimilarity(p, t) > similarityLimit);
+
             const autoImporter = new AutoImporter(
                 this._configOptions.findExecEnvironment(filePath),
                 this._importResolver,
@@ -1299,12 +1302,7 @@ export class Program {
                 range.start,
                 new CompletionMap(),
                 map,
-                {
-                    lazyEdit,
-                    allowVariableInAll,
-                    libraryMap,
-                    patternMatcher: (p, t) => computeCompletionSimilarity(p, t) > similarityLimit,
-                }
+                options
             );
 
             // Filter out any name that is already defined in the current scope.

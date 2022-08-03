@@ -7,17 +7,21 @@
 
 import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 
+import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { DeclarationType } from '../analyzer/declaration';
 import { ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import {
     getImportGroup,
     getImportGroupFromModuleNameAndType,
+    getRelativeModuleName,
     getTextEditsForAutoImportInsertion,
     getTextEditsForAutoImportSymbolAddition,
     getTopLevelImports,
     ImportGroup,
+    ImportNameInfo,
     ImportStatements,
+    ModuleNameInfo,
 } from '../analyzer/importStatementUtils';
 import { SourceFileInfo } from '../analyzer/program';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
@@ -36,11 +40,16 @@ import { ParseResults } from '../parser/parser';
 import { CompletionMap } from './completionProvider';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 
+export const enum ImportFormat {
+    Absolute = 'absolute',
+    Relative = 'relative',
+}
+
 export interface AutoImportSymbol {
-    readonly importAlias?: IndexAliasData | undefined;
-    readonly symbol?: Symbol | undefined;
-    readonly kind?: SymbolKind | undefined;
-    readonly itemKind?: CompletionItemKind | undefined;
+    readonly importAlias?: IndexAliasData;
+    readonly symbol?: Symbol;
+    readonly kind?: SymbolKind;
+    readonly itemKind?: CompletionItemKind;
 }
 
 export interface ModuleSymbolTable {
@@ -50,31 +59,32 @@ export interface ModuleSymbolTable {
 export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
 
 export interface AbbreviationInfo {
-    importFrom?: string | undefined;
+    importFrom?: string;
     importName: string;
 }
 
 export interface AutoImportResult {
     name: string;
-    symbol?: Symbol | undefined;
-    source?: string | undefined;
+    symbol?: Symbol;
+    source?: string;
     insertionText: string;
-    edits?: TextEditAction[] | undefined;
-    alias?: string | undefined;
-    kind?: CompletionItemKind | undefined;
+    edits?: TextEditAction[];
+    alias?: string;
+    kind?: CompletionItemKind;
 }
 
 export interface AutoImportOptions {
-    libraryMap?: Map<string, IndexResults> | undefined;
-    patternMatcher?: ((pattern: string, name: string) => boolean) | undefined;
-    allowVariableInAll?: boolean | undefined;
-    lazyEdit?: boolean | undefined;
+    libraryMap?: Map<string, IndexResults>;
+    patternMatcher?: (pattern: string, name: string) => boolean;
+    allowVariableInAll?: boolean;
+    lazyEdit?: boolean;
+    importFormat?: ImportFormat;
 }
 
 interface ImportParts {
     importName: string;
-    symbolName?: string | undefined;
-    importFrom?: string | undefined;
+    symbolName?: string;
+    importFrom?: string;
     filePath: string;
     dotCount: number;
     moduleNameAndType: ModuleNameAndType;
@@ -83,9 +93,9 @@ interface ImportParts {
 interface ImportAliasData {
     importParts: ImportParts;
     importGroup: ImportGroup;
-    symbol?: Symbol | undefined;
-    kind?: SymbolKind | undefined;
-    itemKind?: CompletionItemKind | undefined;
+    symbol?: Symbol;
+    kind?: SymbolKind;
+    itemKind?: CompletionItemKind;
 }
 
 type AutoImportResultMap = Map<string, AutoImportResult[]>;
@@ -148,7 +158,7 @@ export function buildModuleSymbolsMap(
                             !declaration.isFinal
                                 ? SymbolKind.Variable
                                 : undefined;
-                        callbackfn({ symbol, kind: variableKind }, name, /* library */ false);
+                        callbackfn({ symbol, kind: variableKind }, name, /* library */ !isUserCode(file));
                     });
                 },
             });
@@ -167,11 +177,12 @@ export function buildModuleSymbolsMap(
 }
 
 export class AutoImporter {
-    private _importStatements: ImportStatements;
+    private readonly _filePath: string;
+    private readonly _importStatements: ImportStatements;
 
     // Track some auto import internal perf numbers.
-    private _stopWatch = new Duration();
-    private _perfInfo = {
+    private readonly _stopWatch = new Duration();
+    private readonly _perfInfo = {
         indexUsed: false,
         totalInMs: 0,
 
@@ -193,6 +204,7 @@ export class AutoImporter {
         private _moduleSymbolMap: ModuleSymbolMap,
         private _options: AutoImportOptions
     ) {
+        this._filePath = getFileInfo(_parseResults.parseTree).filePath;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree, /* includeImplicitImports */ true);
 
         this._perfInfo.indexUsed = !!this._options.libraryMap;
@@ -321,7 +333,7 @@ export class AutoImporter {
 
     private _processModuleSymbolTable(
         topLevelSymbols: ModuleSymbolTable,
-        filePath: string,
+        moduleFilePath: string,
         word: string,
         similarityLimit: number,
         isStubOrHasInit: { isStub: boolean; hasInit: boolean },
@@ -332,7 +344,7 @@ export class AutoImporter {
     ) {
         throwIfCancellationRequested(token);
 
-        const [importSource, importGroup, moduleNameAndType] = this._getImportPartsForSymbols(filePath);
+        const [importSource, importGroup, moduleNameAndType] = this._getImportPartsForSymbols(moduleFilePath);
         if (!importSource) {
             return;
         }
@@ -367,7 +379,7 @@ export class AutoImporter {
                             symbolName: name,
                             importName: name,
                             importFrom: importSource,
-                            filePath,
+                            filePath: moduleFilePath,
                             dotCount,
                             moduleNameAndType,
                         },
@@ -381,13 +393,17 @@ export class AutoImporter {
                 return;
             }
 
+            const nameForImportFrom =
+                this._options.importFormat === ImportFormat.Relative && !library
+                    ? getRelativeModuleName(this._importResolver.fileSystem, this._filePath, moduleFilePath)
+                    : undefined;
+
             const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                importSource,
-                name,
-                abbrFromUsers,
+                { name, alias: abbrFromUsers },
+                { name: importSource, nameForImportFrom },
                 name,
                 importGroup,
-                filePath
+                moduleFilePath
             );
 
             this._addResult(results, {
@@ -408,7 +424,7 @@ export class AutoImporter {
             return;
         }
 
-        const importParts = this._getImportParts(filePath);
+        const importParts = this._getImportParts(moduleFilePath);
         if (!importParts) {
             return;
         }
@@ -425,7 +441,7 @@ export class AutoImporter {
 
         this._addToImportAliasMap(
             {
-                modulePath: filePath,
+                modulePath: moduleFilePath,
                 originalName: importParts.importName,
                 kind: SymbolKind.Module,
                 itemKind: CompletionItemKind.Module,
@@ -510,9 +526,10 @@ export class AutoImporter {
                 }
 
                 const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                    importAliasData.importParts.importFrom ?? importAliasData.importParts.importName,
-                    importAliasData.importParts.symbolName,
-                    abbrFromUsers,
+                    { name: importAliasData.importParts.symbolName, alias: abbrFromUsers },
+                    {
+                        name: importAliasData.importParts.importFrom ?? importAliasData.importParts.importName,
+                    },
                     importAliasData.importParts.importName,
                     importAliasData.importGroup,
                     importAliasData.importParts.filePath
@@ -685,9 +702,8 @@ export class AutoImporter {
     }
 
     private _getTextEditsForAutoImportByFilePath(
-        moduleName: string,
-        importName: string | undefined,
-        abbrFromUsers: string | undefined,
+        importNameInfo: ImportNameInfo,
+        moduleNameInfo: ModuleNameInfo,
         insertionText: string,
         importGroup: ImportGroup,
         filePath: string
@@ -700,11 +716,11 @@ export class AutoImporter {
                 // For now, we don't check whether alias or moduleName got overwritten at
                 // given position
                 const importAlias = importStatement.subnode?.alias?.value;
-                if (importName) {
+                if (importNameInfo.name) {
                     // ex) import module
                     //     method | <= auto-import
                     return {
-                        insertionText: `${importAlias ?? importStatement.moduleName}.${importName}`,
+                        insertionText: `${importAlias ?? importStatement.moduleName}.${importNameInfo.name}`,
                         edits: [],
                     };
                 } else if (importAlias) {
@@ -719,18 +735,18 @@ export class AutoImporter {
 
             // Does an 'import from' statement already exist?
             if (
-                importName &&
+                importNameInfo.name &&
                 importStatement.node.nodeType === ParseNodeType.ImportFrom &&
                 !importStatement.node.isWildcardImport
             ) {
                 // If so, see whether what we want already exist.
-                const importNode = importStatement.node.imports.find((i) => i.name.value === importName);
+                const importNode = importStatement.node.imports.find((i) => i.name.value === importNameInfo.name);
                 if (importNode) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position
                     const importAlias = importNode.alias?.value;
                     return {
-                        insertionText: `${importAlias ?? importName}`,
+                        insertionText: `${importAlias ?? importNameInfo.name}`,
                         edits: [],
                     };
                 }
@@ -738,25 +754,25 @@ export class AutoImporter {
                 // If not, add what we want at the existing 'import from' statement as long as
                 // what is imported is not module itself.
                 // ex) don't add "path" to existing "from os.path import dirname" statement.
-                if (moduleName === importStatement.moduleName) {
+                if (moduleNameInfo.name === importStatement.moduleName) {
                     return {
-                        insertionText: abbrFromUsers ?? insertionText,
+                        insertionText: importNameInfo.alias ?? insertionText,
                         edits: this._options.lazyEdit
                             ? undefined
                             : getTextEditsForAutoImportSymbolAddition(
-                                  { name: importName, alias: abbrFromUsers },
+                                  importNameInfo,
                                   importStatement,
                                   this._parseResults
                               ),
                     };
                 }
             }
-        } else if (importName) {
+        } else if (importNameInfo.name) {
             // If it is the module itself that got imported, make sure we don't import it again.
             // ex) from module import submodule
-            const imported = this._importStatements.orderedImports.find((i) => i.moduleName === moduleName);
+            const imported = this._importStatements.orderedImports.find((i) => i.moduleName === moduleNameInfo.name);
             if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.isWildcardImport) {
-                const importFrom = imported.node.imports.find((i) => i.name.value === importName);
+                const importFrom = imported.node.imports.find((i) => i.name.value === importNameInfo.name);
                 if (importFrom) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position. only move to alias, but not the other way around
@@ -770,14 +786,10 @@ export class AutoImporter {
                 } else {
                     // If not, add what we want at the existing import from statement.
                     return {
-                        insertionText: abbrFromUsers ?? insertionText,
+                        insertionText: importNameInfo.alias ?? insertionText,
                         edits: this._options.lazyEdit
                             ? undefined
-                            : getTextEditsForAutoImportSymbolAddition(
-                                  { name: importName, alias: abbrFromUsers },
-                                  imported,
-                                  this._parseResults
-                              ),
+                            : getTextEditsForAutoImportSymbolAddition(importNameInfo, imported, this._parseResults),
                     };
                 }
             }
@@ -789,20 +801,20 @@ export class AutoImporter {
                 // given position
                 const importAlias = importFrom.alias?.value;
                 return {
-                    insertionText: `${importAlias ?? importFrom.name.value}.${importName}`,
+                    insertionText: `${importAlias ?? importFrom.name.value}.${importNameInfo.name}`,
                     edits: [],
                 };
             }
         }
 
         return {
-            insertionText: abbrFromUsers ?? insertionText,
+            insertionText: importNameInfo.alias ?? insertionText,
             edits: this._options.lazyEdit
                 ? undefined
                 : getTextEditsForAutoImportInsertion(
-                      { name: importName, alias: abbrFromUsers },
+                      importNameInfo,
+                      moduleNameInfo,
                       this._importStatements,
-                      moduleName,
                       importGroup,
                       this._parseResults,
                       this._invocationPosition

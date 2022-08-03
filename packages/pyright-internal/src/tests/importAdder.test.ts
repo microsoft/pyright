@@ -10,6 +10,7 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { rangesAreEqual, TextRange } from '../common/textRange';
+import { ImportFormat } from '../languageService/autoImporter';
 import { ImportAdder } from '../languageService/importAdder';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
@@ -1319,7 +1320,23 @@ test('move into the same file from import statement for submodule', () => {
     testImportMove(code);
 });
 
-function testImportMove(code: string) {
+test('use relative import format', () => {
+    const code = `
+// @filename: test1.py
+//// from nested import module
+////
+//// [|/*src*/module.foo()|]
+
+// @filename: nested/__init__.py
+//// [|{|"r":"from . import module!n!!n!!n!"|}|][|/*dest*/|]
+
+// @filename: nested/module.py
+//// def foo(): pass
+        `;
+    testImportMove(code, ImportFormat.Relative);
+});
+
+function testImportMove(code: string, importFormat = ImportFormat.Absolute) {
     const state = parseAndGetTestState(code).state;
 
     const src = state.getRangeByMarkerName('src')!;
@@ -1336,6 +1353,7 @@ function testImportMove(code: string) {
         importData,
         state.program.getBoundSourceFile(dest.fileName)!.getParseResults()!,
         dest.position,
+        importFormat,
         CancellationToken.None
     );
 
