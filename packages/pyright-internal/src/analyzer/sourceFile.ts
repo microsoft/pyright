@@ -97,7 +97,7 @@ export class SourceFile {
     private readonly _filePath: string;
 
     // Period-delimited import path for the module.
-    private readonly _moduleName: string;
+    private _moduleName: string;
 
     // True if file is a type-hint (.pyi) file versus a python
     // (.py) file.
@@ -245,6 +245,14 @@ export class SourceFile {
 
     getFilePath(): string {
         return this._filePath;
+    }
+
+    getModuleName(): string {
+        return this._moduleName;
+    }
+
+    setModuleName(name: string) {
+        this._moduleName = name;
     }
 
     getDiagnosticVersion(): number {

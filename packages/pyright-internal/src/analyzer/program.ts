@@ -262,12 +262,16 @@ export class Program {
 
     addTrackedFile(filePath: string, isThirdPartyImport = false, isInPyTypedPackage = false): SourceFile {
         let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const importName = this._getImportNameForFile(filePath);
+
         if (sourceFileInfo) {
+            // The module name may have changed based on updates to the
+            // search paths, so update it here.
+            sourceFileInfo.sourceFile.setModuleName(importName);
             sourceFileInfo.isTracked = true;
             return sourceFileInfo.sourceFile;
         }
 
-        const importName = this._getImportNameForFile(filePath);
         const sourceFile = new SourceFile(
             this._fs,
             filePath,
