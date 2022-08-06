@@ -1212,3 +1212,8 @@ test('TryExcept10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept10.py']);
     TestUtils.validateResults(analysisResults, 1);
 });
+
+test('Del1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del1.py']);
+    TestUtils.validateResults(analysisResults, 6);
+});

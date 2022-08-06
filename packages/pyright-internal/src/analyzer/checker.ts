@@ -1346,12 +1346,10 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitDel(node: DelNode) {
-        this._suppressUnboundCheck(() => {
-            node.expressions.forEach((expr) => {
-                this._evaluator.verifyDeleteExpression(expr);
+        node.expressions.forEach((expr) => {
+            this._evaluator.verifyDeleteExpression(expr);
 
-                this.walk(expr);
-            });
+            this.walk(expr);
         });
 
         return false;
