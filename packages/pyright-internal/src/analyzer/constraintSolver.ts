@@ -397,15 +397,7 @@ export function assignTypeToTypeVar(
         // Update the wide type bound.
         if (!curWideTypeBound) {
             newWideTypeBound = adjSrcType;
-        } else if (
-            !isTypeSame(
-                curWideTypeBound,
-                adjSrcType,
-                /* ignorePseudoGeneric */ undefined,
-                /* ignoreTypeFlags */ undefined,
-                recursionCount
-            )
-        ) {
+        } else if (!isTypeSame(curWideTypeBound, adjSrcType, {}, recursionCount)) {
             if (
                 evaluator.assignType(
                     curWideTypeBound,
@@ -472,15 +464,7 @@ export function assignTypeToTypeVar(
         if (!curNarrowTypeBound) {
             // There was previously no narrow bound. We've now established one.
             newNarrowTypeBound = adjSrcType;
-        } else if (
-            !isTypeSame(
-                curNarrowTypeBound,
-                adjSrcType,
-                /* ignorePseudoGeneric */ undefined,
-                /* ignoreTypeFlags */ undefined,
-                recursionCount
-            )
-        ) {
+        } else if (!isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
             if (
                 evaluator.assignType(
                     curNarrowTypeBound,
@@ -573,15 +557,7 @@ export function assignTypeToTypeVar(
 
         // Make sure we don't exceed the wide type bound.
         if (curWideTypeBound && newNarrowTypeBound) {
-            if (
-                !isTypeSame(
-                    curWideTypeBound,
-                    newNarrowTypeBound,
-                    /* ignorePseudoGeneric */ undefined,
-                    /* ignoreTypeFlags */ undefined,
-                    recursionCount
-                )
-            ) {
+            if (!isTypeSame(curWideTypeBound, newNarrowTypeBound, {}, recursionCount)) {
                 let makeConcrete = true;
 
                 // Handle the case where the wide type is type T and the narrow type
@@ -687,15 +663,7 @@ function assignTypeToParamSpec(
         if (existingEntry) {
             if (existingEntry.parameters.length === 0 && existingEntry.paramSpec) {
                 // If there's an existing entry that matches, that's fine.
-                if (
-                    isTypeSame(
-                        existingEntry.paramSpec,
-                        srcType,
-                        /* ignorePseudoGeneric */ undefined,
-                        /* ignoreTypeFlags */ undefined,
-                        recursionCount
-                    )
-                ) {
+                if (isTypeSame(existingEntry.paramSpec, srcType, {}, recursionCount)) {
                     return true;
                 }
             }

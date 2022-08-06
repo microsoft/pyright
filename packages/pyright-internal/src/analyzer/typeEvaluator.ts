@@ -7133,7 +7133,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const assertedType = convertToInstance(getTypeOfArgumentExpectingType(node.arguments[1]).type);
 
-        if (!isTypeSame(assertedType, arg0TypeResult.type)) {
+        if (!isTypeSame(assertedType, arg0TypeResult.type, { treatAnySameAsUnknown: true })) {
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -8442,11 +8442,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const castFromType = getTypeOfArgument(argList[1]).type;
                             if (isInstantiableClass(castToType) && isClassInstance(castFromType)) {
                                 if (
-                                    isTypeSame(
-                                        castToType,
-                                        ClassType.cloneAsInstantiable(castFromType),
-                                        /* ignorePseudoGeneric */ true
-                                    )
+                                    isTypeSame(castToType, ClassType.cloneAsInstantiable(castFromType), {
+                                        ignorePseudoGeneric: true,
+                                    })
                                 ) {
                                     addDiagnostic(
                                         AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
@@ -9877,7 +9875,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type.strippedFirstParamType.typeArguments.forEach((typeArg, index) => {
                     if (index < typeParams.length) {
                         const typeParam = typeParams[index];
-                        if (!isTypeSame(typeParam, typeArg, /* ignorePseudoGeneric */ true)) {
+                        if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
                             typeVarContext.setTypeVarType(typeParams[index], typeArg);
                         }
                     }
@@ -12128,7 +12126,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || hasExpectedType) {
                 valueType = combineTypes(valueTypes);
             } else {
-                valueType = areTypesSame(valueTypes, /* ignorePseudoGeneric */ true) ? valueTypes[0] : fallbackType;
+                valueType = areTypesSame(valueTypes, { ignorePseudoGeneric: true }) ? valueTypes[0] : fallbackType;
             }
         } else {
             valueType = fallbackType;
@@ -12461,7 +12459,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
             } else {
                 // Is the list or set homogeneous? If so, use stricter rules. Otherwise relax the rules.
-                inferredEntryType = areTypesSame(entryTypes, /* ignorePseudoGeneric */ true)
+                inferredEntryType = areTypesSame(entryTypes, { ignorePseudoGeneric: true })
                     ? entryTypes[0]
                     : inferredEntryType;
             }
@@ -20654,15 +20652,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 srcType.tupleTypeArguments &&
                 srcType.tupleTypeArguments.length === 1
             ) {
-                if (
-                    isTypeSame(
-                        destType,
-                        srcType.tupleTypeArguments[0].type,
-                        /* ignorePseudoGeneric */ undefined,
-                        /* ignoreTypeFlags */ undefined,
-                        recursionCount
-                    )
-                ) {
+                if (isTypeSame(destType, srcType.tupleTypeArguments[0].type, {}, recursionCount)) {
                     return true;
                 }
             }
@@ -21334,15 +21324,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): boolean {
         // Start by checking for an exact match. This is needed to handle unions
         // that contain recursive type aliases.
-        if (
-            isTypeSame(
-                srcType,
-                destType,
-                /* ignorePseudoGeneric */ undefined,
-                /* ignoreTypeFlags */ undefined,
-                recursionCount
-            )
-        ) {
+        if (isTypeSame(srcType, destType, {}, recursionCount)) {
             return true;
         }
 
@@ -21382,13 +21364,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     remainingDestSubtypes.push(destSubtype);
                 } else {
                     const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
-                        isTypeSame(
-                            srcSubtype,
-                            destSubtype,
-                            /* ignorePseudoGeneric */ undefined,
-                            /* ignoreTypeFlags */ undefined,
-                            recursionCount
-                        )
+                        isTypeSame(srcSubtype, destSubtype, {}, recursionCount)
                     );
                     if (srcTypeIndex >= 0) {
                         remainingSrcSubtypes.splice(srcTypeIndex, 1);
@@ -21790,15 +21766,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function assignConditionalTypeToTypeVar(destType: TypeVarType, srcType: Type, recursionCount: number): boolean {
         // The srcType is assignable only if all of its subtypes are assignable.
         return !findSubtype(srcType, (srcSubtype) => {
-            if (
-                isTypeSame(
-                    destType,
-                    srcSubtype,
-                    /* ignorePseudoGeneric */ true,
-                    /* ignoreTypeFlags */ undefined,
-                    recursionCount
-                )
-            ) {
+            if (isTypeSame(destType, srcSubtype, { ignorePseudoGeneric: true }, recursionCount)) {
                 return false;
             }
 
@@ -22855,12 +22823,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // dest param spec itself, it is not assignable in this case.
                     if (
                         !srcParamSpec ||
-                        !isTypeSame(
-                            srcParamSpec,
-                            destParamSpec,
-                            /* ignorePseudoGeneric */ false,
-                            /* ignoreTypeFlags */ true
-                        ) ||
+                        !isTypeSame(srcParamSpec, destParamSpec, { ignoreTypeFlags: true }) ||
                         remainingParams.length > 0
                     ) {
                         canAssign = false;
@@ -23448,15 +23411,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let effectiveSrcType: Type = srcType;
 
         if (isTypeVar(srcType)) {
-            if (
-                isTypeSame(
-                    srcType,
-                    destType,
-                    /* ignorePseudoGeneric */ undefined,
-                    /* ignoreTypeFlags */ undefined,
-                    recursionCount
-                )
-            ) {
+            if (isTypeSame(srcType, destType, {}, recursionCount)) {
                 return srcType;
             }
 

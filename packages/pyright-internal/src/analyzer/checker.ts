@@ -3274,7 +3274,7 @@ export class Checker extends ParseTreeWalker {
 
         // If arg1IncludesSubclasses is true, it contains a Type[X] class rather than X. A Type[X]
         // could be a subclass of X, so the "unnecessary isinstance check" may be legit.
-        if (!arg1IncludesSubclasses && isTypeSame(filteredType, arg0Type, /* ignorePseudoGeneric */ true)) {
+        if (!arg1IncludesSubclasses && isTypeSame(filteredType, arg0Type, { ignorePseudoGeneric: true })) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,

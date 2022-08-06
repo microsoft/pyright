@@ -97,6 +97,12 @@ export const maxTypeRecursionCount = 14;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
+export interface TypeSameOptions {
+    ignorePseudoGeneric?: boolean;
+    ignoreTypeFlags?: boolean;
+    treatAnySameAsUnknown?: boolean;
+}
+
 interface TypeAliasInfo {
     name: string;
     fullName: string;
@@ -986,8 +992,7 @@ export namespace ClassType {
                 !isTypeSame(
                     class1Details.baseClasses[i],
                     class2Details.baseClasses[i],
-                    /* ignorePseudoGeneric */ true,
-                    /* ignoreTypeFlags */ undefined,
+                    { ignorePseudoGeneric: true },
                     recursionCount
                 )
             ) {
@@ -1002,8 +1007,7 @@ export namespace ClassType {
                 !isTypeSame(
                     class1Details.declaredMetaclass,
                     class2Details.declaredMetaclass,
-                    /* ignorePseudoGeneric */ true,
-                    /* ignoreTypeFlags */ undefined,
+                    { ignorePseudoGeneric: true },
                     recursionCount
                 )
             ) {
@@ -1016,8 +1020,7 @@ export namespace ClassType {
                 !isTypeSame(
                     class1Details.typeParameters[i],
                     class2Details.typeParameters[i],
-                    /* ignorePseudoGeneric */ true,
-                    /* ignoreTypeFlags */ undefined,
+                    { ignorePseudoGeneric: true },
                     recursionCount
                 )
             ) {
@@ -2007,17 +2010,7 @@ export namespace UnionType {
             }
         }
 
-        return (
-            unionType.subtypes.find((t) =>
-                isTypeSame(
-                    t,
-                    subtype,
-                    /* ignorePseudoGeneric */ undefined,
-                    /* ignoreTypeFlags */ undefined,
-                    recursionCount
-                )
-            ) !== undefined
-        );
+        return unionType.subtypes.find((t) => isTypeSame(t, subtype, {}, recursionCount)) !== undefined;
     }
 
     export function addTypeAliasSource(unionType: UnionType, typeAliasSource: Type) {
@@ -2379,22 +2372,25 @@ export function getTypeAliasInfo(type: Type) {
 // Determines whether two types are the same. If ignorePseudoGeneric is true,
 // type arguments for "pseudo-generic" classes (non-generic classes whose init
 // methods are not annotated and are therefore treated as generic) are ignored.
-export function isTypeSame(
-    type1: Type,
-    type2: Type,
-    ignorePseudoGeneric = false,
-    ignoreTypeFlags = false,
-    recursionCount = 0
-): boolean {
+export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = {}, recursionCount = 0): boolean {
     if (type1 === type2) {
         return true;
     }
 
     if (type1.category !== type2.category) {
+        if (options.treatAnySameAsUnknown) {
+            if (type1.category === TypeCategory.Any && type2.category === TypeCategory.Unknown) {
+                return true;
+            }
+            if (type1.category === TypeCategory.Unknown && type2.category === TypeCategory.Any) {
+                return true;
+            }
+        }
+
         return false;
     }
 
-    if (!ignoreTypeFlags && type1.flags !== type2.flags) {
+    if (!options.ignoreTypeFlags && type1.flags !== type2.flags) {
         return false;
     }
 
@@ -2416,7 +2412,7 @@ export function isTypeSame(
                 return false;
             }
 
-            if (!ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
+            if (!options.ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
                 // Make sure the type args match.
                 if (type1.tupleTypeArguments && classType2.tupleTypeArguments) {
                     const type1TupleTypeArgs = type1.tupleTypeArguments || [];
@@ -2430,8 +2426,7 @@ export function isTypeSame(
                             !isTypeSame(
                                 type1TupleTypeArgs[i].type,
                                 type2TupleTypeArgs[i].type,
-                                ignorePseudoGeneric,
-                                /* ignoreTypeFlags */ false,
+                                { ...options, ignoreTypeFlags: false },
                                 recursionCount
                             )
                         ) {
@@ -2452,15 +2447,7 @@ export function isTypeSame(
                         const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
                         const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
-                        if (
-                            !isTypeSame(
-                                typeArg1,
-                                typeArg2,
-                                ignorePseudoGeneric,
-                                /* ignoreTypeFlags */ false,
-                                recursionCount
-                            )
-                        ) {
+                        if (!isTypeSame(typeArg1, typeArg2, { ...options, ignoreTypeFlags: false }, recursionCount)) {
                             return false;
                         }
                     }
@@ -2519,15 +2506,7 @@ export function isTypeSame(
 
                 const param1Type = FunctionType.getEffectiveParameterType(type1, i);
                 const param2Type = FunctionType.getEffectiveParameterType(functionType2, i);
-                if (
-                    !isTypeSame(
-                        param1Type,
-                        param2Type,
-                        ignorePseudoGeneric,
-                        /* ignoreTypeFlags */ false,
-                        recursionCount
-                    )
-                ) {
+                if (!isTypeSame(param1Type, param2Type, { ...options, ignoreTypeFlags: false }, recursionCount)) {
                     return false;
                 }
             }
@@ -2553,13 +2532,7 @@ export function isTypeSame(
                 if (
                     !return1Type ||
                     !return2Type ||
-                    !isTypeSame(
-                        return1Type,
-                        return2Type,
-                        ignorePseudoGeneric,
-                        /* ignoreTypeFlags */ false,
-                        recursionCount
-                    )
+                    !isTypeSame(return1Type, return2Type, { ...options, ignoreTypeFlags: false }, recursionCount)
                 ) {
                     return false;
                 }
@@ -2578,15 +2551,7 @@ export function isTypeSame(
             // We assume here that overloaded functions always appear
             // in the same order from one analysis pass to another.
             for (let i = 0; i < type1.overloads.length; i++) {
-                if (
-                    !isTypeSame(
-                        type1.overloads[i],
-                        functionType2.overloads[i],
-                        ignorePseudoGeneric,
-                        ignoreTypeFlags,
-                        recursionCount
-                    )
-                ) {
+                if (!isTypeSame(type1.overloads[i], functionType2.overloads[i], options, recursionCount)) {
                     return false;
                 }
             }
@@ -2630,15 +2595,7 @@ export function isTypeSame(
                     const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
                     const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
-                    if (
-                        !isTypeSame(
-                            typeArg1,
-                            typeArg2,
-                            ignorePseudoGeneric,
-                            /* ignoreTypeFlags */ false,
-                            recursionCount
-                        )
-                    ) {
+                    if (!isTypeSame(typeArg1, typeArg2, { ...options, ignoreTypeFlags: false }, recursionCount)) {
                         return false;
                     }
                 }
@@ -2664,13 +2621,7 @@ export function isTypeSame(
             if (boundType1) {
                 if (
                     !boundType2 ||
-                    !isTypeSame(
-                        boundType1,
-                        boundType2,
-                        ignorePseudoGeneric,
-                        /* ignoreTypeFlags */ false,
-                        recursionCount
-                    )
+                    !isTypeSame(boundType1, boundType2, { ...options, ignoreTypeFlags: false }, recursionCount)
                 ) {
                     return false;
                 }
@@ -2691,8 +2642,7 @@ export function isTypeSame(
                     !isTypeSame(
                         constraints1[i],
                         constraints2[i],
-                        ignorePseudoGeneric,
-                        /* ignoreTypeFlags */ false,
+                        { ...options, ignoreTypeFlags: false },
                         recursionCount
                     )
                 ) {
@@ -2965,7 +2915,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
         // we can hit recursive cases (where a pseudo-generic class is
         // parameterized with its own class) ad infinitum.
         if (isPseudoGeneric) {
-            if (isTypeSame(type, typeToAdd, /* ignorePseudoGeneric */ true)) {
+            if (isTypeSame(type, typeToAdd, { ignorePseudoGeneric: true })) {
                 unionType.subtypes[i] = ClassType.cloneForSpecialization(
                     typeToAdd,
                     typeToAdd.details.typeParameters.map(() => UnknownType.create()),

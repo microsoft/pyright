@@ -53,6 +53,7 @@ import {
     TypeCategory,
     TypeCondition,
     TypeFlags,
+    TypeSameOptions,
     TypeVarScopeId,
     TypeVarType,
     UnionType,
@@ -560,13 +561,13 @@ export function doForEachSubtype(
 }
 
 // Determines if all of the types in the array are the same.
-export function areTypesSame(types: Type[], ignorePseudoGeneric: boolean): boolean {
+export function areTypesSame(types: Type[], options: TypeSameOptions): boolean {
     if (types.length < 2) {
         return true;
     }
 
     for (let i = 1; i < types.length; i++) {
-        if (!isTypeSame(types[0], types[i], ignorePseudoGeneric)) {
+        if (!isTypeSame(types[0], types[i], options)) {
             return false;
         }
     }

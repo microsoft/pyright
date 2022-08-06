@@ -309,14 +309,7 @@ export function printType(
                             let foundMatch = false;
 
                             for (const unionSubtype of type.subtypes) {
-                                if (
-                                    isTypeSame(
-                                        sourceSubtype,
-                                        unionSubtype,
-                                        /* ignorePseudoGeneric */ undefined,
-                                        /* ignoreTypeFlags */ true
-                                    )
-                                ) {
+                                if (isTypeSame(sourceSubtype, unionSubtype, { ignoreTypeFlags: true })) {
                                     if (!subtypeHandledSet.has(unionSubtypeIndex)) {
                                         allSubtypesPreviouslyHandled = false;
                                     }

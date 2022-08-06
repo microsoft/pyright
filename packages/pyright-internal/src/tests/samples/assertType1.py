@@ -3,6 +3,7 @@
 from typing import Any, Literal
 from typing_extensions import assert_type
 
+
 def func1():
     # This should generate an error.
     assert_type()
@@ -17,7 +18,7 @@ def func1():
     assert_type(*[])
 
 
-def func2(x: int, y: int | str):
+def func2(x: int, y: int | str, z: list):
     assert_type(x, int)
 
     # This should generate an error.
@@ -44,3 +45,4 @@ def func2(x: int, y: int | str):
     # This should generate two errors.
     assert_type(y, 3)
 
+    assert_type(z[0], Any)
