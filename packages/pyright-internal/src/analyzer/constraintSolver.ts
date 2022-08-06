@@ -54,6 +54,7 @@ import {
     mapSubtypes,
     specializeTupleClass,
     transformExpectedTypeForConstructor,
+    transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -868,7 +869,9 @@ export function populateTypeVarContextBasedOnExpectedType(
                 const targetTypeVar =
                     ClassType.getTypeParameters(specializedType)[synthTypeVar.details.synthesizedIndex];
                 if (index < expectedTypeArgs.length) {
-                    let expectedTypeArgValue: Type | undefined = expectedTypeArgs[index];
+                    let expectedTypeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(
+                        expectedTypeArgs[index]
+                    );
 
                     if (liveTypeVarScopes) {
                         expectedTypeArgValue = transformExpectedTypeForConstructor(
