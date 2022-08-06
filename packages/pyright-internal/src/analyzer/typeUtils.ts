@@ -467,7 +467,7 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
 
 // Sorts types into a deterministic order.
 export function sortTypes(types: Type[]): Type[] {
-    return types.sort((a, b) => {
+    return types.slice(0).sort((a, b) => {
         if (a.category !== b.category) {
             return a.category - b.category;
         }
