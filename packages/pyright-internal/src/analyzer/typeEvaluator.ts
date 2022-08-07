@@ -4782,15 +4782,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isAsymmetricDescriptor = true;
                     }
                 } else {
-                    // Handle the special case of LiteralString.
-                    if (
-                        ClassType.isBuiltIn(baseType, 'LiteralString') &&
-                        strClassType &&
-                        isInstantiableClass(strClassType)
-                    ) {
-                        baseType = ClassType.cloneAsInstance(strClassType);
-                    }
-
                     // Handle the special case of 'name' and 'value' members within an enum.
                     const enumMemberResult = getTypeOfEnumMember(
                         evaluatorInterface,
@@ -11883,15 +11874,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
-            if (
-                isClassInstance(subtype) &&
-                ClassType.isBuiltIn(subtype, 'LiteralString') &&
-                strClassType &&
-                isInstantiableClass(strClassType)
-            ) {
-                return handleSubtype(ClassType.cloneAsInstance(strClassType));
-            }
-
             if (isClassInstance(subtype) || isInstantiableClass(subtype) || isTypeVar(subtype)) {
                 return handleSubtype(subtype);
             }
@@ -14080,7 +14062,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 assert(isInstantiableClass(cachedType));
                 return cachedType as ClassType;
             }
+
             const specialType = createSpecialBuiltInClass(node, assignedName, aliasMapEntry);
+
+            // Handle 'LiteralString' specially because we want it to act as
+            // though it derives from 'str'.
+            if (assignedName === 'LiteralString') {
+                specialType.details.baseClasses.push(strClassType ?? AnyType.create());
+                computeMroLinearization(specialType);
+            }
+
             writeTypeCache(node, specialType, EvaluatorFlags.None, /* isIncomplete */ false);
             return specialType;
         }
@@ -21011,7 +21002,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+            const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
             if (isClass(concreteSrcType) && TypeBase.isInstance(concreteSrcType)) {
                 if (destType.literalValue !== undefined) {
                     const srcLiteral = concreteSrcType.literalValue;
@@ -21031,15 +21022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (ClassType.isBuiltIn(destType, 'LiteralString')) {
                     if (ClassType.isBuiltIn(concreteSrcType, 'str') && concreteSrcType.literalValue !== undefined) {
                         return true;
-                    } else if (ClassType.isBuiltIn(concreteSrcType, 'LiteralString')) {
-                        return true;
                     }
-                } else if (
-                    ClassType.isBuiltIn(concreteSrcType, 'LiteralString') &&
-                    strClassType &&
-                    isInstantiableClass(strClassType)
-                ) {
-                    concreteSrcType = ClassType.cloneAsInstance(strClassType);
                 }
 
                 if (

@@ -63,3 +63,11 @@ def func5(
 
     # This should generate an error because "b" is not literal.
     v4: LiteralString = f"{a} {b}"
+
+
+def func6(a: LiteralString):
+    v1 = a.capitalize()
+
+    v2 = a[0]
+
+    a = "hi"

@@ -108,8 +108,8 @@ mode = Literal[
 def func5(
     a: mode, b: mode, c: mode, d: mode, e: mode, f: mode, g: mode, h: mode, i: mode
 ):
-    # Make sure this degenerate case falls back to "str".
-    reveal_type(a + b + c + d + e + f + g + h + i, expected_text="str")
+    # Make sure this degenerate case falls back to "LiteralString".
+    reveal_type(a + b + c + d + e + f + g + h + i, expected_text="LiteralString")
 
 
 def func6(x: Literal[1, 3, 5, 7, 11, 13]):
