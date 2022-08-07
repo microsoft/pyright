@@ -791,6 +791,8 @@ function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
             ':' +
             chalk.yellow(`${diag.range.start.character + 1}`) +
             ' - ';
+    } else {
+        message += ' ';
     }
 
     const [firstLine, ...remainingLines] = diag.message.split('\n');

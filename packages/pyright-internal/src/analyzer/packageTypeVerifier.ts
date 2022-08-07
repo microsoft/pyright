@@ -622,7 +622,8 @@ export class PackageTypeVerifier {
         type: Type,
         declRange: Range,
         declFilePath: string,
-        publicSymbolMap: PublicSymbolMap
+        publicSymbolMap: PublicSymbolMap,
+        skipDocStringCheck = false
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
@@ -730,7 +731,9 @@ export class PackageTypeVerifier {
                             publicSymbolMap,
                             symbolInfo,
                             declRange,
-                            declFilePath
+                            declFilePath,
+                            undefined /* diag */,
+                            skipDocStringCheck
                         )
                     );
                 }
@@ -763,6 +766,9 @@ export class PackageTypeVerifier {
                             );
                         }
 
+                        // Don't require docstrings for setters or deleters.
+                        const skipDocStringCheck = accessorName !== 'fget';
+
                         knownStatus = this._updateKnownStatusIfWorse(
                             knownStatus,
                             this._getSymbolTypeKnownStatus(
@@ -771,7 +777,8 @@ export class PackageTypeVerifier {
                                 accessType,
                                 getEmptyRange(),
                                 '',
-                                publicSymbolMap
+                                publicSymbolMap,
+                                skipDocStringCheck
                             )
                         );
                     });
@@ -848,7 +855,8 @@ export class PackageTypeVerifier {
         symbolInfo?: SymbolInfo,
         declRange?: Range,
         declFilePath?: string,
-        diag?: DiagnosticAddendum
+        diag?: DiagnosticAddendum,
+        skipDocStringCheck = false
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
@@ -875,8 +883,8 @@ export class PackageTypeVerifier {
                             this._addSymbolError(
                                 symbolInfo,
                                 `Type annotation for parameter "${param.name}" is missing`,
-                                declRange || getEmptyRange(),
-                                declFilePath || ''
+                                declRange ?? getEmptyRange(),
+                                declFilePath ?? ''
                             );
                         }
                         diag?.createAddendum().addMessage(`Type annotation for parameter "${param.name}" is missing`);
@@ -887,8 +895,8 @@ export class PackageTypeVerifier {
                         this._addSymbolError(
                             symbolInfo,
                             `Type of parameter "${param.name}" is unknown`,
-                            declRange || getEmptyRange(),
-                            declFilePath || ''
+                            declRange ?? getEmptyRange(),
+                            declFilePath ?? ''
                         );
                         diag?.createAddendum().addMessage(`Type of parameter "${param.name}" is unknown`);
                     }
@@ -911,8 +919,8 @@ export class PackageTypeVerifier {
                             this._addSymbolError(
                                 symbolInfo,
                                 `Type of parameter "${param.name}" is partially unknown` + extraInfo.getString(),
-                                declRange || getEmptyRange(),
-                                declFilePath || ''
+                                declRange ?? getEmptyRange(),
+                                declFilePath ?? ''
                             );
                         }
 
@@ -934,8 +942,8 @@ export class PackageTypeVerifier {
                     this._addSymbolError(
                         symbolInfo,
                         `Return type is unknown`,
-                        declRange || getEmptyRange(),
-                        declFilePath || ''
+                        declRange ?? getEmptyRange(),
+                        declFilePath ?? ''
                     );
                 }
                 knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
@@ -960,8 +968,8 @@ export class PackageTypeVerifier {
                         this._addSymbolError(
                             symbolInfo,
                             `Return type is partially unknown` + extraInfo.getString(),
-                            declRange || getEmptyRange(),
-                            declFilePath || ''
+                            declRange ?? getEmptyRange(),
+                            declFilePath ?? ''
                         );
                     }
 
@@ -981,8 +989,8 @@ export class PackageTypeVerifier {
                     this._addSymbolError(
                         symbolInfo,
                         `Return type annotation is missing`,
-                        declRange || getEmptyRange(),
-                        declFilePath || ''
+                        declRange ?? getEmptyRange(),
+                        declFilePath ?? ''
                     );
                 }
                 diag?.createAddendum().addMessage(`Return type annotation is missing`);
@@ -991,14 +999,28 @@ export class PackageTypeVerifier {
         }
 
         if (!type.details.docString) {
+            // Don't require docstrings for private methods.
+            if (!symbolInfo?.isExported) {
+                skipDocStringCheck = true;
+            }
+
             // Don't require docstrings for dunder methods.
-            if (symbolInfo?.isExported && !isDunderName(symbolInfo.name)) {
+            if (symbolInfo && isDunderName(symbolInfo.name)) {
+                skipDocStringCheck = true;
+            }
+
+            // Don't require docstrings for overloads.
+            if (FunctionType.isOverloaded(type)) {
+                skipDocStringCheck = true;
+            }
+
+            if (!skipDocStringCheck) {
                 if (symbolInfo) {
                     this._addSymbolWarning(
                         symbolInfo,
                         `No docstring found for function "${symbolInfo.fullName}"`,
-                        declRange || getEmptyRange(),
-                        declFilePath || ''
+                        declRange ?? getEmptyRange(),
+                        declFilePath ?? ''
                     );
                 }
 
@@ -1011,8 +1033,8 @@ export class PackageTypeVerifier {
                 this._addSymbolWarning(
                     symbolInfo,
                     `One or more default values in function "${symbolInfo.fullName}" is specified as "..."`,
-                    declRange || getEmptyRange(),
-                    declFilePath || ''
+                    declRange ?? getEmptyRange(),
+                    declFilePath ?? ''
                 );
             }
 
