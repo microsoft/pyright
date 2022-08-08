@@ -1,15 +1,16 @@
 import io
 from _typeshed import Self
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from http.client import HTTPMessage as _HttplibHTTPMessage, HTTPResponse as _HttplibHTTPResponse
-from typing import Any
-from typing_extensions import Literal
+from typing import IO, Any
+from typing_extensions import Literal, TypeAlias
 
 from urllib3.connectionpool import HTTPConnection
 
 from . import HTTPConnectionPool, Retry
 from ._collections import HTTPHeaderDict
-from .connection import _TYPE_BODY
+
+_TYPE_BODY: TypeAlias = bytes | IO[Any] | Iterable[bytes] | str
 
 class DeflateDecoder:
     def __init__(self) -> None: ...

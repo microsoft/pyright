@@ -1,18 +1,19 @@
 from _typeshed import Self
 from collections.abc import Iterator
 from typing import Any, Generic, TypeVar
+from typing_extensions import Literal, TypeAlias
 
 from ..sql.annotation import SupportsCloneAnnotations
 from ..sql.base import Executable
 from ..sql.selectable import GroupedElement, HasHints, HasPrefixes, HasSuffixes, SelectBase, _SelectFromElements
 from . import interfaces
 from .context import QueryContext as QueryContext
-from .persistence import _SynchronizeSessionArgument
 from .util import aliased as aliased
 
 __all__ = ["Query", "QueryContext", "aliased"]
 
 _T = TypeVar("_T")
+_SynchronizeSessionArgument: TypeAlias = Literal[False, "evaluate", "fetch"]
 
 class Query(_SelectFromElements, SupportsCloneAnnotations, HasPrefixes, HasSuffixes, HasHints, Executable, Generic[_T]):
     logger: Any

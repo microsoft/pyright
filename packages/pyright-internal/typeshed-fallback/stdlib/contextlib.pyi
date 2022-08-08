@@ -1,8 +1,9 @@
 import sys
 from _typeshed import Self, StrOrBytesPath
+from abc import abstractmethod
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Generator, Iterator
 from types import TracebackType
-from typing import IO, Any, AsyncContextManager, ContextManager, Generic, Protocol, TypeVar, overload  # noqa: Y022,Y027
+from typing import IO, Any, Generic, Protocol, TypeVar, overload, runtime_checkable
 from typing_extensions import ParamSpec, TypeAlias
 
 __all__ = [
@@ -35,8 +36,21 @@ _P = ParamSpec("_P")
 _ExitFunc: TypeAlias = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], bool | None]
 _CM_EF = TypeVar("_CM_EF", bound=AbstractContextManager[Any] | _ExitFunc)
 
-AbstractContextManager = ContextManager
-AbstractAsyncContextManager = AsyncContextManager
+@runtime_checkable
+class AbstractContextManager(Protocol[_T_co]):
+    def __enter__(self) -> _T_co: ...
+    @abstractmethod
+    def __exit__(
+        self, __exc_type: type[BaseException] | None, __exc_value: BaseException | None, __traceback: TracebackType | None
+    ) -> bool | None: ...
+
+@runtime_checkable
+class AbstractAsyncContextManager(Protocol[_T_co]):
+    async def __aenter__(self) -> _T_co: ...
+    @abstractmethod
+    async def __aexit__(
+        self, __exc_type: type[BaseException] | None, __exc_value: BaseException | None, __traceback: TracebackType | None
+    ) -> bool | None: ...
 
 class ContextDecorator:
     def __call__(self, func: _F) -> _F: ...
