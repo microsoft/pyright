@@ -68,8 +68,9 @@ export interface ImportResult {
     isNativeLib: boolean;
 
     // True if the resolved file is a type hint (.pyi) file that comes
-    // from typeshed.
-    isTypeshedFile?: boolean;
+    // from typeshed in the stdlib or third-party stubs.
+    isStdlibTypeshedFile?: boolean;
+    isThirdPartyTypeshedFile?: boolean;
 
     // True if the resolved file is a type hint (.pyi) file that comes
     // from the configured typings directory.

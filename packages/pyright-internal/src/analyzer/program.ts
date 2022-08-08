@@ -2634,7 +2634,8 @@ export class Program {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                             newImportPathMap.set(normalizePathCase(this._fs, filePath), {
                                 path: filePath,
-                                isTypeshedFile: !!importResult.isTypeshedFile,
+                                isTypeshedFile:
+                                    !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
                                 isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
                                 isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
                             });
@@ -2648,13 +2649,36 @@ export class Program {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                             newImportPathMap.set(normalizePathCase(this._fs, implicitImport.path), {
                                 path: implicitImport.path,
-                                isTypeshedFile: !!importResult.isTypeshedFile,
+                                isTypeshedFile:
+                                    !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
                                 isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
                                 isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
                             });
                         }
                     }
                 });
+
+                // If the stub was found but the non-stub (source) file was not, dump
+                // the failure to the log for diagnostic purposes.
+                if (importResult.nonStubImportResult && !importResult.nonStubImportResult.isImportFound) {
+                    // We'll skip this for imports from within stub files and imports that target
+                    // stdlib typeshed stubs because many of these are known to not have
+                    // associated source files, and we don't want to fill the logs with noise.
+                    if (!sourceFileInfo.sourceFile.isStubFile() && !importResult.isStdlibTypeshedFile) {
+                        if (options.verboseOutput) {
+                            this._console.info(
+                                `Could not resolve source for '${importResult.importName}' ` +
+                                    `in file '${sourceFileInfo.sourceFile.getFilePath()}'`
+                            );
+
+                            if (importResult.nonStubImportResult.importFailureInfo) {
+                                importResult.nonStubImportResult.importFailureInfo.forEach((diag) => {
+                                    this._console.info(`  ${diag}`);
+                                });
+                            }
+                        }
+                    }
+                }
             } else if (options.verboseOutput) {
                 this._console.info(
                     `Could not import '${importResult.importName}' ` +

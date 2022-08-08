@@ -1364,7 +1364,7 @@ export class ImportResolver {
             );
 
             if (typeshedStdlibImport) {
-                typeshedStdlibImport.isTypeshedFile = true;
+                typeshedStdlibImport.isStdlibTypeshedFile = true;
                 return typeshedStdlibImport;
             }
 
@@ -1379,7 +1379,7 @@ export class ImportResolver {
             );
 
             if (typeshedImport) {
-                typeshedImport.isTypeshedFile = true;
+                typeshedImport.isThirdPartyTypeshedFile = true;
                 bestResultSoFar = this._pickBestImport(bestResultSoFar, typeshedImport, moduleDescriptor);
             }
         }
