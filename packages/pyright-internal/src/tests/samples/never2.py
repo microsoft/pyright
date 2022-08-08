@@ -37,6 +37,11 @@ def func2(val: str | int) -> str:
         assert_never2(val)
 
 
+def func3():
+    # This should generate an error because of the missing argument.
+    assert_never1()
+
+
 reveal_type(assert_never1, expected_text="(val: Never) -> NoReturn")
 
 # This should generate an error.

@@ -3119,8 +3119,6 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = flowNode;
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
-
         if (!this._isCodeUnreachable()) {
             this._addExceptTargets(this._currentFlowNode!);
         }
