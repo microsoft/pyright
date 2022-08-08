@@ -62,8 +62,9 @@ export class TestLanguageService implements LanguageServerInterface {
         this._defaultWorkspace = {
             workspaceName: '',
             rootPath: '',
-            rootUri: '',
-            kind: WellKnownWorkspaceKinds.Test,
+            path: '',
+            uri: '',
+            kinds: [WellKnownWorkspaceKinds.Test],
             serviceInstance: new AnalyzerService('test service', this.fs, {
                 console: this.console,
                 hostFactory: () => new TestAccessHost(),
@@ -75,6 +76,7 @@ export class TestLanguageService implements LanguageServerInterface {
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
+            owns: (f) => true,
         };
     }
     decodeTextDocumentUri(uriString: string): string {

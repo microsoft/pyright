@@ -53,14 +53,16 @@ export class AnalyzerServiceExecutor {
         const tempWorkspace: WorkspaceServiceInstance = {
             workspaceName: `temp workspace for cloned service`,
             rootPath: workspace.rootPath,
-            rootUri: workspace.rootUri,
-            kind: WellKnownWorkspaceKinds.Cloned,
+            path: workspace.path,
+            uri: workspace.uri,
+            kinds: [...workspace.kinds, WellKnownWorkspaceKinds.Cloned],
             serviceInstance: workspace.serviceInstance.clone('cloned service', backgroundAnalysis, fileSystem),
             disableLanguageServices: true,
             disableOrganizeImports: true,
             disableWorkspaceSymbol: true,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
+            owns: workspace.owns,
         };
 
         const serverSettings = await ls.getSettings(workspace);

@@ -218,9 +218,9 @@ export class SignatureHelpProvider {
                 continue;
             }
 
-            const parts = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolveDecl, evaluator);
-            if (parts.length > 0) {
-                return parts.join('\n\n');
+            const part = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolveDecl, evaluator);
+            if (part) {
+                return part;
             }
         }
 

@@ -8,9 +8,10 @@
  * hover and completion tooltip.
  */
 
-import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { Declaration, DeclarationType, VariableDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { Symbol } from '../analyzer/symbol';
 import {
     getClassDocString,
     getFunctionDocStringInherited,
@@ -21,6 +22,7 @@ import {
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
+    ClassType,
     FunctionType,
     isFunction,
     isInstantiableClass,
@@ -86,6 +88,7 @@ export function getOverloadedFunctionDocStringsFromType(
         type.overloads.map((o) => o.details.declaration).filter(isDefined),
         sourceMapper,
         evaluator,
+
         classResults?.classType
     );
 }
@@ -94,41 +97,61 @@ export function getDocumentationPartsForTypeAndDecl(
     sourceMapper: SourceMapper,
     type: Type,
     resolvedDecl: Declaration | undefined,
-    evaluator: TypeEvaluator
-): string[] {
-    if (resolvedDecl?.type === DeclarationType.Variable && resolvedDecl.typeAliasName && resolvedDecl.docString) {
-        return [resolvedDecl.docString];
-    } else if (isModule(type)) {
+    evaluator: TypeEvaluator,
+    symbol?: Symbol,
+    boundObjectOrClass?: ClassType | undefined
+): string | undefined {
+    if (isModule(type)) {
         const doc = getModuleDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
-            return [doc];
+            return doc;
         }
     } else if (isInstantiableClass(type)) {
         const doc = getClassDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
-            return [doc];
+            return doc;
         }
     } else if (isFunction(type)) {
-        const doc = getFunctionDocStringFromType(type, sourceMapper, evaluator);
-        if (doc) {
-            return [doc];
+        const functionType = boundObjectOrClass
+            ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
+            : type;
+        if (functionType && isFunction(functionType)) {
+            const doc = getFunctionDocStringFromType(functionType, sourceMapper, evaluator);
+            if (doc) {
+                return doc;
+            }
         }
     } else if (isOverloadedFunction(type)) {
-        return getOverloadedFunctionDocStringsFromType(type, sourceMapper, evaluator);
+        const functionType = boundObjectOrClass
+            ? evaluator.bindFunctionToClassOrObject(boundObjectOrClass, type)
+            : type;
+        if (functionType && isOverloadedFunction(functionType)) {
+            const doc = getOverloadedFunctionDocStringsFromType(functionType, sourceMapper, evaluator).find((d) => d);
+
+            if (doc) {
+                return doc;
+            }
+        }
+    }
+
+    if (resolvedDecl?.type === DeclarationType.Variable && resolvedDecl.typeAliasName && resolvedDecl.docString) {
+        return resolvedDecl.docString;
     } else if (resolvedDecl?.type === DeclarationType.Variable) {
-        const doc = getVariableDocString(resolvedDecl, sourceMapper);
+        const decl = (symbol?.getDeclarations().find((d) => d.type === DeclarationType.Variable && !!d.docString) ??
+            resolvedDecl) as VariableDeclaration;
+        const doc = getVariableDocString(decl, sourceMapper);
         if (doc) {
-            return [doc];
+            return doc;
         }
     } else if (resolvedDecl?.type === DeclarationType.Function) {
         // @property functions
         const doc = getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator);
         if (doc) {
-            return [doc];
+            return doc;
         }
     }
 
-    return [];
+    return undefined;
 }
 
 export function getAutoImportText(name: string, from?: string, alias?: string): string {

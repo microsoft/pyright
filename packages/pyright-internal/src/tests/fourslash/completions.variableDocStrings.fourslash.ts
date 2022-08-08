@@ -1,7 +1,7 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test.py
-//// from typing import List, Union
+//// from typing import List, Union, Callable
 ////
 //// class Foo:
 ////     """ This is a docstring """
@@ -9,9 +9,11 @@
 ////     aaa = 4
 ////     """ aaa is an int """
 ////
-////     def __init__(self) -> None:
+////     def __init__(self, func : Callable[[float], float]) -> None:
 ////         self.bbb = "hi"
 ////         " bbb is a str "
+////         self.func = func
+////         """A given function"""
 ////
 //// ccc = Foo()
 //// """ ccc is a Foo """
@@ -26,6 +28,8 @@
 //// cc[|/*marker3*/|]
 ////
 //// SomeType[|/*marker4*/|]
+////
+//// ccc.fun[|/*marker5*/|]
 
 // @ts-ignore
 await helper.verifyCompletion('includes', 'markdown', {
@@ -63,6 +67,15 @@ await helper.verifyCompletion('includes', 'markdown', {
                 kind: Consts.CompletionItemKind.Variable,
                 documentation:
                     "```python\nSomeType: Type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
+            },
+        ],
+    },
+    marker5: {
+        completions: [
+            {
+                label: 'func',
+                kind: Consts.CompletionItemKind.Variable,
+                documentation: '```python\nfunc: (float) -> float\n```\n---\nA given function',
             },
         ],
     },

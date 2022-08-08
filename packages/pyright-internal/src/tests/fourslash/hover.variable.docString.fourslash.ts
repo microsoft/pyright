@@ -1,24 +1,28 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test.py
+//// from typing import Callable
 //// class A:
-////     def __init__(self):
+////     def __init__(self, func : Callable[[float], float]) -> None:
 ////         self.x = 1
 ////         """ test x """
+////         self.func = func
+////         """A given function"""
 ////
 //// a = A()
 //// a.[|/*marker1*/x|]
+//// a.[|/*marker2*/func|]
 
 // @filename: test2.py
 //// y = 2
 //// """ test y """
 ////
-//// [|/*marker2*/y|]
+//// [|/*marker3*/y|]
 
 // @filename: test3.py
 //// from stubs import z
 ////
-//// [|/*marker3*/z|]
+//// [|/*marker4*/z|]
 
 // @filename: stubs.py
 //// z = 3
@@ -29,13 +33,14 @@
 
 // @filename: test4.py
 //// from typing import List, Union
-//// [|/*marker4*/SomeType|] = List[Union[int, str]]
+//// [|/*marker5*/SomeType|] = List[Union[int, str]]
 //// """Here's some documentation about SomeType"""
 
 helper.verifyHover('markdown', {
     marker1: '```python\n(variable) x: int\n```\n---\ntest x',
-    marker2: '```python\n(variable) y: Literal[2]\n```\n---\ntest y',
-    marker3: '```python\n(variable) z: int\n```\n---\ntest z',
-    marker4:
+    marker2: '```python\n(variable) func: (float) -> float\n```\n---\nA given function',
+    marker3: '```python\n(variable) y: Literal[2]\n```\n---\ntest y',
+    marker4: '```python\n(variable) z: int\n```\n---\ntest z',
+    marker5:
         "```python\n(type alias) SomeType: Type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
 });

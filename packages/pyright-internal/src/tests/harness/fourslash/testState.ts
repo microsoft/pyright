@@ -194,14 +194,16 @@ export class TestState {
         this.workspace = {
             workspaceName: 'test workspace',
             rootPath: this.fs.getModulePath(),
-            rootUri: convertPathToUri(this.fs, this.fs.getModulePath()),
-            kind: WellKnownWorkspaceKinds.Test,
+            path: this.fs.getModulePath(),
+            uri: convertPathToUri(this.fs, this.fs.getModulePath()),
+            kinds: [WellKnownWorkspaceKinds.Test],
             serviceInstance: service,
             disableLanguageServices: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
+            owns: (f) => true,
         };
 
         const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
@@ -1105,7 +1107,7 @@ export class TestState {
             const result = await this.workspace.serviceInstance.getCompletionsForPosition(
                 filePath,
                 completionPosition,
-                this.workspace.rootPath,
+                this.workspace.path,
                 options,
                 nameMap,
                 CancellationToken.None
