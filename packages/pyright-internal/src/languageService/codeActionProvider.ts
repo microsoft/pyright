@@ -45,7 +45,7 @@ export class CodeActionProvider {
                         Command.create(
                             Localizer.CodeAction.createTypeStub(),
                             Commands.createTypeStub,
-                            workspace.rootPath,
+                            workspace.path,
                             action.moduleName,
                             filePath
                         ),

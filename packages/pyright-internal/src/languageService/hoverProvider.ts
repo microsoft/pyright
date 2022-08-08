@@ -450,16 +450,13 @@ export class HoverProvider {
         resolvedDecl: Declaration | undefined,
         evaluator: TypeEvaluator
     ): boolean {
-        const docStrings = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolvedDecl, evaluator);
-        let addedDoc = false;
-        for (const docString of docStrings) {
-            if (docString) {
-                addedDoc = true;
-                this._addDocumentationResultsPart(format, parts, docString);
-            }
+        const docString = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolvedDecl, evaluator);
+        if (docString) {
+            this._addDocumentationResultsPart(format, parts, docString);
+            return true;
         }
 
-        return addedDoc;
+        return false;
     }
 
     private static _addDocumentationResultsPart(format: MarkupKind, parts: HoverTextPart[], docString?: string) {

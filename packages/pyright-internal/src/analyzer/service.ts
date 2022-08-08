@@ -444,7 +444,7 @@ export class AnalyzerService {
         isDefaultWorkspace: boolean,
         allowModuleRename: boolean,
         token: CancellationToken
-    ): Range | undefined {
+    ) {
         return this._program.canRenameSymbolAtPosition(
             filePath,
             position,

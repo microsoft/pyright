@@ -41,12 +41,6 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
-import {
-    getClassDocString,
-    getModuleDocString,
-    getPropertyDocStringInherited,
-    getVariableDocString,
-} from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { printLiteralValue } from '../analyzer/typePrinter';
 import {
@@ -115,12 +109,7 @@ import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/token
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ImportFormat, ModuleSymbolMap } from './autoImporter';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
-import {
-    getAutoImportText,
-    getFunctionDocStringFromType,
-    getOverloadedFunctionDocStringsFromType,
-    getOverloadedFunctionTooltip,
-} from './tooltipUtils';
+import { getAutoImportText, getDocumentationPartsForTypeAndDecl, getOverloadedFunctionTooltip } from './tooltipUtils';
 
 namespace Keywords {
     const base: string[] = [
@@ -2632,52 +2621,14 @@ export class CompletionProvider {
                                 }
                             }
 
-                            if (
-                                primaryDecl.type === DeclarationType.Variable &&
-                                primaryDecl.typeAliasName &&
-                                primaryDecl.docString
-                            ) {
-                                documentation = primaryDecl.docString;
-                            } else if (isModule(type)) {
-                                documentation = getModuleDocString(type, primaryDecl, this._sourceMapper);
-                            } else if (isInstantiableClass(type)) {
-                                documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
-                            } else if (isFunction(type)) {
-                                const functionType = detail.boundObjectOrClass
-                                    ? this._evaluator.bindFunctionToClassOrObject(detail.boundObjectOrClass, type)
-                                    : type;
-                                if (functionType && isFunction(functionType)) {
-                                    documentation = getFunctionDocStringFromType(
-                                        functionType,
-                                        this._sourceMapper,
-                                        this._evaluator
-                                    );
-                                }
-                            } else if (isOverloadedFunction(type)) {
-                                const functionType = detail.boundObjectOrClass
-                                    ? this._evaluator.bindFunctionToClassOrObject(detail.boundObjectOrClass, type)
-                                    : type;
-                                if (functionType && isOverloadedFunction(functionType)) {
-                                    documentation = getOverloadedFunctionDocStringsFromType(
-                                        functionType,
-                                        this._sourceMapper,
-                                        this._evaluator
-                                    ).find((doc) => doc);
-                                }
-                            } else if (primaryDecl?.type === DeclarationType.Function) {
-                                // @property functions
-                                documentation = getPropertyDocStringInherited(
-                                    primaryDecl,
-                                    this._sourceMapper,
-                                    this._evaluator
-                                );
-                            } else if (primaryDecl?.type === DeclarationType.Variable) {
-                                const decl = (symbol
-                                    .getDeclarations()
-                                    .find((d) => d.type === DeclarationType.Variable && !!d.docString) ??
-                                    primaryDecl) as VariableDeclaration;
-                                documentation = getVariableDocString(decl, this._sourceMapper);
-                            }
+                            documentation = getDocumentationPartsForTypeAndDecl(
+                                this._sourceMapper,
+                                type,
+                                primaryDecl,
+                                this._evaluator,
+                                symbol,
+                                detail.boundObjectOrClass
+                            );
 
                             if (this._options.format === MarkupKind.Markdown) {
                                 let markdownString = '```python\n' + typeDetail + '\n```\n';

@@ -90,7 +90,7 @@ export class PyrightServer extends LanguageServerBase {
         };
 
         try {
-            const pythonSection = await this.getConfiguration(workspace.rootUri, 'python');
+            const pythonSection = await this.getConfiguration(workspace.uri, 'python');
             if (pythonSection) {
                 const pythonPath = pythonSection.pythonPath;
                 if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
@@ -110,7 +110,7 @@ export class PyrightServer extends LanguageServerBase {
                 }
             }
 
-            const pythonAnalysisSection = await this.getConfiguration(workspace.rootUri, 'python.analysis');
+            const pythonAnalysisSection = await this.getConfiguration(workspace.uri, 'python.analysis');
             if (pythonAnalysisSection) {
                 const typeshedPaths = pythonAnalysisSection.typeshedPaths;
                 if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
@@ -184,7 +184,7 @@ export class PyrightServer extends LanguageServerBase {
                 serverSettings.autoSearchPaths = true;
             }
 
-            const pyrightSection = await this.getConfiguration(workspace.rootUri, 'pyright');
+            const pyrightSection = await this.getConfiguration(workspace.uri, 'pyright');
             if (pyrightSection) {
                 if (pyrightSection.openFilesOnly !== undefined) {
                     serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;

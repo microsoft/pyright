@@ -28,7 +28,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
 
         let count = 0;
         for (const kv of this) {
-            if (!kind || kv[1].kind === kind) {
+            if (!kind || kv[1].kinds.some((k) => k === kind)) {
                 count++;
             }
 
@@ -43,11 +43,11 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
     getNonDefaultWorkspaces(kind?: string): WorkspaceServiceInstance[] {
         const workspaces: WorkspaceServiceInstance[] = [];
         this.forEach((workspace) => {
-            if (!workspace.rootPath) {
+            if (!workspace.path) {
                 return;
             }
 
-            if (kind && workspace.kind !== kind) {
+            if (kind && !workspace.kinds.some((k) => k === kind)) {
                 return;
             }
 
@@ -62,17 +62,19 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         let bestInstance: WorkspaceServiceInstance | undefined;
 
         this.forEach((workspace) => {
-            if (workspace.rootPath) {
+            if (workspace.path) {
                 // Is the file is under this workspace folder?
-                if (filePath.startsWith(workspace.rootPath) || (workspace.owns && workspace.owns(filePath))) {
-                    // Is this the fist candidate? If not, is this workspace folder
-                    // contained within the previous candidate folder? We always want
-                    // to select the innermost folder, since that overrides the
-                    // outer folders.
-                    if (bestRootPath === undefined || workspace.rootPath.startsWith(bestRootPath)) {
-                        bestRootPath = workspace.rootPath;
-                        bestInstance = workspace;
-                    }
+                if (!workspace.owns(filePath)) {
+                    return;
+                }
+
+                // Is this the fist candidate? If not, is this workspace folder
+                // contained within the previous candidate folder? We always want
+                // to select the innermost folder, since that overrides the
+                // outer folders.
+                if (bestRootPath === undefined || workspace.path.startsWith(bestRootPath)) {
+                    bestRootPath = workspace.path;
+                    bestInstance = workspace;
                 }
             }
         });
@@ -93,14 +95,16 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                 defaultWorkspace = {
                     workspaceName: '',
                     rootPath: '',
-                    rootUri: '',
+                    path: '',
+                    uri: '',
                     serviceInstance: ls.createAnalyzerService(this._defaultWorkspacePath),
-                    kind: WellKnownWorkspaceKinds.Default,
+                    kinds: [WellKnownWorkspaceKinds.Default],
                     disableLanguageServices: false,
                     disableOrganizeImports: false,
                     disableWorkspaceSymbol: false,
                     isInitialized: createDeferred<boolean>(),
                     searchPathsToWatch: [],
+                    owns: (f) => true,
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
                 ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();

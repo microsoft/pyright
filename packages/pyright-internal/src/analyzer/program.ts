@@ -1888,7 +1888,7 @@ export class Program {
         isDefaultWorkspace: boolean,
         allowModuleRename: boolean,
         token: CancellationToken
-    ): Range | undefined {
+    ): { range: Range; declarations: Declaration[] } | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
             if (!sourceFileInfo) {
@@ -1921,7 +1921,10 @@ export class Program {
 
             // Return the range of the symbol.
             const parseResult = sourceFileInfo.sourceFile.getParseResults()!;
-            return convertTextRangeToRange(referencesResult.nodeAtOffset, parseResult.tokenizerOutput.lines);
+            return {
+                range: convertTextRangeToRange(referencesResult.nodeAtOffset, parseResult.tokenizerOutput.lines),
+                declarations: referencesResult.declarations,
+            };
         });
     }
 

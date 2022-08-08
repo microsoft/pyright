@@ -148,18 +148,23 @@ export enum WellKnownWorkspaceKinds {
     Test = 'test',
 }
 
+// path and uri will point to a workspace itself. It could be a folder
+// if the workspace represents a folder. it could be '' if it is the default workspace.
+// But it also could be a file if it is a virtual workspace.
+// rootPath will always point to the folder that contains the workspace.
 export interface WorkspaceServiceInstance {
     workspaceName: string;
     rootPath: string;
-    rootUri: string;
-    kind: string;
+    path: string;
+    uri: string;
+    kinds: string[];
     serviceInstance: AnalyzerService;
     disableLanguageServices: boolean;
     disableOrganizeImports: boolean;
     disableWorkspaceSymbol: boolean;
     isInitialized: Deferred<boolean>;
     searchPathsToWatch: string[];
-    owns?(filePath: string): boolean;
+    owns(filePath: string): boolean;
 }
 
 export interface MessageAction {
@@ -574,10 +579,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         if (params.workspaceFolders) {
             params.workspaceFolders.forEach((folder) => {
                 const path = this._uriParser.decodeTextDocumentUri(folder.uri);
-                this._workspaceMap.set(path, this.createWorkspaceServiceInstance(folder, path));
+                this._workspaceMap.set(path, this.createWorkspaceServiceInstance(folder, path, path));
             });
         } else if (params.rootPath) {
-            this._workspaceMap.set(params.rootPath, this.createWorkspaceServiceInstance(undefined, params.rootPath));
+            this._workspaceMap.set(
+                params.rootPath,
+                this.createWorkspaceServiceInstance(undefined, params.rootPath, params.rootPath)
+            );
         }
 
         const result: InitializeResult = {
@@ -629,7 +637,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
                 event.added.forEach(async (workspace) => {
                     const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
-                    const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath);
+                    const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath, rootPath);
                     this._workspaceMap.set(rootPath, newWorkspace);
                     await this.updateSettingsForWorkspace(newWorkspace);
                 });
@@ -1014,7 +1022,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             workspace,
             filePath,
             position,
-            workspace.rootPath,
             this.getCompletionOptions(workspace, params),
             token
         );
@@ -1052,15 +1059,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        const range = workspace.serviceInstance.canRenameSymbolAtPosition(
+        const result = workspace.serviceInstance.canRenameSymbolAtPosition(
             filePath,
             position,
-            workspace.rootPath === '',
+            workspace.path === '',
             this.allowModuleRename,
             token
         );
 
-        return range ?? null;
+        // We only allow renaming symbol defined in the files this workspace owns.
+        // This is to make sure we don't rename files across workspaces in multiple workspaces context.
+        if (result && result.declarations.some((d) => d.path && !workspace.owns(d.path))) {
+            return null;
+        }
+
+        return result?.range ?? null;
     }
 
     protected async onRenameRequest(
@@ -1078,7 +1091,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             filePath,
             position,
             params.newName,
-            workspace.rootPath === '',
+            workspace.path === '',
             this.allowModuleRename,
             token
         );
@@ -1286,14 +1299,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         workspace: WorkspaceServiceInstance,
         filePath: string,
         position: Position,
-        workspacePath: string,
         options: CompletionOptions,
         token: CancellationToken
     ): Promise<CompletionResultsList | undefined> {
         return workspace.serviceInstance.getCompletionsForPosition(
             filePath,
             position,
-            workspacePath,
+            workspace.path,
             options,
             undefined,
             token
@@ -1323,9 +1335,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected createWorkspaceServiceInstance(
-        workspace: WorkspaceFolder | undefined,
+        workspaceFolder: WorkspaceFolder | undefined,
         rootPath: string,
-        kind: string = WellKnownWorkspaceKinds.Regular,
+        path: string,
+        kinds: string[] = [WellKnownWorkspaceKinds.Regular],
         owns?: (filePath: string) => boolean,
         services?: WorkspaceServices
     ): WorkspaceServiceInstance {
@@ -1336,19 +1349,24 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         const multiWorkspaceBackOffTime = 10 * 60 * 1000;
 
         const libraryReanalysisTimeProvider =
-            kind === WellKnownWorkspaceKinds.Regular
+            kinds.length === 1 && kinds[0] === WellKnownWorkspaceKinds.Regular
                 ? () =>
-                      this._workspaceMap.hasMultipleWorkspaces(kind) ? multiWorkspaceBackOffTime : defaultBackOffTime
+                      this._workspaceMap.hasMultipleWorkspaces(kinds[0])
+                          ? multiWorkspaceBackOffTime
+                          : defaultBackOffTime
                 : () => defaultBackOffTime;
 
-        const rootUri = workspace?.uri ?? '';
+        const rootUri = workspaceFolder?.uri ?? '';
+        owns = owns ?? ((f) => f.startsWith(rootPath));
+
         return {
-            workspaceName: workspace?.name ?? '',
+            workspaceName: workspaceFolder?.name ?? '',
             rootPath,
-            rootUri,
-            kind,
+            path,
+            uri: rootUri,
+            kinds,
             serviceInstance: this.createAnalyzerService(
-                workspace?.name ?? rootPath,
+                workspaceFolder?.name ?? path,
                 services,
                 libraryReanalysisTimeProvider
             ),
