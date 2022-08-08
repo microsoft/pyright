@@ -21360,14 +21360,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // For all remaining source subtypes, attempt to find a dest subtype
             // whose primary type matches.
             if (!isIncompatible) {
-                [...remainingSrcSubtypes].forEach((srcSubtype) => {
-                    const destTypeIndex = remainingDestSubtypes.findIndex(
-                        (destSubtype) =>
+                remainingSrcSubtypes.slice(0).forEach((srcSubtype) => {
+                    const destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
+                        if (
                             isClass(srcSubtype) &&
                             isClass(destSubtype) &&
                             TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
                             ClassType.isSameGenericClass(srcSubtype, destSubtype)
-                    );
+                        ) {
+                            return true;
+                        }
+
+                        if (isFunction(srcSubtype) || isOverloadedFunction(srcSubtype)) {
+                            if (isFunction(destSubtype) || isOverloadedFunction(destSubtype)) {
+                                return true;
+                            }
+                        }
+
+                        return false;
+                    });
+
                     if (destTypeIndex >= 0) {
                         if (
                             !assignType(
