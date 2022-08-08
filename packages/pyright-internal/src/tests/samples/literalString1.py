@@ -71,3 +71,5 @@ def func6(a: LiteralString):
     v2 = a[0]
 
     a = "hi"
+
+    v3: list[str] = "1 2 3".split(" ")

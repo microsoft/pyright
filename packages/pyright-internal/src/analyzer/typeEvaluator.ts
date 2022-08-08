@@ -20982,7 +20982,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+            let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
             if (isClass(concreteSrcType) && TypeBase.isInstance(concreteSrcType)) {
                 if (destType.literalValue !== undefined) {
                     const srcLiteral = concreteSrcType.literalValue;
@@ -21002,7 +21002,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (ClassType.isBuiltIn(destType, 'LiteralString')) {
                     if (ClassType.isBuiltIn(concreteSrcType, 'str') && concreteSrcType.literalValue !== undefined) {
                         return true;
+                    } else if (ClassType.isBuiltIn(concreteSrcType, 'LiteralString')) {
+                        return true;
                     }
+                } else if (
+                    ClassType.isBuiltIn(concreteSrcType, 'LiteralString') &&
+                    strClassType &&
+                    isInstantiableClass(strClassType)
+                ) {
+                    concreteSrcType = ClassType.cloneAsInstance(strClassType);
                 }
 
                 if (
