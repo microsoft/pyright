@@ -153,6 +153,7 @@ import {
 import {
     AbstractMethod,
     AnnotationTypeOptions,
+    CallResult,
     CallSignature,
     CallSignatureInfo,
     ClassTypeResult,
@@ -395,27 +396,6 @@ interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
     isPositionalOnly: boolean;
-}
-
-interface CallResult {
-    // Specialized return type of call
-    returnType?: Type | undefined;
-
-    // Is return type incomplete?
-    isTypeIncomplete?: boolean | undefined;
-
-    // Were any errors discovered when evaluating argument types?
-    argumentErrors: boolean;
-
-    // The parameter associated with the "active" argument (used
-    // for signature help provider)
-    activeParam?: FunctionParameter | undefined;
-
-    // If the call is to an __init__ with an annotated self parameter,
-    // this field indicates the specialized type of that self type; this
-    // is used for overloaded constructors where the arguments to the
-    // constructor influence the specialized type of the constructed object.
-    specializedInitSelfType?: Type | undefined;
 }
 
 // Maps binary operators to the magic methods that implement them.
@@ -23915,6 +23895,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         removeFalsinessFromType,
         verifyRaiseExceptionType,
         verifyDeleteExpression,
+        validateOverloadedFunctionArguments,
         isAfterNodeReachable,
         isNodeReachable,
         isAsymmetricDescriptorAssignment,

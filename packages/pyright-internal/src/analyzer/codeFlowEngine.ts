@@ -1366,12 +1366,25 @@ export function getCodeFlowEngine(
 
                     // Was at least one of the overloaded return types NoReturn?
                     if (noReturnOverloadCount > 0) {
+                        // Do all of the overloads return NoReturn?
                         if (noReturnOverloadCount === overloadCount) {
                             noReturnTypeCount++;
-                        }
+                        } else {
+                            // Perform a more complete evaluation to determine whether
+                            // the applicable overload returns a NoReturn.
+                            const callResult = evaluator.validateOverloadedFunctionArguments(
+                                node,
+                                node.arguments,
+                                callSubtype,
+                                undefined /* typeVarContext */,
+                                false /* skipUnknownArgCheck */,
+                                undefined /* expectedType */
+                            );
 
-                        // For now, assume that if some (but not all) overloads return
-                        // NoReturn that the call is not a NoReturn.
+                            if (callResult.returnType && isNever(callResult.returnType)) {
+                                noReturnTypeCount++;
+                            }
+                        }
                     }
                 }
             });

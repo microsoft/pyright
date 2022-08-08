@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of the NoReturn annotation type.
 
-from typing import Callable, NoReturn
+from typing import Callable, NoReturn, overload
 
 
 # This should generate an error because the function
@@ -76,3 +76,26 @@ class C:
 
 def func10() -> NoReturn:
     C()()
+
+
+@overload
+def func11() -> NoReturn:
+    ...
+
+
+@overload
+def func11(x: int) -> None:
+    ...
+
+
+def func11(x: int = 0) -> NoReturn | None:
+    ...
+
+
+def func12() -> NoReturn:
+    func11()
+
+
+def func13() -> NoReturn:
+    # This should generate an error.
+    func11(0)

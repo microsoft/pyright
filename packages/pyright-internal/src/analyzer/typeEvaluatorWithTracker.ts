@@ -82,6 +82,7 @@ export function createTypeEvaluatorWithTracker(
         verifyRaiseExceptionType: (n) =>
             run('verifyRaiseExceptionType', () => typeEvaluator.verifyRaiseExceptionType(n), n),
         verifyDeleteExpression: (n) => run('verifyDeleteExpression', () => typeEvaluator.verifyDeleteExpression(n), n),
+        validateOverloadedFunctionArguments: typeEvaluator.validateOverloadedFunctionArguments,
         isAfterNodeReachable: (n) => run('isAfterNodeReachable', () => typeEvaluator.isAfterNodeReachable(n), n),
         isNodeReachable: (n, s) => run('isNodeReachable', () => typeEvaluator.isNodeReachable(n, s), n),
         isAsymmetricDescriptorAssignment: typeEvaluator.isAsymmetricDescriptorAssignment,
