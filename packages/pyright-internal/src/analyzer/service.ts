@@ -1416,7 +1416,7 @@ export class AnalyzerService {
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
             importFailureInfo,
-            true,
+            /* includeWatchPathsOnly */ true,
             this._executionRootPath
         );
 
