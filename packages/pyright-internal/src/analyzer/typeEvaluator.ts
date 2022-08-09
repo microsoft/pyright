@@ -12184,6 +12184,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const unexpandedType = unexpandedTypeResult.type;
                 if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
+                } else if (isClassInstance(unexpandedType) && ClassType.isTypedDictClass(unexpandedType)) {
+                    // Handle dictionary expansion for a TypedDict.
+                    if (strClassType && isInstantiableClass(strClassType)) {
+                        const strObject = ClassType.cloneAsInstance(strClassType);
+                        const tdEntries = getTypedDictMembersForClass(
+                            evaluatorInterface,
+                            unexpandedType,
+                            /* allowNarrowed */ true
+                        );
+
+                        tdEntries.forEach((entry, name) => {
+                            if (entry.isRequired || entry.isProvided) {
+                                keyTypes.push(ClassType.cloneWithLiteral(strObject, name));
+                                valueTypes.push(entry.valueType);
+                            }
+                        });
+
+                        addUnknown = false;
+                    }
                 } else {
                     // Verify that the type supports the `keys` and `__getitem__` methods.
                     // This protocol is defined in the _typeshed stub. If we can't find
