@@ -85,6 +85,7 @@ const HtmlEscapes: RegExpReplacement[] = [
     { exp: />/g, replacement: '&gt;' },
 ];
 
+const MarkdownLineBreak = '  \n';
 // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#literal-blocks
 const LiteralBlockEmptyRegExp = /^\s*::$/;
 const LiteralBlockReplacements: RegExpReplacement[] = [
@@ -262,23 +263,23 @@ class DocStringConverter {
         if (
             currIndent > prevIndent &&
             !_isUndefinedOrWhitespace(prev) &&
-            !this._builder.endsWith('\\\n') &&
+            !this._builder.endsWith(MarkdownLineBreak) &&
             !this._builder.endsWith('\n\n') &&
             !_isHeader(prev)
         ) {
-            this._builder = this._builder.slice(0, -1) + '\\\n';
+            this._builder = this._builder.slice(0, -1) + MarkdownLineBreak;
         }
 
         if (
             prevIndent > currIndent &&
             !_isUndefinedOrWhitespace(prev) &&
-            !this._builder.endsWith('\\\n') &&
+            !this._builder.endsWith(MarkdownLineBreak) &&
             !this._builder.endsWith('\n\n')
         ) {
-            this._builder = this._builder.slice(0, -1) + '\\\n';
+            this._builder = this._builder.slice(0, -1) + MarkdownLineBreak;
         }
 
-        if (prevIndent === 0 || this._builder.endsWith('\\\n') || this._builder.endsWith('\n\n')) {
+        if (prevIndent === 0 || this._builder.endsWith(MarkdownLineBreak) || this._builder.endsWith('\n\n')) {
             line = this._convertIndent(line);
         } else {
             line = line.trimStart();
@@ -579,8 +580,8 @@ class DocStringConverter {
         if (hasOddNumColons || restDirective) {
             const prev = this._lineAt(this._lineNum - 1);
             // Force a line break, if previous line doesn't already have a break or is blank
-            if (!this._builder.endsWith(`\\\n`) && !this._builder.endsWith(`\n\n`) && !_isHeader(prev)) {
-                this._builder = this._builder.slice(0, -1) + '\\\n';
+            if (!this._builder.endsWith(MarkdownLineBreak) && !this._builder.endsWith(`\n\n`) && !_isHeader(prev)) {
+                this._builder = this._builder.slice(0, -1) + MarkdownLineBreak;
             }
 
             // force indent for fields
