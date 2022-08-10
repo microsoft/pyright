@@ -36,7 +36,7 @@ test('MarkdownIndention', () => {
         ['A\n\nB', 'A\n\nB'],
         ['A\n    B', 'A\nB'],
         ['    A\n    B', 'A\nB'],
-        ['\nA\n    B', 'A\\\n&nbsp;&nbsp;&nbsp;&nbsp;B'],
+        ['\nA\n    B', 'A  \n&nbsp;&nbsp;&nbsp;&nbsp;B'],
         ['\n    A\n    B', 'A\nB'],
         ['\nA\nB\n', 'A\nB'],
         ['  \n\nA \n    \nB  \n    ', 'A\n\nB'],
@@ -110,9 +110,9 @@ test('AsterisksAtStartOfArgs', () => {
 
     const markdown = `Foo:
 
-Args:\\
-&nbsp;&nbsp;&nbsp;&nbsp;foo (Foo): Foo!\\
-&nbsp;&nbsp;&nbsp;&nbsp;\\*args: These are positional args.\\
+Args:  
+&nbsp;&nbsp;&nbsp;&nbsp;foo (Foo): Foo!  
+&nbsp;&nbsp;&nbsp;&nbsp;\\*args: These are positional args.  
 &nbsp;&nbsp;&nbsp;&nbsp;\\*\\*kwargs: These are named args.
 `;
 
@@ -128,7 +128,7 @@ test('CopyrightAndLicense', () => {
 
     const markdown = `This is a test.
 
-:copyright: Fake Name\\
+:copyright: Fake Name  
 :license: ABCv123
 `;
 
@@ -150,13 +150,13 @@ test('CommonRestFieldLists', () => {
 
     const markdown = `This function does something.
 
-:param foo: This is a description of the foo parameter\\
-&nbsp;&nbsp;&nbsp;&nbsp;which does something interesting.\\
-:type foo: Foo\\
-:param bar: This is a description of bar.\\
-:type bar: Bar\\
-:return: Something else.\\
-:rtype: Something\\
+:param foo: This is a description of the foo parameter  
+&nbsp;&nbsp;&nbsp;&nbsp;which does something interesting.  
+:type foo: Foo  
+:param bar: This is a description of bar.  
+:type bar: Bar  
+:return: Something else.  
+:rtype: Something  
 :raises ValueError: If something goes wrong.
 `;
 
@@ -557,8 +557,8 @@ keep_default_na : bool, default True
 
 na_filter : bool, default True`;
 
-    const markdown = `Title\\
-keep\\_default\\_na : bool, default True\\
+    const markdown = `Title  
+keep\\_default\\_na : bool, default True  
 &nbsp;&nbsp;&nbsp;&nbsp;Whether or not to include the default NaN values when parsing the data.
 
   * If \`keep_default_na\` is True, and \`na_values\` are specified, \`na_values\`
@@ -575,7 +575,7 @@ test('FieldListEpyText', () => {
          @param param1: description`;
 
     const markdown = `
-1. Epytext:\\
+1. Epytext:  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@param param1: description`;
 
     _testConvertToMarkdown(docstring, markdown);
@@ -587,7 +587,7 @@ test('FieldListRest', () => {
          :param param1: description`;
 
     const markdown = `
-2. reST:\\
+2. reST:  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:param param1: description`;
 
     _testConvertToMarkdown(docstring, markdown);
@@ -600,8 +600,8 @@ test('FieldListGoogleV1', () => {
              param1: description`;
 
     const markdown = `
-3. Google (variant 1):\\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Args:\\
+3. Google (variant 1):  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Args:  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;param1: description`;
 
     _testConvertToMarkdown(docstring, markdown);
@@ -614,8 +614,8 @@ test('FieldListGoogleV2', () => {
              param1 (type): description`;
 
     const markdown = `
-4. Google (variant 2):\\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Args:\\
+4. Google (variant 2):  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Args:  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;param1 (type): description`;
 
     _testConvertToMarkdown(docstring, markdown);
@@ -692,7 +692,7 @@ find an arbitrary function's zeros.
 
 @type  b: number
 
-@param b: The y intercept of the line.  The X{y intercept} of a\\
+@param b: The y intercept of the line.  The X{y intercept} of a  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;line is the point at which it crosses the y axis (M{x=0}).
 
 @rtype:   number

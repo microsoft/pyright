@@ -8,5 +8,5 @@
 //// [|/*marker1*/func|]()
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(function) func: () -> None\n```\n---\n\\\nsomething [link](http://microsoft.com) something',
+    marker1: '```python\n(function) func: () -> None\n```\n---\nsomething [link](http://microsoft.com) something',
 });
