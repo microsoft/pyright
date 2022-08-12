@@ -278,6 +278,7 @@ import {
     requiresSpecialization,
     requiresTypeArguments,
     setTypeArgumentsRecursive,
+    sortTypes,
     specializeClassType,
     specializeForBaseClass,
     specializeTupleClass,
@@ -21370,7 +21371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // For all remaining source subtypes, attempt to find a dest subtype
             // whose primary type matches.
             if (!isIncompatible) {
-                remainingSrcSubtypes.slice(0).forEach((srcSubtype) => {
+                sortTypes(remainingSrcSubtypes).forEach((srcSubtype) => {
                     const destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
                         if (
                             isClass(srcSubtype) &&

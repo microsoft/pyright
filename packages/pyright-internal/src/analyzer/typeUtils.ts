@@ -468,81 +468,135 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
 // Sorts types into a deterministic order.
 export function sortTypes(types: Type[]): Type[] {
     return types.slice(0).sort((a, b) => {
-        if (a.category !== b.category) {
-            return a.category - b.category;
-        }
-
-        switch (a.category) {
-            case TypeCategory.Unbound:
-            case TypeCategory.Unknown:
-            case TypeCategory.Any:
-            case TypeCategory.None:
-            case TypeCategory.Never:
-            case TypeCategory.Union: {
-                return 0;
-            }
-
-            case TypeCategory.Function: {
-                const aName = a.details.name;
-                const bName = (b as FunctionType).details.name;
-                return aName < bName ? -1 : aName === bName ? 0 : 1;
-            }
-
-            case TypeCategory.OverloadedFunction: {
-                const aName = a.overloads[0].details.name;
-                const bName = (b as OverloadedFunctionType).overloads[0].details.name;
-                return aName < bName ? -1 : aName === bName ? 0 : 1;
-            }
-
-            case TypeCategory.Class: {
-                const bClass = b as ClassType;
-
-                // Sort instances before instantiables.
-                if (isClassInstance(a) && isInstantiableClass(bClass)) {
-                    return -1;
-                } else if (isInstantiableClass(a) && isClassInstance(bClass)) {
-                    return 1;
-                }
-
-                // Sort literals before non-literals.
-                if (isLiteralType(a)) {
-                    if (!isLiteralType(bClass)) {
-                        return -1;
-                    }
-                } else if (isLiteralType(bClass)) {
-                    return 1;
-                }
-
-                // Sort non-generics before generics.
-                if (a.details.typeParameters.length > 0 || isTupleClass(a)) {
-                    if (bClass.details.typeParameters.length === 0) {
-                        return 1;
-                    }
-                } else if (bClass.details.typeParameters.length > 0 || isTupleClass(bClass)) {
-                    return -1;
-                }
-
-                // Sort by class name.
-                const aName = a.details.name;
-                const bName = (b as ClassType).details.name;
-                return aName < bName ? -1 : aName === bName ? 0 : 1;
-            }
-
-            case TypeCategory.Module: {
-                const aName = a.moduleName;
-                const bName = (b as ModuleType).moduleName;
-                return aName < bName ? -1 : aName === bName ? 0 : 1;
-            }
-
-            case TypeCategory.TypeVar: {
-                const aName = a.details.name;
-                const bName = (b as TypeVarType).details.name;
-                return aName < bName ? -1 : aName === bName ? 0 : 1;
-            }
-        }
-
-        return 1;
+        return compareTypes(a, b);
     });
+}
+
+function compareTypes(a: Type, b: Type): number {
+    if (a.category !== b.category) {
+        return b.category - a.category;
+    }
+
+    switch (a.category) {
+        case TypeCategory.Unbound:
+        case TypeCategory.Unknown:
+        case TypeCategory.Any:
+        case TypeCategory.None:
+        case TypeCategory.Never:
+        case TypeCategory.Union: {
+            return 0;
+        }
+
+        case TypeCategory.Function: {
+            const bFunc = b as FunctionType;
+
+            const aParamCount = a.details.parameters.length;
+            const bParamCount = bFunc.details.parameters.length;
+            if (aParamCount !== bParamCount) {
+                return bParamCount - aParamCount;
+            }
+
+            for (let i = 0; i < aParamCount; i++) {
+                const aParam = a.details.parameters[i];
+                const bParam = bFunc.details.parameters[i];
+                if (aParam.category !== bParam.category) {
+                    return bParam.category - aParam.category;
+                }
+
+                const typeComparison = compareTypes(aParam.type, bParam.type);
+                if (typeComparison !== 0) {
+                    return typeComparison;
+                }
+            }
+
+            const returnTypeComparison = compareTypes(
+                a.details.declaredReturnType ?? UnknownType.create(),
+                bFunc.details.declaredReturnType ?? UnknownType.create()
+            );
+
+            if (returnTypeComparison !== 0) {
+                return returnTypeComparison;
+            }
+
+            const aName = a.details.name;
+            const bName = bFunc.details.name;
+
+            if (aName < bName) {
+                return -1;
+            } else if (aName > bName) {
+                return 1;
+            }
+
+            return 0;
+        }
+
+        case TypeCategory.OverloadedFunction: {
+            const bOver = b as OverloadedFunctionType;
+
+            const aOverloadCount = a.overloads.length;
+            const bOverloadCount = bOver.overloads.length;
+            if (aOverloadCount !== bOverloadCount) {
+                return bOverloadCount - aOverloadCount;
+            }
+
+            for (let i = 0; i < aOverloadCount; i++) {
+                const typeComparison = compareTypes(a.overloads[i], bOver.overloads[i]);
+                if (typeComparison !== 0) {
+                    return typeComparison;
+                }
+            }
+
+            return 0;
+        }
+
+        case TypeCategory.Class: {
+            const bClass = b as ClassType;
+
+            // Sort instances before instantiables.
+            if (isClassInstance(a) && isInstantiableClass(bClass)) {
+                return -1;
+            } else if (isInstantiableClass(a) && isClassInstance(bClass)) {
+                return 1;
+            }
+
+            // Sort literals before non-literals.
+            if (isLiteralType(a)) {
+                if (!isLiteralType(bClass)) {
+                    return -1;
+                }
+            } else if (isLiteralType(bClass)) {
+                return 1;
+            }
+
+            // Sort non-generics before generics.
+            if (a.details.typeParameters.length > 0 || isTupleClass(a)) {
+                if (bClass.details.typeParameters.length === 0) {
+                    return 1;
+                }
+            } else if (bClass.details.typeParameters.length > 0 || isTupleClass(bClass)) {
+                return -1;
+            }
+
+            // Sort by class name.
+            const aName = a.details.name;
+            const bName = (b as ClassType).details.name;
+            return aName < bName ? -1 : aName === bName ? 0 : 1;
+        }
+
+        case TypeCategory.Module: {
+            const aName = a.moduleName;
+            const bName = (b as ModuleType).moduleName;
+            return aName < bName ? -1 : aName === bName ? 0 : 1;
+        }
+
+        case TypeCategory.TypeVar: {
+            const aName = a.details.name;
+            const bName = (b as TypeVarType).details.name;
+            return aName < bName ? -1 : aName === bName ? 0 : 1;
+        }
+    }
+
+    return 1;
 }
 
 export function doForEachSubtype(
