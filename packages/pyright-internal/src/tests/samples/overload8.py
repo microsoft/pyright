@@ -87,3 +87,24 @@ def func2(a: LargeUnion, b: Literal[2, 3, 4], c: Literal[2, 3, 4, 9, 10]):
     # will exceed the max number of expansions (64).
     v3 = overloaded2(a, c)
     reveal_type(v2, expected_text="str | float")
+
+
+_T2 = TypeVar("_T2", str, bytes)
+
+
+@overload
+def overloaded3(x: str) -> str:
+    ...
+
+
+@overload
+def overloaded3(x: bytes) -> bytes:
+    ...
+
+
+def overloaded3(x: str | bytes) -> str | bytes:
+    ...
+
+
+def func3(y: _T2):
+    overloaded3(y)

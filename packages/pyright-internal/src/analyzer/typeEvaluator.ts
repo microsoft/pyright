@@ -7770,12 +7770,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        let unionToExpand: UnionType | undefined;
+        let unionToExpand: Type | undefined;
         while (indexToExpand < contextFreeArgTypes.length) {
             // Is this a union type? If so, we can expand it.
             const argType = contextFreeArgTypes[indexToExpand];
             if (isUnion(argType)) {
-                unionToExpand = argType;
+                unionToExpand = makeTopLevelTypeVarsConcrete(argType);
+                break;
+            } else if (isTypeVar(argType) && argType.details.constraints.length > 1) {
+                unionToExpand = makeTopLevelTypeVarsConcrete(argType);
                 break;
             }
             indexToExpand++;
