@@ -23,3 +23,7 @@ X4 = type("X4", 34)
 
 # This should generate an error because the second arg is not a tuple of class types.
 X5 = type("X5", (3,))
+
+
+X6 = type("", tuple({str}), {})
+X7 = type("", (float, str), {})

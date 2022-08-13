@@ -10890,7 +10890,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
         arg1Type.tupleTypeArguments.forEach((typeArg) => {
             const specializedType = makeTopLevelTypeVarsConcrete(typeArg.type);
-            if (isInstantiableClass(specializedType) || isAnyOrUnknown(specializedType)) {
+
+            if (
+                isInstantiableClass(specializedType) ||
+                isAnyOrUnknown(specializedType) ||
+                (isClassInstance(specializedType) && ClassType.isBuiltIn(specializedType, 'type'))
+            ) {
                 classType.details.baseClasses.push(specializedType);
             } else {
                 addExpectedClassDiagnostic(typeArg.type, argList[1].valueExpression || errorNode);
