@@ -4201,7 +4201,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // or type alias). If not, it emits errors indicating why the TypeVar
     // cannot be used in this location.
     function validateTypeVarUsage(node: ExpressionNode, type: TypeVarType, flags: EvaluatorFlags) {
-        if (TypeBase.isInstantiable(type) && !isTypeAliasPlaceholder(type)) {
+        if (TypeBase.isInstantiable(type) && !type.scopeId && !isTypeAliasPlaceholder(type)) {
             const scopedTypeVarInfo = findScopedTypeVar(node, type);
             type = scopedTypeVarInfo.type;
 
