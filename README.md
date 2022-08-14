@@ -96,7 +96,7 @@ Alternatively, you can install the command-line version of Pyright directly from
 To install pyright globally:
 `npm install -g pyright`
 
-On MacOS or Linux, sudo is required to install globally:
+On MacOS or Linux, sudo may be required to install globally:
 `sudo npm install -g pyright`
 
 To update to the latest version:
