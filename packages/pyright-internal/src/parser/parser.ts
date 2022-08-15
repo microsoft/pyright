@@ -1080,9 +1080,11 @@ export class Parser {
             secondToken.type === TokenType.Operator &&
             (secondToken as OperatorToken).operatorType === OperatorType.Assign
         ) {
-            this._getNextToken();
-            keywordName = NameNode.create(firstToken as IdentifierToken);
-            this._getNextToken();
+            const classNameToken = this._getTokenIfIdentifier();
+            if (classNameToken !== undefined) {
+                keywordName = NameNode.create(classNameToken);
+                this._getNextToken();
+            }
         }
 
         const pattern = this._parsePatternAs();
