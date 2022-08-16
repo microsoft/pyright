@@ -2407,12 +2407,17 @@ export class Binder extends ParseTreeWalker {
             return undefined;
         }
 
-        const lookupInfo = this._fileInfo.importLookup(resolvedPath);
-        if (!lookupInfo) {
-            return undefined;
+        let lookupInfo = this._fileInfo.importLookup(resolvedPath);
+        if (lookupInfo?.dunderAllNames) {
+            return lookupInfo.dunderAllNames;
         }
 
-        return lookupInfo.dunderAllNames;
+        if (aliasDecl?.submoduleFallback?.path) {
+            lookupInfo = this._fileInfo.importLookup(aliasDecl.submoduleFallback.path);
+            return lookupInfo?.dunderAllNames;
+        }
+
+        return undefined;
     }
 
     private _addImplicitFromImport(node: ImportFromNode, importInfo?: ImportResult) {
