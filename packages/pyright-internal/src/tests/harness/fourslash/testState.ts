@@ -134,68 +134,45 @@ export class TestState {
     activeFile!: FourSlashFile;
 
     constructor(
-        basePath: string,
+        projectRoot: string,
         public testData: FourSlashData,
         mountPaths?: Map<string, string>,
         hostSpecificFeatures?: HostSpecificFeatures
     ) {
-        const projectRoot = testData.globalOptions[GlobalMetadataOptionNames.projectRoot];
-        basePath = projectRoot ? combinePaths(basePath, projectRoot) : basePath;
-
-        this._hostSpecificFeatures = hostSpecificFeatures ?? new TestFeatures();
-
-        const nullConsole = new NullConsole();
-        const ignoreCase = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
+        const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData);
+        this.rawConfigJson = vfsInfo.rawConfigJson;
 
         this._cancellationToken = new TestCancellationToken();
+        this._hostSpecificFeatures = hostSpecificFeatures ?? new TestFeatures();
 
-        const sourceFiles = [];
-        const files: vfs.FileSet = {};
-        for (const file of testData.files) {
-            // if one of file is configuration file, set config options from the given json
-            if (this._isConfig(file, ignoreCase)) {
-                try {
-                    this.rawConfigJson = JSONC.parse(file.content);
-                } catch (e: any) {
-                    throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
-                }
-            } else {
-                files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
-
-                if (!toBoolean(file.fileOptions[MetadataOptionNames.library])) {
-                    sourceFiles.push(file.fileName);
-                }
-            }
-        }
-
-        this.console = nullConsole;
+        this.console = new NullConsole();
         this.testFS = createFromFileSystem(
             host.HOST,
-            ignoreCase,
-            { cwd: basePath, files, meta: testData.globalOptions },
+            vfsInfo.ignoreCase,
+            { cwd: vfsInfo.projectRoot, files: vfsInfo.files, meta: testData.globalOptions },
             mountPaths
         );
 
         this.fs = new PyrightFileSystem(this.testFS);
-        this._files = sourceFiles;
+        this._files = vfsInfo.sourceFileNames;
 
-        const configOptions = this._convertGlobalOptionsToConfigOptions(basePath, mountPaths);
+        const configOptions = this._convertGlobalOptionsToConfigOptions(vfsInfo.projectRoot, mountPaths);
         if (this.rawConfigJson) {
-            configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole, this.fs, testAccessHost);
+            configOptions.initializeFromJson(this.rawConfigJson, 'basic', this.console, this.fs, testAccessHost);
             this._applyTestConfigOptions(configOptions);
         }
 
         const service = this._createAnalysisService(
-            nullConsole,
+            this.console,
             this._hostSpecificFeatures.importResolverFactory,
             configOptions
         );
 
         this.workspace = {
             workspaceName: 'test workspace',
-            rootPath: this.fs.getModulePath(),
-            path: this.fs.getModulePath(),
-            uri: convertPathToUri(this.fs, this.fs.getModulePath()),
+            rootPath: vfsInfo.projectRoot,
+            path: vfsInfo.projectRoot,
+            uri: convertPathToUri(this.fs, vfsInfo.projectRoot),
             kinds: [WellKnownWorkspaceKinds.Test],
             serviceInstance: service,
             disableLanguageServices: false,
@@ -220,7 +197,7 @@ export class TestState {
         }
 
         for (const filePath of this._files) {
-            const file = files[filePath] as vfs.File;
+            const file = vfsInfo.files[filePath] as vfs.File;
             if (file.meta?.[MetadataOptionNames.ipythonMode]) {
                 this.program.getSourceFile(filePath)?.test_enableIPythonMode(true);
             }
@@ -1497,11 +1474,6 @@ export class TestState {
         this._cancellationToken.resetCancelled();
     }
 
-    private _isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {
-        const comparer = getStringComparer(ignoreCase);
-        return configFileNames.some((f) => comparer(getBaseFileName(file.fileName), f) === Comparison.EqualTo);
-    }
-
     private _convertGlobalOptionsToConfigOptions(projectRoot: string, mountPaths?: Map<string, string>): ConfigOptions {
         const configOptions = new ConfigOptions(projectRoot);
 
@@ -2015,4 +1987,38 @@ export function getNodeAtMarker(codeOrState: string | TestState, markerName = 'm
     assert(node);
 
     return node;
+}
+
+export function createVfsInfoFromFourSlashData(projectRoot: string, testData: FourSlashData) {
+    const metaProjectRoot = testData.globalOptions[GlobalMetadataOptionNames.projectRoot];
+    projectRoot = metaProjectRoot ? combinePaths(projectRoot, metaProjectRoot) : projectRoot;
+
+    const ignoreCase = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
+
+    let rawConfigJson = '';
+    const sourceFileNames: string[] = [];
+    const files: vfs.FileSet = {};
+
+    for (const file of testData.files) {
+        // if one of file is configuration file, set config options from the given json
+        if (isConfig(file, ignoreCase)) {
+            try {
+                rawConfigJson = JSONC.parse(file.content);
+            } catch (e: any) {
+                throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
+            }
+        } else {
+            files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
+
+            if (!toBoolean(file.fileOptions[MetadataOptionNames.library])) {
+                sourceFileNames.push(file.fileName);
+            }
+        }
+    }
+    return { files, sourceFileNames, projectRoot, ignoreCase, rawConfigJson };
+}
+
+function isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {
+    const comparer = getStringComparer(ignoreCase);
+    return configFileNames.some((f) => comparer(getBaseFileName(file.fileName), f) === Comparison.EqualTo);
 }
