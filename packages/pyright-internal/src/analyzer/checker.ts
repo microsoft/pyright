@@ -557,11 +557,13 @@ export class Checker extends ParseTreeWalker {
                 const annotationNode = param.typeAnnotation || param.typeAnnotationComment;
                 if (annotationNode && index < functionTypeResult.functionType.details.parameters.length) {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
+                    const exemptMethods = ['__init__', '__new__'];
+
                     if (
                         isTypeVar(paramType) &&
                         paramType.details.declaredVariance === Variance.Covariant &&
                         !paramType.details.isSynthesized &&
-                        functionTypeResult.functionType.details.name !== '__init__'
+                        !exemptMethods.some((name) => name === functionTypeResult.functionType.details.name)
                     ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
