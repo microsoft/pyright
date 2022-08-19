@@ -21,3 +21,6 @@ def func1():
 val if val := 1 + 2 else None
 
 val2 if (val2 := 1 + 2) else None
+
+# This should generate an error because parens are not allowed in asserts.
+assert e := 1

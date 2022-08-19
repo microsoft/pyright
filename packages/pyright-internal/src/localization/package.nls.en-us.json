@@ -500,7 +500,7 @@
         "variadicTypeParamTooManyAlias": "Type alias can have at most one TypeVarTuple type parameter but received multiple ({names})",
         "variadicTypeParamTooManyClass": "Generic class can have at most one TypeVarTuple type parameter but received multiple ({names})",
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",
-        "walrusNotAllowed": "Operator \":=\" not allowed in this context",
+        "walrusNotAllowed": "Operator \":=\" not allowed in this context without surrounding parentheses",
         "wildcardInFunction": "Wildcard import not allowed within a class or function",
         "wildcardLibraryImport": "Wildcard import from a library not allowed",
         "yieldFromIllegal": "Use of \"yield from\" requires Python 3.3 or newer",

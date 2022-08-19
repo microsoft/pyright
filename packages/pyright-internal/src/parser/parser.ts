@@ -2644,11 +2644,11 @@ export class Parser {
     private _parseAssertStatement(): AssertNode {
         const assertToken = this._getKeywordToken(KeywordType.Assert);
 
-        const expr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+        const expr = this._parseTestExpression(/* allowAssignmentExpression */ false);
         const assertNode = AssertNode.create(assertToken, expr);
 
         if (this._consumeTokenIfType(TokenType.Comma)) {
-            const exceptionExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
+            const exceptionExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
             assertNode.exceptionExpression = exceptionExpr;
             assertNode.exceptionExpression.parent = assertNode;
             extendRange(assertNode, exceptionExpr);
@@ -2970,7 +2970,7 @@ export class Parser {
             return this._parseLambdaExpression();
         }
 
-        const ifExpr = allowAssignmentExpression ? this._parseAssignmentExpression() : this._parseOrTest();
+        const ifExpr = this._parseAssignmentExpression(!allowAssignmentExpression);
         if (ifExpr.nodeType === ParseNodeType.Error) {
             return ifExpr;
         }
