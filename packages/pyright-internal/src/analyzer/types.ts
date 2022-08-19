@@ -1329,16 +1329,15 @@ export namespace FunctionType {
         newFunction.preBoundFlags = newFunction.details.flags;
 
         if (stripFirstParam) {
-            if (
-                type.details.parameters.length > 0 &&
-                type.details.parameters[0].category === ParameterCategory.Simple
-            ) {
-                if (type.details.parameters.length > 0 && !type.details.parameters[0].isTypeInferred) {
-                    // Stash away the effective type of the first parameter if it
-                    // wasn't synthesized.
-                    newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
+            if (type.details.parameters.length > 0) {
+                if (type.details.parameters[0].category === ParameterCategory.Simple) {
+                    if (type.details.parameters.length > 0 && !type.details.parameters[0].isTypeInferred) {
+                        // Stash away the effective type of the first parameter if it
+                        // wasn't synthesized.
+                        newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
+                    }
+                    newFunction.details.parameters = type.details.parameters.slice(1);
                 }
-                newFunction.details.parameters = type.details.parameters.slice(1);
             } else {
                 stripFirstParam = false;
             }
