@@ -395,11 +395,9 @@ export function getTypeNarrowingCallback(
                 const adjIsPositiveTest =
                     testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
 
-                if (adjIsPositiveTest) {
-                    return (type: Type) => {
-                        return narrowTypeForContainerType(evaluator, type, rightType);
-                    };
-                }
+                return (type: Type) => {
+                    return narrowTypeForContainerType(evaluator, type, rightType, adjIsPositiveTest);
+                };
             }
 
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
@@ -1422,17 +1420,59 @@ function narrowTypeForTupleLength(
 }
 
 // Attempts to narrow a type (make it more constrained) based on an "in" binary operator.
-function narrowTypeForContainerType(evaluator: TypeEvaluator, referenceType: Type, containerType: Type) {
-    const elementType = getElementTypeForContainerNarrowing(containerType);
-    if (!elementType) {
+function narrowTypeForContainerType(
+    evaluator: TypeEvaluator,
+    referenceType: Type,
+    containerType: Type,
+    isPositiveTest: boolean
+) {
+    if (isPositiveTest) {
+        const elementType = getElementTypeForContainerNarrowing(containerType);
+        if (!elementType) {
+            return referenceType;
+        }
+
+        return narrowTypeForContainerElementType(
+            evaluator,
+            referenceType,
+            evaluator.makeTopLevelTypeVarsConcrete(elementType)
+        );
+    }
+
+    // Narrowing in the negative case is possible only with tuples
+    // with a known length.
+    if (
+        !isClassInstance(containerType) ||
+        !ClassType.isBuiltIn(containerType, 'tuple') ||
+        !containerType.tupleTypeArguments
+    ) {
         return referenceType;
     }
 
-    return narrowTypeForContainerElementType(
-        evaluator,
-        referenceType,
-        evaluator.makeTopLevelTypeVarsConcrete(elementType)
-    );
+    // Determine which tuple types can be eliminated. Only "None" and
+    // literal types can be handled here.
+    const typesToEliminate: Type[] = [];
+    containerType.tupleTypeArguments.forEach((tupleEntry) => {
+        if (!tupleEntry.isUnbounded) {
+            if (isNoneInstance(tupleEntry.type)) {
+                typesToEliminate.push(tupleEntry.type);
+            } else if (isClassInstance(tupleEntry.type) && isLiteralType(tupleEntry.type)) {
+                typesToEliminate.push(tupleEntry.type);
+            }
+        }
+    });
+
+    if (typesToEliminate.length === 0) {
+        return referenceType;
+    }
+
+    return mapSubtypes(referenceType, (referenceSubtype) => {
+        if (typesToEliminate.some((t) => isTypeSame(t, referenceSubtype))) {
+            return undefined;
+        }
+
+        return referenceSubtype;
+    });
 }
 
 export function getElementTypeForContainerNarrowing(containerType: Type) {

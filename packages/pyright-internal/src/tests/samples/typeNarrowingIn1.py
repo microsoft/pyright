@@ -68,7 +68,7 @@ def func2(a: Literal[1, 2, 3]):
     if a in x:
         reveal_type(a, expected_text="Literal[1, 2]")
     else:
-        reveal_type(a, expected_text="Literal[1, 2, 3]")
+        reveal_type(a, expected_text="Literal[3]")
 
 
 def func3(val: str | None, container: frozenset[str]):
@@ -115,3 +115,26 @@ def func7(x: object | bytes, y: str, z: int):
 def func8(x: object):
     if x in ("a", "b", 2, None):
         reveal_type(x, expected_text="Literal['a', 'b', 2] | None")
+
+
+def func9(x: Literal["A", "B", "C", None, True]):
+    if x in (None, "B", True):
+        reveal_type(x, expected_text="Literal['B', True] | None")
+    else:
+        reveal_type(x, expected_text="Literal['A', 'C']")
+        if x not in ("A", "C"):
+            reveal_type(x, expected_text="Never")
+        else:
+            reveal_type(x, expected_text="Literal['A', 'C']")
+
+    if x in ("A", "B"):
+        reveal_type(x, expected_text="Literal['B', 'A']")
+    else:
+        reveal_type(x, expected_text="Literal[True, 'C'] | None")
+
+
+def func10(x: Literal["A", "B"], y: tuple[Literal["A"], ...]):
+    if x in y:
+        reveal_type(x, expected_text="Literal['A']")
+    else:
+        reveal_type(x, expected_text="Literal['A', 'B']")
