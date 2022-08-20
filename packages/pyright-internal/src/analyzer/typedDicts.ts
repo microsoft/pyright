@@ -33,7 +33,7 @@ import {
     isNotRequiredTypedDictVariable,
     isRequiredTypedDictVariable,
 } from './symbolUtils';
-import { EvaluatorUsage, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvaluatorUsage, FunctionArgument, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -725,8 +725,8 @@ export function assignTypedDictToTypedDict(
 export function assignToTypedDict(
     evaluator: TypeEvaluator,
     classType: ClassType,
-    keyTypes: Type[],
-    valueTypes: Type[],
+    keyTypes: TypeResultWithNode[],
+    valueTypes: TypeResultWithNode[],
     diagAddendum?: DiagnosticAddendum
 ): ClassType | undefined {
     assert(isClassInstance(classType));
@@ -754,7 +754,8 @@ export function assignToTypedDict(
 
     const symbolMap = getTypedDictMembersForClass(evaluator, genericClassType);
 
-    keyTypes.forEach((keyType, index) => {
+    keyTypes.forEach((keyTypeResult, index) => {
+        const keyType = keyTypeResult.type;
         if (!isClassInstance(keyType) || !ClassType.isBuiltIn(keyType, 'str') || !isLiteralType(keyType)) {
             isMatch = false;
         } else {
@@ -765,12 +766,15 @@ export function assignToTypedDict(
                 // The provided key name doesn't exist.
                 isMatch = false;
                 if (diagAddendum) {
-                    diagAddendum.addMessage(
+                    const subDiag = diagAddendum?.createAddendum();
+                    subDiag.addMessage(
                         Localizer.DiagnosticAddendum.typedDictFieldUndefined().format({
                             name: keyType.literalValue as string,
                             type: evaluator.printType(ClassType.cloneAsInstance(classType)),
                         })
                     );
+
+                    subDiag.addTextRange(keyTypeResult.node);
                 }
             } else {
                 // Can we assign the value to the declared type?
@@ -778,7 +782,7 @@ export function assignToTypedDict(
                 if (
                     !evaluator.assignType(
                         symbolEntry.valueType,
-                        valueTypes[index],
+                        valueTypes[index].type,
                         subDiag?.createAddendum(),
                         typeVarContext,
                         /* srcTypeVarContext */ undefined,
@@ -789,16 +793,18 @@ export function assignToTypedDict(
                         subDiag.addMessage(
                             Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
                                 name: keyType.literalValue as string,
-                                type: evaluator.printType(valueTypes[index]),
+                                type: evaluator.printType(valueTypes[index].type),
                             })
                         );
+
+                        subDiag.addTextRange(keyTypeResult.node);
                     }
                     isMatch = false;
                 }
 
                 if (!symbolEntry.isRequired) {
                     narrowedEntries.set(keyValue, {
-                        valueType: valueTypes[index],
+                        valueType: valueTypes[index].type,
                         isRequired: false,
                         isProvided: true,
                     });

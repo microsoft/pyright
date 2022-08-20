@@ -2789,12 +2789,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
     }
 
-    function addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, node: ParseNode) {
+    function addDiagnostic(
+        diagLevel: DiagnosticLevel,
+        rule: string,
+        message: string,
+        node: ParseNode,
+        range?: TextRange
+    ) {
         if (diagLevel === 'none') {
             return undefined;
         }
 
-        const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node);
+        const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node, range);
         if (diagnostic) {
             diagnostic.setRule(rule);
         }
@@ -2900,7 +2906,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         sourceType: printType(type),
                         destType: printType(declaredType),
                     }) + diagAddendum.getString(),
-                    srcExpression ?? nameNode
+                    srcExpression ?? nameNode,
+                    diagAddendum.getEffectiveTextRange() ?? srcExpression ?? nameNode
                 );
 
                 // Replace the assigned type with the (unnarrowed) declared type.
@@ -5000,7 +5007,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ruleSet,
                     rule,
                     diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(),
-                    node.memberName
+                    node.memberName,
+                    diag.getEffectiveTextRange() ?? node.memberName
                 );
             }
 
@@ -10504,7 +10512,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     message + diag.getString(),
-                    argParam.errorNode
+                    argParam.errorNode,
+                    diag.getEffectiveTextRange() ?? argParam.errorNode
                 );
             }
 
@@ -11955,8 +11964,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const keyTypes: Type[] = [];
-        const valueTypes: Type[] = [];
+        const keyTypes: TypeResultWithNode[] = [];
+        const valueTypes: TypeResultWithNode[] = [];
         let isIncomplete = false;
 
         // Handle TypedDict's as a special case.
@@ -11985,7 +11994,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     expectedType,
                     keyTypes,
                     valueTypes,
-                    expectedDiagAddendum
+                    // Don't overwrite existing expectedDiagAddendum messages if they were
+                    // already provided by getKeyValueTypesFromDictionary.
+                    expectedDiagAddendum?.isEmpty() ? expectedDiagAddendum : undefined
                 );
                 if (resultTypedDict) {
                     return {
@@ -12050,10 +12061,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isClassInstance(expectedType) &&
             (ClassType.isBuiltIn(expectedType, 'dict') || ClassType.isBuiltIn(expectedType, 'MutableMapping'));
 
-        const specializedKeyType = inferTypeArgFromExpectedType(expectedKeyType, keyTypes, /* isNarrowable */ false);
+        const specializedKeyType = inferTypeArgFromExpectedType(
+            expectedKeyType,
+            keyTypes.map((result) => result.type),
+            /* isNarrowable */ false
+        );
         const specializedValueType = inferTypeArgFromExpectedType(
             expectedValueType,
-            valueTypes,
+            valueTypes.map((result) => result.type),
             /* isNarrowable */ !isValueTypeInvariant
         );
         if (!specializedKeyType || !specializedValueType) {
@@ -12071,20 +12086,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let keyType: Type = fallbackType;
         let valueType: Type = fallbackType;
 
-        let keyTypes: Type[] = [];
-        let valueTypes: Type[] = [];
+        const keyTypeResults: TypeResultWithNode[] = [];
+        const valueTypeResults: TypeResultWithNode[] = [];
 
         let isEmptyContainer = false;
         let isIncomplete = false;
 
         // Infer the key and value types if possible.
-        if (getKeyAndValueTypesFromDictionary(node, keyTypes, valueTypes, /* forceStrictInference */ hasExpectedType)) {
+        if (
+            getKeyAndValueTypesFromDictionary(
+                node,
+                keyTypeResults,
+                valueTypeResults,
+                /* forceStrictInference */ hasExpectedType
+            )
+        ) {
             isIncomplete = true;
         }
 
         // Strip any literal values.
-        keyTypes = keyTypes.map((t) => stripLiteralValue(t));
-        valueTypes = valueTypes.map((t) => stripLiteralValue(t));
+        const keyTypes = keyTypeResults.map((t) => stripLiteralValue(t.type));
+        const valueTypes = valueTypeResults.map((t) => stripLiteralValue(t.type));
 
         keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : fallbackType;
 
@@ -12123,8 +12145,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getKeyAndValueTypesFromDictionary(
         node: DictionaryNode,
-        keyTypes: Type[],
-        valueTypes: Type[],
+        keyTypes: TypeResultWithNode[],
+        valueTypes: TypeResultWithNode[],
         forceStrictInference: boolean,
         expectedKeyType?: Type,
         expectedValueType?: Type,
@@ -12180,8 +12202,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (forceStrictInference || index < maxEntriesToUseForInference) {
-                    keyTypes.push(keyType);
-                    valueTypes.push(valueType);
+                    keyTypes.push({ node: entryNode.keyExpression, type: keyType });
+                    valueTypes.push({ node: entryNode.valueExpression, type: valueType });
                 }
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
@@ -12205,8 +12227,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         tdEntries.forEach((entry, name) => {
                             if (entry.isRequired || entry.isProvided) {
-                                keyTypes.push(ClassType.cloneWithLiteral(strObject, name));
-                                valueTypes.push(entry.valueType);
+                                keyTypes.push({ node: entryNode, type: ClassType.cloneWithLiteral(strObject, name) });
+                                valueTypes.push({ node: entryNode, type: entry.valueType });
                             }
                         });
 
@@ -12245,8 +12267,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const typeArgs = specializedMapping.typeArguments;
                             if (typeArgs && typeArgs.length >= 2) {
                                 if (forceStrictInference || index < maxEntriesToUseForInference) {
-                                    keyTypes.push(typeArgs[0]);
-                                    valueTypes.push(typeArgs[1]);
+                                    keyTypes.push({ node: entryNode, type: typeArgs[0] });
+                                    valueTypes.push({ node: entryNode, type: typeArgs[1] });
                                 }
                                 addUnknown = false;
                             }
@@ -12277,8 +12299,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const typeArgs = dictEntryType.tupleTypeArguments?.map((t) => t.type);
                     if (typeArgs && typeArgs.length === 2) {
                         if (forceStrictInference || index < maxEntriesToUseForInference) {
-                            keyTypes.push(typeArgs[0]);
-                            valueTypes.push(typeArgs[1]);
+                            keyTypes.push({ node: entryNode, type: typeArgs[0] });
+                            valueTypes.push({ node: entryNode, type: typeArgs[1] });
                         }
                         addUnknown = false;
                     }
@@ -12287,8 +12309,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (addUnknown) {
                 if (forceStrictInference || index < maxEntriesToUseForInference) {
-                    keyTypes.push(UnknownType.create());
-                    valueTypes.push(UnknownType.create());
+                    keyTypes.push({ node: entryNode, type: UnknownType.create() });
+                    valueTypes.push({ node: entryNode, type: UnknownType.create() });
                 }
             }
         });
