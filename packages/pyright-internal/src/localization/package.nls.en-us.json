@@ -220,6 +220,7 @@
         "keyValueInSet": "Key/value pairs are not allowed within a set",
         "keywordArgInTypeArgument": "Keyword arguments cannot be used in type argument lists",
         "keywordOnlyAfterArgs": "Keyword-only argument separator not allowed after \"*\" parameter",
+        "keywordParameterMissing": "One or more keyword parameters must follow \"*\" parameter",
         "keywordSubscriptIllegal": "Keyword arguments within subscripts are not supported",
         "lambdaReturnTypeUnknown": "Return type of lambda is unknown",
         "lambdaReturnTypePartiallyUnknown": "Return type of lambda, \"{returnType}\", is partially unknown",

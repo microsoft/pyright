@@ -1862,6 +1862,7 @@ export class Parser {
         let reportedNonDefaultParamErr = false;
         let sawKeywordOnlySeparator = false;
         let sawPositionOnlySeparator = false;
+        let sawKeywordOnlyParamAfterSeparator = false;
         let sawArgs = false;
         let sawKwArgs = false;
 
@@ -1900,6 +1901,10 @@ export class Parser {
                     }
                     sawPositionOnlySeparator = true;
                 } else {
+                    if (sawKeywordOnlySeparator) {
+                        sawKeywordOnlyParamAfterSeparator = true;
+                    }
+
                     if (param.defaultValue) {
                         sawDefaultParam = true;
                     } else if (sawDefaultParam && !sawKeywordOnlySeparator && !sawArgs) {
@@ -1935,6 +1940,11 @@ export class Parser {
                     this._addError(Localizer.Diagnostic.duplicateKwargsParam(), param);
                 }
                 sawKwArgs = true;
+
+                // A **kwargs cannot immediately follow a keyword-only separator ("*").
+                if (sawKeywordOnlySeparator && !sawKeywordOnlyParamAfterSeparator) {
+                    this._addError(Localizer.Diagnostic.keywordParameterMissing(), param);
+                }
             } else if (sawKwArgs) {
                 this._addError(Localizer.Diagnostic.paramAfterKwargsParam(), param);
             }
