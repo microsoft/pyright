@@ -498,7 +498,12 @@ const maxReturnTypeInferenceArgumentCount = 6;
 // we will analyze to determine the return type of a function
 // when its parameters are unannotated? We want to keep this
 // pretty low because this can be very costly.
-const maxReturnTypeInferenceCodeFlowComplexity = 8;
+const maxReturnTypeInferenceCodeFlowComplexity = 32;
+
+// What is the max complexity of the code flow graph for
+// call-site type inference? This is very expensive, so we
+// want to keep this very low.
+const maxReturnCallSiteTypeInferenceCodeFlowComplexity = 8;
 
 // What is the max number of return types cached per function
 // when using call-site inference?
@@ -19671,7 +19676,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const functionNode = type.details.declaration.node;
         const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
-        if (codeFlowComplexity >= maxReturnTypeInferenceCodeFlowComplexity) {
+        if (codeFlowComplexity >= maxReturnCallSiteTypeInferenceCodeFlowComplexity) {
             return undefined;
         }
 
