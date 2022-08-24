@@ -41,17 +41,17 @@ PROC_STATUSES: Any
 TCP_STATUSES: Any
 
 class svmem(NamedTuple):
-    total: Any
-    available: Any
-    percent: Any
-    used: Any
-    free: Any
-    active: Any
-    inactive: Any
-    buffers: Any
-    cached: Any
-    shared: Any
-    slab: Any
+    total: int
+    available: int
+    percent: float
+    used: int
+    free: int
+    active: int
+    inactive: int
+    buffers: int
+    cached: int
+    shared: int
+    slab: int
 
 class sdiskio(NamedTuple):
     read_count: Any

@@ -3,10 +3,6 @@ from typing_extensions import Literal, TypedDict
 
 _DEFAULT_DELIMITER: str
 
-class _EmojiLisReturn(TypedDict):
-    emoji: str
-    location: int
-
 class _EmojiListReturn(TypedDict):
     emoji: str
     match_start: int

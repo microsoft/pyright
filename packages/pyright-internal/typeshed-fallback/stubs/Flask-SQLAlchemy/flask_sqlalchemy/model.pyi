@@ -1,11 +1,9 @@
 from re import Pattern
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from sqlalchemy import Table
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.orm import Query
-
-_ModelT = TypeVar("_ModelT")
 
 def should_set_tablename(cls: type) -> bool: ...
 
@@ -22,6 +20,6 @@ class BindMetaMixin(type):
 
 class DefaultMeta(NameMetaMixin, BindMetaMixin, DeclarativeMeta): ...
 
-class Model(Generic[_ModelT]):
-    query_class: type[Query[_ModelT]] | None
-    query: Query[_ModelT] | None
+class Model:
+    query_class: type[Query[Any]] | None
+    query: Query[Any] | None

@@ -26,14 +26,14 @@ class scputimes(NamedTuple):
     idle: Any
 
 class svmem(NamedTuple):
-    total: Any
-    available: Any
-    percent: Any
-    used: Any
-    free: Any
-    active: Any
-    inactive: Any
-    wired: Any
+    total: int
+    available: int
+    percent: float
+    used: int
+    free: int
+    active: int
+    inactive: int
+    wired: int
 
 class pmem(NamedTuple):
     rss: Any

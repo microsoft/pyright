@@ -62,11 +62,11 @@ class scputimes(NamedTuple):
     dpc: Any
 
 class svmem(NamedTuple):
-    total: Any
-    available: Any
-    percent: Any
-    used: Any
-    free: Any
+    total: int
+    available: int
+    percent: float
+    used: int
+    free: int
 
 class pmem(NamedTuple):
     rss: Any

@@ -1,3 +1,4 @@
+import abc
 import sys
 from _typeshed import Self, StrOrBytesPath
 from abc import abstractmethod
@@ -133,7 +134,9 @@ class _RedirectStream(AbstractContextManager[_T_io]):
 class redirect_stdout(_RedirectStream[_T_io]): ...
 class redirect_stderr(_RedirectStream[_T_io]): ...
 
-class ExitStack:
+# In reality this is a subclass of `AbstractContextManager`;
+# see #7961 for why we don't do that in the stub
+class ExitStack(metaclass=abc.ABCMeta):
     def __init__(self) -> None: ...
     def enter_context(self, cm: AbstractContextManager[_T]) -> _T: ...
     def push(self, exit: _CM_EF) -> _CM_EF: ...
@@ -145,10 +148,14 @@ class ExitStack:
         self, __exc_type: type[BaseException] | None, __exc_value: BaseException | None, __traceback: TracebackType | None
     ) -> bool: ...
 
-_ExitCoroFunc: TypeAlias = Callable[[type[BaseException] | None, BaseException | None, TracebackType | None], Awaitable[bool]]
+_ExitCoroFunc: TypeAlias = Callable[
+    [type[BaseException] | None, BaseException | None, TracebackType | None], Awaitable[bool | None]
+]
 _ACM_EF = TypeVar("_ACM_EF", bound=AbstractAsyncContextManager[Any] | _ExitCoroFunc)
 
-class AsyncExitStack:
+# In reality this is a subclass of `AbstractAsyncContextManager`;
+# see #7961 for why we don't do that in the stub
+class AsyncExitStack(metaclass=abc.ABCMeta):
     def __init__(self) -> None: ...
     def enter_context(self, cm: AbstractContextManager[_T]) -> _T: ...
     async def enter_async_context(self, cm: AbstractAsyncContextManager[_T]) -> _T: ...

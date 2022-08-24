@@ -178,6 +178,11 @@ class _ContextManager:
 _TrapType: TypeAlias = type[DecimalException]
 
 class Context:
+    # TODO: Context doesn't allow you to delete *any* attributes from instances of the class at runtime,
+    # even settable attributes like `prec` and `rounding`,
+    # but that's inexpressable in the stub.
+    # Type checkers either ignore it or misinterpret it
+    # if you add a `def __delattr__(self, __name: str) -> NoReturn` method to the stub
     prec: int
     rounding: str
     Emin: int
@@ -198,8 +203,6 @@ class Context:
         traps: None | dict[_TrapType, bool] | Container[_TrapType] = ...,
         _ignored_flags: list[_TrapType] | None = ...,
     ) -> None: ...
-    # __setattr__() only allows to set a specific set of attributes,
-    # already defined above.
     def __reduce__(self: Self) -> tuple[type[Self], tuple[Any, ...]]: ...
     def clear_flags(self) -> None: ...
     def clear_traps(self) -> None: ...

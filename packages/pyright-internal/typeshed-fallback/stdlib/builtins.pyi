@@ -53,6 +53,7 @@ from typing import (  # noqa: Y027
     SupportsRound,
     TypeVar,
     overload,
+    type_check_only,
 )
 from typing_extensions import Literal, LiteralString, SupportsIndex, TypeAlias, TypeGuard, final
 
@@ -264,8 +265,6 @@ class int:
     # return type must be Any as `int | float` causes too many false-positive errors
     @overload
     def __pow__(self, __x: int, __modulo: None = ...) -> Any: ...
-    @overload
-    def __pow__(self, __x: int, __modulo: Literal[0]) -> NoReturn: ...
     @overload
     def __pow__(self, __x: int, __modulo: int) -> int: ...
     def __rpow__(self, __x: int, __mod: int | None = ...) -> Any: ...
@@ -938,6 +937,7 @@ class tuple(Sequence[_T_co], Generic[_T_co]):
 
 # Doesn't exist at runtime, but deleting this breaks mypy. See #2999
 @final
+@type_check_only
 class function:
     # Make sure this class definition stays roughly in line with `types.FunctionType`
     @property
@@ -1021,9 +1021,13 @@ class dict(MutableMapping[_KT, _VT], Generic[_KT, _VT]):
     @overload
     def __init__(self: dict[str, _VT], **kwargs: _VT) -> None: ...
     @overload
-    def __init__(self, __map: SupportsKeysAndGetItem[_KT, _VT], **kwargs: _VT) -> None: ...
+    def __init__(self, __map: SupportsKeysAndGetItem[_KT, _VT]) -> None: ...
     @overload
-    def __init__(self, __iterable: Iterable[tuple[_KT, _VT]], **kwargs: _VT) -> None: ...
+    def __init__(self: dict[str, _VT], __map: SupportsKeysAndGetItem[str, _VT], **kwargs: _VT) -> None: ...
+    @overload
+    def __init__(self, __iterable: Iterable[tuple[_KT, _VT]]) -> None: ...
+    @overload
+    def __init__(self: dict[str, _VT], __iterable: Iterable[tuple[str, _VT]], **kwargs: _VT) -> None: ...
     # Next overload is for dict(string.split(sep) for string in iterable)
     # Cannot be Iterable[Sequence[_T]] or otherwise dict(["foo", "bar", "baz"]) is not an error
     @overload
@@ -1275,7 +1279,7 @@ else:
         __locals: Mapping[str, object] | None = ...,
     ) -> None: ...
 
-def exit(code: object = ...) -> NoReturn: ...
+def exit(code: sys._ExitCode = ...) -> NoReturn: ...
 
 class filter(Iterator[_T], Generic[_T]):
     @overload
@@ -1287,7 +1291,7 @@ class filter(Iterator[_T], Generic[_T]):
     def __iter__(self: Self) -> Self: ...
     def __next__(self) -> _T: ...
 
-def format(__value: object, __format_spec: str = ...) -> str: ...  # TODO unicode
+def format(__value: object, __format_spec: str = ...) -> str: ...
 @overload
 def getattr(__o: object, __name: str) -> Any: ...
 
@@ -1542,8 +1546,8 @@ _SupportsSomeKindOfPow = (  # noqa: Y026  # TODO: Use TypeAlias once mypy bugs a
 )
 
 if sys.version_info >= (3, 8):
-    @overload
-    def pow(base: int, exp: int, mod: Literal[0]) -> NoReturn: ...
+    # TODO: `pow(int, int, Literal[0])` fails at runtime,
+    # but adding a `NoReturn` overload isn't a good solution for expressing that (see #8566).
     @overload
     def pow(base: int, exp: int, mod: int) -> int: ...
     @overload
@@ -1582,8 +1586,6 @@ if sys.version_info >= (3, 8):
 
 else:
     @overload
-    def pow(__base: int, __exp: int, __mod: Literal[0]) -> NoReturn: ...
-    @overload
     def pow(__base: int, __exp: int, __mod: int) -> int: ...
     @overload
     def pow(__base: int, __exp: Literal[0], __mod: None = ...) -> Literal[1]: ...  # type: ignore[misc]
@@ -1614,7 +1616,7 @@ else:
     @overload
     def pow(__base: _SupportsSomeKindOfPow, __exp: complex, __mod: None = ...) -> complex: ...
 
-def quit(code: object = ...) -> NoReturn: ...
+def quit(code: sys._ExitCode = ...) -> NoReturn: ...
 
 class reversed(Iterator[_T], Generic[_T]):
     @overload
@@ -1769,6 +1771,7 @@ def __build_class__(__func: Callable[[], _Cell | Any], __name: str, *bases: Any,
 # Actually the type of Ellipsis is <type 'ellipsis'>, but since it's
 # not exposed anywhere under that name, we make it private here.
 @final
+@type_check_only
 class ellipsis: ...
 
 Ellipsis: ellipsis
@@ -1791,7 +1794,7 @@ class GeneratorExit(BaseException): ...
 class KeyboardInterrupt(BaseException): ...
 
 class SystemExit(BaseException):
-    code: int
+    code: sys._ExitCode
 
 class Exception(BaseException): ...
 
