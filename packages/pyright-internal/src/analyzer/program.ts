@@ -1126,6 +1126,10 @@ export class Program {
         // Add the file to the closure map.
         closureMap.set(filePath, file);
 
+        // If this file hasn't already been parsed, parse it now. This will
+        // discover any files it imports.
+        this._parseFile(file);
+
         // Recursively add the file's imports.
         for (const importedFileInfo of file.imports) {
             this._getImportsRecursive(importedFileInfo, closureMap, recursionCount + 1);
