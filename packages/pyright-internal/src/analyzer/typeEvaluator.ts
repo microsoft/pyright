@@ -14945,7 +14945,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (metaclassNode) {
             const metaclassType = getTypeOfExpression(metaclassNode, exprFlags).type;
             if (isInstantiableClass(metaclassType) || isUnknown(metaclassType)) {
-                if (requiresSpecialization(metaclassType)) {
+                if (requiresSpecialization(metaclassType, /* ignorePseudoGeneric */ true)) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
