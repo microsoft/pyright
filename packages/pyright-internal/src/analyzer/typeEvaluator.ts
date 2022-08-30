@@ -21498,7 +21498,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Sort the subtypes so we have a deterministic order for unions.
         doForEachSubtype(
             srcType,
-            (subtype, subtypeIndex) => {
+            (subtype, subtypeIndex, allSubtypes) => {
                 if (isIncompatible) {
                     return;
                 }
@@ -21519,7 +21519,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Determine if the current subtype is subsumed by another subtype
                     // in the same union. If so, we can ignore this.
                     let isSubtypeSubsumed = false;
-                    doForEachSubtype(srcType, (innerSubtype, innerSubtypeIndex) => {
+                    allSubtypes.forEach((innerSubtype, innerSubtypeIndex) => {
                         if (isSubtypeSubsumed || subtypeIndex === innerSubtypeIndex || isAnyOrUnknown(innerSubtype)) {
                             return;
                         }

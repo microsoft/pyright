@@ -601,16 +601,16 @@ function compareTypes(a: Type, b: Type): number {
 
 export function doForEachSubtype(
     type: Type,
-    callback: (type: Type, index: number) => void,
+    callback: (type: Type, index: number, allSubtypes: Type[]) => void,
     sortSubtypes = false
 ): void {
     if (isUnion(type)) {
         const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
         subtypes.forEach((subtype, index) => {
-            callback(subtype, index);
+            callback(subtype, index, subtypes);
         });
     } else {
-        callback(type, 0);
+        callback(type, 0, [type]);
     }
 }
 
