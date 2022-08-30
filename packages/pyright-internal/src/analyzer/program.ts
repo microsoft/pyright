@@ -1127,8 +1127,12 @@ export class Program {
         closureMap.set(filePath, file);
 
         // If this file hasn't already been parsed, parse it now. This will
-        // discover any files it imports.
-        this._parseFile(file);
+        // discover any files it imports. Skip this if the file is part
+        // of a library. We'll assume that no cycles will be generated from
+        // library code or typeshed stubs.
+        if (isUserCode(file)) {
+            this._parseFile(file);
+        }
 
         // Recursively add the file's imports.
         for (const importedFileInfo of file.imports) {
