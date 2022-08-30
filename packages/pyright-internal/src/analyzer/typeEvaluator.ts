@@ -5606,7 +5606,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (enforceTargetType) {
-                    let effectiveType = concreteSubtype;
+                    let effectiveType = subtype;
 
                     // If the code is patching a method (defined on the class)
                     // with an object-level function, strip the "self" parameter
