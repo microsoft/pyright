@@ -184,7 +184,7 @@ export function getTypeNarrowingCallback(
 
                             if (isInstantiableClass(classType)) {
                                 return (type: Type) => {
-                                    return narrowTypeForTypeIs(type, classType, adjIsPositiveTest);
+                                    return narrowTypeForTypeIs(evaluator, type, classType, adjIsPositiveTest);
                                 };
                             }
                         }
@@ -1787,38 +1787,42 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
 }
 
 // Attempts to narrow a type based on a "type(x) is y" or "type(x) is not y" check.
-function narrowTypeForTypeIs(type: Type, classType: ClassType, isPositiveTest: boolean) {
-    return mapSubtypes(type, (subtype) => {
-        if (isClassInstance(subtype)) {
-            const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
-            if (isPositiveTest) {
-                if (matches) {
-                    if (ClassType.isSameGenericClass(subtype, classType)) {
-                        return subtype;
+function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: ClassType, isPositiveTest: boolean) {
+    return evaluator.mapSubtypesExpandTypeVars(
+        type,
+        /* conditionFilter */ undefined,
+        (subtype: Type, unexpandedSubtype: Type) => {
+            if (isClassInstance(subtype)) {
+                const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
+                if (isPositiveTest) {
+                    if (matches) {
+                        if (ClassType.isSameGenericClass(subtype, classType)) {
+                            return subtype;
+                        }
+                        return addConditionToType(ClassType.cloneAsInstance(classType), subtype.condition);
                     }
-                    return ClassType.cloneAsInstance(classType);
-                }
-                return undefined;
-            } else {
-                // If the class if marked final and it matches, then
-                // we can eliminate it in the negative case.
-                if (matches && ClassType.isFinal(subtype)) {
                     return undefined;
+                } else {
+                    // If the class if marked final and it matches, then
+                    // we can eliminate it in the negative case.
+                    if (matches && ClassType.isFinal(subtype)) {
+                        return undefined;
+                    }
+
+                    // We can't eliminate the subtype in the negative
+                    // case because it could be a subclass of the type,
+                    // in which case `type(x) is y` would fail.
+                    return subtype;
                 }
-
-                // We can't eliminate the subtype in the negative
-                // case because it could be a subclass of the type,
-                // in which case `type(x) is y` would fail.
-                return subtype;
+            } else if (isNoneInstance(subtype)) {
+                return isPositiveTest ? undefined : subtype;
+            } else if (isAnyOrUnknown(subtype)) {
+                return isPositiveTest ? ClassType.cloneAsInstance(classType) : subtype;
             }
-        } else if (isNoneInstance(subtype)) {
-            return isPositiveTest ? undefined : subtype;
-        } else if (isAnyOrUnknown(subtype)) {
-            return isPositiveTest ? ClassType.cloneAsInstance(classType) : subtype;
-        }
 
-        return subtype;
-    });
+            return unexpandedSubtype;
+        }
+    );
 }
 
 // Attempts to narrow a type (make it more constrained) based on a comparison

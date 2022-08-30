@@ -93,3 +93,18 @@ def func7(val: Any):
         reveal_type(val, expected_text="Any")
 
     reveal_type(val, expected_text="int | Any")
+
+class CParent:
+    ...
+
+class CChild(CParent):
+    ...
+
+_TC = TypeVar("_TC", bound=CParent)
+
+def func8(a: _TC, b: _TC) -> _TC:
+    if type(a) is CChild:
+        reveal_type(a, expected_text="CChild*")
+        return a
+    reveal_type(a, expected_text="CParent*")
+    return a
