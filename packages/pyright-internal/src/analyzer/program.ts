@@ -159,6 +159,7 @@ export interface OpenFileOptions {
     isTracked: boolean;
     ipythonMode: IPythonMode;
     chainedFilePath: string | undefined;
+    realFilePath: string | undefined;
 }
 
 // Container for all of the files that are being analyzed. Files
@@ -316,6 +317,7 @@ export class Program {
                 /* isInPyTypedPackage */ false,
                 this._console,
                 this._logTracker,
+                options?.realFilePath,
                 options?.ipythonMode ?? IPythonMode.None
             );
 

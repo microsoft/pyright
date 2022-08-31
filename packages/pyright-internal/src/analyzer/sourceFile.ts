@@ -93,8 +93,12 @@ export class SourceFile {
     // Console interface to use for debugging.
     private _console: ConsoleInterface;
 
-    // File path on disk.
+    // File path unique to this file within the workspace. May not represent
+    // a real file on disk.
     private readonly _filePath: string;
+
+    // File path on disk. May not be unique.
+    private readonly _realFilePath: string;
 
     // Period-delimited import path for the module.
     private _moduleName: string;
@@ -205,11 +209,13 @@ export class SourceFile {
         isThirdPartyPyTypedPresent: boolean,
         console?: ConsoleInterface,
         logTracker?: LogTracker,
+        realFilePath?: string,
         ipythonMode = IPythonMode.None
     ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
         this._filePath = filePath;
+        this._realFilePath = realFilePath ?? filePath;
         this._moduleName = moduleName;
         this._isStubFile = filePath.endsWith('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
@@ -487,7 +493,7 @@ export class SourceFile {
         }
 
         // If the file is in the ignore list, clear the diagnostic list.
-        if (options.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._filePath))) {
+        if (options.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._realFilePath))) {
             diagList = [];
         }
 
@@ -829,7 +835,7 @@ export class SourceFile {
 
                 // Is this file in a "strict" path?
                 const useStrict =
-                    configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !==
+                    configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._realFilePath)) !==
                     undefined;
 
                 this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
