@@ -22047,7 +22047,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let reverseMatchingFailed = false;
 
         if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-            specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
+            specializedDestType = applySolvedTypeVars(
+                destType,
+                destTypeVarContext,
+                /* unknownIfNotFound */ undefined,
+                /* useNarrowBoundOnly */ true
+            );
 
             if (requiresSpecialization(specializedDestType)) {
                 reverseMatchingFailed = !assignType(
@@ -22065,7 +22070,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
             }
         } else {
-            specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
+            specializedSrcType = applySolvedTypeVars(
+                srcType,
+                srcTypeVarContext,
+                /* unknownIfNotFound */ undefined,
+                /* useNarrowBoundOnly */ true
+            );
 
             if (requiresSpecialization(specializedSrcType)) {
                 reverseMatchingFailed = !assignType(

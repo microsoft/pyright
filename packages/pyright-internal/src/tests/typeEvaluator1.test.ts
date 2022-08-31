@@ -716,6 +716,12 @@ test('Function11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Function12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function12.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('KwargsUnpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['kwargsUnpack1.py']);
 
