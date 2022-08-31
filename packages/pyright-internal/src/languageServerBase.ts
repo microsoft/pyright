@@ -628,25 +628,29 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected onInitialized() {
-        if (this.client.hasWorkspaceFoldersCapability) {
-            this._connection.workspace.onDidChangeWorkspaceFolders((event) => {
-                event.removed.forEach((workspace) => {
-                    const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
-                    this._workspaceMap.delete(rootPath);
-                });
+        if (!this.client.hasWorkspaceFoldersCapability) {
+            // if folder capability is not supported, initialize ones given by onInitialize.
+            this.updateSettingsForAllWorkspaces();
+            return;
+        }
 
-                event.added.forEach(async (workspace) => {
-                    const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
-                    const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath, rootPath);
-                    this._workspaceMap.set(rootPath, newWorkspace);
-                    await this.updateSettingsForWorkspace(newWorkspace);
-                });
+        this._connection.workspace.onDidChangeWorkspaceFolders((event) => {
+            event.removed.forEach((workspace) => {
+                const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
+                this._workspaceMap.delete(rootPath);
+            });
 
-                this._setupFileWatcher();
+            event.added.forEach(async (workspace) => {
+                const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
+                const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath, rootPath);
+                this._workspaceMap.set(rootPath, newWorkspace);
+                await this.updateSettingsForWorkspace(newWorkspace);
             });
 
             this._setupFileWatcher();
-        }
+        });
+
+        this._setupFileWatcher();
     }
 
     private _setupFileWatcher() {
@@ -1427,7 +1431,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     async updateSettingsForWorkspace(
         workspace: WorkspaceServiceInstance,
-        serverSettings?: ServerSettings
+        serverSettings?: ServerSettings,
+        initializeWorkspace = true
     ): Promise<void> {
         serverSettings = serverSettings ?? (await this.getSettings(workspace));
 
@@ -1438,8 +1443,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
         workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
 
-        // The workspace is now open for business.
-        workspace.isInitialized.resolve(true);
+        if (initializeWorkspace) {
+            // The workspace is now open for business.
+            workspace.isInitialized.resolve(true);
+        }
     }
 
     updateOptionsAndRestartService(

@@ -1159,7 +1159,9 @@ export class Binder extends ParseTreeWalker {
 
         this._currentFlowNode = this._finishFlowLabel(postForLabel);
 
-        if (node.asyncToken) {
+        // Async for is not allowed outside of an async function
+        // unless we're in ipython mode.
+        if (node.asyncToken && !this._fileInfo.ipythonMode) {
             const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
             if (!enclosingFunction || !enclosingFunction.isAsync) {
                 this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
@@ -1988,7 +1990,8 @@ export class Binder extends ParseTreeWalker {
                 this._addExceptTargets(this._currentFlowNode!);
             }
 
-            if (node.asyncToken) {
+            if (node.asyncToken && !this._fileInfo.ipythonMode) {
+                // Top level async with is allowed in ipython mode.
                 const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
                 if (!enclosingFunction || !enclosingFunction.isAsync) {
                     this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
@@ -2095,8 +2098,9 @@ export class Binder extends ParseTreeWalker {
                     this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
                     this._addInferredTypeAssignmentForVariable(compr.targetExpression, compr);
 
-                    // Async for is not allowed outside of an async function.
-                    if (compr.asyncToken) {
+                    // Async for is not allowed outside of an async function
+                    // unless we're in ipython mode.
+                    if (compr.asyncToken && !this._fileInfo.ipythonMode) {
                         if (!enclosingFunction || !enclosingFunction.isAsync) {
                             // Allow if it's within a generator expression. Execution of
                             // generator expressions is deferred and therefore can be
