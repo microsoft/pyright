@@ -6855,15 +6855,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedTypeDiagAddendum = result?.expectedTypeDiagAddendum;
         }
 
-        const resultType = getTypeOfTupleInferred(node);
+        const typeResult = getTypeOfTupleInferred(node);
 
         // If there was an expected type of Any, replace the resulting type
         // with Any rather than return a type with unknowns.
         if (expectedTypeContainsAny) {
-            resultType.type = AnyType.create();
+            typeResult.type = AnyType.create();
         }
 
-        return { ...resultType, expectedTypeDiagAddendum };
+        return { ...typeResult, expectedTypeDiagAddendum };
     }
 
     function getTypeOfTupleExpected(node: TupleNode, expectedType: Type): TypeResult | undefined {
@@ -12368,14 +12368,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             effectiveExpectedType = matchingSubtype;
         }
 
+        let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (effectiveExpectedType) {
             const result = getTypeOfListOrSetExpected(node, effectiveExpectedType);
-            if (result) {
+            if (result && !result.typeErrors) {
                 return result;
             }
+
+            expectedTypeDiagAddendum = result?.expectedTypeDiagAddendum;
         }
 
-        return getTypeOfListOrSetInferred(node, /* hasExpectedType */ expectedType !== undefined);
+        const typeResult = getTypeOfListOrSetInferred(node, /* hasExpectedType */ expectedType !== undefined);
+        return { ...typeResult, expectedTypeDiagAddendum };
     }
 
     // Attempts to determine the type of a list or set statement based on an expected type.
@@ -12419,6 +12423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedEntryType = specializedListOrSet.typeArguments[0];
 
         const entryTypes: Type[] = [];
+        const expectedTypeDiagAddendum = new DiagnosticAddendum();
         node.entries.forEach((entry) => {
             let entryTypeResult: TypeResult;
             if (entry.nodeType === ParseNodeType.ListComprehension) {
@@ -12433,6 +12438,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entryTypeResult.typeErrors) {
                 typeErrors = true;
             }
+            if (entryTypeResult.expectedTypeDiagAddendum) {
+                expectedTypeDiagAddendum.addAddendum(entryTypeResult.expectedTypeDiagAddendum);
+            }
         });
 
         const isExpectedTypeListOrSet =
@@ -12443,11 +12451,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* isNarrowable */ !isExpectedTypeListOrSet
         );
         if (!specializedEntryType) {
-            return undefined;
+            return { type: UnknownType.create(), isIncomplete, typeErrors: true, expectedTypeDiagAddendum };
         }
 
         const type = getBuiltInObject(node, builtInClassName, [specializedEntryType]);
-        return { type, isIncomplete, typeErrors };
+        return { type, isIncomplete, typeErrors, expectedTypeDiagAddendum };
     }
 
     // Attempts to infer the type of a list or set statement with no "expected type".
