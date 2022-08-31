@@ -8386,10 +8386,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // the call is a constructor but the proper TypeVar scope has been lost.
                             // We'll add a wildcard TypeVar scope here. This is a bit of a hack and
                             // we may need to revisit this in the future.
-                            if (
-                                !effectiveTypeVarContext.getSolveForScopes() &&
-                                FunctionType.isConstructorMethod(expandedSubtype)
-                            ) {
+                            if (FunctionType.isConstructorMethod(expandedSubtype)) {
                                 effectiveTypeVarContext.addSolveForScope(WildcardTypeVarScopeId);
                             }
                         }

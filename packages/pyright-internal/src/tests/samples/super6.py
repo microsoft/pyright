@@ -15,3 +15,27 @@ class Foo(FooBase):
 
 f = Foo()
 reveal_type(f, expected_text="Foo")
+
+
+
+class FirstLevelMeta(type):
+    def __new__(cls, name: str, bases, dct):
+        new_class = super().__new__(cls, name, bases, dct)
+        reveal_type(new_class, expected_text='Self@FirstLevelMeta')
+        return new_class
+
+
+class SecondLevelMeta(FirstLevelMeta):
+    def __new__(cls, name: str, bases, dct):
+        new_class = super().__new__(cls, name, bases, dct)
+        reveal_type(new_class, expected_text='Self@SecondLevelMeta')
+        return new_class
+
+
+class ThirdLevelMeta(SecondLevelMeta):
+    def __new__(cls, name: str, bases, dct):
+        new_class = super().__new__(cls, name, bases, dct)
+        reveal_type(new_class, expected_text='Self@ThirdLevelMeta')
+        return new_class
+
+
