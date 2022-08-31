@@ -250,12 +250,14 @@ export class AnalyzerService {
         version: number | null,
         contents: string,
         ipythonMode = IPythonMode.None,
-        chainedFilePath?: string
+        chainedFilePath?: string,
+        realFilePath?: string
     ) {
         this._backgroundAnalysisProgram.setFileOpened(path, version, contents, {
             isTracked: this.isTracked(path),
             ipythonMode,
             chainedFilePath,
+            realFilePath,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
@@ -280,6 +282,7 @@ export class AnalyzerService {
             isTracked: this.isTracked(path),
             ipythonMode,
             chainedFilePath,
+            realFilePath: undefined,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }

@@ -270,6 +270,121 @@ test('await still raises errors when used in wrong context in ipython mode', () 
     assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
 });
 
+test('top level async for raises errors in regular mode', () => {
+    const code = `
+//// async def b():
+////     for i in range(5):
+////         yield i
+////
+//// [|/*marker*/async for x in b():|]
+////     print("")
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+});
+
+test('top level async for raises no errors in ipython mode', () => {
+    const code = `
+// @ipythonMode: true
+//// async def b():
+////     for i in range(5):
+////         yield i
+////
+//// [|/*marker*/async for x in b():|]
+////     print("")
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+});
+
+test('top level async for in list comprehension raises errors in regular mode', () => {
+    const code = `
+//// async def b():
+////     for i in range(5):
+////         yield i
+////
+//// y = [|/*marker*/[x async for x in b()]|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+});
+
+test('top level async for in list comprehension raises no errors in ipython mode', () => {
+    const code = `
+// @ipythonMode: true
+//// async def b():
+////     for i in range(5):
+////         yield i
+////
+//// y = [|/*marker*/[x async for x in b()]|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+});
+
+test('top level async with raises errors in regular mode', () => {
+    const code = `
+//// from contextlib import AsyncExitStack
+////
+//// cm = AsyncExitStack()
+////
+//// [|/*marker*/async with cm:|]
+////     pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+});
+
+test('top level async with raises no errors in ipython mode', () => {
+    const code = `
+// @ipythonMode: true
+//// from contextlib import AsyncExitStack
+////
+//// cm = AsyncExitStack()
+////
+//// [|/*marker*/async with cm:|]
+////     pass
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+});
+
 test('try implicitly load ipython display module but fail', async () => {
     const code = `
 // @ipythonMode: true
