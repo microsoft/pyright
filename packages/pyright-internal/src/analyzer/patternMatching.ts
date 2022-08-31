@@ -451,6 +451,19 @@ function narrowTypeBasedOnLiteralPattern(
         if (evaluator.assignType(subtype, literalType)) {
             return literalType;
         }
+
+        // See if the subtype is a subclass of the literal's class. For example,
+        // if it's a literal str, see if the subtype is subclass of str.
+        if (
+            isClassInstance(literalType) &&
+            isLiteralType(literalType) &&
+            isClassInstance(subtype) &&
+            !isLiteralType(subtype)
+        ) {
+            if (evaluator.assignType(ClassType.cloneWithLiteral(literalType, /* value */ undefined), subtype)) {
+                return subtype;
+            }
+        }
         return undefined;
     });
 }

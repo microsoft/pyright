@@ -24,13 +24,14 @@ def test_unknown(value_to_match):
             reveal_type(d2, expected_text="Literal[False]")
             reveal_type(value_to_match, expected_text="Unknown")
 
+
 def test_tuple(value_to_match: tuple[int | float | str | complex, ...]):
     match value_to_match:
         case (3, -3) as a1:
             reveal_type(a1, expected_text="tuple[Literal[3], Literal[-3]]")
             reveal_type(value_to_match, expected_text="tuple[Literal[3], Literal[-3]]")
 
-        case (3j , -3 + 5j) as b1:
+        case (3j, -3 + 5j) as b1:
             reveal_type(b1, expected_text="tuple[complex, complex]")
             reveal_type(value_to_match, expected_text="tuple[complex, complex]")
 
@@ -38,8 +39,8 @@ def test_tuple(value_to_match: tuple[int | float | str | complex, ...]):
 def test_union(value_to_match: int | float | str | complex | bool | None):
     match value_to_match:
         case (3 | -3j) as a1:
-            reveal_type(a1, expected_text="complex | Literal[3]")
-            reveal_type(value_to_match, expected_text="complex | Literal[3]")
+            reveal_type(a1, expected_text="bool | complex | Literal[3]")
+            reveal_type(value_to_match, expected_text="bool | complex | Literal[3]")
 
         case (True | False | 3.4 | -3 + 3j | None) as b1:
             reveal_type(b1, expected_text="float | complex | bool | None")
@@ -62,3 +63,14 @@ def test_none(value_to_match: int | None):
         case a2:
             reveal_type(a2, expected_text="int")
 
+
+class A(str):
+    ...
+
+
+def test_subclass(a: A):
+    match a:
+        case "TEST" as m:
+            reveal_type(m, expected_text="A")
+        case x:
+            reveal_type(x, expected_text="A")
