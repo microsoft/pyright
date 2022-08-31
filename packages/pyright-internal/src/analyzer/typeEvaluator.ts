@@ -1175,6 +1175,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (expectedType && !isAnyOrUnknown(expectedType) && !isNever(expectedType)) {
             expectedTypeCache.set(node.id, expectedType);
+
+            if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
+                const diag = new DiagnosticAddendum();
+                if (!assignType(expectedType, typeResult.type, diag)) {
+                    typeResult.expectedTypeDiagAddendum = diag;
+                    diag.addTextRange(node);
+                }
+            }
         }
 
         if (printExpressionTypes) {
@@ -6837,11 +6845,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             effectiveExpectedType = matchingSubtype;
         }
 
+        let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (effectiveExpectedType) {
             const result = getTypeOfTupleExpected(node, effectiveExpectedType);
-            if (result) {
+            if (result && !result.typeErrors) {
                 return result;
             }
+
+            expectedTypeDiagAddendum = result?.expectedTypeDiagAddendum;
         }
 
         const resultType = getTypeOfTupleInferred(node);
@@ -6852,7 +6863,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             resultType.type = AnyType.create();
         }
 
-        return resultType;
+        return { ...resultType, expectedTypeDiagAddendum };
     }
 
     function getTypeOfTupleExpected(node: TupleNode, expectedType: Type): TypeResult | undefined {
@@ -6921,7 +6932,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             )
         );
 
-        return { type };
+        // Copy any expected type diag addenda for precision error reporting.
+        let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
+        if (entryTypeResults.some((result) => result.expectedTypeDiagAddendum)) {
+            expectedTypeDiagAddendum = new DiagnosticAddendum();
+            entryTypeResults.forEach((result) => {
+                if (result.expectedTypeDiagAddendum) {
+                    expectedTypeDiagAddendum!.addAddendum(result.expectedTypeDiagAddendum);
+                }
+            });
+        }
+
+        return { type, expectedTypeDiagAddendum };
     }
 
     function getTypeOfTupleInferred(node: TupleNode): TypeResult {
