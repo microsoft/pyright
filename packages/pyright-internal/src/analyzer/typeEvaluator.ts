@@ -14598,6 +14598,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node.arguments.forEach((arg) => {
             // Ignore unpacked arguments.
             if (arg.argumentCategory !== ArgumentCategory.Simple) {
+                // Evaluate the expression's type so symbols are marked accessed
+                // and errors are reported.
+                getTypeOfExpression(arg.valueExpression);
                 return;
             }
 
