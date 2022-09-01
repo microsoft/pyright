@@ -20170,18 +20170,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the source is unbounded, expand the unbounded argument to try
         // to make the source and dest arg counts match.
         if (srcUnboundedIndex >= 0) {
-            const requiredSrcArgCount =
-                destVariadicIndex >= 0 || destUnboundedIndex >= 0 ? destTypeArgs.length - 1 : destTypeArgs.length;
             const typeToReplicate = srcTypeArgs.length > 0 ? srcTypeArgs[srcUnboundedIndex].type : AnyType.create();
 
-            while (srcTypeArgs.length < requiredSrcArgCount) {
-                srcTypeArgs.splice(srcUnboundedIndex, 0, { type: typeToReplicate, isUnbounded: false });
+            while (srcTypeArgs.length < destTypeArgs.length) {
+                srcTypeArgs.splice(srcUnboundedIndex, 0, { type: typeToReplicate, isUnbounded: true });
             }
-        }
-
-        if (destVariadicIndex >= 0 && srcUnboundedIndex >= 0) {
-            diag?.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
-            return false;
         }
 
         // If the dest is unbounded or contains a variadic, determine which
@@ -20200,7 +20193,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             specializeTupleClass(
                                 tupleClassType,
                                 removedArgs.map((typeArg) => {
-                                    return { type: stripLiteralValue(typeArg.type), isUnbounded: false };
+                                    return { type: stripLiteralValue(typeArg.type), isUnbounded: typeArg.isUnbounded };
                                 }),
                                 /* isTypeArgumentExplicit */ true,
                                 /* isUnpackedTuple */ true

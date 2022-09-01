@@ -903,6 +903,14 @@ test('VariadicTypeVar14', () => {
     TestUtils.validateResults(analysisResults, 6);
 });
 
+test('VariadicTypeVar15', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar15.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions('.');
 
