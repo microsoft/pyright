@@ -32,3 +32,8 @@ None
 
 # This should generate a diagnostic.
 t
+
+# This should generate a diagnostic.
+(1, 2, 3)
+
+
