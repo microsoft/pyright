@@ -108,3 +108,18 @@ def overloaded3(x: str | bytes) -> str | bytes:
 
 def func3(y: _T2):
     overloaded3(y)
+
+
+_T3 = TypeVar("_T3")
+
+def func5(a: _T3) -> _T3:
+    return a
+
+@overload
+def overloaded4(b: str) -> str: ...
+@overload
+def overloaded4(b: int) -> int: ...
+def overloaded4(b: Union[str, int]) -> Union[str, int]: ...
+
+def func6(x: Union[str, int]) -> None:
+    y: Union[str, int] = overloaded4(func5(x))

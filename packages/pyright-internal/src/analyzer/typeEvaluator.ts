@@ -9751,7 +9751,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isAnyOrUnknown(expectedType) ||
             isNever(expectedType) ||
             requiresSpecialization(expectedType) ||
-            !type.details.declaredReturnType
+            !type.details.declaredReturnType ||
+            !requiresSpecialization(FunctionType.getSpecializedReturnType(type) ?? UnknownType.create())
         ) {
             return validateFunctionArgumentTypes(errorNode, matchResults, typeVarContext, skipUnknownArgCheck);
         }
