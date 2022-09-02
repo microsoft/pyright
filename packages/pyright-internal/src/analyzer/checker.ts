@@ -1499,7 +1499,22 @@ export class Checker extends ParseTreeWalker {
             ParseNodeType.Tuple,
         ];
 
+        let reportAsUnused = false;
+
         if (simpleExpressionTypes.some((nodeType) => nodeType === node.nodeType)) {
+            reportAsUnused = true;
+        } else if (
+            node.nodeType === ParseNodeType.List ||
+            node.nodeType === ParseNodeType.Set ||
+            node.nodeType === ParseNodeType.Dictionary
+        ) {
+            // Exclude comprehensions.
+            if (!node.entries.some((entry) => entry.nodeType === ParseNodeType.ListComprehension)) {
+                reportAsUnused = true;
+            }
+        }
+
+        if (reportAsUnused) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportUnusedExpression,
                 DiagnosticRule.reportUnusedExpression,

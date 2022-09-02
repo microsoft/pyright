@@ -36,4 +36,20 @@ t
 # This should generate a diagnostic.
 (1, 2, 3)
 
+# This should generate a diagnostic.
+{1: 2}
+
+# This should generate a diagnostic.
+{1, 2, 3}
+
+# This should generate a diagnostic.
+[1, 2, 3]
+
+[x for x in range(3)]
+{x: x for x in range(3)}
+{x for x in range(3)}
+
+
+
+
 
