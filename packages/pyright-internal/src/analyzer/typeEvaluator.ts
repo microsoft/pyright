@@ -20284,14 +20284,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         recursionCount: number
     ): boolean {
         let curSrcType = srcType;
-        let curTypeVarContext = destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType));
+        let curTypeVarContext = destTypeVarContext;
         let effectiveFlags = flags;
 
         inferTypeParameterVarianceForClass(destType);
 
-        // If we're using a private typeVarContext, don't skip solving type vars.
+        effectiveFlags |= AssignTypeFlags.SkipSolveTypeVars;
+
         if (!destTypeVarContext) {
+            curTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
             effectiveFlags &= ~AssignTypeFlags.SkipSolveTypeVars;
+        } else {
+            // If we're using the caller's type var context, don't solve the
+            // type vars in this pass. We'll do this after we're done looping
+            // through the inheritance chain.
+            effectiveFlags |= AssignTypeFlags.SkipSolveTypeVars;
         }
 
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
@@ -20556,25 +20563,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             srcType = srcType.subtypes[0];
         }
 
-        if (destType === srcType) {
-            // If the dest type is a TypeVar and a typeVarContext was provided, we may
-            // need to assign the TypeVar to itself under certain circumstances.
-            // This is needed for cases where generic class A[T] calls its own
-            // constructor with an argument of type T.
-            if (
-                isTypeVar(destType) &&
-                !destType.details.isParamSpec &&
-                !destType.details.isVariadic &&
-                destType.scopeType === TypeVarScopeType.Class &&
-                destTypeVarContext &&
-                !destTypeVarContext.isLocked() &&
-                destTypeVarContext.hasSolveForScope(destType.scopeId) &&
-                !destTypeVarContext.getTypeVar(destType) &&
-                (flags & (AssignTypeFlags.SkipSolveTypeVars | AssignTypeFlags.ReverseTypeVarMatching)) === 0
-            ) {
-                destTypeVarContext.setTypeVarType(destType, srcType);
-            }
-
+        // Handle the case where the dest and src types are the same object.
+        // We can normally shortcut this and say that they are compatible,
+        // but if the type includes TypeVars, we need to go through
+        // the rest of the logic.
+        if (destType === srcType && !requiresSpecialization(destType)) {
             return true;
         }
 
@@ -20652,6 +20645,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
+            if (isTypeSame(destType, srcType)) {
+                if (destType.scopeId && destTypeVarContext?.hasSolveForScope(destType.scopeId)) {
+                    return assignTypeToTypeVar(
+                        evaluatorInterface,
+                        destType,
+                        srcType,
+                        diag,
+                        destTypeVarContext,
+                        flags,
+                        recursionCount
+                    );
+                }
+                return true;
+            }
+
             // If the dest is a constrained or bound type variable and all of the
             // types in the source are conditioned on that same type variable
             // and have compatible types, we'll consider it assignable.
@@ -20669,10 +20677,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return !cond.isConstrainedTypeVar && cond.typeVarName === destTypeVar.nameWithScope;
                 })
             ) {
-                return true;
-            }
-
-            if (isTypeSame(destType, srcType)) {
                 return true;
             }
 
