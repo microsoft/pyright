@@ -14,24 +14,11 @@ Refer to the [pyright-action project](https://github.com/jakebailey/pyright-acti
 
 ### Running Pyright as a pre-commit hook
 
-If you do not use github, the following git hook will also work.
-
-```yml
--   repo: local
-    hooks:
-    -   id: pyright
-        name: pyright
-        entry: pyright
-        language: node
-        pass_filenames: false
-        types: [python]
-        # Replace the version below with the latest pyright version
-        additional_dependencies: ['pyright@1.1.XXX']
-```
+You can run pyright as a pre-commit hook using the community-maintained [Python wrapper for pyright](https://github.com/RobertCraigie/pyright-python). For pre-commit configuration instructions, refer to [this documentation](https://github.com/RobertCraigie/pyright-python#pre-commit).
 
 ### Running Pyright from a CI script
 
-Alternatively, you can run pyright from a bash script. Here's a script that installs the latest version of pyright and runs it.
+You can run pyright from a bash script. Here's a sample script that installs the latest version of pyright and runs it.
 
 ```bash
 #!/bin/bash
