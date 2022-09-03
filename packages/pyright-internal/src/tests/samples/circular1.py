@@ -3,8 +3,10 @@
 
 
 class Example1:
-    # This should not generate an error because "int"
-    # is not forward-declared.
+    # This should generate two errors because the annotation
+    # in this case refers to the local variable, which creates
+    # a circular reference and uses an illegal variable in an
+    # annotation.
     str: str = ""
 
     int = int

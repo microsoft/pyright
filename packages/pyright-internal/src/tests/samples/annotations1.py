@@ -84,8 +84,9 @@ class ClassG:
 
 
 class ClassH:
-    # This should generate an error because uuid refers to the local
-    # symbol in this case.
+    # This should generate two errors because uuid refers to the local
+    # symbol in this case, which is a circular reference, and variables
+    # are not allowed in an annotation.
     uuid: uuid.UUID = uuid.uuid4()
 
 
@@ -104,3 +105,7 @@ def func12(x: Type[int]):
     # normal annotation limitations do not apply here.
     print(Union[x, x])
     print(Optional[x])
+
+
+# This should generate an error because foo isn't defined.
+foo: int = foo

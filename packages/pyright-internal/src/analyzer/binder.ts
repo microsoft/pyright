@@ -81,7 +81,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo, ImportLookupResult, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -817,20 +817,6 @@ export class Binder extends ParseTreeWalker {
             this._addTypeDeclarationForVariable(node.leftExpression, node.typeAnnotationComment);
         }
 
-        // If there is a type annotation associated with the assignment and annotation evaluations are
-        // not deferred, the Python interpreter creates an entry in the local symbol table (presumably
-        // to store the __annotation__ attribute) before it evaluates the RHS of the assignment. This
-        // can affect the evaluation of the RHS if the name of the symbol is the same as a name that
-        // is defined in an outer scope.
-        let createdAssignmentTargetFlowNodes = false;
-        if (
-            node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-            !isAnnotationEvaluationPostponed(this._fileInfo)
-        ) {
-            this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
-            createdAssignmentTargetFlowNodes = true;
-        }
-
         // If the assignment target base expression is potentially a
         // TypedDict, add the base expression to the flow expressions set
         // to accommodate TypedDict type narrowing.
@@ -869,9 +855,7 @@ export class Binder extends ParseTreeWalker {
         this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression, isPossibleTypeAlias);
 
         // If we didn't create assignment target flow nodes above, do so now.
-        if (!createdAssignmentTargetFlowNodes) {
-            this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
-        }
+        this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
 
         // Is this an assignment to dunder all?
         if (this._currentScope.type === ScopeType.Module) {
@@ -1100,9 +1084,14 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
-        // Walk the type annotation first so it is "before" the target
-        // in the code flow graph.
-        this.walk(node.typeAnnotation);
+        // We normally want to walk the type annotation first so it is "before"
+        // the target in the code flow graph, but this is reversed for class variables
+        // declared within a class body.
+        const evaluateAnnotationAfterAssignment = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
+        if (!evaluateAnnotationAfterAssignment) {
+            this.walk(node.typeAnnotation);
+        }
+
         this._createVariableAnnotationFlowNode();
 
         this._bindPossibleTupleNamedTarget(node.valueExpression);
@@ -1121,6 +1110,11 @@ export class Binder extends ParseTreeWalker {
         }
 
         this.walk(node.valueExpression);
+
+        if (evaluateAnnotationAfterAssignment) {
+            this.walk(node.typeAnnotation);
+        }
+
         return false;
     }
 
