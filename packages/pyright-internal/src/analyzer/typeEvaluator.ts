@@ -20659,6 +20659,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
+            // If the source is a conditional type associated with a bound TypeVar
+            // and the bound TypeVar matches the condition, the types are compatible.
+            const destTypeVar = destType;
+            if (TypeBase.isInstantiable(destType) === TypeBase.isInstantiable(srcType) &&
+                srcType.condition && srcType.condition.some(cond => {
+                return !cond.isConstrainedTypeVar && cond.typeVarName === destTypeVar.nameWithScope;
+            })) {
+                return true;
+            }
+
             if (isTypeSame(destType, srcType)) {
                 return true;
             }
