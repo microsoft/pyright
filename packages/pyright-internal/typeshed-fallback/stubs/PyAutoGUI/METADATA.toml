@@ -1,0 +1,6 @@
+version = "0.9.*"
+
+[tool.stubtest]
+# pyautogui requires a display, resulting in the following error on the CI:
+# failed to import, KeyError: 'DISPLAY'
+skip = true

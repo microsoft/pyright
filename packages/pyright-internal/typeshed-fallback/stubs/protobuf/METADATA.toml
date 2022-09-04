@@ -1,2 +1,2 @@
-version = "3.19.*"
-extra_description = "Generated with aid from mypy-protobuf v3.2.0"
+version = "3.20.*"
+extra_description = "Generated with aid from mypy-protobuf v3.3.0"

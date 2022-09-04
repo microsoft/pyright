@@ -240,6 +240,8 @@ class MethodDescriptor(DescriptorBase):
         containing_service,
         input_type,
         output_type,
+        client_streaming=...,
+        server_streaming=...,
         options=...,
         serialized_options=...,
         create_key=...,
@@ -250,6 +252,8 @@ class MethodDescriptor(DescriptorBase):
     containing_service: Any
     input_type: Any
     output_type: Any
+    client_streaming: bool
+    server_streaming: bool
     def __init__(
         self,
         name,
@@ -258,6 +262,8 @@ class MethodDescriptor(DescriptorBase):
         containing_service,
         input_type,
         output_type,
+        client_streaming=...,
+        server_streaming=...,
         options=...,
         serialized_options=...,
         create_key=...,

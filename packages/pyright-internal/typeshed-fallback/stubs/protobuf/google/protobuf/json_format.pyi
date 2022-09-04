@@ -18,6 +18,7 @@ def MessageToJson(
     use_integers_for_enums: bool = ...,
     descriptor_pool: DescriptorPool | None = ...,
     float_precision: int | None = ...,
+    ensure_ascii: bool = ...,
 ) -> str: ...
 def MessageToDict(
     message: Message,
@@ -28,8 +29,16 @@ def MessageToDict(
     float_precision: int | None = ...,
 ) -> dict[str, Any]: ...
 def Parse(
-    text: bytes | str, message: _MessageT, ignore_unknown_fields: bool = ..., descriptor_pool: DescriptorPool | None = ...
+    text: bytes | str,
+    message: _MessageT,
+    ignore_unknown_fields: bool = ...,
+    descriptor_pool: DescriptorPool | None = ...,
+    max_recursion_depth: int = ...,
 ) -> _MessageT: ...
 def ParseDict(
-    js_dict: Any, message: _MessageT, ignore_unknown_fields: bool = ..., descriptor_pool: DescriptorPool | None = ...
+    js_dict: Any,
+    message: _MessageT,
+    ignore_unknown_fields: bool = ...,
+    descriptor_pool: DescriptorPool | None = ...,
+    max_recursion_depth: int = ...,
 ) -> _MessageT: ...
