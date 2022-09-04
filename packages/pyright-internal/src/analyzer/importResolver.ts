@@ -63,6 +63,11 @@ export interface ModuleNameAndType {
     isLocalTypingsFile: boolean;
 }
 
+export interface ModuleNameInfoFromPath {
+    moduleName: string;
+    containsInvalidCharacters?: boolean;
+}
+
 export function createImportedModuleDescriptor(moduleName: string): ImportedModuleDescriptor {
     if (moduleName.length === 0) {
         return { leadingDots: 0, nameParts: [], importedSymbols: [] };
@@ -537,18 +542,28 @@ export class ImportResolver {
     // Returns the module name (of the form X.Y.Z) that needs to be imported
     // from the current context to access the module with the specified file path.
     // In a sense, it's performing the inverse of resolveImport.
-    getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment) {
+    getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment, allowInvalidModuleName = false) {
         // Cache results of the reverse of resolveImport as we cache resolveImport.
         const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleNameAndType>());
-        return getOrAdd(cache, filePath, () => this._getModuleNameForImport(filePath, execEnv));
+        return getOrAdd(cache, filePath, () => this._getModuleNameForImport(filePath, execEnv, allowInvalidModuleName));
     }
 
-    private _getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment): ModuleNameAndType {
+    private _getModuleNameForImport(
+        filePath: string,
+        execEnv: ExecutionEnvironment,
+        allowInvalidModuleName: boolean
+    ): ModuleNameAndType {
         let moduleName: string | undefined;
         let importType = ImportType.BuiltIn;
         let isLocalTypingsFile = false;
 
         const importFailureInfo: string[] = [];
+
+        // If we cannot find a fully-qualified module name with legal characters,
+        // look for one with invalid characters (e.g. "-"). This is important to
+        // differentiate between different modules in a project in case they
+        // declare types with the same (local) name.
+        let moduleNameWithInvalidCharacters: string | undefined;
 
         // Is this a stdlib typeshed path?
         const stdLibTypeshedPath = this._getStdlibTypeshedPath(execEnv, importFailureInfo);
@@ -569,33 +584,56 @@ export class ImportResolver {
 
         // Look for it in the root directory of the execution environment.
         if (execEnv.root) {
-            moduleName = this.getModuleNameFromPath(execEnv.root, filePath);
+            const candidateModuleNameInfo = this.getModuleNameInfoFromPath(execEnv.root, filePath);
+
+            if (candidateModuleNameInfo) {
+                if (candidateModuleNameInfo.containsInvalidCharacters) {
+                    moduleNameWithInvalidCharacters = candidateModuleNameInfo.moduleName;
+                } else {
+                    moduleName = candidateModuleNameInfo.moduleName;
+                }
+            }
+
             importType = ImportType.Local;
         }
 
         for (const extraPath of execEnv.extraPaths) {
-            const candidateModuleName = this.getModuleNameFromPath(extraPath, filePath);
+            const candidateModuleNameInfo = this.getModuleNameInfoFromPath(extraPath, filePath);
 
-            // Does this candidate look better than the previous best module name?
-            // We'll always try to use the shortest version.
-            if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
-                moduleName = candidateModuleName;
-                importType = ImportType.Local;
+            if (candidateModuleNameInfo) {
+                if (candidateModuleNameInfo.containsInvalidCharacters) {
+                    moduleNameWithInvalidCharacters = candidateModuleNameInfo.moduleName;
+                } else {
+                    // Does this candidate look better than the previous best module name?
+                    // We'll always try to use the shortest version.
+                    const candidateModuleName = candidateModuleNameInfo.moduleName;
+                    if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                        moduleName = candidateModuleName;
+                        importType = ImportType.Local;
+                    }
+                }
             }
         }
 
         // Check for a typings file.
         if (this._configOptions.stubPath) {
-            const candidateModuleName = this.getModuleNameFromPath(this._configOptions.stubPath, filePath);
+            const candidateModuleNameInfo = this.getModuleNameInfoFromPath(this._configOptions.stubPath, filePath);
 
-            // Does this candidate look better than the previous best module name?
-            // We'll always try to use the shortest version.
-            if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
-                moduleName = candidateModuleName;
+            if (candidateModuleNameInfo) {
+                if (candidateModuleNameInfo.containsInvalidCharacters) {
+                    moduleNameWithInvalidCharacters = candidateModuleNameInfo.moduleName;
+                } else {
+                    // Does this candidate look better than the previous best module name?
+                    // We'll always try to use the shortest version.
+                    const candidateModuleName = candidateModuleNameInfo.moduleName;
+                    if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                        moduleName = candidateModuleName;
 
-                // Treat the typings path as a local import so errors are reported for it.
-                importType = ImportType.Local;
-                isLocalTypingsFile = true;
+                        // Treat the typings path as a local import so errors are reported for it.
+                        importType = ImportType.Local;
+                        isLocalTypingsFile = true;
+                    }
+                }
             }
         }
 
@@ -630,19 +668,31 @@ export class ImportResolver {
 
         // Look for the import in the list of third-party packages.
         const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
-        for (const searchPath of pythonSearchPaths) {
-            const candidateModuleName = this.getModuleNameFromPath(searchPath, filePath);
 
-            // Does this candidate look better than the previous best module name?
-            // We'll always try to use the shortest version.
-            if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
-                moduleName = candidateModuleName;
-                importType = ImportType.ThirdParty;
+        for (const searchPath of pythonSearchPaths) {
+            const candidateModuleNameInfo = this.getModuleNameInfoFromPath(searchPath, filePath);
+
+            if (candidateModuleNameInfo) {
+                if (candidateModuleNameInfo.containsInvalidCharacters) {
+                    moduleNameWithInvalidCharacters = candidateModuleNameInfo.moduleName;
+                } else {
+                    // Does this candidate look better than the previous best module name?
+                    // We'll always try to use the shortest version.
+                    const candidateModuleName = candidateModuleNameInfo.moduleName;
+                    if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                        moduleName = candidateModuleName;
+                        importType = ImportType.ThirdParty;
+                    }
+                }
             }
         }
 
         if (moduleName) {
             return { moduleName, importType, isLocalTypingsFile };
+        }
+
+        if (allowInvalidModuleName && moduleNameWithInvalidCharacters) {
+            return { moduleName: moduleNameWithInvalidCharacters, importType, isLocalTypingsFile };
         }
 
         // We didn't find any module name.
@@ -1169,6 +1219,19 @@ export class ImportResolver {
         filePath: string,
         stripTopContainerDir = false
     ): string | undefined {
+        const moduleNameInfo = this.getModuleNameInfoFromPath(containerPath, filePath, stripTopContainerDir);
+        if (!moduleNameInfo || moduleNameInfo.containsInvalidCharacters) {
+            return undefined;
+        }
+
+        return moduleNameInfo.moduleName;
+    }
+
+    protected getModuleNameInfoFromPath(
+        containerPath: string,
+        filePath: string,
+        stripTopContainerDir = false
+    ): ModuleNameInfoFromPath | undefined {
         containerPath = ensureTrailingDirectorySeparator(containerPath);
         let filePathWithoutExtension = stripFileExtension(filePath);
 
@@ -1208,11 +1271,12 @@ export class ImportResolver {
         }
 
         // Check whether parts contains invalid characters.
-        if (parts.some((p) => !this._isIdentifier(p))) {
-            return undefined;
-        }
+        const containsInvalidCharacters = parts.some((p) => !this._isIdentifier(p));
 
-        return parts.join('.');
+        return {
+            moduleName: parts.join('.'),
+            containsInvalidCharacters,
+        };
     }
 
     private _resolveBestAbsoluteImport(

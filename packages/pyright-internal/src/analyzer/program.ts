@@ -789,9 +789,16 @@ export class Program {
     }
 
     private _getImportNameForFile(filePath: string) {
+        // We allow illegal module names (e.g. names that include "-" in them)
+        // because we want a unique name for each module even if it cannot be
+        // imported through an "import" statement. It's important to have a
+        // unique name in case two modules declare types with the same local
+        // name. The type checker uses the fully-qualified (unique) module name
+        // to differentiate between such types.
         const moduleNameAndType = this._importResolver.getModuleNameForImport(
             filePath,
-            this._configOptions.getDefaultExecEnvironment()
+            this._configOptions.getDefaultExecEnvironment(),
+            /* allowIllegalModuleName */ true
         );
         return moduleNameAndType.moduleName;
     }
