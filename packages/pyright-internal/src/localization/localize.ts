@@ -619,8 +619,6 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithImplementation'));
         export const overloadWithoutImplementation = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadWithoutImplementation'));
-        export const overwriteTypeParameter = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overwriteTypeParameter'));
         export const paramAfterKwargsParam = () => getRawString('Diagnostic.paramAfterKwargsParam');
         export const paramAlreadyAssigned = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramAlreadyAssigned'));

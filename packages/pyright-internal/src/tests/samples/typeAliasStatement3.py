@@ -1,5 +1,5 @@
 # This sample tests the error case where traditional type variables
-# are used in a new-style type alias statement.
+# are used in a new-style type alias statement introduced in PEP 695.
 
 from typing import TypeVar
 

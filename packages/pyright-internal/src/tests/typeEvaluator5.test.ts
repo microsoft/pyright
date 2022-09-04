@@ -17,7 +17,7 @@ test('TypeParams1', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeParams1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypeParams2', () => {
@@ -93,7 +93,7 @@ test('TypeAliasStatement1', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('TypeAliasStatement2', () => {

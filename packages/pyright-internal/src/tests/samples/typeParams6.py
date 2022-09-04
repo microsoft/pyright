@@ -1,5 +1,5 @@
 # This sample tests the interactions between traditional TypeVars and
-# new type parameter syntax.
+# PEP 695 type parameter syntax.
 
 from typing import Generic, TypeVar
 

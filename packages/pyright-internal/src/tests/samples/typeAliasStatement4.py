@@ -1,4 +1,5 @@
-# This sample tests the use of recursive (self-referencing) type aliases.
+# This sample tests the use of recursive (self-referencing) type aliases,
+# which are allowed in PEP 695.
 
 from typing import Callable
 

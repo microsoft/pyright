@@ -1,5 +1,5 @@
-# This sample tests error conditions related to the use of type parameters
-# outside of their valid scope.
+# This sample tests error conditions related to the use of PEP 695
+# type parameters outside of their valid scope.
 
 class ClassA[S]:
     s: S

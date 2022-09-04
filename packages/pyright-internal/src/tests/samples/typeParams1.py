@@ -1,6 +1,5 @@
-# This sample tests the type parameter syntax for generic classes and
-# functions. In particular, it tests various error conditions involving
-# name collisions.
+# This sample tests the PEP 695 type parameter syntax for generic classes
+# and functions.
 
 T1 = 0
 
@@ -29,7 +28,6 @@ class ClassC[T3, S1, T3]:
 def func3[T3, S1, T3]():
     ...
 
-# This should generate an error because T4 is duplicated.
 def func4[T4](T4: int):
     ...
 
@@ -52,12 +50,11 @@ def func6[T6](T7: int):
     global T2
 
     class ClassB[T2]:
-        # This should generate an error because T2 refers to a type param.
         global T2
 
 
     class ClassC[T3]:
-        ...
+        T3 = 4
 
     T3 = 4
 

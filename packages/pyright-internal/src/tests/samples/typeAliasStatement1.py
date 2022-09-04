@@ -1,4 +1,5 @@
-# This sample tests error cases associated with the "type" statement.
+# This sample tests error cases associated with the "type" statement
+# introduced in PEP 695.
 
 from typing import Callable
 
@@ -12,7 +13,6 @@ class ClassA[T2]:
 
     type TA4 = int
 
-    # This should generate an error because T2 is in use.
     T2 = 4
 
 

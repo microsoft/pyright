@@ -1,5 +1,5 @@
 # This sample tests the handling of bound and constrained type parameters
-# as specified in type parameter statements.
+# as specified in PEP 695 type parameter statements.
 
 class ClassA[**P, R: str]:
     ...

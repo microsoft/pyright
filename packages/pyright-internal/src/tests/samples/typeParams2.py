@@ -1,4 +1,4 @@
-# This sample tests that the use of type parameter syntax for generic
+# This sample tests that the use of PEP 695 type parameter syntax for generic
 # classes and functions is flagged as an error if the version of Python
 # is < 3.12.
 

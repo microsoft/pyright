@@ -1,5 +1,5 @@
 # This sample tests errors related to the use of a Generic 
-# or Protocol base class with type parameter syntax.
+# or Protocol base class with PEP 695 type parameter syntax.
 
 from typing import Generic, Protocol
 

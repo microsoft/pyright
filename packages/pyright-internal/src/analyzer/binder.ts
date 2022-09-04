@@ -3269,11 +3269,6 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindNameToScope(scope: Scope, node: NameNode, addedSymbols?: Map<string, Symbol>) {
-        // Is this name already used by an active type parameter?
-        if (this._activeTypeParams.get(node.value)) {
-            this._addError(Localizer.Diagnostic.overwriteTypeParameter().format({ name: node.value }), node);
-        }
-
         return this._bindNameValueToScope(scope, node.value, addedSymbols);
     }
 

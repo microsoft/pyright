@@ -1,4 +1,4 @@
-# This sample tests the handling of type parameter syntax used for
+# This sample tests the handling of PEP 695 type parameter syntax used for
 # bounded and constrained TypeVars, TypeVarTuples, and ParamSpecs.
 
 from typing import Any
