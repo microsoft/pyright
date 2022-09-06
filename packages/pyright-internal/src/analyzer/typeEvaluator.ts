@@ -15068,29 +15068,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // See if there's already a non-synthesized __init__ method.
             // We shouldn't override it.
             if (!skipSynthesizedInit) {
-                const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipObjectBaseClass);
+                const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
-                    if (!isClass(initSymbol.classType) || !ClassType.isBuiltIn(initSymbol.classType, 'NamedTuple')) {
-                        const initSymbolType = getTypeOfMember(initSymbol);
-                        if (isFunction(initSymbolType)) {
-                            if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
-                                hasExistingInitMethod = true;
-                            }
-                        } else {
+                    const initSymbolType = getTypeOfMember(initSymbol);
+                    if (isFunction(initSymbolType)) {
+                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
                             hasExistingInitMethod = true;
                         }
+                    } else {
+                        hasExistingInitMethod = true;
                     }
                 }
             }
 
             let skipSynthesizeHash = false;
-            const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipObjectBaseClass);
+            const hashSymbol = lookUpClassMember(classType, '__hash__', ClassMemberLookupFlags.SkipBaseClasses);
             if (hashSymbol) {
-                if (!isClass(hashSymbol.classType) || !ClassType.isBuiltIn(hashSymbol.classType, 'NamedTuple')) {
-                    const hashSymbolType = getTypeOfMember(hashSymbol);
-                    if (isFunction(hashSymbolType) && !FunctionType.isSynthesizedMethod(hashSymbolType)) {
-                        skipSynthesizeHash = true;
-                    }
+                const hashSymbolType = getTypeOfMember(hashSymbol);
+                if (isFunction(hashSymbolType) && !FunctionType.isSynthesizedMethod(hashSymbolType)) {
+                    skipSynthesizeHash = true;
                 }
             }
 

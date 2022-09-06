@@ -76,22 +76,3 @@ v2 = c2_1 < c2_2
 # This should generate an error because Customer2 supports
 # keyword-only parameters for its constructor.
 c2_3 = Customer2(0, "John")
-
-
-@dataclass_transform(kw_only_default=True)
-class M(type):
-    ...
-
-
-class A(metaclass=M):
-    a: str
-
-    def __init__(self, a: str):
-        self.a = a
-
-
-class B(A):
-    ...
-
-
-B("test")
