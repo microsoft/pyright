@@ -55,7 +55,14 @@ export function assertEachDefined<T>(
 }
 
 export function assertNever(member: never, message = 'Illegal value:', stackCrawlMark?: AnyFunction): never {
-    const detail = JSON.stringify(member);
+    let detail = '';
+
+    try {
+        detail = JSON.stringify(member);
+    } catch {
+        // Do nothing.
+    }
+
     fail(`${message} ${detail}`, stackCrawlMark || assertNever);
 }
 
