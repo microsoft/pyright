@@ -156,9 +156,11 @@ export class Scope {
 
         if (this.notLocalBindings.get(name) === NameBindingType.Global) {
             const globalScopeResult = this.getGlobalScope();
-            parentScope = globalScopeResult.scope;
-            if (globalScopeResult.isBeyondExecutionScope) {
-                isNextScopeBeyondExecutionScope = true;
+            if (globalScopeResult.scope !== this) {
+                parentScope = globalScopeResult.scope;
+                if (globalScopeResult.isBeyondExecutionScope) {
+                    isNextScopeBeyondExecutionScope = true;
+                }
             }
         } else {
             parentScope = this.parent;
