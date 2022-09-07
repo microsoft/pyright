@@ -72,11 +72,17 @@ export function printType(
     type: Type,
     printTypeFlags: PrintTypeFlags,
     returnTypeCallback: FunctionReturnTypeCallback,
-    recursionTypes: Type[] = []
+    recursionTypes: Type[] = [],
+    recursionCount = 0
 ): string {
     const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
     const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
     printTypeFlags &= ~(PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable);
+
+    if (recursionCount > maxTypeRecursionCount) {
+        return '<Recursive>';
+    }
+    recursionCount++;
 
     // If this is a type alias, see if we should use its name rather than
     // the type it represents.
@@ -124,13 +130,20 @@ export function printType(
                                                 tupleTypeArg.type,
                                                 printTypeFlags,
                                                 returnTypeCallback,
-                                                recursionTypes
+                                                recursionTypes,
+                                                recursionCount
                                             )
                                         );
                                     });
                                 } else {
                                     argumentStrings!.push(
-                                        printType(typeArg, printTypeFlags, returnTypeCallback, recursionTypes)
+                                        printType(
+                                            typeArg,
+                                            printTypeFlags,
+                                            returnTypeCallback,
+                                            recursionTypes,
+                                            recursionCount
+                                        )
                                     );
                                 }
                             });
@@ -143,7 +156,13 @@ export function printType(
                             argumentStrings = [];
                             typeParams.forEach((typeParam) => {
                                 argumentStrings!.push(
-                                    printType(typeParam, printTypeFlags, returnTypeCallback, recursionTypes)
+                                    printType(
+                                        typeParam,
+                                        printTypeFlags,
+                                        returnTypeCallback,
+                                        recursionTypes,
+                                        recursionCount
+                                    )
                                 );
                             });
                         }
@@ -195,7 +214,8 @@ export function printType(
                     type,
                     printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,
                     returnTypeCallback,
-                    recursionTypes
+                    recursionTypes,
+                    recursionCount
                 );
             } finally {
                 recursionTypes.pop();
@@ -276,7 +296,7 @@ export function printType(
             case TypeCategory.OverloadedFunction: {
                 const overloadedType = type;
                 const overloads = overloadedType.overloads.map((overload) =>
-                    printType(overload, printTypeFlags, returnTypeCallback, recursionTypes)
+                    printType(overload, printTypeFlags, returnTypeCallback, recursionTypes, recursionCount)
                 );
                 return `Overload[${overloads.join(', ')}]`;
             }
@@ -329,7 +349,13 @@ export function printType(
 
                         if (matchedAllSubtypes && !allSubtypesPreviouslyHandled) {
                             subtypeStrings.add(
-                                printType(typeAliasSource, updatedPrintTypeFlags, returnTypeCallback, recursionTypes)
+                                printType(
+                                    typeAliasSource,
+                                    updatedPrintTypeFlags,
+                                    returnTypeCallback,
+                                    recursionTypes,
+                                    recursionCount
+                                )
                             );
                             indicesCoveredByTypeAlias.forEach((index) => subtypeHandledSet.add(index));
                         }
@@ -347,7 +373,8 @@ export function printType(
                         typeWithoutNone,
                         updatedPrintTypeFlags,
                         returnTypeCallback,
-                        recursionTypes
+                        recursionTypes,
+                        recursionCount
                     );
 
                     if (printTypeFlags & PrintTypeFlags.PEP604) {
@@ -371,7 +398,13 @@ export function printType(
                             literalClassStrings.add(printLiteralValue(subtype));
                         } else {
                             subtypeStrings.add(
-                                printType(subtype, updatedPrintTypeFlags, returnTypeCallback, recursionTypes)
+                                printType(
+                                    subtype,
+                                    updatedPrintTypeFlags,
+                                    returnTypeCallback,
+                                    recursionTypes,
+                                    recursionCount
+                                )
                             );
                         }
                     }
@@ -423,7 +456,8 @@ export function printType(
                                     : type.details.boundType,
                                 printTypeFlags,
                                 returnTypeCallback,
-                                recursionTypes
+                                recursionTypes,
+                                recursionCount
                             );
                         }
                         return type.details.recursiveTypeAliasName;
@@ -437,7 +471,8 @@ export function printType(
                             type.details.boundType,
                             printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,
                             returnTypeCallback,
-                            recursionTypes
+                            recursionTypes,
+                            recursionCount
                         );
 
                         if (!isAnyOrUnknown(type.details.boundType)) {
@@ -546,7 +581,8 @@ export function printObjectTypeForClass(
     type: ClassType,
     printTypeFlags: PrintTypeFlags,
     returnTypeCallback: FunctionReturnTypeCallback,
-    recursionTypes: Type[] = []
+    recursionTypes: Type[] = [],
+    recursionCount = 0
 ): string {
     let objName = type.aliasName || type.details.name;
 
@@ -596,7 +632,8 @@ export function printObjectTypeForClass(
                                         typeArg.type,
                                         printTypeFlags,
                                         returnTypeCallback,
-                                        recursionTypes
+                                        recursionTypes,
+                                        recursionCount
                                     );
                                     if (typeArg.isUnbounded) {
                                         return `*tuple[${typeArgText}, ...]`;
@@ -615,7 +652,8 @@ export function printObjectTypeForClass(
                             typeArg.type,
                             printTypeFlags,
                             returnTypeCallback,
-                            recursionTypes
+                            recursionTypes,
+                            recursionCount
                         );
 
                         if (typeArg.isUnbounded) {
@@ -652,7 +690,13 @@ export function printObjectTypeForClass(
                         '[' +
                         typeParams
                             .map((typeParam) => {
-                                return printType(typeParam, printTypeFlags, returnTypeCallback, recursionTypes);
+                                return printType(
+                                    typeParam,
+                                    printTypeFlags,
+                                    returnTypeCallback,
+                                    recursionTypes,
+                                    recursionCount
+                                );
                             })
                             .join(', ') +
                         ']';
@@ -668,7 +712,8 @@ export function printFunctionParts(
     type: FunctionType,
     printTypeFlags: PrintTypeFlags,
     returnTypeCallback: FunctionReturnTypeCallback,
-    recursionTypes: Type[] = []
+    recursionTypes: Type[] = [],
+    recursionCount = 0
 ): [string[], string] {
     const paramTypeStrings: string[] = [];
     let sawDefinedName = false;
@@ -687,7 +732,13 @@ export function printFunctionParts(
                 specializedParamType.tupleTypeArguments
             ) {
                 specializedParamType.tupleTypeArguments.forEach((paramType) => {
-                    const paramString = printType(paramType.type, printTypeFlags, returnTypeCallback, recursionTypes);
+                    const paramString = printType(
+                        paramType.type,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        recursionTypes,
+                        recursionCount
+                    );
                     paramTypeStrings.push(paramString);
                 });
                 return;
@@ -717,7 +768,7 @@ export function printFunctionParts(
                 const paramType = FunctionType.getEffectiveParameterType(type, index);
                 const paramTypeString =
                     recursionTypes.length < maxTypeRecursionCount
-                        ? printType(paramType, printTypeFlags, returnTypeCallback, recursionTypes)
+                        ? printType(paramType, printTypeFlags, returnTypeCallback, recursionTypes, recursionCount)
                         : '';
 
                 if (!param.isNameSynthesized) {
@@ -784,7 +835,7 @@ export function printFunctionParts(
 
     if (type.details.paramSpec) {
         paramTypeStrings.push(
-            `**${printType(type.details.paramSpec, printTypeFlags, returnTypeCallback, recursionTypes)}`
+            `**${printType(type.details.paramSpec, printTypeFlags, returnTypeCallback, recursionTypes, recursionCount)}`
         );
     }
 
@@ -795,7 +846,8 @@ export function printFunctionParts(
                   returnType,
                   printTypeFlags | PrintTypeFlags.ParenthesizeUnion | PrintTypeFlags.ParenthesizeCallable,
                   returnTypeCallback,
-                  recursionTypes
+                  recursionTypes,
+                  recursionCount
               )
             : '';
 
