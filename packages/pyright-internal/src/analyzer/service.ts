@@ -634,25 +634,41 @@ export class AnalyzerService {
             commandLineOptions.extraPaths
         );
 
+        this._configFilePath = configFilePath || pyprojectFilePath;
+
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
                 configOptions.include.push(getFileSpec(this.fs, projectRoot, fileSpec));
             });
-        } else if (!configFilePath) {
-            // If no config file was found and there are no explicit include
-            // paths specified, assume the caller wants to include all source
-            // files under the execution root path.
-            if (commandLineOptions.executionRoot) {
-                configOptions.include.push(getFileSpec(this.fs, commandLineOptions.executionRoot, '.'));
+        }
 
+        if (commandLineOptions.excludeFileSpecs.length > 0) {
+            commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
+                configOptions.exclude.push(getFileSpec(this.fs, projectRoot, fileSpec));
+            });
+        }
+
+        if (commandLineOptions.ignoreFileSpecs.length > 0) {
+            commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
+                configOptions.ignore.push(getFileSpec(this.fs, projectRoot, fileSpec));
+            });
+        }
+
+        if (!this._configFilePath && commandLineOptions.executionRoot) {
+            if (commandLineOptions.fileSpecs.length === 0) {
+                // If no config file was found and there are no explicit include
+                // paths specified, assume the caller wants to include all source
+                // files under the execution root path.
+                configOptions.include.push(getFileSpec(this.fs, commandLineOptions.executionRoot, '.'));
+            }
+
+            if (commandLineOptions.excludeFileSpecs.length === 0) {
                 // Add a few common excludes to avoid long scan times.
                 defaultExcludes.forEach((exclude) => {
                     configOptions.exclude.push(getFileSpec(this.fs, commandLineOptions.executionRoot, exclude));
                 });
             }
         }
-
-        this._configFilePath = configFilePath || pyprojectFilePath;
 
         // If we found a config file, parse it to compute the effective options.
         let configJsonObj: object | undefined;

@@ -256,7 +256,12 @@ test('getFullStatementRange', () => {
     const code = `
 //// [|/*marker1*/import a
 //// |][|/*marker2*/a = 1; |][|/*marker3*/b = 2
-//// |][|/*marker4*/if True:
+//// |]
+//// try:
+//// [|    /*marker4*/a = 1
+//// |]except Exception:
+////     pass
+//// [|/*marker5*/if True:
 ////     pass|]
     `;
 
@@ -265,7 +270,8 @@ test('getFullStatementRange', () => {
     testRange(state, 'marker1', ParseNodeType.Import);
     testRange(state, 'marker2', ParseNodeType.Assignment);
     testRange(state, 'marker3', ParseNodeType.Assignment);
-    testRange(state, 'marker4', ParseNodeType.If);
+    testRange(state, 'marker4', ParseNodeType.Assignment);
+    testRange(state, 'marker5', ParseNodeType.If);
 
     function testRange(state: TestState, markerName: string, type: ParseNodeType) {
         const range = state.getRangeByMarkerName(markerName)!;

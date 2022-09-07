@@ -364,7 +364,7 @@ class RealFileSystem implements FileSystem {
             return realPath.substr(0, rootLength).toLowerCase() + realPath.substr(rootLength);
         } catch (e: any) {
             // Return as it is, if anything failed.
-            this._console.error(`Failed to get real file system casing for ${path}: ${e}`);
+            this._console.log(`Failed to get real file system casing for ${path}: ${e}`);
 
             return path;
         }

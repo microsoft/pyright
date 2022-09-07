@@ -439,6 +439,35 @@ test('implicitly load ipython display module', async () => {
     });
 });
 
+test('magics at the end', async () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// from random import random
+//// def estimate_pi(n=1e7) -> "area":
+////     """Estimate pi with monte carlo simulation.
+////     
+////     Arguments:
+////         n: number of simulations
+////     """
+////     in_circle = 0
+////     total = n
+////     
+////     while n != 0:
+////         prec_x = random()
+////         prec_y = random()
+////         if pow(prec_x, 2) + pow(prec_y, 2) <= 1:
+////             in_circle += 1 # inside the circle
+////         n -= 1
+////         
+////     return 4 * in_circle / total
+//// 
+//// [|/*marker*/%time estimate_pi()|]
+    `;
+
+    testIPython(code);
+});
+
 function testIPython(code: string, expectMagic = true) {
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;

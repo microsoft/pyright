@@ -149,5 +149,9 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.extraPaths = serverSettings.extraPaths;
     commandLineOptions.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;
 
+    commandLineOptions.fileSpecs = serverSettings.fileSpecs ?? [];
+    commandLineOptions.excludeFileSpecs = serverSettings.excludeFileSpecs ?? [];
+    commandLineOptions.ignoreFileSpecs = serverSettings.ignoreFileSpecs ?? [];
+
     return commandLineOptions;
 }

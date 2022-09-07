@@ -12,6 +12,7 @@
 
 import Char from 'typescript-char';
 
+import { isWhitespace } from '../analyzer/parseTreeUtils';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -1051,7 +1052,7 @@ export class Tokenizer {
     private _isIPythonMagics() {
         const prevToken = this._tokens.length > 0 ? this._tokens[this._tokens.length - 1] : undefined;
         return (
-            (prevToken === undefined || prevToken.type === TokenType.NewLine || prevToken.type === TokenType.Indent) &&
+            (prevToken === undefined || isWhitespace(prevToken)) &&
             (this._cs.currentChar === Char.Percent || this._cs.currentChar === Char.ExclamationMark)
         );
     }

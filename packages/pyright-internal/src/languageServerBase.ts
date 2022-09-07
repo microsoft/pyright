@@ -138,6 +138,9 @@ export interface ServerSettings {
     indexing?: boolean | undefined;
     logTypeEvaluationTime?: boolean | undefined;
     typeEvaluationTimeThreshold?: number | undefined;
+    fileSpecs?: string[];
+    excludeFileSpecs?: string[];
+    ignoreFileSpecs?: string[];
 }
 
 export enum WellKnownWorkspaceKinds {
@@ -640,11 +643,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 this._workspaceMap.delete(rootPath);
             });
 
-            event.added.forEach(async (workspace) => {
+            event.added.forEach((workspace) => {
                 const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
                 const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath, rootPath);
                 this._workspaceMap.set(rootPath, newWorkspace);
-                await this.updateSettingsForWorkspace(newWorkspace);
+                this.updateSettingsForWorkspace(newWorkspace).ignoreErrors();
             });
 
             this._setupFileWatcher();
@@ -1612,27 +1615,4 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected abstract createProgressReporter(): ProgressReporter;
-
-    // Expands certain predefined variables supported within VS Code settings.
-    // Ideally, VS Code would provide an API for doing this expansion, but
-    // it doesn't. We'll handle the most common variables here as a convenience.
-    protected expandPathVariables(rootPath: string, value: string): string {
-        const regexp = /\$\{(.*?)\}/g;
-        return value.replace(regexp, (match: string, name: string) => {
-            const trimmedName = name.trim();
-            if (trimmedName === 'workspaceFolder') {
-                return rootPath;
-            }
-            if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) {
-                return process.env.HOME;
-            }
-            if (trimmedName === 'env:USERNAME' && process.env.USERNAME !== undefined) {
-                return process.env.USERNAME;
-            }
-            if (trimmedName === 'env:VIRTUAL_ENV' && process.env.VIRTUAL_ENV !== undefined) {
-                return process.env.VIRTUAL_ENV;
-            }
-            return match;
-        });
-    }
 }
