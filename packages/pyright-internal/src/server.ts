@@ -25,6 +25,7 @@ import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
+import { expandPathVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
 import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
@@ -96,7 +97,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
                     serverSettings.pythonPath = resolvePaths(
                         workspace.rootPath,
-                        this.expandPathVariables(workspace.rootPath, pythonPath)
+                        expandPathVariables(workspace.rootPath, pythonPath)
                     );
                 }
 
@@ -105,7 +106,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (venvPath && isString(venvPath)) {
                     serverSettings.venvPath = resolvePaths(
                         workspace.rootPath,
-                        this.expandPathVariables(workspace.rootPath, venvPath)
+                        expandPathVariables(workspace.rootPath, venvPath)
                     );
                 }
             }
@@ -118,7 +119,7 @@ export class PyrightServer extends LanguageServerBase {
                     if (typeshedPath && isString(typeshedPath)) {
                         serverSettings.typeshedPath = resolvePaths(
                             workspace.rootPath,
-                            this.expandPathVariables(workspace.rootPath, typeshedPath)
+                            expandPathVariables(workspace.rootPath, typeshedPath)
                         );
                     }
                 }
@@ -127,7 +128,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (stubPath && isString(stubPath)) {
                     serverSettings.stubPath = resolvePaths(
                         workspace.rootPath,
-                        this.expandPathVariables(workspace.rootPath, stubPath)
+                        expandPathVariables(workspace.rootPath, stubPath)
                     );
                 }
 
@@ -159,7 +160,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, p)));
+                        .map((p) => resolvePaths(workspace.rootPath, expandPathVariables(workspace.rootPath, p)));
                 }
 
                 if (pythonAnalysisSection.typeCheckingMode !== undefined) {

@@ -44,6 +44,15 @@ export class CommandLineOptions {
     // are included.
     fileSpecs: string[] = [];
 
+    // A list of file specs to exclude in the analysis. Can contain
+    // directories, in which case all "*.py" files within those directories
+    // are excluded.
+    excludeFileSpecs: string[] = [];
+
+    // A list of file specs whose errors and warnings should be ignored even
+    // if they are included in the transitive closure of included files.
+    ignoreFileSpecs: string[] = [];
+
     // Watch for changes in workspace source files.
     watchForSourceChanges?: boolean | undefined;
 

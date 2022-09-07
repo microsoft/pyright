@@ -1639,7 +1639,7 @@ export function getTokenAtLeft(
     return tokens.getItemAt(index);
 }
 
-function isWhitespace(token: Token) {
+export function isWhitespace(token: Token) {
     return token.type === TokenType.NewLine || token.type === TokenType.Indent || token.type === TokenType.Dedent;
 }
 
@@ -2228,23 +2228,28 @@ export function getStringValueRange(token: StringToken) {
 export function getFullStatementRange(statementNode: ParseNode, tokenizerOutput: TokenizerOutput): Range {
     const range = convertTextRangeToRange(statementNode, tokenizerOutput.lines);
 
+    const start = _getStartPositionIfMultipleStatementsAreOnSameLine(range, statementNode.start, tokenizerOutput) ?? {
+        line: range.start.line,
+        character: 0,
+    };
+
     // First, see whether there are other tokens except semicolon or new line on the same line.
-    const endPosition = _getEndPositionIfMultipleStatementsAreOnSameLine(
+    const end = _getEndPositionIfMultipleStatementsAreOnSameLine(
         range,
         TextRange.getEnd(statementNode),
         tokenizerOutput
     );
 
-    if (endPosition) {
-        return { start: range.start, end: endPosition };
+    if (end) {
+        return { start, end };
     }
 
     // If not, delete the whole line.
     if (range.end.line === tokenizerOutput.lines.count - 1) {
-        return range;
+        return { start, end: range.end };
     }
 
-    return { start: range.start, end: { line: range.end.line + 1, character: 0 } };
+    return { start, end: { line: range.end.line + 1, character: 0 } };
 }
 
 export function isUnannotatedFunction(node: FunctionNode) {
@@ -2277,6 +2282,55 @@ export function operatorSupportsChaining(op: OperatorType) {
     return false;
 }
 
+// If the statement is a part of multiple statements on the same line
+// and the statement is not the first statement on the line, then it will return
+// appropriate start position. otherwise, return undefined.
+// ex) a = 1; [|b = 1|]
+function _getStartPositionIfMultipleStatementsAreOnSameLine(
+    range: Range,
+    tokenPosition: number,
+    tokenizerOutput: TokenizerOutput
+): Position | undefined {
+    const tokenIndex = tokenizerOutput.tokens.getItemAtPosition(tokenPosition);
+    if (tokenIndex < 0) {
+        return undefined;
+    }
+
+    // Find the last token index on the previous line or the first token.
+    let currentIndex = tokenIndex;
+    for (; currentIndex > 0; currentIndex--) {
+        const token = tokenizerOutput.tokens.getItemAt(currentIndex);
+        const tokenRange = convertTextRangeToRange(token, tokenizerOutput.lines);
+        if (tokenRange.end.line !== range.start.line) {
+            break;
+        }
+    }
+
+    // Find the previous token of the first token of the statement.
+    for (let index = tokenIndex - 1; index > currentIndex; index--) {
+        const token = tokenizerOutput.tokens.getItemAt(index);
+
+        // Eat up indentation
+        if (token.type === TokenType.Indent || token.type === TokenType.Dedent) {
+            continue;
+        }
+
+        // If previous token is new line, use default.
+        if (token.type === TokenType.NewLine) {
+            return undefined;
+        }
+
+        // Anything else (ex, semicolon), use statement start as it is.
+        return range.start;
+    }
+
+    return undefined;
+}
+
+// If the statement is a part of multiple statements on the same line
+// and the statement is not the last statement on the line, then it will return
+// appropriate end position. otherwise, return undefined.
+// ex) [|a = 1|]; b = 1
 function _getEndPositionIfMultipleStatementsAreOnSameLine(
     range: Range,
     tokenPosition: number,
@@ -2287,6 +2341,7 @@ function _getEndPositionIfMultipleStatementsAreOnSameLine(
         return undefined;
     }
 
+    // Find the first token index on the next line or the last token.
     let currentIndex = tokenIndex;
     for (; currentIndex < tokenizerOutput.tokens.count; currentIndex++) {
         const token = tokenizerOutput.tokens.getItemAt(currentIndex);
@@ -2296,9 +2351,12 @@ function _getEndPositionIfMultipleStatementsAreOnSameLine(
         }
     }
 
+    // Find the next token of the last token of the statement.
     let foundStatementEnd = false;
     for (let index = tokenIndex; index < currentIndex; index++) {
         const token = tokenizerOutput.tokens.getItemAt(index);
+
+        // Eat up semicolon or new line.
         if (token.type === TokenType.Semicolon || token.type === TokenType.NewLine) {
             foundStatementEnd = true;
             continue;
