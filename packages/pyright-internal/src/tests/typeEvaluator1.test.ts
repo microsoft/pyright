@@ -1388,3 +1388,9 @@ test('StaticExpressions1', () => {
     const analysisResults3 = TestUtils.typeAnalyzeSampleFiles(['staticExpressions1.py'], configOptions);
     TestUtils.validateResults(analysisResults3, 0);
 });
+
+test('SpecialForm1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});

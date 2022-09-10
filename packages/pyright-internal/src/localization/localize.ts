@@ -273,6 +273,10 @@ export namespace Localizer {
                 getRawString('Diagnostic.clsSelfParamTypeMismatch')
             );
         export const codeTooComplexToAnalyze = () => getRawString('Diagnostic.codeTooComplexToAnalyze');
+        export const collectionAliasInstantiation = () =>
+            new ParameterizedString<{ type: string; alias: string }>(
+                getRawString('Diagnostic.collectionAliasInstantiation')
+            );
         export const comparisonAlwaysFalse = () =>
             new ParameterizedString<{ leftType: string; rightType: string }>(
                 getRawString('Diagnostic.comparisonAlwaysFalse')

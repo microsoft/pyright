@@ -747,6 +747,8 @@ export class Checker extends ParseTreeWalker {
 
         this._validateIllegalDefaultParamInitializer(node);
 
+        this._validateStandardCollectionInstantiation(node);
+
         if (
             this._fileInfo.diagnosticRuleSet.reportUnusedCallResult !== 'none' ||
             this._fileInfo.diagnosticRuleSet.reportUnusedCoroutine !== 'none'
@@ -1571,6 +1573,32 @@ export class Checker extends ParseTreeWalker {
                     DiagnosticRule.reportCallInDefaultInitializer,
                     Localizer.Diagnostic.defaultValueContainsCall(),
                     node
+                );
+            }
+        }
+    }
+
+    private _validateStandardCollectionInstantiation(node: CallNode) {
+        const leftType = this._evaluator.getType(node.leftExpression);
+
+        if (
+            leftType &&
+            isInstantiableClass(leftType) &&
+            ClassType.isBuiltIn(leftType) &&
+            !leftType.includeSubclasses &&
+            leftType.aliasName
+        ) {
+            const nonInstantiable = ['List', 'Set', 'Dict', 'Tuple'];
+
+            if (nonInstantiable.some((name) => name === leftType.aliasName)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.collectionAliasInstantiation().format({
+                        type: leftType.aliasName,
+                        alias: leftType.details.name,
+                    }),
+                    node.leftExpression
                 );
             }
         }

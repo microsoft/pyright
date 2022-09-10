@@ -35,12 +35,6 @@ T_TypeVar = TypeVar("T_TypeVar")
 T_TypeVar()
 
 
-T_Tuple1 = Tuple[int, ...]
-
-# This should generate an error
-T_Tuple1([3, 4])
-
-
 I = int
 
 I(3)
