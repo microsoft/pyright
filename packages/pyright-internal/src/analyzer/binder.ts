@@ -835,7 +835,15 @@ export class Binder extends ParseTreeWalker {
             }
         }
 
-        this.walk(node.rightExpression);
+        // If this is an annotated variable assignment within a class body,
+        // we need to evaluate the type annotation first.
+        const bindVariableBeforeRhsEvaluation =
+            node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+            ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true) !== undefined;
+
+        if (!bindVariableBeforeRhsEvaluation) {
+            this.walk(node.rightExpression);
+        }
 
         let isPossibleTypeAlias = true;
         if (ParseTreeUtils.getEnclosingFunction(node)) {
@@ -856,6 +864,10 @@ export class Binder extends ParseTreeWalker {
 
         // If we didn't create assignment target flow nodes above, do so now.
         this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
+
+        if (bindVariableBeforeRhsEvaluation) {
+            this.walk(node.rightExpression);
+        }
 
         // Is this an assignment to dunder all?
         if (this._currentScope.type === ScopeType.Module) {
@@ -1084,13 +1096,7 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
-        // We normally want to walk the type annotation first so it is "before"
-        // the target in the code flow graph, but this is reversed for class variables
-        // declared within a class body.
-        const evaluateAnnotationAfterAssignment = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
-        if (!evaluateAnnotationAfterAssignment) {
-            this.walk(node.typeAnnotation);
-        }
+        this.walk(node.typeAnnotation);
 
         this._createVariableAnnotationFlowNode();
 
@@ -1110,10 +1116,6 @@ export class Binder extends ParseTreeWalker {
         }
 
         this.walk(node.valueExpression);
-
-        if (evaluateAnnotationAfterAssignment) {
-            this.walk(node.typeAnnotation);
-        }
 
         return false;
     }

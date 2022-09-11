@@ -3,6 +3,7 @@
 
 from typing import Optional, Type, Union
 import uuid
+from datetime import datetime
 
 
 class ClassA:
@@ -84,9 +85,8 @@ class ClassG:
 
 
 class ClassH:
-    # This should generate two errors because uuid refers to the local
-    # symbol in this case, which is a circular reference, and variables
-    # are not allowed in an annotation.
+    # This should generate an error because uuid refers to the local
+    # symbol in this case, which is a circular reference.
     uuid: uuid.UUID = uuid.uuid4()
 
 
@@ -109,3 +109,7 @@ def func12(x: Type[int]):
 
 # This should generate an error because foo isn't defined.
 foo: int = foo
+
+
+class ClassJ:
+    datetime: datetime
