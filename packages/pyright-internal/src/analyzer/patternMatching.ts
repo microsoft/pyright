@@ -212,7 +212,7 @@ function narrowTypeBasedOnSequencePattern(
                     }
                 }
             } else {
-                if (!isNever(narrowedEntryType) || isAnyOrUnknown(entryType)) {
+                if (!isNever(narrowedEntryType)) {
                     isDefiniteMatch = false;
                 }
             }

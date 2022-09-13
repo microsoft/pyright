@@ -338,3 +338,13 @@ def test_negative_narrowing2(subj: tuple[int, ...]):
         case d:
             reveal_type(subj, expected_text="Never")
             reveal_type(d, expected_text="Never")
+
+
+def test_negative_narrowing3(subj: tuple[Any, Any]):
+    match subj:
+        case (a, b):
+            reveal_type(a, expected_text="Any")
+            reveal_type(b, expected_text="Any")
+
+        case x:
+            reveal_type(x, expected_text="Never")
