@@ -13,7 +13,7 @@ import { getFirstAncestorOrSelf } from '../analyzer/parseTreeUtils';
 import { isPrivateName } from '../analyzer/symbolNameUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { TextRange } from '../common/textRange';
-import { ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
+import { MatchNode, ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface InsertionOptions {
@@ -62,13 +62,13 @@ export function getInsertionPointForSymbolUnderModule(
     return TextRange.getEnd(lastStatement);
 }
 
-export function getContainer(node: ParseNode, includeSelf = true): SuiteNode | undefined {
+export function getContainer(node: ParseNode, includeSelf = true): SuiteNode | MatchNode | undefined {
     return getFirstAncestorOrSelf(node, (n) => {
         if (!includeSelf && node === n) {
             return false;
         }
 
-        return n.nodeType === ParseNodeType.Suite;
+        return n.nodeType === ParseNodeType.Suite || n.nodeType === ParseNodeType.Match;
     }) as SuiteNode | undefined;
 }
 

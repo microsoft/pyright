@@ -12726,12 +12726,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Remove any expected subtypes that don't satisfy the minimum
             // parameter count requirement.
             expectedFunctionTypes = expectedFunctionTypes.filter((functionType) => {
-                const functionParamCount = functionType.details.parameters.filter(
-                    (param) => !!param.name && !param.hasDefault
-                ).length;
-                const hasVarArgs = functionType.details.parameters.some(
-                    (param) => !!param.name && param.category !== ParameterCategory.Simple
-                );
+                const params = FunctionType.getFunctionParameters(functionType);
+                const functionParamCount = params.filter((param) => !param.hasDefault).length;
+                const hasVarArgs = params.some((param) => param.category !== ParameterCategory.Simple);
                 return (
                     hasVarArgs ||
                     (functionParamCount >= minLambdaParamCount && functionParamCount <= maxLambdaParamCount)
@@ -22827,10 +22824,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const effectiveSrcType = (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? srcType : destType;
 
             if (effectiveDestType.details.paramSpec) {
-                const requiredMatchParamCount = effectiveDestType.details.parameters.filter((p) => {
-                    if (!p.name) {
-                        return false;
-                    }
+                const requiredMatchParamCount = FunctionType.getFunctionParameters(effectiveDestType).filter((p) => {
                     if (p.category === ParameterCategory.Simple && isParamSpec(p.type)) {
                         return false;
                     }
