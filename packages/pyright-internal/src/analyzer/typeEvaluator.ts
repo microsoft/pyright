@@ -17369,7 +17369,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return;
             }
 
-            getTypeOfAnnotation(annotationNode);
+            getTypeOfAnnotation(annotationNode, {
+                isVariableAnnotation: annotationNode.parent?.nodeType === ParseNodeType.TypeAnnotation,
+            });
             return;
         }
 

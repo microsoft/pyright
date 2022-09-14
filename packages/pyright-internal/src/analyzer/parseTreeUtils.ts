@@ -988,13 +988,6 @@ export function getParentAnnotationNode(node: ExpressionNode): ExpressionNode | 
             return undefined;
         }
 
-        if (curNode.nodeType === ParseNodeType.StringList) {
-            if (prevNode === curNode.typeAnnotation) {
-                return prevNode;
-            }
-            return undefined;
-        }
-
         prevNode = curNode;
         curNode = curNode.parent;
     }
