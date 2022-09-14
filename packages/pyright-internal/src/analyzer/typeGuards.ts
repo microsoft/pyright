@@ -1136,7 +1136,14 @@ function narrowTypeForIsInstance(
                             ]) as ClassType;
                         }
 
-                        const newClassInstanceType = ClassType.cloneAsInstance(newClassType);
+                        let newClassInstanceType = ClassType.cloneAsInstance(newClassType);
+
+                        if (varType.condition) {
+                            newClassInstanceType = addConditionToType(
+                                newClassInstanceType,
+                                varType.condition
+                            ) as ClassType;
+                        }
 
                         // If this is a issubclass check, we do a double conversion from instantiable
                         // to instance back to instantiable to make sure that the includeSubclasses flag
