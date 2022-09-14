@@ -29,7 +29,7 @@ requires_string(type2)
 # is later declared as a TypeAlias.
 my_type3 = int
 
-my_type3: TA = Union[int, str]
+my_type3: "TA" = Union[int, str]
 
 # This should generate an error because the symbol
 # was previously declared as a TypeAlias.

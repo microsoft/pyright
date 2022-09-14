@@ -3731,17 +3731,24 @@ export class Binder extends ParseTreeWalker {
         importAliases: string[],
         symbolAliases: Map<string, string>
     ) {
-        if (typeAnnotation.nodeType === ParseNodeType.Name) {
-            const alias = symbolAliases.get(typeAnnotation.value);
+        let annotationNode = typeAnnotation;
+
+        // Is this a quoted annotation?
+        if (annotationNode.nodeType === ParseNodeType.StringList && annotationNode.typeAnnotation) {
+            annotationNode = annotationNode.typeAnnotation;
+        }
+
+        if (annotationNode.nodeType === ParseNodeType.Name) {
+            const alias = symbolAliases.get(annotationNode.value);
             if (alias === name) {
                 return true;
             }
-        } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
+        } else if (annotationNode.nodeType === ParseNodeType.MemberAccess) {
             if (
-                typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                typeAnnotation.memberName.value === name
+                annotationNode.leftExpression.nodeType === ParseNodeType.Name &&
+                annotationNode.memberName.value === name
             ) {
-                const baseName = typeAnnotation.leftExpression.value;
+                const baseName = annotationNode.leftExpression.value;
                 return importAliases.some((alias) => alias === baseName);
             }
         }

@@ -5,7 +5,7 @@ from typing import Literal, TypeAlias, TypeVar
 
 Mode = Literal["read", "write"]
 T = TypeVar("T")
-Entry: TypeAlias = dict[T, int]
+Entry: "TypeAlias" = dict[T, int]
 Entry2: TypeAlias = dict[Mode, int]
 
 
