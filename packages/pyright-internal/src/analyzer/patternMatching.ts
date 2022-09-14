@@ -624,7 +624,7 @@ function narrowTypeBasedOnClassPattern(
                                                 matchTypeInstance,
                                                 subjectSubtypeExpanded,
                                                 typeVarContext,
-                                                []
+                                                /* liveTypeVarScopes */ undefined
                                             )
                                         ) {
                                             resultType = applySolvedTypeVars(
