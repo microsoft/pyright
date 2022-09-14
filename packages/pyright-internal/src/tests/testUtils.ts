@@ -172,6 +172,17 @@ export function typeAnalyzeSampleFiles(
         nameTypeWalker.walk(parseResults.parseTree);
     });
 
+    return getAnalysisResults(program, filePaths, configOptions);
+}
+
+export function getAnalysisResults(
+    program: Program,
+    filePaths: string[],
+    configOptions = new ConfigOptions('.')
+): FileAnalysisResult[] {
+    // Always enable "test mode".
+    configOptions.internalTestMode = true;
+
     while (program.analyze()) {
         // Continue to call analyze until it completes. Since we're not
         // specifying a timeout, it should complete the first time.

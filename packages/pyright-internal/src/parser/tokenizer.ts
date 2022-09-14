@@ -277,7 +277,7 @@ export class Tokenizer {
         }
 
         // Insert any implied dedent tokens.
-        this._setIndent(0, 0, /* isSpacePresent */ false, /* isTabPresent */ false);
+        this._setIndent(this._cs.position, 0, 0, /* isSpacePresent */ false, /* isTabPresent */ false);
 
         // Add a final end-of-stream token to make parsing easier.
         this._tokens.push(Token.create(TokenType.EndOfStream, this._cs.position, 0, this._getComments()));
@@ -555,6 +555,8 @@ export class Tokenizer {
         let isTabPresent = false;
         let isSpacePresent = false;
 
+        const startOffset = this._cs.position;
+
         while (!this._cs.isEndOfStream()) {
             switch (this._cs.currentChar) {
                 case Char.Space:
@@ -583,7 +585,7 @@ export class Tokenizer {
 
                 default:
                     // Non-blank line. Set the current indent level.
-                    this._setIndent(tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
+                    this._setIndent(startOffset, tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
                     return;
 
                 case Char.Hash:
@@ -598,7 +600,13 @@ export class Tokenizer {
     // The caller must specify two space count values. The first assumes
     // that tabs are translated into one-space tab stops. The second assumes
     // that tabs are translated into eight-space tab stops.
-    private _setIndent(tab1Spaces: number, tab8Spaces: number, isSpacePresent: boolean, isTabPresent: boolean) {
+    private _setIndent(
+        startOffset: number,
+        tab1Spaces: number,
+        tab8Spaces: number,
+        isSpacePresent: boolean,
+        isTabPresent: boolean
+    ) {
         // Indentations are ignored within a parenthesized clause.
         if (this._parenDepth > 0) {
             return;
@@ -619,7 +627,7 @@ export class Tokenizer {
                     isSpacePresent,
                     isTabPresent,
                 });
-                this._tokens.push(IndentToken.create(this._cs.position, 0, tab8Spaces, false, this._getComments()));
+                this._tokens.push(IndentToken.create(startOffset, tab1Spaces, tab8Spaces, false, this._getComments()));
             }
         } else {
             const prevTabInfo = this._indentAmounts[this._indentAmounts.length - 1];
@@ -646,7 +654,7 @@ export class Tokenizer {
                 });
 
                 this._tokens.push(
-                    IndentToken.create(this._cs.position, 0, tab8Spaces, isIndentAmbiguous, this._getComments())
+                    IndentToken.create(startOffset, tab1Spaces, tab8Spaces, isIndentAmbiguous, this._getComments())
                 );
             } else if (prevTabInfo.tab8Spaces === tab8Spaces) {
                 // The Python spec says that if there is ambiguity about how tabs should
@@ -654,7 +662,9 @@ export class Tokenizer {
                 // spaces, it should be an error. We'll record this condition in the token
                 // so the parser can later report it.
                 if ((prevTabInfo.isSpacePresent && isTabPresent) || (prevTabInfo.isTabPresent && isSpacePresent)) {
-                    this._tokens.push(IndentToken.create(this._cs.position, 0, tab8Spaces, true, this._getComments()));
+                    this._tokens.push(
+                        IndentToken.create(startOffset, tab1Spaces, tab8Spaces, true, this._getComments())
+                    );
                 }
             } else {
                 // The Python spec says that if there is ambiguity about how tabs should

@@ -602,56 +602,60 @@ export class Parser {
             if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
                 this._getNextToken();
             }
-        } else if (!this._consumeTokenIfType(TokenType.NewLine)) {
-            this._addError(Localizer.Diagnostic.expectedNewline(), nextToken);
         } else {
-            const possibleIndent = this._peekToken();
-            if (!this._consumeTokenIfType(TokenType.Indent)) {
-                this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
-            } else {
-                const indentToken = possibleIndent as IndentToken;
-                if (indentToken.isIndentAmbiguous) {
-                    this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
-                }
-            }
+            extendRange(matchNode, nextToken);
 
-            while (true) {
-                // Handle a common error here and see if we can recover.
-                const nextToken = this._peekToken();
-                if (nextToken.type === TokenType.Indent) {
-                    this._getNextToken();
-                    const indentToken = nextToken as IndentToken;
+            if (!this._consumeTokenIfType(TokenType.NewLine)) {
+                this._addError(Localizer.Diagnostic.expectedNewline(), nextToken);
+            } else {
+                const possibleIndent = this._peekToken();
+                if (!this._consumeTokenIfType(TokenType.Indent)) {
+                    this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
+                } else {
+                    const indentToken = possibleIndent as IndentToken;
                     if (indentToken.isIndentAmbiguous) {
                         this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
-                    } else {
-                        this._addError(Localizer.Diagnostic.unexpectedIndent(), nextToken);
                     }
                 }
 
-                const caseStatement = this._parseCaseStatement();
-                if (!caseStatement) {
-                    // Perform basic error recovery to get to the next line.
-                    if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
+                while (true) {
+                    // Handle a common error here and see if we can recover.
+                    const possibleUnexpectedIndent = this._peekToken();
+                    if (possibleUnexpectedIndent.type === TokenType.Indent) {
                         this._getNextToken();
+                        const indentToken = possibleUnexpectedIndent as IndentToken;
+                        if (indentToken.isIndentAmbiguous) {
+                            this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+                        } else {
+                            this._addError(Localizer.Diagnostic.unexpectedIndent(), possibleUnexpectedIndent);
+                        }
                     }
-                } else {
-                    caseStatement.parent = matchNode;
-                    matchNode.cases.push(caseStatement);
-                }
 
-                const dedentToken = this._peekToken() as DedentToken;
-                if (this._consumeTokenIfType(TokenType.Dedent)) {
-                    if (!dedentToken.matchesIndent) {
-                        this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
+                    const caseStatement = this._parseCaseStatement();
+                    if (!caseStatement) {
+                        // Perform basic error recovery to get to the next line.
+                        if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
+                            this._getNextToken();
+                        }
+                    } else {
+                        caseStatement.parent = matchNode;
+                        matchNode.cases.push(caseStatement);
                     }
-                    if (dedentToken.isDedentAmbiguous) {
-                        this._addError(Localizer.Diagnostic.inconsistentTabs(), dedentToken);
-                    }
-                    break;
-                }
 
-                if (this._peekTokenType() === TokenType.EndOfStream) {
-                    break;
+                    const dedentToken = this._peekToken() as DedentToken;
+                    if (this._consumeTokenIfType(TokenType.Dedent)) {
+                        if (!dedentToken.matchesIndent) {
+                            this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
+                        }
+                        if (dedentToken.isDedentAmbiguous) {
+                            this._addError(Localizer.Diagnostic.inconsistentTabs(), dedentToken);
+                        }
+                        break;
+                    }
+
+                    if (this._peekTokenType() === TokenType.EndOfStream) {
+                        break;
+                    }
                 }
             }
 
@@ -3908,11 +3912,8 @@ export class Parser {
 
         const exprListResult = this._parseTestListWithComprehension();
         const tupleOrExpression = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ true);
-        const isExpression = exprListResult.list.length === 1 && !exprListResult.trailingComma;
 
-        if (!isExpression) {
-            extendRange(tupleOrExpression, startParen);
-        }
+        extendRange(tupleOrExpression, startParen);
 
         if (this._peekTokenType() !== TokenType.CloseParenthesis) {
             return this._handleExpressionParseError(
@@ -3922,10 +3923,7 @@ export class Parser {
                 exprListResult.parseError ?? tupleOrExpression
             );
         } else {
-            const nextToken = this._getNextToken();
-            if (!isExpression) {
-                extendRange(tupleOrExpression, nextToken);
-            }
+            extendRange(tupleOrExpression, this._getNextToken());
         }
 
         return tupleOrExpression;

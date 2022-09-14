@@ -17,6 +17,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { FunctionType } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -131,7 +132,7 @@ export class SignatureHelpProvider {
             this._getDocStringFromCallNode(callNode, sourceMapper, evaluator);
 
         let label = '(';
-        const params = functionType.details.parameters;
+        const params = FunctionType.getFunctionParameters(functionType);
 
         stringParts[0].forEach((paramString: string, paramIndex) => {
             let paramName = '';

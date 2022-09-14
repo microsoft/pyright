@@ -68,9 +68,9 @@ test('ExpressionWrappedInParens', () => {
     const statementList = parseResults.parseTree.statements[0] as StatementListNode;
     assert.equal(statementList.statements.length, 1);
 
-    // length of node should exclude parens
+    // length of node should include parens
     assert.equal(statementList.statements[0].nodeType, ParseNodeType.Name);
-    assert.equal(statementList.statements[0].length, 3);
+    assert.equal(statementList.statements[0].length, 5);
 });
 
 test('MaxParseDepth1', () => {
