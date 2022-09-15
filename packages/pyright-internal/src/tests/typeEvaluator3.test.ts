@@ -377,6 +377,12 @@ test('ListComprehension8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('ListComprehension9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['listComprehension9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('SetComprehension1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['setComprehension1.py']);
 

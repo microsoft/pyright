@@ -12847,15 +12847,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
         let typeErrors = false;
 
-        const elementTypeResult = getElementTypeFromListComprehension(node);
-        if (elementTypeResult.isIncomplete) {
-            isIncomplete = true;
-        }
-        if (elementTypeResult.typeErrors) {
-            typeErrors = true;
-        }
-        const elementType = elementTypeResult.type;
-
         let isAsync = node.forIfNodes.some((comp) => {
             return (
                 (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) ||
@@ -12868,6 +12859,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (node.expression.nodeType === ParseNodeType.Await) {
             isAsync = true;
         }
+
+        let expectedElementType: Type | undefined;
+        if (expectedType) {
+            expectedElementType = getTypeOfIterator(expectedType, isAsync, /* errorNode */ undefined);
+        }
+
+        const elementTypeResult = getElementTypeFromListComprehension(node, expectedElementType);
+        if (elementTypeResult.isIncomplete) {
+            isIncomplete = true;
+        }
+        if (elementTypeResult.typeErrors) {
+            typeErrors = true;
+        }
+        const elementType = elementTypeResult.type;
 
         // Handle the special case where a generator function (e.g. `(await x for x in y)`)
         // is expected to be an AsyncGenerator.
