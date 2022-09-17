@@ -2409,7 +2409,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // Construct the list of class lists that need to be merged.
     const classListsToMerge: Type[][] = [];
 
-    filteredBaseClasses.forEach((baseClass, index) => {
+    filteredBaseClasses.forEach((baseClass) => {
         if (isInstantiableClass(baseClass)) {
             const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass, /* makeConcrete */ false);
             classListsToMerge.push(

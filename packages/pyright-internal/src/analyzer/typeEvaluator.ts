@@ -15429,13 +15429,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // completed.
     function runClassTypeHooks(type: ClassType) {
         classTypeHooks.forEach((hook) => {
-            if (hook.dependency === type) {
+            if (ClassType.isSameGenericClass(hook.dependency, type)) {
                 hook.callback();
             }
         });
 
         // Remove any hooks that depend on this type.
-        classTypeHooks = classTypeHooks.filter((hook) => hook.dependency !== type);
+        classTypeHooks = classTypeHooks.filter((hook) => !ClassType.isSameGenericClass(hook.dependency, type));
     }
 
     // Recomputes the MRO and effective metaclass for the class after dependent
@@ -18092,8 +18092,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeArgs[typeParameters.length].node
                         );
                     }
+
+                    typeArgCount = typeParameters.length;
                 }
-                typeArgCount = typeParameters.length;
             } else if (typeArgCount < typeParameters.length) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
@@ -18259,6 +18260,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             return typeArgType;
         });
+
+        // If the class is partially constructed and doesn't yet have
+        // type parameters, assume that the number and types of supplied type
+        // arguments are correct.
+        if (typeArgs && classType.details.typeParameters.length === 0 && ClassType.isPartiallyEvaluated(classType)) {
+            typeArgTypes = typeArgs.map((t) => convertToInstance(t.type));
+        }
 
         const specializedClass = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
 
@@ -19457,6 +19465,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         throw e;
                     }
                 } else {
+                    // If this resolves to a class decl, we can use a partially-evaluated
+                    // version of the class type.
+                    const resolvedDecl = resolveAliasDeclaration(
+                        decl,
+                        /* resolveLocalNames */ true,
+                        /* allowExternallyHiddenAccess */ AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile
+                    );
+
+                    if (resolvedDecl?.type === DeclarationType.Class) {
+                        const classTypeInfo = getTypeOfClass(resolvedDecl.node);
+                        if (classTypeInfo?.decoratedType) {
+                            typesToCombine.push(classTypeInfo.decoratedType);
+                        }
+                    }
+
                     isIncomplete = true;
                 }
             }
@@ -23506,6 +23529,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             effectiveSrcType = makeTopLevelTypeVarsConcrete(srcType);
+        }
+
+        // If this is a partially-evaluated class, don't perform any further
+        // checks. Assume in this case that the type is compatible with the
+        // bound or constraint.
+        if (isClass(effectiveSrcType) && ClassType.isPartiallyEvaluated(effectiveSrcType)) {
+            return srcType;
         }
 
         // If there's a bound type, make sure the source is derived from it.
