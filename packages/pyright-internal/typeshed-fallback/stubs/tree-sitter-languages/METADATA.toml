@@ -1,4 +1,4 @@
-version = "1.4.*"
+version = "1.5.*"
 requires = ["types-tree-sitter"]
 
 [tool.stubtest]
