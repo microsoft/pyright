@@ -1883,6 +1883,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         bindToType?: ClassType | TypeVarType
     ): TypeResult | undefined {
         let memberInfo: ClassMemberLookup | undefined;
+        const classDiag = diag ? new DiagnosticAddendum() : undefined;
+        const metaclassDiag = diag ? new DiagnosticAddendum() : undefined;
 
         if (ClassType.isPartiallyEvaluated(classType)) {
             addDiagnostic(
@@ -1901,7 +1903,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* isAccessedThroughObject */ false,
                 memberName,
                 usage,
-                diag,
+                classDiag,
                 memberAccessFlags | MemberAccessFlags.AccessClassMembersOnly,
                 bindToType
             );
@@ -1930,6 +1932,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        const isMemberPresentOnClass = memberInfo?.classType !== undefined;
+
         // If it wasn't found on the class, see if it's part of the metaclass.
         if (!memberInfo) {
             const metaclass = classType.details.effectiveMetaclass;
@@ -1940,7 +1944,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* isAccessedThroughObject */ true,
                     memberName,
                     usage,
-                    /* diag */ undefined,
+                    metaclassDiag,
                     memberAccessFlags,
                     classType
                 );
@@ -1953,6 +1957,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isIncomplete: !!memberInfo.isTypeIncomplete,
                 isAsymmetricDescriptor: memberInfo.isAsymmetricDescriptor,
             };
+        }
+
+        // Determine whether to use the class or metaclass diagnostic addendum.
+        const subDiag = isMemberPresentOnClass ? classDiag : metaclassDiag;
+        if (diag && subDiag) {
+            diag.addAddendum(subDiag);
         }
 
         return undefined;
