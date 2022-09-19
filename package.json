@@ -17,7 +17,8 @@
         "fix:eslint": "eslint --fix .",
         "check:prettier": "prettier -c .",
         "fix:prettier": "prettier --write .",
-        "check:lockindent": "node ./build/checkLockIndent.js"
+        "check:lockindent": "node ./build/checkLockIndent.js",
+        "build:docs": "tsc --sourceMap ./docs/scripts/generateTypeEvaluatorMd.ts"
     },
     "devDependencies": {
         "@types/glob": "^7.2.0",
