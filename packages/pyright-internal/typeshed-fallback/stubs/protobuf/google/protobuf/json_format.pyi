@@ -13,7 +13,7 @@ def MessageToJson(
     message: Message,
     including_default_value_fields: bool = ...,
     preserving_proto_field_name: bool = ...,
-    indent: int = ...,
+    indent: int | None = ...,
     sort_keys: bool = ...,
     use_integers_for_enums: bool = ...,
     descriptor_pool: DescriptorPool | None = ...,

@@ -2,7 +2,7 @@ import ctypes
 from _typeshed import StrPath
 from collections.abc import Sequence
 
-# Query is missing at runtime for some reason
+# At runtime, Query and Range are available only in tree_sitter.binding
 from tree_sitter.binding import Node as Node, Parser as Parser, Tree as Tree, TreeCursor as TreeCursor
 
 class Language:

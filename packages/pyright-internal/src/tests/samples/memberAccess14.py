@@ -52,7 +52,7 @@ class D(C[float]):
     ...
 
 
-reveal_type(C.prop, expected_text="CachedSlotProperty[Self@C[T@C], int]")
+reveal_type(C.prop, expected_text="CachedSlotProperty[C[T@C], int]")
 reveal_type(D.prop, expected_text="CachedSlotProperty[D, int]")
 
 

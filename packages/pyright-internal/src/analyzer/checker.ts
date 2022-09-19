@@ -106,7 +106,7 @@ import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
-import { TypeEvaluator } from './typeEvaluatorTypes';
+import { FunctionTypeResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     getElementTypeForContainerNarrowing,
     isIsinstanceFilterSubclass,
@@ -641,7 +641,7 @@ export class Checker extends ParseTreeWalker {
                 containingClassNode !== undefined
             );
 
-            this._validateFunctionTypeVarUsage(node, functionTypeResult.functionType);
+            this._validateFunctionTypeVarUsage(node, functionTypeResult);
         }
 
         // If we're at the module level within a stub file, report a diagnostic
@@ -1860,12 +1860,13 @@ export class Checker extends ParseTreeWalker {
     }
 
     // Verifies that each local type variable is used more than once.
-    private _validateFunctionTypeVarUsage(node: FunctionNode, type: FunctionType) {
+    private _validateFunctionTypeVarUsage(node: FunctionNode, functionTypeResult: FunctionTypeResult) {
         // Skip this check entirely if it's disabled.
         if (this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse === 'none') {
             return;
         }
 
+        const type = functionTypeResult.functionType;
         const localTypeVarUsage = new Map<string, TypeVarUsageInfo>();
         const classTypeVarUsage = new Map<string, TypeVarUsageInfo>();
         let exemptBoundTypeVar = true;
@@ -2025,10 +2026,17 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
+            // Skip this check if the function is overloaded because the TypeVar
+            // will be solved in terms of the overload signatures.
+            const skipUnsolvableTypeVarCheck =
+                isOverloadedFunction(functionTypeResult.decoratedType) &&
+                !FunctionType.isOverloaded(functionTypeResult.functionType);
+
             if (
                 isUsedInReturnType &&
                 usage.paramTypeWithEllipsisUsageCount > 0 &&
-                usage.paramTypeUsageCount === usage.paramTypeWithEllipsisUsageCount
+                usage.paramTypeUsageCount === usage.paramTypeWithEllipsisUsageCount &&
+                !skipUnsolvableTypeVarCheck
             ) {
                 const diag = new DiagnosticAddendum();
                 diag.addMessage(Localizer.DiagnosticAddendum.typeVarUnsolvableRemedy());

@@ -634,8 +634,6 @@ export class AnalyzerService {
             commandLineOptions.extraPaths
         );
 
-        this._configFilePath = configFilePath || pyprojectFilePath;
-
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
                 configOptions.include.push(getFileSpec(this.fs, projectRoot, fileSpec));
@@ -654,7 +652,7 @@ export class AnalyzerService {
             });
         }
 
-        if (!this._configFilePath && commandLineOptions.executionRoot) {
+        if (!configFilePath && commandLineOptions.executionRoot) {
             if (commandLineOptions.fileSpecs.length === 0) {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source
@@ -669,6 +667,8 @@ export class AnalyzerService {
                 });
             }
         }
+
+        this._configFilePath = configFilePath || pyprojectFilePath;
 
         // If we found a config file, parse it to compute the effective options.
         let configJsonObj: object | undefined;
