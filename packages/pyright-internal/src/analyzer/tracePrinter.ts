@@ -260,7 +260,8 @@ export function createTracePrinter(roots: string[]): TracePrinter {
             return printType(o as Type);
         }
 
-        assertNever(o);
+        // Do nothing, we can't print it.
+        return '';
     }
 
     return {

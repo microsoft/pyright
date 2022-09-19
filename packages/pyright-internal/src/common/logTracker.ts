@@ -19,6 +19,14 @@ export class LogTracker {
 
     constructor(private _console: ConsoleInterface | undefined, private _prefix: string) {}
 
+    get logLevel() {
+        const level = (this._console as any).level;
+        if (level !== undefined) {
+            return level;
+        }
+        return LogLevel.Error; // Default?
+    }
+
     log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {
         // If no console is given, don't do anything.
         if (this._console === undefined) {
