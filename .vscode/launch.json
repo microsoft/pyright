@@ -1,6 +1,16 @@
 {
     "version": "0.2.0",
     "configurations": [
+    {
+        "name": "TypeEvaluator Docs",
+        "program": "${workspaceFolder}/docs/scripts/generateTypeEvaluatorMd.js",
+        "request": "launch",
+        "skipFiles": [
+            "<node_internals>/**"
+        ],
+        "type": "node",
+        "preLaunchTask": "npm: build:docs"
+    },
         {
             "name": "Pyright CLI",
             "type": "node",
