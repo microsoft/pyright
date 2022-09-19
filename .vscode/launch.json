@@ -22,8 +22,6 @@
             "request": "launch",
             "args": [
                 "--runInBand"
-                // To run a single test, add something like so
-                // "-i", "src/tests/logger.test.ts"
             ],
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
