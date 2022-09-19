@@ -2668,7 +2668,7 @@ class TypeVarTransformer {
             // _pendingTypeVarTransformations set.
             const typeVarName = TypeVarType.getNameWithScope(type);
             if (!this._pendingTypeVarTransformations.has(typeVarName)) {
-                replacementType = this.transformTypeVar(type);
+                replacementType = this.transformTypeVar(type) ?? type;
 
                 if (!this._isTransformingTypeArg) {
                     this._pendingTypeVarTransformations.add(typeVarName);
@@ -2739,7 +2739,7 @@ class TypeVarTransformer {
         return type;
     }
 
-    transformTypeVar(typeVar: TypeVarType): Type {
+    transformTypeVar(typeVar: TypeVarType): Type | undefined {
         return typeVar;
     }
 
@@ -2840,7 +2840,8 @@ class TypeVarTransformer {
                 } else {
                     const typeParamName = TypeVarType.getNameWithScope(typeParam);
                     if (!this._pendingTypeVarTransformations.has(typeParamName)) {
-                        replacementType = this.transformTypeVar(typeParam);
+                        const transformedType = this.transformTypeVar(typeParam);
+                        replacementType = transformedType ?? typeParam;
 
                         if (replacementType !== typeParam) {
                             if (!this._isTransformingTypeArg) {
@@ -2849,6 +2850,8 @@ class TypeVarTransformer {
                                 this._pendingTypeVarTransformations.delete(typeParamName);
                             }
 
+                            specializationNeeded = true;
+                        } else if (transformedType !== undefined && !classType.typeArguments) {
                             specializationNeeded = true;
                         }
                     }
@@ -3147,7 +3150,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformUnionSubtype(preTransform: Type, postTransform: Type): Type | undefined {

@@ -2,7 +2,7 @@
 # specialized with type variables in a recursive manner.
 
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeVar
+from typing import Callable, Generic, Iterable, Iterator, TypeVar, overload
 
 S = TypeVar("S")
 T = TypeVar("T")
@@ -54,3 +54,29 @@ class ClassC(Generic[T, S]):
         else:
             return ClassC(self.value)
 
+
+T_co = TypeVar("T_co", covariant=True)
+
+class ClassD(Generic[T_co]):
+    @overload
+    def __init__(self, arg: Iterable[T_co]) -> None:
+        ...
+
+    @overload
+    def __init__(self, arg: Callable[[], Iterable[T_co]]) -> None:
+        ...
+
+    def __init__(self, arg: Iterable[T_co] | Callable[[], Iterable[T_co]]) -> None:
+        ...
+
+    def __iter__(self) -> Iterator[T_co]:
+        ...
+
+
+class ClassE(ClassD[T_co]):
+    def method(self) -> "ClassE[ClassE[T_co]]":
+        def inner():
+            for x in self:
+                yield ClassE(lambda: [x])
+
+        return ClassE(inner)
