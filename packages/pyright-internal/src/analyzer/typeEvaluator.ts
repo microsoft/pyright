@@ -20064,16 +20064,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isDerivedFrom) {
                 assert(inheritanceChain.length > 0);
 
-                return assignClassWithTypeArgs(
-                    destType,
-                    srcType,
-                    inheritanceChain,
-                    diag,
-                    destTypeVarContext,
-                    srcTypeVarContext,
-                    flags,
-                    recursionCount
-                );
+                if (
+                    assignClassWithTypeArgs(
+                        destType,
+                        srcType,
+                        inheritanceChain,
+                        diag?.createAddendum(),
+                        destTypeVarContext,
+                        srcTypeVarContext,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    return true;
+                }
             }
         }
 
