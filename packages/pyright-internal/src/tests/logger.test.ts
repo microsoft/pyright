@@ -81,6 +81,10 @@ describe('TypeEvaluatorWithTracker tests', () => {
             false,
             `Inner evaluateTypesForStatement is being logged when it shouldnt`
         );
+        assert.ok(
+            timingStats.typeEvaluationTime.callCount > 1,
+            `Should be tracking timing when not logging but not debugging`
+        );
     });
 
     test('Timing is not captured in debug mode', () => {
