@@ -484,4 +484,5 @@ export interface TypeEvaluator {
     setTypeForNode: (node: ParseNode, type?: Type, flags?: EvaluatorFlags) => void;
 
     checkForCancellation: () => void;
+    getState: () => object;
 }

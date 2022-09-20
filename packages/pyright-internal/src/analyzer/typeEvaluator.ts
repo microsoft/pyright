@@ -595,6 +595,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
 
+    function getState(): object {
+        // Return the current state of the TypeEvaluator.
+        // Note this is not type constrained so that it might change in the future.
+        // It's intended to be used for logging.
+        return {
+            symbolResolutionStack,
+            typeCacheFlags,
+            asymmetricDescriptorAssignmentCache,
+            speculativeTypeTracker,
+            suppressedNodeStack,
+            functionRecursionMap,
+            codeFlowAnalyzerCache,
+            typeCache,
+            effectiveTypeCache,
+            expectedTypeCache,
+            classTypeHooks,
+            cancellationToken,
+            isBasicTypesInitialized,
+            noneType,
+            unionType,
+            objectType,
+            typeClassType,
+            functionObj,
+            tupleClassType,
+            boolClassType,
+            intClassType,
+            strClassType,
+            dictClassType,
+            typedDictClassType,
+            incompleteTypeCache,
+            printExpressionSpaceCount,
+            returnTypeInferenceContextStack,
+            returnTypeInferenceTypeCache,
+        };
+    }
+
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
             cancellationToken = token;
@@ -24117,6 +24153,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         useSpeculativeMode,
         setTypeForNode,
         checkForCancellation,
+        getState,
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker);

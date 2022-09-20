@@ -6,7 +6,9 @@
  * Converts various types into a string representation.
  */
 
-import { isNumber, isString } from '../common/core';
+import { isMap, isSet } from 'util/types';
+
+import { isArray, isBoolean, isNumber, isString } from '../common/core';
 import { assertNever } from '../common/debug';
 import { ensureTrailingDirectorySeparator, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -18,7 +20,9 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
 import { Type, TypeBase, TypeCategory } from './types';
 
-export type PrintableType = ParseNode | Declaration | Symbol | Type | undefined;
+const MAX_OBJECT_DEPTH = 3;
+
+export type PrintableType = ParseNode | Declaration | Symbol | Type | object | undefined;
 
 export interface TracePrinter {
     print(o: PrintableType): string;
@@ -224,6 +228,45 @@ export function createTracePrinter(roots: string[]): TracePrinter {
         }
     }
 
+    function printObject(o: any, depth = 1) {
+        if (depth > MAX_OBJECT_DEPTH) {
+            return `[object]`;
+        }
+        const elem_indent = ' '.repeat((depth + 1) * 2);
+        const obj_indent = ' '.repeat(depth * 2);
+        const result: string[] = [];
+        const keys = Object.keys(o);
+        keys.forEach((k) => {
+            result.push(`${elem_indent}${k} : ${print(o[k], depth + 1)}`);
+        });
+
+        return `\n${obj_indent}{\n${result.join('\n')}\n${obj_indent}}`;
+    }
+
+    function printArray(a: Array<any>, depth = 1) {
+        const result: string[] = [];
+        a.forEach((e) => {
+            result.push(print(e, depth + 1));
+        });
+        return `[${result.join(',')}]`;
+    }
+
+    function printMap(m: Map<any, any>, depth = 1) {
+        const result: string[] = [];
+        m.forEach((v, k) => {
+            result.push(`${k.toString()}=${print(v, depth + 1)}`);
+        });
+        return `{${result.join(',')}}`;
+    }
+
+    function printSet(s: Set<any>, depth = 1) {
+        const result: string[] = [];
+        s.forEach((v) => {
+            result.push(print(v, depth + 1));
+        });
+        return `{${result.join(',')}}`;
+    }
+
     function isNode(o: any): o is ParseNode {
         const n = o as ParseNode;
         return n && isNumber(n.nodeType);
@@ -239,8 +282,8 @@ export function createTracePrinter(roots: string[]): TracePrinter {
         return t && isNumber(t.category) && isNumber(t.flags);
     }
 
-    function print(o: PrintableType) {
-        if (!o) {
+    function print(o: PrintableType, depth = 1) {
+        if (o === undefined) {
             return '';
         }
 
@@ -258,6 +301,30 @@ export function createTracePrinter(roots: string[]): TracePrinter {
 
         if (isType(o)) {
             return printType(o as Type);
+        }
+
+        if (isArray(o)) {
+            return printArray(o as Array<any>, depth);
+        }
+
+        if (isMap(o)) {
+            return printMap(o as Map<any, any>, depth);
+        }
+
+        if (isSet(o)) {
+            return printSet(o as Set<any>, depth);
+        }
+
+        if (typeof o === 'object') {
+            return printObject(o as Object, depth);
+        }
+
+        if (isBoolean(o)) {
+            return o ? 'true' : 'false';
+        }
+
+        if (isNumber(o)) {
+            return `${o}`;
         }
 
         // Do nothing, we can't print it.

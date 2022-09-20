@@ -17,6 +17,7 @@ import { timingStats } from '../common/timing';
 import { ImportLookup } from './analyzerFileInfo';
 import { TracePrinter } from './tracePrinter';
 import { createTypeEvaluator, EvaluatorOptions } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluatorTypes';
 
 // We don't want to track calls from the type evaluator itself, but only entry points.
 export function createTypeEvaluatorWithTracker(
@@ -25,15 +26,19 @@ export function createTypeEvaluatorWithTracker(
     logger: LogTracker,
     printer?: TracePrinter
 ) {
-    function wrapWithLogger<T extends (...args: any[]) => any>(func: T): (...args: Parameters<T>) => ReturnType<T> {
+    let evaluator: TypeEvaluator | undefined = undefined;
+    function wrapWithLogger<T extends (...args: any[]) => any>(
+        func: T,
+        funcName: string = func.name
+    ): (...args: Parameters<T>) => ReturnType<T> {
         // Only wrap the function if told to do so and the log level is high enough for it
         // to actually log something.
         if (evaluatorOptions.logCalls && logger.logLevel === LogLevel.Log) {
             return (...args: Parameters<T>): ReturnType<T> => {
                 return logger.log(
-                    func.name,
+                    funcName,
                     (s) => {
-                        if (func.name === 'importLookup' && args.length > 0) {
+                        if (funcName === 'importLookup' && args.length > 0) {
                             // This is actually a filename, so special case it.
                             s.add(printer?.printFileOrModuleName(args[0]));
                         } else {
@@ -42,8 +47,11 @@ export function createTypeEvaluatorWithTracker(
                                 s.add(printer?.print(a));
                             });
                         }
+
                         return timingStats.typeEvaluationTime.timeOperation(func, ...args);
                     },
+                    evaluator?.getState,
+                    printer,
                     evaluatorOptions.minimumLoggingThreshold,
                     /* logParsingPerf */ true
                 );
@@ -56,12 +64,15 @@ export function createTypeEvaluatorWithTracker(
     }
 
     // Wrap all functions with either a logger or a timer.
-    importLookup = wrapWithLogger(importLookup);
-    const evaluator = createTypeEvaluator(importLookup, evaluatorOptions);
+    importLookup = wrapWithLogger(importLookup, 'importLookup');
+    evaluator = createTypeEvaluator(importLookup, evaluatorOptions);
     const keys = Object.keys(evaluator);
     keys.forEach((k) => {
         const entry = (evaluator as any)[k];
-        if (typeof entry === 'function') {
+        // Wrap all functions with a logger, except for getState as
+        // that's used by the logging above.
+        // Skip functions beginning with 'is' as they're not interesting to log
+        if (typeof entry === 'function' && k !== 'getState' && !k.startsWith('is')) {
             (evaluator as any)[k] = wrapWithLogger(entry);
         }
     });
