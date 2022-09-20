@@ -21,10 +21,7 @@ export class LogTracker {
 
     get logLevel() {
         const level = (this._console as any).level;
-        if (level !== undefined) {
-            return level;
-        }
-        return LogLevel.Error; // Default?
+        return level ?? LogLevel.Error;
     }
 
     log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {

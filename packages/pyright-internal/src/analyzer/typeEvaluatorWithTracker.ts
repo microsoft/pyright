@@ -27,7 +27,7 @@ export function createTypeEvaluatorWithTracker(
 ) {
     function wrapWithLogger<T extends (...args: any[]) => any>(func: T): (...args: Parameters<T>) => ReturnType<T> {
         // Only wrap the function if told to do so and the log level is high enough for it
-        // to actually log something
+        // to actually log something.
         if (evaluatorOptions.logCalls && logger.logLevel === LogLevel.Log) {
             return (...args: Parameters<T>): ReturnType<T> => {
                 return logger.log(
@@ -37,7 +37,7 @@ export function createTypeEvaluatorWithTracker(
                             // This is actually a filename, so special case it.
                             s.add(printer?.printFileOrModuleName(args[0]));
                         } else {
-                            // Print all parameters
+                            // Print all parameters.
                             args.forEach((a) => {
                                 s.add(printer?.print(a));
                             });
@@ -45,7 +45,7 @@ export function createTypeEvaluatorWithTracker(
                         return timingStats.typeEvaluationTime.timeOperation(func, ...args);
                     },
                     evaluatorOptions.minimumLoggingThreshold,
-                    true
+                    /* logParsingPerf */ true
                 );
             };
         } else if (!isDebugMode()) {
@@ -55,7 +55,7 @@ export function createTypeEvaluatorWithTracker(
         }
     }
 
-    // Wrap all functions with either a logger or a timer
+    // Wrap all functions with either a logger or a timer.
     importLookup = wrapWithLogger(importLookup);
     const evaluator = createTypeEvaluator(importLookup, evaluatorOptions);
     const keys = Object.keys(evaluator);
