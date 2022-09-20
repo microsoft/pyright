@@ -50,7 +50,7 @@ export function createTracePrinter(roots: string[]): TracePrinter {
                 }
 
                 return filePathOrModule;
-            } else {
+            } else if (filePathOrModule.nameParts) {
                 return filePathOrModule.nameParts.join('.');
             }
         }
