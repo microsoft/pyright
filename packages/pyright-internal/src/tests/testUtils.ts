@@ -19,6 +19,7 @@ import { IPythonMode } from '../analyzer/sourceFile';
 import { NameTypeWalker } from '../analyzer/testWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConsoleWithLogLevel } from '../common/console';
 import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
@@ -152,7 +153,8 @@ export function bindSampleFile(fileName: string, configOptions = new ConfigOptio
 
 export function typeAnalyzeSampleFiles(
     fileNames: string[],
-    configOptions = new ConfigOptions('.')
+    configOptions = new ConfigOptions('.'),
+    console?: ConsoleWithLogLevel
 ): FileAnalysisResult[] {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
@@ -160,7 +162,7 @@ export function typeAnalyzeSampleFiles(
     const fs = createFromRealFileSystem();
     const importResolver = new ImportResolver(fs, configOptions, new FullAccessHost(fs));
 
-    const program = new Program(importResolver, configOptions);
+    const program = new Program(importResolver, configOptions, console);
     const filePaths = fileNames.map((name) => resolveSampleFilePath(name));
     program.setTrackedFiles(filePaths);
 

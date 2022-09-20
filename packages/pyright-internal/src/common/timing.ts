@@ -32,16 +32,16 @@ export class TimingStat {
     callCount = 0;
     isTiming = false;
 
-    timeOperation<T>(callback: () => T): T {
+    timeOperation<T extends (...args: any[]) => any>(callback: T, ...args: any[]): ReturnType<T> {
         this.callCount++;
 
         // Handle reentrancy.
         if (this.isTiming) {
-            return callback();
+            return callback(...args);
         } else {
             this.isTiming = true;
             const duration = new Duration();
-            const result = callback();
+            const result = callback(...args);
             this.totalTime += duration.getDurationInMilliseconds();
             this.isTiming = false;
 
