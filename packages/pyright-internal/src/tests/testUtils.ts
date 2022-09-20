@@ -154,7 +154,7 @@ export function bindSampleFile(fileName: string, configOptions = new ConfigOptio
 export function typeAnalyzeSampleFiles(
     fileNames: string[],
     configOptions = new ConfigOptions('.'),
-    console: ConsoleWithLogLevel | undefined = undefined
+    console?: ConsoleWithLogLevel
 ): FileAnalysisResult[] {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
