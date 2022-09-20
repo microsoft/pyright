@@ -20,7 +20,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
 import { Type, TypeBase, TypeCategory } from './types';
 
-const MAX_OBJECT_DEPTH = 3;
+const MAX_OBJECT_DEPTH = 5; // 5 seems to be deep enough to look at type caches.
 
 export type PrintableType = ParseNode | Declaration | Symbol | Type | object | undefined;
 
