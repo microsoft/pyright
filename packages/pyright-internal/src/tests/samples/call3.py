@@ -153,7 +153,19 @@ def f10(x, *args, /, y):
 def f11(x, *args, *, y):
     pass
 
+def f15(x, /, *args):
+    pass
 
+# This should generate an error because x
+# is a position-only parameter.
+f15(x=1)
+
+def f16(x, /, *args, **kw):
+    pass
+
+# This should generate an error because x
+# is a position-only parameter.
+f16(x=1)
 
 def f12(a: int, b: str, /):
     ...
