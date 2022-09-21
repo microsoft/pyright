@@ -11,6 +11,7 @@
  * TypeScript compiler.
  */
 
+import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { ArgumentCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -107,10 +108,13 @@ interface CodeFlowTypeCache {
 }
 
 // This debugging option prints the control flow graph when getTypeFromCodeFlow is called.
-const isPrintControlFlowGraphEnabled = false;
+let isPrintControlFlowGraphEnabled = false;
 
 // This debugging option prints the results of calls to isCallNoReturn.
-const isPrintCallNoReturnEnabled = false;
+let isPrintCallNoReturnEnabled = false;
+
+// This represents a 'console' used for logging debug information
+let logger: ConsoleInterface = console;
 
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
@@ -122,6 +126,9 @@ export function getCodeFlowEngine(
     let flowIncompleteGeneration = 1;
     let noReturnAnalysisDepth = 0;
     let contextManagerAnalysisDepth = 0;
+    isPrintControlFlowGraphEnabled = evaluator.logCalls;
+    isPrintCallNoReturnEnabled = evaluator.logCalls;
+    logger = evaluator.logger;
 
     // Creates a new code flow analyzer that can be used to narrow the types
     // of the expressions within an execution context. Each code flow analyzer
@@ -1246,7 +1253,7 @@ export function getCodeFlowEngine(
         const node = flowNode.node;
 
         if (isPrintCallNoReturnEnabled) {
-            console.log(`isCallNoReturn@${flowNode.id} Pre depth ${noReturnAnalysisDepth}`);
+            logger.log(`isCallNoReturn@${flowNode.id} Pre depth ${noReturnAnalysisDepth}`);
         }
 
         // See if this information is cached already.
@@ -1254,7 +1261,7 @@ export function getCodeFlowEngine(
             const result = callIsNoReturnCache.get(node.id);
 
             if (isPrintCallNoReturnEnabled) {
-                console.log(`isCallNoReturn@${flowNode.id} Post: ${result ? 'true' : 'false'} (cached)`);
+                logger.log(`isCallNoReturn@${flowNode.id} Post: ${result ? 'true' : 'false'} (cached)`);
             }
 
             return result;
@@ -1396,7 +1403,7 @@ export function getCodeFlowEngine(
             callIsNoReturnCache.set(node.id, callIsNoReturn);
 
             if (isPrintCallNoReturnEnabled) {
-                console.log(`isCallNoReturn@${flowNode.id} Post: ${callIsNoReturn ? 'true' : 'false'}`);
+                logger.log(`isCallNoReturn@${flowNode.id} Post: ${callIsNoReturn ? 'true' : 'false'}`);
             }
 
             return callIsNoReturn;
@@ -1561,8 +1568,8 @@ export function getCodeFlowEngine(
             referenceText = `${printExpression(reference)}[${pos.line + 1}:${pos.character + 1}]`;
         }
 
-        console.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
-        console.log(formatControlFlowGraph(flowNode));
+        logger.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
+        logger.log(formatControlFlowGraph(flowNode));
     }
 
     return {

@@ -24089,6 +24089,8 @@ export function createTypeEvaluator(
     }
 
     const evaluatorInterface: TypeEvaluator = {
+        logCalls: evaluatorOptions.logCalls,
+        logger,
         runWithCancellationToken,
         getType,
         getTypeOfExpression,

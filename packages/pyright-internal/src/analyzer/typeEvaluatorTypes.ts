@@ -11,6 +11,7 @@
 import { CancellationToken } from 'vscode-languageserver-protocol';
 
 import { DiagnosticLevel } from '../common/configOptions';
+import { ConsoleInterface } from '../common/console';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { TextRange } from '../common/textRange';
 import {
@@ -304,6 +305,8 @@ export interface CallResult {
 }
 
 export interface TypeEvaluator {
+    logCalls: boolean;
+    logger: ConsoleInterface;
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
     getType: (node: ExpressionNode) => Type | undefined;
