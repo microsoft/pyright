@@ -378,11 +378,23 @@ export class Tokenizer {
             return true;
         }
 
-        if (this._ipythonMode && this._isIPythonMagics()) {
-            this._handleIPythonMagics(
-                this._cs.currentChar === Char.Percent ? CommentType.IPythonMagic : CommentType.IPythonShellEscape
-            );
-            return true;
+        if (this._ipythonMode) {
+            const kind = this._getIPythonMagicsKind();
+            if (kind === 'line') {
+                this._handleIPythonMagics(
+                    this._cs.currentChar === Char.Percent ? CommentType.IPythonMagic : CommentType.IPythonShellEscape
+                );
+                return true;
+            }
+
+            if (kind === 'cell') {
+                this._handleIPythonMagics(
+                    this._cs.currentChar === Char.Percent
+                        ? CommentType.IPythonCellMagic
+                        : CommentType.IPythonCellShellEscape
+                );
+                return true;
+            }
         }
 
         switch (this._cs.currentChar) {
@@ -858,7 +870,7 @@ export class Tokenizer {
                 let isImaginary = false;
 
                 const bigIntValue = BigInt(simpleIntText);
-                if (!isFinite(intValue) || BigInt(intValue) !== bigIntValue) {
+                if (!isFinite(intValue) || bigIntValue > Number.MAX_SAFE_INTEGER) {
                     intValue = bigIntValue;
                 }
 
@@ -1059,12 +1071,27 @@ export class Tokenizer {
         return prevComments;
     }
 
-    private _isIPythonMagics() {
+    private _getIPythonMagicsKind(): 'line' | 'cell' | undefined {
+        if (!isMagicChar(this._cs.currentChar)) {
+            return undefined;
+        }
+
         const prevToken = this._tokens.length > 0 ? this._tokens[this._tokens.length - 1] : undefined;
-        return (
-            (prevToken === undefined || isWhitespace(prevToken)) &&
-            (this._cs.currentChar === Char.Percent || this._cs.currentChar === Char.ExclamationMark)
-        );
+        if (prevToken !== undefined && !isWhitespace(prevToken)) {
+            return undefined;
+        }
+
+        if (this._cs.nextChar === this._cs.currentChar) {
+            // Eat up next magic char.
+            this._cs.moveNext();
+            return 'cell';
+        }
+
+        return 'line';
+
+        function isMagicChar(ch: number) {
+            return ch === Char.Percent || ch === Char.ExclamationMark;
+        }
     }
 
     private _handleIPythonMagics(type: CommentType): void {
@@ -1074,16 +1101,19 @@ export class Tokenizer {
         do {
             this._cs.skipToEol();
 
-            const length = this._cs.position - begin;
-            const value = this._cs.getText().substring(begin, begin + length);
+            if (type === CommentType.IPythonMagic || type === CommentType.IPythonShellEscape) {
+                const length = this._cs.position - begin;
+                const value = this._cs.getText().substring(begin, begin + length);
 
-            // is it multiline magics?
-            // %magic command \
-            //        next arguments
-            if (!value.match(/\\\s*$/)) {
-                break;
+                // is it multiline magics?
+                // %magic command \
+                //        next arguments
+                if (!value.match(/\\\s*$/)) {
+                    break;
+                }
             }
 
+            this._cs.moveNext();
             begin = this._cs.position + 1;
         } while (!this._cs.isEndOfStream());
 
