@@ -65,7 +65,7 @@ export function createTypeEvaluatorWithTracker(
 
     // Wrap all functions with either a logger or a timer.
     importLookup = wrapWithLogger(importLookup, 'importLookup');
-    evaluator = createTypeEvaluator(importLookup, evaluatorOptions);
+    evaluator = createTypeEvaluator(importLookup, evaluatorOptions, logger.console || console);
     const keys = Object.keys(evaluator);
     keys.forEach((k) => {
         const entry = (evaluator as any)[k];

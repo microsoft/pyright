@@ -20,6 +20,7 @@ import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
+import { ConsoleInterface } from '../common/console';
 import { assert, assertNever, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -563,7 +564,11 @@ interface ClassTypeHook {
     callback: () => void;
 }
 
-export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
+export function createTypeEvaluator(
+    importLookup: ImportLookup,
+    evaluatorOptions: EvaluatorOptions,
+    logger: ConsoleInterface
+): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const typeCacheFlags = new Map<number, EvaluatorFlags>();
     const asymmetricDescriptorAssignmentCache = new Set<number>();
@@ -602,32 +607,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return {
             symbolResolutionStack,
             typeCacheFlags,
-            asymmetricDescriptorAssignmentCache,
             speculativeTypeTracker,
             suppressedNodeStack,
             functionRecursionMap,
-            codeFlowAnalyzerCache,
-            typeCache,
-            effectiveTypeCache,
-            expectedTypeCache,
             classTypeHooks,
-            cancellationToken,
             isBasicTypesInitialized,
-            noneType,
-            unionType,
-            objectType,
-            typeClassType,
-            functionObj,
-            tupleClassType,
-            boolClassType,
-            intClassType,
-            strClassType,
-            dictClassType,
-            typedDictClassType,
-            incompleteTypeCache,
             printExpressionSpaceCount,
             returnTypeInferenceContextStack,
-            returnTypeInferenceTypeCache,
         };
     }
 
@@ -707,7 +693,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (evaluatorOptions.verifyTypeCacheEvaluatorFlags) {
                         fail(message);
                     } else {
-                        console.log(message);
+                        logger?.log(message);
                     }
                 }
             }
@@ -937,8 +923,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is this type already cached?
         const cachedType = readTypeCache(node, flags);
         if (cachedType) {
-            if (printExpressionTypes) {
-                console.log(
+            if (printExpressionTypes || evaluatorOptions.logCalls) {
+                logger.log(
                     `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                         node
                     )}): Cached ${printType(cachedType)}`
@@ -949,8 +935,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Is it cached in the speculative type cache?
             const speculativeCachedType = speculativeTypeTracker.getSpeculativeType(node, expectedType);
             if (speculativeCachedType) {
-                if (printExpressionTypes) {
-                    console.log(
+                if (printExpressionTypes || evaluatorOptions.logCalls) {
+                    logger.log(
                         `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                             node
                         )}): Speculative ${printType(speculativeCachedType)}`
@@ -960,8 +946,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (printExpressionTypes) {
-            console.log(
+        if (printExpressionTypes || evaluatorOptions.logCalls) {
+            logger.log(
                 `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(node)}): Pre`
             );
             printExpressionSpaceCount++;
@@ -1221,9 +1207,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (printExpressionTypes) {
+        if (printExpressionTypes || evaluatorOptions.logCalls) {
             printExpressionSpaceCount--;
-            console.log(
+            logger.log(
                 `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
                     node
                 )}): Post ${printType(typeResult.type)}${typeResult.isIncomplete ? ' Incomplete' : ''}`

@@ -20,6 +20,10 @@ export class LogTracker {
 
     constructor(private _console: ConsoleInterface | undefined, private _prefix: string) {}
 
+    get console() {
+        return this._console;
+    }
+
     get logLevel() {
         const level = (this._console as any).level;
         return level ?? LogLevel.Error;
