@@ -36,6 +36,9 @@
 //// [|/*marker5*/SomeType|] = List[Union[int, str]]
 //// """Here's some documentation about SomeType"""
 
+// @filename: testBigInt.py
+//// [|/*marker6*/x|] = 123670029844611072
+
 helper.verifyHover('markdown', {
     marker1: '```python\n(variable) x: int\n```\n---\ntest x',
     marker2: '```python\n(variable) func: (float) -> float\n```\n---\nA given function',
@@ -43,4 +46,5 @@ helper.verifyHover('markdown', {
     marker4: '```python\n(variable) z: int\n```\n---\ntest z',
     marker5:
         "```python\n(type alias) SomeType: Type[List[int | str]]\n```\n---\nHere's some documentation about SomeType",
+    marker6: '```python\n(variable) x: Literal[123670029844611072]\n```',
 });
