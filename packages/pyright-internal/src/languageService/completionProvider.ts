@@ -1250,6 +1250,7 @@ export class CompletionProvider {
             switch (node.nodeType) {
                 case ParseNodeType.Number:
                 case ParseNodeType.Constant:
+                case ParseNodeType.MemberAccess:
                     return true;
 
                 case ParseNodeType.String:
