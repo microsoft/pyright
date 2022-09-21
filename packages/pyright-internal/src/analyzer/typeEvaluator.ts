@@ -600,23 +600,6 @@ export function createTypeEvaluator(
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
 
-    function getState(): object {
-        // Return the current state of the TypeEvaluator.
-        // Note this is not type constrained so that it might change in the future.
-        // It's intended to be used for logging.
-        return {
-            symbolResolutionStack,
-            typeCacheFlags,
-            speculativeTypeTracker,
-            suppressedNodeStack,
-            functionRecursionMap,
-            classTypeHooks,
-            isBasicTypesInitialized,
-            printExpressionSpaceCount,
-            returnTypeInferenceContextStack,
-        };
-    }
-
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
             cancellationToken = token;
@@ -24079,7 +24062,7 @@ export function createTypeEvaluator(
     }
 
     function getPrintExpressionTypesSpaces() {
-        return ' '.repeat(printExpressionSpaceCount);
+        return `[PET] ${' '.repeat(printExpressionSpaceCount)}`;
     }
 
     function getLineNum(node: ParseNode) {
@@ -24174,7 +24157,6 @@ export function createTypeEvaluator(
         useSpeculativeMode,
         setTypeForNode,
         checkForCancellation,
-        getState,
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker);

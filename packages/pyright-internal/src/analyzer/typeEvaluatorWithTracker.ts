@@ -50,8 +50,6 @@ export function createTypeEvaluatorWithTracker(
 
                         return timingStats.typeEvaluationTime.timeOperation(func, ...args);
                     },
-                    evaluator?.getState,
-                    printer,
                     evaluatorOptions.minimumLoggingThreshold,
                     /* logParsingPerf */ true
                 );

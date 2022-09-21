@@ -6,7 +6,6 @@
  * A simple logging class that can be used to track nested loggings.
  */
 
-import { TracePrinter } from '../analyzer/tracePrinter';
 import { ConsoleInterface, LogLevel } from './console';
 import { Duration, timingStats } from './timing';
 
@@ -29,14 +28,7 @@ export class LogTracker {
         return level ?? LogLevel.Error;
     }
 
-    log<T>(
-        title: string,
-        callback: (state: LogState) => T,
-        evalStateGetter?: () => object,
-        tracePrinter?: TracePrinter,
-        minimalDuration = -1,
-        logParsingPerf = false
-    ) {
+    log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {
         // If no console is given, don't do anything.
         if (this._console === undefined) {
             return callback(this._dummyState);
@@ -46,13 +38,6 @@ export class LogTracker {
         const level = (this._console as any).level;
         if (level === undefined || (level !== LogLevel.Log && level !== LogLevel.Info)) {
             return callback(this._dummyState);
-        }
-
-        // If we have eval state, print it before
-        if (evalStateGetter && tracePrinter) {
-            this._console.log(
-                `${this._indentation} TypeEvaluatorState before '${title}'\n${tracePrinter.print(evalStateGetter())}`
-            );
         }
 
         // Since this is only used when LogLevel.Log or LogLevel.Info is set or BG,
@@ -97,13 +82,6 @@ export class LogTracker {
                 if (msDuration >= durationThresholdForInfoInMs) {
                     this._console.info(`[${this._prefix}] Long operation: ${title} (${msDuration}ms)`);
                 }
-            }
-
-            // If we have eval state, print it after
-            if (evalStateGetter && tracePrinter) {
-                this._console.log(
-                    `${current} TypeEvaluatorState after '${title}'\n${tracePrinter.print(evalStateGetter())}`
-                );
             }
         }
     }

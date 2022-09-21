@@ -1253,7 +1253,7 @@ export function getCodeFlowEngine(
         const node = flowNode.node;
 
         if (isPrintCallNoReturnEnabled) {
-            logger.log(`isCallNoReturn@${flowNode.id} Pre depth ${noReturnAnalysisDepth}`);
+            logger.log(`[CFE] isCallNoReturn@${flowNode.id} Pre depth ${noReturnAnalysisDepth}`);
         }
 
         // See if this information is cached already.
@@ -1261,7 +1261,7 @@ export function getCodeFlowEngine(
             const result = callIsNoReturnCache.get(node.id);
 
             if (isPrintCallNoReturnEnabled) {
-                logger.log(`isCallNoReturn@${flowNode.id} Post: ${result ? 'true' : 'false'} (cached)`);
+                logger.log(`[CFE] isCallNoReturn@${flowNode.id} Post: ${result ? 'true' : 'false'} (cached)`);
             }
 
             return result;
@@ -1403,7 +1403,7 @@ export function getCodeFlowEngine(
             callIsNoReturnCache.set(node.id, callIsNoReturn);
 
             if (isPrintCallNoReturnEnabled) {
-                logger.log(`isCallNoReturn@${flowNode.id} Post: ${callIsNoReturn ? 'true' : 'false'}`);
+                logger.log(`[CFE] isCallNoReturn@${flowNode.id} Post: ${callIsNoReturn ? 'true' : 'false'}`);
             }
 
             return callIsNoReturn;
@@ -1568,8 +1568,8 @@ export function getCodeFlowEngine(
             referenceText = `${printExpression(reference)}[${pos.line + 1}:${pos.character + 1}]`;
         }
 
-        logger.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
-        logger.log(formatControlFlowGraph(flowNode));
+        logger.log(`[CFE] ${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
+        logger.log(`[CFE] Graph: ${formatControlFlowGraph(flowNode)}`);
     }
 
     return {
