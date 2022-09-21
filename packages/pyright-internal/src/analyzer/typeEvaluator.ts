@@ -9251,6 +9251,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // If there weren't enough positional arguments to populate all of the
+        // positional-only parameters and the next positional-only parameter is
+        // an unbounded tuple, skip past it.
+        if (
+            positionalOnlyLimitIndex >= 0 &&
+            paramIndex < positionalOnlyLimitIndex &&
+            paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList
+        ) {
+            paramIndex++;
+        }
+
         // Check if there weren't enough positional arguments to populate all of
         // the positional-only parameters.
         if (
