@@ -216,6 +216,41 @@ test('ipython multiple magics 2', () => {
     testIPython(code);
 });
 
+test('ipython cell magic', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo(): ...
+//// [|/*marker*/%%cell magic
+////     random text
+////     and more|]
+    `;
+
+    testIPython(code);
+});
+
+test('ipython cell shell escape', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo(): ...
+//// [|/*marker*/!!cell shell escape
+////     random text
+////     and more|]
+    `;
+
+    testIPython(code);
+});
+
+test('ipython wrong magic', () => {
+    const code = `
+// @ipythonMode: true
+//// def foo(): 
+//// [|/*marker*/%!not cell magic|]
+////     ...
+    `;
+
+    testIPython(code);
+});
+
 test('top level await raises errors in regular mode', () => {
     const code = `
 //// async def foo():
@@ -474,18 +509,36 @@ function testIPython(code: string, expectMagic = true) {
 
     const results = state.program.getBoundSourceFile(range.fileName)!.getParseResults()!;
 
-    const comment = findCommentByOffset(results.tokenizerOutput.tokens, range.pos + 1);
+    const text = results.text.substring(range.pos, range.end);
+    const type = getCommentType(text);
+
+    const offset = type === CommentType.IPythonMagic || type === CommentType.IPythonShellEscape ? 1 : 2;
+    const comment = findCommentByOffset(results.tokenizerOutput.tokens, range.pos + offset);
     if (!expectMagic) {
         assert(!comment);
         return;
     }
 
     assert(comment);
-    const text = results.text.substring(range.pos, range.end);
+
+    assert.strictEqual(type, comment.type);
+    assert.strictEqual(text.substring(offset), comment.value);
+}
+
+function getCommentType(text: string) {
+    assert(text.length > 0);
 
     const type = text[0] === '%' ? CommentType.IPythonMagic : CommentType.IPythonShellEscape;
-    assert.strictEqual(type, comment.type);
-    assert.strictEqual(text.substring(1), comment.value);
+    if (text.length === 1) {
+        return type;
+    }
+
+    switch (type) {
+        case CommentType.IPythonMagic:
+            return text[1] === '%' ? CommentType.IPythonCellMagic : type;
+        case CommentType.IPythonShellEscape:
+            return text[1] === '!' ? CommentType.IPythonCellShellEscape : type;
+    }
 }
 
 function findCommentByOffset(tokens: TextRangeCollection<Token>, offset: number) {
