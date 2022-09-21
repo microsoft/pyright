@@ -20,7 +20,7 @@ def func1(x: TA1):
 
     x(3, (1, 2, "hi"), "hi")
 
-    # This should generage an error because the first argument is not an int.
+    # This should generate an error because the first argument is not an int.
     x(None, (1, 2, "hi"), "hi")
 
     y = [1, 2, 3]
