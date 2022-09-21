@@ -313,7 +313,9 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
             // If this is an unpacked tuple, expand the entries.
             const paramType = FunctionType.getEffectiveParameterType(type, index);
             if (param.name && isUnpackedClass(paramType) && paramType.tupleTypeArguments) {
-                paramType.tupleTypeArguments.forEach((tupleArg, index) => {
+                const addToPositionalOnly = index < result.positionOnlyParamCount;
+
+                paramType.tupleTypeArguments.forEach((tupleArg, tupleIndex) => {
                     const category =
                         isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
                             ? ParameterCategory.VarArgList
@@ -330,14 +332,18 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                     addVirtualParameter(
                         {
                             category,
-                            name: `${param.name}[${index.toString()}]`,
+                            name: `${param.name}[${tupleIndex.toString()}]`,
                             isNameSynthesized: true,
                             type: tupleArg.type,
                             hasDeclaredType: true,
                         },
-                        index,
+                        tupleIndex,
                         tupleArg.type
                     );
+
+                    if (tupleIndex > 0 && addToPositionalOnly) {
+                        result.positionOnlyParamCount++;
+                    }
                 });
             } else {
                 if (param.name && result.argsIndex === undefined) {

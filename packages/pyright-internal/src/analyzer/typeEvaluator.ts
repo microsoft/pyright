@@ -8310,7 +8310,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Validates that the arguments can be assigned to the call's parameter
     // list, specializes the call based on arg types, and returns the
     // specialized type of the return value. If it detects an error along
-    // the way, it emits a diagnostic and returns undefined.
+    // the way, it emits a diagnostic and sets argumentErrors to true.
     function validateCallArguments(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
@@ -9254,12 +9254,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If there weren't enough positional arguments to populate all of the
         // positional-only parameters and the next positional-only parameter is
         // an unbounded tuple, skip past it.
+        let skippedArgsParam = false;
         if (
             positionalOnlyLimitIndex >= 0 &&
             paramIndex < positionalOnlyLimitIndex &&
-            paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList
+            paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList &&
+            !isParamSpec(paramDetails.params[paramIndex].param.type)
         ) {
             paramIndex++;
+            skippedArgsParam = true;
         }
 
         // Check if there weren't enough positional arguments to populate all of
@@ -9274,7 +9277,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyLimitIndex
                     ? firstParamWithDefault
                     : positionalOnlyLimitIndex;
-            const argsRemainingCount = positionOnlyWithoutDefaultsCount - positionalArgCount;
+
+            // Calculate the number of remaining positional parameters to report.
+            let argsRemainingCount = positionOnlyWithoutDefaultsCount - positionalArgCount;
+            if (skippedArgsParam) {
+                // If we skipped an args parameter above, reduce the count by one
+                // because it's permitted to pass zero arguments to *args.
+                argsRemainingCount--;
+            }
+
+            const firstArgsParam = paramDetails.params.findIndex(
+                (paramInfo) =>
+                    paramInfo.param.category === ParameterCategory.VarArgList && !isParamSpec(paramInfo.param.type)
+            );
+            if (firstArgsParam >= paramIndex) {
+                // If there is another args parameter beyond the current param index,
+                // reduce the count by one because it's permitted to pass zero arguments
+                // to *args.
+                argsRemainingCount--;
+            }
+
             if (argsRemainingCount > 0) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
