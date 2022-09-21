@@ -9290,7 +9290,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 (paramInfo) =>
                     paramInfo.param.category === ParameterCategory.VarArgList && !isParamSpec(paramInfo.param.type)
             );
-            if (firstArgsParam >= paramIndex) {
+            if (firstArgsParam >= paramIndex && firstArgsParam < positionalOnlyLimitIndex) {
                 // If there is another args parameter beyond the current param index,
                 // reduce the count by one because it's permitted to pass zero arguments
                 // to *args.
