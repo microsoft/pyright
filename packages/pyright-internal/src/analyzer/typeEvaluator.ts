@@ -18292,15 +18292,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (
                         isTypeVar(adjustedTypeArgType) &&
                         !adjustedTypeArgType.details.isParamSpec &&
-                        !adjustedTypeArgType.details.isVariadic
+                        !adjustedTypeArgType.details.isVariadic &&
+                        destType.details.declaredVariance !== Variance.Auto &&
+                        adjustedTypeArgType.details.declaredVariance !== Variance.Auto
                     ) {
                         if (
-                            destType.details.declaredVariance === Variance.Invariant &&
-                            adjustedTypeArgType.details.declaredVariance !== Variance.Auto &&
-                            adjustedTypeArgType.details.declaredVariance !== Variance.Invariant
+                            adjustedTypeArgType.details.declaredVariance !== Variance.Invariant &&
+                            adjustedTypeArgType.details.declaredVariance !== destType.details.declaredVariance
                         ) {
                             diag.addMessage(
-                                Localizer.DiagnosticAddendum.invarianceMismatch().format({
+                                Localizer.DiagnosticAddendum.varianceMismatch().format({
                                     typeVarName: printType(adjustedTypeArgType),
                                     className: classType.details.name,
                                 })
