@@ -23552,18 +23552,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Validates that the specified source type matches the constraints
     // of the type variable. If successful, it returns the constraint
     // type that applies. If unsuccessful, it returns undefined.
-    function applyTypeArgToTypeVar(
-        destType: TypeVarType,
-        srcType: Type,
-        diag: DiagnosticAddendum,
-        flags = AssignTypeFlags.Default,
-        recursionCount = 0
-    ): Type | undefined {
-        if (recursionCount > maxTypeRecursionCount) {
-            return srcType;
-        }
-        recursionCount++;
-
+    function applyTypeArgToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagnosticAddendum): Type | undefined {
         if (isAnyOrUnknown(srcType)) {
             return srcType;
         }
@@ -23571,7 +23560,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let effectiveSrcType: Type = srcType;
 
         if (isTypeVar(srcType)) {
-            if (isTypeSame(srcType, destType, {}, recursionCount)) {
+            if (isTypeSame(srcType, destType)) {
                 return srcType;
             }
 
@@ -23593,9 +23582,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     effectiveSrcType,
                     diag.createAddendum(),
                     /* destTypeVarContext */ undefined,
-                    /* srcTypeVarContext */ undefined,
-                    flags,
-                    recursionCount
+                    /* srcTypeVarContext */ undefined
                 )
             ) {
                 // Avoid adding a message that will confuse users if the TypeVar was
@@ -23651,17 +23638,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Make sure all the source constraint types map to constraint types in the dest.
             if (
                 srcType.details.constraints.every((sourceConstraint) => {
-                    return constraints.some((destConstraint) =>
-                        assignType(
-                            destConstraint,
-                            sourceConstraint,
-                            /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.Default,
-                            recursionCount
-                        )
-                    );
+                    return constraints.some((destConstraint) => assignType(destConstraint, sourceConstraint));
                 })
             ) {
                 return srcType;
@@ -23671,29 +23648,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Try to find the best (narrowest) match among the constraints.
             for (const constraint of constraints) {
-                if (
-                    assignType(
-                        constraint,
-                        effectiveSrcType,
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.Default,
-                        recursionCount
-                    )
-                ) {
-                    if (
-                        !bestConstraintSoFar ||
-                        assignType(
-                            bestConstraintSoFar,
-                            constraint,
-                            /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.Default,
-                            recursionCount
-                        )
-                    ) {
+                if (assignType(constraint, effectiveSrcType)) {
+                    if (!bestConstraintSoFar || assignType(bestConstraintSoFar, constraint)) {
                         bestConstraintSoFar = constraint;
                     }
                 }
