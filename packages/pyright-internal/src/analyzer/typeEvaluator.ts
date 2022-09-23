@@ -15906,9 +15906,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If there was no annotation for the parameter, infer its type if possible.
             let isTypeInferred = false;
-            if (!paramType) {
+            if (!paramTypeNode) {
                 isTypeInferred = true;
-                paramType = inferParameterType(node, functionType.details.flags, index, containingClassType);
+                const inferredType = inferParameterType(node, functionType.details.flags, index, containingClassType);
+                if (inferredType) {
+                    paramType = inferredType;
+                }
             }
 
             const functionParam: FunctionParameter = {

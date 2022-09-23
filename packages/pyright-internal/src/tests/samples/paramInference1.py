@@ -3,11 +3,18 @@
 
 
 class Parent:
+    def __init__(self, a: int, b: str):
+        ...
+
     def func1(self, a: int, b: str) -> float:
         ...
 
 
 class Child(Parent):
+    def __init__(self, a, b):
+        reveal_type(a, expected_text="int")
+        reveal_type(b, expected_text="str")
+
     def func1(self, a, b):
         reveal_type(self, expected_text="Self@Child")
         reveal_type(a, expected_text="int")
