@@ -14636,7 +14636,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             EvaluatorFlags.AllowGenericClassType |
             EvaluatorFlags.DisallowNakedGeneric |
             EvaluatorFlags.DisallowTypeVarsWithScopeId |
-            EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
+            EvaluatorFlags.AssociateTypeVarsWithCurrentScope |
+            EvaluatorFlags.EnforceTypeVarVarianceConsistency;
         if (fileInfo.isStubFile) {
             exprFlags |= EvaluatorFlags.AllowForwardReferences;
         }
@@ -18280,7 +18281,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
-                const adjustedTypeArgType = applyTypeArgToTypeVar(typeParameters[index], typeArgType, diag);
+                let adjustedTypeArgType = applyTypeArgToTypeVar(typeParameters[index], typeArgType, diag);
+
+                // Determine if the variance must match.
+                if (adjustedTypeArgType && (flags & EvaluatorFlags.EnforceTypeVarVarianceConsistency) !== 0) {
+                    const destType = typeParameters[index];
+                    if (
+                        isTypeVar(adjustedTypeArgType) &&
+                        !adjustedTypeArgType.details.isParamSpec &&
+                        !adjustedTypeArgType.details.isVariadic
+                    ) {
+                        if (
+                            destType.details.declaredVariance === Variance.Invariant &&
+                            adjustedTypeArgType.details.declaredVariance !== Variance.Auto &&
+                            adjustedTypeArgType.details.declaredVariance !== Variance.Invariant
+                        ) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.invarianceMismatch().format({
+                                    typeVarName: printType(adjustedTypeArgType),
+                                    className: classType.details.name,
+                                })
+                            );
+                            adjustedTypeArgType = undefined;
+                        }
+                    }
+                }
 
                 if (adjustedTypeArgType) {
                     typeArgType = adjustedTypeArgType;

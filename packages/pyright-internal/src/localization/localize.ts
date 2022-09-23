@@ -1037,6 +1037,10 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodLocation'));
         export const initMethodSignature = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.initMethodSignature'));
+        export const invarianceMismatch = () =>
+            new ParameterizedString<{ typeVarName: string; className: string }>(
+                getRawString('DiagnosticAddendum.invarianceMismatch')
+            );
         export const functionTooManyParams = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooManyParams')

@@ -538,6 +538,7 @@
         "initMethodLocation": "The __init__ method is defined in class \"{type}\"",
         "incompatibleDeleter": "Property deleter method is incompatible",
         "initMethodSignature": "Signature of __init__ is \"{type}\"",
+        "invarianceMismatch": "Variance of TypeVar \"{typeVarName}\" must be invariant when used with base class \"{className}\"",
         "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "listAssignmentMismatch": "Type \"{type}\" is incompatible with target list",
         "literalAssignmentMismatch": "\"{sourceType}\" cannot be assigned to type \"{destType}\"",

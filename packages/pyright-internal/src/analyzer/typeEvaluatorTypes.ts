@@ -106,6 +106,11 @@ export const enum EvaluatorFlags {
     // the containing function's scope.
     AssociateTypeVarsWithCurrentScope = 1 << 13,
 
+    // When a new class-scoped TypeVar is used within a class
+    // declaration, make sure that it is not used to parameterize
+    // a base class whose TypeVar variance is inconsistent.
+    EnforceTypeVarVarianceConsistency = 1 << 14,
+
     // Used for PEP 526-style variable type annotations
     VariableTypeAnnotation = 1 << 15,
 
