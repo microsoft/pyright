@@ -106,7 +106,7 @@ export function buildAnalyzerFileInfo(
 
     const fileInfo: AnalyzerFileInfo = {
         importLookup: (_) => undefined,
-        futureImports: new Map<string, boolean>(),
+        futureImports: new Set<string>(),
         builtinsScope: undefined,
         diagnosticSink: analysisDiagnostics,
         executionEnvironment: configOptions.findExecEnvironment(filePath),

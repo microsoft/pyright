@@ -363,7 +363,7 @@ export class Program {
                 : undefined;
 
             sourceFileInfo.sourceFile.markDirty();
-            this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
+            this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
         }
     }
 
@@ -379,7 +379,7 @@ export class Program {
             // people who use diagnosticMode Workspace.
             if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
                 sourceFileInfo.sourceFile.markDirty();
-                this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
+                this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
             }
         }
 
@@ -391,7 +391,7 @@ export class Program {
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {
-        const markDirtyMap = new Map<string, boolean>();
+        const markDirtySet = new Set<string>();
 
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (evenIfContentsAreSame) {
@@ -401,17 +401,17 @@ export class Program {
 
                 // Mark any files that depend on this file as dirty
                 // also. This will retrigger analysis of these other files.
-                this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
+                this._markFileDirtyRecursive(sourceFileInfo, markDirtySet);
             }
         });
 
-        if (markDirtyMap.size > 0) {
+        if (markDirtySet.size > 0) {
             this._createNewEvaluator();
         }
     }
 
     markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean, indexingNeeded = true) {
-        const markDirtyMap = new Map<string, boolean>();
+        const markDirtySet = new Set<string>();
         filePaths.forEach((filePath) => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
             if (sourceFileInfo) {
@@ -435,12 +435,12 @@ export class Program {
 
                     // Mark any files that depend on this file as dirty
                     // also. This will retrigger analysis of these other files.
-                    this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
+                    this._markFileDirtyRecursive(sourceFileInfo, markDirtySet);
                 }
             }
         });
 
-        if (markDirtyMap.size > 0) {
+        if (markDirtySet.size > 0) {
             this._createNewEvaluator();
         }
     }
@@ -894,8 +894,8 @@ export class Program {
 
             // Mark any files that depend on this file as dirty
             // also. This will retrigger analysis of these other files.
-            const markDirtyMap = new Map<string, boolean>();
-            this._markFileDirtyRecursive(fileToParse, markDirtyMap);
+            const markDirtySet = new Set<string>();
+            this._markFileDirtyRecursive(fileToParse, markDirtySet);
 
             // Invalidate the import resolver's cache as well.
             this._importResolver.invalidateCache();
@@ -1220,23 +1220,19 @@ export class Program {
         firstSourceFile.sourceFile.addCircularDependency(circDep);
     }
 
-    private _markFileDirtyRecursive(
-        sourceFileInfo: SourceFileInfo,
-        markMap: Map<string, boolean>,
-        forceRebinding = false
-    ) {
+    private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo, markSet: Set<string>, forceRebinding = false) {
         const filePath = normalizePathCase(this._fs, sourceFileInfo.sourceFile.getFilePath());
 
         // Don't mark it again if it's already been visited.
-        if (!markMap.has(filePath)) {
+        if (!markSet.has(filePath)) {
             sourceFileInfo.sourceFile.markReanalysisRequired(forceRebinding);
-            markMap.set(filePath, true);
+            markSet.add(filePath);
 
             sourceFileInfo.importedBy.forEach((dep) => {
                 // Changes on chained source file can change symbols in the symbol table and
                 // dependencies on the dependent file. Force rebinding.
                 const forceRebinding = dep.chainedSourceFile === sourceFileInfo;
-                this._markFileDirtyRecursive(dep, markMap, forceRebinding);
+                this._markFileDirtyRecursive(dep, markSet, forceRebinding);
             });
         }
     }
@@ -2494,10 +2490,10 @@ export class Program {
         // by a tracked file but then abandoned. The import cycle
         // will keep the entire group "alive" if we don't detect
         // the condition and garbage collect them.
-        return this._isImportNeededRecursive(fileInfo, new Map<string, boolean>());
+        return this._isImportNeededRecursive(fileInfo, new Set<string>());
     }
 
-    private _isImportNeededRecursive(fileInfo: SourceFileInfo, recursionMap: Map<string, boolean>) {
+    private _isImportNeededRecursive(fileInfo: SourceFileInfo, recursionSet: Set<string>) {
         if (fileInfo.isTracked || fileInfo.isOpenByClient || fileInfo.shadows.length > 0) {
             return true;
         }
@@ -2505,14 +2501,14 @@ export class Program {
         const filePath = normalizePathCase(this._fs, fileInfo.sourceFile.getFilePath());
 
         // Avoid infinite recursion.
-        if (recursionMap.has(filePath)) {
+        if (recursionSet.has(filePath)) {
             return false;
         }
 
-        recursionMap.set(filePath, true);
+        recursionSet.add(filePath);
 
         for (const importerInfo of fileInfo.importedBy) {
-            if (this._isImportNeededRecursive(importerInfo, recursionMap)) {
+            if (this._isImportNeededRecursive(importerInfo, recursionSet)) {
                 return true;
             }
         }

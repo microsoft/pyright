@@ -169,7 +169,7 @@ export interface ParseResults {
     text: string;
     parseTree: ModuleNode;
     importedModules: ModuleImport[];
-    futureImports: Map<string, boolean>;
+    futureImports: Set<string>;
     tokenizerOutput: TokenizerOutput;
     containsWildcardImport: boolean;
     typingSymbolAliases: Map<string, string>;
@@ -218,7 +218,7 @@ export class Parser {
     private _isParsingTypeAnnotation = false;
     private _isParsingIndexTrailer = false;
     private _isParsingQuotedText = false;
-    private _futureImportMap = new Map<string, boolean>();
+    private _futureImports = new Set<string>();
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
     private _assignmentExpressionsAllowed = true;
@@ -264,7 +264,7 @@ export class Parser {
             text: fileContents,
             parseTree: moduleNode,
             importedModules: this._importedModules,
-            futureImports: this._futureImportMap,
+            futureImports: this._futureImports,
             tokenizerOutput: this._tokenizerOutput!,
             containsWildcardImport: this._containsWildcardImport,
             typingSymbolAliases: this._typingSymbolAliases,
@@ -736,35 +736,35 @@ export class Parser {
         return false;
     }
 
-    private _getPatternTargetNames(node: PatternAtomNode, nameMap: Map<string, boolean>): void {
+    private _getPatternTargetNames(node: PatternAtomNode, nameSet: Set<string>): void {
         switch (node.nodeType) {
             case ParseNodeType.PatternSequence: {
                 node.entries.forEach((subpattern) => {
-                    this._getPatternTargetNames(subpattern, nameMap);
+                    this._getPatternTargetNames(subpattern, nameSet);
                 });
                 break;
             }
 
             case ParseNodeType.PatternClass: {
                 node.arguments.forEach((arg) => {
-                    this._getPatternTargetNames(arg.pattern, nameMap);
+                    this._getPatternTargetNames(arg.pattern, nameSet);
                 });
                 break;
             }
 
             case ParseNodeType.PatternAs: {
                 if (node.target) {
-                    nameMap.set(node.target.value, true);
+                    nameSet.add(node.target.value);
                 }
                 node.orPatterns.forEach((subpattern) => {
-                    this._getPatternTargetNames(subpattern, nameMap);
+                    this._getPatternTargetNames(subpattern, nameSet);
                 });
                 break;
             }
 
             case ParseNodeType.PatternCapture: {
                 if (!node.isWildcard) {
-                    nameMap.set(node.target.value, true);
+                    nameSet.add(node.target.value);
                 }
                 break;
             }
@@ -772,10 +772,10 @@ export class Parser {
             case ParseNodeType.PatternMapping: {
                 node.entries.forEach((mapEntry) => {
                     if (mapEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
-                        nameMap.set(mapEntry.target.value, true);
+                        nameSet.add(mapEntry.target.value);
                     } else {
-                        this._getPatternTargetNames(mapEntry.keyPattern, nameMap);
-                        this._getPatternTargetNames(mapEntry.valuePattern, nameMap);
+                        this._getPatternTargetNames(mapEntry.keyPattern, nameSet);
+                        this._getPatternTargetNames(mapEntry.valuePattern, nameSet);
                     }
                 });
                 break;
@@ -880,17 +880,17 @@ export class Parser {
         });
 
         // Validate that all bound variables are the same within all or patterns.
-        const fullNameMap = new Map<string, boolean>();
+        const fullNameSet = new Set<string>();
         orPatterns.forEach((orPattern) => {
-            this._getPatternTargetNames(orPattern, fullNameMap);
+            this._getPatternTargetNames(orPattern, fullNameSet);
         });
 
         orPatterns.forEach((orPattern) => {
-            const localNameMap = new Map<string, boolean>();
-            this._getPatternTargetNames(orPattern, localNameMap);
+            const localNameSet = new Set<string>();
+            this._getPatternTargetNames(orPattern, localNameSet);
 
-            if (localNameMap.size < fullNameMap.size) {
-                const missingNames = Array.from(fullNameMap.keys()).filter((name) => !localNameMap.has(name));
+            if (localNameSet.size < fullNameSet.size) {
+                const missingNames = Array.from(fullNameSet.keys()).filter((name) => !localNameSet.has(name));
                 const diag = new DiagnosticAddendum();
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.orPatternMissingName().format({
@@ -2404,8 +2404,8 @@ export class Parser {
                     extendRange(importFromNode, importFromAsNode);
 
                     if (isFutureImport) {
-                        // Add the future import to the map.
-                        this._futureImportMap.set(importName.value, true);
+                        // Add the future import by name.
+                        this._futureImports.add(importName.value);
                     }
 
                     const nextToken = this._peekToken();

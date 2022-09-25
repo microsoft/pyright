@@ -120,7 +120,7 @@ export function createTypedDictType(
         evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
     } else {
         const entriesArg = argList[1];
-        const entryMap = new Map<string, boolean>();
+        const entrySet = new Set<string>();
 
         if (
             entriesArg.argumentCategory === ArgumentCategory.Simple &&
@@ -147,13 +147,13 @@ export function createTypedDictType(
                     return;
                 }
 
-                if (entryMap.has(entryName)) {
+                if (entrySet.has(entryName)) {
                     evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
                     return;
                 }
 
-                // Record names in a map to detect duplicates.
-                entryMap.set(entryName, true);
+                // Record names in a set to detect duplicates.
+                entrySet.add(entryName);
 
                 // Cache the annotation type.
                 const annotatedType = evaluator.getTypeOfExpressionExpectingType(
@@ -194,13 +194,13 @@ export function createTypedDictType(
                     continue;
                 }
 
-                if (entryMap.has(entry.name.value)) {
+                if (entrySet.has(entry.name.value)) {
                     evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.valueExpression);
                     continue;
                 }
 
                 // Record names in a map to detect duplicates.
-                entryMap.set(entry.name.value, true);
+                entrySet.add(entry.name.value);
 
                 // Evaluate the type with specific evaluation flags. The
                 // type will be cached for later.

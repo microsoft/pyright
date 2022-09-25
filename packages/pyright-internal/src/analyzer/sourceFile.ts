@@ -857,7 +857,7 @@ export class SourceFile {
                     text: '',
                     parseTree: ModuleNode.create({ start: 0, length: 0 }),
                     importedModules: [],
-                    futureImports: new Map<string, boolean>(),
+                    futureImports: new Set<string>(),
                     tokenizerOutput: {
                         tokens: new TextRangeCollection<Token>([]),
                         lines: new TextRangeCollection<TextRange>([]),
