@@ -2803,7 +2803,15 @@ export class Binder extends ParseTreeWalker {
         }
 
         const expressionList: CodeFlowReferenceExpressionNode[] = [];
-        if (!this._isNarrowingExpression(expression, expressionList)) {
+        if (
+            !this._isNarrowingExpression(
+                expression,
+                expressionList,
+                /* filterForNeverNarrowing */ (flags &
+                    (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) !==
+                    0
+            )
+        ) {
             return antecedent;
         }
 
@@ -2878,6 +2886,17 @@ export class Binder extends ParseTreeWalker {
 
                 if (isCodeFlowSupportedForReference(expression)) {
                     expressionList.push(expression);
+
+                    if (!filterForNeverNarrowing) {
+                        // If the expression is a member access expression, add its
+                        // leftExpression to the expression list because that expression
+                        // can be narrowed based on the attribute type.
+                        if (expression.nodeType === ParseNodeType.MemberAccess) {
+                            if (isCodeFlowSupportedForReference(expression.leftExpression)) {
+                                expressionList.push(expression.leftExpression);
+                            }
+                        }
+                    }
                     return true;
                 }
 
