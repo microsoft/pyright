@@ -11,6 +11,7 @@
  * TypeScript compiler.
  */
 
+import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { ArgumentCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -99,6 +100,12 @@ export interface CodeFlowEngine {
     createCodeFlowAnalyzer: () => CodeFlowAnalyzer;
     isFlowNodeReachable: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => boolean;
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
+    printControlFlowGraph: (
+        flowNode: FlowNode,
+        reference: CodeFlowReferenceExpressionNode | undefined,
+        callName: string,
+        logger: ConsoleInterface
+    ) => void;
 }
 
 interface CodeFlowTypeCache {
@@ -1557,7 +1564,8 @@ export function getCodeFlowEngine(
     function printControlFlowGraph(
         flowNode: FlowNode,
         reference: CodeFlowReferenceExpressionNode | undefined,
-        callName: string
+        callName: string,
+        logger: ConsoleInterface = console
     ) {
         let referenceText = '';
         if (reference) {
@@ -1566,13 +1574,14 @@ export function getCodeFlowEngine(
             referenceText = `${printExpression(reference)}[${pos.line + 1}:${pos.character + 1}]`;
         }
 
-        console.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
-        console.log(formatControlFlowGraph(flowNode));
+        logger.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);
+        logger.log(formatControlFlowGraph(flowNode));
     }
 
     return {
         createCodeFlowAnalyzer,
         isFlowNodeReachable,
         narrowConstrainedTypeVar,
+        printControlFlowGraph,
     };
 }

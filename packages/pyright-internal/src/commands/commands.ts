@@ -13,4 +13,10 @@ export const enum Commands {
     orderImports = 'pyright.organizeimports',
     addMissingOptionalToParam = 'pyright.addoptionalforparam',
     unusedImport = 'pyright.unusedImport',
+    dumpFileDebugInfo = 'pyright.dumpFileDebugInfo',
+    dumpTokens = 'pyright.dumpTokens',
+    dumpNodes = 'pyright.dumpNodes',
+    dumpTypes = 'pyright.dumpTypes',
+    dumpCachedTypes = 'pyright.dumpCachedTypes',
+    dumpCodeFlowGraph = 'pyright.dumpCodeFlowGraph',
 }

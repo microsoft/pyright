@@ -20,6 +20,7 @@ import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
+import { ConsoleInterface } from '../common/console';
 import { assert, assertNever, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -830,6 +831,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return evaluateTypeForSubnode(node, () => {
             evaluateTypesForExpressionInContext(node);
         })?.type;
+    }
+
+    // Reads the type of the node from the cache.
+    function getCachedType(node: ExpressionNode): Type | undefined {
+        return readTypeCache(node, EvaluatorFlags.None);
     }
 
     // Determines the expected type of a specified node based on surrounding
@@ -24051,9 +24057,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return (range.start.line + 1).toString();
     }
 
+    function printControlFlowGraph(
+        flowNode: FlowNode,
+        reference: CodeFlowReferenceExpressionNode | undefined,
+        callName: string,
+        logger: ConsoleInterface
+    ) {
+        return codeFlowEngine.printControlFlowGraph(flowNode, reference, callName, logger);
+    }
+
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
         getType,
+        getCachedType,
         getTypeOfExpression,
         getTypeOfAnnotation,
         getTypeOfClass,
@@ -24135,6 +24151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         useSpeculativeMode,
         setTypeForNode,
         checkForCancellation,
+        printControlFlowGraph,
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker);
