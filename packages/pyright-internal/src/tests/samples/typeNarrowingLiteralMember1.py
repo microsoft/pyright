@@ -138,21 +138,3 @@ def test(x: E | F) -> None:
     else:
         reveal_type(x, expected_type="E")
 
-class G:
-    type: Literal[0]
-
-class H:
-    type: Literal[1]
-
-class I:
-    thing: G | H
-
-    def method1(self) -> None:
-        if self.thing.type == 1:
-            reveal_type(self.thing, expected_text="H")
-
-        local = self.thing
-        if local.type == 1:
-            reveal_type(local, expected_text="H")
-
- 
