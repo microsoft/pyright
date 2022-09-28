@@ -51,7 +51,38 @@
                 "command": "pyright.restartserver",
                 "title": "Restart Server",
                 "category": "Pyright"
+            },
+            {
+                "command": "pyright.dumpTokens",
+                "title": "Dump token streams ...",
+                "category": "Pyright",
+                "enablement": "editorLangId == python && pyright.development"
+            },
+            {
+                "command": "pyright.dumpNodes",
+                "title": "Dump parse tree ...",
+                "category": "Pyright",
+                "enablement": "editorLangId == python && pyright.development"
+            },
+            {
+                "command": "pyright.dumpTypes",
+                "title": "Dump type info ...",
+                "category": "Pyright",
+                "enablement": "editorLangId == python && pyright.development"
+            },
+            {
+                "command": "pyright.dumpCachedTypes",
+                "title": "Dump cached type info ...",
+                "category": "Pyright",
+                "enablement": "editorLangId == python && pyright.development"
+            },
+            {
+                "command": "pyright.dumpCodeFlowGraph",
+                "title": "Dump code flow graph for node ...",
+                "category": "Pyright",
+                "enablement": "editorLangId == python && pyright.development"
             }
+
         ],
         "menus": {
             "editor/context": [
@@ -61,7 +92,30 @@
                     "group": "Pyright",
                     "when": "editorLangId == python"
                 }
+            ],
+            "commandPalette": [
+                {
+                    "command": "pyright.dumpTokens",
+                    "when": "editorLangId == python && pyright.development"
+                },
+                {
+                    "command": "pyright.dumpNodes",
+                    "when": "editorLangId == python && pyright.development"
+                },
+                {
+                    "command": "pyright.dumpTypes",
+                    "when": "editorLangId == python && pyright.development"
+                },
+                {
+                    "command": "pyright.dumpCachedTypes",
+                    "when": "editorLangId == python && pyright.development"
+                },
+                {
+                    "command": "pyright.dumpCodeFlowGraph",
+                    "when": "editorLangId == python && pyright.development"
+                }
             ]
+
         },
         "configuration": {
             "type": "object",

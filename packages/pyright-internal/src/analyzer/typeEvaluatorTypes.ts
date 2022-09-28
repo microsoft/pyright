@@ -11,6 +11,7 @@
 import { CancellationToken } from 'vscode-languageserver-protocol';
 
 import { DiagnosticLevel } from '../common/configOptions';
+import { ConsoleInterface } from '../common/console';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { TextRange } from '../common/textRange';
 import {
@@ -31,6 +32,7 @@ import {
 } from '../parser/parseNodes';
 import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
+import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
 import { Declaration } from './declaration';
 import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
@@ -312,6 +314,7 @@ export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
     getType: (node: ExpressionNode) => Type | undefined;
+    getCachedType: (node: ExpressionNode) => Type | undefined;
     getTypeOfExpression: (node: ExpressionNode, flags?: EvaluatorFlags, expectedType?: Type) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
@@ -489,4 +492,10 @@ export interface TypeEvaluator {
     setTypeForNode: (node: ParseNode, type?: Type, flags?: EvaluatorFlags) => void;
 
     checkForCancellation: () => void;
+    printControlFlowGraph: (
+        flowNode: FlowNode,
+        reference: CodeFlowReferenceExpressionNode | undefined,
+        callName: string,
+        logger: ConsoleInterface
+    ) => void;
 }
