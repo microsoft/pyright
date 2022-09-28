@@ -853,7 +853,12 @@ export function getCodeFlowEngine(
                         }
 
                         if (!sawIncomplete || attemptCount >= maxAttemptCount) {
-                            return setCacheEntry(loopNode, effectiveType, /* isIncomplete */ false);
+                            // If we were able to evaluate a type along at least one antecedent
+                            // path, mark it as complete. If we couldn't evaluate a type along
+                            // any antecedent path, assume that some recursive call further
+                            // up the stack will be able to produce a valid type.
+                            const reportIncomplete = sawIncomplete && effectiveType === undefined;
+                            return setCacheEntry(loopNode, effectiveType, reportIncomplete);
                         }
 
                         attemptCount++;
