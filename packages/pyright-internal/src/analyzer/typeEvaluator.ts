@@ -15187,9 +15187,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Update the decorated class type.
         writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
 
-        // Validate __init_subclass__ call or metaclass keyword arguments.
-        validateInitSubclassArgs(node, classType, initSubclassArgs);
-
         // Stash away a reference to the UnionType class if we encounter it.
         // There's no easy way to otherwise reference it.
         if (ClassType.isBuiltIn(classType, 'UnionType')) {
@@ -24126,6 +24123,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         narrowConstrainedTypeVar,
         assignType,
         validateOverrideMethod,
+        validateInitSubclassArgs,
         assignTypeToExpression,
         assignClassToSelf,
         getTypedDictClassType,
