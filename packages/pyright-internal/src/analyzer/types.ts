@@ -432,7 +432,7 @@ export const enum ClassTypeFlags {
     // special-case handling of its type arguments.
     TupleClass = 1 << 19,
 
-    // The class has a metaclass of EnumMet or derives from
+    // The class has a metaclass of EnumMeta or derives from
     // a class that has this metaclass.
     EnumClass = 1 << 20,
 
