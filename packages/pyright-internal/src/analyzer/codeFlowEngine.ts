@@ -85,14 +85,19 @@ export interface FlowNodeTypeResult {
     incompleteSubtypes?: IncompleteSubtypeInfo[] | undefined;
 }
 
+export interface FlowNodeTypeOptions {
+    isInitialTypeIncomplete?: boolean;
+    skipNoReturnCallAnalysis?: boolean;
+    skipConditionalNarrowing?: boolean;
+}
+
 export interface CodeFlowAnalyzer {
     getTypeFromCodeFlow: (
         flowNode: FlowNode,
         reference: CodeFlowReferenceExpressionNode | undefined,
         targetSymbolId: number | undefined,
         initialType: Type | undefined,
-        isInitialTypeIncomplete: boolean,
-        ignoreNoReturn: boolean
+        options?: FlowNodeTypeOptions
     ) => FlowNodeTypeResult;
 }
 
@@ -154,8 +159,7 @@ export function getCodeFlowEngine(
             reference: CodeFlowReferenceExpressionNode | undefined,
             targetSymbolId: number | undefined,
             initialType: Type | undefined,
-            isInitialTypeIncomplete: boolean,
-            ignoreNoReturn: boolean
+            options?: FlowNodeTypeOptions
         ): FlowNodeTypeResult {
             if (isPrintControlFlowGraphEnabled) {
                 printControlFlowGraph(flowNode, reference, 'getTypeFromCodeFlow');
@@ -373,7 +377,7 @@ export function getCodeFlowEngine(
                         // If this function returns a "NoReturn" type, that means
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
-                        if (!ignoreNoReturn && isCallNoReturn(evaluator, callFlowNode)) {
+                        if (!options?.skipNoReturnCallAnalysis && isCallNoReturn(evaluator, callFlowNode)) {
                             return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                         }
 
@@ -464,7 +468,7 @@ export function getCodeFlowEngine(
                                     // The type of "a.b" can no longer be assumed to be Literal[3].
                                     return {
                                         type: initialType,
-                                        isIncomplete: isInitialTypeIncomplete,
+                                        isIncomplete: !!options?.isInitialTypeIncomplete,
                                     };
                                 }
                             }
@@ -534,7 +538,7 @@ export function getCodeFlowEngine(
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
 
-                        if (reference) {
+                        if (!options?.skipConditionalNarrowing && reference) {
                             const narrowedResult = preventRecursion(curFlowNode, () => {
                                 const typeNarrowingCallback = getTypeNarrowingCallback(
                                     evaluator,
@@ -570,7 +574,7 @@ export function getCodeFlowEngine(
 
                     if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
-                        if (conditionalFlowNode.reference) {
+                        if (!options?.skipConditionalNarrowing && conditionalFlowNode.reference) {
                             // Don't allow apply if the conditional expression references the expression
                             // we're already narrowing. This case will be handled by the TrueCondition
                             // or FalseCondition node.
@@ -678,7 +682,7 @@ export function getCodeFlowEngine(
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, initialType, isInitialTypeIncomplete);
+                        return setCacheEntry(curFlowNode, initialType, !!options?.isInitialTypeIncomplete);
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -920,7 +924,7 @@ export function getCodeFlowEngine(
                 // referenced types).
                 return {
                     type: initialType,
-                    isIncomplete: isInitialTypeIncomplete,
+                    isIncomplete: !!options?.isInitialTypeIncomplete,
                 };
             }
 

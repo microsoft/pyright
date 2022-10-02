@@ -84,7 +84,7 @@ import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizer
 import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo, ImportLookup, isAnnotationEvaluationPostponed } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { CodeFlowAnalyzer, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
+import { CodeFlowAnalyzer, FlowNodeTypeOptions, FlowNodeTypeResult, getCodeFlowEngine } from './codeFlowEngine';
 import {
     CodeFlowReferenceExpressionNode,
     createKeyForReference,
@@ -2723,8 +2723,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* reference */ undefined,
             /* targetSymbolId */ undefined,
             /* initialType */ UnboundType.create(),
-            /* isInitialTypeIncomplete */ false,
-            /* ignoreNoReturn */ true
+            {
+                skipNoReturnCallAnalysis: true,
+            }
         );
 
         return codeFlowResult.type !== undefined;
@@ -4022,8 +4023,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         node,
                         symbol.id,
                         typeAtStart,
-                        /* isInitialTypeIncomplete */ false,
-                        /* startNode */ undefined
+                        /* startNode */ undefined,
+                        {
+                            skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                        }
                     );
                     if (codeFlowTypeResult.type) {
                         type = codeFlowTypeResult.type;
@@ -4217,13 +4220,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                         })
                     ) {
-                        return getFlowTypeOfReference(
-                            node,
-                            symbolWithScope.symbol.id,
-                            effectiveType,
-                            /* isInitialTypeIncomplete */ false,
-                            innerScopeNode
-                        );
+                        return getFlowTypeOfReference(node, symbolWithScope.symbol.id, effectiveType, innerScopeNode);
                     }
                 }
             }
@@ -4636,7 +4633,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node,
                 indeterminateSymbolId,
                 initialType,
-                isInitialTypeIncomplete
+                /* startNode */ undefined,
+                {
+                    isInitialTypeIncomplete,
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                }
             );
 
             if (codeFlowTypeResult.type) {
@@ -5855,7 +5856,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node,
                     indeterminateSymbolId,
                     indexTypeResult.type,
-                    !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete
+                    /* startNode */ undefined,
+                    {
+                        isInitialTypeIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
+                        skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                    }
                 );
                 if (codeFlowTypeResult.type) {
                     indexTypeResult.type = codeFlowTypeResult.type;
@@ -17889,9 +17894,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
         initialType: Type | undefined,
-        isInitialTypeIncomplete: boolean,
         startNode?: FunctionNode | LambdaNode,
-        ignoreNoReturn = false
+        options?: FlowNodeTypeOptions
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
         const referenceKey = createKeyForReference(reference);
@@ -17924,14 +17928,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: undefined, isIncomplete: false };
         }
 
-        return analyzer.getTypeFromCodeFlow(
-            flowNode!,
-            reference,
-            targetSymbolId,
-            initialType,
-            isInitialTypeIncomplete,
-            ignoreNoReturn
-        );
+        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, initialType, options);
     }
 
     // Specializes the specified (potentially generic) class type using
