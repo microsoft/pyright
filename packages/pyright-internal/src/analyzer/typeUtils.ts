@@ -1109,7 +1109,6 @@ export function applySolvedTypeVars(
 // type variables that are scoped to the appropriate context.
 export function transformExpectedTypeForConstructor(
     expectedType: Type,
-    typeVarContext: TypeVarContext,
     liveTypeVarScopes: TypeVarScopeId[]
 ): Type | undefined {
     const isTypeVarLive = (typeVar: TypeVarType) => liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
@@ -1125,7 +1124,7 @@ export function transformExpectedTypeForConstructor(
         return undefined;
     }
 
-    const transformer = new ExpectedConstructorTypeTransformer(typeVarContext, liveTypeVarScopes);
+    const transformer = new ExpectedConstructorTypeTransformer(liveTypeVarScopes);
     return transformer.apply(expectedType);
 }
 
@@ -3224,48 +3223,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 }
 
 class ExpectedConstructorTypeTransformer extends TypeVarTransformer {
-    static synthesizedTypeVarIndexForExpectedType = 1;
-
-    dummyScopeId = '__expected_type_scope_id';
-    dummyTypeVarPrefix = '__expected_type_';
-
-    constructor(private _typeVarContext: TypeVarContext, private _liveTypeVarScopes: TypeVarScopeId[]) {
+    constructor(private _liveTypeVarScopes: TypeVarScopeId[]) {
         super();
-
-        this._typeVarContext.addSolveForScope(this.dummyScopeId);
     }
 
     private _isTypeVarLive(typeVar: TypeVarType) {
         return this._liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
-    }
-
-    private _createDummyTypeVar(prevTypeVar: TypeVarType) {
-        // If we previously synthesized this dummy type var, just return it.
-        if (prevTypeVar.details.isSynthesized && prevTypeVar.details.name.startsWith(this.dummyTypeVarPrefix)) {
-            return prevTypeVar;
-        }
-
-        const isInstance = TypeBase.isInstance(prevTypeVar);
-        let newTypeVar = TypeVarType.createInstance(
-            `__expected_type_${ExpectedConstructorTypeTransformer.synthesizedTypeVarIndexForExpectedType}`
-        );
-        newTypeVar.details.isSynthesized = true;
-        newTypeVar.scopeId = this.dummyScopeId;
-        newTypeVar.nameWithScope = TypeVarType.makeNameWithScope(newTypeVar.details.name, this.dummyScopeId);
-        if (!isInstance) {
-            newTypeVar = convertToInstantiable(newTypeVar) as TypeVarType;
-        }
-
-        // If the original TypeVar was bound or constrained, make the replacement as well.
-        newTypeVar.details.boundType = prevTypeVar.details.boundType;
-        newTypeVar.details.constraints = prevTypeVar.details.constraints;
-
-        // Also copy the variance.
-        newTypeVar.details.declaredVariance = prevTypeVar.details.declaredVariance;
-        newTypeVar.computedVariance = prevTypeVar.computedVariance;
-
-        ExpectedConstructorTypeTransformer.synthesizedTypeVarIndexForExpectedType++;
-        return newTypeVar;
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
@@ -3275,6 +3238,6 @@ class ExpectedConstructorTypeTransformer extends TypeVarTransformer {
             return typeVar;
         }
 
-        return this._createDummyTypeVar(typeVar);
+        return AnyType.create();
     }
 }

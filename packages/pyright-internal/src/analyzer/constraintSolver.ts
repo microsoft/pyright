@@ -876,7 +876,6 @@ export function populateTypeVarContextBasedOnExpectedType(
                     if (liveTypeVarScopes) {
                         expectedTypeArgValue = transformExpectedTypeForConstructor(
                             expectedTypeArgValue,
-                            typeVarContext,
                             liveTypeVarScopes
                         );
                     }
