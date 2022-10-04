@@ -21536,62 +21536,64 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const srcTypeIndex = remainingSrcSubtypes.findIndex((srcSubtype) =>
                         isTypeSame(srcSubtype, destSubtype, {}, recursionCount)
                     );
+
                     if (srcTypeIndex >= 0) {
                         remainingSrcSubtypes.splice(srcTypeIndex, 1);
                     } else {
-                        isIncompatible = true;
+                        remainingDestSubtypes.push(destSubtype);
                     }
                 }
             });
 
             // For all remaining source subtypes, attempt to find a dest subtype
             // whose primary type matches.
-            if (!isIncompatible) {
-                sortTypes(remainingSrcSubtypes).forEach((srcSubtype) => {
-                    const destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
-                        if (
-                            isClass(srcSubtype) &&
-                            isClass(destSubtype) &&
-                            TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
-                            ClassType.isSameGenericClass(srcSubtype, destSubtype)
-                        ) {
+            sortTypes(remainingSrcSubtypes).forEach((srcSubtype) => {
+                const destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
+                    if (
+                        isClass(srcSubtype) &&
+                        isClass(destSubtype) &&
+                        TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
+                        ClassType.isSameGenericClass(srcSubtype, destSubtype)
+                    ) {
+                        return true;
+                    }
+
+                    if (isFunction(srcSubtype) || isOverloadedFunction(srcSubtype)) {
+                        if (isFunction(destSubtype) || isOverloadedFunction(destSubtype)) {
                             return true;
                         }
-
-                        if (isFunction(srcSubtype) || isOverloadedFunction(srcSubtype)) {
-                            if (isFunction(destSubtype) || isOverloadedFunction(destSubtype)) {
-                                return true;
-                            }
-                        }
-
-                        return false;
-                    });
-
-                    if (destTypeIndex >= 0) {
-                        if (
-                            !assignType(
-                                remainingDestSubtypes[destTypeIndex],
-                                srcSubtype,
-                                diag?.createAddendum(),
-                                destTypeVarContext,
-                                srcTypeVarContext,
-                                flags,
-                                recursionCount
-                            )
-                        ) {
-                            isIncompatible = true;
-                        }
-
-                        remainingDestSubtypes.splice(destTypeIndex, 1);
-                        remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
                     }
+
+                    return false;
                 });
-            }
+
+                if (destTypeIndex >= 0) {
+                    if (
+                        !assignType(
+                            remainingDestSubtypes[destTypeIndex],
+                            srcSubtype,
+                            diag?.createAddendum(),
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        isIncompatible = true;
+                    }
+
+                    remainingDestSubtypes.splice(destTypeIndex, 1);
+                    remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
+                }
+            });
 
             // If there is are remaining dest subtypes and they're all type variables,
             // attempt to assign the remaining source subtypes to them.
             if (!isIncompatible && (remainingDestSubtypes.length !== 0 || remainingSrcSubtypes.length !== 0)) {
-                if (remainingDestSubtypes.length === 0 || remainingDestSubtypes.some((t) => !isTypeVar(t))) {
+                const isReversed = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
+                const effectiveDestSubtypes = isReversed ? remainingSrcSubtypes : remainingDestSubtypes;
+
+                if (effectiveDestSubtypes.length === 0 || effectiveDestSubtypes.some((t) => !isTypeVar(t))) {
                     isIncompatible = true;
                 } else if (remainingDestSubtypes.length === remainingSrcSubtypes.length) {
                     // If the number of remaining source subtypes is the same as the number
@@ -21617,8 +21619,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // the first destination TypeVar.
                     if (
                         !assignType(
-                            remainingDestSubtypes[0],
-                            combineTypes(remainingSrcSubtypes),
+                            isReversed ? combineTypes(remainingDestSubtypes) : remainingDestSubtypes[0],
+                            isReversed ? remainingSrcSubtypes[0] : combineTypes(remainingSrcSubtypes),
                             diag?.createAddendum(),
                             destTypeVarContext,
                             srcTypeVarContext,
