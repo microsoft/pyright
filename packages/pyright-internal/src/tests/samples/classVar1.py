@@ -15,7 +15,7 @@ class MyDescriptor:
 class Starship:
     captain: str = "Picard"
     damage: int
-    stats: ClassVar[Dict[str, int]] = {}
+    stats: "ClassVar[Dict[str, int]]" = {}
     desc: ClassVar[MyDescriptor] = MyDescriptor()
 
     def __init__(self, damage: int, captain: Optional[str] = None):

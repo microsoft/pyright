@@ -3901,6 +3901,11 @@ export class Binder extends ParseTreeWalker {
         let classVarTypeNode: ExpressionNode | undefined;
 
         while (typeAnnotation) {
+            // Is this a quoted annotation?
+            if (typeAnnotation.nodeType === ParseNodeType.StringList && typeAnnotation.typeAnnotation) {
+                typeAnnotation = typeAnnotation.typeAnnotation;
+            }
+
             if (
                 typeAnnotation.nodeType === ParseNodeType.Index &&
                 typeAnnotation.items.length > 0 &&
