@@ -789,8 +789,8 @@ export class PackageTypeVerifier {
                 if (!this._shouldIgnoreType(report, type.details.fullName)) {
                     // Don't bother type-checking built-in types.
                     if (!ClassType.isBuiltIn(type)) {
-                        // Reference the class.
-                        this._getSymbolForClass(report, type, publicSymbolMap);
+                        const symbolInfo = this._getSymbolForClass(report, type, publicSymbolMap);
+                        knownStatus = this._updateKnownStatusIfWorse(knownStatus, symbolInfo.typeKnownStatus);
                     }
                 }
 
@@ -1316,8 +1316,8 @@ export class PackageTypeVerifier {
                 if (!this._shouldIgnoreType(report, type.details.fullName)) {
                     // Don't bother type-checking built-in types.
                     if (!ClassType.isBuiltIn(type)) {
-                        // Reference the class.
-                        this._getSymbolForClass(report, type, publicSymbolMap);
+                        const symbolInfo = this._getSymbolForClass(report, type, publicSymbolMap);
+                        knownStatus = this._updateKnownStatusIfWorse(knownStatus, symbolInfo.typeKnownStatus);
                     }
                 }
 
