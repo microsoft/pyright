@@ -632,20 +632,22 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     protected onInitialized() {
         if (!this.client.hasWorkspaceFoldersCapability) {
-            // if folder capability is not supported, initialize ones given by onInitialize.
+            // If folder capability is not supported, initialize ones given by onInitialize.
             this.updateSettingsForAllWorkspaces();
             return;
         }
 
         this._connection.workspace.onDidChangeWorkspaceFolders((event) => {
-            event.removed.forEach((workspace) => {
-                const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
+            event.removed.forEach((workspaceInfo) => {
+                const rootPath = this._uriParser.decodeTextDocumentUri(workspaceInfo.uri);
+                const workspace = this._workspaceMap.getWorkspaceForFile(this, rootPath);
+                workspace.serviceInstance.dispose();
                 this._workspaceMap.delete(rootPath);
             });
 
-            event.added.forEach((workspace) => {
-                const rootPath = this._uriParser.decodeTextDocumentUri(workspace.uri);
-                const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath, rootPath);
+            event.added.forEach((workspaceInfo) => {
+                const rootPath = this._uriParser.decodeTextDocumentUri(workspaceInfo.uri);
+                const newWorkspace = this.createWorkspaceServiceInstance(workspaceInfo, rootPath, rootPath);
                 this._workspaceMap.set(rootPath, newWorkspace);
                 this.updateSettingsForWorkspace(newWorkspace).ignoreErrors();
             });

@@ -8,7 +8,6 @@
  * and all of their recursive imports.
  */
 
-import { getHeapStatistics } from 'v8';
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
@@ -70,6 +69,7 @@ import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { CacheManager } from './cacheManager';
 import { CircularDependency } from './circularDependency';
 import { Declaration } from './declaration';
 import { ImportResolver } from './importResolver';
@@ -193,7 +193,13 @@ export class Program {
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
 
+        CacheManager.registerCacheOwner(this);
+
         this._createNewEvaluator();
+    }
+
+    dispose() {
+        CacheManager.unregisterCacheOwner(this);
     }
 
     get evaluator(): TypeEvaluator | undefined {
@@ -2205,6 +2211,25 @@ export class Program {
         return sourceFileInfo.sourceFile.performQuickAction(command, args, token);
     }
 
+    // Returns a value from 0 to 1 (or more) indicating how "full" the cache is
+    // relative to some predetermined high-water mark. We'll compute this value
+    // based on two easy-to-compute metrics: the number of entries in the type
+    // cache and the number of parsed files.
+    getCacheUsage() {
+        const typeCacheEntryCount = this._evaluator!.getTypeCacheEntryCount();
+        const entryCountRatio = typeCacheEntryCount / 750000;
+        const fileCountRatio = this._parsedFileCount / 1000;
+
+        return Math.max(entryCountRatio, fileCountRatio);
+    }
+
+    // Discards any cached information associated with this program.
+    emptyCache() {
+        this._createNewEvaluator();
+        this._discardCachedParseResults();
+        this._parsedFileCount = 0;
+    }
+
     test_createSourceMapper(execEnv: ExecutionEnvironment) {
         return this._createSourceMapper(execEnv, /* mapCompiled */ false);
     }
@@ -2323,46 +2348,24 @@ export class Program {
     }
 
     private _handleMemoryHighUsage() {
-        const typeCacheEntryCount = this._evaluator!.getTypeCacheEntryCount();
-        const convertToMB = (bytes: number) => {
-            return `${Math.round(bytes / (1024 * 1024))}MB`;
-        };
+        const cacheUsage = CacheManager.getCacheUsage();
 
-        // If the type cache size has exceeded a high-water mark, query the heap usage.
-        // Don't bother doing this until we hit this point because the heap usage may not
-        // drop immediately after we empty the cache due to garbage collection timing.
-        if (typeCacheEntryCount > 750000 || this._parsedFileCount > 1000) {
-            const heapStats = getHeapStatistics();
-
-            if (this._configOptions.verboseOutput) {
-                this._console.info(
-                    `Heap stats: ` +
-                        `total_heap_size=${convertToMB(heapStats.total_heap_size)}, ` +
-                        `used_heap_size=${convertToMB(heapStats.used_heap_size)}, ` +
-                        `total_physical_size=${convertToMB(heapStats.total_physical_size)}, ` +
-                        `total_available_size=${convertToMB(heapStats.total_available_size)}, ` +
-                        `heap_size_limit=${convertToMB(heapStats.heap_size_limit)}`
-                );
-            }
+        // If the total cache has exceeded 75%, determine whether we should empty
+        // the cache.
+        if (cacheUsage > 0.75) {
+            const usedHeapRatio = CacheManager.getUsedHeapRatio(
+                this._configOptions.verboseOutput ? this._console : undefined
+            );
 
             // The type cache uses a Map, which has an absolute limit of 2^24 entries
             // before it will fail. If we cross the 95% mark, we'll empty the cache.
             const absoluteMaxCacheEntryCount = (1 << 24) * 0.9;
+            const typeCacheEntryCount = this._evaluator!.getTypeCacheEntryCount();
 
             // If we use more than 90% of the heap size limit, avoid a crash
             // by emptying the type cache.
-            if (
-                typeCacheEntryCount > absoluteMaxCacheEntryCount ||
-                heapStats.used_heap_size > heapStats.heap_size_limit * 0.9
-            ) {
-                this._console.info(
-                    `Emptying type cache to avoid heap overflow. Used ${convertToMB(
-                        heapStats.used_heap_size
-                    )} out of ${convertToMB(heapStats.heap_size_limit)} (${typeCacheEntryCount} cache entries).`
-                );
-                this._createNewEvaluator();
-                this._discardCachedParseResults();
-                this._parsedFileCount = 0;
+            if (typeCacheEntryCount > absoluteMaxCacheEntryCount || usedHeapRatio > 0.9) {
+                CacheManager.emptyCache(this._console);
             }
         }
     }
