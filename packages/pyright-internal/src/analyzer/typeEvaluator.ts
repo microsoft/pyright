@@ -8626,7 +8626,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     return AnyType.create();
                                 }
 
-                                if (isKnownEnumType(className)) {
+                                if (isClass(unexpandedSubtype) && isKnownEnumType(className)) {
                                     return createEnumType(errorNode, expandedSubtype, argList);
                                 }
 
