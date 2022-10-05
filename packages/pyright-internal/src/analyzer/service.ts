@@ -172,6 +172,7 @@ export class AnalyzerService {
     }
 
     dispose() {
+        this._backgroundAnalysisProgram.program.dispose();
         this._disposed = true;
         this._removeSourceFileWatchers();
         this._removeConfigFileWatcher();

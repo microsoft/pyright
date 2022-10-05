@@ -174,7 +174,10 @@ export function typeAnalyzeSampleFiles(
         nameTypeWalker.walk(parseResults.parseTree);
     });
 
-    return getAnalysisResults(program, filePaths, configOptions);
+    const results = getAnalysisResults(program, filePaths, configOptions);
+
+    program.dispose();
+    return results;
 }
 
 export function getAnalysisResults(
