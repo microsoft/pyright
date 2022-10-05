@@ -1,0 +1,6 @@
+version = "304.*"
+
+[tool.stubtest]
+# The library only works on Windows; we currently only run stubtest on Ubuntu for third-party stubs in CI.
+# See #8660
+skip = true

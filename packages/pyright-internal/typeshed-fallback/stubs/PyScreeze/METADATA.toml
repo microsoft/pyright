@@ -1,0 +1,5 @@
+version = "0.1.*"
+requires = ["types-Pillow"]
+
+[tool.stubtest]
+ignore_missing_stub = false

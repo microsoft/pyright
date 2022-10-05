@@ -1,6 +1,5 @@
+import http.client
 from typing import Any
-
-from six.moves import http_client
 
 HAVE_HTTPS_CONNECTION: bool
 ON_APP_ENGINE: Any
@@ -40,7 +39,7 @@ class HTTPRequest:
     def __init__(self, method, protocol, host, port, path, auth_path, params, headers, body) -> None: ...
     def authorize(self, connection, **kwargs): ...
 
-class HTTPResponse(http_client.HTTPResponse):
+class HTTPResponse(http.client.HTTPResponse):
     def __init__(self, *args, **kwargs) -> None: ...
     def read(self, amt: Any | None = ...): ...
 

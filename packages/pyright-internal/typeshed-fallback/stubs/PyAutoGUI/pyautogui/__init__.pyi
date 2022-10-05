@@ -1,11 +1,17 @@
 import contextlib
-from _typeshed import Incomplete
-from collections.abc import Callable, Generator, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
-from typing import NamedTuple, SupportsFloat, SupportsInt, TypeVar, overload
+from typing import NamedTuple, SupportsInt, TypeVar
 from typing_extensions import ParamSpec, SupportsIndex, TypeAlias
 
-from PIL import Image
+from pyscreeze import (
+    locate as locate,
+    locateAll as locateAll,
+    locateAllOnScreen as locateAllOnScreen,
+    locateCenterOnScreen as locateCenterOnScreen,
+    locateOnScreen as locateOnScreen,
+    locateOnWindow as locateOnWindow,
+)
 
 class PyAutoGUIException(Exception): ...
 class FailSafeException(PyAutoGUIException): ...
@@ -14,164 +20,8 @@ class ImageNotFoundException(PyAutoGUIException): ...
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 _NormalizeableXArg: TypeAlias = str | SupportsInt | Sequence[SupportsInt]
-_Unused: TypeAlias = object
-
-# TODO: cv2.Mat is not available as a type yet: https://github.com/microsoft/python-type-stubs/issues/211
-# cv2.Mat is just an alias for a numpy NDArray, but can't import that either.
-_Mat: TypeAlias = Incomplete
-
-class _Box(NamedTuple):  # Same as pyscreeze.Box
-    left: int
-    top: int
-    width: int
-    height: int
 
 def raisePyAutoGUIImageNotFoundException(wrappedFunction: Callable[_P, _R]) -> Callable[_P, _R]: ...
-
-# These functions reuse pyscreeze functions directly.
-# TODO: Once pyscreeze is typed, we can alias them to simplify this stub
-
-# _locateAll_opencv
-@overload
-def locate(
-    needleImage: str | Image.Image | _Mat,
-    haystackImage: str | Image.Image | _Mat,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: SupportsFloat = ...,
-) -> _Box | None: ...
-
-# _locateAll_python / _locateAll_pillow
-@overload
-def locate(
-    needleImage: str | Image.Image,
-    haystackImage: str | Image.Image,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: None = ...,
-) -> _Box | None: ...
-
-# _locateAll_opencv
-@overload
-def locateAll(
-    needleImage: str | Image.Image | _Mat,
-    haystackImage: str | Image.Image | _Mat,
-    grayscale: bool | None = ...,
-    limit: int = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: SupportsFloat = ...,
-) -> Generator[_Box, None, None]: ...
-
-# _locateAll_python / _locateAll_pillow
-@overload
-def locateAll(
-    needleImage: str | Image.Image,
-    haystackImage: str | Image.Image,
-    grayscale: bool | None = ...,
-    limit: int | None = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: None = ...,
-) -> Generator[_Box, None, None]: ...
-
-# _locateAll_opencv
-@overload
-def locateAllOnScreen(
-    image: str | Image.Image | _Mat,
-    grayscale: bool | None = ...,
-    limit: int = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: SupportsFloat = ...,
-) -> Generator[_Box, None, None]: ...
-
-# _locateAll_python / _locateAll_pillow
-@overload
-def locateAllOnScreen(
-    image: str | Image.Image,
-    grayscale: bool | None = ...,
-    limit: int | None = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: None = ...,
-) -> Generator[_Box, None, None]: ...
-
-# _locateAll_opencv
-@overload
-def locateCenterOnScreen(
-    image: str | Image.Image | _Mat,
-    minSearchTime: float,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: SupportsFloat = ...,
-) -> Point | None: ...
-
-# _locateAll_python / _locateAll_pillow
-@overload
-def locateCenterOnScreen(
-    image: str | Image.Image,
-    minSearchTime: float,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: None = ...,
-) -> Point | None: ...
-
-# _locateAll_opencv
-@overload
-def locateOnScreen(
-    image: str | Image.Image | _Mat,
-    minSearchTime: float,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: SupportsFloat = ...,
-) -> _Box | None: ...
-
-# _locateAll_python / _locateAll_pillow
-@overload
-def locateOnScreen(
-    image: str | Image.Image,
-    minSearchTime: float,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    region: _Box | None = ...,
-    step: int = ...,
-    confidence: None = ...,
-) -> _Box | None: ...
-
-# _locateAll_opencv
-@overload
-def locateOnWindow(
-    image: str | Image.Image | _Mat,
-    title: str,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    step: int = ...,
-    confidence: SupportsFloat = ...,
-) -> _Box | None: ...
-
-# _locateAll_python / _locateAll_pillow
-@overload
-def locateOnWindow(
-    image: str | Image.Image,
-    title: str,
-    grayscale: bool | None = ...,
-    limit: _Unused = ...,
-    step: int = ...,
-    confidence: None = ...,
-) -> _Box | None: ...
-
-# end of reused pyscreeze functions
 def mouseInfo() -> None: ...
 def useImageNotFoundException(value: bool | None = ...) -> None: ...
 
