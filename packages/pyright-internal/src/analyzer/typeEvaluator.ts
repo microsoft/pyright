@@ -15091,7 +15091,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
         } else {
             const baseClassDataTransform = classType.details.mro.find((mroClass) => {
-                return isClass(mroClass) && mroClass.details.classDataClassTransform !== undefined;
+                return (
+                    isClass(mroClass) &&
+                    mroClass.details.classDataClassTransform !== undefined &&
+                    mroClass !== classType
+                );
             });
 
             if (baseClassDataTransform) {

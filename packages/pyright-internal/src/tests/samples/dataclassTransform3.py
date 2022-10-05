@@ -32,6 +32,8 @@ def model_field(
     field_specifiers=(ModelField, model_field),
 )
 class ModelBase:
+    not_a_field: str
+
     def __init_subclass__(
         cls,
         *,
