@@ -1,6 +1,6 @@
 # https://pyinstaller.org/en/stable/hooks.html
 
-from _typeshed import StrOrBytesPath, SupportsKeysAndGetItem
+from _typeshed import StrOrBytesPath, StrPath, SupportsKeysAndGetItem
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 from typing_extensions import Literal, TypeAlias
@@ -50,12 +50,12 @@ def collect_dynamic_libs(package: str, destdir: object = ...) -> list[tuple[str,
 def collect_data_files(
     package: str,
     include_py_files: bool = ...,
-    subdir: StrOrBytesPath | None = ...,
+    subdir: StrPath | None = ...,
     excludes: Iterable[str] | None = ...,
     includes: Iterable[str] | None = ...,
 ) -> list[tuple[str, str]]: ...
 def collect_system_data_files(
-    path: str, destdir: StrOrBytesPath | None = ..., include_py_files: bool = ...
+    path: str, destdir: StrPath | None = ..., include_py_files: bool = ...
 ) -> list[tuple[str, str]]: ...
 def copy_metadata(package_name: str, recursive: bool = ...) -> list[tuple[str, str]]: ...
 def get_installer(module: str) -> str | None: ...

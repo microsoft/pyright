@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import builtins
 import types
 import unittest

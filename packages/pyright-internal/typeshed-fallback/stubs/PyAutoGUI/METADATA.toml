@@ -1,2 +1,2 @@
 version = "0.9.*"
-requires = ["types-Pillow"]
+requires = ["types-PyScreeze", "types-Pillow"]
