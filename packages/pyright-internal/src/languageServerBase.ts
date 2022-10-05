@@ -640,8 +640,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._connection.workspace.onDidChangeWorkspaceFolders((event) => {
             event.removed.forEach((workspaceInfo) => {
                 const rootPath = this._uriParser.decodeTextDocumentUri(workspaceInfo.uri);
-                const workspace = this._workspaceMap.getWorkspaceForFile(this, rootPath);
-                workspace.serviceInstance.dispose();
                 this._workspaceMap.delete(rootPath);
             });
 

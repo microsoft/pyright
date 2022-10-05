@@ -4,7 +4,7 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * A singleton that track the size of caches and empty them
+ * A singleton that tracks the size of caches and empty them
  * if memory usage approaches the max heap space.
  */
 
