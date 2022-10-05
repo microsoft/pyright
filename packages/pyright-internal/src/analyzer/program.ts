@@ -116,6 +116,8 @@ export interface SourceFileInfo {
     // current file's scope.
     chainedSourceFile?: SourceFileInfo | undefined;
 
+    effectiveFutureImports?: Set<string>;
+
     // Information about why the file is included in the program
     // and its relation to other source files in the program.
     isTracked: boolean;
@@ -948,7 +950,23 @@ export class Program {
                 getScopeIfAvailable(fileToAnalyze.builtinsImport);
         }
 
-        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope);
+        let futureImports = fileToAnalyze.sourceFile.getParseResults()!.futureImports;
+        if (fileToAnalyze.chainedSourceFile) {
+            futureImports = this._getEffectiveFutureImports(futureImports, fileToAnalyze.chainedSourceFile);
+        }
+        fileToAnalyze.effectiveFutureImports = futureImports.size > 0 ? futureImports : undefined;
+
+        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, futureImports);
+    }
+
+    private _getEffectiveFutureImports(futureImports: Set<string>, chainedSourceFile: SourceFileInfo): Set<string> {
+        const effectiveFutureImports = new Set<string>(futureImports);
+
+        chainedSourceFile.effectiveFutureImports?.forEach((value) => {
+            effectiveFutureImports.add(value);
+        });
+
+        return effectiveFutureImports;
     }
 
     private _lookUpImport = (filePathOrModule: string | AbsoluteModuleDescriptor): ImportLookupResult | undefined => {

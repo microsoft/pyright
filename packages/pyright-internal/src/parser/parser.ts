@@ -1425,6 +1425,26 @@ export class Parser {
                     } else {
                         this._addError(Localizer.Diagnostic.unexpectedIndent(), nextToken);
                     }
+                } else if (nextToken.type === TokenType.Dedent) {
+                    // When we see a dedent, stop before parsing the dedented statement.
+                    const dedentToken = nextToken as DedentToken;
+                    if (!dedentToken.matchesIndent) {
+                        this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
+                    }
+                    if (dedentToken.isDedentAmbiguous) {
+                        this._addError(Localizer.Diagnostic.inconsistentTabs(), dedentToken);
+                    }
+
+                    // When the suite is incomplete (no statements), leave the dedent token for
+                    // recovery. This allows a single dedent token to cause us to break out of
+                    // multiple levels of nested suites. Also extend the suite's range in this
+                    // case so it is multi-line as this works better with indentationUtils.
+                    if (suite.statements.length > 0) {
+                        this._consumeTokenIfType(TokenType.Dedent);
+                    } else {
+                        extendRange(suite, dedentToken);
+                    }
+                    break;
                 }
 
                 const statement = this._parseStatement();
@@ -1434,17 +1454,6 @@ export class Parser {
                 } else {
                     statement.parent = suite;
                     suite.statements.push(statement);
-                }
-
-                const dedentToken = this._peekToken() as DedentToken;
-                if (this._consumeTokenIfType(TokenType.Dedent)) {
-                    if (!dedentToken.matchesIndent) {
-                        this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
-                    }
-                    if (dedentToken.isDedentAmbiguous) {
-                        this._addError(Localizer.Diagnostic.inconsistentTabs(), dedentToken);
-                    }
-                    break;
                 }
 
                 if (this._peekTokenType() === TokenType.EndOfStream) {

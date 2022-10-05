@@ -1213,7 +1213,12 @@ export class SourceFile {
         return performQuickAction(command, args, this._parseResults, token);
     }
 
-    bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope: Scope | undefined) {
+    bind(
+        configOptions: ConfigOptions,
+        importLookup: ImportLookup,
+        builtinsScope: Scope | undefined,
+        futureImports: Set<string>
+    ) {
         assert(!this.isParseRequired(), 'Bind called before parsing');
         assert(this.isBindingRequired(), 'Bind called unnecessarily');
         assert(!this._isBindingInProgress, 'Bind called while binding in progress');
@@ -1229,7 +1234,8 @@ export class SourceFile {
                         configOptions,
                         this._parseResults!.text,
                         importLookup,
-                        builtinsScope
+                        builtinsScope,
+                        futureImports
                     );
                     AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
@@ -1339,14 +1345,15 @@ export class SourceFile {
         configOptions: ConfigOptions,
         fileContents: string,
         importLookup: ImportLookup,
-        builtinsScope?: Scope
+        builtinsScope: Scope | undefined,
+        futureImports: Set<string>
     ) {
         assert(this._parseResults !== undefined, 'Parse results not available');
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
             importLookup,
-            futureImports: this._parseResults!.futureImports,
+            futureImports,
             builtinsScope,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
