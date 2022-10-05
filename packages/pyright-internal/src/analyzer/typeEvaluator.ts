@@ -15094,7 +15094,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return (
                     isClass(mroClass) &&
                     mroClass.details.classDataClassTransform !== undefined &&
-                    mroClass !== classType
+                    !ClassType.isSameGenericClass(mroClass, classType)
                 );
             });
 
