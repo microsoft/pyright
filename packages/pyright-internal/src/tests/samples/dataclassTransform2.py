@@ -23,6 +23,8 @@ def model_field(
     field_specifiers=(ModelField, model_field),
 )
 class ModelMeta(type):
+    not_a_field: str
+
     def __init_subclass__(
         cls,
         *,
