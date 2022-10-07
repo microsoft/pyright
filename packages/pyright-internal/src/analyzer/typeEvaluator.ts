@@ -15091,7 +15091,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
         } else {
             const baseClassDataTransform = classType.details.mro.find((mroClass) => {
-                return isClass(mroClass) && mroClass.details.classDataClassTransform !== undefined;
+                return (
+                    isClass(mroClass) &&
+                    mroClass.details.classDataClassTransform !== undefined &&
+                    !ClassType.isSameGenericClass(mroClass, classType)
+                );
             });
 
             if (baseClassDataTransform) {
@@ -18398,7 +18402,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (allowRequired) {
-            flags |= EvaluatorFlags.RequiredAllowed;
+            flags |= EvaluatorFlags.RequiredAllowed | EvaluatorFlags.ExpectingTypeAnnotation;
         }
 
         return getTypeOfExpression(node, flags);
