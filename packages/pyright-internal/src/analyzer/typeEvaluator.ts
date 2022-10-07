@@ -18402,7 +18402,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (allowRequired) {
-            flags |= EvaluatorFlags.RequiredAllowed;
+            flags |= EvaluatorFlags.RequiredAllowed | EvaluatorFlags.ExpectingTypeAnnotation;
         }
 
         return getTypeOfExpression(node, flags);
