@@ -39,5 +39,37 @@ Pyright uses the following mechanisms (in priority order) to determine which Pyt
 
 3. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
 
+## Editable installs
+
+[PEP 660](https://peps.python.org/pep-0660/) enables build backends (ex. setuptools) to
+use import hooks to direct the [import machinery](https://docs.python.org/3/reference/import.html)
+to the package's source files rather than using a `.pth` file. Import hooks can provide
+an editable installation that is a more accurate representation of your real installation.
+However, because resolving module locations using an import hook requires executing Python
+code, they are not usable by Pyright and other static analysis tools. Therefore, if your
+editable install is configured to use import hooks, Pyright will be unable to find the
+corresponding source files.
+
+If you want to use static analysis tools with an editable install, you should configure
+the editable install to use `.pth` files instead of import hooks. See your build backend's
+documentation for details on how to do this. We have provided some basic information for
+common build backends below.
+
+### Setuptools
+Setuptools currently supports two ways to request
+["compat mode"](https://setuptools.pypa.io/en/latest/userguide/development_mode.html#legacy-behavior)
+where a `.pth` file will be used -- a config setting and an environment variable. Another
+option is ["strict mode"](https://setuptools.pypa.io/en/latest/userguide/development_mode.html#strict-editable-installs)
+which uses symlinks instead.
+
+### Hatch/Hatchling
+[Hatchling](https://hatch.pypa.io/latest/config/build/#dev-mode) uses `.pth` files by
+default. It will only use import hooks if you set `dev-mode-exact` to `true`.
+
+### PDM
+[PDM](https://pdm.fming.dev/latest/pyproject/build/#editable-build-backend) uses `.pth`
+files by default. It will only use import hooks if you set `editable-backend` to
+`"editables"`.
+
 ## Debugging Import Resolution Problems
 The import resolution mechanisms in Python are complicated, and Pyright offers many configuration options. If you are encountering problems with import resolution, Pyright provides additional logging that may help you identify the cause. To enable verbose logging, pass `--verbose` as a command-line argument or add the following entry to the config file `"verboseOutput": true`. If you are using the Pyright VS Code extension, the additional logging will appear in the Output tab (select “Pyright” from the menu). Please include this verbose logging when reporting import resolution bugs.
