@@ -39,7 +39,7 @@ Pyright uses the following mechanisms (in priority order) to determine which Pyt
 
 3. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
 
-## Editable install modules not found
+## Editable installs
 
 [PEP 660](https://peps.python.org/pep-0660/) enables build backends (ex. setuptools) to
 use import hooks to direct the [import machinery](https://docs.python.org/3/reference/import.html)
