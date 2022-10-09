@@ -752,7 +752,7 @@ export function getCodeFlowEngine(
                 // antecedent in the loop.
                 const maxAttemptCount = loopNode.antecedents.length;
 
-                return preventRecursion(loopNode, () => {
+                if (true) {
                     if (cacheEntry === undefined) {
                         // We haven't been here before, so create a new incomplete cache entry.
                         cacheEntry = setCacheEntry(
@@ -760,21 +760,21 @@ export function getCodeFlowEngine(
                             reference ? undefined : initialType,
                             /* isIncomplete */ true
                         );
-                    } else if (cacheEntry.incompleteSubtypes?.some((subtype) => subtype.isPending)) {
-                        // If there are pending entries that have not been evaluated even once,
-                        // treat it as incomplete.
-                        const isIncomplete =
-                            cacheEntry.incompleteSubtypes.length < loopNode.antecedents.length ||
-                            cacheEntry.incompleteSubtypes.some(
-                                (subtype) => subtype.isPending && subtype.evaluationCount < maxAttemptCount
-                            );
-                        return { type: cacheEntry.type, isIncomplete };
+                    } else if (
+                        cacheEntry.incompleteSubtypes &&
+                        cacheEntry.incompleteSubtypes.length === loopNode.antecedents.length &&
+                        cacheEntry.incompleteSubtypes.some((subtype) => subtype.isPending)
+                    ) {
+                        // If entries have been added for all antecedents and there are pending entries
+                        // that have not been evaluated even once, treat it as incomplete.
+                        return { type: cacheEntry.type, isIncomplete: true };
                     }
 
                     let attemptCount = 0;
 
                     while (true) {
                         let sawIncomplete = false;
+                        let sawPending = false;
                         let isProvenReachable =
                             reference === undefined &&
                             cacheEntry.incompleteSubtypes?.some((subtype) => subtype.type !== undefined);
@@ -787,6 +787,20 @@ export function getCodeFlowEngine(
                             }
 
                             cacheEntry = getCacheEntry(loopNode)!;
+
+                            // Is this entry marked "pending"? If so, we have recursed and there
+                            // is another call on the stack that is actively evaluating this
+                            // antecedent. Skip it here to avoid infinite recursion but note that
+                            // we skipped a "pending" antecedent.
+                            if (
+                                cacheEntry.incompleteSubtypes &&
+                                index < cacheEntry.incompleteSubtypes.length &&
+                                cacheEntry.incompleteSubtypes[index].isPending
+                            ) {
+                                sawIncomplete = true;
+                                sawPending = true;
+                                return;
+                            }
 
                             // Have we already been here (i.e. does the entry exist and is
                             // not marked "pending")? If so, we can use the type that was already
@@ -847,7 +861,11 @@ export function getCodeFlowEngine(
                         });
 
                         if (isProvenReachable) {
-                            return setCacheEntry(loopNode, initialType, /* isIncomplete */ false);
+                            // If we saw a pending entry, do not save over the top of the cache
+                            // entry because we'll overwrite a pending evaluation.
+                            return sawPending
+                                ? { type: initialType, isIncomplete: false }
+                                : setCacheEntry(loopNode, initialType, /* isIncomplete */ false);
                         }
 
                         let effectiveType = cacheEntry.type;
@@ -869,12 +887,17 @@ export function getCodeFlowEngine(
                             // any antecedent path, assume that some recursive call further
                             // up the stack will be able to produce a valid type.
                             const reportIncomplete = sawIncomplete && effectiveType === undefined;
-                            return setCacheEntry(loopNode, effectiveType, reportIncomplete);
+
+                            // If we saw a pending entry, do not save over the top of the cache
+                            // entry because we'll overwrite a pending evaluation.
+                            return sawPending
+                                ? { type: effectiveType, isIncomplete: reportIncomplete }
+                                : setCacheEntry(loopNode, effectiveType, reportIncomplete);
                         }
 
                         attemptCount++;
                     }
-                });
+                }
             }
 
             function getTypeFromPreFinallyGateFlowNode(preFinallyFlowNode: FlowPreFinallyGate) {
