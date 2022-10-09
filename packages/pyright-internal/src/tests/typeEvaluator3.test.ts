@@ -120,6 +120,12 @@ test('Generators15', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('Generators16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators16.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Await1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['await1.py']);
 

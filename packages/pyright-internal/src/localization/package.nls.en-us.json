@@ -341,6 +341,7 @@
         "recursiveDefinition": "Type of \"{name}\" could not be determined because it refers to itself",
         "requiredArgCount": "Expected a single type argument after \"Required\"",
         "requiredNotInTypedDict": "\"Required\" is not allowed in this context",
+        "returnInAsyncGenerator": "Return statement with value is not allowed in async generator",
         "returnOutsideFunction": "\"return\" can be used only within a function",
         "returnMissing": "Function with declared type of \"{returnType}\" must return value",
         "returnTypeContravariant": "Contravariant type variable cannot be used in return type",

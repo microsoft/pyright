@@ -896,6 +896,16 @@ export class Checker extends ParseTreeWalker {
             returnType = NoneType.createInstance();
         }
 
+        // If the enclosing function is async and a generator, the return
+        // statement is not allowed to have an argument. A syntax error occurs
+        // at runtime in this case.
+        if (enclosingFunctionNode?.isAsync && node.returnExpression) {
+            const functionDecl = AnalyzerNodeInfo.getDeclaration(enclosingFunctionNode);
+            if (functionDecl?.type === DeclarationType.Function && functionDecl.isGenerator) {
+                this._evaluator.addError(Localizer.Diagnostic.returnInAsyncGenerator(), node.returnExpression);
+            }
+        }
+
         if (this._evaluator.isNodeReachable(node, /* sourceNode */ undefined) && enclosingFunctionNode) {
             if (declaredReturnType) {
                 if (isNever(declaredReturnType)) {

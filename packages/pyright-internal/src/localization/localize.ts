@@ -708,6 +708,7 @@ export namespace Localizer {
         export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');
         export const requiredArgCount = () => getRawString('Diagnostic.requiredArgCount');
         export const requiredNotInTypedDict = () => getRawString('Diagnostic.requiredNotInTypedDict');
+        export const returnInAsyncGenerator = () => getRawString('Diagnostic.returnInAsyncGenerator');
         export const returnMissing = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnMissing'));
         export const returnOutsideFunction = () => getRawString('Diagnostic.returnOutsideFunction');
