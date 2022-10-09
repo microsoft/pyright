@@ -2849,12 +2849,6 @@ class TypeVarTransformer {
                         replacementType = transformedType ?? typeParam;
 
                         if (replacementType !== typeParam) {
-                            if (!this._isTransformingTypeArg) {
-                                this._pendingTypeVarTransformations.add(typeParamName);
-                                replacementType = this.apply(replacementType, recursionCount);
-                                this._pendingTypeVarTransformations.delete(typeParamName);
-                            }
-
                             specializationNeeded = true;
                         } else if (transformedType !== undefined && !classType.typeArguments) {
                             specializationNeeded = true;
