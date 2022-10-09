@@ -8763,7 +8763,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else {
                             const memberType = getTypeOfObjectMember(errorNode, expandedSubtype, '__call__')?.type;
 
-                            if (memberType && (isFunction(memberType) || isOverloadedFunction(memberType))) {
+                            if (memberType) {
                                 const functionResult = validateCallArguments(
                                     errorNode,
                                     argList,
