@@ -196,7 +196,7 @@ class Foo: pass
 class Bar: pass
 
 def func1(val: Union[Foo, Bar]):
-    if isinstance(Bar):
+    if isinstance(val, Bar):
         reveal_type(val) # Bar
     else:
         reveal_type(val) # Foo
