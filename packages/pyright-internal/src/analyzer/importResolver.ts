@@ -97,7 +97,8 @@ interface SupportedVersionRange {
 }
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
-export const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
+export const supportedSourceFileExtensions = ['.py', '.pyi'];
+export const supportedFileExtensions = [...supportedSourceFileExtensions, ...supportedNativeLibExtensions];
 
 // Should we allow partial resolution for third-party packages? Some use tricks
 // to populate their package namespaces, so we might be able to partially resolve

@@ -40,6 +40,7 @@ import {
     FileSpec,
     forEachAncestorDirectory,
     getDirectoryPath,
+    getFileExtension,
     getFileName,
     getFileSpec,
     getFileSystemEntries,
@@ -64,7 +65,12 @@ import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
-import { createImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
+import {
+    createImportedModuleDescriptor,
+    ImportResolver,
+    ImportResolverFactory,
+    supportedSourceFileExtensions,
+} from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
@@ -1138,7 +1144,10 @@ export class AnalyzerService {
 
                 // Add the implicit import paths.
                 importResult.filteredImplicitImports.forEach((implicitImport) => {
-                    filesToImport.push(implicitImport.path);
+                    const fileExtension = getFileExtension(implicitImport.path).toLowerCase();
+                    if (supportedSourceFileExtensions.some((ext) => fileExtension === ext)) {
+                        filesToImport.push(implicitImport.path);
+                    }
                 });
 
                 this._backgroundAnalysisProgram.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
