@@ -16187,9 +16187,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const defaultValueType = getTypeOfExpression(paramValueExpr, EvaluatorFlags.ConvertEllipsisToAny).type;
 
             let inferredParamType: Type | undefined;
-            if (isNoneInstance(defaultValueType)) {
-                // Infer Optional[Unknown] in this case.
-                inferredParamType = combineTypes([NoneType.createInstance(), UnknownType.create()]);
+
+            // Is the default value a "None" or an instance of some private class (one
+            // whose name starts with an underscore)? If so, we will assume that the
+            // value is a singleton sentinel. The actual supported type is going to be
+            // a union of this type and Unknown.
+            if (
+                isNoneInstance(defaultValueType) ||
+                (isClassInstance(defaultValueType) && isPrivateOrProtectedName(defaultValueType.details.name))
+            ) {
+                inferredParamType = combineTypes([defaultValueType, UnknownType.create()]);
             } else {
                 // Do not infer certain types like tuple because it's likely to be
                 // more restrictive (narrower) than intended.
