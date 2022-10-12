@@ -1,14 +1,16 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test.py
-//// from typing import [|/*marker*/Union|]
+//// from operator import itemgetter
+//// x = 4
+//// itemgetter().[|/*marker*/__call__|](x)
 
-// @filename: typing.py
+// @filename: operator.py
 // @library: true
-//// class _Union:
-////     pass
+//// class itemgetter:
+////     def [|__call__|](self, obj):
+////         pass
 ////
-//// [|Union|] = _Union()
 
 {
     const rangeMap = helper.getRangesByText();
@@ -17,7 +19,7 @@
         {
             marker: {
                 definitions: rangeMap
-                    .get('Union')!
+                    .get('__call__')!
                     .filter((r) => !r.marker)
                     .map((r) => {
                         return { path: r.fileName, range: helper.convertPositionRange(r) };

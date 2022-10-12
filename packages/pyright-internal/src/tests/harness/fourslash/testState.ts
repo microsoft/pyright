@@ -216,6 +216,10 @@ export class TestState {
         return this.workspace.serviceInstance.test_program;
     }
 
+    dispose() {
+        this.workspace.serviceInstance.dispose();
+    }
+
     cwd() {
         return this.testFS.cwd();
     }

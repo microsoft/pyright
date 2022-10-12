@@ -65,6 +65,7 @@ import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
+import { CacheManager } from './cacheManager';
 import {
     createImportedModuleDescriptor,
     ImportResolver,
@@ -97,6 +98,7 @@ export interface AnalyzerServiceOptions {
     backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
     cancellationProvider?: CancellationProvider;
     libraryReanalysisTimeProvider?: () => number;
+    cacheManager?: CacheManager;
 }
 
 export class AnalyzerService {
@@ -147,7 +149,8 @@ export class AnalyzerService {
                       importResolver,
                       this._options.extension,
                       this._options.backgroundAnalysis,
-                      this._options.maxAnalysisTime
+                      this._options.maxAnalysisTime,
+                      this._options.cacheManager
                   )
                 : new BackgroundAnalysisProgram(
                       this._options.console,
@@ -155,7 +158,9 @@ export class AnalyzerService {
                       importResolver,
                       this._options.extension,
                       this._options.backgroundAnalysis,
-                      this._options.maxAnalysisTime
+                      this._options.maxAnalysisTime,
+                      /* disableChecker */ undefined,
+                      this._options.cacheManager
                   );
     }
 
@@ -178,7 +183,12 @@ export class AnalyzerService {
     }
 
     dispose() {
-        this._backgroundAnalysisProgram.program.dispose();
+        if (!this._disposed) {
+            // Make sure we dispose program, otherwise, entire program
+            // will leak.
+            this._backgroundAnalysisProgram.dispose();
+        }
+
         this._disposed = true;
         this._removeSourceFileWatchers();
         this._removeConfigFileWatcher();

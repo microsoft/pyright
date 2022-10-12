@@ -78,6 +78,7 @@ import { attachWorkDone, ResultProgressReporter } from 'vscode-languageserver/li
 
 import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
+import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames } from './analyzer/service';
@@ -248,6 +249,7 @@ const nullProgressReporter = attachWorkDone(undefined as any, /* params */ undef
 export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _defaultClientConfig: any;
     protected _workspaceMap: WorkspaceMap;
+    protected _cacheManager: CacheManager;
 
     // We support running only one "find all reference" at a time.
     private _pendingFindAllRefsCancellationSource: CancellationTokenSource | undefined;
@@ -310,6 +312,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this.console.info(`Server root directory: ${_serverOptions.rootDirectory}`);
 
+        this._cacheManager = new CacheManager();
         this._workspaceMap = this._serverOptions.workspaceMap;
 
         this._serviceFS = new PyrightFileSystem(this._serverOptions.fileSystem);
@@ -404,7 +407,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         importResolver: ImportResolver,
         extension?: LanguageServiceExtension,
         backgroundAnalysis?: BackgroundAnalysisBase,
-        maxAnalysisTime?: MaxAnalysisTime
+        maxAnalysisTime?: MaxAnalysisTime,
+        cacheManager?: CacheManager
     ): BackgroundAnalysisProgram {
         return new BackgroundAnalysisProgram(
             console,
@@ -412,7 +416,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             importResolver,
             extension,
             backgroundAnalysis,
-            maxAnalysisTime
+            maxAnalysisTime,
+            /* disableChecker */ undefined,
+            cacheManager
         );
     }
 
@@ -448,6 +454,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
             cancellationProvider: this._serverOptions.cancellationProvider,
             libraryReanalysisTimeProvider,
+            cacheManager: this._cacheManager,
         });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(service.fs, results));
