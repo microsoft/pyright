@@ -76,6 +76,8 @@ export function runFourSlashTestContent(
     }
 
     runCode(output.outputText, state, cb);
+
+    state.dispose();
 }
 
 async function runCode(code: string, state: TestState, cb?: jest.DoneCallback) {

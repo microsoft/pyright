@@ -19,6 +19,7 @@ import { LanguageServiceExtension } from '../common/extensibility';
 import { Range } from '../common/textRange';
 import { IndexResults } from '../languageService/documentSymbolProvider';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
+import { CacheManager } from './cacheManager';
 import { ImportResolver } from './importResolver';
 import { Indices, MaxAnalysisTime, OpenFileOptions, Program } from './program';
 
@@ -34,7 +35,8 @@ export class BackgroundAnalysisProgram {
         extension?: LanguageServiceExtension,
         private _backgroundAnalysis?: BackgroundAnalysisBase,
         private _maxAnalysisTime?: MaxAnalysisTime,
-        private _disableChecker?: boolean
+        private _disableChecker?: boolean,
+        cacheManager?: CacheManager
     ) {
         this._program = new Program(
             this._importResolver,
@@ -42,7 +44,8 @@ export class BackgroundAnalysisProgram {
             this._console,
             extension,
             undefined,
-            this._disableChecker
+            this._disableChecker,
+            cacheManager
         );
     }
 
@@ -244,6 +247,11 @@ export class BackgroundAnalysisProgram {
         this._backgroundAnalysis?.restart();
     }
 
+    dispose() {
+        this._program.dispose();
+        this._backgroundAnalysis?.shutdown();
+    }
+
     private _ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
         this._backgroundAnalysis?.ensurePartialStubPackages(execEnv.root);
         return this._importResolver.ensurePartialStubPackages(execEnv);
@@ -311,5 +319,6 @@ export type BackgroundAnalysisProgramFactory = (
     importResolver: ImportResolver,
     extension?: LanguageServiceExtension,
     backgroundAnalysis?: BackgroundAnalysisBase,
-    maxAnalysisTime?: MaxAnalysisTime
+    maxAnalysisTime?: MaxAnalysisTime,
+    cacheManager?: CacheManager
 ) => BackgroundAnalysisProgram;

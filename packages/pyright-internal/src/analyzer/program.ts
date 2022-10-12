@@ -181,6 +181,7 @@ export class Program {
     private _logTracker: LogTracker;
     private _parsedFileCount = 0;
     private _preCheckCallback: PreCheckCallback | undefined;
+    private _cacheManager: CacheManager;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -188,20 +189,22 @@ export class Program {
         console?: ConsoleInterface,
         private _extension?: LanguageServiceExtension,
         logTracker?: LogTracker,
-        private _disableChecker?: boolean
+        private _disableChecker?: boolean,
+        cacheManager?: CacheManager
     ) {
         this._console = console || new StandardConsole();
         this._logTracker = logTracker ?? new LogTracker(console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
 
-        CacheManager.registerCacheOwner(this);
+        this._cacheManager = cacheManager ?? new CacheManager();
+        this._cacheManager.registerCacheOwner(this);
 
         this._createNewEvaluator();
     }
 
     dispose() {
-        CacheManager.unregisterCacheOwner(this);
+        this._cacheManager.unregisterCacheOwner(this);
     }
 
     get evaluator(): TypeEvaluator | undefined {
@@ -508,13 +511,17 @@ export class Program {
     }
 
     getBoundSourceFile(filePath: string): SourceFile | undefined {
+        return this.getBoundSourceFileInfo(filePath)?.sourceFile;
+    }
+
+    getBoundSourceFileInfo(filePath: string): SourceFileInfo | undefined {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
         this._bindFile(sourceFileInfo);
-        return this.getSourceFile(filePath);
+        return sourceFileInfo;
     }
 
     // Performs parsing and analysis of any source files in the program
@@ -1435,7 +1442,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getDefinitionsForPosition(
-                this._createSourceMapper(execEnv),
+                this._createSourceMapper(execEnv, sourceFileInfo),
                 position,
                 filter,
                 this._evaluator!,
@@ -1459,7 +1466,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getTypeDefinitionsForPosition(
-                this._createSourceMapper(execEnv, /* mapCompiled */ false, /* preferStubs */ true),
+                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ false, /* preferStubs */ true),
                 position,
                 this._evaluator!,
                 filePath,
@@ -1486,7 +1493,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-                this._createSourceMapper(execEnv),
+                this._createSourceMapper(execEnv, sourceFileInfo),
                 position,
                 this._evaluator!,
                 reporter,
@@ -1662,7 +1669,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getHoverForPosition(
-                this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
                 position,
                 format,
                 this._evaluator!,
@@ -1686,7 +1693,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getDocumentHighlight(
-                this._createSourceMapper(execEnv),
+                this._createSourceMapper(execEnv, sourceFileInfo),
                 position,
                 this._evaluator!,
                 token
@@ -1711,7 +1718,7 @@ export class Program {
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
                 position,
-                this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
                 this._evaluator!,
                 format,
                 token
@@ -1748,7 +1755,7 @@ export class Program {
                         this._lookUpImport,
                         this._evaluator!,
                         options,
-                        this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                        this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
                         nameMap,
                         libraryMap,
                         () =>
@@ -1817,7 +1824,7 @@ export class Program {
                 this._lookUpImport,
                 this._evaluator!,
                 options,
-                this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
                 nameMap,
                 libraryMap,
                 () =>
@@ -1898,7 +1905,7 @@ export class Program {
                 this._evaluator!,
                 /* resolveLocalNames */ false,
                 token,
-                this._createSourceMapper(execEnv)
+                this._createSourceMapper(execEnv, fileInfo)
             );
 
             const renameModuleProvider = RenameModuleProvider.createForSymbol(
@@ -2097,7 +2104,7 @@ export class Program {
 
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv),
+            this._createSourceMapper(execEnv, sourceFileInfo),
             position,
             this._evaluator!,
             undefined,
@@ -2134,7 +2141,7 @@ export class Program {
 
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv),
+            this._createSourceMapper(execEnv, sourceFileInfo),
             position,
             this._evaluator!,
             undefined,
@@ -2190,7 +2197,7 @@ export class Program {
 
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv),
+            this._createSourceMapper(execEnv, sourceFileInfo),
             position,
             this._evaluator!,
             undefined,
@@ -2248,8 +2255,8 @@ export class Program {
         this._parsedFileCount = 0;
     }
 
-    test_createSourceMapper(execEnv: ExecutionEnvironment) {
-        return this._createSourceMapper(execEnv, /* mapCompiled */ false);
+    test_createSourceMapper(execEnv: ExecutionEnvironment, from?: SourceFileInfo) {
+        return this._createSourceMapper(execEnv, /*from*/ from, /* mapCompiled */ false);
     }
 
     private _getRenameSymbolMode(
@@ -2366,12 +2373,12 @@ export class Program {
     }
 
     private _handleMemoryHighUsage() {
-        const cacheUsage = CacheManager.getCacheUsage();
+        const cacheUsage = this._cacheManager.getCacheUsage();
 
         // If the total cache has exceeded 75%, determine whether we should empty
         // the cache.
         if (cacheUsage > 0.75) {
-            const usedHeapRatio = CacheManager.getUsedHeapRatio(
+            const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
                 this._configOptions.verboseOutput ? this._console : undefined
             );
 
@@ -2383,7 +2390,7 @@ export class Program {
             // If we use more than 90% of the heap size limit, avoid a crash
             // by emptying the type cache.
             if (typeCacheEntryCount > absoluteMaxCacheEntryCount || usedHeapRatio > 0.9) {
-                CacheManager.emptyCache(this._console);
+                this._cacheManager.emptyCache(this._console);
             }
         }
     }
@@ -2410,7 +2417,7 @@ export class Program {
             // An unexpected exception occurred, potentially leaving the current evaluator
             // in an inconsistent state. Discard it and replace it with a fresh one. It is
             // Cancellation exceptions are known to handle this correctly.
-            if (!(e instanceof OperationCanceledException)) {
+            if (!OperationCanceledException.is(e)) {
                 this._createNewEvaluator();
             }
             throw e;
@@ -2537,7 +2544,12 @@ export class Program {
         return false;
     }
 
-    private _createSourceMapper(execEnv: ExecutionEnvironment, mapCompiled?: boolean, preferStubs?: boolean) {
+    private _createSourceMapper(
+        execEnv: ExecutionEnvironment,
+        from?: SourceFileInfo,
+        mapCompiled?: boolean,
+        preferStubs?: boolean
+    ) {
         const sourceMapper = new SourceMapper(
             this._importResolver,
             execEnv,
@@ -2550,9 +2562,10 @@ export class Program {
                 this._addShadowedFile(stubFileInfo, implFilePath);
                 return this.getBoundSourceFile(implFilePath);
             },
-            (f) => this.getBoundSourceFile(f),
+            (f) => this.getBoundSourceFileInfo(f),
             mapCompiled ?? false,
-            preferStubs ?? false
+            preferStubs ?? false,
+            from
         );
         return sourceMapper;
     }

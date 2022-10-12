@@ -470,6 +470,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'shutdown': {
+                this._program.dispose();
                 parentPort?.close();
                 break;
             }

@@ -16,9 +16,6 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
             return false;
         }
 
-        // Make sure we shutdown BG for the workspace.
-        workspace.serviceInstance.backgroundAnalysisProgram.backgroundAnalysis?.shutdown();
-
         // Properly dispose of the service instance.
         workspace.serviceInstance.dispose();
 
