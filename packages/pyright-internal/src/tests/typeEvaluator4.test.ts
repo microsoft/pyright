@@ -1222,3 +1222,8 @@ test('Del1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del1.py']);
     TestUtils.validateResults(analysisResults, 6);
 });
+
+test('Override1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});

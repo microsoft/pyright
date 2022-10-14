@@ -296,6 +296,7 @@
         "overloadReturnTypeMismatch": "Overload {prevIndex} for \"{name}\" overlaps overload {newIndex} and returns an incompatible type",
         "overloadWithImplementation": "\"{name}\" is marked as overload, but it includes an implementation",
         "overloadWithoutImplementation": "\"{name}\" is marked as overload, but no implementation is provided",
+        "overrideNotFound": "Method \"{name}\" is marked as override, but no base method of same name is present",
         "paramAfterKwargsParam": "Parameter cannot follow \"**\" parameter",
         "paramAlreadyAssigned": "Parameter \"{name}\" is already assigned",
         "paramAnnotationMissing": "Type annotation is missing for parameter \"{name}\"",

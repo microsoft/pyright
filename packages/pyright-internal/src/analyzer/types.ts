@@ -1179,6 +1179,9 @@ export const enum FunctionTypeFlags {
     // that contains a forward reference that requires the function
     // type itself to be evaluated first).
     PartiallyEvaluated = 1 << 17,
+
+    // Decorated with @override as defined in PEP 698.
+    Overridden = 1 << 18,
 }
 
 interface FunctionDetails {
@@ -1720,6 +1723,10 @@ export namespace FunctionType {
 
     export function isPartiallyEvaluated(type: FunctionType) {
         return !!(type.details.flags & FunctionTypeFlags.PartiallyEvaluated);
+    }
+
+    export function isOverridden(type: FunctionType) {
+        return !!(type.details.flags & FunctionTypeFlags.Overridden);
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

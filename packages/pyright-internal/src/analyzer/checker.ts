@@ -4821,6 +4821,8 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
+            let foundOverride = false;
+
             for (const baseClass of classType.details.baseClasses) {
                 if (!isClass(baseClass)) {
                     continue;
@@ -4840,9 +4842,45 @@ export class Checker extends ParseTreeWalker {
                     continue;
                 }
 
+                foundOverride = true;
                 this._validateBaseClassOverride(baseClassAndSymbol, symbol, typeOfSymbol, classType, name);
             }
+
+            if (!foundOverride) {
+                // If this is a method decorated with @override, validate that there
+                // is a base class method of the same name.
+                this._validateOverrideDecorator(typeOfSymbol);
+            }
         });
+    }
+
+    // Determines whether the type is a function or overloaded function with an @override
+    // decorator. In this case, an error is reported because no base class has declared
+    // a method of the same name.
+    private _validateOverrideDecorator(overrideType: Type) {
+        let overrideFunction: FunctionType | undefined;
+
+        if (isFunction(overrideType)) {
+            overrideFunction = overrideType;
+        } else if (isOverloadedFunction(overrideType)) {
+            overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
+        }
+
+        if (
+            !overrideFunction ||
+            !FunctionType.isOverridden(overrideFunction) ||
+            !overrideFunction.details.declaration
+        ) {
+            return;
+        }
+
+        const funcNode = overrideFunction.details.declaration.node;
+        this._evaluator.addDiagnostic(
+            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.overrideNotFound().format({ name: funcNode.name.value }),
+            funcNode.name
+        );
     }
 
     private _validateBaseClassOverride(

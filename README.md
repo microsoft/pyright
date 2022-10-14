@@ -33,6 +33,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 681](https://www.python.org/dev/peps/pep-0681/) dataclass transform
 * [PEP 692](https://www.python.org/dev/peps/pep-0692/) (draft) TypedDict for kwargs typing
 * [PEP 695](https://www.python.org/dev/peps/pep-0695/) (draft) Type parameter syntax
+* [PEP 698](https://www.python.org/dev/peps/pep-0698/) (draft) Override decorator for static typing
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 

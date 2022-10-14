@@ -16313,6 +16313,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 } else if (decoratorType.details.builtInName === 'final') {
                     flags |= FunctionTypeFlags.Final;
+                } else if (decoratorType.details.builtInName === 'override') {
+                    flags |= FunctionTypeFlags.Overridden;
                 }
             } else if (isInstantiableClass(decoratorType)) {
                 if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
