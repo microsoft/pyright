@@ -11,6 +11,7 @@ from typing_extensions import Literal, TypeAlias
 from PIL import Image
 
 from .actions import Action
+from .drawing import DrawingContext, PaintedPath
 from .enums import (
     Align,
     AnnotationFlag,
@@ -18,14 +19,18 @@ from .enums import (
     Corner,
     FileAttachmentAnnotationName,
     PageLayout,
+    PathPaintRule,
     RenderStyle,
     TextMarkupType,
-    XPos,
-    YPos,
+    TextMode as TextMode,
+    XPos as XPos,
+    YPos as YPos,
 )
 from .recorder import FPDFRecorder
 from .syntax import DestinationXYZ
 from .util import _Unit
+
+__all__ = ["FPDF", "XPos", "YPos", "get_page_format", "TextMode", "TitleStyle", "PAGE_FORMATS"]
 
 _Orientation: TypeAlias = Literal["", "portrait", "p", "P", "landscape", "l", "L"]
 _Format: TypeAlias = Literal["", "a3", "A3", "a4", "A4", "a5", "A5", "letter", "Letter", "legal", "Legal"]
@@ -61,6 +66,7 @@ class Annotation(NamedTuple):
     embedded_file_name: str | None = ...
     field_type: str | None = ...
     value: str | None = ...
+    def serialize(self, fpdf) -> str: ...
 
 class EmbeddedFile(NamedTuple):
     basename: str
@@ -172,9 +178,13 @@ class FPDF:
     @property
     def is_ttf_font(self) -> bool: ...
     @property
+    def page_mode(self): ...
+    @property
     def epw(self) -> float: ...
     @property
     def eph(self) -> float: ...
+    @property
+    def pages_count(self) -> int: ...
     def set_margin(self, margin: float) -> None: ...
     def set_margins(self, left: float, top: float, right: float = ...) -> None: ...
     l_margin: float
@@ -235,6 +245,12 @@ class FPDF:
     def get_string_width(self, s: str, normalized: bool = ..., markdown: bool = ...) -> float: ...
     def set_line_width(self, width: float) -> None: ...
     def set_page_background(self, background) -> None: ...
+    def drawing_context(self, debug_stream: Incomplete | None = ...) -> _GeneratorContextManager[DrawingContext]: ...
+    def new_path(
+        self, x: float = ..., y: float = ..., paint_rule: PathPaintRule = ..., debug_stream: Incomplete | None = ...
+    ) -> _GeneratorContextManager[PaintedPath]: ...
+    def draw_path(self, path: PaintedPath, debug_stream: Incomplete | None = ...) -> None: ...
+    def set_dash_pattern(self, dash: float = ..., gap: float = ..., phase: float = ...) -> None: ...
     def line(self, x1: float, y1: float, x2: float, y2: float) -> None: ...
     def polyline(
         self, point_list: list[tuple[float, float]], fill: bool = ..., polygon: bool = ..., style: RenderStyle | str | None = ...
@@ -272,6 +288,32 @@ class FPDF:
         rotate_degrees: float = ...,
         style: RenderStyle | str | None = ...,
     ): ...
+    def arc(
+        self,
+        x: float,
+        y: float,
+        a: float,
+        start_angle: float,
+        end_angle: float,
+        b: float | None = ...,
+        inclination: float = ...,
+        clockwise: bool = ...,
+        start_from_center: bool = ...,
+        end_at_center: bool = ...,
+        style: RenderStyle | str | None = ...,
+    ) -> None: ...
+    def solid_arc(
+        self,
+        x: float,
+        y: float,
+        a: float,
+        start_angle: float,
+        end_angle: float,
+        b: float | None = ...,
+        inclination: float = ...,
+        clockwise: bool = ...,
+        style: RenderStyle | str | None = ...,
+    ) -> None: ...
     def add_font(
         self, family: str, style: _FontStyle = ..., fname: str | None = ..., uni: bool | Literal["DEPRECATED"] = ...
     ) -> None: ...
@@ -344,9 +386,29 @@ class FPDF:
         modification_time: datetime.datetime | None = ...,
         page: int | None = ...,
     ) -> Annotation: ...
+    def ink_annotation(
+        self,
+        coords: Iterable[Incomplete],
+        contents: str = ...,
+        title: str = ...,
+        color: Sequence[float] = ...,
+        border_width: int = ...,
+    ) -> Annotation: ...
     def text(self, x: float, y: float, txt: str = ...) -> None: ...
     def rotate(self, angle: float, x: float | None = ..., y: float | None = ...) -> None: ...
     def rotation(self, angle: float, x: float | None = ..., y: float | None = ...) -> _GeneratorContextManager[None]: ...
+    def local_context(
+        self,
+        font_family: Incomplete | None = ...,
+        font_style: Incomplete | None = ...,
+        font_size: Incomplete | None = ...,
+        line_width: Incomplete | None = ...,
+        draw_color: Incomplete | None = ...,
+        fill_color: Incomplete | None = ...,
+        text_color: Incomplete | None = ...,
+        dash_pattern: Incomplete | None = ...,
+        **kwargs,
+    ) -> _GeneratorContextManager[None]: ...
     @property
     def accept_page_break(self) -> bool: ...
     def cell(
@@ -406,10 +468,37 @@ class FPDF:
     @overload
     def output(self, name: str) -> None: ...
     def normalize_text(self, txt: str) -> str: ...
+    def sign_pkcs12(
+        self,
+        pkcs_filepath: str,
+        password: bytes | None = ...,
+        hashalgo: str = ...,
+        contact_info: str | None = ...,
+        location: str | None = ...,
+        signing_time: datetime.datetime | None = ...,
+        reason: str | None = ...,
+        flags: tuple[AnnotationFlag, ...] = ...,
+    ) -> None: ...
+    def sign(
+        self,
+        key,
+        cert,
+        extra_certs: Sequence[Incomplete] = ...,
+        hashalgo: str = ...,
+        contact_info: str | None = ...,
+        location: str | None = ...,
+        signing_time: datetime.datetime | None = ...,
+        reason: str | None = ...,
+        flags: tuple[AnnotationFlag, ...] = ...,
+    ) -> None: ...
+    def file_id(self) -> str: ...
     def interleaved2of5(self, txt, x: float, y: float, w: float = ..., h: float = ...) -> None: ...
     def code39(self, txt, x: float, y: float, w: float = ..., h: float = ...) -> None: ...
     def rect_clip(self, x: float, y: float, w: float, h: float) -> _GeneratorContextManager[None]: ...
+    def elliptic_clip(self, x: float, y: float, w: float, h: float) -> _GeneratorContextManager[None]: ...
+    def round_clip(self, x: float, y: float, r: float) -> _GeneratorContextManager[None]: ...
     def unbreakable(self) -> _GeneratorContextManager[FPDFRecorder]: ...
+    def offset_rendering(self) -> _GeneratorContextManager[FPDFRecorder]: ...
     def insert_toc_placeholder(self, render_toc_function, pages: int = ...) -> None: ...
     def set_section_title_styles(
         self,

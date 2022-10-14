@@ -1,13 +1,12 @@
 from _typeshed import Incomplete
-from typing import Any
 from typing_extensions import TypeAlias
 
 import _win32typing
+from pywintypes import IID as IID
 from win32.lib.pywintypes import com_error
 
 error: TypeAlias = com_error  # noqa: Y042
 
-def __getattr__(name: str) -> Any: ...  # incomplete
 def AssocCreate() -> _win32typing.PyIQueryAssociations: ...
 def AssocCreateForClasses() -> _win32typing.PyIUnknown: ...
 def DragQueryFile(hglobal: int, index) -> str: ...
@@ -434,3 +433,5 @@ VID_SmallIcons: _win32typing.PyIID
 VID_ThumbStrip: _win32typing.PyIID
 VID_Thumbnails: _win32typing.PyIID
 VID_Tile: _win32typing.PyIID
+
+def SHGetKnownFolderPath(*args, **kwargs): ...  # incomplete

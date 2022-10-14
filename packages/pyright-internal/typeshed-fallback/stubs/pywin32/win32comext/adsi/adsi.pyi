@@ -1,14 +1,13 @@
 from _typeshed import Incomplete
-from typing import Any
 from typing_extensions import TypeAlias
 
 import _win32typing
+from pywintypes import IID as IID
 from win32.lib.pywintypes import com_error
 
 error: TypeAlias = com_error  # noqa: Y042
 
-def __getattr__(name: str) -> Any: ...  # incomplete
-def ADsOpenObject(path, username, password, iid: _win32typing.PyIID, reserved=...): ...
+def ADsOpenObject(path, username, password, iid: _win32typing.PyIID, reserved: int = ...): ...
 def ADsGetObject(path, iid: _win32typing.PyIID): ...
 def ADsBuildEnumerator(container: _win32typing.PyIADsContainer): ...
 def ADsEnumerateNext(enum, num: int = ...): ...
@@ -16,7 +15,6 @@ def ADsGetLastError() -> tuple[Incomplete, Incomplete, Incomplete]: ...
 def StringAsDS_SELECTION_LIST(*args, **kwargs): ...  # incomplete
 
 DSOP_SCOPE_INIT_INFOs = _win32typing.PyDSOP_SCOPE_INIT_INFOs
-
 CLSID_ADsDSOObject: _win32typing.PyIID
 CLSID_AccessControlEntry: _win32typing.PyIID
 CLSID_AccessControlList: _win32typing.PyIID

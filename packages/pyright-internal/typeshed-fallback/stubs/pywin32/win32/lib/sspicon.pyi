@@ -1,7 +1,3 @@
-from typing import Any
-
-def __getattr__(name: str) -> Any: ...  # incomplete
-
 ISSP_LEVEL: int
 ISSP_MODE: int
 
@@ -453,3 +449,9 @@ MsV1_0DeriveCredential: int
 MsV1_0CacheLookup: int
 MsV1_0SetProcessOption: int
 SEC_E_OK: int
+SECBUFFER_MECHLIST: int
+SECBUFFER_MECHLIST_SIGNATURE: int
+SECPKG_ATTR_ISSUER_LIST_EX: int
+SEC_E_INCOMPLETE_CREDENTIALS: int
+SEC_E_INCOMPLETE_MESSAGE: int
+SEC_I_INCOMPLETE_CREDENTIALS: int

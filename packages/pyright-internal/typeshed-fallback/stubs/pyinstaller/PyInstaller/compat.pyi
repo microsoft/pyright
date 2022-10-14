@@ -15,6 +15,7 @@ is_py37: bool
 is_py38: bool
 is_py39: bool
 is_py310: bool
+is_py311: bool
 is_win: bool
 is_win_10: bool
 is_win_wine: bool

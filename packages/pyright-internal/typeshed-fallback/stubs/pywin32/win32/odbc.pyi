@@ -7,7 +7,6 @@ def odbc(connectionString: str) -> _win32typing.connection: ...
 def SQLDataSources(direction) -> tuple[Incomplete, Incomplete]: ...
 
 _odbcError: TypeAlias = type  # noqa: Y042  # Does not exist at runtime, but odbc.odbcError is a valid type.
-
 DATE: str
 NUMBER: str
 RAW: str

@@ -1,7 +1,3 @@
-from typing import Any
-
-def __getattr__(name: str) -> Any: ...  # incomplete
-
 CNLEN: int
 LM20_CNLEN: int
 DNLEN: int
@@ -567,3 +563,9 @@ NetSetupDomainName: int
 NetValidateAuthentication: int
 NetValidatePasswordChange: int
 NetValidatePasswordReset: int
+ACCESS_ACCESS_LIST_INFOLEVEL: int
+ACCESS_ACCESS_LIST_PARMNUM: int
+SV_ALIST_MTIME_PARMNUM: int
+SV_GLIST_MTIME_PARMNUM: int
+SV_TYPE_LOCAL_LIST_ONLY: int
+SV_ULIST_MTIME_PARMNUM: int

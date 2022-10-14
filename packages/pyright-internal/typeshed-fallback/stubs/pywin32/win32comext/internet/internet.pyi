@@ -1,3 +1,5 @@
+# Can't generate with stubgen because:
+# "SystemError: CoInternetCreateSecurityManager() method: bad call flags"
 import _win32typing
 
 def CoInternetCreateSecurityManager(reserved) -> _win32typing.PyIInternetSecurityManager: ...

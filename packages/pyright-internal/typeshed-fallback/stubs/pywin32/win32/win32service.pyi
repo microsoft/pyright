@@ -1,10 +1,8 @@
 from _typeshed import Incomplete
-from typing import Any
 
 import _win32typing
 from win32.lib.pywintypes import error as error
 
-def __getattr__(name: str) -> Any: ...  # incomplete
 def GetThreadDesktop(ThreadId) -> _win32typing.PyHDESK: ...
 def EnumWindowStations() -> tuple[tuple[str, Incomplete], ...]: ...
 def GetUserObjectInformation(Handle: int, _type) -> None: ...

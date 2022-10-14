@@ -1,6 +1,7 @@
 from re import Pattern
 from typing import Any
 
+from markdown.core import Markdown
 from markdown.extensions import Extension
 from markdown.inlinepatterns import InlineProcessor
 from markdown.postprocessors import Postprocessor
@@ -19,7 +20,7 @@ class FootnoteExtension(Extension):
     used_refs: Any
     def __init__(self, **kwargs) -> None: ...
     parser: Any
-    md: Any
+    md: Markdown
     footnotes: Any
     def reset(self) -> None: ...
     def unique_ref(self, reference, found: bool = ...): ...

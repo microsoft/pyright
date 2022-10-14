@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 
 import _win32typing
+from pywintypes import IID as IID
 
 def HexFromBin(val: str) -> str: ...
 def BinFromHex(val: str) -> str: ...

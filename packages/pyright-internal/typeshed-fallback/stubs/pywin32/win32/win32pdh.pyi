@@ -1,9 +1,7 @@
 from _typeshed import Incomplete
-from typing import Any
 
 from win32.lib.pywintypes import error as error
 
-def __getattr__(name: str) -> Any: ...  # incomplete
 def AddCounter(hQuery, path: str, userData: int = ...): ...
 def AddEnglishCounter(hQuery, path: str, userData: int = ...): ...
 def RemoveCounter(handle) -> None: ...
@@ -58,3 +56,5 @@ PERF_DETAIL_NOVICE: int
 PERF_DETAIL_WIZARD: int
 
 class counter_status_error(Exception): ...
+
+PDH_FMT_NOCAP100: int

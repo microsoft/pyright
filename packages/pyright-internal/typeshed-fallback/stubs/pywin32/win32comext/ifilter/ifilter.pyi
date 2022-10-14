@@ -1,4 +1,5 @@
 import _win32typing
+from pywintypes import IID as IID
 
 def BindIFilterFromStorage(*args, **kwargs): ...  # incomplete
 def BindIFilterFromStream(*args, **kwargs): ...  # incomplete

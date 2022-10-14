@@ -39,7 +39,7 @@ CONTAINER: Literal[2]
 class DecompressionBombWarning(RuntimeWarning): ...
 class DecompressionBombError(Exception): ...
 
-MAX_IMAGE_PIXELS: int
+MAX_IMAGE_PIXELS: int | None
 
 NONE: Literal[0]
 

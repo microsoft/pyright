@@ -1,4 +1,5 @@
 import _win32typing
+from pywintypes import IID as IID
 
 CLSID_CTask: _win32typing.PyIID
 CLSID_CTaskScheduler: _win32typing.PyIID

@@ -9,6 +9,10 @@ class DocumentState(IntEnum):
     GENERATING_PAGE: int
     CLOSED: int
 
+class SignatureFlag(IntEnum):
+    SIGNATURES_EXIST: int
+    APPEND_ONLY: int
+
 class CoerciveEnum(Enum):
     @classmethod
     def coerce(cls: type[Self], value: Self | str) -> Self: ...

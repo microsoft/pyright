@@ -1,7 +1,3 @@
-from typing import Any
-
-def __getattr__(name: str) -> Any: ...  # incomplete
-
 DELETE: int
 READ_CONTROL: int
 WRITE_DAC: int
@@ -545,3 +541,10 @@ SI_PAGE_AUDIT: int
 SI_PAGE_OWNER: int
 SI_PAGE_EFFECTIVE: int
 PSPCB_SI_INITDIALOG: int
+ACTRL_DS_LIST: int
+ACTRL_DS_LIST_OBJECT: int
+CFSTR_ACLUI_SID_INFO_LIST: str
+DS_LIST_ACCOUNT_OBJECT_FOR_SERVER: int
+DS_LIST_DNS_HOST_NAME_FOR_SERVER: int
+DS_LIST_DSA_OBJECT_FOR_SERVER: int
+FILE_LIST_DIRECTORY: int

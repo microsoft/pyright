@@ -1,6 +1,10 @@
 from html.parser import HTMLParser
 from typing import Any
 
+__author__: str
+__copyright__: str
+__license__: str
+
 LOGGER: Any
 BULLET_WIN1252: str
 DEFAULT_HEADING_SIZES: Any

@@ -1,6 +1,8 @@
 from re import Pattern
 from typing import Any, overload
 
+from markdown.core import Markdown
+
 BLOCK_LEVEL_ELEMENTS: Any
 STX: str
 ETX: str
@@ -21,8 +23,8 @@ def nearing_recursion_limit() -> bool: ...
 class AtomicString(str): ...
 
 class Processor:
-    md: Any
-    def __init__(self, md: Any | None = ...) -> None: ...
+    md: Markdown
+    def __init__(self, md: Markdown | None = ...) -> None: ...
 
 class HtmlStash:
     html_counter: int = ...

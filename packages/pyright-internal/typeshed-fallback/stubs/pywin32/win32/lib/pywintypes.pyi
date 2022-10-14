@@ -1,9 +1,9 @@
+# Can't generate with stubgen because:
+# "KeyError: 'pywintypes'"
 from _typeshed import Incomplete
-from typing import Any
+from typing_extensions import Literal
 
 import _win32typing
-
-def __getattr__(name: str) -> Any: ...  # incomplete
 
 class error(Exception): ...
 class com_error(Exception): ...
@@ -23,3 +23,8 @@ def SECURITY_DESCRIPTOR() -> _win32typing.PySECURITY_DESCRIPTOR: ...
 def HANDLE() -> int: ...
 def HKEY() -> _win32typing.PyHKEY: ...
 def WAVEFORMATEX() -> _win32typing.PyWAVEFORMATEX: ...
+
+FALSE: Literal[False]
+TRUE: Literal[True]
+
+def TimeStamp(*args, **kwargs): ...  # incomplete

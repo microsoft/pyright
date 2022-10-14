@@ -1,4 +1,5 @@
 import _win32typing
+from pywintypes import IID as IID
 
 BG_AUTH_SCHEME_BASIC: int
 BG_AUTH_SCHEME_DIGEST: int

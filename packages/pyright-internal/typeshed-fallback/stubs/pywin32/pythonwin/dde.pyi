@@ -1,3 +1,5 @@
+# Can't generate with stubgen because:
+# "ImportError: This must be an MFC application - try 'import win32ui' first"
 APPCLASS_MONITOR: int
 APPCLASS_STANDARD: int
 APPCMD_CLIENTONLY: int

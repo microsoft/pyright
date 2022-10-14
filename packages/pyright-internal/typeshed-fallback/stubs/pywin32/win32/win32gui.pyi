@@ -414,7 +414,6 @@ def ImageList_SetOverlayImage(*args, **kwargs): ...  # incomplete
 def LOWORD(*args, **kwargs): ...  # incomplete
 def ListView_SortItems(*args, **kwargs): ...  # incomplete
 def ListView_SortItemsEx(*args, **kwargs): ...  # incomplete
-def PyMakeBuffer(*args, **kwargs): ...  # incomplete
 def ValidateRect(*args, **kwargs): ...  # incomplete
 def WNDCLASS(*args, **kwargs): ...  # incomplete
 def lpstr(*args, **kwargs): ...  # incomplete

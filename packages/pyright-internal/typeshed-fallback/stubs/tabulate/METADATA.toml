@@ -1,4 +1,4 @@
-version = "0.8.*"
+version = "0.9.*"
 
 [tool.stubtest]
 ignore_missing_stub = false

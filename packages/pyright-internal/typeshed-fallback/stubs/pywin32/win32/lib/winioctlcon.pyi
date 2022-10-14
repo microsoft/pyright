@@ -1,8 +1,5 @@
-from typing import Any
-
 import _win32typing
 
-def __getattr__(name: str) -> Any: ...  # incomplete
 def CTL_CODE(DeviceType: int, Function: int, Method: int, Access: int) -> int: ...
 def DEVICE_TYPE_FROM_CTL_CODE(ctrlCode: int) -> int: ...
 
@@ -658,3 +655,7 @@ DeviceProblemSensorError: int
 DeviceProblemCartridgeEjectError: int
 DeviceProblemGripperError: int
 DeviceProblemDriveError: int
+FILE_READ_DATA: int
+FILE_WRITE_DATA: int
+FSCTL_TXFS_LIST_TRANSACTIONS: int
+FSCTL_TXFS_LIST_TRANSACTION_LOCKED_FILES: int

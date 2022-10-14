@@ -1,6 +1,7 @@
 from re import Pattern
 from typing import Any
 
+from markdown.core import Markdown
 from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
 
@@ -39,7 +40,7 @@ class TocTreeprocessor(Treeprocessor):
 class TocExtension(Extension):
     TreeProcessorClass: Any
     def __init__(self, **kwargs) -> None: ...
-    md: Any
+    md: Markdown
     def reset(self) -> None: ...
 
 def makeExtension(**kwargs): ...

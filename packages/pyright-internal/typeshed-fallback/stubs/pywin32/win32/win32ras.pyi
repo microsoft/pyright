@@ -1,10 +1,8 @@
 from _typeshed import Incomplete
-from typing import Any
 
 import _win32typing
 from win32.lib.pywintypes import error as error
 
-def __getattr__(name: str) -> Any: ...  # incomplete
 def CreatePhonebookEntry(hWnd: int, fileName: str | None = ...) -> None: ...
 def Dial(dialExtensions, fileName: str, RasDialParams: _win32typing.RASDIALPARAMS, callback) -> tuple[Incomplete, Incomplete]: ...
 def EditPhonebookEntry(hWnd: int, fileName: str, entryName: str | None = ...) -> None: ...
@@ -48,3 +46,9 @@ RASCS_RetryAuthentication: int
 RASCS_StartAuthentication: int
 RASCS_WaitForCallback: int
 RASCS_WaitForModemReset: int
+
+def GetEapUserIdentity(*args, **kwargs): ...  # incomplete
+
+RASEAPF_Logon: int
+RASEAPF_NonInteractive: int
+RASEAPF_Preview: int

@@ -1,10 +1,8 @@
 from _typeshed import Incomplete
-from typing import Any
 
 import _win32typing
 from win32.lib.pywintypes import error as error
 
-def __getattr__(name: str) -> Any: ...  # incomplete
 def NCBBuffer(size): ...
 def Netbios(ncb: _win32typing.NCB): ...
 def WNetAddConnection2(

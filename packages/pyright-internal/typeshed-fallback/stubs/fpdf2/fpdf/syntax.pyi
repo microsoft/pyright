@@ -1,5 +1,7 @@
+from _typeshed import Incomplete, SupportsItems
 from abc import ABC
-from typing import Any
+from re import Pattern
+from typing import Any, ClassVar
 from typing_extensions import Literal
 
 def clear_empty_fields(d): ...
@@ -25,9 +27,11 @@ class PDFObject:
     def ref(self): ...
     def serialize(self, fpdf: Any | None = ..., obj_dict: Any | None = ...): ...
 
+def build_obj_dict(key_values: SupportsItems[str, Incomplete]) -> dict[str, str]: ...
 def camel_case(snake_case: str) -> str: ...
 
 class PDFString(str):
+    USE_HEX_ENCODING: ClassVar[bool]
     def serialize(self): ...
 
 class PDFArray(list[Any]):
@@ -50,4 +54,5 @@ class DestinationXYZ(Destination):
 class Raw(str): ...
 
 class Name(str):
+    NAME_ESC: ClassVar[Pattern[bytes]]
     def pdf_repr(self) -> str: ...

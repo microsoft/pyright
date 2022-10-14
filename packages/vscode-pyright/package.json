@@ -82,7 +82,6 @@
                 "category": "Pyright",
                 "enablement": "editorLangId == python && pyright.development"
             }
-
         ],
         "menus": {
             "editor/context": [
@@ -115,7 +114,6 @@
                     "when": "editorLangId == python && pyright.development"
                 }
             ]
-
         },
         "configuration": {
             "type": "object",

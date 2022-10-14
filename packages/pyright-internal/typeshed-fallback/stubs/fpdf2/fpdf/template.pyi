@@ -1,5 +1,9 @@
 from typing import Any
 
+__author__: str
+__copyright__: str
+__license__: str
+
 class FlexTemplate:
     pdf: Any
     splitting_pdf: Any

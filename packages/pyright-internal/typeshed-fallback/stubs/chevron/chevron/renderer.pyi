@@ -1,9 +1,12 @@
 from _typeshed import StrPath, SupportsRead
 from collections.abc import MutableSequence, Sequence
 from typing import Any
+from typing_extensions import Literal
 
 g_token_cache: dict[str, list[tuple[str, str]]]  # undocumented
+python3: Literal[True]
 
+def unicode(x: str, y: str) -> str: ...
 def render(
     template: SupportsRead[str] | str | Sequence[tuple[str, str]] = ...,
     data: dict[str, Any] = ...,
