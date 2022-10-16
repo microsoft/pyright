@@ -5332,9 +5332,13 @@ export class Checker extends ParseTreeWalker {
                 this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
             }
         } else {
+            const decoratorIsPresent = node.decorators.length > 0;
+            const isOverloaded = FunctionType.isOverloaded(functionType);
+
             // The presence of a decorator can change the behavior, so we need
-            // to back off from this check if a decorator is present.
-            if (node.decorators.length === 0) {
+            // to back off from this check if a decorator is present. An overload
+            // is a decorator, but we'll ignore that here.
+            if (isOverloaded || !decoratorIsPresent) {
                 let paramName = '';
                 let firstParamIsSimple = true;
                 if (node.parameters.length > 0) {

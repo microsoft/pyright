@@ -1,6 +1,9 @@
 # This sample tests the reportSelfClsParameterName setting.
 
 
+from typing import Union, overload
+
+
 def foo():
     pass
 
@@ -30,6 +33,23 @@ class Class1:
     # is enabled because "cls" is expected.
     def foo5(self):
         return 4
+
+    @overload
+    # This should generate an error or warning if the setting
+    # is enabled because "self" is expected.
+    def foo6(x: int) -> int:
+        ...
+
+    @overload
+    # This should generate an error or warning if the setting
+    # is enabled because "self" is expected.
+    def foo6(x: str) -> str:
+        ...
+
+    # This should generate an error or warning if the setting
+    # is enabled because "self" is expected.
+    def foo6(x) -> Union[int, str]:
+        ...
 
 
 class Metaclass(type):

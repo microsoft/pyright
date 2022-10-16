@@ -357,7 +357,7 @@ test('ParamName1', () => {
     const configOptions = new ConfigOptions('.');
 
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0, 4);
+    TestUtils.validateResults(analysisResults, 0, 7);
 
     configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'none';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
@@ -365,7 +365,7 @@ test('ParamName1', () => {
 
     configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4, 0);
+    TestUtils.validateResults(analysisResults, 7, 0);
 });
 
 test('ParamType1', () => {
