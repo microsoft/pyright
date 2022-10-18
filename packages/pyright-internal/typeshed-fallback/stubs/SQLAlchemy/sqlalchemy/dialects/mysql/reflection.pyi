@@ -7,7 +7,6 @@ class ReflectedState:
     keys: Any
     fk_constraints: Any
     ck_constraints: Any
-    def __init__(self) -> None: ...
 
 class MySQLTableDefinitionParser:
     logger: Any

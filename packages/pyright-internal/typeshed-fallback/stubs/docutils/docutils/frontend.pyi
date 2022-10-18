@@ -1,4 +1,5 @@
 import optparse
+from _typeshed import Incomplete
 from collections.abc import Iterable, Mapping
 from configparser import RawConfigParser
 from typing import Any, ClassVar
@@ -70,9 +71,9 @@ class OptionParser(optparse.OptionParser, SettingsSpec):
         *args,
         **kwargs,
     ) -> None: ...
-    def __getattr__(self, name: str) -> Any: ...  # incomplete
+    def __getattr__(self, name: str) -> Incomplete: ...
 
 class ConfigParser(RawConfigParser):
-    def __getattr__(self, name: str) -> Any: ...  # incomplete
+    def __getattr__(self, name: str) -> Incomplete: ...
 
 class ConfigDeprecationWarning(DeprecationWarning): ...

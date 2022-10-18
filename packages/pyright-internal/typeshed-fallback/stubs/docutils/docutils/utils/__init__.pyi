@@ -1,7 +1,7 @@
 import optparse
+from _typeshed import Incomplete
 from builtins import list as _list  # alias to avoid name clashes with fields named list
 from collections.abc import Iterable
-from typing import Any
 from typing_extensions import Literal, TypeAlias
 
 from docutils import ApplicationError
@@ -28,7 +28,7 @@ class Reporter:
     source: str
     report_level: _SystemMessageLevel
     halt_level: _SystemMessageLevel
-    def __getattr__(self, __name: str) -> Any: ...  # incomplete
+    def __getattr__(self, __name: str) -> Incomplete: ...
 
 class SystemMessage(ApplicationError):
     level: _SystemMessageLevel
@@ -36,4 +36,4 @@ class SystemMessage(ApplicationError):
 
 def new_reporter(source_path: str, settings: optparse.Values) -> Reporter: ...
 def new_document(source_path: str, settings: optparse.Values | None = ...) -> document: ...
-def __getattr__(name: str) -> Any: ...  # incomplete
+def __getattr__(name: str) -> Incomplete: ...

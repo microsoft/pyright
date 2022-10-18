@@ -1,4 +1,4 @@
-from _typeshed import StrOrBytesPath, StrPath
+from _typeshed import Incomplete, StrOrBytesPath, StrPath
 from collections.abc import Iterator
 from typing import Any
 from typing_extensions import TypeAlias
@@ -19,4 +19,4 @@ def guess_lexer_for_filename(_fn: StrPath, _text: str, **options: Any) -> LexerM
 def guess_lexer(_text: str | bytes, **options: Any) -> Lexer: ...
 
 # Having every lexer class here doesn't seem to be worth it
-def __getattr__(name: str) -> Any: ...
+def __getattr__(name: str) -> Incomplete: ...

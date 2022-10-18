@@ -1,3 +1,4 @@
+import ssl
 from collections.abc import Iterable
 from typing_extensions import NotRequired, TypeAlias, TypedDict
 
@@ -17,14 +18,16 @@ class _TLS(TypedDict):
     ca_certs: str
     certfile: NotRequired[str]
     keyfile: NotRequired[str]
-    tls_version: NotRequired[str]
+    tls_version: NotRequired[ssl._SSLMethod]
     ciphers: NotRequired[str]
     insecure: NotRequired[str]
+    cert_reqs: NotRequired[ssl.VerifyMode]
+    keyfile_password: NotRequired[ssl._PasswordType]
 
 class _Proxy(TypedDict):
     proxy_type: int
     proxy_addr: str
-    proxy_rdns: NotRequired[str]
+    proxy_rdns: NotRequired[bool]
     proxy_username: NotRequired[str]
     proxy_passwor: NotRequired[str]
 

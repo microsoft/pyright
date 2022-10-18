@@ -638,7 +638,9 @@ TYPE_CHECKING: bool
 # This differs from runtime, but better reflects the fact that in reality
 # classes deriving from IO use different names for the arguments.
 class IO(Iterator[AnyStr], Generic[AnyStr]):
-    # TODO use abstract properties
+    # At runtime these are all abstract properties,
+    # but making them abstract in the stub is hugely disruptive, for not much gain.
+    # See #8726
     @property
     def mode(self) -> str: ...
     @property
@@ -691,7 +693,7 @@ class BinaryIO(IO[bytes]):
     def __enter__(self) -> BinaryIO: ...
 
 class TextIO(IO[str]):
-    # TODO use abstractproperty
+    # See comment regarding the @properties in the `IO` class
     @property
     def buffer(self) -> BinaryIO: ...
     @property

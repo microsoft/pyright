@@ -6,7 +6,6 @@ from ...sql.schema import ColumnCollectionConstraint
 class aggregate_order_by(expression.ColumnElement[Any]):
     __visit_name__: str
     stringify_dialect: str
-    inherit_cache: bool
     target: Any
     type: Any
     order_by: Any

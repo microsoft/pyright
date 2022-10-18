@@ -23,6 +23,8 @@ class NoSuchEntryPoint(Exception):
     name: str
     def __init__(self, group: str, name: str) -> None: ...
 
+class CaseSensitiveConfigParser(ConfigParser): ...
+
 class EntryPoint:
     name: str
     module_name: str
@@ -40,6 +42,8 @@ class Distribution:
     name: str
     version: str
     def __init__(self, name: str, version: str) -> None: ...
+    @classmethod
+    def from_name_version(cls: type[Self], name: str) -> Self: ...
 
 def iter_files_distros(
     path: Sequence[str] | None = ..., repeated_distro: str = ...

@@ -12,7 +12,6 @@ class Behavior:
     allowGroup: bool
     forceUTC: bool
     sortFirst: Any
-    def __init__(self) -> None: ...
     @classmethod
     def validate(cls, obj, raiseException: bool = ..., complainUnrecognized: bool = ...): ...
     @classmethod
