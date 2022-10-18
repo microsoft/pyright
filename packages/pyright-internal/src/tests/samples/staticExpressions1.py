@@ -50,3 +50,25 @@ if DEFINED_STR == "hi!":
     x = 1
 else:
     x = "error!"
+
+class Dummy:
+    DEFINED_FALSE: bool
+    DEFINED_TRUE: bool
+    DEFINED_STR: str
+
+dummy = Dummy()
+
+if dummy.DEFINED_TRUE:
+    x = 1
+else:
+    x = "error!"
+
+if not dummy.DEFINED_FALSE:
+    x = 1
+else:
+    x = "error!"
+
+if dummy.DEFINED_STR == "hi!":
+    x = 1
+else:
+    x = "error!"

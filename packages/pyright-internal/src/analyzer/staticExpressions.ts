@@ -118,11 +118,15 @@ export function evaluateStaticBoolExpression(
             }
         } else {
             // Handle the special case of <definedConstant> == 'X' or <definedConstant> != 'X'.
-            if (
-                node.leftExpression.nodeType === ParseNodeType.Name &&
-                node.rightExpression.nodeType === ParseNodeType.StringList
-            ) {
-                const constantValue = definedConstants.get(node.leftExpression.value);
+            if (node.rightExpression.nodeType === ParseNodeType.StringList) {
+                let constantValue: string | number | boolean | undefined;
+
+                if (node.leftExpression.nodeType === ParseNodeType.Name) {
+                    constantValue = definedConstants.get(node.leftExpression.value);
+                } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
+                    constantValue = definedConstants.get(node.leftExpression.memberName.value);
+                }
+
                 if (constantValue !== undefined && typeof constantValue === 'string') {
                     const comparisonStringName = node.rightExpression.strings.map((s) => s.value).join('');
                     return _evaluateStringBinaryOperation(node.operator, constantValue, comparisonStringName);
@@ -144,14 +148,20 @@ export function evaluateStaticBoolExpression(
         if (constant !== undefined) {
             return !!constant;
         }
-    } else if (
-        typingImportAliases &&
-        node.nodeType === ParseNodeType.MemberAccess &&
-        node.memberName.value === 'TYPE_CHECKING' &&
-        node.leftExpression.nodeType === ParseNodeType.Name &&
-        typingImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)
-    ) {
-        return true;
+    } else if (node.nodeType === ParseNodeType.MemberAccess) {
+        if (
+            typingImportAliases &&
+            node.memberName.value === 'TYPE_CHECKING' &&
+            node.leftExpression.nodeType === ParseNodeType.Name &&
+            typingImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)
+        ) {
+            return true;
+        }
+
+        const constant = definedConstants.get(node.memberName.value);
+        if (constant !== undefined) {
+            return !!constant;
+        }
     }
 
     return undefined;

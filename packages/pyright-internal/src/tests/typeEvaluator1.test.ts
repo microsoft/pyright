@@ -1374,13 +1374,13 @@ test('StaticExpressions1', () => {
     configOptions.defaultPythonPlatform = 'windows';
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['staticExpressions1.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 6);
+    TestUtils.validateResults(analysisResults1, 9);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     configOptions.defaultPythonPlatform = 'Linux';
 
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['staticExpressions1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 3);
+    TestUtils.validateResults(analysisResults2, 6);
 
     configOptions.defineConstant.set('DEFINED_TRUE', true);
     configOptions.defineConstant.set('DEFINED_FALSE', false);
