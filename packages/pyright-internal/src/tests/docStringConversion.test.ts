@@ -665,6 +665,34 @@ Currently, the following file formats are supported:
     _testConvertToMarkdown(docstring, markdown);
 });
 
+test('Non EpyDocCv2Imread', () => {
+    const docstring = `imread(filename[, flags]) -> retval
+  .   @brief Loads an image from a file.
+  .   @anchor imread
+  .   
+  .   The function imread loads an image from the specified file and returns it. If the image cannot be
+  .   read (because of missing file, improper permissions, unsupported or invalid format), the function
+  .
+  .   Currently, the following file formats are supported:
+  .   
+  .   -   Windows bitmaps - \\*.bmp, \\*.dib (always supported)
+  .   -   JPEG files - \\*.jpeg, \\*.jpg, \\*.jpe (see the *Note* section)`;
+
+    const markdown = `imread(filename\\[, flags\\]) -&gt; retval
+.   @brief Loads an image from a file.
+.   @anchor imread
+.
+.   The function imread loads an image from the specified file and returns it. If the image cannot be
+.   read (because of missing file, improper permissions, unsupported or invalid format), the function
+.
+.   Currently, the following file formats are supported:
+.
+.   -   Windows bitmaps - \\*.bmp, \\*.dib (always supported)
+.   -   JPEG files - \\*.jpeg, \\*.jpg, \\*.jpe (see the \\*Note\\* section)`;
+
+    _testConvertToMarkdown(docstring, markdown);
+});
+
 test('EpyDocTest', () => {
     const docstring = `Return the x intercept of the line M{y=m*x+b}.  The X{x intercept}
 of a line is the point at which it crosses the x axis (M{y=0}).
