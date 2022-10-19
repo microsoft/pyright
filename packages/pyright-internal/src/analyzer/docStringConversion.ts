@@ -62,7 +62,7 @@ const SpaceDotDotRegExp = /^\s*\.\. /;
 const DirectiveLikeRegExp = /^\s*\.\.\s+(\w+)::\s*(.*)$/;
 const DoctestRegExp = / *>>> /;
 const DirectivesExtraNewlineRegExp = /^\s*:(param|arg|type|return|rtype|raise|except|var|ivar|cvar|copyright|license)/;
-const epyDocFieldTokensRegExp = /^[.\s\t]+(@\w+)/; // cv2 has leading '.' http://epydoc.sourceforge.net/manual-epytext.html
+const epyDocFieldTokensRegExp = /^\.[\s\t]+(@\w)/gm; // cv2 has leading '.' http://epydoc.sourceforge.net/manual-epytext.html
 const epyDocCv2FixRegExp = /^(\.\s{3})|^(\.)/;
 
 const PotentialHeaders: RegExpReplacement[] = [
@@ -113,6 +113,7 @@ class DocStringConverter {
 
     private _state: State;
     private _stateStack: State[] = [];
+    private _input: string;
 
     private _lines: string[];
     private _lineNum = 0;
@@ -123,11 +124,12 @@ class DocStringConverter {
 
     constructor(input: string) {
         this._state = this._parseText;
+        this._input = input;
         this._lines = cleanAndSplitDocString(input);
     }
 
     convert(): string {
-        const isEpyDoc = this._lines.some((v) => epyDocFieldTokensRegExp.exec(v));
+        const isEpyDoc = epyDocFieldTokensRegExp.test(this._input);
         if (isEpyDoc) {
             // fixup cv2 leading '.'
             this._lines = this._lines.map((v) => v.replace(epyDocCv2FixRegExp, ''));
