@@ -1,6 +1,6 @@
 # This sample tests type narrowing for falsy and truthy values.
 
-from typing import Iterable, List, Literal, Optional, Union
+from typing import Iterable, List, Literal, NamedTuple, Optional, Union
 
 
 class A:
@@ -48,3 +48,44 @@ def func4(foo: Iterable[int]) -> None:
         reveal_type(foo, expected_text="Iterable[int]")
     else:
         reveal_type(foo, expected_text="Iterable[int]")
+
+
+def func5(foo: tuple[int]) -> None:
+    if foo:
+        reveal_type(foo, expected_text="tuple[int]")
+    else:
+        reveal_type(foo, expected_text="Never")
+
+
+def func6(foo: tuple[int, ...]) -> None:
+    if foo:
+        reveal_type(foo, expected_text="tuple[int, ...]")
+    else:
+        reveal_type(foo, expected_text="tuple[int, ...]")
+
+
+def func7(foo: tuple[()]) -> None:
+    if foo:
+        reveal_type(foo, expected_text="Never")
+    else:
+        reveal_type(foo, expected_text="tuple[()]")
+
+
+class NT1(NamedTuple):
+    foo: int
+
+
+def func8(foo: NT1) -> None:
+    if foo:
+        reveal_type(foo, expected_text="NT1")
+    else:
+        reveal_type(foo, expected_text="Never")
+
+class NT2(NT1):
+    pass
+
+def func9(foo: NT2) -> None:
+    if foo:
+        reveal_type(foo, expected_text="NT2")
+    else:
+        reveal_type(foo, expected_text="Never")

@@ -1664,6 +1664,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return isUnboundedTupleClass(type) || type.tupleTypeArguments.length === 0;
                 }
 
+                // Handle subclasses of tuple, such as NamedTuple.
+                const tupleBaseClass = type.details.mro.find(
+                    (mroClass) => !isClass(mroClass) || isTupleClass(mroClass)
+                );
+                if (tupleBaseClass && isClass(tupleBaseClass) && tupleBaseClass.tupleTypeArguments) {
+                    return isUnboundedTupleClass(tupleBaseClass) || tupleBaseClass.tupleTypeArguments.length === 0;
+                }
+
                 // Check for Literal[False] and Literal[True].
                 if (ClassType.isBuiltIn(type, 'bool') && type.literalValue !== undefined) {
                     return type.literalValue === false;
