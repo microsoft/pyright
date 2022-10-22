@@ -225,6 +225,11 @@ test('Builtins1', () => {
     }
 });
 
+test('Builtins2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['builtins2.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Complex1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['complex1.py']);
     TestUtils.validateResults(analysisResults, 0);

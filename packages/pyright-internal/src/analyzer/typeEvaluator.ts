@@ -4023,10 +4023,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // If the symbol is declared outside of our execution scope, use its effective
                     // type. If it's declared inside our execution scope, it generally starts
                     // as unbound at the start of the code flow.
-                    const typeAtStart =
-                        symbolWithScope.isBeyondExecutionScope || !symbol.isInitiallyUnbound()
-                            ? effectiveType
-                            : UnboundType.create();
+                    let typeAtStart = effectiveType;
+                    if (!symbolWithScope.isBeyondExecutionScope && symbol.isInitiallyUnbound()) {
+                        typeAtStart = UnboundType.create();
+
+                        // Is this a module-level scope? If so, see if it's an alias of a builtin.
+                        if (symbolWithScope.scope.type === ScopeType.Module) {
+                            assert(symbolWithScope.scope.parent);
+                            const builtInSymbol = symbolWithScope.scope.parent.lookUpSymbol(name);
+                            if (builtInSymbol) {
+                                const builtInEffectiveType = getEffectiveTypeOfSymbolForUsage(builtInSymbol);
+                                typeAtStart = builtInEffectiveType.type;
+                            }
+                        }
+                    }
+
                     const codeFlowTypeResult = getFlowTypeOfReference(
                         node,
                         symbol.id,
