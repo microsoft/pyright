@@ -10751,7 +10751,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 } else if (paramName === 'covariant') {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
-                        if (typeVar.details.declaredVariance === Variance.Contravariant) {
+                        if (
+                            typeVar.details.declaredVariance === Variance.Contravariant ||
+                            typeVar.details.declaredVariance === Variance.Auto
+                        ) {
                             addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
                             typeVar.details.declaredVariance = Variance.Covariant;
@@ -10759,10 +10762,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 } else if (paramName === 'contravariant') {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
-                        if (typeVar.details.declaredVariance === Variance.Covariant) {
+                        if (
+                            typeVar.details.declaredVariance === Variance.Covariant ||
+                            typeVar.details.declaredVariance === Variance.Auto
+                        ) {
                             addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
                             typeVar.details.declaredVariance = Variance.Contravariant;
+                        }
+                    }
+                } else if (paramName === 'infer_variance') {
+                    if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
+                        if (
+                            typeVar.details.declaredVariance === Variance.Covariant ||
+                            typeVar.details.declaredVariance === Variance.Contravariant
+                        ) {
+                            addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
+                        } else {
+                            typeVar.details.declaredVariance = Variance.Auto;
                         }
                     }
                 } else if (paramName === 'default') {
