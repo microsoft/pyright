@@ -1227,3 +1227,8 @@ test('Override1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
     TestUtils.validateResults(analysisResults, 2);
 });
+
+test('TypeVarDefault1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault1.py']);
+    TestUtils.validateResults(analysisResults, 16);
+});

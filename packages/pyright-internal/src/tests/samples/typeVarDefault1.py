@@ -1,0 +1,86 @@
+# This sample tests support for PEP 696 -- default types for TypeVars.
+
+from typing import Any, ParamSpec
+from typing_extensions import TypeVar, TypeVarTuple, Unpack
+
+S1 = TypeVar("S1")
+S2 = TypeVar("S2", bound=int)
+S3 = TypeVar("S3", bytes, str)
+
+S8 = TypeVarTuple("S8")
+
+S9 = ParamSpec("S9")
+
+
+T1 = TypeVar("T1", default=int)
+
+# This should generate an error because default must be a type expression.
+T2 = TypeVar("T2", default=3)
+
+T3 = TypeVar("T3", bound=float, default=int)
+
+# This should generate an error because default must be a subtype of bound
+T4 = TypeVar("T4", bound=int, default=float)
+
+# This should generate an error because S1 is not a subtype of int
+T6 = TypeVar("T6", bound=int, default=S1)
+
+T7 = TypeVar("T7", bound=float, default=S2)
+
+# This should generate an error because S3 is not a subtype of int
+T8 = TypeVar("T8", bound=float, default=S3)
+
+T9 = TypeVar("T9", bound=list[Any], default=list[S1])
+
+T10 = TypeVar("T10", bytes, str, default=str)
+
+# This should generate an error because str | bytes isn't one of the constrained types
+T11 = TypeVar("T11", bytes, str, default=str | bytes)
+
+# This should generate an error because S1 isn't one of the constrained types
+T12 = TypeVar("T12", bytes, str, default=S1)
+
+
+Ts1 = TypeVarTuple("Ts1", default=Unpack[tuple[int]])
+
+# This should generate an error because default must be unpacked tuple
+Ts2 = TypeVarTuple("Ts2", default=tuple[int])
+
+# This should generate an error because default must be unpacked tuple
+Ts3 = TypeVarTuple("Ts3", default=int)
+ 
+# This should generate two errors because a TypeVarTuple isn't allowed
+# in this context and it is TypeVarTuple with no context
+Ts4 = TypeVarTuple("Ts4", default=Unpack[S8])
+
+# This should generate two errors because default must be unpacked and it
+# is a TypeVarTuple with no context
+Ts5 = TypeVarTuple("Ts5", default=S8)
+
+Ts6 = TypeVarTuple("Ts6", default=Unpack[tuple[int, ...]])
+
+Ts7 = TypeVarTuple("Ts7", default=Unpack[tuple[S1, S2]])
+
+
+P1 = ParamSpec("P1", default=())
+
+P2 = ParamSpec("P2", default=(int, str, None, int | None))
+
+P3 = ParamSpec("P3", default=(int, S1))
+
+P4 = ParamSpec("P4", default=(int, ))
+
+P5 = ParamSpec("P5", default=...)
+
+# This should generate an error because ParamSpec must be a tuple of types
+P6 = ParamSpec("P6", default=int)
+
+# This should generate an error because ParamSpec must be a tuple of types
+P7 = ParamSpec("P7", default=3)
+
+# This should generate an error because ParamSpec must be a tuple of types
+P8 = ParamSpec("P8", default=(1, int))
+
+# This should generate an error because ParamSpec must be a tuple of types
+P9 = ParamSpec("P9", default=S9)
+

@@ -639,6 +639,7 @@ export namespace Localizer {
         export const paramSpecAssignedName = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecAssignedName'));
         export const paramSpecContext = () => getRawString('Diagnostic.paramSpecContext');
+        export const paramSpecDefaultNotTuple = () => getRawString('Diagnostic.paramSpecDefaultNotTuple');
         export const paramSpecFirstArg = () => getRawString('Diagnostic.paramSpecFirstArg');
         export const paramSpecKwargsUsage = () => getRawString('Diagnostic.paramSpecKwargsUsage');
         export const paramSpecNotBound = () =>
@@ -887,6 +888,9 @@ export namespace Localizer {
         export const typeVarBoundAndConstrained = () => getRawString('Diagnostic.typeVarBoundAndConstrained');
         export const typeVarBoundGeneric = () => getRawString('Diagnostic.typeVarBoundGeneric');
         export const typeVarConstraintGeneric = () => getRawString('Diagnostic.typeVarConstraintGeneric');
+        export const typeVarDefaultBoundMismatch = () => getRawString('Diagnostic.typeVarDefaultBoundMismatch');
+        export const typeVarDefaultConstraintMismatch = () =>
+            getRawString('Diagnostic.typeVarDefaultConstraintMismatch');
         export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
         export const typeVarNoMember = () =>
             new ParameterizedString<{ type: string; name: string }>(getRawString('Diagnostic.typeVarNoMember'));
@@ -901,7 +905,10 @@ export namespace Localizer {
         export const typeVarSingleConstraint = () => getRawString('Diagnostic.typeVarSingleConstraint');
         export const typeVarsNotInGenericOrProtocol = () => getRawString('Diagnostic.typeVarsNotInGenericOrProtocol');
         export const typeVarTupleContext = () => getRawString('Diagnostic.typeVarTupleContext');
+        export const typeVarTupleDefaultNotUnpacked = () => getRawString('Diagnostic.typeVarTupleDefaultNotUnpacked');
         export const typeVarTupleMustBeUnpacked = () => getRawString('Diagnostic.typeVarTupleMustBeUnpacked');
+        export const typeVarTupleUnknownParam = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarTupleUnknownParam'));
         export const typeVarUnknownParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUnknownParam'));
         export const typeVarUsedByOuterScope = () =>

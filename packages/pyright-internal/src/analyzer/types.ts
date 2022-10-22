@@ -2056,6 +2056,7 @@ export interface TypeVarDetails {
     name: string;
     constraints: Type[];
     boundType?: Type | undefined;
+    defaultType?: Type | undefined;
 
     isParamSpec: boolean;
     isVariadic: boolean;

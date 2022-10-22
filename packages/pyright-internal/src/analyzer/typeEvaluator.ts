@@ -10701,6 +10701,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
         let typeVarName = '';
         let firstConstraintArg: FunctionArgument | undefined;
+        let defaultValueNode: ExpressionNode | undefined;
 
         if (argList.length === 0) {
             addError(Localizer.Diagnostic.typeVarFirstArg(), errorNode);
@@ -10764,6 +10765,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeVar.details.declaredVariance = Variance.Contravariant;
                         }
                     }
+                } else if (paramName === 'default') {
+                    defaultValueNode = argList[i].valueExpression;
+                    const argType =
+                        argList[i].typeResult?.type ??
+                        getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
+                    typeVar.details.defaultType = convertToInstance(argType);
                 } else {
                     addError(
                         Localizer.Diagnostic.typeVarUnknownParam().format({ name: paramName }),
@@ -10806,6 +10813,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
+        // If a default is provided, make sure it is compatible with the bound
+        // or constraint.
+        if (typeVar.details.defaultType && defaultValueNode) {
+            const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
+            const concreteDefaultType = applySolvedTypeVars(
+                typeVar.details.defaultType,
+                typeVarContext,
+                /* unknownIfNotFound */ true
+            );
+
+            if (typeVar.details.boundType) {
+                if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarDefaultBoundMismatch(),
+                        defaultValueNode
+                    );
+                }
+            } else if (typeVar.details.constraints.length > 0) {
+                if (!typeVar.details.constraints.some((constraint) => isTypeSame(constraint, concreteDefaultType))) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarDefaultConstraintMismatch(),
+                        defaultValueNode
+                    );
+                }
+            }
+        }
+
         return typeVar;
     }
 
@@ -10829,13 +10867,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
-            addError(
-                Localizer.Diagnostic.typeVarUnknownParam().format({ name: argList[i].name?.value || '?' }),
-                argList[i].node?.name || argList[i].valueExpression || errorNode
-            );
+            const paramNameNode = argList[i].name;
+            const paramName = paramNameNode ? paramNameNode.value : undefined;
+
+            if (paramName) {
+                if (paramName === 'default') {
+                    const expr = argList[i].valueExpression;
+                    if (expr) {
+                        typeVar.details.defaultType = getTypeVarTupleDefaultType(expr);
+                    }
+                } else {
+                    addError(
+                        Localizer.Diagnostic.typeVarTupleUnknownParam().format({ name: argList[i].name?.value || '?' }),
+                        argList[i].node?.name || argList[i].valueExpression || errorNode
+                    );
+                }
+            }
         }
 
         return typeVar;
+    }
+
+    function getTypeVarTupleDefaultType(node: ExpressionNode): Type | undefined {
+        const argType = getTypeOfExpressionExpectingType(node, { allowUnpackedTuple: true }).type;
+        const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.isUnpacked;
+        const isUnpackedTypeVarTuple = isTypeVar(argType) && argType.isVariadicUnpacked;
+
+        if (!isUnpackedTuple && !isUnpackedTypeVarTuple) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeVarTupleDefaultNotUnpacked(),
+                node
+            );
+            return undefined;
+        }
+
+        return convertToInstance(argType);
     }
 
     function createParamSpecType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
@@ -10856,11 +10924,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
-            if (argList[i].name?.value) {
-                addError(
-                    Localizer.Diagnostic.paramSpecUnknownParam().format({ name: argList[i].name!.value }),
-                    argList[i].node?.name || argList[i].valueExpression || errorNode
-                );
+            const paramNameNode = argList[i].name;
+            const paramName = paramNameNode ? paramNameNode.value : undefined;
+
+            if (paramName) {
+                if (paramName === 'default') {
+                    const expr = argList[i].valueExpression;
+                    if (expr) {
+                        paramSpec.details.defaultType = getParamSpecDefaultType(expr);
+                    }
+                } else {
+                    addError(
+                        Localizer.Diagnostic.paramSpecUnknownParam().format({ name: paramName }),
+                        paramNameNode || argList[i].valueExpression || errorNode
+                    );
+                }
             } else {
                 addError(Localizer.Diagnostic.paramSpecUnknownArg(), argList[i].valueExpression || errorNode);
                 break;
@@ -10868,6 +10946,53 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return paramSpec;
+    }
+
+    function getParamSpecDefaultType(node: ExpressionNode): Type | undefined {
+        const functionType = FunctionType.createSynthesizedInstance(
+            '',
+            FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
+        );
+        TypeBase.setSpecialForm(functionType);
+
+        if (node.nodeType === ParseNodeType.Ellipsis) {
+            FunctionType.addDefaultParameters(functionType);
+            return functionType;
+        }
+
+        if (node.nodeType === ParseNodeType.Tuple) {
+            let reportError = false;
+
+            node.expressions.forEach((paramExpr, index) => {
+                const typeResult = getTypeOfExpressionExpectingType(paramExpr);
+                if (typeResult.typeErrors) {
+                    reportError = true;
+                }
+
+                FunctionType.addParameter(functionType, {
+                    category: ParameterCategory.Simple,
+                    name: `__p${index}`,
+                    isNameSynthesized: true,
+                    type: typeResult.type,
+                });
+            });
+
+            if (!reportError) {
+                // Update the type cache so we don't attempt to re-evaluate this node.
+                // The type doesn't matter, so use Any.
+                writeTypeCache(node, AnyType.create(), /* flags */ undefined, /* isIncomplete */ false);
+                return functionType;
+            }
+        }
+
+        addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.paramSpecDefaultNotTuple(),
+            node
+        );
+
+        return undefined;
     }
 
     function getBooleanValue(node: ExpressionNode): boolean {
