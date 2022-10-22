@@ -161,6 +161,7 @@ import {
     EffectiveTypeResult,
     EvaluatorFlags,
     EvaluatorUsage,
+    ExpectedTypeOptions,
     ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
@@ -18406,11 +18407,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getTypeOfExpressionExpectingType(arg.valueExpression!);
     }
 
-    function getTypeOfExpressionExpectingType(
-        node: ExpressionNode,
-        allowFinal = false,
-        allowRequired = false
-    ): TypeResult {
+    function getTypeOfExpressionExpectingType(node: ExpressionNode, options?: ExpectedTypeOptions): TypeResult {
         let flags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.EvaluateStringLiteralAsType |
@@ -18425,12 +18422,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flags |= EvaluatorFlags.InterpreterParsesStringLiteral;
         }
 
-        if (!allowFinal) {
+        if (!options?.allowFinal) {
             flags |= EvaluatorFlags.FinalDisallowed;
         }
 
-        if (allowRequired) {
+        if (options?.allowRequired) {
             flags |= EvaluatorFlags.RequiredAllowed | EvaluatorFlags.ExpectingTypeAnnotation;
+        }
+
+        if (options?.allowUnpackedTuple) {
+            flags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple;
         }
 
         return getTypeOfExpression(node, flags);
@@ -19058,11 +19059,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (declaration.isRuntimeTypeExpression) {
                         declaredType = convertToInstance(
-                            getTypeOfExpressionExpectingType(
-                                typeAnnotationNode,
-                                /* allowFinal */ true,
-                                /* allowRequired */ true
-                            ).type
+                            getTypeOfExpressionExpectingType(typeAnnotationNode, {
+                                allowFinal: true,
+                                allowRequired: true,
+                            }).type
                         );
                     } else {
                         const declNode =

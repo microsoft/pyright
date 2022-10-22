@@ -156,11 +156,10 @@ export function createTypedDictType(
                 entrySet.add(entryName);
 
                 // Cache the annotation type.
-                const annotatedType = evaluator.getTypeOfExpressionExpectingType(
-                    entry.valueExpression,
-                    /* allowFinal */ true,
-                    /* allowRequired */ true
-                );
+                const annotatedType = evaluator.getTypeOfExpressionExpectingType(entry.valueExpression, {
+                    allowFinal: true,
+                    allowRequired: true,
+                });
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const declaration: VariableDeclaration = {
@@ -204,11 +203,10 @@ export function createTypedDictType(
 
                 // Evaluate the type with specific evaluation flags. The
                 // type will be cached for later.
-                const annotatedType = evaluator.getTypeOfExpressionExpectingType(
-                    entry.valueExpression,
-                    /* allowFinal */ true,
-                    /* allowRequired */ true
-                );
+                const annotatedType = evaluator.getTypeOfExpressionExpectingType(entry.valueExpression, {
+                    allowFinal: true,
+                    allowRequired: true,
+                });
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);

@@ -278,6 +278,12 @@ export interface AnnotationTypeOptions {
     notParsedByInterpreter?: boolean;
 }
 
+export interface ExpectedTypeOptions {
+    allowFinal?: boolean;
+    allowRequired?: boolean;
+    allowUnpackedTuple?: boolean;
+}
+
 export interface ExpectedTypeResult {
     type: Type;
     node: ParseNode;
@@ -319,11 +325,7 @@ export interface TypeEvaluator {
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
-    getTypeOfExpressionExpectingType: (
-        node: ExpressionNode,
-        allowFinal?: boolean,
-        allowRequired?: boolean
-    ) => TypeResult;
+    getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
     evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
     evaluateTypesForMatchStatement: (node: MatchNode) => void;
