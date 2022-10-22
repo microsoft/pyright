@@ -10717,10 +10717,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeVar = TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false);
 
         // Parse the remaining parameters.
+        const paramNameMap = new Map<string, string>();
         for (let i = 1; i < argList.length; i++) {
             const paramNameNode = argList[i].name;
             const paramName = paramNameNode ? paramNameNode.value : undefined;
-            const paramNameMap = new Map<string, string>();
 
             if (paramName) {
                 if (paramNameMap.get(paramName)) {
@@ -10741,7 +10741,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList[i].typeResult?.type ??
                             getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
                         if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
-                            addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
+                            addError(
+                                Localizer.Diagnostic.typeVarBoundGeneric(),
+                                argList[i].valueExpression || errorNode
+                            );
                         }
                         typeVar.details.boundType = convertToInstance(argType);
                     }
@@ -10781,7 +10784,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
 
                     if (requiresSpecialization(argType, /* ignorePseudoGeneric */ true)) {
-                        addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
+                        addError(
+                            Localizer.Diagnostic.typeVarConstraintGeneric(),
+                            argList[i].valueExpression || errorNode
+                        );
                     }
                     TypeVarType.addConstraint(typeVar, convertToInstance(argType));
                     if (firstConstraintArg === undefined) {
@@ -18989,7 +18995,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const constraintType = getTypeOfExpressionExpectingType(constraint).type;
 
                             if (requiresSpecialization(constraintType, /* ignorePseudoGeneric */ true)) {
-                                addError(Localizer.Diagnostic.typeVarGeneric(), constraint);
+                                addError(Localizer.Diagnostic.typeVarBoundGeneric(), constraint);
                             }
 
                             return convertToInstance(constraintType);
@@ -19010,7 +19016,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const boundType = getTypeOfExpressionExpectingType(declaration.node.boundExpression).type;
 
                         if (requiresSpecialization(boundType, /* ignorePseudoGeneric */ true)) {
-                            addError(Localizer.Diagnostic.typeVarGeneric(), declaration.node.boundExpression);
+                            addError(Localizer.Diagnostic.typeVarConstraintGeneric(), declaration.node.boundExpression);
                         }
 
                         if (declaration.node.typeParamCategory === TypeParameterCategory.TypeVar) {
