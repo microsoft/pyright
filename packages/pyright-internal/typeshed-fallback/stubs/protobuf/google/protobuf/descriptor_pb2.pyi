@@ -25,6 +25,7 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+@typing_extensions.final
 class FileDescriptorSet(google.protobuf.message.Message):
     """The protocol compiler can output a FileDescriptorSet containing the .proto
     files it parses.
@@ -44,6 +45,7 @@ class FileDescriptorSet(google.protobuf.message.Message):
 
 global___FileDescriptorSet = FileDescriptorSet
 
+@typing_extensions.final
 class FileDescriptorProto(google.protobuf.message.Message):
     """Describes a complete .proto file."""
 
@@ -119,11 +121,13 @@ class FileDescriptorProto(google.protobuf.message.Message):
 
 global___FileDescriptorProto = FileDescriptorProto
 
+@typing_extensions.final
 class DescriptorProto(google.protobuf.message.Message):
     """Describes a message type."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing_extensions.final
     class ExtensionRange(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -146,6 +150,7 @@ class DescriptorProto(google.protobuf.message.Message):
         def HasField(self, field_name: typing_extensions.Literal["end", b"end", "options", b"options", "start", b"start"]) -> builtins.bool: ...
         def ClearField(self, field_name: typing_extensions.Literal["end", b"end", "options", b"options", "start", b"start"]) -> None: ...
 
+    @typing_extensions.final
     class ReservedRange(google.protobuf.message.Message):
         """Range of reserved tag numbers. Reserved tag numbers may not be used by
         fields or extension ranges in the same message. Reserved ranges may
@@ -220,6 +225,7 @@ class DescriptorProto(google.protobuf.message.Message):
 
 global___DescriptorProto = DescriptorProto
 
+@typing_extensions.final
 class ExtensionRangeOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -236,6 +242,7 @@ class ExtensionRangeOptions(google.protobuf.message.Message):
 
 global___ExtensionRangeOptions = ExtensionRangeOptions
 
+@typing_extensions.final
 class FieldDescriptorProto(google.protobuf.message.Message):
     """Describes a field within a message."""
 
@@ -429,6 +436,7 @@ class FieldDescriptorProto(google.protobuf.message.Message):
 
 global___FieldDescriptorProto = FieldDescriptorProto
 
+@typing_extensions.final
 class OneofDescriptorProto(google.protobuf.message.Message):
     """Describes a oneof."""
 
@@ -450,11 +458,13 @@ class OneofDescriptorProto(google.protobuf.message.Message):
 
 global___OneofDescriptorProto = OneofDescriptorProto
 
+@typing_extensions.final
 class EnumDescriptorProto(google.protobuf.message.Message):
     """Describes an enum type."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing_extensions.final
     class EnumReservedRange(google.protobuf.message.Message):
         """Range of reserved numeric values. Reserved values may not be used by
         entries in the same enum. Reserved ranges may not overlap.
@@ -516,6 +526,7 @@ class EnumDescriptorProto(google.protobuf.message.Message):
 
 global___EnumDescriptorProto = EnumDescriptorProto
 
+@typing_extensions.final
 class EnumValueDescriptorProto(google.protobuf.message.Message):
     """Describes a value within an enum."""
 
@@ -540,6 +551,7 @@ class EnumValueDescriptorProto(google.protobuf.message.Message):
 
 global___EnumValueDescriptorProto = EnumValueDescriptorProto
 
+@typing_extensions.final
 class ServiceDescriptorProto(google.protobuf.message.Message):
     """Describes a service."""
 
@@ -565,6 +577,7 @@ class ServiceDescriptorProto(google.protobuf.message.Message):
 
 global___ServiceDescriptorProto = ServiceDescriptorProto
 
+@typing_extensions.final
 class MethodDescriptorProto(google.protobuf.message.Message):
     """Describes a method of a service."""
 
@@ -603,6 +616,7 @@ class MethodDescriptorProto(google.protobuf.message.Message):
 
 global___MethodDescriptorProto = MethodDescriptorProto
 
+@typing_extensions.final
 class FileOptions(google.protobuf.message.Message):
     """Each of the definitions above may have "options" attached.  These are
     just annotations which may cause code to be generated slightly differently
@@ -814,6 +828,7 @@ class FileOptions(google.protobuf.message.Message):
 
 global___FileOptions = FileOptions
 
+@typing_extensions.final
 class MessageOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -893,6 +908,7 @@ class MessageOptions(google.protobuf.message.Message):
 
 global___MessageOptions = MessageOptions
 
+@typing_extensions.final
 class FieldOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1037,6 +1053,7 @@ class FieldOptions(google.protobuf.message.Message):
 
 global___FieldOptions = FieldOptions
 
+@typing_extensions.final
 class OneofOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1053,6 +1070,7 @@ class OneofOptions(google.protobuf.message.Message):
 
 global___OneofOptions = OneofOptions
 
+@typing_extensions.final
 class EnumOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1084,6 +1102,7 @@ class EnumOptions(google.protobuf.message.Message):
 
 global___EnumOptions = EnumOptions
 
+@typing_extensions.final
 class EnumValueOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1109,6 +1128,7 @@ class EnumValueOptions(google.protobuf.message.Message):
 
 global___EnumValueOptions = EnumValueOptions
 
+@typing_extensions.final
 class ServiceOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1139,6 +1159,7 @@ class ServiceOptions(google.protobuf.message.Message):
 
 global___ServiceOptions = ServiceOptions
 
+@typing_extensions.final
 class MethodOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1196,6 +1217,7 @@ class MethodOptions(google.protobuf.message.Message):
 
 global___MethodOptions = MethodOptions
 
+@typing_extensions.final
 class UninterpretedOption(google.protobuf.message.Message):
     """A message representing a option the parser does not recognize. This only
     appears in options protos created by the compiler::Parser class.
@@ -1207,12 +1229,13 @@ class UninterpretedOption(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing_extensions.final
     class NamePart(google.protobuf.message.Message):
         """The name of the uninterpreted option.  Each string represents a segment in
         a dot-separated name.  is_extension is true iff a segment represents an
         extension (denoted with parentheses in options specs in .proto files).
-        E.g.,{ ["foo", false], ["bar.baz", true], ["qux", false] } represents
-        "foo.(bar.baz).qux".
+        E.g.,{ ["foo", false], ["bar.baz", true], ["moo", false] } represents
+        "foo.(bar.baz).moo".
         """
 
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -1264,6 +1287,7 @@ class UninterpretedOption(google.protobuf.message.Message):
 
 global___UninterpretedOption = UninterpretedOption
 
+@typing_extensions.final
 class SourceCodeInfo(google.protobuf.message.Message):
     """===================================================================
     Optional source code info
@@ -1274,6 +1298,7 @@ class SourceCodeInfo(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing_extensions.final
     class Location(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1344,13 +1369,13 @@ class SourceCodeInfo(google.protobuf.message.Message):
           // Comment attached to baz.
           // Another line attached to baz.
 
-          // Comment attached to qux.
+          // Comment attached to moo.
           //
-          // Another line attached to qux.
-          optional double qux = 4;
+          // Another line attached to moo.
+          optional double moo = 4;
 
           // Detached comment for corge. This is not leading or trailing comments
-          // to qux or corge because there are blank lines separating it from
+          // to moo or corge because there are blank lines separating it from
           // both.
 
           // Detached comment for corge paragraph 2.
@@ -1436,6 +1461,7 @@ class SourceCodeInfo(google.protobuf.message.Message):
 
 global___SourceCodeInfo = SourceCodeInfo
 
+@typing_extensions.final
 class GeneratedCodeInfo(google.protobuf.message.Message):
     """Describes the relationship between generated code and its original source
     file. A GeneratedCodeInfo message is associated with only one generated
@@ -1444,6 +1470,7 @@ class GeneratedCodeInfo(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing_extensions.final
     class Annotation(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

@@ -36,7 +36,7 @@ class PerformanceManager:
     class MetricId:
         counterId: int
         instance: str
-        def __init__(self, counterId: int, instance: str): ...
+        def __init__(self, counterId: int, instance: str) -> None: ...
 
     class PerfCounterInfo:
         key: int

@@ -23,6 +23,7 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+@typing_extensions.final
 class DoubleValue(google.protobuf.message.Message):
     """Wrapper message for `double`.
 
@@ -43,6 +44,7 @@ class DoubleValue(google.protobuf.message.Message):
 
 global___DoubleValue = DoubleValue
 
+@typing_extensions.final
 class FloatValue(google.protobuf.message.Message):
     """Wrapper message for `float`.
 
@@ -63,6 +65,7 @@ class FloatValue(google.protobuf.message.Message):
 
 global___FloatValue = FloatValue
 
+@typing_extensions.final
 class Int64Value(google.protobuf.message.Message):
     """Wrapper message for `int64`.
 
@@ -83,6 +86,7 @@ class Int64Value(google.protobuf.message.Message):
 
 global___Int64Value = Int64Value
 
+@typing_extensions.final
 class UInt64Value(google.protobuf.message.Message):
     """Wrapper message for `uint64`.
 
@@ -103,6 +107,7 @@ class UInt64Value(google.protobuf.message.Message):
 
 global___UInt64Value = UInt64Value
 
+@typing_extensions.final
 class Int32Value(google.protobuf.message.Message):
     """Wrapper message for `int32`.
 
@@ -123,6 +128,7 @@ class Int32Value(google.protobuf.message.Message):
 
 global___Int32Value = Int32Value
 
+@typing_extensions.final
 class UInt32Value(google.protobuf.message.Message):
     """Wrapper message for `uint32`.
 
@@ -143,6 +149,7 @@ class UInt32Value(google.protobuf.message.Message):
 
 global___UInt32Value = UInt32Value
 
+@typing_extensions.final
 class BoolValue(google.protobuf.message.Message):
     """Wrapper message for `bool`.
 
@@ -163,6 +170,7 @@ class BoolValue(google.protobuf.message.Message):
 
 global___BoolValue = BoolValue
 
+@typing_extensions.final
 class StringValue(google.protobuf.message.Message):
     """Wrapper message for `string`.
 
@@ -183,6 +191,7 @@ class StringValue(google.protobuf.message.Message):
 
 global___StringValue = StringValue
 
+@typing_extensions.final
 class BytesValue(google.protobuf.message.Message):
     """Wrapper message for `bytes`.
 

@@ -47,6 +47,7 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+@typing_extensions.final
 class Api(google.protobuf.message.Message):
     """Api is a light-weight descriptor for an API Interface.
 
@@ -125,6 +126,7 @@ class Api(google.protobuf.message.Message):
 
 global___Api = Api
 
+@typing_extensions.final
 class Method(google.protobuf.message.Message):
     """Method represents a method of an API interface."""
 
@@ -167,6 +169,7 @@ class Method(google.protobuf.message.Message):
 
 global___Method = Method
 
+@typing_extensions.final
 class Mixin(google.protobuf.message.Message):
     """Declares an API Interface to be included in this interface. The including
     interface must redeclare all the methods from the included interface, but

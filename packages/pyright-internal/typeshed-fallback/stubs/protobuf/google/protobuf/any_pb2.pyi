@@ -44,6 +44,7 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+@typing_extensions.final
 class Any(google.protobuf.message.Message, google.protobuf.internal.well_known_types.Any):
     """`Any` contains an arbitrary serialized protocol buffer message along with a
     URL that describes the type of the serialized message.

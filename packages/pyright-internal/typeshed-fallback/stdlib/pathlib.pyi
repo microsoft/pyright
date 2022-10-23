@@ -8,7 +8,7 @@ from _typeshed import (
     Self,
     StrPath,
 )
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Iterator, Sequence
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from os import PathLike, stat_result
 from types import TracebackType
@@ -198,6 +198,10 @@ class Path(PurePath):
         def write_text(self, data: str, encoding: str | None = ..., errors: str | None = ...) -> int: ...
     if sys.version_info >= (3, 8):
         def link_to(self, target: StrPath | bytes) -> None: ...
+    if sys.version_info >= (3, 12):
+        def walk(
+            self: Self, top_down: bool = ..., on_error: Callable[[OSError], object] | None = ..., follow_symlinks: bool = ...
+        ) -> Iterator[tuple[Self, list[str], list[str]]]: ...
 
 class PosixPath(Path, PurePosixPath): ...
 class WindowsPath(Path, PureWindowsPath): ...

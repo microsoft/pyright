@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 
 import _win32typing
-from pywintypes import IID as IID
 
 def DirectSoundCreate(guid: _win32typing.PyIID | None = ..., unk: Incomplete | None = ...) -> _win32typing.PyIUnknown: ...
 def DirectSoundEnumerate(): ...

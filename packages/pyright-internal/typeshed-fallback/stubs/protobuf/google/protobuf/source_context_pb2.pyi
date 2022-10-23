@@ -43,6 +43,7 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+@typing_extensions.final
 class SourceContext(google.protobuf.message.Message):
     """`SourceContext` represents information about the source of a
     protobuf element, like the file in which it is defined.

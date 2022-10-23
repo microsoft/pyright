@@ -53,7 +53,7 @@ class _Syntax:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
 
-class _SyntaxEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_Syntax.ValueType], builtins.type):  # noqa: F821
+class _SyntaxEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_Syntax.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     SYNTAX_PROTO2: _Syntax.ValueType  # 0
     """Syntax `proto2`."""
@@ -69,6 +69,7 @@ SYNTAX_PROTO3: Syntax.ValueType  # 1
 """Syntax `proto3`."""
 global___Syntax = Syntax
 
+@typing_extensions.final
 class Type(google.protobuf.message.Message):
     """A protocol buffer message type."""
 
@@ -111,6 +112,7 @@ class Type(google.protobuf.message.Message):
 
 global___Type = Type
 
+@typing_extensions.final
 class Field(google.protobuf.message.Message):
     """A single field of a message type."""
 
@@ -283,6 +285,7 @@ class Field(google.protobuf.message.Message):
 
 global___Field = Field
 
+@typing_extensions.final
 class Enum(google.protobuf.message.Message):
     """Enum type definition."""
 
@@ -320,6 +323,7 @@ class Enum(google.protobuf.message.Message):
 
 global___Enum = Enum
 
+@typing_extensions.final
 class EnumValue(google.protobuf.message.Message):
     """Enum value definition."""
 
@@ -346,6 +350,7 @@ class EnumValue(google.protobuf.message.Message):
 
 global___EnumValue = EnumValue
 
+@typing_extensions.final
 class Option(google.protobuf.message.Message):
     """A protocol buffer option, which can be attached to a message, field,
     enumeration, etc.

@@ -44,6 +44,7 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+@typing_extensions.final
 class Timestamp(google.protobuf.message.Message, google.protobuf.internal.well_known_types.Timestamp):
     """A Timestamp represents a point in time independent of any time zone or local
     calendar, encoded as a count of seconds and fractions of seconds at

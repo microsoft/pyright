@@ -2,7 +2,6 @@ from _typeshed import Incomplete
 from typing_extensions import TypeAlias
 
 import _win32typing
-from pywintypes import IID as IID
 from win32.lib.pywintypes import com_error
 
 error: TypeAlias = com_error  # noqa: Y042

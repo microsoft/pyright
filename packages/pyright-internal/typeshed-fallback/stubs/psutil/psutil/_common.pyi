@@ -131,6 +131,7 @@ class snicstats(NamedTuple):
     duplex: int
     speed: int
     mtu: int
+    flags: str
 
 class scpustats(NamedTuple):
     ctx_switches: int

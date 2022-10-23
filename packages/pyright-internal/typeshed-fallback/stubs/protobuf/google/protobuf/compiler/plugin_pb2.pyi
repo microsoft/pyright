@@ -34,6 +34,7 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+@typing_extensions.final
 class Version(google.protobuf.message.Message):
     """The version number of protocol compiler."""
 
@@ -63,6 +64,7 @@ class Version(google.protobuf.message.Message):
 
 global___Version = Version
 
+@typing_extensions.final
 class CodeGeneratorRequest(google.protobuf.message.Message):
     """An encoded CodeGeneratorRequest is written to the plugin's stdin."""
 
@@ -113,6 +115,7 @@ class CodeGeneratorRequest(google.protobuf.message.Message):
 
 global___CodeGeneratorRequest = CodeGeneratorRequest
 
+@typing_extensions.final
 class CodeGeneratorResponse(google.protobuf.message.Message):
     """The plugin writes an encoded CodeGeneratorResponse to stdout."""
 
@@ -133,6 +136,7 @@ class CodeGeneratorResponse(google.protobuf.message.Message):
     FEATURE_NONE: CodeGeneratorResponse.Feature.ValueType  # 0
     FEATURE_PROTO3_OPTIONAL: CodeGeneratorResponse.Feature.ValueType  # 1
 
+    @typing_extensions.final
     class File(google.protobuf.message.Message):
         """Represents a single generated file."""
 

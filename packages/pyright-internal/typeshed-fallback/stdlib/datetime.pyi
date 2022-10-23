@@ -2,7 +2,7 @@ import sys
 from _typeshed import Self
 from abc import abstractmethod
 from time import struct_time
-from typing import ClassVar, NamedTuple, NoReturn, SupportsAbs, TypeVar, overload
+from typing import ClassVar, NamedTuple, NoReturn, TypeVar, overload
 from typing_extensions import Literal, TypeAlias, final
 
 if sys.version_info >= (3, 11):
@@ -159,7 +159,7 @@ class time:
 _Date: TypeAlias = date
 _Time: TypeAlias = time
 
-class timedelta(SupportsAbs[timedelta]):
+class timedelta:
     min: ClassVar[timedelta]
     max: ClassVar[timedelta]
     resolution: ClassVar[timedelta]

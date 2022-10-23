@@ -2,7 +2,6 @@
 # "ImportError: DLL load failed while importing axdebug: The specified module could not be found."
 # https://github.com/python/mypy/issues/13822
 import _win32typing
-from pywintypes import IID as IID
 
 APPBREAKFLAG_DEBUGGER_BLOCK: int
 APPBREAKFLAG_DEBUGGER_HALT: int

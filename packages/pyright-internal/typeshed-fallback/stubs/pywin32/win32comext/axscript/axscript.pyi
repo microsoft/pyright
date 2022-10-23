@@ -1,5 +1,4 @@
 import _win32typing
-from pywintypes import IID as IID
 
 CATID_ActiveScript: _win32typing.PyIID
 CATID_ActiveScriptParse: _win32typing.PyIID

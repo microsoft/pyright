@@ -1,5 +1,4 @@
 import _win32typing
-from pywintypes import IID as IID
 
 OPENSTORE_HOME_LOGON: int
 OPENSTORE_OVERRIDE_HOME_MDB: int

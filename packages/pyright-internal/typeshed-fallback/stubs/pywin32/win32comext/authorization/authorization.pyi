@@ -1,5 +1,4 @@
 import _win32typing
-from pywintypes import IID as IID
 
 def EditSecurity(*args, **kwargs): ...  # incomplete
 

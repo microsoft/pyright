@@ -52,7 +52,7 @@ class _NullValue:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
 
-class _NullValueEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_NullValue.ValueType], builtins.type):  # noqa: F821
+class _NullValueEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_NullValue.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     NULL_VALUE: _NullValue.ValueType  # 0
     """Null value."""
@@ -68,6 +68,7 @@ NULL_VALUE: NullValue.ValueType  # 0
 """Null value."""
 global___NullValue = NullValue
 
+@typing_extensions.final
 class Struct(google.protobuf.message.Message, google.protobuf.internal.well_known_types.Struct):
     """`Struct` represents a structured data value, consisting of fields
     which map to dynamically typed values. In some languages, `Struct`
@@ -81,6 +82,7 @@ class Struct(google.protobuf.message.Message, google.protobuf.internal.well_know
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing_extensions.final
     class FieldsEntry(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -111,6 +113,7 @@ class Struct(google.protobuf.message.Message, google.protobuf.internal.well_know
 
 global___Struct = Struct
 
+@typing_extensions.final
 class Value(google.protobuf.message.Message):
     """`Value` represents a dynamically typed value which can be either
     null, a number, a string, a boolean, a recursive struct value, or a
@@ -158,6 +161,7 @@ class Value(google.protobuf.message.Message):
 
 global___Value = Value
 
+@typing_extensions.final
 class ListValue(google.protobuf.message.Message, google.protobuf.internal.well_known_types.ListValue):
     """`ListValue` is a wrapper around a repeated field of values.
 
