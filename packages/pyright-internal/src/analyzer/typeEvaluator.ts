@@ -23287,7 +23287,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // replace that type argument in the assigned type. This function assumes
     // that the caller has already verified that the assignedType is assignable
     // to the declaredType.
-    function replaceTypeArgsWithAny(declaredType: ClassType, assignedType: ClassType): ClassType | undefined {
+    function replaceTypeArgsWithAny(
+        declaredType: ClassType,
+        assignedType: ClassType,
+        recursionCount = 0
+    ): ClassType | undefined {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        recursionCount++;
+
         // If this is a tuple with defined tuple type arguments, don't overwrite them.
         if (assignedType.tupleTypeArguments) {
             return undefined;
@@ -23320,6 +23329,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (isAny(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
                         replacedTypeArg = true;
                         return expectedTypeArgType;
+                    } else if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
+                        // Recursively replace Any in the type argument.
+                        const recursiveReplacement = replaceTypeArgsWithAny(
+                            expectedTypeArgType,
+                            typeArg,
+                            recursionCount
+                        );
+                        if (recursiveReplacement) {
+                            replacedTypeArg = true;
+                            return recursiveReplacement;
+                        }
                     }
                 }
 

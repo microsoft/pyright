@@ -2,7 +2,7 @@
 # where the source contains Unknown or Any type
 # arguments.
 
-from typing import Any, Dict
+from typing import Any, Dict, Generic, TypeVar
 
 
 def func1(struct: Dict[Any, Any]):
@@ -17,3 +17,15 @@ def func2(struct: Any):
     if isinstance(struct, Dict):
         a2: Dict[str, Any] = struct
         reveal_type(a2, expected_text="Dict[str, Any]")
+
+
+T = TypeVar("T")
+class A(Generic[T]): ...
+
+def func3(val: A[Any]):
+    x: A[int] = val
+    reveal_type(x, expected_text="A[int]")
+
+def func4(val: A[list[Any]]):
+    x: A[list[int]] = val
+    reveal_type(x, expected_text="A[list[int]]")
