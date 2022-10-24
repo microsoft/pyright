@@ -1,7 +1,7 @@
 # This sample tests the case where a protocol class derives from
 # another protocol class.
 
-from typing import Generic, TypeVar, Protocol
+from typing import Generic, TypeVar, Protocol, overload
 
 Arg = TypeVar("Arg", contravariant=True)
 Value = TypeVar("Value")
@@ -64,4 +64,19 @@ def func3(arg: Arg, value: Value) -> Interface[Arg, Value]:
     # Implementation3's signature doesn't match.
     return Implementation3[Arg, Value]()
 
+
+class Base4(Protocol):
+    @overload
+    def method3(self, message: int) -> int:
+        ...
+
+    @overload
+    def method3(self, message: str) -> str:
+        ...
+
+    def method3(self, message: str | int):
+        return message
+
+class Implementation4(Base4):
+    ...
 

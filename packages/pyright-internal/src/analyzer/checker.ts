@@ -3986,7 +3986,12 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
                 } else if (decls[0].type === DeclarationType.Function) {
-                    if (ParseTreeUtils.isSuiteEmpty(decls[0].node.suite) && decls[0]) {
+                    if (
+                        decls.every(
+                            (decl) =>
+                                decl.type !== DeclarationType.Function || ParseTreeUtils.isSuiteEmpty(decl.node.suite)
+                        )
+                    ) {
                         if (getFileExtension(decls[0].path).toLowerCase() !== '.pyi') {
                             if (!isSymbolImplemented(name)) {
                                 diagAddendum.addMessage(
