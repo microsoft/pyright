@@ -6266,7 +6266,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (
                         concreteSubtype.details.effectiveMetaclass &&
                         isInstantiableClass(concreteSubtype.details.effectiveMetaclass) &&
-                        !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, 'type')
+                        !ClassType.isBuiltIn(concreteSubtype.details.effectiveMetaclass, ['type', '_InitVarMeta'])
                     ) {
                         const itemMethodType = getTypeOfClassMember(
                             node,
