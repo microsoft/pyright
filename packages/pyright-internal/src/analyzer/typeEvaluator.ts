@@ -1161,6 +1161,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!isEmptyVariadic) {
                     addExpectedClassDiagnostic(typeResult.type, node);
                     typeResult.type = UnknownType.create();
+                    typeResult.typeErrors = true;
                 }
             }
         }
@@ -10978,13 +10979,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (node.nodeType === ParseNodeType.Tuple) {
-            let reportError = false;
-
             node.expressions.forEach((paramExpr, index) => {
                 const typeResult = getTypeOfExpressionExpectingType(paramExpr);
-                if (typeResult.typeErrors) {
-                    reportError = true;
-                }
 
                 FunctionType.addParameter(functionType, {
                     category: ParameterCategory.Simple,
@@ -10994,10 +10990,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             });
 
-            if (!reportError) {
-                // Update the type cache so we don't attempt to re-evaluate this node.
-                // The type doesn't matter, so use Any.
-                writeTypeCache(node, AnyType.create(), /* flags */ undefined, /* isIncomplete */ false);
+            // Update the type cache so we don't attempt to re-evaluate this node.
+            // The type doesn't matter, so use Any.
+            writeTypeCache(node, AnyType.create(), /* flags */ undefined, /* isIncomplete */ false);
+            return functionType;
+        } else {
+            const typeResult = getTypeOfExpressionExpectingType(node, { allowParamSpec: true });
+            if (typeResult.typeErrors) {
+                return undefined;
+            }
+
+            if (isParamSpec(typeResult.type)) {
+                functionType.details.paramSpec = typeResult.type;
                 return functionType;
             }
         }
@@ -18559,8 +18563,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let flags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.EvaluateStringLiteralAsType |
-            EvaluatorFlags.ParamSpecDisallowed |
-            EvaluatorFlags.TypeVarTupleDisallowed |
             EvaluatorFlags.ClassVarDisallowed;
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
@@ -18580,6 +18582,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (options?.allowUnpackedTuple) {
             flags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple;
+        } else {
+            flags |= EvaluatorFlags.TypeVarTupleDisallowed;
+        }
+
+        if (!options?.allowParamSpec) {
+            flags |= EvaluatorFlags.ParamSpecDisallowed;
         }
 
         return getTypeOfExpression(node, flags);

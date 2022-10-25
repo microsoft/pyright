@@ -282,6 +282,7 @@ export interface ExpectedTypeOptions {
     allowFinal?: boolean;
     allowRequired?: boolean;
     allowUnpackedTuple?: boolean;
+    allowParamSpec?: boolean;
 }
 
 export interface ExpectedTypeResult {

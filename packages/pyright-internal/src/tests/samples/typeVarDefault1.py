@@ -7,9 +7,9 @@ S1 = TypeVar("S1")
 S2 = TypeVar("S2", bound=int)
 S3 = TypeVar("S3", bytes, str)
 
-S8 = TypeVarTuple("S8")
+Ts0 = TypeVarTuple("Ts0")
 
-S9 = ParamSpec("S9")
+P0 = ParamSpec("P0")
 
 
 T1 = TypeVar("T1", default=int)
@@ -41,6 +41,7 @@ T11 = TypeVar("T11", bytes, str, default=str | bytes)
 T12 = TypeVar("T12", bytes, str, default=S1)
 
 
+
 Ts1 = TypeVarTuple("Ts1", default=Unpack[tuple[int]])
 
 # This should generate an error because default must be unpacked tuple
@@ -49,13 +50,10 @@ Ts2 = TypeVarTuple("Ts2", default=tuple[int])
 # This should generate an error because default must be unpacked tuple
 Ts3 = TypeVarTuple("Ts3", default=int)
  
-# This should generate two errors because a TypeVarTuple isn't allowed
-# in this context and it is TypeVarTuple with no context
-Ts4 = TypeVarTuple("Ts4", default=Unpack[S8])
+Ts4 = TypeVarTuple("Ts4", default=Unpack[Ts0])
 
-# This should generate two errors because default must be unpacked and it
-# is a TypeVarTuple with no context
-Ts5 = TypeVarTuple("Ts5", default=S8)
+# This should generate an error because default must be unpacked
+Ts5 = TypeVarTuple("Ts5", default=Ts0)
 
 Ts6 = TypeVarTuple("Ts6", default=Unpack[tuple[int, ...]])
 
@@ -81,6 +79,5 @@ P7 = ParamSpec("P7", default=3)
 # This should generate an error because ParamSpec must be a tuple of types
 P8 = ParamSpec("P8", default=(1, int))
 
-# This should generate an error because ParamSpec must be a tuple of types
-P9 = ParamSpec("P9", default=S9)
+P9 = ParamSpec("P9", default=P0)
 
