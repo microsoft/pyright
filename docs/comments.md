@@ -6,9 +6,9 @@ Some behaviors of pyright can be controlled through the use of comments within t
 Versions of Python prior to 3.6 did not support type annotations for variables. Pyright honors type annotations found within a comment at the end of the same line where a variable is assigned.
 
 ```python
-offsets = [] # type: List[int]
+offsets = [] # type: list[int]
 
-self._target = 3 # type: Union[int, str]
+self._target = 3 # type: int | str
 ```
 
 Future versions of Python will likely deprecate support for type annotation comments. The “reportTypeCommentUsage” diagnostic will report usage of such comments so they can be replaced with inline type annotations.

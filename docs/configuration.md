@@ -44,11 +44,11 @@ Relative paths specified within the config file are relative to the config file�
 ## Type Check Diagnostics Settings
 The following settings control pyright’s diagnostic output (warnings or errors). Unless otherwise specified, each diagnostic setting can specify a boolean value (`false` indicating that no error is generated and `true` indicating that an error is generated). Alternatively, a string value of `"none"`, `"warning"`, `"information"`, or `"error"` can be used to specify the diagnostic level.
 
-**strictListInference** [boolean]: When inferring the type of a list, use strict type assumptions. For example, the expression `[1, 'a', 3.4]` could be inferred to be of type `List[Any]` or `List[Union[int, str, float]]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
+**strictListInference** [boolean]: When inferring the type of a list, use strict type assumptions. For example, the expression `[1, 'a', 3.4]` could be inferred to be of type `list[Any]` or `list[int | str | float]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
 
-**strictDictionaryInference** [boolean]: When inferring the type of a dictionary’s keys and values, use strict type assumptions. For example, the expression `{'a': 1, 'b': 'a'}` could be inferred to be of type `Dict[str, Any]` or `Dict[str, Union[int, str]]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
+**strictDictionaryInference** [boolean]: When inferring the type of a dictionary’s keys and values, use strict type assumptions. For example, the expression `{'a': 1, 'b': 'a'}` could be inferred to be of type `dict[str, Any]` or `dict[str, int | str]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
 
-**strictSetInference** [boolean]: When inferring the type of a set, use strict type assumptions. For example, the expression `{1, 'a', 3.4}` could be inferred to be of type `Set[Any]` or `Set[Union[int, str, float]]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
+**strictSetInference** [boolean]: When inferring the type of a set, use strict type assumptions. For example, the expression `{1, 'a', 3.4}` could be inferred to be of type `set[Any]` or `set[int | str | float]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
 
 **strictParameterNoneValue** [boolean]: PEP 484 indicates that when a function parameter is assigned a default value of None, its type should implicitly be Optional even if the explicit type is not. When enabled, this rule requires that parameter type annotations use Optional explicitly in this case. The default value for this setting is 'true'.
 

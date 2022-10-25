@@ -43,7 +43,7 @@ Pyright attempts to infer the types of global (module-level) variables, class va
 
 Pyright supports type narrowing to track assumptions that apply within certain code flow paths. For example, consider the following code:
 ```python
-def func(a: Optional[Union[str, List[str]]):
+def func(a: str | list[str] | None):
     if isinstance(a, str):
         log(a)
     elif isinstance(a, list):
@@ -52,22 +52,22 @@ def func(a: Optional[Union[str, List[str]]):
         log(a)
 ```
 
-In this example, the type evaluator knows that parameter a is either None, str, or List[str]. Within the first `if` clause, a is constrained to be a str. Within the `elif` clause, it is constrained to be a List[str], and within the `else` clause, it has to be None (by process of elimination). The type checker would therefore flag the final line as an error if the log method could not accept None as a parameter.
+In this example, the type evaluator knows that parameter a is either None, str, or list[str]. Within the first `if` clause, a is constrained to be a str. Within the `elif` clause, it is constrained to be a list[str], and within the `else` clause, it has to be None (by process of elimination). The type checker would therefore flag the final line as an error if the log method could not accept None as a parameter.
 
 Narrowing is also applied when values are assigned to a variable.
 
 ```python
-def func(b: Optional[Union[str, List[str]]]):
+def func(b: str | list[str] | None):
     # The declared type of “a” is a union of three types
-    # (str, List[str] and None).
-    a: Optional[Union[str, List[str]]] = b
-    reveal_type(a) # Type is `Optional[Union[str, List[str]]]`
+    # (str, list[str] and None).
+    a: str | list[str] | None = b
+    reveal_type(a) # Type is `str | list[str] | None`
     
     a = "hi"
     reveal_type(a) # Type is `str`
 
     a = ["a", "b", "c"]
-    reveal_type(a) # Type is `List[str]`
+    reveal_type(a) # Type is `list[str]`
 
     a = None
     reveal_type(a) # Type is `None`
@@ -76,7 +76,7 @@ def func(b: Optional[Union[str, List[str]]]):
 If the type narrowing logic exhausts all possible subtypes, it can be assumed that a code path will never be taken. For example, consider the following:
 
 ```python
-def func(a: Union[Foo, Bar]):
+def func(a: Foo | Bar):
     if isinstance(a, Foo):
         # “a” must be type Foo
         a.do_something_1()
@@ -103,7 +103,7 @@ class Bar:
     def do_something_2(self):
         pass
 
-def func(a: Union[Foo, Bar]):
+def func(a: Foo | Bar):
     if a.kind == "Foo":
         a.do_something_1()
     else:

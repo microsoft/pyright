@@ -162,7 +162,7 @@ def dataclass_transform(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_specifiers: Tuple[type, ...] = (()),
+    field_specifiers: tuple[type, ...] = (()),
 ) -> Callable[[_T], _T]: ...
 ```
 
@@ -260,7 +260,7 @@ class Employee:
     name: str
 
     # Field that uses field descriptor class instance
-    age: Optional[int] = field(default=None, init=False)
+    age: int | None = field(default=None, init=False)
 
     # Field with type annotation and simple initializer to
     # describe default value
@@ -306,7 +306,7 @@ This example demonstrates
 @overload
 def model_field(
         *,
-        default: Optional[Any] = ...,
+        default: Any | None = ...,
         resolver: Callable[[], Any],
         init: Literal[False] = False,
     ) -> Any: ...
@@ -314,7 +314,7 @@ def model_field(
 @overload
 def model_field(
         *,
-        default: Optional[Any] = ...,
+        default: Any | None = ...,
         resolver: None = None,
         init: bool = True,
     ) -> Any: ...
@@ -349,7 +349,7 @@ def dataclass_transform(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: tuple[type | Callable[..., Any], ...] = (()),
 ) -> Callable[[_T], _T]:
     return lambda a: a
 ```
@@ -422,7 +422,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: tuple[type | Callable[..., Any], ...] = (()),
 ) -> Callable[[_T], _T]:
     # If used within a stub file, the following implementation can be
     # replaced with "...".
@@ -516,7 +516,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: tuple[type | Callable[..., Any], ...] = (()),
 ) -> Callable[[_T], _T]: ...
 ```
 
@@ -554,7 +554,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
-    field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    field_specifiers: tuple[type | Callable[..., Any], ...] = (()),
 ) -> Callable[[_T], _T]:
     return lambda a: a
 ```

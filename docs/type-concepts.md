@@ -46,7 +46,7 @@ b: int = 3.4  # Error
 This example introduces the notion of a _Union type_, which specifies that a value can be one of several distinct types.
 
 ```
-c: Union[int, float] = 3.4
+c: int | float = 3.4
 c = 5
 c = a
 c = b
@@ -57,53 +57,53 @@ c = ""  # Error
 This example introduces the _Optional_ type, which is the same as a union with `None`.
 
 ```
-d: Optional[int] = 4
+d: int | None = 4
 d = b
 d = None
 d = ""  # Error
 ```
 
-Those examples are straightforward. Let’s look at one that is less intuitive. In this example, the declared type of `f` is `List[Optional[int]]`. A value of type `List[int]` is being assigned to `f`. As we saw above, `int` is assignable to `Optional[int]`. You might therefore assume that `List[int]` is assignable to `List[Optional[int]]`, but this is an incorrect assumption. To understand why, we need to understand generic types and type arguments.
+Those examples are straightforward. Let’s look at one that is less intuitive. In this example, the declared type of `f` is `list[int | None]`. A value of type `list[int]` is being assigned to `f`. As we saw above, `int` is assignable to `int | None`. You might therefore assume that `list[int]` is assignable to `list[int | None]`, but this is an incorrect assumption. To understand why, we need to understand generic types and type arguments.
 
 ```
-e: List[int] = [3, 4]
-f: List[Optional[int]] = e  # Error
+e: list[int] = [3, 4]
+f: list[int | None] = e  # Error
 ```
 
 ### Generic Types
 
-A _generic type_ is a class that is able to handle different types of inputs. For example, the `List` class is generic because it is able to operate on different types of elements. The type `List` by itself does not specify what is contained within the list. Its element type must be specified as a _type argument_ using the indexing (square bracket) syntax in Python. For example, `List[int]` denotes a list that contains only `int` elements whereas `List[Union[int, float]]` denotes a list that contains a mixture of int and float elements.
+A _generic type_ is a class that is able to handle different types of inputs. For example, the `list` class is generic because it is able to operate on different types of elements. The type `list` by itself does not specify what is contained within the list. Its element type must be specified as a _type argument_ using the indexing (square bracket) syntax in Python. For example, lList[int]` denotes a list that contains only `int` elements whereas `list[int | float]` denotes a list that contains a mixture of int and float elements.
 
-We noted above that `List[int]` is not assignable to `List[Optional[int]]`. Why is this the case? Consider the following example.
+We noted above that `list[int]` is not assignable to `list[int | None]`. Why is this the case? Consider the following example.
 
 ```
-my_list_1: List[int] = [1, 2, 3]
-my_list_2: List[Optional[int]] = my_list_1  # Error
+my_list_1: list[int] = [1, 2, 3]
+my_list_2: list[int | None] = my_list_1  # Error
 my_list_2.append(None)
 
 for elem in my_list_1:
     print(elem + 1)  # Runtime exception
 ```
 
-The code is appending the value `None` to the list `my_list_2`, but `my_list_2` refers to the same object as `my_list_1`, which has a declared type of `List[int]`. The code has violated the type of `my_list_1` because it no longer contains only `int` elements. This broken assumption results in a runtime exception. The type checker detects this broken assumption when the code attempts to assign `my_list_1` to `my_list_2`.
+The code is appending the value `None` to the list `my_list_2`, but `my_list_2` refers to the same object as `my_list_1`, which has a declared type of `list[int]`. The code has violated the type of `my_list_1` because it no longer contains only `int` elements. This broken assumption results in a runtime exception. The type checker detects this broken assumption when the code attempts to assign `my_list_1` to `my_list_2`.
 
-`List` is an example of a _mutable container type_. It is mutable in that code is allowed to modify its contents — for example, add or remove items. The type parameters for mutable container types are typically marked as _invariant_, which means that an exact type match is enforced. This is why the type checker reports an error when attempting to assign a `List[int]` to a variable of type `List[Optional[int]]`.
+`list` is an example of a _mutable container type_. It is mutable in that code is allowed to modify its contents — for example, add or remove items. The type parameters for mutable container types are typically marked as _invariant_, which means that an exact type match is enforced. This is why the type checker reports an error when attempting to assign a `list[int]` to a variable of type `list[int | None]`.
 
 Most mutable container types also have immutable counterparts.
 
 | Mutable Type      | Immutable Type |
 | ----------------- | -------------- |
-| List              | Sequence       |
-| Dict              | Mapping        |
-| Set               | AbstractSet    |
-| n/a               | Tuple          |
+| list              | Sequence       |
+| dict              | Mapping        |
+| set               | AbstractSet    |
+| n/a               | tuple          |
 
 
 Switching from a mutable container type to a corresponding immutable container type is often an effective way to resolve type errors relating to assignability. Let’s modify the example above by changing the type annotation for `my_list_2`.
 
 ```
-my_list_1: List[int] = [1, 2, 3]
-my_list_2: Sequence[Optional[int]] = my_list_1  # No longer an error
+my_list_1: list[int] = [1, 2, 3]
+my_list_2: Sequence[int | None] = my_list_1  # No longer an error
 ```
 
 The type error on the second line has now gone away.
@@ -119,8 +119,8 @@ Pyright uses a technique called “type narrowing” to track the type of an exp
 val_str: str = "hi"
 val_int: int = 3
 
-def func(val: Union[float, str, complex], test: bool):
-    reveal_type(val) # Union[int, str, complex]
+def func(val: float | str | complex, test: bool):
+    reveal_type(val) # int | str | complex
 
     val = val_int # Type is narrowed to int
     reveal_type(val) # int
@@ -129,7 +129,7 @@ def func(val: Union[float, str, complex], test: bool):
         val = val_str # Type is narrowed to str
         reveal_type(val) # str
     
-    reveal_type(val) # Union[int, str]
+    reveal_type(val) # int | str
 
     if isinstance(val, int):
         reveal_type(val) # int
@@ -139,11 +139,11 @@ def func(val: Union[float, str, complex], test: bool):
         print(val)
 ```
 
-At the start of this function, the type checker knows nothing about `val` other than that its declared type is `Union[float, str, complex]`. Then it is assigned a value that has a known type of `int`. This is a legal assignment because `int` is considered a subclass of `float`. At the point in the code immediately after the assignment, the type checker knows that the type of `val` is an `int`. This is a “narrower” (more specific) type than `Union[float, str, complex]`. Type narrowing is applied when ever a symbol is assigned a new value.
+At the start of this function, the type checker knows nothing about `val` other than that its declared type is `float | str | complex`. Then it is assigned a value that has a known type of `int`. This is a legal assignment because `int` is considered a subclass of `float`. At the point in the code immediately after the assignment, the type checker knows that the type of `val` is an `int`. This is a “narrower” (more specific) type than `float | str | complex`. Type narrowing is applied when ever a symbol is assigned a new value.
 
-Another assignment occurs several lines further down, this time within a conditional block. The symbol `val` is assigned a value known to be of type `str`, so the narrowed type of `val` is now `str`. Once the code flow of the conditional block merges with the main body of the function, the narrowed type of `val` becomes `Union[int, str]` because the type checker cannot statically predict whether the conditional block will be executed at runtime.
+Another assignment occurs several lines further down, this time within a conditional block. The symbol `val` is assigned a value known to be of type `str`, so the narrowed type of `val` is now `str`. Once the code flow of the conditional block merges with the main body of the function, the narrowed type of `val` becomes `int | str` because the type checker cannot statically predict whether the conditional block will be executed at runtime.
 
-Another way that types can be narrowed is through the use of conditional code flow statements like `if`, `while`, and `assert`. Type narrowing applies to the block of code that is “guarded” by that condition, so type narrowing in this context is sometimes referred to as a “type guard”. For example, if you see the conditional statement `if x is None:`, the code within that `if` statement can assume that `x` contains `None`. Within the code sample above, we see an example of a type guard involving a call to `isinstance`. The type checker knows that `isinstance(val, int)` will return True only in the case where `val` contains a value of type `int`, not type `str`. So the code within the `if` block can assume that `val` contains a value of type `int`, and the code within the `else` block can assume that `val` contains a value of type `str`. This demonstrates how a type (in this case `Union[int, str]`) can be narrowed in both a positive (`if`) and negative (`else`) test.
+Another way that types can be narrowed is through the use of conditional code flow statements like `if`, `while`, and `assert`. Type narrowing applies to the block of code that is “guarded” by that condition, so type narrowing in this context is sometimes referred to as a “type guard”. For example, if you see the conditional statement `if x is None:`, the code within that `if` statement can assume that `x` contains `None`. Within the code sample above, we see an example of a type guard involving a call to `isinstance`. The type checker knows that `isinstance(val, int)` will return True only in the case where `val` contains a value of type `int`, not type `str`. So the code within the `if` block can assume that `val` contains a value of type `int`, and the code within the `else` block can assume that `val` contains a value of type `str`. This demonstrates how a type (in this case `int | str`) can be narrowed in both a positive (`if`) and negative (`else`) test.
 
 The following expression forms support type narrowing:
 
@@ -195,17 +195,17 @@ Some type guards are able to narrow in both the positive and negative cases. Pos
 class Foo: pass
 class Bar: pass
 
-def func1(val: Union[Foo, Bar]):
+def func1(val: Foo | Bar):
     if isinstance(val, Bar):
         reveal_type(val) # Bar
     else:
         reveal_type(val) # Foo
 
-def func2(val: Optional[int]):
+def func2(val: int | None):
     if val:
         reveal_type(val) # int
     else:
-        reveal_type(val) # Optional[int]
+        reveal_type(val) # int | None
 ```
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `int` (specifically, a value of 0) or `None` in the negative case.
@@ -237,7 +237,7 @@ def func2(val: str | bytes):
 ```
 
 ```python
-def func3(x: List[str | None]) -> str:
+def func3(x: list[str | None]) -> str:
     is_str = x[0] is not None
 
     if is_str:
@@ -321,11 +321,11 @@ The same applies to `Any` when it is used as a type argument.
 
 ```python
 b: Iterable[Any] = [1, 2, 3]
-reveal_type(b) # List[Any]
+reveal_type(b) # list[Any]
 
 c: Iterable[str] = [""]
 b = c
-reveal_type(b) # List[Any]
+reveal_type(b) # list[Any]
 ```
 
 ### Constrained Type Variables and Conditional Types

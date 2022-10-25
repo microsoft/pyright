@@ -76,9 +76,9 @@ Variables:
 
 Type annotations can be omitted in a few specific cases where the type is obvious from the context:
 
-* Constants that are assigned simple literal values (e.g. `RED = '#F00'` or `MAX_TIMEOUT = 50` or `room_temperature: Final = 20`). A constant is a symbol that is assigned only once and is either annotated with `Final` or is named in all-caps. A constant that is not assigned a simple literal value requires explicit annotations, preferably with a `Final` annotation (e.g. `WOODWINDS: Final[List[str]] = ['Oboe', 'Bassoon']`).
+* Constants that are assigned simple literal values (e.g. `RED = '#F00'` or `MAX_TIMEOUT = 50` or `room_temperature: Final = 20`). A constant is a symbol that is assigned only once and is either annotated with `Final` or is named in all-caps. A constant that is not assigned a simple literal value requires explicit annotations, preferably with a `Final` annotation (e.g. `WOODWINDS: Final[list[str]] = ['Oboe', 'Bassoon']`).
 * Enum values within an Enum class do not require annotations because they take on the type of the Enum class.
-* Type aliases do not require annotations. A type alias is a symbol that is defined at a module level with a single assignment where the assigned value is an instantiable type, as opposed to a class instance (e.g. `Foo = Callable[[Literal["a", "b"]], Union[int, str]]` or `Bar = Optional[MyGenericClass[int]]`).
+* Type aliases do not require annotations. A type alias is a symbol that is defined at a module level with a single assignment where the assigned value is an instantiable type, as opposed to a class instance (e.g. `Foo = Callable[[Literal["a", "b"]], int | str]` or `Bar = MyGenericClass[int] | None`).
 * The “self” parameter in an instance method and the “cls” parameter in a class method do not require an explicit annotation.
 * The return type for an `__init__` method does not need to be specified, since it is always `None`.
 * The following module-level symbols do not require type annotations: `__all__`,`__author__`, `__copyright__`, `__email__`, `__license__`, `__title__`, `__uri__`, `__version__`.
@@ -103,21 +103,21 @@ a = 3
 a = [3, 4, 5]
 
 # Variable with known (declared) type
-a: List[int] = [3, 4, 5]
+a: list[int] = [3, 4, 5]
 
 # Type alias with partially unknown type (because type
 # arguments are missing for list and dict)
-DictOrList = Union[list, dict]
+DictOrList = list | dict
 
 # Type alias with known type
-DictOrList = Union[List[Any], Dict[str, Any]]
+DictOrList = list[Any] | dict[str, Any]
 
 # Generic type alias with known type
 _T = TypeVar("_T")
-DictOrList = Union[List[_T], Dict[str, _T]]
+DictOrList = list[_T] | dict[str, _T]
 
 # Function with known type
-def func(a: Optional[int], b: Dict[str, float] = {}) -> None:
+def func(a: int | None, b: dict[str, float] = {}) -> None:
     pass
 
 # Function with partially unknown type (because type annotations
@@ -126,13 +126,13 @@ def func(a, b):
     pass
 
 # Function with partially unknown type (because of missing
-# type args on Dict)
-def func(a: int, b: Dict) -> None:
+# type args on dict)
+def func(a: int, b: dict) -> None:
     pass
 
 # Function with partially unknown type (because return type
 # annotation is missing)
-def func(a: int, b: Dict[str, float]):
+def func(a: int, b: dict[str, float]):
     pass
 
 # Decorator with partially unknown type (because type annotations
@@ -235,11 +235,11 @@ Here are some tips for increasing the type completeness score for your library:
 ## Best Practices for Inlined Types
 
 ### Wide vs. Narrow Types
-In type theory, when comparing two types that are related to each other, the “wider” type is the one that is more general, and the “narrower” type is more specific. For example, `Sequence[str]` is a wider type than `List[str]` because all `List` objects are also `Sequence` objects, but the converse is not true. A subclass is narrower than a class it derives from. A union of types is wider than the individual types that comprise the union.
+In type theory, when comparing two types that are related to each other, the “wider” type is the one that is more general, and the “narrower” type is more specific. For example, `Sequence[str]` is a wider type than `list[str]` because all `list` objects are also `Sequence` objects, but the converse is not true. A subclass is narrower than a class it derives from. A union of types is wider than the individual types that comprise the union.
 
-In general, a function input parameter should be annotated with the widest possible type supported by the implementation. For example, if the implementation requires the caller to provide an iterable collection of strings, the parameter should be annotated as `Iterable[str]`, not as `List[str]`. The latter type is narrower than necessary, so if a user attempts to pass a tuple of strings (which is supported by the implementation), a type checker will complain about a type incompatibility.
+In general, a function input parameter should be annotated with the widest possible type supported by the implementation. For example, if the implementation requires the caller to provide an iterable collection of strings, the parameter should be annotated as `Iterable[str]`, not as `list[str]`. The latter type is narrower than necessary, so if a user attempts to pass a tuple of strings (which is supported by the implementation), a type checker will complain about a type incompatibility.
 
-As a specific application of the “use the widest type possible” rule, libraries should generally use immutable forms of container types instead of mutable forms (unless the function needs to modify the container). Use `Sequence` rather than `List`, `Mapping` rather than `Dict`, etc. Immutable containers allow for more flexibility because their type parameters are covariant rather than invariant. A parameter that is typed as `Sequence[Union[str, int]]` can accept a `List[Union[str, int]]`, `List[int]`, `Sequence[str]`, and a `Sequence[int]`. But a parameter typed as `List[Union[str, int]]` is much more restrictive and accepts only a `List[Union[str, int]]`.
+As a specific application of the “use the widest type possible” rule, libraries should generally use immutable forms of container types instead of mutable forms (unless the function needs to modify the container). Use `Sequence` rather than `list`, `Mapping` rather than `dict`, etc. Immutable containers allow for more flexibility because their type parameters are covariant rather than invariant. A parameter that is typed as `Sequence[str | int]` can accept a `list[str | int]`, `list[int]`, `Sequence[str]`, and a `Sequence[int]`. But a parameter typed as `list[str | int]` is much more restrictive and accepts only a `list[str | int]`.
 
 ### Overloads
 If a function or method can return multiple different types and those types can be determined based on the presence or types of certain parameters, use the `@overload` mechanism defined in [PEP 484](https://www.python.org/dev/peps/pep-0484/#id45). When overloads are used within a “.py” file, they must appear prior to the function implementation, which should not have an `@overload` decorator. 
@@ -248,7 +248,7 @@ If a function or method can return multiple different types and those types can 
 If a function or method is intended to take parameters that are specified only by name, use the keyword-only separator ("*").
 
 ```python
-def create_user(age: int, *, dob: Optional[date] = None):
+def create_user(age: int, *, dob: date | None = None):
     ...
 ```
 
@@ -298,16 +298,16 @@ Type aliases are symbols that refer to other types. Generic type aliases (those 
 
 ```python
 # Simple type alias
-FamilyPet = Union[Cat, Dog, GoldFish]
+FamilyPet = Cat | Dog | GoldFish
 
 # Generic type alias
-ListOrTuple = Union[List[_T], Tuple[_T, ...]]
+ListOrTuple = list[_T] | tuple[_T, ...]
 
 # Recursive type alias
-TreeNode = Union[LeafNode, List["TreeNode"]]
+TreeNode = LeafNode | list["TreeNode"]
 
 # Explicit type alias using PEP 613 syntax
-StrOrInt: TypeAlias = Union[str, int]
+StrOrInt: TypeAlias = str | int
 ```
 
 ### Abstract Classes and Methods
@@ -348,14 +348,14 @@ COLOR_FORMAT_RGB = "rgb"
 
 # All-caps constant with explicit type
 COLOR_FORMAT_RGB: Literal["rgb"] = "rgb"
-LATEST_VERSION: Tuple[int, int] = (4, 5)
+LATEST_VERSION: tuple[int, int] = (4, 5)
 
 # Final variable with inferred type
 ColorFormatRgb: Final = "rgb"
 
 # Final variable with explicit type
 ColorFormatRgb: Final[Literal["rgb"]] = "rgb"
-LATEST_VERSION: Final[Tuple[int, int]] = (4, 5)
+LATEST_VERSION: Final[tuple[int, int]] = (4, 5)
 ```
 
 ### Typed Dictionaries, Data Classes, and Named Tuples
@@ -391,7 +391,7 @@ If you need to support older versions of Python, type annotations can still be p
 class Foo:
    # Variable type comments go at the end of the line
    # where the variable is assigned.
-   timeout = None # type: Optional[int]
+   timeout = None # type: int | None
    
    # Function type comments can be specified on the
    # line after the function signature.
