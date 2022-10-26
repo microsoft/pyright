@@ -4,12 +4,28 @@
  * Licensed under the MIT license.
  */
 
+import { CancellationToken } from 'vscode-jsonrpc';
+
+const MAX_TREE_SEARCH_COUNT = 1000;
+
+class NumberReference {
+    value = 0;
+}
+
 function _buildImportTreeImpl(
     to: string,
     from: string,
     next: (from: string) => string[],
-    previous: string[]
+    previous: string[],
+    totalSearched: NumberReference,
+    token: CancellationToken
 ): string[] {
+    // Exit early if cancellation is requested or we've exceeded max count
+    if (totalSearched.value > MAX_TREE_SEARCH_COUNT || token.isCancellationRequested) {
+        return [];
+    }
+    totalSearched.value += 1;
+
     if (from === to) {
         // At the top, previous should have our way into this recursion.
         return previous.length ? previous : [from];
@@ -18,9 +34,16 @@ function _buildImportTreeImpl(
         return [];
     } else {
         const nextEntries = next(from);
-        for (let i = 0; i < nextEntries.length; i++) {
+        for (let i = 0; i < nextEntries.length && !token.isCancellationRequested; i++) {
             // Do a search through the next level to get to the 'to' entry.
-            const subentries = _buildImportTreeImpl(to, nextEntries[i], next, [...previous, from]);
+            const subentries = _buildImportTreeImpl(
+                to,
+                nextEntries[i],
+                next,
+                [...previous, from],
+                totalSearched,
+                token
+            );
             if (subentries.length > 0) {
                 return subentries;
             }
@@ -38,8 +61,14 @@ function _buildImportTreeImpl(
  * @param next
  * @returns
  */
-export function buildImportTree(to: string, from: string, next: (from: string) => string[]): string[] {
-    const results = _buildImportTreeImpl(to, from, next, []);
+export function buildImportTree(
+    to: string,
+    from: string,
+    next: (from: string) => string[],
+    token: CancellationToken
+): string[] {
+    const totalCountRef = new NumberReference();
+    const results = _buildImportTreeImpl(to, from, next, [], totalCountRef, token);
 
     // Result should always have the 'from' node in it.
     return results.length > 0 ? results : [from];

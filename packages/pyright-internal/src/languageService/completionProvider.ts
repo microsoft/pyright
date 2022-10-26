@@ -39,7 +39,7 @@ import { getScopeForNode } from '../analyzer/scopeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
-import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
+import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { printLiteralValue } from '../analyzer/typePrinter';
@@ -2470,7 +2470,7 @@ export class CompletionProvider {
             // exported from this scope, don't include it in the
             // suggestion list unless we are in the same file.
             const hidden =
-                symbol.isExternallyHidden() &&
+                !isVisibleExternally(symbol) &&
                 !symbol.getDeclarations().some((d) => isDefinedInFile(d, this._filePath));
             if (!hidden && includeSymbolCallback(symbol, name)) {
                 // Don't add a symbol more than once. It may have already been
@@ -2493,12 +2493,6 @@ export class CompletionProvider {
         completionMap: CompletionMap,
         detail: SymbolDetail
     ) {
-        // If the symbol is a py.typed import that is not supposed to be re-exported,
-        // don't offer it as a completion suggestion.
-        if (symbol.isPrivatePyTypedImport()) {
-            return;
-        }
-
         let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
         if (!primaryDecl) {
             const declarations = symbol.getDeclarations();

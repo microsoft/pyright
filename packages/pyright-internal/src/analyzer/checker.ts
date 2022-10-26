@@ -2945,8 +2945,9 @@ export class Checker extends ParseTreeWalker {
                 rule = DiagnosticRule.reportUnusedImport;
                 if (decl.node.nodeType === ParseNodeType.ImportAs) {
                     if (decl.node.alias) {
-                        // Aliases in stub files are assumed to be re-exports.
-                        if (!this._fileInfo.isStubFile) {
+                        // import x as x are assumed to be re-exports
+                        // see https://typing.readthedocs.io/en/latest/source/stubs.html#imports
+                        if (decl.node.alias.value !== decl.moduleName) {
                             nameNode = decl.node.alias;
                         }
                     } else {

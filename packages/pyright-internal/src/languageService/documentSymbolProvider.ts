@@ -23,7 +23,7 @@ import { AnalyzerFileInfo, ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
-import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
+import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isProperty } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -374,7 +374,7 @@ function collectSymbolIndexData(
             parseResults,
             declaration,
             options,
-            !symbol.isExternallyHidden(),
+            isVisibleExternally(symbol),
             name,
             indexSymbolData,
             token

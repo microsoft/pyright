@@ -6,6 +6,8 @@
  * Logic that maps a (.pyi) stub to its (.py) implementation source file.
  */
 
+import { CancellationToken } from 'vscode-jsonrpc';
+
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { appendArray } from '../common/collectionUtils';
@@ -52,7 +54,8 @@ export class SourceMapper {
         private _boundSourceGetter: BoundSourceGetter,
         private _mapCompiled: boolean,
         private _preferStubs: boolean,
-        private _fromFile: SourceFileInfo | undefined
+        private _fromFile: SourceFileInfo | undefined,
+        private _cancelToken: CancellationToken
     ) {}
 
     findModules(stubFilePath: string): ModuleNode[] {
@@ -700,13 +703,19 @@ export class SourceMapper {
     }
 
     private _getSourcePathsFromStub(stubFilePath: string, fromFile: string | undefined): string[] {
-        // If we have a 'from' sourceFile, go through imports to this stubfile up to our from node.
+        // Attempt our stubFilePath to see if we can resolve it as a source file path
+        let results = this._importResolver.getSourceFilesFromStub(stubFilePath, this._execEnv, this._mapCompiled);
+        if (results.length > 0) {
+            return results;
+        }
+
+        // If that didn't work, try looking through the graph up to our fromFile.
         // One of them should be able to resolve to an actual file.
         const stubFileImportTree = this._getStubFileImportTree(stubFilePath, fromFile);
 
         // Go through the items in this tree until we find at least one path.
         for (let i = 0; i < stubFileImportTree.length; i++) {
-            const results = this._importResolver.getSourceFilesFromStub(
+            results = this._importResolver.getSourceFilesFromStub(
                 stubFileImportTree[i],
                 this._execEnv,
                 this._mapCompiled
@@ -725,10 +734,17 @@ export class SourceMapper {
             return [stubFilePath];
         } else {
             // Otherwise recurse through the importedBy list up to our 'fromFile'.
-            return buildImportTree(fromFile, stubFilePath, (p) => {
-                const boundSourceInfo = this._boundSourceGetter(p);
-                return boundSourceInfo ? boundSourceInfo.importedBy.map((info) => info.sourceFile.getFilePath()) : [];
-            }).filter((p) => this._isStubThatShouldBeMappedToImplementation(p));
+            return buildImportTree(
+                fromFile,
+                stubFilePath,
+                (p) => {
+                    const boundSourceInfo = this._boundSourceGetter(p);
+                    return boundSourceInfo
+                        ? boundSourceInfo.importedBy.map((info) => info.sourceFile.getFilePath())
+                        : [];
+                },
+                this._cancelToken
+            ).filter((p) => this._isStubThatShouldBeMappedToImplementation(p));
         }
     }
 

@@ -14,6 +14,7 @@ import { Declaration, DeclarationType, isAliasDeclaration } from '../analyzer/de
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol } from '../analyzer/symbol';
+import { isVisibleExternally } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { maxTypeRecursionCount } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -252,7 +253,7 @@ function isVisibleOutside(
 
         recursionCount++;
 
-        if (symbol.isExternallyHidden()) {
+        if (!isVisibleExternally(symbol)) {
             return false;
         }
 

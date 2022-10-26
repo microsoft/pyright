@@ -47,3 +47,7 @@ export function isRequiredTypedDictVariable(symbol: Symbol) {
 export function isNotRequiredTypedDictVariable(symbol: Symbol) {
     return symbol.getDeclarations().some((decl) => decl.type === DeclarationType.Variable && !!decl.isNotRequired);
 }
+
+export function isVisibleExternally(symbol: Symbol) {
+    return !symbol.isExternallyHidden() && !symbol.isPrivatePyTypedImport();
+}
