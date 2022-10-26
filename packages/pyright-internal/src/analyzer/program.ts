@@ -1442,7 +1442,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getDefinitionsForPosition(
-                this._createSourceMapper(execEnv, sourceFileInfo),
+                this._createSourceMapper(execEnv, token, sourceFileInfo),
                 position,
                 filter,
                 this._evaluator!,
@@ -1466,7 +1466,13 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getTypeDefinitionsForPosition(
-                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ false, /* preferStubs */ true),
+                this._createSourceMapper(
+                    execEnv,
+                    token,
+                    sourceFileInfo,
+                    /* mapCompiled */ false,
+                    /* preferStubs */ true
+                ),
                 position,
                 this._evaluator!,
                 filePath,
@@ -1493,7 +1499,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-                this._createSourceMapper(execEnv, sourceFileInfo),
+                this._createSourceMapper(execEnv, token, sourceFileInfo),
                 position,
                 this._evaluator!,
                 reporter,
@@ -1669,7 +1675,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getHoverForPosition(
-                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
+                this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true),
                 position,
                 format,
                 this._evaluator!,
@@ -1693,7 +1699,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getDocumentHighlight(
-                this._createSourceMapper(execEnv, sourceFileInfo),
+                this._createSourceMapper(execEnv, token, sourceFileInfo),
                 position,
                 this._evaluator!,
                 token
@@ -1718,7 +1724,7 @@ export class Program {
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
                 position,
-                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
+                this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true),
                 this._evaluator!,
                 format,
                 token
@@ -1755,7 +1761,7 @@ export class Program {
                         this._lookUpImport,
                         this._evaluator!,
                         options,
-                        this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
+                        this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true),
                         nameMap,
                         libraryMap,
                         () =>
@@ -1824,7 +1830,7 @@ export class Program {
                 this._lookUpImport,
                 this._evaluator!,
                 options,
-                this._createSourceMapper(execEnv, sourceFileInfo, /* mapCompiled */ true),
+                this._createSourceMapper(execEnv, token, sourceFileInfo, /* mapCompiled */ true),
                 nameMap,
                 libraryMap,
                 () =>
@@ -1905,7 +1911,7 @@ export class Program {
                 this._evaluator!,
                 /* resolveLocalNames */ false,
                 token,
-                this._createSourceMapper(execEnv, fileInfo)
+                this._createSourceMapper(execEnv, token, fileInfo)
             );
 
             const renameModuleProvider = RenameModuleProvider.createForSymbol(
@@ -2104,7 +2110,7 @@ export class Program {
 
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv, sourceFileInfo),
+            this._createSourceMapper(execEnv, token, sourceFileInfo),
             position,
             this._evaluator!,
             undefined,
@@ -2141,7 +2147,7 @@ export class Program {
 
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv, sourceFileInfo),
+            this._createSourceMapper(execEnv, token, sourceFileInfo),
             position,
             this._evaluator!,
             undefined,
@@ -2197,7 +2203,7 @@ export class Program {
 
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv, sourceFileInfo),
+            this._createSourceMapper(execEnv, token, sourceFileInfo),
             position,
             this._evaluator!,
             undefined,
@@ -2256,7 +2262,7 @@ export class Program {
     }
 
     test_createSourceMapper(execEnv: ExecutionEnvironment, from?: SourceFileInfo) {
-        return this._createSourceMapper(execEnv, /*from*/ from, /* mapCompiled */ false);
+        return this._createSourceMapper(execEnv, CancellationToken.None, /*from*/ from, /* mapCompiled */ false);
     }
 
     private _getRenameSymbolMode(
@@ -2306,7 +2312,7 @@ export class Program {
     ) {
         const execEnv = this._configOptions.findExecEnvironment(filePath);
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-            this._createSourceMapper(execEnv),
+            this._createSourceMapper(execEnv, token),
             position,
             this._evaluator!,
             undefined,
@@ -2546,6 +2552,7 @@ export class Program {
 
     private _createSourceMapper(
         execEnv: ExecutionEnvironment,
+        token: CancellationToken,
         from?: SourceFileInfo,
         mapCompiled?: boolean,
         preferStubs?: boolean
@@ -2565,7 +2572,8 @@ export class Program {
             (f) => this.getBoundSourceFileInfo(f),
             mapCompiled ?? false,
             preferStubs ?? false,
-            from
+            from,
+            token
         );
         return sourceMapper;
     }

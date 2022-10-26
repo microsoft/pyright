@@ -27,6 +27,7 @@ import { SourceFileInfo } from '../analyzer/program';
 import { isUserCode } from '../analyzer/sourceFileInfoUtils';
 import { Symbol } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
+import { isVisibleExternally } from '../analyzer/symbolUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
@@ -132,7 +133,7 @@ export function buildModuleSymbolsMap(
             moduleSymbolMap.set(filePath, {
                 forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
                     symbolTable.forEach((symbol, name) => {
-                        if (symbol.isExternallyHidden()) {
+                        if (!isVisibleExternally(symbol)) {
                             return;
                         }
 
