@@ -72,7 +72,7 @@ f: list[int | None] = e  # Error
 
 ### Generic Types
 
-A _generic type_ is a class that is able to handle different types of inputs. For example, the `list` class is generic because it is able to operate on different types of elements. The type `list` by itself does not specify what is contained within the list. Its element type must be specified as a _type argument_ using the indexing (square bracket) syntax in Python. For example, lList[int]` denotes a list that contains only `int` elements whereas `list[int | float]` denotes a list that contains a mixture of int and float elements.
+A _generic type_ is a class that is able to handle different types of inputs. For example, the `list` class is generic because it is able to operate on different types of elements. The type `list` by itself does not specify what is contained within the list. Its element type must be specified as a _type argument_ using the indexing (square bracket) syntax in Python. For example, `list[int]` denotes a list that contains only `int` elements whereas `list[int | float]` denotes a list that contains a mixture of int and float elements.
 
 We noted above that `list[int]` is not assignable to `list[int | None]`. Why is this the case? Consider the following example.
 
