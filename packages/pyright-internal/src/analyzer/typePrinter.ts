@@ -620,7 +620,9 @@ export function printObjectTypeForClass(
                                 isAllAny = false;
                             }
 
-                            typeArgStrings.push('()');
+                            if (index === 0) {
+                                typeArgStrings.push('*tuple[()]');
+                            }
                         } else {
                             typeArgStrings.push(
                                 ...typeArg.type.tupleTypeArguments.map((typeArg) => {

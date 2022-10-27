@@ -2237,10 +2237,22 @@ export function getGeneratorTypeArgs(returnType: Type): Type[] | undefined {
 
 export function requiresTypeArguments(classType: ClassType) {
     if (classType.details.typeParameters.length > 0) {
+        const firstTypeParam = classType.details.typeParameters[0];
+
         // If there are type parameters, type arguments are needed.
         // The exception is if type parameters have been synthesized
         // for classes that have untyped constructors.
-        return !classType.details.typeParameters[0].details.isSynthesized;
+        if (firstTypeParam.details.isSynthesized) {
+            return false;
+        }
+
+        // If the first type parameter has a default type, then no
+        // type arguments are needed.
+        if (firstTypeParam.details.defaultType) {
+            return false;
+        }
+
+        return true;
     }
 
     // There are a few built-in special classes that require

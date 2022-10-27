@@ -33,7 +33,7 @@ def array_to_tuple(value: Array[Unpack[_Xs]]) -> Tuple[complex, Unpack[_Xs]]:
 def func1(x: Array[int, str, str, float], y: Array[()]):
     reveal_type(x, expected_text="Array[int, str, str, float]")
 
-    reveal_type(y, expected_text="Array[()]")
+    reveal_type(y, expected_text="Array[*tuple[()]]")
 
     a1 = Array(3, 3.5, "b")
     reveal_type(a1, expected_text="Array[int, float, str]")
@@ -42,7 +42,7 @@ def func1(x: Array[int, str, str, float], y: Array[()]):
     reveal_type(a2, expected_text="Sequence[int | float | str]")
 
     b1 = Array()
-    reveal_type(b1, expected_text="Array[()]")
+    reveal_type(b1, expected_text="Array[*tuple[()]]")
 
     b2 = linearize(b1)
     reveal_type(b2, expected_text="Sequence[Unknown]")

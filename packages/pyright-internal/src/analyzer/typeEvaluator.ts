@@ -5978,14 +5978,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Add an empty tuple that maps to the TypeVarTuple type parameter.
                     typeArgs.push({
                         node: errorNode,
-                        type: convertToInstance(
-                            specializeTupleClass(
-                                tupleClassType,
-                                [],
-                                /* isTypeArgumentExplicit */ true,
-                                /* isUnpackedTuple */ true
-                            )
-                        ),
+                        type:
+                            typeParameters[variadicIndex].details.defaultType ??
+                            convertToInstance(
+                                specializeTupleClass(
+                                    tupleClassType,
+                                    [],
+                                    /* isTypeArgumentExplicit */ true,
+                                    /* isUnpackedTuple */ true
+                                )
+                            ),
                     });
                 }
             }
@@ -10986,7 +10988,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     category: ParameterCategory.Simple,
                     name: `__p${index}`,
                     isNameSynthesized: true,
-                    type: typeResult.type,
+                    hasDeclaredType: true,
+                    type: convertToInstance(typeResult.type),
                 });
             });
 
@@ -18300,6 +18303,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const variadicTypeParamIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
 
         if (typeArgs) {
+            let minTypeArgCount = typeParameters.length;
+            const firstNonDefaultParam = typeParameters.findIndex((param) => !!param.details.defaultType);
+            if (firstNonDefaultParam >= 0) {
+                minTypeArgCount = firstNonDefaultParam;
+            }
+
             if (typeArgCount > typeParameters.length) {
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
@@ -18327,14 +18336,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     typeArgCount = typeParameters.length;
                 }
-            } else if (typeArgCount < typeParameters.length) {
+            } else if (typeArgCount < minTypeArgCount) {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.typeArgsTooFew().format({
                         name: classType.aliasName || classType.details.name,
-                        expected: typeParameters.length,
+                        expected: minTypeArgCount,
                         received: typeArgCount,
                     }),
                     typeArgs.length > 0 ? typeArgs[0].node.parent! : errorNode
@@ -18463,7 +18472,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return;
             }
 
-            typeArgTypes.push(UnknownType.create());
+            typeArgTypes.push(typeParam.details.defaultType ?? UnknownType.create());
         });
 
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
