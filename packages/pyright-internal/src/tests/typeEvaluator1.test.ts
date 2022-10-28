@@ -403,6 +403,12 @@ test('TypeNarrowingIn1', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('TypeNarrowingIn2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIn2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeNarrowingLiteralMember1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingLiteralMember1.py']);
 

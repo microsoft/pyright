@@ -1482,7 +1482,7 @@ function narrowTypeForContainerType(
             if (allLiteralTypes && allLiteralTypes.length > 0) {
                 return combineTypes(
                     allLiteralTypes.filter((type) => !typesToEliminate.some((t) => isTypeSame(t, type)))
-                ); //!ClassType.isLiteralValueSame(type, literalType)
+                );
             }
         }
 
