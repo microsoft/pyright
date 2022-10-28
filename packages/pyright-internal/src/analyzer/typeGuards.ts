@@ -1474,6 +1474,18 @@ function narrowTypeForContainerType(
     }
 
     return mapSubtypes(referenceType, (referenceSubtype) => {
+        referenceSubtype = evaluator.makeTopLevelTypeVarsConcrete(referenceSubtype);
+        if (isClassInstance(referenceSubtype) && referenceSubtype.literalValue === undefined) {
+            // If we're able to enumerate all possible literal values
+            // (for bool or enum), we can eliminate all others in a negative test.
+            const allLiteralTypes = enumerateLiteralsForType(evaluator, referenceSubtype);
+            if (allLiteralTypes && allLiteralTypes.length > 0) {
+                return combineTypes(
+                    allLiteralTypes.filter((type) => !typesToEliminate.some((t) => isTypeSame(t, type)))
+                );
+            }
+        }
+
         if (typesToEliminate.some((t) => isTypeSame(t, referenceSubtype))) {
             return undefined;
         }
