@@ -2945,8 +2945,9 @@ export class Checker extends ParseTreeWalker {
                 rule = DiagnosticRule.reportUnusedImport;
                 if (decl.node.nodeType === ParseNodeType.ImportAs) {
                     if (decl.node.alias) {
-                        // import x as x are assumed to be re-exports
-                        // see https://typing.readthedocs.io/en/latest/source/stubs.html#imports
+                        // For statements of the form "import x as x", don't mark "x" as unaccessed
+                        // because it's assumed to be re-exported.
+                        // See https://typing.readthedocs.io/en/latest/source/stubs.html#imports.
                         if (decl.node.alias.value !== decl.moduleName) {
                             nameNode = decl.node.alias;
                         }
@@ -2976,9 +2977,9 @@ export class Checker extends ParseTreeWalker {
                 } else if (decl.node.nodeType === ParseNodeType.ImportFromAs) {
                     const importFrom = decl.node.parent as ImportFromNode;
 
-                    // If this is a stub file that is using the "from A import B as C" or "from . import C",
-                    // don't mark "C" as unaccessed because it's assumed to be re-exported.
-                    const isReexport = this._fileInfo.isStubFile && decl.node.alias !== undefined;
+                    // For statements of the form "from y import x as x", don't mark "x" as
+                    // unaccessed because it's assumed to be re-exported.
+                    const isReexport = decl.node.alias?.value === decl.node.name.value;
 
                     // If this is a __future__ import, it's OK for the import symbol to be unaccessed.
                     const isFuture =
