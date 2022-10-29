@@ -90,6 +90,7 @@ import {
     createKeyForReference,
     FlowNode,
     isCodeFlowSupportedForReference,
+    wildcardImportReferenceKey,
 } from './codeFlowTypes';
 import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform } from './constructorTransform';
@@ -18092,7 +18093,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const executionNode = ParseTreeUtils.getExecutionScopeNode(startNode?.parent ?? reference);
         const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionNode);
 
-        if (!codeFlowExpressions || !codeFlowExpressions.has(referenceKey)) {
+        if (
+            !codeFlowExpressions ||
+            (!codeFlowExpressions.has(referenceKey) && !codeFlowExpressions.has(wildcardImportReferenceKey))
+        ) {
             return { type: undefined, isIncomplete: false };
         }
 

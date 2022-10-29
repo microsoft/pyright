@@ -102,6 +102,7 @@ import {
     FlowWildcardImport,
     getUniqueFlowNodeId,
     isCodeFlowSupportedForReference,
+    wildcardImportReferenceKey,
 } from './codeFlowTypes';
 import {
     AliasDeclaration,
@@ -1725,6 +1726,10 @@ export class Binder extends ParseTreeWalker {
             if (importInfo) {
                 const names: string[] = [];
 
+                // Note that this scope uses a wildcard import, so we cannot shortcut
+                // any code flow checks. All expressions are potentially in play.
+                this._currentScopeCodeFlowExpressions?.add(wildcardImportReferenceKey);
+
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
                     const wildcardNames = this._getWildcardImportNames(lookupInfo);
@@ -1797,6 +1802,7 @@ export class Binder extends ParseTreeWalker {
                                         };
 
                                         localSymbol.addDeclaration(aliasDecl);
+                                        names.push(name);
                                     }
                                 }
                             }
