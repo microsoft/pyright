@@ -18077,10 +18077,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Attempts to determine the type of the reference expression at the
     // point in the code. If the code flow analysis has nothing to say
-    // about that expression, it return undefined. Normally flow analysis
-    // starts from the reference node, but startNode can be specified to
-    // override this in a few special cases (functions and lambdas) to
-    // support analysis of captured variables.
+    // about that expression, it returns un undefined type. Normally
+    // flow analysis starts from the reference node, but startNode can be
+    // specified to override this in a few special cases (functions and
+    // lambdas) to support analysis of captured variables.
     function getFlowTypeOfReference(
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,

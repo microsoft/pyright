@@ -703,11 +703,10 @@ export function getCodeFlowEngine(
 
                     // We shouldn't get here.
                     fail('Unexpected flow node flags');
-                    return setCacheEntry(curFlowNode, /* type */ undefined, /* isIncomplete */ false);
                 }
             }
 
-            function getTypeFromBranchFlowNode(branchNode: FlowLabel) {
+            function getTypeFromBranchFlowNode(branchNode: FlowLabel): FlowNodeTypeResult {
                 const typesToCombine: Type[] = [];
 
                 let sawIncomplete = false;
@@ -746,7 +745,10 @@ export function getCodeFlowEngine(
                 });
             }
 
-            function getTypeFromLoopFlowNode(loopNode: FlowLabel, cacheEntry: FlowNodeTypeResult | undefined) {
+            function getTypeFromLoopFlowNode(
+                loopNode: FlowLabel,
+                cacheEntry: FlowNodeTypeResult | undefined
+            ): FlowNodeTypeResult {
                 // The type result from one antecedent may depend on the type
                 // result from another, so loop up to one time for each
                 // antecedent in the loop.
@@ -889,7 +891,7 @@ export function getCodeFlowEngine(
                 }
             }
 
-            function getTypeFromPreFinallyGateFlowNode(preFinallyFlowNode: FlowPreFinallyGate) {
+            function getTypeFromPreFinallyGateFlowNode(preFinallyFlowNode: FlowPreFinallyGate): FlowNodeTypeResult {
                 if (preFinallyFlowNode.isGateClosed) {
                     return { type: undefined, isIncomplete: false };
                 }
@@ -907,7 +909,7 @@ export function getCodeFlowEngine(
                 });
             }
 
-            function getTypeFromPostFinallyFlowNode(postFinallyFlowNode: FlowPostFinally) {
+            function getTypeFromPostFinallyFlowNode(postFinallyFlowNode: FlowPostFinally): FlowNodeTypeResult {
                 const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
                 try {
                     postFinallyFlowNode.preFinallyGate.isGateClosed = true;
