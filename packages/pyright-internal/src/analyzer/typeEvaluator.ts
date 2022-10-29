@@ -2735,7 +2735,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flowNode,
             /* reference */ undefined,
             /* targetSymbolId */ undefined,
-            /* initialType */ UnboundType.create(),
+            /* typeAtStart */ UnboundType.create(),
             {
                 skipNoReturnCallAnalysis: true,
             }
@@ -4626,9 +4626,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If the type is initially unbound, see if there's a parent class that
             // potentially initialized the value.
-            let initialType = typeResult.type;
-            let isInitialTypeIncomplete = !!typeResult.isIncomplete;
-            if (isUnbound(initialType)) {
+            let typeAtStart = typeResult.type;
+            let isTypeAtStartIncomplete = !!typeResult.isIncomplete;
+            if (isUnbound(typeAtStart)) {
                 const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
                 let classMemberInfo: ClassMember | undefined;
@@ -4647,8 +4647,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (classMemberInfo) {
-                    initialType = getTypeOfMember(classMemberInfo);
-                    isInitialTypeIncomplete = false;
+                    typeAtStart = getTypeOfMember(classMemberInfo);
+                    isTypeAtStartIncomplete = false;
                 }
             }
 
@@ -4656,10 +4656,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const codeFlowTypeResult = getFlowTypeOfReference(
                 node,
                 indeterminateSymbolId,
-                initialType,
+                typeAtStart,
                 /* startNode */ undefined,
                 {
-                    isInitialTypeIncomplete,
+                    isTypeAtStartIncomplete,
                     skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
                 }
             );
@@ -5882,7 +5882,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     indexTypeResult.type,
                     /* startNode */ undefined,
                     {
-                        isInitialTypeIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
+                        isTypeAtStartIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
                         skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
                     }
                 );
@@ -18084,7 +18084,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getFlowTypeOfReference(
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
-        initialType: Type | undefined,
+        typeAtStart: Type,
         startNode?: FunctionNode | LambdaNode,
         options?: FlowNodeTypeOptions
     ): FlowNodeTypeResult {
@@ -18122,7 +18122,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: undefined, isIncomplete: false };
         }
 
-        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, initialType, options);
+        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, typeAtStart, options);
     }
 
     // Specializes the specified (potentially generic) class type using

@@ -86,7 +86,7 @@ export interface FlowNodeTypeResult {
 }
 
 export interface FlowNodeTypeOptions {
-    isInitialTypeIncomplete?: boolean;
+    isTypeAtStartIncomplete?: boolean;
     skipNoReturnCallAnalysis?: boolean;
     skipConditionalNarrowing?: boolean;
 }
@@ -96,7 +96,7 @@ export interface CodeFlowAnalyzer {
         flowNode: FlowNode,
         reference: CodeFlowReferenceExpressionNode | undefined,
         targetSymbolId: number | undefined,
-        initialType: Type | undefined,
+        typeAtStart: Type,
         options?: FlowNodeTypeOptions
     ) => FlowNodeTypeResult;
 }
@@ -158,7 +158,7 @@ export function getCodeFlowEngine(
             flowNode: FlowNode,
             reference: CodeFlowReferenceExpressionNode | undefined,
             targetSymbolId: number | undefined,
-            initialType: Type | undefined,
+            typeAtStart: Type,
             options?: FlowNodeTypeOptions
         ): FlowNodeTypeResult {
             if (isPrintControlFlowGraphEnabled) {
@@ -467,8 +467,8 @@ export function getCodeFlowEngine(
                                     //    x = a.b
                                     // The type of "a.b" can no longer be assumed to be Literal[3].
                                     return {
-                                        type: initialType,
-                                        isIncomplete: !!options?.isInitialTypeIncomplete,
+                                        type: typeAtStart,
+                                        isIncomplete: !!options?.isTypeAtStartIncomplete,
                                     };
                                 }
                             }
@@ -682,7 +682,7 @@ export function getCodeFlowEngine(
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, initialType, !!options?.isInitialTypeIncomplete);
+                        return setCacheEntry(curFlowNode, typeAtStart, !!options?.isTypeAtStartIncomplete);
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -737,7 +737,7 @@ export function getCodeFlowEngine(
                     });
 
                     if (isProvenReachable) {
-                        return setCacheEntry(branchNode, initialType, /* isIncomplete */ false);
+                        return setCacheEntry(branchNode, typeAtStart, /* isIncomplete */ false);
                     }
 
                     const effectiveType = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
@@ -754,7 +754,7 @@ export function getCodeFlowEngine(
 
                 if (cacheEntry === undefined) {
                     // We haven't been here before, so create a new incomplete cache entry.
-                    cacheEntry = setCacheEntry(loopNode, reference ? undefined : initialType, /* isIncomplete */ true);
+                    cacheEntry = setCacheEntry(loopNode, reference ? undefined : typeAtStart, /* isIncomplete */ true);
                 } else if (
                     cacheEntry.incompleteSubtypes &&
                     cacheEntry.incompleteSubtypes.length === loopNode.antecedents.length &&
@@ -811,7 +811,7 @@ export function getCodeFlowEngine(
                             cacheEntry = setIncompleteSubtype(
                                 loopNode,
                                 index,
-                                subtypeEntry?.type ?? (reference ? undefined : initialType),
+                                subtypeEntry?.type ?? (reference ? undefined : typeAtStart),
                                 /* isIncomplete */ true,
                                 /* isPending */ true,
                                 entryEvaluationCount
@@ -854,8 +854,8 @@ export function getCodeFlowEngine(
                         // If we saw a pending entry, do not save over the top of the cache
                         // entry because we'll overwrite a pending evaluation.
                         return sawPending
-                            ? { type: initialType, isIncomplete: false }
-                            : setCacheEntry(loopNode, initialType, /* isIncomplete */ false);
+                            ? { type: typeAtStart, isIncomplete: false }
+                            : setCacheEntry(loopNode, typeAtStart, /* isIncomplete */ false);
                     }
 
                     let effectiveType = cacheEntry.type;
@@ -935,8 +935,8 @@ export function getCodeFlowEngine(
                 // (namely, string literals that are used for forward
                 // referenced types).
                 return {
-                    type: initialType,
-                    isIncomplete: !!options?.isInitialTypeIncomplete,
+                    type: typeAtStart,
+                    isIncomplete: !!options?.isTypeAtStartIncomplete,
                 };
             }
 
