@@ -73,3 +73,9 @@ def func6(a: LiteralString):
     a = "hi"
 
     v3: list[str] = "1 2 3".split(" ")
+
+def func7(a: Literal["a", "b"], b: Literal["a", 1]):
+    v1: LiteralString = f"{a}"
+
+    # This should generate an error because "b" is not a string literal.
+    v2: LiteralString = f"{b}"

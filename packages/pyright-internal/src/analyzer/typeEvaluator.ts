@@ -1387,20 +1387,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.expressions.forEach((expr) => {
                 const exprType = getTypeOfExpression(expr).type;
 
-                if (!isClassInstance(exprType)) {
+                doForEachSubtype(exprType, (exprSubtype) => {
+                    if (!isClassInstance(exprSubtype)) {
+                        isLiteralString = false;
+                        return;
+                    }
+
+                    if (ClassType.isBuiltIn(exprSubtype, 'LiteralString')) {
+                        return;
+                    }
+
+                    if (ClassType.isBuiltIn(exprSubtype, 'str') && exprSubtype.literalValue !== undefined) {
+                        return;
+                    }
+
                     isLiteralString = false;
-                    return;
-                }
-
-                if (ClassType.isBuiltIn(exprType, 'LiteralString')) {
-                    return;
-                }
-
-                if (ClassType.isBuiltIn(exprType, 'str') && exprType.literalValue !== undefined) {
-                    return;
-                }
-
-                isLiteralString = false;
+                });
             });
 
             if (!isBytes && isLiteralString) {
