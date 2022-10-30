@@ -44,6 +44,9 @@ def func2():
     x = 1
 
     # This should generate a diagnostic when reportUnnecessaryComparison is enabled.
+    # NOTE: The "always true" diganostic is currently disabled, so this
+    # will not currently generate a diagnostic.
+    # See https://github.com/microsoft/pyright/issues/4107
     if x == 1:
         ...
 
@@ -55,6 +58,9 @@ def func3(x: object):
     match x:
         case 1:
             # This should generate a diagnostic when reportUnnecessaryComparison is enabled.
+            # NOTE: The "always true" diganostic is currently disabled, so this
+            # will not currently generate a diagnostic.
+            # See https://github.com/microsoft/pyright/issues/4107
             if x == 1:
                 ...
 
@@ -70,6 +76,9 @@ def func4(x: Literal["a", "b"], y: Literal["a"]):
         z = "b"
     
     # This should generate a diagnostic when reportUnnecessaryComparison is enabled.
+    # NOTE: The "always true" diganostic is currently disabled, so this
+    # will not currently generate a diagnostic.
+    # See https://github.com/microsoft/pyright/issues/4107
     if x == z:
         ...
     

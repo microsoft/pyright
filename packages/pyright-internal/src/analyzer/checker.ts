@@ -1699,21 +1699,27 @@ export class Checker extends ParseTreeWalker {
                 const isAssignableLR = this._evaluator.assignType(leftType, rightType);
 
                 if (isAssignableRL === isAssignableLR) {
-                    let isAlwaysEqual = node.operator === OperatorType.Equals;
+                    let isAlwaysTrue = node.operator === OperatorType.Equals;
                     if (!isAssignableRL) {
-                        isAlwaysEqual = !isAlwaysEqual;
+                        isAlwaysTrue = !isAlwaysTrue;
                     }
 
-                    const message = isAlwaysEqual
+                    const message = isAlwaysTrue
                         ? Localizer.Diagnostic.comparisonAlwaysTrueLiteral()
                         : Localizer.Diagnostic.comparisonAlwaysFalseLiteral();
 
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
-                        DiagnosticRule.reportUnnecessaryComparison,
-                        message,
-                        node
-                    );
+                    // For now, only report the "always false" case because there are
+                    // legitimate use cases for "always true" literal conditional
+                    // comparisons, such as with exhaustive if/elif/else trees.
+                    // See https://github.com/microsoft/pyright/issues/4107.
+                    if (!isAlwaysTrue) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
+                            DiagnosticRule.reportUnnecessaryComparison,
+                            message,
+                            node
+                        );
+                    }
                 }
             }
         } else {
