@@ -236,6 +236,7 @@ import {
     applySolvedTypeVars,
     areTypesSame,
     AssignTypeFlags,
+    buildTypeVarContext,
     buildTypeVarContextFromSpecializedClass,
     ClassMember,
     ClassMemberLookupFlags,
@@ -4411,26 +4412,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type.typeAliasInfo.typeParameters.length > 0 &&
                 !type.typeAliasInfo.typeArguments
             ) {
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
-                    DiagnosticRule.reportMissingTypeArgument,
-                    Localizer.Diagnostic.typeArgsMissingForAlias().format({
-                        name: type.typeAliasInfo.name,
-                    }),
-                    node
+                let reportMissingTypeArguments = false;
+                const defaultTypeArgs: Type[] = [];
+
+                type.typeAliasInfo.typeParameters.forEach((param) => {
+                    if (param.details.defaultType) {
+                        defaultTypeArgs.push(param.details.defaultType);
+                    } else {
+                        defaultTypeArgs.push(UnknownType.create());
+                        reportMissingTypeArguments = true;
+                    }
+                });
+
+                const typeVarContext = buildTypeVarContext(
+                    type.typeAliasInfo.typeParameters,
+                    defaultTypeArgs,
+                    type.typeAliasInfo.typeVarScopeId
                 );
 
+                if (reportMissingTypeArguments) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                        DiagnosticRule.reportMissingTypeArgument,
+                        Localizer.Diagnostic.typeArgsMissingForAlias().format({
+                            name: type.typeAliasInfo.name,
+                        }),
+                        node
+                    );
+                }
+
                 type = TypeBase.cloneForTypeAlias(
-                    applySolvedTypeVars(
-                        type,
-                        new TypeVarContext(type.typeAliasInfo.typeVarScopeId),
-                        /* unknownIfNotFound */ true
-                    ),
+                    applySolvedTypeVars(type, typeVarContext, /* unknownIfNotFound */ true),
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,
                     type.typeAliasInfo.typeParameters,
-                    type.typeAliasInfo.typeParameters.map((param) => UnknownType.create())
+                    defaultTypeArgs
                 );
             }
         }
@@ -6171,7 +6188,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const typeArgType: Type =
-                    index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
+                    index < typeArgs.length
+                        ? convertToInstance(typeArgs[index].type)
+                        : param.details.defaultType ?? UnknownType.create();
                 assignTypeToTypeVar(
                     evaluatorInterface,
                     param,
