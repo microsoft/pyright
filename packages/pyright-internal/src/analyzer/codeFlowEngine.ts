@@ -154,6 +154,10 @@ export function getCodeFlowEngine(
             return flowNodeTypeCache;
         }
 
+        // This function has two primary modes. The first is used to determine
+        // the narrowed type of a reference expression based on code flow analysis.
+        // The second (when reference is undefined) is used to determine whether
+        // the specified flowNode is reachable when "never narrowing" is applied.
         function getTypeFromCodeFlow(
             flowNode: FlowNode,
             reference: CodeFlowReferenceExpressionNode | undefined,
@@ -262,17 +266,11 @@ export function getCodeFlowEngine(
 
                 const cachedEntry = flowNodeTypeCache.cache.get(flowNode.id);
                 if (cachedEntry === undefined) {
-                    return {
-                        type: cachedEntry,
-                        isIncomplete: false,
-                    };
+                    return { type: undefined, isIncomplete: false };
                 }
 
                 if (!isIncompleteType(cachedEntry)) {
-                    return {
-                        type: cachedEntry,
-                        isIncomplete: false,
-                    };
+                    return { type: cachedEntry, isIncomplete: false };
                 }
 
                 let type = cachedEntry.type;
@@ -281,11 +279,13 @@ export function getCodeFlowEngine(
                     // Recompute the effective type based on all of the incomplete
                     // types we've accumulated so far.
                     const typesToCombine: Type[] = [];
+
                     cachedEntry.incompleteSubtypes.forEach((t) => {
                         if (t.type) {
                             typesToCombine.push(t.type);
                         }
                     });
+
                     type = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
                 }
 
@@ -406,6 +406,7 @@ export function getCodeFlowEngine(
                                 let flowTypeResult = preventRecursion(curFlowNode, () =>
                                     evaluateAssignmentFlowNode(assignmentFlowNode)
                                 );
+
                                 if (flowTypeResult) {
                                     if (isTypeAliasPlaceholder(flowTypeResult.type)) {
                                         flowTypeResult = undefined;
@@ -416,61 +417,62 @@ export function getCodeFlowEngine(
                                         flowTypeResult = undefined;
                                     }
                                 }
+
                                 return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
-                            } else {
-                                // Is this a simple assignment to an index expression? If so, it could
-                                // be assigning to a TypedDict, which requires narrowing of the expression's
-                                // base type.
+                            }
+
+                            // Is this a simple assignment to an index expression? If so, it could
+                            // be assigning to a TypedDict, which requires narrowing of the expression's
+                            // base type.
+                            if (
+                                targetNode.nodeType === ParseNodeType.Index &&
+                                isMatchingExpression(reference, targetNode.baseExpression)
+                            ) {
                                 if (
-                                    targetNode.nodeType === ParseNodeType.Index &&
-                                    isMatchingExpression(reference, targetNode.baseExpression)
+                                    targetNode.parent?.nodeType === ParseNodeType.Assignment &&
+                                    targetNode.items.length === 1 &&
+                                    !targetNode.trailingComma &&
+                                    !targetNode.items[0].name &&
+                                    targetNode.items[0].argumentCategory === ArgumentCategory.Simple &&
+                                    targetNode.items[0].valueExpression.nodeType === ParseNodeType.StringList &&
+                                    targetNode.items[0].valueExpression.strings.length === 1 &&
+                                    targetNode.items[0].valueExpression.strings[0].nodeType === ParseNodeType.String
                                 ) {
-                                    if (
-                                        targetNode.parent?.nodeType === ParseNodeType.Assignment &&
-                                        targetNode.items.length === 1 &&
-                                        !targetNode.trailingComma &&
-                                        !targetNode.items[0].name &&
-                                        targetNode.items[0].argumentCategory === ArgumentCategory.Simple &&
-                                        targetNode.items[0].valueExpression.nodeType === ParseNodeType.StringList &&
-                                        targetNode.items[0].valueExpression.strings.length === 1 &&
-                                        targetNode.items[0].valueExpression.strings[0].nodeType === ParseNodeType.String
-                                    ) {
-                                        const keyValue = targetNode.items[0].valueExpression.strings[0].value;
-                                        const narrowedResult = preventRecursion(assignmentFlowNode, () => {
-                                            const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
+                                    const keyValue = targetNode.items[0].valueExpression.strings[0].value;
+                                    const narrowedResult = preventRecursion(assignmentFlowNode, () => {
+                                        const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
 
-                                            if (flowTypeResult.type) {
-                                                flowTypeResult.type = mapSubtypes(flowTypeResult.type, (subtype) => {
-                                                    if (isClass(subtype) && ClassType.isTypedDictClass(subtype)) {
-                                                        return narrowForKeyAssignment(subtype, keyValue);
-                                                    }
-                                                    return subtype;
-                                                });
-                                            }
+                                        if (flowTypeResult.type) {
+                                            flowTypeResult.type = mapSubtypes(flowTypeResult.type, (subtype) => {
+                                                if (isClass(subtype) && ClassType.isTypedDictClass(subtype)) {
+                                                    return narrowForKeyAssignment(subtype, keyValue);
+                                                }
+                                                return subtype;
+                                            });
+                                        }
 
-                                            return flowTypeResult;
-                                        });
+                                        return flowTypeResult;
+                                    });
 
-                                        return setCacheEntry(
-                                            curFlowNode,
-                                            narrowedResult?.type,
-                                            !!narrowedResult?.isIncomplete
-                                        );
-                                    }
+                                    return setCacheEntry(
+                                        curFlowNode,
+                                        narrowedResult?.type,
+                                        !!narrowedResult?.isIncomplete
+                                    );
                                 }
+                            }
 
-                                if (isPartialMatchingExpression(reference, targetNode)) {
-                                    // If the node partially matches the reference, we need to "kill" any narrowed
-                                    // types further above this point. For example, if we see the sequence
-                                    //    a.b = 3
-                                    //    a = Foo()
-                                    //    x = a.b
-                                    // The type of "a.b" can no longer be assumed to be Literal[3].
-                                    return {
-                                        type: typeAtStart,
-                                        isIncomplete: !!options?.isTypeAtStartIncomplete,
-                                    };
-                                }
+                            if (isPartialMatchingExpression(reference, targetNode)) {
+                                // If the node partially matches the reference, we need to "kill" any narrowed
+                                // types further above this point. For example, if we see the sequence
+                                //    a.b = 3
+                                //    a = Foo()
+                                //    x = a.b
+                                // The type of "a.b" can no longer be assumed to be Literal[3].
+                                return {
+                                    type: typeAtStart,
+                                    isIncomplete: !!options?.isTypeAtStartIncomplete,
+                                };
                             }
                         }
 
@@ -480,6 +482,7 @@ export function getCodeFlowEngine(
 
                     if (curFlowNode.flags & FlowFlags.BranchLabel) {
                         const branchFlowNode = curFlowNode as FlowBranchLabel;
+
                         if (curFlowNode.flags & FlowFlags.PostContextManager) {
                             // Determine whether any of the context managers support exception
                             // suppression. If not, none of its antecedents are reachable.
@@ -587,6 +590,7 @@ export function getCodeFlowEngine(
                                     conditionalFlowNode.reference.value,
                                     /* honorCodeFlow */ false
                                 );
+
                                 if (symbolWithScope && symbolWithScope.symbol.getTypedDeclarations().length > 0) {
                                     const result = preventRecursion(curFlowNode, () => {
                                         const typeNarrowingCallback = getTypeNarrowingCallback(
@@ -625,6 +629,7 @@ export function getCodeFlowEngine(
                                 }
                             }
                         }
+
                         curFlowNode = conditionalFlowNode.antecedent;
                         continue;
                     }
@@ -808,12 +813,13 @@ export function getCodeFlowEngine(
                                 : undefined;
                         if (subtypeEntry === undefined || (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete)) {
                             const entryEvaluationCount = subtypeEntry === undefined ? 0 : subtypeEntry.evaluationCount;
+
                             // Set this entry to "pending" to prevent infinite recursion.
                             // We'll mark it "not pending" below.
                             cacheEntry = setIncompleteSubtype(
                                 loopNode,
                                 index,
-                                subtypeEntry?.type ?? (reference ? undefined : typeAtStart),
+                                subtypeEntry?.type,
                                 /* isIncomplete */ true,
                                 /* isPending */ true,
                                 entryEvaluationCount
