@@ -13,7 +13,7 @@
  */
 
 import { Commands } from '../commands/commands';
-import { DiagnosticLevel } from '../common/configOptions';
+import { DiagnosticLevel, ExecutionEnvironment } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -91,7 +91,7 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
-import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -246,7 +246,10 @@ export class Checker extends ParseTreeWalker {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _moduleNode: ModuleNode
+        private _moduleNode: ModuleNode,
+        private _execEnv: ExecutionEnvironment,
+        private _getDefinitionPaths: (node: NameNode) => string[],
+        private _isUserCode: (path: string) => boolean
     ) {
         super();
 
@@ -272,7 +275,13 @@ export class Checker extends ParseTreeWalker {
 
         this._reportDuplicateImports();
 
-        MissingModuleSourceReporter.report(this._importResolver, this._evaluator, this._fileInfo, this._moduleNode);
+        MissingModuleSourceReporter.report(
+            this._importResolver,
+            this._evaluator,
+            this._fileInfo,
+            this._moduleNode,
+            this._execEnv
+        );
     }
 
     override walk(node: ParseNode) {
@@ -1384,11 +1393,13 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitImportAs(node: ImportAsNode): boolean {
+        this._conditionallyReportShadowedImport(node);
         this._evaluator.evaluateTypesForStatement(node);
         return false;
     }
 
     override visitImportFrom(node: ImportFromNode): boolean {
+        this._conditionallyReportShadowedImport(node);
         if (!node.isWildcardImport) {
             node.imports.forEach((importAs) => {
                 this._evaluator.evaluateTypesForStatement(importAs);
@@ -3489,6 +3500,46 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             }
+        }
+    }
+
+    private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromAsNode | ImportFromNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return;
+        }
+        const namePartNodes =
+            node.nodeType === ParseNodeType.ImportAs
+                ? node.module.nameParts
+                : node.nodeType === ParseNodeType.ImportFromAs
+                ? [node.name]
+                : node.module.nameParts;
+        const nameParts = namePartNodes.map((n) => n.value);
+        const module: ImportedModuleDescriptor = {
+            nameParts,
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+
+        // Make sure the module is a potential stdlib one so we don't spend the time
+        // searching for the definition.
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._execEnv);
+        if (stdlibPath && this._importResolver.isStdlibModule(module, this._execEnv)) {
+            // If the definition for this name is in 'user' module, it is overwriting the stdlib module
+            const paths = this._getDefinitionPaths(namePartNodes[namePartNodes.length - 1]);
+            paths.forEach((p) => {
+                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._isUserCode(p)) {
+                    // This means the user has a module that is overwriting the stdlib module
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                        DiagnosticRule.reportShadowedImports,
+                        Localizer.Diagnostic.stdlibModuleOverridden().format({
+                            name: nameParts.join('.'),
+                            path: p,
+                        }),
+                        node
+                    );
+                }
+            });
         }
     }
 
@@ -5711,20 +5762,22 @@ class MissingModuleSourceReporter extends ParseTreeWalker {
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
         fileInfo: AnalyzerFileInfo,
-        node: ModuleNode
+        node: ModuleNode,
+        execEnv: ExecutionEnvironment
     ) {
         if (fileInfo.isStubFile) {
             // Don't report this for stub files.
             return;
         }
 
-        new MissingModuleSourceReporter(importResolver, evaluator, fileInfo).walk(node);
+        new MissingModuleSourceReporter(importResolver, evaluator, fileInfo, execEnv).walk(node);
     }
 
     private constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _fileInfo: AnalyzerFileInfo
+        private _fileInfo: AnalyzerFileInfo,
+        private _execEnv: ExecutionEnvironment
     ) {
         super();
     }

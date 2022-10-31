@@ -543,7 +543,7 @@ export class Program {
 
                 // Check the open files.
                 for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo)) {
+                    if (this._checkTypes(sourceFileInfo, token)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -567,7 +567,7 @@ export class Program {
                         continue;
                     }
 
-                    if (this._checkTypes(sourceFileInfo)) {
+                    if (this._checkTypes(sourceFileInfo, token)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -1073,7 +1073,7 @@ export class Program {
         return false;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo) {
+    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken) {
         return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -1103,7 +1103,14 @@ export class Program {
             }
 
             if (!this._disableChecker) {
-                fileToCheck.sourceFile.check(this._importResolver, this._evaluator!);
+                const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getFilePath());
+                fileToCheck.sourceFile.check(
+                    this._importResolver,
+                    this._evaluator!,
+                    execEnv,
+                    this._createSourceMapper(execEnv, token, fileToCheck),
+                    (p) => isUserCode(this._getSourceFileInfoFromPath(p))
+                );
             }
 
             // For very large programs, we may need to discard the evaluator and

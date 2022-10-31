@@ -705,6 +705,25 @@ export class ImportResolver {
         return this._getStdlibTypeshedPath(execEnv, unused);
     }
 
+    isStdlibModule(module: ImportedModuleDescriptor, execEnv: ExecutionEnvironment): boolean {
+        const unused: string[] = [];
+        if (!this._cachedTypeshedStdLibModuleVersions) {
+            this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(execEnv, unused);
+        }
+
+        // See if this module exists in the stdlib modules
+        for (let namePartCount = 1; namePartCount <= module.nameParts.length; namePartCount++) {
+            const namePartsToConsider = module.nameParts.slice(0, namePartCount);
+            const versionRange = this._cachedTypeshedStdLibModuleVersions.get(namePartsToConsider.join('.'));
+            if (versionRange) {
+                // There is some version that's allowed so it must be a stdlib module
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     getImportRoots(execEnv: ExecutionEnvironment, forLogging = false) {
         const importFailureInfo: string[] = [];
         const roots = [];

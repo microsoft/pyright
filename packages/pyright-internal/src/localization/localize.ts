@@ -750,6 +750,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.slotsClassVarConflict'));
         export const starStarWildcardNotAllowed = () => getRawString('Diagnostic.starStarWildcardNotAllowed');
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
+        export const stdlibModuleOverridden = () =>
+            new ParameterizedString<{ name: string; path: string }>(getRawString('Diagnostic.stdlibModuleOverridden'));
+
         export const strictTypeGuardReturnType = () =>
             new ParameterizedString<{ type: string; returnType: string }>(
                 getRawString('Diagnostic.strictTypeGuardReturnType')
