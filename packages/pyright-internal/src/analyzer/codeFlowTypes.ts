@@ -266,3 +266,6 @@ export function createKeysForReferenceSubexpressions(reference: CodeFlowReferenc
 
     fail('createKeyForReference received unexpected expression type');
 }
+
+// A reference key that corresponds to a wildcard import.
+export const wildcardImportReferenceKey = '*';

@@ -1,8 +1,8 @@
 # This sample tests the handling of default TypeVar types for
 # generic classes.
 
-from typing import Generic, Unpack
-from typing_extensions import TypeVar, ParamSpec, TypeVarTuple
+from typing import Generic
+from typing_extensions import TypeVar, ParamSpec, TypeVarTuple, Unpack
 
 
 T1 = TypeVar("T1")

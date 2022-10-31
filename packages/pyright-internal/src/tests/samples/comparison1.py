@@ -11,15 +11,21 @@ def func1(os: OS, val: Literal[1, "linux"]):
     if os == "Linux":
         return True
 
-    # This should generate an error because there is no overlap in types.
+    # This should generate an error because this expression will always
+    # evaluate to False.
     if os == "darwin":
         return False
 
-    # This should generate an error because there is no overlap in types.
+    # This should generate an error because this expression will always
+    # evaluate to True.
+    # NOTE: The "always true" diganostic is currently disabled, so this
+    # will not currently generate a diagnostic.
+    # See https://github.com/microsoft/pyright/issues/4107
     if os != val:
         return False
 
-    # This should generate an error because there is no overlap in types.
+    # This should generate an error because this expression will always
+    # evaluate to False.
     if val == 2:
         return False
 

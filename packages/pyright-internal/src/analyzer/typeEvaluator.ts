@@ -90,6 +90,7 @@ import {
     createKeyForReference,
     FlowNode,
     isCodeFlowSupportedForReference,
+    wildcardImportReferenceKey,
 } from './codeFlowTypes';
 import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { applyConstructorTransform } from './constructorTransform';
@@ -235,6 +236,7 @@ import {
     applySolvedTypeVars,
     areTypesSame,
     AssignTypeFlags,
+    buildTypeVarContext,
     buildTypeVarContextFromSpecializedClass,
     ClassMember,
     ClassMemberLookupFlags,
@@ -1387,20 +1389,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node.expressions.forEach((expr) => {
                 const exprType = getTypeOfExpression(expr).type;
 
-                if (!isClassInstance(exprType)) {
+                doForEachSubtype(exprType, (exprSubtype) => {
+                    if (!isClassInstance(exprSubtype)) {
+                        isLiteralString = false;
+                        return;
+                    }
+
+                    if (ClassType.isBuiltIn(exprSubtype, 'LiteralString')) {
+                        return;
+                    }
+
+                    if (ClassType.isBuiltIn(exprSubtype, 'str') && exprSubtype.literalValue !== undefined) {
+                        return;
+                    }
+
                     isLiteralString = false;
-                    return;
-                }
-
-                if (ClassType.isBuiltIn(exprType, 'LiteralString')) {
-                    return;
-                }
-
-                if (ClassType.isBuiltIn(exprType, 'str') && exprType.literalValue !== undefined) {
-                    return;
-                }
-
-                isLiteralString = false;
+                });
             });
 
             if (!isBytes && isLiteralString) {
@@ -2732,7 +2736,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flowNode,
             /* reference */ undefined,
             /* targetSymbolId */ undefined,
-            /* initialType */ UnboundType.create(),
+            /* typeAtStart */ UnboundType.create(),
             {
                 skipNoReturnCallAnalysis: true,
             }
@@ -3387,12 +3391,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
+            // If this is a TypeVarTuple *Ts, convert it to an unpacked tuple
+            // *tuple[*Ts].
             if (isVariadicTypeVar(subtype)) {
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
                     return convertToInstance(
                         specializeTupleClass(
                             tupleClassType,
-                            [],
+                            [{ type: subtype, isUnbounded: false }],
                             /* isTypeArgumentExplicit */ true,
                             /* isUnpackedTuple */ true
                         )
@@ -4408,26 +4414,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type.typeAliasInfo.typeParameters.length > 0 &&
                 !type.typeAliasInfo.typeArguments
             ) {
-                addDiagnostic(
-                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
-                    DiagnosticRule.reportMissingTypeArgument,
-                    Localizer.Diagnostic.typeArgsMissingForAlias().format({
-                        name: type.typeAliasInfo.name,
-                    }),
-                    node
+                let reportMissingTypeArguments = false;
+                const defaultTypeArgs: Type[] = [];
+
+                type.typeAliasInfo.typeParameters.forEach((param) => {
+                    if (param.details.defaultType) {
+                        defaultTypeArgs.push(param.details.defaultType);
+                    } else {
+                        defaultTypeArgs.push(UnknownType.create());
+                        reportMissingTypeArguments = true;
+                    }
+                });
+
+                const typeVarContext = buildTypeVarContext(
+                    type.typeAliasInfo.typeParameters,
+                    defaultTypeArgs,
+                    type.typeAliasInfo.typeVarScopeId
                 );
 
+                if (reportMissingTypeArguments) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportMissingTypeArgument,
+                        DiagnosticRule.reportMissingTypeArgument,
+                        Localizer.Diagnostic.typeArgsMissingForAlias().format({
+                            name: type.typeAliasInfo.name,
+                        }),
+                        node
+                    );
+                }
+
                 type = TypeBase.cloneForTypeAlias(
-                    applySolvedTypeVars(
-                        type,
-                        new TypeVarContext(type.typeAliasInfo.typeVarScopeId),
-                        /* unknownIfNotFound */ true
-                    ),
+                    applySolvedTypeVars(type, typeVarContext, /* unknownIfNotFound */ true),
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,
                     type.typeAliasInfo.typeParameters,
-                    type.typeAliasInfo.typeParameters.map((param) => UnknownType.create())
+                    defaultTypeArgs
                 );
             }
         }
@@ -4623,9 +4645,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If the type is initially unbound, see if there's a parent class that
             // potentially initialized the value.
-            let initialType = typeResult.type;
-            let isInitialTypeIncomplete = !!typeResult.isIncomplete;
-            if (isUnbound(initialType)) {
+            let typeAtStart = typeResult.type;
+            let isTypeAtStartIncomplete = !!typeResult.isIncomplete;
+            if (isUnbound(typeAtStart)) {
                 const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
                 let classMemberInfo: ClassMember | undefined;
@@ -4644,8 +4666,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (classMemberInfo) {
-                    initialType = getTypeOfMember(classMemberInfo);
-                    isInitialTypeIncomplete = false;
+                    typeAtStart = getTypeOfMember(classMemberInfo);
+                    isTypeAtStartIncomplete = false;
                 }
             }
 
@@ -4653,10 +4675,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const codeFlowTypeResult = getFlowTypeOfReference(
                 node,
                 indeterminateSymbolId,
-                initialType,
+                typeAtStart,
                 /* startNode */ undefined,
                 {
-                    isInitialTypeIncomplete,
+                    isTypeAtStartIncomplete,
                     skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
                 }
             );
@@ -5879,7 +5901,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     indexTypeResult.type,
                     /* startNode */ undefined,
                     {
-                        isInitialTypeIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
+                        isTypeAtStartIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
                         skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
                     }
                 );
@@ -6168,7 +6190,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const typeArgType: Type =
-                    index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
+                    index < typeArgs.length
+                        ? convertToInstance(typeArgs[index].type)
+                        : param.details.defaultType ?? UnknownType.create();
                 assignTypeToTypeVar(
                     evaluatorInterface,
                     param,
@@ -18077,14 +18101,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Attempts to determine the type of the reference expression at the
     // point in the code. If the code flow analysis has nothing to say
-    // about that expression, it return undefined. Normally flow analysis
-    // starts from the reference node, but startNode can be specified to
-    // override this in a few special cases (functions and lambdas) to
-    // support analysis of captured variables.
+    // about that expression, it returns un undefined type. Normally
+    // flow analysis starts from the reference node, but startNode can be
+    // specified to override this in a few special cases (functions and
+    // lambdas) to support analysis of captured variables.
     function getFlowTypeOfReference(
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
-        initialType: Type | undefined,
+        typeAtStart: Type,
         startNode?: FunctionNode | LambdaNode,
         options?: FlowNodeTypeOptions
     ): FlowNodeTypeResult {
@@ -18093,7 +18117,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const executionNode = ParseTreeUtils.getExecutionScopeNode(startNode?.parent ?? reference);
         const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionNode);
 
-        if (!codeFlowExpressions || !codeFlowExpressions.has(referenceKey)) {
+        if (
+            !codeFlowExpressions ||
+            (!codeFlowExpressions.has(referenceKey) && !codeFlowExpressions.has(wildcardImportReferenceKey))
+        ) {
             return { type: undefined, isIncomplete: false };
         }
 
@@ -18119,7 +18146,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: undefined, isIncomplete: false };
         }
 
-        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, initialType, options);
+        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, typeAtStart, options);
     }
 
     // Specializes the specified (potentially generic) class type using

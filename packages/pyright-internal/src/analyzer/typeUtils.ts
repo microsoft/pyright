@@ -3040,7 +3040,7 @@ class TypeVarTransformer {
         }
 
         // Unpack the tuple and synthesize a new function in the process.
-        const newFunctionType = FunctionType.createSynthesizedInstance('');
+        const newFunctionType = FunctionType.createSynthesizedInstance('', functionType.details.flags);
         let insertKeywordOnlySeparator = false;
         let swallowPositionOnlySeparator = false;
 

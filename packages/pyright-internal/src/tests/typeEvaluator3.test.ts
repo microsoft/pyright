@@ -139,7 +139,12 @@ test('Await2', () => {
 });
 
 test('Coroutines1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py']);
+    const configOptions = new ConfigOptions('.');
+
+    // This functionality is deprecated in Python 3.11, so the type no longer
+    // exists in typing.pyi after that point.
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 4);
 });
@@ -947,6 +952,14 @@ test('VariadicTypeVar15', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('VariadicTypeVar16', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar16.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions('.');
 
@@ -1050,7 +1063,7 @@ test('Comparison1', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 7);
+    TestUtils.validateResults(analysisResults2, 6);
 });
 
 test('Comparison2', () => {
@@ -1061,7 +1074,7 @@ test('Comparison2', () => {
 
     configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison2.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 7);
+    TestUtils.validateResults(analysisResults2, 10);
 });
 
 test('EmptyContainers1', () => {

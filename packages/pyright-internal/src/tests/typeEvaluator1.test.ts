@@ -40,6 +40,7 @@ test('Builtins1', () => {
         'AssertionError',
         'AttributeError',
         'BaseException',
+        'BaseExceptionGroup',
         'BlockingIOError',
         'BrokenPipeError',
         'BufferError',
@@ -55,6 +56,7 @@ test('Builtins1', () => {
         'EncodingWarning',
         'EnvironmentError',
         'Exception',
+        'ExceptionGroup',
         'FileExistsError',
         'FileNotFoundError',
         'FloatingPointError',
@@ -1339,7 +1341,7 @@ test('PseudoGeneric1', () => {
 test('LiteralString1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literalString1.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('LiteralString2', () => {
