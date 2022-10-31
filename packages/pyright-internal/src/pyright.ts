@@ -284,7 +284,7 @@ async function processArgs(): Promise<ExitStatus> {
         return verifyPackageTypes(
             fileSystem,
             args['verifytypes'] || '',
-            !!args.verbose,
+            options,
             !!args.outputjson,
             args['ignoreexternal']
         );
@@ -395,19 +395,19 @@ async function processArgs(): Promise<ExitStatus> {
 function verifyPackageTypes(
     fileSystem: PyrightFileSystem,
     packageName: string,
-    verboseOutput: boolean,
+    options: PyrightCommandLineOptions,
     outputJson: boolean,
     ignoreUnknownTypesFromImports: boolean
 ): ExitStatus {
     try {
-        const verifier = new PackageTypeVerifier(fileSystem, packageName, ignoreUnknownTypesFromImports);
+        const verifier = new PackageTypeVerifier(fileSystem, options, packageName, ignoreUnknownTypesFromImports);
         const report = verifier.verify();
         const jsonReport = buildTypeCompletenessReport(packageName, report);
 
         if (outputJson) {
             console.log(JSON.stringify(jsonReport, /* replacer */ undefined, 4));
         } else {
-            printTypeCompletenessReportText(jsonReport, verboseOutput);
+            printTypeCompletenessReportText(jsonReport, !!options.verboseOutput);
         }
 
         return jsonReport.typeCompleteness!.completenessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors;
