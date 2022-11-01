@@ -3509,7 +3509,7 @@ export class Checker extends ParseTreeWalker {
         if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
             return;
         }
-        // Check the module we're in
+        // Check the module we're in.
         const moduleName = this._fileInfo.moduleName;
         const desc: ImportedModuleDescriptor = {
             nameParts: moduleName.split('.'),
@@ -3522,7 +3522,7 @@ export class Checker extends ParseTreeWalker {
             this._importResolver.isStdlibModule(desc, this._execEnv) &&
             this._sourceMapper.isUserCode(this._fileInfo.filePath)
         ) {
-            // This means the user has a module that is overwriting the stdlib module
+            // This means the user has a module that is overwriting the stdlib module.
             const diag = this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
                 this._fileInfo.diagnosticRuleSet.reportShadowedImports,
@@ -3534,7 +3534,7 @@ export class Checker extends ParseTreeWalker {
                 this._moduleNode
             );
 
-            // For the module based error, add an action that renames the file
+            // For the module based error, add an action that renames the file.
             if (diag) {
                 const renameAction: RenameFileAction = {
                     action: Commands.renameFile,
@@ -3575,7 +3575,7 @@ export class Checker extends ParseTreeWalker {
             const paths = definitions ? definitions.map((d) => d.path) : [];
             paths.forEach((p) => {
                 if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
-                    // This means the user has a module that is overwriting the stdlib module
+                    // This means the user has a module that is overwriting the stdlib module.
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportShadowedImports,
                         DiagnosticRule.reportShadowedImports,
