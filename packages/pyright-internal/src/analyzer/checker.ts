@@ -20,6 +20,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
+import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -100,7 +101,7 @@ import { validateClassPattern } from './patternMatching';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
-import { isStubFile } from './sourceMapper';
+import { isStubFile, SourceMapper } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -248,8 +249,7 @@ export class Checker extends ParseTreeWalker {
         private _evaluator: TypeEvaluator,
         private _moduleNode: ModuleNode,
         private _execEnv: ExecutionEnvironment,
-        private _getDefinitionPaths: (node: NameNode) => string[],
-        private _isUserCode: (path: string) => boolean
+        private _sourceMapper: SourceMapper
     ) {
         super();
 
@@ -3525,9 +3525,15 @@ export class Checker extends ParseTreeWalker {
         const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._execEnv);
         if (stdlibPath && this._importResolver.isStdlibModule(module, this._execEnv)) {
             // If the definition for this name is in 'user' module, it is overwriting the stdlib module
-            const paths = this._getDefinitionPaths(namePartNodes[namePartNodes.length - 1]);
+            const definitions = DefinitionProvider.getDefinitionsForNode(
+                this._sourceMapper,
+                namePartNodes[namePartNodes.length - 1],
+                DefinitionFilter.All,
+                this._evaluator
+            );
+            const paths = definitions ? definitions.map((d) => d.path) : [];
             paths.forEach((p) => {
-                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._isUserCode(p)) {
+                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
                     // This means the user has a module that is overwriting the stdlib module
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportShadowedImports,

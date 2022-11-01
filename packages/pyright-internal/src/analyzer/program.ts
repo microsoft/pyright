@@ -2577,6 +2577,7 @@ export class Program {
                 return this.getBoundSourceFile(implFilePath);
             },
             (f) => this.getBoundSourceFileInfo(f),
+            (f) => this._getSourceFileInfoFromPath(f),
             mapCompiled ?? false,
             preferStubs ?? false,
             from,

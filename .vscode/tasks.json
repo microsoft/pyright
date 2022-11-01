@@ -19,7 +19,7 @@
                 "pattern": [
                     {
                         "kind": "location",
-                        "regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
+                        "regexp": "(ERROR|WARNING) in (.*?) (\\d+):(\\d+-*\\d*)",
                         "severity": 1,
                         "file": 2,
                         "line": 3,

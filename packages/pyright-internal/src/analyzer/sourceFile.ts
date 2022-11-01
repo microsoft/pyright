@@ -1320,11 +1320,7 @@ export class SourceFile {
                         evaluator,
                         this._parseResults!.parseTree,
                         execEnv,
-                        (n) => {
-                            const result = this.getDefinitionsForNode(sourceMapper, n, evaluator);
-                            return result ? result.map((r) => r.path) : [];
-                        },
-                        isUserCode
+                        sourceMapper
                     );
                     checker.check();
                     this._isCheckingNeeded = false;

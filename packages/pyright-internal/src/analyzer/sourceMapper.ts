@@ -34,6 +34,7 @@ import {
 import { ImportResolver } from './importResolver';
 import { SourceFileInfo } from './program';
 import { SourceFile } from './sourceFile';
+import { isUserCode } from './sourceFileInfoUtils';
 import { buildImportTree } from './sourceMapperUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassType, isFunction, isInstantiableClass, isOverloadedFunction } from './types';
@@ -52,6 +53,7 @@ export class SourceMapper {
         private _evaluator: TypeEvaluator,
         private _fileBinder: ShadowFileBinder,
         private _boundSourceGetter: BoundSourceGetter,
+        private _sourceGetter: BoundSourceGetter,
         private _mapCompiled: boolean,
         private _preferStubs: boolean,
         private _fromFile: SourceFileInfo | undefined,
@@ -89,6 +91,10 @@ export class SourceMapper {
         return this._findFunctionOrTypeAliasDeclarations(stubDecl)
             .filter((d) => isFunctionDeclaration(d))
             .map((d) => d as FunctionDeclaration);
+    }
+
+    isUserCode(path: string): boolean {
+        return isUserCode(this._sourceGetter(path));
     }
 
     private _findSpecialBuiltInClassDeclarations(
