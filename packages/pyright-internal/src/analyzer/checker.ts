@@ -15,7 +15,7 @@
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel, ExecutionEnvironment } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { Diagnostic, DiagnosticAddendum, RenameFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
@@ -3523,7 +3523,7 @@ export class Checker extends ParseTreeWalker {
             this._sourceMapper.isUserCode(this._fileInfo.filePath)
         ) {
             // This means the user has a module that is overwriting the stdlib module
-            this._evaluator.addDiagnosticForTextRange(
+            const diag = this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
                 this._fileInfo.diagnosticRuleSet.reportShadowedImports,
                 DiagnosticRule.reportShadowedImports,
@@ -3533,6 +3533,14 @@ export class Checker extends ParseTreeWalker {
                 }),
                 this._moduleNode
             );
+
+            // For the module based error, add an action that renames the file
+            if (diag) {
+                const renameAction: RenameFileAction = {
+                    action: Commands.renameFile,
+                };
+                diag.addAction(renameAction);
+            }
         }
     }
 

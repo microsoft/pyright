@@ -10,7 +10,7 @@ import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-l
 
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../common/diagnostic';
+import { AddMissingOptionalToParamAction, CreateTypeStubFileAction, RenameFileAction } from '../common/diagnostic';
 import { convertPathToUri } from '../common/pathUtils';
 import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
@@ -77,6 +77,21 @@ export class CodeActionProvider {
                         CodeActionKind.QuickFix
                     );
                     codeActions.push(addMissingOptionalAction);
+                }
+            }
+            const saveAs = diags.find((d) => {
+                const actions = d.getActions();
+                return actions && actions.find((a) => a.action === Commands.renameFile);
+            });
+            if (saveAs) {
+                const action = saveAs.getActions()!.find((a) => a.action === Commands.renameFile) as RenameFileAction;
+                if (action) {
+                    const saveAsAction = CodeAction.create(
+                        Localizer.CodeAction.renameFile(),
+                        Command.create(Localizer.CodeAction.renameFile(), Commands.renameFile),
+                        CodeActionKind.QuickFix
+                    );
+                    codeActions.push(saveAsAction);
                 }
             }
         }

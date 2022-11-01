@@ -60,6 +60,10 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
     offsetOfTypeNode: number;
 }
 
+export interface RenameFileAction extends DiagnosticAction {
+    action: Commands.renameFile;
+}
+
 export interface DiagnosticRelatedInfo {
     message: string;
     filePath: string;

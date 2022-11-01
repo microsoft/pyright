@@ -659,7 +659,8 @@
         "filesToAnalyzeOne": "1 file to analyze",
         "filesToAnalyzeCount": "{count} files to analyze",
         "findingReferences": "Finding references",
-        "organizeImports": "Organize Imports"
+        "organizeImports": "Organize Imports",
+        "renameFile": "Rename file"
     },
     "Refactoring": {
         "moveFile": "Do you want to update all import references for \"{oldModuleName}\" to \"{newModuleName}\"?",
