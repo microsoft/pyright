@@ -259,6 +259,8 @@ export class Checker extends ParseTreeWalker {
     check() {
         this._scopedNodes.push(this._moduleNode);
 
+        this._conditionallyReportShadowedModule();
+
         this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
         // Mark symbols accessed by __all__ as accessed.
@@ -3500,6 +3502,37 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             }
+        }
+    }
+
+    private _conditionallyReportShadowedModule() {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return;
+        }
+        // Check the module we're in
+        const moduleName = this._fileInfo.moduleName;
+        const desc: ImportedModuleDescriptor = {
+            nameParts: moduleName.split('.'),
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._execEnv);
+        if (
+            stdlibPath &&
+            this._importResolver.isStdlibModule(desc, this._execEnv) &&
+            this._sourceMapper.isUserCode(this._fileInfo.filePath)
+        ) {
+            // This means the user has a module that is overwriting the stdlib module
+            this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                DiagnosticRule.reportShadowedImports,
+                Localizer.Diagnostic.stdlibModuleOverridden().format({
+                    name: moduleName,
+                    path: this._fileInfo.filePath,
+                }),
+                this._moduleNode
+            );
         }
     }
 

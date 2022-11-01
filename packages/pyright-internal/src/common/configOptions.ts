@@ -472,7 +472,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedExpression: 'none',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
-        reportShadowedImports: 'none',
+        reportShadowedImports: 'warning',
     };
 
     return diagSettings;
