@@ -25,8 +25,7 @@ export class CreateTypeStubCommand implements ServerCommand {
             const service = await AnalyzerServiceExecutor.cloneService(
                 this._ls,
                 await this._ls.getWorkspaceForFile(callingFile ?? workspaceRoot),
-                importName,
-                this._ls.createBackgroundAnalysis()
+                importName
             );
 
             try {

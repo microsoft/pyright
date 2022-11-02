@@ -21,7 +21,7 @@ import {
     LogData,
     run,
 } from './backgroundThreadBase';
-import { throwIfCancellationRequested } from './common/cancellationUtils';
+import { OperationCanceledException, throwIfCancellationRequested } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, log, LogLevel } from './common/console';
 import * as debug from './common/debug';
@@ -193,17 +193,16 @@ export class BackgroundAnalysisBase {
         indexOptions: IndexOptions,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
-        kind: HostKind,
-        indices: Indices
+        kind: HostKind
     ) {
         /* noop */
     }
 
-    refreshIndexing(configOptions: ConfigOptions, importResolver: ImportResolver, kind: HostKind, indices?: Indices) {
+    refreshIndexing(configOptions: ConfigOptions, importResolver: ImportResolver, kind: HostKind) {
         /* noop */
     }
 
-    cancelIndexing(configOptions: ConfigOptions) {
+    cancelIndexing() {
         /* noop */
     }
 
@@ -314,8 +313,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.log(LogLevel.Info, `Background analysis(${threadId}) started`);
 
         // Get requests from main thread.
-        parentPort?.on('message', (msg: AnalysisRequest) => this.onMessage(msg));
-
+        parentPort?.on('message', this._onMessageWrapper.bind(this));
         parentPort?.on('error', (msg) => debug.fail(`failed ${msg}`));
         parentPort?.on('exit', (c) => {
             if (c !== 0) {
@@ -478,6 +476,25 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             default: {
                 debug.fail(`${msg.requestType} is not expected`);
             }
+        }
+    }
+
+    private _onMessageWrapper(msg: AnalysisRequest) {
+        try {
+            return this.onMessage(msg);
+        } catch (e: any) {
+            // Don't crash the worker, just send an exception or cancel message
+            this.log(LogLevel.Log, `Background analysis exception leak: ${e}`);
+
+            if (OperationCanceledException.is(e)) {
+                parentPort?.postMessage({ kind: 'cancelled', data: e.message });
+                return;
+            }
+
+            parentPort?.postMessage({
+                kind: 'failed',
+                data: `Exception: for msg ${msg.requestType}: ${e.message} in ${e.stack}`,
+            });
         }
     }
 

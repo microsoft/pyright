@@ -144,8 +144,6 @@ export interface MaxAnalysisTime {
 export interface Indices {
     setWorkspaceIndex(path: string, indexResults: IndexResults): void;
     getIndex(execEnv: string | undefined): Map<string, IndexResults> | undefined;
-    setIndex(execEnv: string | undefined, path: string, indexResults: IndexResults): void;
-    reset(): void;
 }
 
 interface UpdateImportInfo {

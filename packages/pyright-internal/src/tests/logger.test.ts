@@ -10,6 +10,7 @@ import * as assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from '../common/console';
+import { test_setDebugMode } from '../common/core';
 import { timingStats } from '../common/timing';
 import * as TestUtils from './testUtils';
 
@@ -88,10 +89,13 @@ describe('TypeEvaluatorWithTracker tests', () => {
     });
 
     test('Timing is not captured in debug mode', () => {
-        process.execArgv.push('inspect');
+        const oldValue = test_setDebugMode(true);
+
         config.logTypeEvaluationTime = false;
         console.level = LogLevel.Log;
         TestUtils.typeAnalyzeSampleFiles(['badToken1.py'], config, console);
         assert.equal(timingStats.typeEvaluationTime.callCount, 0, `Should not be tracking call counts when debugging`);
+
+        test_setDebugMode(oldValue);
     });
 });
