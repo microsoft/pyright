@@ -9072,6 +9072,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             assert(paramDetails.params[paramIndex], 'paramIndex params entry is undefined');
             const paramType = paramDetails.params[paramIndex].type;
+            const paramName = paramDetails.params[paramIndex].param.name;
+
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 if (!argList[argIndex].valueExpression) {
                     break;
@@ -9152,6 +9154,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isArgCompatibleWithVariadic = true;
                     advanceToNextArg = true;
                     isVariadicTypeVarFullyMatched = true;
+                } else if (
+                    isParamVariadic &&
+                    isClassInstance(argType) &&
+                    isTupleClass(argType) &&
+                    argType.tupleTypeArguments
+                ) {
+                    // Handle the case where an unpacked tuple argument is
+                    // matched to a TypeVarTuple parameter.
+                    isArgCompatibleWithVariadic = true;
+                    advanceToNextArg = true;
+                    isVariadicTypeVarFullyMatched = true;
+
+                    validateArgTypeParams.push({
+                        paramCategory: ParameterCategory.Simple,
+                        paramType,
+                        requiresTypeVarMatching: requiresSpecialization(paramType),
+                        argument: {
+                            argumentCategory: ArgumentCategory.Simple,
+                            typeResult: {
+                                type: ClassType.cloneForUnpacked(argType),
+                                isIncomplete: argTypeResult.isIncomplete,
+                            },
+                        },
+                        errorNode: argList[argIndex].valueExpression || errorNode,
+                        paramName,
+                        isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
+                    });
                 } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                     listElementType = undefined;
                 } else {
@@ -9173,8 +9202,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (funcArg && argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
-
-                const paramName = paramDetails.params[paramIndex].param.name;
 
                 // It's not allowed to use unpacked arguments with a variadic *args
                 // parameter unless the argument is a variadic arg as well.
