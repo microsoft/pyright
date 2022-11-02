@@ -88,7 +88,7 @@ export class CodeActionProvider {
                 if (action) {
                     const saveAsAction = CodeAction.create(
                         Localizer.CodeAction.renameFile(),
-                        Command.create(Localizer.CodeAction.renameFile(), Commands.renameFile),
+                        Command.create(Localizer.CodeAction.renameFile(), Commands.renameFile, action.file),
                         CodeActionKind.QuickFix
                     );
                     codeActions.push(saveAsAction);

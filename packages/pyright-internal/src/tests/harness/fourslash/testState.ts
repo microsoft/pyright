@@ -583,9 +583,11 @@ export class TestState {
                         ? result.warnings
                         : category === 'information'
                         ? result.information
+                        : category === 'none'
+                        ? []
                         : this.raiseError(`unexpected category ${category}`);
 
-                if (expected.length !== actual.length) {
+                if (expected.length !== actual.length && category !== 'none') {
                     this.raiseError(
                         `contains unexpected result - expected: ${stringify(expected)}, actual: ${stringify(actual)}`
                     );
@@ -601,15 +603,18 @@ export class TestState {
                         return this._deepEqual(diagnosticSpan, rangeSpan);
                     });
 
-                    if (matches.length === 0) {
+                    // If the map is provided, it might say
+                    // a marker should have none.
+                    const name = map ? this.getMarkerName(range.marker!) : '';
+                    const message = map ? map[name].message : undefined;
+                    const expectMatches = !!message;
+
+                    if (expectMatches && matches.length === 0) {
                         this.raiseError(`doesn't contain expected range: ${stringify(range)}`);
                     }
 
                     // if map is provided, check message as well
-                    if (map) {
-                        const name = this.getMarkerName(range.marker!);
-                        const message = map[name].message;
-
+                    if (message) {
                         if (matches.filter((d) => message === d.message).length !== 1) {
                             this.raiseError(
                                 `message doesn't match: ${message} of ${name} - ${stringify(

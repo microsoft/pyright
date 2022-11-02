@@ -288,15 +288,16 @@ export async function activate(context: ExtensionContext) {
             })
         );
         context.subscriptions.push(
-            commands.registerCommand(Commands.renameFile, () => {
-                const file = window.activeTextEditor?.document.uri;
-                if (file) {
+            commands.registerCommand(Commands.renameFile, (file: string) => {
+                // TODO: This only works if the file is actually a file.
+                const original = file ? Uri.file(file) : window.activeTextEditor?.document.uri;
+                if (original) {
                     window
-                        .showSaveDialog({ defaultUri: file, title: Localizer.CodeAction.renameFile() })
+                        .showSaveDialog({ defaultUri: original, title: Localizer.CodeAction.renameFile() })
                         .then((newUri) => {
                             if (newUri) {
                                 const edit = new WorkspaceEdit();
-                                edit.renameFile(file, newUri, { overwrite: true });
+                                edit.renameFile(original, newUri, { overwrite: true });
                                 workspace.applyEdit(edit);
                             }
                         });

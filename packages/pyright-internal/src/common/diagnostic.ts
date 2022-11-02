@@ -62,6 +62,7 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
 
 export interface RenameFileAction extends DiagnosticAction {
     action: Commands.renameFile;
+    file: string;
 }
 
 export interface DiagnosticRelatedInfo {

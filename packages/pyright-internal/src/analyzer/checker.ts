@@ -3534,10 +3534,11 @@ export class Checker extends ParseTreeWalker {
                 this._moduleNode
             );
 
-            // For the module based error, add an action that renames the file.
+            // Add a quick action that renames the file.
             if (diag) {
                 const renameAction: RenameFileAction = {
                     action: Commands.renameFile,
+                    file: this._fileInfo.filePath,
                 };
                 diag.addAction(renameAction);
             }
@@ -3576,7 +3577,7 @@ export class Checker extends ParseTreeWalker {
             paths.forEach((p) => {
                 if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
                     // This means the user has a module that is overwriting the stdlib module.
-                    this._evaluator.addDiagnostic(
+                    const diag = this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportShadowedImports,
                         DiagnosticRule.reportShadowedImports,
                         Localizer.Diagnostic.stdlibModuleOverridden().format({
@@ -3585,6 +3586,14 @@ export class Checker extends ParseTreeWalker {
                         }),
                         node
                     );
+                    // Add a quick action that renames the file.
+                    if (diag) {
+                        const renameAction: RenameFileAction = {
+                            action: Commands.renameFile,
+                            file: p,
+                        };
+                        diag.addAction(renameAction);
+                    }
                 }
             });
         }
