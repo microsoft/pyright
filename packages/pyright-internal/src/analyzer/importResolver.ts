@@ -118,7 +118,7 @@ export class ImportResolver {
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, string[]> | undefined;
     private _cachedTypeshedThirdPartyPackageRoots: string[] | undefined;
     private _cachedEntriesForPath = new Map<string, Dirent[]>();
-
+    private _stdlibModules: Set<string> | undefined;
     protected cachedParentImportResults: ParentDirectoryCache;
 
     constructor(
@@ -706,22 +706,11 @@ export class ImportResolver {
     }
 
     isStdlibModule(module: ImportedModuleDescriptor, execEnv: ExecutionEnvironment): boolean {
-        const unused: string[] = [];
-        if (!this._cachedTypeshedStdLibModuleVersions) {
-            this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(execEnv, unused);
+        if (!this._stdlibModules) {
+            this._stdlibModules = this._buildStdlibCache(this.getTypeshedStdLibPath(execEnv));
         }
 
-        // See if this module exists in the stdlib modules
-        for (let namePartCount = 1; namePartCount <= module.nameParts.length; namePartCount++) {
-            const namePartsToConsider = module.nameParts.slice(0, namePartCount);
-            const versionRange = this._cachedTypeshedStdLibModuleVersions.get(namePartsToConsider.join('.'));
-            if (versionRange) {
-                // There is some version that's allowed so it must be a stdlib module
-                return true;
-            }
-        }
-
-        return false;
+        return this._stdlibModules.has(module.nameParts.join('.'));
     }
 
     getImportRoots(execEnv: ExecutionEnvironment, forLogging = false) {
@@ -1616,6 +1605,31 @@ export class ImportResolver {
 
         importFailureInfo.push(`Typeshed path not found`);
         return undefined;
+    }
+
+    // Finds all of the stdlib modules and returns a Set containing all of their names.
+    private _buildStdlibCache(stdlibRoot: string | undefined): Set<string> {
+        const cache = new Set<string>();
+
+        if (stdlibRoot) {
+            const readDir = (root: string, prefix: string | undefined) => {
+                this.readdirEntriesCached(root).forEach((entry) => {
+                    if (entry.isDirectory()) {
+                        const dirRoot = combinePaths(root, entry.name);
+                        readDir(dirRoot, prefix ? `${prefix}.${entry.name}` : entry.name);
+                    } else if (entry.name.includes('.py')) {
+                        const stripped = stripFileExtension(entry.name);
+                        // Skip __init__.py as a module
+                        if (stripped !== '__init__') {
+                            cache.add(prefix ? `${prefix}.${stripped}` : stripped);
+                        }
+                    }
+                });
+            };
+            readDir(stdlibRoot, undefined);
+        }
+
+        return cache;
     }
 
     // Populates a cache of third-party packages found within the typeshed

@@ -25,12 +25,12 @@
 ////     pass
 
 // @filename: random.py
-//// def stuff():
-////     pass
+//// [|/*marker7*/def stuff():
+////     pass|]
 
 // @filename: curses/ascii.py
-//// # This shouldn't cause a problem when referenced below because the below reference
-//// # will look at the lib curses/ascii.py instead
+//// [|/*marker8*/# This shouldn't cause a problem when referenced below because the below reference
+//// # will look at the lib curses/ascii.py instead|]
 
 // @filename: ctypes/util.py
 //// [|/*marker1*/def foo():
@@ -41,7 +41,7 @@
 
 // @filename: test.py
 //// import [|/*marker2*/ctypes.util|]
-//// [|from /*marker3*/ctypes.util import foo|]
+//// [|from /*marker3*/ctypes.util import find_library|]
 //// import [|/*marker4*/ctypes.util as bar|]
 //// import [|/*marker5*/random|]
 //// import [|/*marker6*/curses.ascii as ascii|]
@@ -71,5 +71,13 @@ await helper.verifyDiagnostics({
     marker6: {
         category: 'none',
         message: undefined,
+    },
+    marker7: {
+        category: 'warning',
+        message: `"\\random.py" is overriding the stdlib module "random". Try renaming "\\random.py" to something else.`,
+    },
+    marker8: {
+        category: 'warning',
+        message: `"\\curses\\ascii.py" is overriding the stdlib module "curses.ascii". Try renaming "\\curses\\ascii.py" to something else.`,
     },
 });
