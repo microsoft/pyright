@@ -89,7 +89,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     return configOptions;
 }
 
-export function run(code: () => any, port: MessagePort) {
+export function run<T = any>(code: () => T, port: MessagePort) {
     try {
         const result = code();
         port.postMessage({ kind: 'ok', data: result });

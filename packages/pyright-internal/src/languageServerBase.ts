@@ -81,7 +81,7 @@ import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram'
 import { CacheManager } from './analyzer/cacheManager';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
-import { AnalyzerService, configFileNames } from './analyzer/service';
+import { AnalyzerService, configFileNames, getNextServiceId } from './analyzer/service';
 import { IPythonMode } from './analyzer/sourceFile';
 import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
@@ -190,7 +190,7 @@ export interface WindowInterface {
 export interface LanguageServerInterface {
     getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance>;
     getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
-    createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
+    createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
     reanalyze(): void;
     restart(): void;
     decodeTextDocumentUri(uriString: string): string;
@@ -340,7 +340,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return this._uriParser.decodeTextDocumentUri(uriString);
     }
 
-    abstract createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
+    abstract createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
 
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 
@@ -402,6 +402,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected abstract createImportResolver(fs: FileSystem, options: ConfigOptions, host: Host): ImportResolver;
 
     protected createBackgroundAnalysisProgram(
+        serviceId: string,
         console: ConsoleInterface,
         configOptions: ConfigOptions,
         importResolver: ImportResolver,
@@ -444,17 +445,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     ): AnalyzerService {
         this.console.info(`Starting service instance "${name}"`);
 
+        const serviceId = getNextServiceId(name);
         const service = new AnalyzerService(name, services?.fs ?? this._serviceFS, {
             console: this.console,
             hostFactory: this.createHost.bind(this),
             importResolverFactory: this.createImportResolver.bind(this),
             extension: this._serverOptions.extension,
-            backgroundAnalysis: services ? services.backgroundAnalysis : this.createBackgroundAnalysis(),
+            backgroundAnalysis: services ? services.backgroundAnalysis : this.createBackgroundAnalysis(serviceId),
             maxAnalysisTime: this._serverOptions.maxAnalysisTimeInForeground,
             backgroundAnalysisProgramFactory: this.createBackgroundAnalysisProgram.bind(this),
             cancellationProvider: this._serverOptions.cancellationProvider,
             libraryReanalysisTimeProvider,
             cacheManager: this._cacheManager,
+            serviceId,
         });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(service.fs, results));
