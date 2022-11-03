@@ -10,7 +10,7 @@
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { StandardConsole } from '../common/console';
+import { NullConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
 import { FileSystem } from '../common/fileSystem';
@@ -79,7 +79,7 @@ export class PackageTypeVerifier {
 
         // Make sure we have default python version and platform set if the user didn't
         // specify these on the command line.
-        const console = new StandardConsole();
+        const console = new NullConsole();
         this._configOptions.ensureDefaultPythonPlatform(host, console);
         this._configOptions.ensureDefaultPythonVersion(host, console);
 
