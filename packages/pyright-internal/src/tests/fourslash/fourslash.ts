@@ -232,7 +232,7 @@ declare namespace _ {
         convertPositionRange(range: Range): PositionRange;
         convertPathToUri(path: string): string;
         getDirectoryPath(path: string): string;
-
+        getPathSep(): string;
         goToBOF(): void;
         goToEOF(): void;
         goToPosition(positionOrLineAndColumn: number | LineAndColumn): void;

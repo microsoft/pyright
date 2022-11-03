@@ -6,9 +6,9 @@
  * TestState wraps currently test states and provides a way to query and manipulate
  * the test states.
  */
-
 import assert from 'assert';
 import * as JSONC from 'jsonc-parser';
+import * as path from 'path';
 import Char from 'typescript-char';
 import {
     AnnotatedTextEdit,
@@ -330,6 +330,10 @@ export class TestState {
         return getDirectoryPath(path);
     }
 
+    getPathSep() {
+        return path.sep;
+    }
+
     goToPosition(positionOrLineAndColumn: number | Position) {
         const pos = isNumber(positionOrLineAndColumn)
             ? positionOrLineAndColumn
@@ -614,6 +618,8 @@ export class TestState {
 
                     if (expectMatches && matches.length === 0) {
                         this.raiseError(`doesn't contain expected range: ${stringify(range)}`);
+                    } else if (!expectMatches && matches.length !== 0) {
+                        this.raiseError(`${name} should not contain any matches`);
                     }
 
                     // if map is provided, check message as well

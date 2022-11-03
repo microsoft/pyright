@@ -50,23 +50,23 @@
 await helper.verifyDiagnostics({
     marker1: {
         category: 'warning',
-        message: `"\\ctypes\\util.py" is overriding the stdlib module "ctypes.util". Try renaming "\\ctypes\\util.py" to something else.`,
+        message: `"${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" is overriding the stdlib module "ctypes.util". Try renaming "${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" to something else.`,
     },
     marker2: {
         category: 'warning',
-        message: `"\\ctypes\\util.py" is overriding the stdlib module "ctypes.util". Try renaming "\\ctypes\\util.py" to something else.`,
+        message: `"${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" is overriding the stdlib module "ctypes.util". Try renaming "${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" to something else.`,
     },
     marker3: {
         category: 'warning',
-        message: `"\\ctypes\\util.py" is overriding the stdlib module "ctypes.util". Try renaming "\\ctypes\\util.py" to something else.`,
+        message: `"${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" is overriding the stdlib module "ctypes.util". Try renaming "${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" to something else.`,
     },
     marker4: {
         category: 'warning',
-        message: `"\\ctypes\\util.py" is overriding the stdlib module "ctypes.util". Try renaming "\\ctypes\\util.py" to something else.`,
+        message: `"${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" is overriding the stdlib module "ctypes.util". Try renaming "${helper.getPathSep()}ctypes${helper.getPathSep()}util.py" to something else.`,
     },
     marker5: {
         category: 'warning',
-        message: `"\\random.py" is overriding the stdlib module "random". Try renaming "\\random.py" to something else.`,
+        message: `"${helper.getPathSep()}random.py" is overriding the stdlib module "random". Try renaming "${helper.getPathSep()}random.py" to something else.`,
     },
     marker6: {
         category: 'none',
@@ -74,10 +74,10 @@ await helper.verifyDiagnostics({
     },
     marker7: {
         category: 'warning',
-        message: `"\\random.py" is overriding the stdlib module "random". Try renaming "\\random.py" to something else.`,
+        message: `"${helper.getPathSep()}random.py" is overriding the stdlib module "random". Try renaming "${helper.getPathSep()}random.py" to something else.`,
     },
     marker8: {
         category: 'warning',
-        message: `"\\curses\\ascii.py" is overriding the stdlib module "curses.ascii". Try renaming "\\curses\\ascii.py" to something else.`,
+        message: `"${helper.getPathSep()}curses${helper.getPathSep()}ascii.py" is overriding the stdlib module "curses.ascii". Try renaming "${helper.getPathSep()}curses${helper.getPathSep()}ascii.py" to something else.`,
     },
 });
