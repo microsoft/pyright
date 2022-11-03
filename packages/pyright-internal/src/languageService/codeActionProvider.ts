@@ -86,12 +86,12 @@ export class CodeActionProvider {
                     codeActions.push(addMissingOptionalAction);
                 }
             }
-            const saveAs = diags.find((d) => {
+            const renameShadowed = diags.find((d) => {
                 const actions = d.getActions();
                 return actions && actions.find((a) => a.action === ActionKind.RenameShadowedFileAction);
             });
-            if (saveAs) {
-                const action = saveAs
+            if (renameShadowed) {
+                const action = renameShadowed
                     .getActions()!
                     .find((a) => a.action === ActionKind.RenameShadowedFileAction) as RenameShadowedFileAction;
                 if (action) {
@@ -111,8 +111,8 @@ export class CodeActionProvider {
                         ],
                     };
                     const workspaceEdit = convertWorkspaceDocumentEdits(fs, editActions);
-                    const saveAsAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
-                    codeActions.push(saveAsAction);
+                    const renameAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
+                    codeActions.push(renameAction);
                 }
             }
         }
