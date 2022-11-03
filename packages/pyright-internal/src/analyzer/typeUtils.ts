@@ -371,23 +371,28 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         } else if (param.category === ParameterCategory.VarArgDictionary) {
             sawKeywordOnlySeparator = true;
 
+            const paramType = FunctionType.getEffectiveParameterType(type, index);
+
             // Is this an unpacked TypedDict? If so, expand the entries.
-            if (isClassInstance(param.type) && isUnpackedClass(param.type) && param.type.details.typedDictEntries) {
+            if (isClassInstance(paramType) && isUnpackedClass(paramType) && paramType.details.typedDictEntries) {
                 if (result.firstKeywordOnlyIndex === undefined) {
                     result.firstKeywordOnlyIndex = result.params.length;
                 }
 
-                param.type.details.typedDictEntries.forEach((entry, name) => {
+                const typedDictType = paramType;
+                paramType.details.typedDictEntries.forEach((entry, name) => {
+                    const specializedParamType = partiallySpecializeType(entry.valueType, typedDictType);
+
                     addVirtualParameter(
                         {
                             category: ParameterCategory.Simple,
                             name,
-                            type: entry.valueType,
+                            type: specializedParamType,
                             hasDeclaredType: true,
                             hasDefault: !entry.isRequired,
                         },
                         index,
-                        entry.valueType
+                        specializedParamType
                     );
                 });
 
