@@ -259,6 +259,9 @@ export function getCodeFlowEngine(
                 return getCacheEntry(flowNode);
             }
 
+            // Cache either contains a type or an object that represents an incomplete type.
+            // Incomplete types are types that haven't gone through all flow nodes yet.
+            // Incomplete only happens for branch and loop nodes.
             function getCacheEntry(flowNode: FlowNode): FlowNodeTypeResult | undefined {
                 if (!flowNodeTypeCache.cache.has(flowNode.id)) {
                     return undefined;

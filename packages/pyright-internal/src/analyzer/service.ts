@@ -59,7 +59,7 @@ import { timingStats } from '../common/timing';
 import { AutoImportOptions } from '../languageService/autoImporter';
 import { AbbreviationMap, CompletionOptions, CompletionResultsList } from '../languageService/completionProvider';
 import { DefinitionFilter } from '../languageService/definitionProvider';
-import { IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
+import { WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -99,6 +99,14 @@ export interface AnalyzerServiceOptions {
     cancellationProvider?: CancellationProvider;
     libraryReanalysisTimeProvider?: () => number;
     cacheManager?: CacheManager;
+    serviceId?: string;
+}
+
+// Hold uniqueId for this service. It can be used to distinguish each service later.
+let _nextServiceId = 1;
+
+export function getNextServiceId(name: string) {
+    return `${name}_${_nextServiceId++}`;
 }
 
 export class AnalyzerService {
@@ -126,9 +134,11 @@ export class AnalyzerService {
 
     constructor(instanceName: string, fs: FileSystem, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
+
         this._executionRootPath = '';
         this._options = options;
 
+        this._options.serviceId = this._options.serviceId ?? getNextServiceId(instanceName);
         this._options.console = options.console || new StandardConsole();
         this._options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
         this._options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
@@ -144,6 +154,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram =
             this._options.backgroundAnalysisProgramFactory !== undefined
                 ? this._options.backgroundAnalysisProgramFactory(
+                      this._options.serviceId,
                       this._options.console,
                       this._options.configOptions,
                       importResolver,
@@ -164,8 +175,17 @@ export class AnalyzerService {
                   );
     }
 
-    clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase, fs?: FileSystem): AnalyzerService {
-        const service = new AnalyzerService(instanceName, fs ?? this.fs, { ...this._options, backgroundAnalysis });
+    clone(
+        instanceName: string,
+        serviceId: string,
+        backgroundAnalysis?: BackgroundAnalysisBase,
+        fs?: FileSystem
+    ): AnalyzerService {
+        const service = new AnalyzerService(instanceName, fs ?? this.fs, {
+            ...this._options,
+            serviceId,
+            backgroundAnalysis,
+        });
 
         // Make sure we keep editor content (open file) which could be different than one in the file system.
         for (const fileInfo of this.backgroundAnalysisProgram.program.getOpened()) {
@@ -302,13 +322,6 @@ export class AnalyzerService {
             realFilePath: undefined,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
-    }
-
-    test_setIndexing(
-        workspaceIndices: Map<string, IndexResults>,
-        libraryIndices: Map<string | undefined, Map<string, IndexResults>>
-    ) {
-        this._backgroundAnalysisProgram.test_setIndexing(workspaceIndices, libraryIndices);
     }
 
     startIndexing(indexOptions: IndexOptions) {

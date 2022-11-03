@@ -74,9 +74,8 @@ v5: Array[int, str] = v1
 
 
 def test1(p1: Tuple[str, int], p2: List[str]):
-    # This should generate an error because unpacked
-    # arguments are not supported for variadic parameters.
     v6 = Array(*p1)
+    reveal_type(v6, expected_text="Array[str, int]")
 
     # Same thing.
     v7 = Array(int, *p1, str)
