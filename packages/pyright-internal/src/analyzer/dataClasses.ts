@@ -465,47 +465,49 @@ export function synthesizeDataClassMethods(
     const symbolTable = classType.details.fields;
     const keywordOnlyParams: FunctionParameter[] = [];
 
-    if (!skipSynthesizeInit && !hasExistingInitMethod && allAncestorsKnown) {
-        fullDataClassEntries.forEach((entry) => {
-            if (entry.includeInInit) {
-                // If the type refers to Self of the parent class, we need to
-                // transform it to refer to the Self of this subclass.
-                let effectiveType = entry.type;
-                if (entry.classType !== classType && requiresSpecialization(effectiveType)) {
-                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(entry.classType));
-                    populateTypeVarContextForSelfType(typeVarContext, entry.classType, classType);
-                    effectiveType = applySolvedTypeVars(effectiveType, typeVarContext);
+    if (!skipSynthesizeInit && !hasExistingInitMethod) {
+        if (allAncestorsKnown) {
+            fullDataClassEntries.forEach((entry) => {
+                if (entry.includeInInit) {
+                    // If the type refers to Self of the parent class, we need to
+                    // transform it to refer to the Self of this subclass.
+                    let effectiveType = entry.type;
+                    if (entry.classType !== classType && requiresSpecialization(effectiveType)) {
+                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(entry.classType));
+                        populateTypeVarContextForSelfType(typeVarContext, entry.classType, classType);
+                        effectiveType = applySolvedTypeVars(effectiveType, typeVarContext);
+                    }
+
+                    // Is the field type a descriptor object? If so, we need to extract the corresponding
+                    // type of the __init__ method parameter from the __set__ method.
+                    effectiveType = transformDescriptorType(evaluator, effectiveType);
+
+                    const functionParam: FunctionParameter = {
+                        category: ParameterCategory.Simple,
+                        name: entry.alias || entry.name,
+                        hasDefault: entry.hasDefault,
+                        defaultValueExpression: entry.defaultValueExpression,
+                        type: effectiveType,
+                        hasDeclaredType: true,
+                    };
+
+                    if (entry.isKeywordOnly) {
+                        keywordOnlyParams.push(functionParam);
+                    } else {
+                        FunctionType.addParameter(initType, functionParam);
+                    }
                 }
+            });
 
-                // Is the field type a descriptor object? If so, we need to extract the corresponding
-                // type of the __init__ method parameter from the __set__ method.
-                effectiveType = transformDescriptorType(evaluator, effectiveType);
-
-                const functionParam: FunctionParameter = {
-                    category: ParameterCategory.Simple,
-                    name: entry.alias || entry.name,
-                    hasDefault: entry.hasDefault,
-                    defaultValueExpression: entry.defaultValueExpression,
-                    type: effectiveType,
-                    hasDeclaredType: true,
-                };
-
-                if (entry.isKeywordOnly) {
-                    keywordOnlyParams.push(functionParam);
-                } else {
-                    FunctionType.addParameter(initType, functionParam);
-                }
+            if (keywordOnlyParams.length > 0) {
+                FunctionType.addParameter(initType, {
+                    category: ParameterCategory.VarArgList,
+                    type: AnyType.create(),
+                });
+                keywordOnlyParams.forEach((param) => {
+                    FunctionType.addParameter(initType, param);
+                });
             }
-        });
-
-        if (keywordOnlyParams.length > 0) {
-            FunctionType.addParameter(initType, {
-                category: ParameterCategory.VarArgList,
-                type: AnyType.create(),
-            });
-            keywordOnlyParams.forEach((param) => {
-                FunctionType.addParameter(initType, param);
-            });
         }
 
         symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
