@@ -678,11 +678,19 @@ export function printObjectTypeForClass(
                     objName += '[' + typeArgStrings.join(', ') + ']';
                 }
             } else {
+                if (type.isUnpacked) {
+                    objName = '*' + objName;
+                }
+
                 if (ClassType.isTupleClass(type) || isVariadic) {
                     objName += '[()]';
                 }
             }
         } else {
+            if (type.isUnpacked) {
+                objName = '*' + objName;
+            }
+
             if (typeParams.length > 0) {
                 if (
                     (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
@@ -779,8 +787,9 @@ export function printFunctionParts(
                     paramString += '*';
                 }
 
+                // If this is an unpacked TypeDict for a **kwargs parameter, add another star.
                 if (param.category === ParameterCategory.VarArgDictionary && isUnpacked(paramType)) {
-                    paramString += '**';
+                    paramString += '*';
                 }
 
                 paramString += paramTypeString;

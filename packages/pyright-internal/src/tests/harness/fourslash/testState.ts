@@ -32,6 +32,7 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
+import { BackgroundAnalysisProgramFactory } from '../../../analyzer/backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
@@ -98,6 +99,7 @@ export interface TextChange {
 
 export interface HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory;
+    backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory;
 
     runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean, options?: string): void;
     getCodeActionsForPosition(
@@ -165,6 +167,7 @@ export class TestState {
         const service = this._createAnalysisService(
             this.console,
             this._hostSpecificFeatures.importResolverFactory,
+            this._hostSpecificFeatures.backgroundAnalysisProgramFactory,
             configOptions
         );
 
@@ -1821,6 +1824,7 @@ export class TestState {
     private _createAnalysisService(
         nullConsole: ConsoleInterface,
         importResolverFactory: ImportResolverFactory,
+        backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory,
         configOptions: ConfigOptions
     ) {
         // we do not initiate automatic analysis or file watcher in test.
@@ -1828,6 +1832,7 @@ export class TestState {
             console: nullConsole,
             hostFactory: () => testAccessHost,
             importResolverFactory,
+            backgroundAnalysisProgramFactory,
             configOptions,
         });
 

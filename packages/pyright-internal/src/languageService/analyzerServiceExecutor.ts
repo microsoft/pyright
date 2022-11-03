@@ -8,8 +8,7 @@
  * with a specified set of options.
  */
 import { isPythonBinary } from '../analyzer/pythonPathUtils';
-import { AnalyzerService } from '../analyzer/service';
-import type { BackgroundAnalysis } from '../backgroundAnalysis';
+import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { createDeferred } from '../common/deferred';
@@ -46,17 +45,24 @@ export class AnalyzerServiceExecutor {
         ls: LanguageServerInterface,
         workspace: WorkspaceServiceInstance,
         typeStubTargetImportName?: string,
-        backgroundAnalysis?: BackgroundAnalysis,
         fileSystem?: FileSystem
     ): Promise<AnalyzerService> {
         // Allocate a temporary pseudo-workspace to perform this job.
+        const instanceName = 'cloned service';
+        const serviceId = getNextServiceId(instanceName);
+
         const tempWorkspace: WorkspaceServiceInstance = {
             workspaceName: `temp workspace for cloned service`,
             rootPath: workspace.rootPath,
             path: workspace.path,
             uri: workspace.uri,
             kinds: [...workspace.kinds, WellKnownWorkspaceKinds.Cloned],
-            serviceInstance: workspace.serviceInstance.clone('cloned service', backgroundAnalysis, fileSystem),
+            serviceInstance: workspace.serviceInstance.clone(
+                instanceName,
+                serviceId,
+                ls.createBackgroundAnalysis(serviceId),
+                fileSystem
+            ),
             disableLanguageServices: true,
             disableOrganizeImports: true,
             disableWorkspaceSymbol: true,

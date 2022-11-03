@@ -127,9 +127,21 @@ export function toBoolean(trueOrFalse: string): boolean {
     return false;
 }
 
+let _debugMode: boolean | undefined = undefined;
+export function test_setDebugMode(debugMode: boolean | undefined) {
+    const oldValue = _debugMode;
+    _debugMode = debugMode;
+    return oldValue;
+}
+
 export function isDebugMode() {
-    const argv = process.execArgv.join();
-    return argv.includes('inspect') || argv.includes('debug');
+    if (_debugMode === undefined) {
+        // Cache debugging mode since it can't be changed while process is running.
+        const argv = process.execArgv.join();
+        _debugMode = argv.includes('inspect') || argv.includes('debug');
+    }
+
+    return _debugMode;
 }
 
 interface Thenable<T> {
@@ -149,4 +161,15 @@ export function isThenable<T>(v: any): v is Thenable<T> {
 
 export function isDefined<T>(element: T | undefined): element is T {
     return element !== undefined;
+}
+
+export function getEnumNames<T>(enumType: T) {
+    const result: string[] = [];
+    for (const value in enumType) {
+        if (isNaN(Number(value))) {
+            result.push(value);
+        }
+    }
+
+    return result;
 }
