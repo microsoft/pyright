@@ -22,8 +22,6 @@ import {
     TextEditorEdit,
     Uri,
     window,
-    workspace,
-    WorkspaceEdit,
 } from 'vscode';
 import {
     CancellationToken,
@@ -41,7 +39,6 @@ import {
 
 import { Commands } from 'pyright-internal/commands/commands';
 import { isThenable } from 'pyright-internal/common/core';
-import { Localizer } from 'pyright-internal/localization/localize';
 
 import { FileBasedCancellationStrategy } from './cancellationUtils';
 
@@ -284,23 +281,6 @@ export async function activate(context: ExtensionContext) {
                         command: Commands.dumpFileDebugInfo,
                         arguments: [fileName, 'codeflowgraph', startOffset],
                     });
-                }
-            })
-        );
-        context.subscriptions.push(
-            commands.registerCommand(Commands.renameFile, (file: string) => {
-                // TODO: This only works if the file is actually a file.
-                const original = file ? Uri.file(file) : window.activeTextEditor?.document.uri;
-                if (original) {
-                    window
-                        .showSaveDialog({ defaultUri: original, title: Localizer.CodeAction.renameFile() })
-                        .then((newUri) => {
-                            if (newUri) {
-                                const edit = new WorkspaceEdit();
-                                edit.renameFile(original, newUri, { overwrite: true });
-                                workspace.applyEdit(edit);
-                            }
-                        });
                 }
             })
         );

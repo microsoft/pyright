@@ -1312,7 +1312,10 @@ export namespace Localizer {
             new ParameterizedString<{ count: number }>(getRawString('CodeAction.filesToAnalyzeCount'));
         export const findingReferences = () => getRawString('CodeAction.findingReferences');
         export const organizeImports = () => getRawString('CodeAction.organizeImports');
-        export const renameFile = () => getRawString('CodeAction.renameFile');
+        export const renameShadowedFile = () =>
+            new ParameterizedString<{ newFile: string; oldFile: string }>(
+                getRawString('CodeAction.renameShadowedFile')
+            );
     }
 
     export namespace Refactoring {

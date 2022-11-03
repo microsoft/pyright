@@ -19,5 +19,4 @@ export const enum Commands {
     dumpTypes = 'pyright.dumpTypes',
     dumpCachedTypes = 'pyright.dumpCachedTypes',
     dumpCodeFlowGraph = 'pyright.dumpCodeFlowGraph',
-    renameFile = 'pyright.renameFile',
 }

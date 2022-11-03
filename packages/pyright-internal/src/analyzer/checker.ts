@@ -15,7 +15,7 @@
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel, ExecutionEnvironment } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
-import { Diagnostic, DiagnosticAddendum, RenameFileAction } from '../common/diagnostic';
+import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
@@ -3536,9 +3536,10 @@ export class Checker extends ParseTreeWalker {
 
             // Add a quick action that renames the file.
             if (diag) {
-                const renameAction: RenameFileAction = {
-                    action: Commands.renameFile,
-                    file: this._fileInfo.filePath,
+                const renameAction: RenameShadowedFileAction = {
+                    action: ActionKind.RenameShadowedFileAction,
+                    oldFile: this._fileInfo.filePath,
+                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.filePath),
                 };
                 diag.addAction(renameAction);
             }
@@ -3588,9 +3589,10 @@ export class Checker extends ParseTreeWalker {
                     );
                     // Add a quick action that renames the file.
                     if (diag) {
-                        const renameAction: RenameFileAction = {
-                            action: Commands.renameFile,
-                            file: p,
+                        const renameAction: RenameShadowedFileAction = {
+                            action: ActionKind.RenameShadowedFileAction,
+                            oldFile: p,
+                            newFile: this._sourceMapper.getNextFileName(p),
                         };
                         diag.addAction(renameAction);
                     }

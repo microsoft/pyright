@@ -10,9 +10,16 @@ import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-l
 
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { AddMissingOptionalToParamAction, CreateTypeStubFileAction, RenameFileAction } from '../common/diagnostic';
-import { convertPathToUri } from '../common/pathUtils';
+import {
+    ActionKind,
+    AddMissingOptionalToParamAction,
+    CreateTypeStubFileAction,
+    RenameShadowedFileAction,
+} from '../common/diagnostic';
+import { FileEditActions } from '../common/editAction';
+import { convertPathToUri, getShortenedFileName } from '../common/pathUtils';
 import { Range } from '../common/textRange';
+import { convertWorkspaceDocumentEdits } from '../common/workspaceEditUtils';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 import { Localizer } from '../localization/localize';
 
@@ -81,16 +88,30 @@ export class CodeActionProvider {
             }
             const saveAs = diags.find((d) => {
                 const actions = d.getActions();
-                return actions && actions.find((a) => a.action === Commands.renameFile);
+                return actions && actions.find((a) => a.action === ActionKind.RenameShadowedFileAction);
             });
             if (saveAs) {
-                const action = saveAs.getActions()!.find((a) => a.action === Commands.renameFile) as RenameFileAction;
+                const action = saveAs
+                    .getActions()!
+                    .find((a) => a.action === ActionKind.RenameShadowedFileAction) as RenameShadowedFileAction;
                 if (action) {
-                    const saveAsAction = CodeAction.create(
-                        Localizer.CodeAction.renameFile(),
-                        Command.create(Localizer.CodeAction.renameFile(), Commands.renameFile, action.file),
-                        CodeActionKind.QuickFix
-                    );
+                    const title = Localizer.CodeAction.renameShadowedFile().format({
+                        oldFile: getShortenedFileName(action.oldFile),
+                        newFile: getShortenedFileName(action.newFile),
+                    });
+                    const fs = workspace.serviceInstance.getImportResolver().fileSystem;
+                    const editActions: FileEditActions = {
+                        edits: [],
+                        fileOperations: [
+                            {
+                                kind: 'rename',
+                                oldFilePath: action.oldFile,
+                                newFilePath: action.newFile,
+                            },
+                        ],
+                    };
+                    const workspaceEdit = convertWorkspaceDocumentEdits(fs, editActions);
+                    const saveAsAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
                     codeActions.push(saveAsAction);
                 }
             }

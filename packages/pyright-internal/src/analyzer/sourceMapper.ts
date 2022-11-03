@@ -14,7 +14,7 @@ import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { isDefined } from '../common/core';
 import { assertNever } from '../common/debug';
-import { combinePaths, getAnyExtensionFromPath } from '../common/pathUtils';
+import { combinePaths, getAnyExtensionFromPath, stripFileExtension } from '../common/pathUtils';
 import { ClassNode, ImportFromNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import {
     AliasDeclaration,
@@ -95,6 +95,17 @@ export class SourceMapper {
 
     isUserCode(path: string): boolean {
         return isUserCode(this._sourceGetter(path));
+    }
+
+    getNextFileName(path: string) {
+        const withoutExtension = stripFileExtension(path);
+        let suffix = 1;
+        let result = `${withoutExtension}_${suffix}.py`;
+        while (this.isUserCode(result) && suffix < 1000) {
+            suffix += 1;
+            result = `${withoutExtension}_${suffix}.py`;
+        }
+        return result;
     }
 
     private _findSpecialBuiltInClassDeclarations(
