@@ -390,6 +390,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnusedExpression,
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
+        DiagnosticRule.reportShadowedImports,
     ];
 }
 
@@ -551,7 +552,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedExpression: 'warning',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
-        reportShadowedImports: 'warning',
+        reportShadowedImports: 'none',
     };
 
     return diagSettings;
@@ -630,7 +631,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedExpression: 'error',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
-        reportShadowedImports: 'error',
+        reportShadowedImports: 'none',
     };
 
     return diagSettings;
