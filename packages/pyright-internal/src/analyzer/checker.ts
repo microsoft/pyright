@@ -13,7 +13,7 @@
  */
 
 import { Commands } from '../commands/commands';
-import { DiagnosticLevel, ExecutionEnvironment } from '../common/configOptions';
+import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
 import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -276,13 +276,7 @@ export class Checker extends ParseTreeWalker {
 
         this._reportDuplicateImports();
 
-        MissingModuleSourceReporter.report(
-            this._importResolver,
-            this._evaluator,
-            this._fileInfo,
-            this._moduleNode,
-            this._fileInfo.executionEnvironment
-        );
+        MissingModuleSourceReporter.report(this._importResolver, this._evaluator, this._fileInfo, this._moduleNode);
     }
 
     override walk(node: ParseNode) {
@@ -5819,22 +5813,20 @@ class MissingModuleSourceReporter extends ParseTreeWalker {
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
         fileInfo: AnalyzerFileInfo,
-        node: ModuleNode,
-        execEnv: ExecutionEnvironment
+        node: ModuleNode
     ) {
         if (fileInfo.isStubFile) {
             // Don't report this for stub files.
             return;
         }
 
-        new MissingModuleSourceReporter(importResolver, evaluator, fileInfo, execEnv).walk(node);
+        new MissingModuleSourceReporter(importResolver, evaluator, fileInfo).walk(node);
     }
 
     private constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _fileInfo: AnalyzerFileInfo,
-        private _execEnv: ExecutionEnvironment
+        private _fileInfo: AnalyzerFileInfo
     ) {
         super();
     }
