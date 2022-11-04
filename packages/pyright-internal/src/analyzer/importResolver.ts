@@ -133,6 +133,7 @@ export class ImportResolver {
         this._cachedImportResults = new Map<string | undefined, CachedImportResults>();
         this._cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
         this.cachedParentImportResults.reset();
+        this._stdlibModules = undefined;
 
         this._invalidateFileSystemCache();
 

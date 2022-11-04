@@ -248,7 +248,6 @@ export class Checker extends ParseTreeWalker {
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
         private _moduleNode: ModuleNode,
-        private _execEnv: ExecutionEnvironment,
         private _sourceMapper: SourceMapper
     ) {
         super();
@@ -282,7 +281,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator,
             this._fileInfo,
             this._moduleNode,
-            this._execEnv
+            this._fileInfo.executionEnvironment
         );
     }
 
@@ -3516,10 +3515,10 @@ export class Checker extends ParseTreeWalker {
             leadingDots: 0,
             importedSymbols: [],
         };
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._execEnv);
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
         if (
             stdlibPath &&
-            this._importResolver.isStdlibModule(desc, this._execEnv) &&
+            this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
             this._sourceMapper.isUserCode(this._fileInfo.filePath)
         ) {
             // This means the user has a module that is overwriting the stdlib module.
@@ -3565,9 +3564,9 @@ export class Checker extends ParseTreeWalker {
 
         // Make sure the module is a potential stdlib one so we don't spend the time
         // searching for the definition.
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._execEnv);
-        if (stdlibPath && this._importResolver.isStdlibModule(module, this._execEnv)) {
-            // If the definition for this name is in 'user' module, it is overwriting the stdlib module
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
+        if (stdlibPath && this._importResolver.isStdlibModule(module, this._fileInfo.executionEnvironment)) {
+            // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
             const definitions = DefinitionProvider.getDefinitionsForNode(
                 this._sourceMapper,
                 namePartNodes[namePartNodes.length - 1],

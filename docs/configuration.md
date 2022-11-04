@@ -331,6 +331,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportMissingTypeArgument                 | "none"     | "none"     | "error"    |
 | reportOverlappingOverload                 | "none"     | "none"     | "error"    |
 | reportPrivateUsage                        | "none"     | "none"     | "error"    |
+| reportShadowedImports                     | "none"     | "warning"  | "error"    |
 | reportTypeCommentUsage                    | "none"     | "none"     | "error"    |
 | reportUnknownArgumentType                 | "none"     | "none"     | "error"    |
 | reportUnknownLambdaType                   | "none"     | "none"     | "error"    |

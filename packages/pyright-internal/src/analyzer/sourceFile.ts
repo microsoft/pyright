@@ -1315,13 +1315,7 @@ export class SourceFile {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
-                    const checker = new Checker(
-                        importResolver,
-                        evaluator,
-                        this._parseResults!.parseTree,
-                        execEnv,
-                        sourceMapper
-                    );
+                    const checker = new Checker(importResolver, evaluator, this._parseResults!.parseTree, sourceMapper);
                     checker.check();
                     this._isCheckingNeeded = false;
 
