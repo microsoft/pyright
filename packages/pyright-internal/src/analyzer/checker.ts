@@ -4190,6 +4190,11 @@ export class Checker extends ParseTreeWalker {
     // Reports the case where an instance variable is not declared or initialized
     // within the class body or constructor method.
     private _validateInstanceVariableInitialization(classType: ClassType) {
+        // This check doesn't apply to stub files.
+        if (this._fileInfo.isStubFile) {
+            return;
+        }
+
         // This check can be expensive, so don't perform it if the corresponding
         // rule is disabled.
         if (this._fileInfo.diagnosticRuleSet.reportUninitializedInstanceVariable === 'none') {
