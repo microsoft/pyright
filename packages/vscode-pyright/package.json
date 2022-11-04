@@ -835,6 +835,17 @@
                                 "warning",
                                 "error"
                             ]
+                        },
+                        "reportShadowedImports": {
+                            "type": "string",
+                            "description": "Diagnostics for files that are overriding a module in the stdlib.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
                         }
                     }
                 },

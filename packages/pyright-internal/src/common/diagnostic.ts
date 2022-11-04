@@ -16,6 +16,10 @@ const defaultMaxDepth = 5;
 const defaultMaxLineCount = 8;
 const maxRecursionCount = 64;
 
+export const enum ActionKind {
+    RenameShadowedFileAction = 'renameShadowedFile',
+}
+
 export const enum DiagnosticCategory {
     Error,
     Warning,
@@ -58,6 +62,12 @@ export interface CreateTypeStubFileAction extends DiagnosticAction {
 export interface AddMissingOptionalToParamAction extends DiagnosticAction {
     action: Commands.addMissingOptionalToParam;
     offsetOfTypeNode: number;
+}
+
+export interface RenameShadowedFileAction extends DiagnosticAction {
+    action: ActionKind.RenameShadowedFileAction;
+    oldFile: string;
+    newFile: string;
 }
 
 export interface DiagnosticRelatedInfo {

@@ -78,4 +78,5 @@ export enum DiagnosticRule {
     reportUnusedExpression = 'reportUnusedExpression',
     reportUnnecessaryTypeIgnoreComment = 'reportUnnecessaryTypeIgnoreComment',
     reportMatchNotExhaustive = 'reportMatchNotExhaustive',
+    reportShadowedImports = 'reportShadowedImports',
 }

@@ -232,7 +232,7 @@ declare namespace _ {
         convertPositionRange(range: Range): PositionRange;
         convertPathToUri(path: string): string;
         getDirectoryPath(path: string): string;
-
+        getPathSep(): string;
         goToBOF(): void;
         goToEOF(): void;
         goToPosition(positionOrLineAndColumn: number | LineAndColumn): void;
@@ -251,7 +251,7 @@ declare namespace _ {
         openFile(indexOrName: number | string): void;
         openFiles(indexOrNames: (number | string)[]): void;
 
-        verifyDiagnostics(map?: { [marker: string]: { category: string; message: string } }): void;
+        verifyDiagnostics(map?: { [marker: string]: { category: string; message: string | undefined } }): void;
         verifyCodeActions(
             map: {
                 [marker: string]: {

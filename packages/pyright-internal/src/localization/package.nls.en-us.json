@@ -368,6 +368,7 @@
         "starPatternInOrPattern": "Star pattern cannot be ORed within other patterns",
         "starStarWildcardNotAllowed": "** cannot be used with wildcard \"_\"",
         "staticClsSelfParam": "Static methods should not take a \"self\" or \"cls\" parameter",
+        "stdlibModuleOverridden": "\"{path}\" is overriding the stdlib module \"{name}\"",
         "strictTypeGuardReturnType": "Return type of StrictTypeGuard (\"{returnType}\") is not assignable to value parameter type (\"{type}\")",
         "stringNonAsciiBytes": "Non-ASCII character not allowed in bytes string literal",
         "stringNotSubscriptable": "String expression cannot be subscripted in type annotation; enclose entire annotation in quotes",
@@ -658,7 +659,8 @@
         "filesToAnalyzeOne": "1 file to analyze",
         "filesToAnalyzeCount": "{count} files to analyze",
         "findingReferences": "Finding references",
-        "organizeImports": "Organize Imports"
+        "organizeImports": "Organize Imports",
+        "renameShadowedFile": "Rename \"{oldFile}\" to \"{newFile}\""
     },
     "Refactoring": {
         "moveFile": "Do you want to update all import references for \"{oldModuleName}\" to \"{newModuleName}\"?",

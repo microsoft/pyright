@@ -295,6 +295,9 @@ export interface DiagnosticRuleSet {
     // Report cases where the a "match" statement is not exhaustive in
     // covering all possible cases.
     reportMatchNotExhaustive: DiagnosticLevel;
+
+    // Report files that match stdlib modules.
+    reportShadowedImports: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -387,6 +390,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnusedExpression,
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
+        DiagnosticRule.reportShadowedImports,
     ];
 }
 
@@ -469,6 +473,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedExpression: 'none',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
+        reportShadowedImports: 'none',
     };
 
     return diagSettings;
@@ -547,6 +552,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedExpression: 'warning',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
+        reportShadowedImports: 'none',
     };
 
     return diagSettings;
@@ -625,6 +631,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedExpression: 'error',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
+        reportShadowedImports: 'none',
     };
 
     return diagSettings;

@@ -15,11 +15,12 @@
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
+import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -91,7 +92,7 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
-import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -100,7 +101,7 @@ import { validateClassPattern } from './patternMatching';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
-import { isStubFile } from './sourceMapper';
+import { isStubFile, SourceMapper } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -246,7 +247,8 @@ export class Checker extends ParseTreeWalker {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _moduleNode: ModuleNode
+        private _moduleNode: ModuleNode,
+        private _sourceMapper: SourceMapper
     ) {
         super();
 
@@ -255,6 +257,8 @@ export class Checker extends ParseTreeWalker {
 
     check() {
         this._scopedNodes.push(this._moduleNode);
+
+        this._conditionallyReportShadowedModule();
 
         this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
@@ -1384,11 +1388,13 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitImportAs(node: ImportAsNode): boolean {
+        this._conditionallyReportShadowedImport(node);
         this._evaluator.evaluateTypesForStatement(node);
         return false;
     }
 
     override visitImportFrom(node: ImportFromNode): boolean {
+        this._conditionallyReportShadowedImport(node);
         if (!node.isWildcardImport) {
             node.imports.forEach((importAs) => {
                 this._evaluator.evaluateTypesForStatement(importAs);
@@ -3489,6 +3495,102 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             }
+        }
+    }
+
+    private _conditionallyReportShadowedModule() {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return;
+        }
+        // Check the module we're in.
+        const moduleName = this._fileInfo.moduleName;
+        const desc: ImportedModuleDescriptor = {
+            nameParts: moduleName.split('.'),
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
+        if (
+            stdlibPath &&
+            this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
+            this._sourceMapper.isUserCode(this._fileInfo.filePath)
+        ) {
+            // This means the user has a module that is overwriting the stdlib module.
+            const diag = this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                DiagnosticRule.reportShadowedImports,
+                Localizer.Diagnostic.stdlibModuleOverridden().format({
+                    name: moduleName,
+                    path: this._fileInfo.filePath,
+                }),
+                this._moduleNode
+            );
+
+            // Add a quick action that renames the file.
+            if (diag) {
+                const renameAction: RenameShadowedFileAction = {
+                    action: ActionKind.RenameShadowedFileAction,
+                    oldFile: this._fileInfo.filePath,
+                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.filePath),
+                };
+                diag.addAction(renameAction);
+            }
+        }
+    }
+
+    private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromAsNode | ImportFromNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return;
+        }
+        const namePartNodes =
+            node.nodeType === ParseNodeType.ImportAs
+                ? node.module.nameParts
+                : node.nodeType === ParseNodeType.ImportFromAs
+                ? [node.name]
+                : node.module.nameParts;
+        const nameParts = namePartNodes.map((n) => n.value);
+        const module: ImportedModuleDescriptor = {
+            nameParts,
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+
+        // Make sure the module is a potential stdlib one so we don't spend the time
+        // searching for the definition.
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
+        if (stdlibPath && this._importResolver.isStdlibModule(module, this._fileInfo.executionEnvironment)) {
+            // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
+            const definitions = DefinitionProvider.getDefinitionsForNode(
+                this._sourceMapper,
+                namePartNodes[namePartNodes.length - 1],
+                DefinitionFilter.All,
+                this._evaluator
+            );
+            const paths = definitions ? definitions.map((d) => d.path) : [];
+            paths.forEach((p) => {
+                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
+                    // This means the user has a module that is overwriting the stdlib module.
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                        DiagnosticRule.reportShadowedImports,
+                        Localizer.Diagnostic.stdlibModuleOverridden().format({
+                            name: nameParts.join('.'),
+                            path: p,
+                        }),
+                        node
+                    );
+                    // Add a quick action that renames the file.
+                    if (diag) {
+                        const renameAction: RenameShadowedFileAction = {
+                            action: ActionKind.RenameShadowedFileAction,
+                            oldFile: p,
+                            newFile: this._sourceMapper.getNextFileName(p),
+                        };
+                        diag.addAction(renameAction);
+                    }
+                }
+            });
         }
     }
 
