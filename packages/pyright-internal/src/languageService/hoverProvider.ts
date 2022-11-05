@@ -18,6 +18,7 @@ import { SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
     ClassType,
+    FunctionType,
     getTypeAliasInfo,
     isClassInstance,
     isFunction,
@@ -25,6 +26,7 @@ import {
     isModule,
     isOverloadedFunction,
     isTypeVar,
+    OverloadedFunctionType,
     Type,
     UnknownType,
 } from '../analyzer/types';
@@ -242,7 +244,16 @@ export class HoverProvider {
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                if (this._addInitMethodInsteadIfCallNode(format, node, evaluator, parts, sourceMapper, resolvedDecl)) {
+                if (
+                    this._addInitOrNewMethodInsteadIfCallNode(
+                        format,
+                        node,
+                        evaluator,
+                        parts,
+                        sourceMapper,
+                        resolvedDecl
+                    )
+                ) {
                     return;
                 }
 
@@ -253,29 +264,30 @@ export class HoverProvider {
 
             case DeclarationType.Function: {
                 let label = 'function';
+                let isProperty = false;
                 if (resolvedDecl.isMethod) {
                     const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
-                    label =
-                        declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false)
-                            ? 'property'
-                            : 'method';
+                    isProperty = !!declaredType && isMaybeDescriptorInstance(declaredType, /* requireSetter */ false);
+                    label = isProperty ? 'property' : 'method';
                 }
 
                 const type = evaluator.getType(node);
-                if (type && isOverloadedFunction(type)) {
-                    this._addResultsPart(
-                        parts,
-                        `(${label})\n${getOverloadedFunctionTooltip(type, evaluator)}`,
-                        /* python */ true
-                    );
-                } else {
-                    this._addResultsPart(
-                        parts,
-                        `(${label}) ` + node.value + this._getTypeText(node, evaluator),
-                        /* python */ true
-                    );
+                const sep = isProperty ? ': ' : '';
+                if (type) {
+                    if (isOverloadedFunction(type)) {
+                        this._addResultsPart(
+                            parts,
+                            `(${label})\n${getOverloadedFunctionTooltip(type, evaluator)}`,
+                            /* python */ true
+                        );
+                    } else {
+                        this._addResultsPart(
+                            parts,
+                            `(${label}) ` + node.value + sep + evaluator.printType(type, false),
+                            /* python */ true
+                        );
+                    }
                 }
-
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -348,7 +360,8 @@ export class HoverProvider {
         });
     }
 
-    private static _addInitMethodInsteadIfCallNode(
+    // logic similar to typeEvaluator.ts getCallSignatureInfo(...)
+    private static _addInitOrNewMethodInsteadIfCallNode(
         format: MarkupKind,
         node: NameNode,
         evaluator: TypeEvaluator,
@@ -386,41 +399,81 @@ export class HoverProvider {
             return false;
         }
 
-        const initMethodMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
-
-        if (!initMethodMember) {
-            return false;
-        }
-
         const instanceType = evaluator.getType(callLeftNode.parent);
-        const functionType = evaluator.getTypeOfMember(initMethodMember);
-
-        if (!instanceType || !functionType || !isClassInstance(instanceType) || !isFunction(functionType)) {
+        if (!instanceType || !isClassInstance(instanceType)) {
             return false;
         }
 
-        const initMethodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType);
+        let methodType: FunctionType | OverloadedFunctionType | undefined;
 
-        if (!initMethodType || !isFunction(initMethodType)) {
-            return false;
+        // Try to get the __init__ method first because it typically has
+        // more type information than __new__.  Don't exlude object.__init__ since in the plain case we want to show Foo().
+        const initMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
+
+        if (initMember) {
+            const functionType = evaluator.getTypeOfMember(initMember);
+
+            if (isFunction(functionType) || isOverloadedFunction(functionType)) {
+                methodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType);
+            }
         }
 
-        const functionParts = evaluator.printFunctionParts(initMethodType);
-        const classText = `${node.value}(${functionParts[0].join(', ')})`;
+        // If there was no `__init__`, exluding `object` class `__init__`,
+        // or if `__init__` only had default params (*args: Any, **kwargs: Any) or no params (),
+        // see if we can find a better `__new__` method.
+        if (
+            !methodType ||
+            (methodType &&
+                isFunction(methodType) &&
+                (FunctionType.hasDefaultParameters(methodType) || methodType.details.parameters.length === 0))
+        ) {
+            const newMember = lookUpClassMember(classType, '__new__', ClassMemberLookupFlags.SkipInstanceVariables);
 
-        this._addResultsPart(parts, '(class) ' + classText, /* python */ true);
-        const addedDoc = this._addDocumentationPartForType(
-            format,
-            sourceMapper,
-            parts,
-            initMethodType,
-            declaration,
-            evaluator
-        );
-        if (!addedDoc) {
-            this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration, evaluator);
+            if (newMember) {
+                const functionType = evaluator.getTypeOfMember(newMember);
+
+                if (isFunction(functionType) || isOverloadedFunction(functionType)) {
+                    // set treatConstructorAsClassMember to so that the `__new__` methodType wont include `cls` as a parameter
+                    methodType = evaluator.bindFunctionToClassOrObject(
+                        instanceType,
+                        functionType,
+                        /*memberClass*/ undefined,
+                        /*errorNode*/ undefined,
+                        /*recurrisveCount*/ undefined,
+                        /*treatConstructorAsClassMember*/ true
+                    );
+                }
+            }
         }
-        return true;
+
+        if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
+            let classText = '';
+            if (isOverloadedFunction(methodType)) {
+                const overloads = methodType.overloads.map((overload) => evaluator.printFunctionParts(overload));
+                overloads.forEach((overload, index) => {
+                    classText = classText + `${node.value}(${overload[0].join(', ')})\n\n`;
+                });
+            } else if (isFunction(methodType)) {
+                const functionParts = evaluator.printFunctionParts(methodType);
+                classText = `${node.value}(${functionParts[0].join(', ')})`;
+            }
+
+            this._addResultsPart(parts, '(class)\n' + classText, /* python */ true);
+            const addedDoc = this._addDocumentationPartForType(
+                format,
+                sourceMapper,
+                parts,
+                methodType,
+                declaration,
+                evaluator
+            );
+
+            if (!addedDoc) {
+                this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration, evaluator);
+            }
+            return true;
+        }
+        return false;
     }
 
     private static _getTypeText(node: NameNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {

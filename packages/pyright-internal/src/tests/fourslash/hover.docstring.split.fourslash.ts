@@ -18,7 +18,7 @@
 //// [|/*marker3*/func3|]()
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(function) func: () -> None\n```\n---\nThis docstring is split.',
-    marker2: '```python\n(function) func2: () -> None\n```',
-    marker3: '```python\n(function) func3: () -> None\n```',
+    marker1: '```python\n(function) func() -> None\n```\n---\nThis docstring is split.',
+    marker2: '```python\n(function) func2() -> None\n```',
+    marker3: '```python\n(function) func3() -> None\n```',
 });

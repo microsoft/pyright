@@ -21,12 +21,12 @@ await helper.verifyCompletion('included', 'markdown', {
             {
                 label: 'method1',
                 kind: Consts.CompletionItemKind.Method,
-                documentation: '```python\nmethod1: () -> None\n```\n---\nMethod 1.',
+                documentation: '```python\nmethod1() -> None\n```\n---\nMethod 1.',
             },
             {
                 label: 'new_method',
                 kind: Consts.CompletionItemKind.Method,
-                documentation: '```python\nnew_method: () -> None\n```',
+                documentation: '```python\nnew_method() -> None\n```',
             },
             {
                 label: 'prop1',
