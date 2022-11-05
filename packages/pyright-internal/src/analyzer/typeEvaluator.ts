@@ -17697,6 +17697,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             getTypeOfAnnotation(annotationNode, {
                 isVariableAnnotation: annotationNode.parent?.nodeType === ParseNodeType.TypeAnnotation,
+                allowUnpackedTuple:
+                    annotationParent.nodeType === ParseNodeType.Parameter &&
+                    annotationParent.category === ParameterCategory.VarArgList,
+                allowUnpackedTypedDict:
+                    annotationParent.nodeType === ParseNodeType.Parameter &&
+                    annotationParent.category === ParameterCategory.VarArgDictionary,
             });
             return;
         }
