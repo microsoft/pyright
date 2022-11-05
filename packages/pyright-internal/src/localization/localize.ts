@@ -277,15 +277,13 @@ export namespace Localizer {
             new ParameterizedString<{ type: string; alias: string }>(
                 getRawString('Diagnostic.collectionAliasInstantiation')
             );
-        export const comparisonAlwaysFalseLiteral = () => getRawString('Diagnostic.comparisonAlwaysFalseLiteral');
-        export const comparisonAlwaysFalseNoOverlap = () =>
+        export const comparisonAlwaysFalse = () =>
             new ParameterizedString<{ leftType: string; rightType: string }>(
-                getRawString('Diagnostic.comparisonAlwaysFalseNoOverlap')
+                getRawString('Diagnostic.comparisonAlwaysFalse')
             );
-        export const comparisonAlwaysTrueLiteral = () => getRawString('Diagnostic.comparisonAlwaysTrueLiteral');
-        export const comparisonAlwaysTrueNoOverlap = () =>
+        export const comparisonAlwaysTrue = () =>
             new ParameterizedString<{ leftType: string; rightType: string }>(
-                getRawString('Diagnostic.comparisonAlwaysTrueNoOverlap')
+                getRawString('Diagnostic.comparisonAlwaysTrue')
             );
         export const comprehensionInDict = () => getRawString('Diagnostic.comprehensionInDict');
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
