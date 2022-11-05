@@ -92,9 +92,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 
-/// Get child nodes of the given node.
-/// We could make this one a visitor but then we will lose ability to check
-/// whether we added a case for the new kind at the compile time.
+// Get child nodes of the given node.
 export function getChildNodes(node: ParseNode) {
     switch (node.nodeType) {
         case ParseNodeType.Error:
