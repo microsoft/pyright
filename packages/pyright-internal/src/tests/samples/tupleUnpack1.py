@@ -61,3 +61,16 @@ def func12(*v11: Unpack[tuple[int, int]]):
 def func13(t: type):
     if t is Unpack:
         ...
+
+def func14(
+    *args: Unpack[tuple[int]],
+    other: str,
+) -> None:
+    ...
+
+func14(1, other="hi")
+
+# This should generate an error because the second argument
+# corresponds to a keyword-only parameter.
+func14(1, "hi")
+

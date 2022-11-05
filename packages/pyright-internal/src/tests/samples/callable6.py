@@ -15,7 +15,7 @@ TA3 = Callable[[int, Unpack[Tuple[int, int]], str], int]
 
 TA4 = Callable[[Unpack[Tuple[int, ...]]], _T]
 
-def func1(x: TA1):
+def func1(x: TA1[int]):
     r1 = x(3, 4, 5, (1, 2, "hi"), "hi")
     reveal_type(r1, expected_text="int")
 

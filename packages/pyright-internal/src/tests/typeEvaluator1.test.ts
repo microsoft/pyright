@@ -1309,7 +1309,7 @@ test('TotalOrdering1', () => {
 test('TupleUnpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack1.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TupleUnpack2', () => {

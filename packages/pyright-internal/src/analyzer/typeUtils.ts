@@ -345,6 +345,15 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         result.positionOnlyParamCount++;
                     }
                 });
+
+                // Normally, a VarArgList parameter (either named or as an unnamed separator)
+                // would signify the start of keyword-only parameters. However, we can construct
+                // callable signatures that defy this rule by using Callable and TypeVarTuples
+                // or unpacked tuples.
+                if (!sawKeywordOnlySeparator && (positionOnlyIndex < 0 || index >= positionOnlyIndex)) {
+                    result.firstKeywordOnlyIndex = result.params.length;
+                    sawKeywordOnlySeparator = true;
+                }
             } else {
                 if (param.name && result.argsIndex === undefined) {
                     result.argsIndex = result.params.length;
