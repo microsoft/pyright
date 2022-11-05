@@ -2093,9 +2093,9 @@ export function explodeGenericClass(classType: ClassType) {
 
 // If the type is a union of same-sized tuples, these are combined into
 // a single tuple with that size. Otherwise, returns undefined.
-export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) {
+export function combineSameSizedTuples(type: Type, tupleType: Type | undefined): Type {
     if (!tupleType || !isInstantiableClass(tupleType) || isUnboundedTupleClass(tupleType)) {
-        return undefined;
+        return type;
     }
 
     let tupleEntries: Type[][] | undefined;
@@ -2137,7 +2137,7 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
     });
 
     if (!isValid || !tupleEntries) {
-        return undefined;
+        return type;
     }
 
     return convertToInstance(
