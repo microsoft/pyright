@@ -69,10 +69,6 @@ export class PyrightFileSystem
         this._realFS.mkdirSync(path, options);
     }
 
-    override rmdirSync(path: string): void {
-        this._realFS.rmdirSync(path);
-    }
-
     override chdir(path: string): void {
         this._realFS.chdir(path);
     }

@@ -53,7 +53,6 @@ export interface TmpfileOptions {
 export interface FileSystem {
     existsSync(path: string): boolean;
     mkdirSync(path: string, options?: MkDirOptions): void;
-    rmdirSync(path: string): void;
     chdir(path: string): void;
     readdirEntriesSync(path: string): fs.Dirent[];
     readdirSync(path: string): string[];
