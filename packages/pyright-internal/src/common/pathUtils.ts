@@ -940,15 +940,18 @@ export function isFileSystemCaseSensitive(fs: FileSystem) {
 }
 
 export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
-    let filePath: string | undefined = undefined;
+    let filePath: string | undefined;
+    let tempDirPath: string | undefined;
+
     try {
         // Make unique file name.
         let name: string;
         let mangledFilePath: string;
         do {
             name = `${randomBytesHex(21)}-a`;
-            filePath = path.join(fs.tmpdir(), name);
-            mangledFilePath = path.join(fs.tmpdir(), name.toUpperCase());
+            tempDirPath = fs.tmpdir();
+            filePath = path.join(tempDirPath, name);
+            mangledFilePath = path.join(tempDirPath, name.toUpperCase());
         } while (fs.existsSync(filePath) || fs.existsSync(mangledFilePath));
 
         fs.writeFileSync(filePath, '', 'utf8');
@@ -959,8 +962,21 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
         return false;
     } finally {
         if (filePath) {
-            // remove temp file created
-            fs.unlinkSync(filePath);
+            try {
+                // Remove temp file.
+                fs.unlinkSync(filePath);
+            } catch (e: any) {
+                // Ignore exception.
+            }
+        }
+
+        if (tempDirPath) {
+            try {
+                // Remove temp directory.
+                fs.rmdirSync(tempDirPath);
+            } catch (e: any) {
+                // Ignore exception.
+            }
         }
     }
 }

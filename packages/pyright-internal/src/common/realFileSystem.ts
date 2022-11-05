@@ -222,6 +222,10 @@ class RealFileSystem implements FileSystem {
         yarnFS.mkdirSync(path, options);
     }
 
+    rmdirSync(path: string) {
+        yarnFS.rmdirSync(path);
+    }
+
     chdir(path: string) {
         process.chdir(path);
     }

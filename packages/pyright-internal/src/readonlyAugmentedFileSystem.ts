@@ -46,6 +46,10 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         throw new Error('Operation is not allowed.');
     }
 
+    rmdirSync(path: string): void {
+        throw new Error('Operation is not allowed.');
+    }
+
     chdir(path: string): void {
         throw new Error('Operation is not allowed.');
     }
