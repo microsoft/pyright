@@ -9050,18 +9050,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (paramIndex >= positionParamLimitIndex) {
-                if (!foundUnpackedListArg || argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        positionParamLimitIndex === 1
-                            ? Localizer.Diagnostic.argPositionalExpectedOne()
-                            : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                  expected: positionParamLimitIndex,
-                              }),
-                        argList[argIndex].valueExpression || errorNode
-                    );
-                    reportedArgError = true;
+                if (!type.details.paramSpec) {
+                    let tooManyPositionals = false;
+                    const argExprNode = argList[argIndex].valueExpression;
+
+                    if (foundUnpackedListArg && argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
+                        // If this is an unpacked iterable, we will conservatively assume that it
+                        // might have zero iterations unless we can tell from its type that it
+                        // definitely has at least one iterable value.
+                        if (argExprNode) {
+                            // Use speculative mode here because this function should not
+                            // be evaluating and caching any types.
+                            const argType = useSpeculativeMode(argExprNode, () => {
+                                return getTypeOfExpression(argExprNode).type;
+                            });
+
+                            if (
+                                isClassInstance(argType) &&
+                                isTupleClass(argType) &&
+                                !isUnboundedTupleClass(argType) &&
+                                argType.tupleTypeArguments !== undefined &&
+                                argType.tupleTypeArguments.length > 0
+                            ) {
+                                tooManyPositionals = true;
+                            }
+                        }
+                    } else {
+                        tooManyPositionals = true;
+                    }
+
+                    if (tooManyPositionals) {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            positionParamLimitIndex === 1
+                                ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                      expected: positionParamLimitIndex,
+                                  }),
+                            argExprNode ?? errorNode
+                        );
+                        reportedArgError = true;
+                    }
                 }
                 break;
             }

@@ -69,7 +69,7 @@ needs_function1(callback2)
 # type of callback3 doesn't match.
 needs_function1(callback3)
 
-# This should generage an error because callback4
+# This should generate an error because callback4
 # takes too many parameters.
 needs_function1(callback4)
 
