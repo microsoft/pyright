@@ -9,7 +9,13 @@
 import * as path from 'path';
 import { CancellationToken, CodeAction, ExecuteCommandParams } from 'vscode-languageserver';
 
-import { ImportResolverFactory } from '../../../analyzer/importResolver';
+import {
+    BackgroundAnalysisProgram,
+    BackgroundAnalysisProgramFactory,
+} from '../../../analyzer/backgroundAnalysisProgram';
+import { CacheManager } from '../../../analyzer/cacheManager';
+import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
+import { MaxAnalysisTime } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
 import { BackgroundAnalysisBase } from '../../../backgroundAnalysisBase';
 import { CommandController } from '../../../commands/commandController';
@@ -17,6 +23,7 @@ import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
 import { createDeferred } from '../../../common/deferred';
+import { LanguageServiceExtension } from '../../../common/extensibility';
 import { FileSystem } from '../../../common/fileSystem';
 import { Range } from '../../../common/textRange';
 import { UriParser } from '../../../common/uriParser';
@@ -34,9 +41,31 @@ import { HostSpecificFeatures } from './testState';
 
 export class TestFeatures implements HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory = AnalyzerService.createImportResolver;
+    backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory = (
+        serviceId: string,
+        console: ConsoleInterface,
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        extension?: LanguageServiceExtension,
+        backgroundAnalysis?: BackgroundAnalysisBase,
+        maxAnalysisTime?: MaxAnalysisTime,
+        cacheManager?: CacheManager
+    ) =>
+        new BackgroundAnalysisProgram(
+            console,
+            configOptions,
+            importResolver,
+            extension,
+            backgroundAnalysis,
+            maxAnalysisTime,
+            /* disableChecker */ undefined,
+            cacheManager
+        );
+
     runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean, options?: string): void {
         /* empty */
     }
+
     getCodeActionsForPosition(
         workspace: WorkspaceServiceInstance,
         filePath: string,
@@ -105,7 +134,7 @@ export class TestLanguageService implements LanguageServerInterface {
         return Promise.resolve(settings);
     }
 
-    createBackgroundAnalysis(): BackgroundAnalysisBase | undefined {
+    createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined {
         // worker thread doesn't work in Jest
         // by returning undefined, analysis will run inline
         return undefined;

@@ -534,6 +534,15 @@ export function getFileName(pathString: string) {
     return path.basename(pathString);
 }
 
+export function getShortenedFileName(pathString: string, maxDirLength = 15) {
+    const fileName = getFileName(pathString);
+    const dirName = getDirectoryPath(pathString);
+    if (dirName.length > maxDirLength) {
+        return `...${dirName.slice(dirName.length - maxDirLength)}${path.sep}${fileName}`;
+    }
+    return pathString;
+}
+
 export function stripFileExtension(fileName: string, multiDotExtension = false) {
     const ext = getFileExtension(fileName, multiDotExtension);
     return fileName.substr(0, fileName.length - ext.length);

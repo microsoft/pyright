@@ -6,9 +6,9 @@
  * TestState wraps currently test states and provides a way to query and manipulate
  * the test states.
  */
-
 import assert from 'assert';
 import * as JSONC from 'jsonc-parser';
+import * as path from 'path';
 import Char from 'typescript-char';
 import {
     AnnotatedTextEdit,
@@ -32,6 +32,7 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
+import { BackgroundAnalysisProgramFactory } from '../../../analyzer/backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
@@ -98,6 +99,7 @@ export interface TextChange {
 
 export interface HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory;
+    backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory;
 
     runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean, options?: string): void;
     getCodeActionsForPosition(
@@ -165,6 +167,7 @@ export class TestState {
         const service = this._createAnalysisService(
             this.console,
             this._hostSpecificFeatures.importResolverFactory,
+            this._hostSpecificFeatures.backgroundAnalysisProgramFactory,
             configOptions
         );
 
@@ -325,6 +328,10 @@ export class TestState {
 
     getDirectoryPath(path: string) {
         return getDirectoryPath(path);
+    }
+
+    getPathSep() {
+        return path.sep;
     }
 
     goToPosition(positionOrLineAndColumn: number | Position) {
@@ -583,9 +590,11 @@ export class TestState {
                         ? result.warnings
                         : category === 'information'
                         ? result.information
+                        : category === 'none'
+                        ? []
                         : this.raiseError(`unexpected category ${category}`);
 
-                if (expected.length !== actual.length) {
+                if (expected.length !== actual.length && category !== 'none') {
                     this.raiseError(
                         `contains unexpected result - expected: ${stringify(expected)}, actual: ${stringify(actual)}`
                     );
@@ -601,15 +610,20 @@ export class TestState {
                         return this._deepEqual(diagnosticSpan, rangeSpan);
                     });
 
-                    if (matches.length === 0) {
+                    // If the map is provided, it might say
+                    // a marker should have none.
+                    const name = map ? this.getMarkerName(range.marker!) : '';
+                    const message = map ? map[name].message : undefined;
+                    const expectMatches = !!message;
+
+                    if (expectMatches && matches.length === 0) {
                         this.raiseError(`doesn't contain expected range: ${stringify(range)}`);
+                    } else if (!expectMatches && matches.length !== 0) {
+                        this.raiseError(`${name} should not contain any matches`);
                     }
 
                     // if map is provided, check message as well
-                    if (map) {
-                        const name = this.getMarkerName(range.marker!);
-                        const message = map[name].message;
-
+                    if (message) {
                         if (matches.filter((d) => message === d.message).length !== 1) {
                             this.raiseError(
                                 `message doesn't match: ${message} of ${name} - ${stringify(
@@ -1816,6 +1830,7 @@ export class TestState {
     private _createAnalysisService(
         nullConsole: ConsoleInterface,
         importResolverFactory: ImportResolverFactory,
+        backgroundAnalysisProgramFactory: BackgroundAnalysisProgramFactory,
         configOptions: ConfigOptions
     ) {
         // we do not initiate automatic analysis or file watcher in test.
@@ -1823,6 +1838,7 @@ export class TestState {
             console: nullConsole,
             hostFactory: () => testAccessHost,
             importResolverFactory,
+            backgroundAnalysisProgramFactory,
             configOptions,
         });
 

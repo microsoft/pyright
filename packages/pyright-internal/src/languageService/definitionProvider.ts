@@ -24,7 +24,7 @@ import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
-import { ParseNodeType } from '../parser/parseNodes';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export enum DefinitionFilter {
@@ -54,6 +54,15 @@ export class DefinitionProvider {
             return undefined;
         }
 
+        return DefinitionProvider.getDefinitionsForNode(sourceMapper, node, filter, evaluator);
+    }
+
+    static getDefinitionsForNode(
+        sourceMapper: SourceMapper,
+        node: ParseNode,
+        filter: DefinitionFilter,
+        evaluator: TypeEvaluator
+    ) {
         const definitions: DocumentRange[] = [];
 
         if (node.nodeType === ParseNodeType.Name) {

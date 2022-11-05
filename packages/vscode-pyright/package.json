@@ -2,7 +2,7 @@
     "name": "vscode-pyright",
     "displayName": "Pyright",
     "description": "VS Code static type checking for Python",
-    "version": "1.1.277",
+    "version": "1.1.278",
     "private": true,
     "license": "MIT",
     "author": {
@@ -828,6 +828,17 @@
                         "reportMatchNotExhaustive": {
                             "type": "string",
                             "description": "Diagnostics for 'match' statements that do not exhaustively match all possible values.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
+                        "reportShadowedImports": {
+                            "type": "string",
+                            "description": "Diagnostics for files that are overriding a module in the stdlib.",
                             "default": "none",
                             "enum": [
                                 "none",

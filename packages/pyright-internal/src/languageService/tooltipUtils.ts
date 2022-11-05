@@ -93,14 +93,38 @@ export function getOverloadedFunctionDocStringsFromType(
     );
 }
 
-export function getDocumentationPartsForTypeAndDecl(
+function getDocumentationPartForAlias(
+    sourceMapper: SourceMapper,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator,
+    symbol?: Symbol
+) {
+    if (resolvedDecl?.type === DeclarationType.Variable && resolvedDecl.typeAliasName && resolvedDecl.docString) {
+        return resolvedDecl.docString;
+    } else if (resolvedDecl?.type === DeclarationType.Variable) {
+        const decl = (symbol?.getDeclarations().find((d) => d.type === DeclarationType.Variable && !!d.docString) ??
+            resolvedDecl) as VariableDeclaration;
+        const doc = getVariableDocString(decl, sourceMapper);
+        if (doc) {
+            return doc;
+        }
+    } else if (resolvedDecl?.type === DeclarationType.Function) {
+        // @property functions
+        const doc = getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator);
+        if (doc) {
+            return doc;
+        }
+    }
+    return undefined;
+}
+
+function getDocumentationPartForType(
     sourceMapper: SourceMapper,
     type: Type,
     resolvedDecl: Declaration | undefined,
     evaluator: TypeEvaluator,
-    symbol?: Symbol,
     boundObjectOrClass?: ClassType | undefined
-): string | undefined {
+) {
     if (isModule(type)) {
         const doc = getModuleDocString(type, resolvedDecl, sourceMapper);
         if (doc) {
@@ -133,25 +157,25 @@ export function getDocumentationPartsForTypeAndDecl(
             }
         }
     }
-
-    if (resolvedDecl?.type === DeclarationType.Variable && resolvedDecl.typeAliasName && resolvedDecl.docString) {
-        return resolvedDecl.docString;
-    } else if (resolvedDecl?.type === DeclarationType.Variable) {
-        const decl = (symbol?.getDeclarations().find((d) => d.type === DeclarationType.Variable && !!d.docString) ??
-            resolvedDecl) as VariableDeclaration;
-        const doc = getVariableDocString(decl, sourceMapper);
-        if (doc) {
-            return doc;
-        }
-    } else if (resolvedDecl?.type === DeclarationType.Function) {
-        // @property functions
-        const doc = getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator);
-        if (doc) {
-            return doc;
-        }
-    }
-
     return undefined;
+}
+
+export function getDocumentationPartsForTypeAndDecl(
+    sourceMapper: SourceMapper,
+    type: Type,
+    resolvedDecl: Declaration | undefined,
+    evaluator: TypeEvaluator,
+    symbol?: Symbol,
+    boundObjectOrClass?: ClassType | undefined
+): string | undefined {
+    // Get the alias first
+    const aliasDoc = getDocumentationPartForAlias(sourceMapper, resolvedDecl, evaluator, symbol);
+
+    // Combine this with the type doc
+    const typeDoc = getDocumentationPartForType(sourceMapper, type, resolvedDecl, evaluator, boundObjectOrClass);
+
+    // Combine with a new line if they both exist
+    return aliasDoc && typeDoc ? `${aliasDoc}\n\n${typeDoc}` : aliasDoc || typeDoc;
 }
 
 export function getAutoImportText(name: string, from?: string, alias?: string): string {

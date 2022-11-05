@@ -944,6 +944,19 @@ export class SourceFile {
         );
     }
 
+    getDefinitionsForNode(
+        sourceMapper: SourceMapper,
+        node: NameNode,
+        evaluator: TypeEvaluator
+    ): DocumentRange[] | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._parseResults) {
+            return undefined;
+        }
+
+        return DefinitionProvider.getDefinitionsForNode(sourceMapper, node, DefinitionFilter.All, evaluator);
+    }
+
     getTypeDefinitionsForPosition(
         sourceMapper: SourceMapper,
         position: Position,
@@ -1285,7 +1298,13 @@ export class SourceFile {
         });
     }
 
-    check(importResolver: ImportResolver, evaluator: TypeEvaluator) {
+    check(
+        importResolver: ImportResolver,
+        evaluator: TypeEvaluator,
+        execEnv: ExecutionEnvironment,
+        sourceMapper: SourceMapper,
+        isUserCode: (p: string) => boolean
+    ) {
         assert(!this.isParseRequired(), 'Check called before parsing');
         assert(!this.isBindingRequired(), 'Check called before binding');
         assert(!this._isBindingInProgress, 'Check called while binding in progress');
@@ -1296,7 +1315,7 @@ export class SourceFile {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
-                    const checker = new Checker(importResolver, evaluator, this._parseResults!.parseTree);
+                    const checker = new Checker(importResolver, evaluator, this._parseResults!.parseTree, sourceMapper);
                     checker.check();
                     this._isCheckingNeeded = false;
 

@@ -1,7 +1,7 @@
 # This sample tests the handling of generic TypedDicts which are
 # supported in Python 3.11 and newer.
 
-from typing import Generic, Literal, TypeVar, TypedDict
+from typing import Generic, Literal, TypeVar, TypedDict, Unpack
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -107,3 +107,20 @@ func6({"x": 1, "y": 1, "z": "a"})
 f4: TD8 = {"x": 1, "y": 1, "z": "a"}
 
 reveal_type(func6({"x": 1, "y": 1, "z": "a"}))
+
+class TD9(TypedDict, Generic[_T1]):
+    x: _T1
+
+
+class ClassA(Generic[_T1]):
+    def __init__(self, **attrs: Unpack[TD9[_T1]]) -> None:
+        ...
+
+
+f5 = ClassA[int](x=1)
+
+# This should generate an error because 1 isn't a valid type.
+f6 = ClassA[str](x=1)
+
+f7 = ClassA(x=1)
+reveal_type(f7, expected_text='ClassA[int]')

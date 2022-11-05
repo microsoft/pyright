@@ -24,7 +24,7 @@ export class ParameterizedString<T extends {}> {
     format(params: T): string {
         let str = this._formatString;
         Object.keys(params).forEach((key) => {
-            str = str.replace(`{${key}}`, (params as any)[key].toString());
+            str = str.replace(new RegExp(`{${key}}`, 'g'), (params as any)[key].toString());
         });
         return str;
     }
@@ -750,6 +750,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.slotsClassVarConflict'));
         export const starStarWildcardNotAllowed = () => getRawString('Diagnostic.starStarWildcardNotAllowed');
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
+        export const stdlibModuleOverridden = () =>
+            new ParameterizedString<{ name: string; path: string }>(getRawString('Diagnostic.stdlibModuleOverridden'));
+
         export const strictTypeGuardReturnType = () =>
             new ParameterizedString<{ type: string; returnType: string }>(
                 getRawString('Diagnostic.strictTypeGuardReturnType')
@@ -1309,6 +1312,10 @@ export namespace Localizer {
             new ParameterizedString<{ count: number }>(getRawString('CodeAction.filesToAnalyzeCount'));
         export const findingReferences = () => getRawString('CodeAction.findingReferences');
         export const organizeImports = () => getRawString('CodeAction.organizeImports');
+        export const renameShadowedFile = () =>
+            new ParameterizedString<{ newFile: string; oldFile: string }>(
+                getRawString('CodeAction.renameShadowedFile')
+            );
     }
 
     export namespace Refactoring {
