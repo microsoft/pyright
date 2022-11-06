@@ -1,6 +1,7 @@
 # This sample tests the check for hashability that applies to entries
 # within a set expression and keys within a dictionary expression.
 
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -30,3 +31,21 @@ def func1(x: str | dict[Any, Any], y: Any, z: None):
 
     d4 = {y: "hi", z: "hi"}
 
+@dataclass
+class DC1:
+    a: int
+
+@dataclass(frozen=True)
+class DC2:
+    a: int
+
+
+dc1 = DC1(0)
+
+# This should generate an error because a non-frozen
+# dataclass is not hashable.
+d5 = {dc1: 100}
+
+
+dc2 = DC2(0)
+d6 = {dc2: 100}

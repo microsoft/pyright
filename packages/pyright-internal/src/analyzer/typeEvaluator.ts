@@ -2640,13 +2640,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (hashMember && hashMember.isTypeDeclared) {
                         const decls = hashMember.symbol.getTypedDeclarations();
+                        const synthesizedType = hashMember.symbol.getSynthesizedType();
 
-                        // Assume that if '__hash__' is declared as a variable, it is
-                        // not hashable. If it's declared as a function, it is. We'll
-                        // skip evaluating its full type because that's not needed in
-                        // this case.
-                        if (decls.every((decl) => decl.type === DeclarationType.Variable)) {
-                            isObjectHashable = false;
+                        // Handle the case where the type is synthesized (used for
+                        // dataclasses).
+                        if (synthesizedType) {
+                            isObjectHashable = !isNoneInstance(synthesizedType);
+                        } else {
+                            // Assume that if '__hash__' is declared as a variable, it is
+                            // not hashable. If it's declared as a function, it is. We'll
+                            // skip evaluating its full type because that's not needed in
+                            // this case.
+                            if (decls.every((decl) => decl.type === DeclarationType.Variable)) {
+                                isObjectHashable = false;
+                            }
                         }
                     }
 
