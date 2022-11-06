@@ -131,3 +131,8 @@ test('TypeAliasStatement4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement4.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });
+
+test('Hashability1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability1.py']);
+    TestUtils.validateResults(analysisResults, 9);
+});

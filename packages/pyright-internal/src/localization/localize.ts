@@ -933,6 +933,8 @@ export namespace Localizer {
         export const unexpectedExprToken = () => getRawString('Diagnostic.unexpectedExprToken');
         export const unexpectedIndent = () => getRawString('Diagnostic.unexpectedIndent');
         export const unexpectedUnindent = () => getRawString('Diagnostic.unexpectedUnindent');
+        export const unhashableDictKey = () => getRawString('Diagnostic.unhashableDictKey');
+        export const unhashableSetEntry = () => getRawString('Diagnostic.unhashableSetEntry');
         export const unionSyntaxIllegal = () => getRawString('Diagnostic.unionSyntaxIllegal');
         export const unionTypeArgCount = () => getRawString('Diagnostic.unionTypeArgCount');
         export const uninitializedInstanceVariable = () =>
@@ -1279,12 +1281,14 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsCovariant'));
         export const typeVarIsInvariant = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsInvariant'));
-        export const typeVarTupleRequiresKnownLength = () =>
-            getRawString('DiagnosticAddendum.typeVarTupleRequiresKnownLength');
-        export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
         export const typeVarsMissing = () =>
             new ParameterizedString<{ names: string }>(getRawString('DiagnosticAddendum.typeVarsMissing'));
+        export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
+        export const typeVarTupleRequiresKnownLength = () =>
+            getRawString('DiagnosticAddendum.typeVarTupleRequiresKnownLength');
         export const typeVarUnsolvableRemedy = () => getRawString('DiagnosticAddendum.typeVarUnsolvableRemedy');
+        export const unhashableType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.unhashableType'));
         export const unreachableExcept = () =>
             new ParameterizedString<{ exceptionType: string; parentType: string }>(
                 getRawString('DiagnosticAddendum.unreachableExcept')

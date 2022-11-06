@@ -2620,6 +2620,49 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isValidIterable ? iterableType : undefined;
     }
 
+    function isTypeHashable(type: Type): boolean {
+        let isTypeHashable = true;
+
+        doForEachSubtype(makeTopLevelTypeVarsConcrete(type), (subtype) => {
+            if (isClassInstance(subtype)) {
+                // Assume the class is hashable.
+                let isObjectHashable = true;
+
+                // Have we already computed and cached the hashability?
+                if (subtype.details.isInstanceHashable !== undefined) {
+                    isObjectHashable = subtype.details.isInstanceHashable;
+                } else {
+                    const hashMember = lookUpObjectMember(
+                        subtype,
+                        '__hash__',
+                        ClassMemberLookupFlags.SkipObjectBaseClass
+                    );
+
+                    if (hashMember && hashMember.isTypeDeclared) {
+                        const decls = hashMember.symbol.getTypedDeclarations();
+
+                        // Assume that if '__hash__' is declared as a variable, it is
+                        // not hashable. If it's declared as a function, it is. We'll
+                        // skip evaluating its full type because that's not needed in
+                        // this case.
+                        if (decls.every((decl) => decl.type === DeclarationType.Variable)) {
+                            isObjectHashable = false;
+                        }
+                    }
+
+                    // Cache the hashability for next time.
+                    subtype.details.isInstanceHashable = isObjectHashable;
+                }
+
+                if (!isObjectHashable) {
+                    isTypeHashable = false;
+                }
+            }
+        });
+
+        return isTypeHashable;
+    }
+
     function getTypedDictClassType() {
         return typedDictClassType;
     }
@@ -12517,11 +12560,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* flags */ undefined,
                     expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined)
                 );
+
                 if (keyTypeResult.isIncomplete) {
                     isIncomplete = true;
                 }
 
                 const keyType = keyTypeResult.type;
+
+                if (!keyTypeResult.isIncomplete && !keyTypeResult.typeErrors) {
+                    verifySetEntryOrDictKeyIsHashable(entryNode.keyExpression, keyType, /* isDictKey */ true);
+                }
+
                 let valueTypeResult: TypeResult;
 
                 if (
@@ -12557,6 +12606,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     keyTypes.push({ node: entryNode.keyExpression, type: keyType });
                     valueTypes.push({ node: entryNode.valueExpression, type: valueType });
                 }
+
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
                 const unexpandedTypeResult = getTypeOfExpression(entryNode.expandExpression);
@@ -12714,6 +12764,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
         let isIncomplete = false;
         let typeErrors = false;
+        const verifyHashable = node.nodeType === ParseNodeType.Set;
 
         if (!isClassInstance(expectedType)) {
             return undefined;
@@ -12751,20 +12802,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedTypeDiagAddendum = new DiagnosticAddendum();
         node.entries.forEach((entry) => {
             let entryTypeResult: TypeResult;
+
             if (entry.nodeType === ParseNodeType.ListComprehension) {
                 entryTypeResult = getElementTypeFromListComprehension(entry, expectedEntryType);
             } else {
                 entryTypeResult = getTypeOfExpression(entry, /* flags */ undefined, expectedEntryType);
             }
+
             entryTypes.push(entryTypeResult.type);
+
             if (entryTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
+
             if (entryTypeResult.typeErrors) {
                 typeErrors = true;
             }
+
             if (entryTypeResult.expectedTypeDiagAddendum) {
                 expectedTypeDiagAddendum.addAddendum(entryTypeResult.expectedTypeDiagAddendum);
+            }
+
+            if (verifyHashable && !entryTypeResult.isIncomplete && !entryTypeResult.typeErrors) {
+                verifySetEntryOrDictKeyIsHashable(entry, entryTypeResult.type, /* isDictKey */ false);
             }
         });
 
@@ -12786,6 +12846,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Attempts to infer the type of a list or set statement with no "expected type".
     function getTypeOfListOrSetInferred(node: ListNode | SetNode, hasExpectedType: boolean): TypeResult {
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
+        const verifyHashable = node.nodeType === ParseNodeType.Set;
         let isEmptyContainer = false;
         let isIncomplete = false;
         let typeErrors = false;
@@ -12807,12 +12868,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entryTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
+
             if (entryTypeResult.typeErrors) {
                 typeErrors = true;
             }
 
             if (index < maxEntriesToUseForInference) {
                 entryTypes.push(entryTypeResult.type);
+            }
+
+            if (verifyHashable && !entryTypeResult.isIncomplete && !entryTypeResult.typeErrors) {
+                verifySetEntryOrDictKeyIsHashable(entry, entryTypeResult.type, /* isDictKey */ false);
             }
         });
 
@@ -12854,6 +12920,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             : UnknownType.create();
 
         return { type, isIncomplete, typeErrors };
+    }
+
+    function verifySetEntryOrDictKeyIsHashable(entry: ExpressionNode, type: Type, isDictKey: boolean) {
+        // Verify that the type is hashable.
+        if (!isTypeHashable(type)) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(entry);
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(Localizer.DiagnosticAddendum.unhashableType().format({ type: printType(type) }));
+
+            const message = isDictKey
+                ? Localizer.Diagnostic.unhashableDictKey()
+                : Localizer.Diagnostic.unhashableSetEntry();
+
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                message + diag.getString(),
+                entry
+            );
+        }
     }
 
     function inferTypeArgFromExpectedType(
