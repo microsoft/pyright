@@ -493,9 +493,6 @@ interface ClassDetails {
     // or a base class.
     classDataClassTransform?: DataClassBehaviors | undefined;
 
-    // Variance of type parameters, inferred if necessary.
-    typeParameterVariance?: Variance[];
-
     // Indicates that one or more type parameters has an
     // autovariance, so variance must be inferred.
     requiresVarianceInference?: boolean;
