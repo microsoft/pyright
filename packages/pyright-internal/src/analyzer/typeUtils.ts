@@ -58,6 +58,7 @@ import {
     TypeVarType,
     UnionType,
     UnknownType,
+    Variance,
     WildcardTypeVarScopeId,
 } from './types';
 import { TypeVarContext } from './typeVarContext';
@@ -2393,6 +2394,43 @@ export function requiresSpecialization(
     }
 
     return false;
+}
+
+// Determines if the variance of the type argument for a generic class is compatible
+// With the declared variance of the corresponding type parameter.
+export function isVarianceOfTypeArgumentCompatible(type: Type, typeParamVariance: Variance): boolean {
+    if (typeParamVariance === Variance.Unknown || typeParamVariance === Variance.Auto) {
+        return true;
+    }
+
+    if (isTypeVar(type) && !type.details.isParamSpec && !type.details.isVariadic) {
+        const typeArgVariance = type.details.declaredVariance;
+
+        if (typeArgVariance === Variance.Contravariant || typeArgVariance === Variance.Covariant) {
+            return typeArgVariance === typeParamVariance;
+        }
+    } else if (isClassInstance(type)) {
+        if (type.details.typeParameters && type.details.typeParameters.length > 0) {
+            return type.details.typeParameters.every((typeParam, index) => {
+                let typeArgType: Type | undefined;
+
+                if (typeParam.details.isParamSpec || typeParam.details.isVariadic) {
+                    return true;
+                }
+
+                if (type.typeArguments && index < type.typeArguments.length) {
+                    typeArgType = type.typeArguments[index];
+                }
+
+                const effectiveVariance =
+                    typeParam.details.declaredVariance === Variance.Invariant ? Variance.Invariant : typeParamVariance;
+
+                return isVarianceOfTypeArgumentCompatible(typeArgType ?? UnknownType.create(), effectiveVariance);
+            });
+        }
+    }
+
+    return true;
 }
 
 // Computes the method resolution ordering for a class whose base classes

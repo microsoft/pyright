@@ -270,6 +270,7 @@ import {
     isTypeAliasRecursive,
     isUnboundedTupleClass,
     isUnionableType,
+    isVarianceOfTypeArgumentCompatible,
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
@@ -6759,7 +6760,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.DoNotSpecialize |
                 EvaluatorFlags.ParamSpecDisallowed |
                 EvaluatorFlags.TypeVarTupleDisallowed |
-                EvaluatorFlags.RequiredAllowed
+                EvaluatorFlags.RequiredAllowed |
+                EvaluatorFlags.EnforceTypeVarVarianceConsistency
             );
 
             if (!isAnnotatedClass) {
@@ -18588,25 +18590,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Determine if the variance must match.
                 if (adjustedTypeArgType && (flags & EvaluatorFlags.EnforceTypeVarVarianceConsistency) !== 0) {
                     const destType = typeParameters[index];
-                    if (
-                        isTypeVar(adjustedTypeArgType) &&
-                        !adjustedTypeArgType.details.isParamSpec &&
-                        !adjustedTypeArgType.details.isVariadic &&
-                        destType.details.declaredVariance !== Variance.Auto &&
-                        adjustedTypeArgType.details.declaredVariance !== Variance.Auto
-                    ) {
-                        if (
-                            adjustedTypeArgType.details.declaredVariance !== Variance.Invariant &&
-                            adjustedTypeArgType.details.declaredVariance !== destType.details.declaredVariance
-                        ) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.varianceMismatch().format({
-                                    typeVarName: printType(adjustedTypeArgType),
-                                    className: classType.details.name,
-                                })
-                            );
-                            adjustedTypeArgType = undefined;
-                        }
+                    const declaredVariance = destType.details.declaredVariance;
+
+                    if (!isVarianceOfTypeArgumentCompatible(adjustedTypeArgType, declaredVariance)) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.varianceMismatch().format({
+                                typeVarName: printType(adjustedTypeArgType),
+                                className: classType.details.name,
+                            })
+                        );
+                        adjustedTypeArgType = undefined;
                     }
                 }
 
