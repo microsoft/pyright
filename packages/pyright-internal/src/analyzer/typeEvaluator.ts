@@ -3972,7 +3972,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const memberType = getTypeOfMember(classMember);
+        const memberTypeResult = getTypeOfMemberInternal(classMember, objType);
+        if (!memberTypeResult) {
+            return undefined;
+        }
+
+        const memberType = memberTypeResult.type;
         if (isAnyOrUnknown(memberType)) {
             return memberType;
         }
