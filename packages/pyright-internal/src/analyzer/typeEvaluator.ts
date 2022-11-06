@@ -19180,7 +19180,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
-                            } else if (ClassType.isDataClass(baseType)) {
+                            } else if (ClassType.isDataClass(baseType) || ClassType.isTypedDictClass(baseType)) {
                                 const lookupResults = lookUpClassMember(baseType, paramName);
                                 if (lookupResults) {
                                     appendArray(declarations, lookupResults.symbol.getDeclarations());
