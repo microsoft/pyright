@@ -257,7 +257,7 @@ export class HoverProvider {
                     return;
                 }
 
-                this._addResultsPart(parts, '(class) ' + node.value, /* python */ true);
+                this._addResultsPart(parts, '(class)\n' + node.value, /* python */ true);
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -381,6 +381,9 @@ export class HoverProvider {
             callLeftNode.parent.nodeType === ParseNodeType.MemberAccess &&
             node === callLeftNode.parent.memberName
         ) {
+            callLeftNode = node.parent;
+            // Allow the left to be a generic class constructor (e.g. foo[int]())
+        } else if (callLeftNode.parent && callLeftNode.parent.nodeType === ParseNodeType.Index) {
             callLeftNode = node.parent;
         }
 
