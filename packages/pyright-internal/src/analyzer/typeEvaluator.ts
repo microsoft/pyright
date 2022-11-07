@@ -23362,7 +23362,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (effectiveDestType.details.paramSpec) {
                 const requiredMatchParamCount = effectiveDestType.details.parameters.filter((p) => {
-                    //FunctionType.getFunctionParameters(effectiveDestType).filter((p) => {
                     if (!p.name) {
                         return false;
                     }
