@@ -1762,14 +1762,6 @@ export namespace FunctionType {
             ? type.specializedTypes.returnType
             : type.details.declaredReturnType;
     }
-
-    /** Ignore nameless separator parameters by default */
-    export function getFunctionParameters(type: FunctionType, excludeNameless = true) {
-        if (excludeNameless) {
-            return type.details.parameters.filter((param) => !!param.name);
-        }
-        return type.details.parameters;
-    }
 }
 
 export interface OverloadedFunctionType extends TypeBase {
