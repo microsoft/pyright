@@ -600,7 +600,10 @@ export function synthesizeDataClassMethods(
             )
         );
     }
-    symbolTable.set('__dataclass_fields__', Symbol.createWithType(SymbolFlags.ClassMember, dictType));
+    symbolTable.set(
+        '__dataclass_fields__',
+        Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, dictType)
+    );
 
     if (ClassType.isGeneratedDataClassSlots(classType) && classType.details.localSlotsNames === undefined) {
         classType.details.localSlotsNames = localDataClassEntries.map((entry) => entry.name);
