@@ -2139,7 +2139,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             !methodType ||
                             isObjectInit ||
                             isSkipConstructor ||
-                            (methodType && isFunction(methodType) && (FunctionType.hasDefaultParameters(methodType) || methodType.details.parameters.length === 0))
+                            (methodType &&
+                                isFunction(methodType) &&
+                                (FunctionType.hasDefaultParameters(methodType) ||
+                                    methodType.details.parameters.length === 0))
                         ) {
                             const constructorType = getBoundMethod(
                                 subtype,
