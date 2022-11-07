@@ -520,7 +520,7 @@ export class Parser {
         return TypeParameterListNode.create(openBracketToken, closingToken, typeVariableNodes);
     }
 
-    // type_param: ['*' | '**'] NAME [':' expr]
+    // type_param: ['*' | '**'] NAME [':' bound_expr] ['=' default_expr]
     private _parseTypeParameter(): TypeParameterNode | undefined {
         let typeParamCategory = TypeParameterCategory.TypeVar;
         if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
@@ -538,16 +538,22 @@ export class Parser {
         const name = NameNode.create(nameToken);
 
         let boundExpression: ExpressionNode | undefined;
-        if (this._peekTokenType() === TokenType.Colon) {
-            this._getNextToken();
-            boundExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
+        if (this._consumeTokenIfType(TokenType.Colon)) {
+            boundExpression = this._parseExpression(/* allowUnpack */ false);
 
             if (typeParamCategory !== TypeParameterCategory.TypeVar) {
                 this._addError(Localizer.Diagnostic.typeParameterBoundNotAllowed(), boundExpression);
             }
         }
 
-        return TypeParameterNode.create(name, typeParamCategory, boundExpression);
+        let defaultExpression: ExpressionNode | undefined;
+        if (this._consumeTokenIfOperator(OperatorType.Assign)) {
+            defaultExpression = this._parseExpression(
+                /* allowUnpack */ typeParamCategory === TypeParameterCategory.TypeVarTuple
+            );
+        }
+
+        return TypeParameterNode.create(name, typeParamCategory, boundExpression, defaultExpression);
     }
 
     // match_stmt: "match" subject_expr ':' NEWLINE INDENT case_block+ DEDENT

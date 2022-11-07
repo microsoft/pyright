@@ -161,3 +161,11 @@ test('TypeVarDefault4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault4.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('TypeVarDefault5', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});

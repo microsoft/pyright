@@ -311,7 +311,7 @@ export function getChildNodes(node: ParseNode) {
             return [node.valueExpression, node.typeAnnotation];
 
         case ParseNodeType.TypeParameter:
-            return [node.name, node.boundExpression];
+            return [node.name, node.boundExpression, node.defaultExpression];
 
         case ParseNodeType.TypeParameterList:
             return [...node.parameters];

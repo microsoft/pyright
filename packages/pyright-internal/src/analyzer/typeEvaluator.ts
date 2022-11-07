@@ -19380,6 +19380,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                if (declaration.node.defaultExpression) {
+                    // TODO - need to finish. For now, just evaluate the expression
+                    // to generate any errors.
+                    getTypeOfExpression(
+                        declaration.node.defaultExpression,
+                        EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple
+                    );
+                }
+
                 typeVar.details.isTypeParamSyntax = true;
 
                 // Associate the type variable with the owning scope.
