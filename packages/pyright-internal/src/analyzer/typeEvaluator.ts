@@ -14680,7 +14680,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     if (symbolWithScope) {
                         const decls = symbolWithScope.symbol.getDeclarations();
-                        if (decls.length === 1 && isPossibleTypeAliasDeclaration(decls[0])) {
+                        if (decls.length === 1 && isPossibleTypeAliasOrTypedDict(decls[0])) {
                             typeAliasNameNode = node.leftExpression;
                             isSpeculativeTypeAlias = true;
                         }
@@ -14826,6 +14826,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         writeTypeCache(node, rightHandType, EvaluatorFlags.None, isIncomplete);
+    }
+
+    function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
+        if (isPossibleTypeAliasDeclaration(decl)) {
+            return true;
+        }
+
+        if (
+            decl.type === DeclarationType.Variable &&
+            decl.node.parent &&
+            decl.node.parent.nodeType === ParseNodeType.Assignment &&
+            decl.node.parent.rightExpression?.nodeType === ParseNodeType.Call
+        ) {
+            // See if this is a call to TypedDict. We want to support
+            // recursive type references in a TypedDict call.
+            const callType = getTypeOfExpression(
+                decl.node.parent.rightExpression.leftExpression,
+                EvaluatorFlags.DoNotSpecialize
+            ).type;
+
+            if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Evaluates the type of a type alias (i.e. "type") statement. This code
@@ -19870,7 +19896,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (considerDecl) {
                 const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(decl);
-                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasDeclaration(decl);
+                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(decl);
 
                 if (isExplicitTypeAlias) {
                     sawExplicitTypeAlias = true;
