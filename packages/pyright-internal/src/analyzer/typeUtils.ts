@@ -3207,8 +3207,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
 
             // If this typeVar is in scope for what we're solving but the type
-            // var map doesn't contain any entry for it, replace with Unknown.
+            // var map doesn't contain any entry for it, replace with the
+            // default or Unknown.
             if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+                if (typeVar.details.defaultType) {
+                    return typeVar.details.defaultType;
+                }
+
                 return UnknownType.create();
             }
         }
@@ -3245,8 +3250,16 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return postTransform;
     }
 
-    override transformVariadicTypeVar(typeVar: TypeVarType) {
+    override transformVariadicTypeVar(typeVar: TypeVarType): TupleTypeArgument[] | undefined {
         if (!typeVar.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
+            if (
+                typeVar.details.defaultType &&
+                isClassInstance(typeVar.details.defaultType) &&
+                typeVar.details.defaultType.tupleTypeArguments
+            ) {
+                return typeVar.details.defaultType.tupleTypeArguments;
+            }
+
             return undefined;
         }
 
@@ -3264,6 +3277,19 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+            // Use the default value if there is one.
+            if (paramSpec.details.defaultType && isFunction(paramSpec.details.defaultType)) {
+                const funcType = paramSpec.details.defaultType;
+
+                return {
+                    flags: funcType.details.flags,
+                    parameters: funcType.details.parameters,
+                    typeVarScopeId: funcType.details.typeVarScopeId,
+                    docString: funcType.details.docString,
+                    paramSpec: funcType.details.paramSpec,
+                };
+            }
+
             // Convert to the ParamSpec equivalent of "Unknown".
             const paramSpecValue: ParamSpecValue = {
                 flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,

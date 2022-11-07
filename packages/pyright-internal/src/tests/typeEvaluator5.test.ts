@@ -136,3 +136,28 @@ test('Hashability1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['hashability1.py']);
     TestUtils.validateResults(analysisResults, 10);
 });
+
+test('Override1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypeVarDefault1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault1.py']);
+    TestUtils.validateResults(analysisResults, 12);
+});
+
+test('TypeVarDefault2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault2.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarDefault3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeVarDefault4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault4.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});

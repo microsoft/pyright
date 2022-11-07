@@ -1,4 +1,5 @@
-# This sample tests the handling of default TypeVar types for
+# This sample tests support for PEP 696 -- default types for TypeVars.
+# In particular, it tests the handling of default TypeVar types for
 # generic type aliases.
 
 from collections.abc import Callable
