@@ -58,6 +58,7 @@ import {
     TypeVarType,
     UnionType,
     UnknownType,
+    Variance,
     WildcardTypeVarScopeId,
 } from './types';
 import { TypeVarContext } from './typeVarContext';
@@ -345,6 +346,15 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         result.positionOnlyParamCount++;
                     }
                 });
+
+                // Normally, a VarArgList parameter (either named or as an unnamed separator)
+                // would signify the start of keyword-only parameters. However, we can construct
+                // callable signatures that defy this rule by using Callable and TypeVarTuples
+                // or unpacked tuples.
+                if (!sawKeywordOnlySeparator && (positionOnlyIndex < 0 || index >= positionOnlyIndex)) {
+                    result.firstKeywordOnlyIndex = result.params.length;
+                    sawKeywordOnlySeparator = true;
+                }
             } else {
                 if (param.name && result.argsIndex === undefined) {
                     result.argsIndex = result.params.length;
@@ -2084,9 +2094,9 @@ export function explodeGenericClass(classType: ClassType) {
 
 // If the type is a union of same-sized tuples, these are combined into
 // a single tuple with that size. Otherwise, returns undefined.
-export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) {
+export function combineSameSizedTuples(type: Type, tupleType: Type | undefined): Type {
     if (!tupleType || !isInstantiableClass(tupleType) || isUnboundedTupleClass(tupleType)) {
-        return undefined;
+        return type;
     }
 
     let tupleEntries: Type[][] | undefined;
@@ -2128,7 +2138,7 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
     });
 
     if (!isValid || !tupleEntries) {
-        return undefined;
+        return type;
     }
 
     return convertToInstance(
@@ -2384,6 +2394,43 @@ export function requiresSpecialization(
     }
 
     return false;
+}
+
+// Determines if the variance of the type argument for a generic class is compatible
+// With the declared variance of the corresponding type parameter.
+export function isVarianceOfTypeArgumentCompatible(type: Type, typeParamVariance: Variance): boolean {
+    if (typeParamVariance === Variance.Unknown || typeParamVariance === Variance.Auto) {
+        return true;
+    }
+
+    if (isTypeVar(type) && !type.details.isParamSpec && !type.details.isVariadic) {
+        const typeArgVariance = type.details.declaredVariance;
+
+        if (typeArgVariance === Variance.Contravariant || typeArgVariance === Variance.Covariant) {
+            return typeArgVariance === typeParamVariance;
+        }
+    } else if (isClassInstance(type)) {
+        if (type.details.typeParameters && type.details.typeParameters.length > 0) {
+            return type.details.typeParameters.every((typeParam, index) => {
+                let typeArgType: Type | undefined;
+
+                if (typeParam.details.isParamSpec || typeParam.details.isVariadic) {
+                    return true;
+                }
+
+                if (type.typeArguments && index < type.typeArguments.length) {
+                    typeArgType = type.typeArguments[index];
+                }
+
+                const effectiveVariance =
+                    typeParam.details.declaredVariance === Variance.Invariant ? Variance.Invariant : typeParamVariance;
+
+                return isVarianceOfTypeArgumentCompatible(typeArgType ?? UnknownType.create(), effectiveVariance);
+            });
+        }
+    }
+
+    return true;
 }
 
 // Computes the method resolution ordering for a class whose base classes
@@ -3160,8 +3207,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
 
             // If this typeVar is in scope for what we're solving but the type
-            // var map doesn't contain any entry for it, replace with Unknown.
+            // var map doesn't contain any entry for it, replace with the
+            // default or Unknown.
             if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+                if (typeVar.details.defaultType) {
+                    return typeVar.details.defaultType;
+                }
+
                 return UnknownType.create();
             }
         }
@@ -3198,8 +3250,16 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return postTransform;
     }
 
-    override transformVariadicTypeVar(typeVar: TypeVarType) {
+    override transformVariadicTypeVar(typeVar: TypeVarType): TupleTypeArgument[] | undefined {
         if (!typeVar.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
+            if (
+                typeVar.details.defaultType &&
+                isClassInstance(typeVar.details.defaultType) &&
+                typeVar.details.defaultType.tupleTypeArguments
+            ) {
+                return typeVar.details.defaultType.tupleTypeArguments;
+            }
+
             return undefined;
         }
 
@@ -3217,6 +3277,19 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         if (this._unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+            // Use the default value if there is one.
+            if (paramSpec.details.defaultType && isFunction(paramSpec.details.defaultType)) {
+                const funcType = paramSpec.details.defaultType;
+
+                return {
+                    flags: funcType.details.flags,
+                    parameters: funcType.details.parameters,
+                    typeVarScopeId: funcType.details.typeVarScopeId,
+                    docString: funcType.details.docString,
+                    paramSpec: funcType.details.paramSpec,
+                };
+            }
+
             // Convert to the ParamSpec equivalent of "Unknown".
             const paramSpecValue: ParamSpecValue = {
                 flags: FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck,

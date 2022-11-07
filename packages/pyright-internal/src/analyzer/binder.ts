@@ -738,6 +738,10 @@ export class Binder extends ParseTreeWalker {
             if (param.boundExpression) {
                 this.walk(param.boundExpression);
             }
+
+            if (param.defaultExpression) {
+                this.walk(param.defaultExpression);
+            }
         });
 
         node.parameters.forEach((param) => {

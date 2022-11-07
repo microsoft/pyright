@@ -1228,29 +1228,3 @@ test('Del1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del1.py']);
     TestUtils.validateResults(analysisResults, 6);
 });
-
-test('Override1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('TypeVarDefault1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault1.py']);
-    TestUtils.validateResults(analysisResults, 12);
-});
-
-test('TypeVarDefault2', () => {
-    const configOptions = new ConfigOptions('.');
-
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeVarDefault3', () => {
-    const configOptions = new ConfigOptions('.');
-
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
-});

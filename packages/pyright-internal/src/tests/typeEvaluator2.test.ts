@@ -969,11 +969,17 @@ test('GenericTypes96', () => {
 test('GenericTypes97', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes97.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('GenericTypes98', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes98.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('GenericTypes99', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes99.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

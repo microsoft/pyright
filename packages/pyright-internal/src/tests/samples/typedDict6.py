@@ -1,7 +1,7 @@
 # This sample tests the type analyzer's handling of TypedDict
 # "alternate syntax" defined in PEP 589.
 
-from typing import TypedDict
+from typing import NotRequired, Required, TypedDict
 
 Movie = TypedDict("Movie", {"name": str, "year": int})
 
@@ -75,3 +75,8 @@ movie5: MovieNotTotal = {"name": "Blade Runner"}
 
 def foo(unknown_str_value: str):
     a = movie5[unknown_str_value]
+
+Movie12 = TypedDict("Movie12", {"title": Required[str], "predecessor": NotRequired["Movie12"]})
+
+movie12: Movie12 = {"title": "Two Towers", "predecessor": {"title": "Fellowship"}}
+

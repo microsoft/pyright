@@ -270,6 +270,7 @@ import {
     isTypeAliasRecursive,
     isUnboundedTupleClass,
     isUnionableType,
+    isVarianceOfTypeArgumentCompatible,
     lookUpClassMember,
     lookUpObjectMember,
     mapSubtypes,
@@ -2619,6 +2620,56 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return isValidIterable ? iterableType : undefined;
     }
 
+    function isTypeHashable(type: Type): boolean {
+        let isTypeHashable = true;
+
+        doForEachSubtype(makeTopLevelTypeVarsConcrete(type), (subtype) => {
+            if (isClassInstance(subtype)) {
+                // Assume the class is hashable.
+                let isObjectHashable = true;
+
+                // Have we already computed and cached the hashability?
+                if (subtype.details.isInstanceHashable !== undefined) {
+                    isObjectHashable = subtype.details.isInstanceHashable;
+                } else {
+                    const hashMember = lookUpObjectMember(
+                        subtype,
+                        '__hash__',
+                        ClassMemberLookupFlags.SkipObjectBaseClass
+                    );
+
+                    if (hashMember && hashMember.isTypeDeclared) {
+                        const decls = hashMember.symbol.getTypedDeclarations();
+                        const synthesizedType = hashMember.symbol.getSynthesizedType();
+
+                        // Handle the case where the type is synthesized (used for
+                        // dataclasses).
+                        if (synthesizedType) {
+                            isObjectHashable = !isNoneInstance(synthesizedType);
+                        } else {
+                            // Assume that if '__hash__' is declared as a variable, it is
+                            // not hashable. If it's declared as a function, it is. We'll
+                            // skip evaluating its full type because that's not needed in
+                            // this case.
+                            if (decls.every((decl) => decl.type === DeclarationType.Variable)) {
+                                isObjectHashable = false;
+                            }
+                        }
+                    }
+
+                    // Cache the hashability for next time.
+                    subtype.details.isInstanceHashable = isObjectHashable;
+                }
+
+                if (!isObjectHashable) {
+                    isTypeHashable = false;
+                }
+            }
+        });
+
+        return isTypeHashable;
+    }
+
     function getTypedDictClassType() {
         return typedDictClassType;
     }
@@ -3921,7 +3972,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const memberType = getTypeOfMember(classMember);
+        const memberTypeResult = getTypeOfMemberInternal(classMember, objType);
+        if (!memberTypeResult) {
+            return undefined;
+        }
+
+        const memberType = memberTypeResult.type;
         if (isAnyOrUnknown(memberType)) {
             return memberType;
         }
@@ -6759,7 +6815,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.DoNotSpecialize |
                 EvaluatorFlags.ParamSpecDisallowed |
                 EvaluatorFlags.TypeVarTupleDisallowed |
-                EvaluatorFlags.RequiredAllowed
+                EvaluatorFlags.RequiredAllowed |
+                EvaluatorFlags.EnforceTypeVarVarianceConsistency
             );
 
             if (!isAnnotatedClass) {
@@ -8909,6 +8966,55 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
     }
 
+    // Expands any unpacked tuples within an argument list.
+    function expandArgList(argList: FunctionArgument[]): FunctionArgument[] {
+        const expandedArgList: FunctionArgument[] = [];
+
+        for (const arg of argList) {
+            if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+                const argType = getTypeOfArgument(arg).type;
+
+                // If this is a tuple with specified element types, use those
+                // specified types rather than using the more generic iterator
+                // type which will be a union of all element types.
+                const combinedArgType = combineSameSizedTuples(makeTopLevelTypeVarsConcrete(argType), tupleClassType);
+
+                if (isClassInstance(combinedArgType) && isTupleClass(combinedArgType)) {
+                    const tupleTypeArgs = combinedArgType.tupleTypeArguments ?? [];
+
+                    if (tupleTypeArgs.length !== 1) {
+                        for (const tupleTypeArg of tupleTypeArgs) {
+                            if (tupleTypeArg.isUnbounded) {
+                                expandedArgList.push({
+                                    ...arg,
+                                    argumentCategory: ArgumentCategory.UnpackedList,
+                                    valueExpression: undefined,
+                                    typeResult: {
+                                        type: specializeTupleClass(combinedArgType, [tupleTypeArg]),
+                                    },
+                                });
+                            } else {
+                                expandedArgList.push({
+                                    ...arg,
+                                    argumentCategory: ArgumentCategory.Simple,
+                                    valueExpression: undefined,
+                                    typeResult: {
+                                        type: tupleTypeArg.type,
+                                    },
+                                });
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            expandedArgList.push(arg);
+        }
+
+        return expandedArgList;
+    }
+
     // Matches the arguments passed to a function to the corresponding parameters in that
     // function. This matching is done based on positions and keywords. Type evaluation and
     // validation is left to the caller.
@@ -8925,6 +9031,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let reportedArgError = false;
         let isTypeIncomplete = false;
         let isVariadicTypeVarFullyMatched = false;
+
+        // Expand any unpacked tuples in the arg list.
+        argList = expandArgList(argList);
 
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
@@ -9030,12 +9139,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        let foundUnpackedListArg =
+        const foundUnpackedListArg =
             argList.find((arg) => arg.argumentCategory === ArgumentCategory.UnpackedList) !== undefined;
 
         // Map the positional args to parameters.
         let paramIndex = 0;
-        let unpackedArgIndex = 0;
 
         while (argIndex < positionalArgCount) {
             if (argIndex < positionalOnlyLimitIndex && argList[argIndex].name) {
@@ -9049,19 +9157,45 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 reportedArgError = true;
             }
 
+            const remainingArgCount = positionalArgCount - argIndex;
+            const remainingParamCount = positionParamLimitIndex - paramIndex - 1;
+
             if (paramIndex >= positionParamLimitIndex) {
-                if (!foundUnpackedListArg || argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        positionParamLimitIndex === 1
-                            ? Localizer.Diagnostic.argPositionalExpectedOne()
-                            : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                  expected: positionParamLimitIndex,
-                              }),
-                        argList[argIndex].valueExpression || errorNode
-                    );
-                    reportedArgError = true;
+                if (!type.details.paramSpec) {
+                    let tooManyPositionals = false;
+
+                    if (foundUnpackedListArg && argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
+                        // If this is an unpacked iterable, we will conservatively assume that it
+                        // might have zero iterations unless we can tell from its type that it
+                        // definitely has at least one iterable value.
+                        const argType = getTypeOfArgument(argList[argIndex]).type;
+
+                        if (
+                            isClassInstance(argType) &&
+                            isTupleClass(argType) &&
+                            !isUnboundedTupleClass(argType) &&
+                            argType.tupleTypeArguments !== undefined &&
+                            argType.tupleTypeArguments.length > 0
+                        ) {
+                            tooManyPositionals = true;
+                        }
+                    } else {
+                        tooManyPositionals = true;
+                    }
+
+                    if (tooManyPositionals) {
+                        addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            positionParamLimitIndex === 1
+                                ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                      expected: positionParamLimitIndex,
+                                  }),
+                            argList[argIndex].valueExpression ?? errorNode
+                        );
+                        reportedArgError = true;
+                    }
                 }
                 break;
             }
@@ -9074,17 +9208,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const paramType = paramDetails.params[paramIndex].type;
             const paramName = paramDetails.params[paramIndex].param.name;
 
-            if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
-                if (!argList[argIndex].valueExpression) {
-                    break;
-                }
+            const isParamVariadic =
+                paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList &&
+                isVariadicTypeVar(paramType);
 
-                const isParamVariadic =
-                    paramDetails.params[paramIndex].param.category === ParameterCategory.VarArgList &&
-                    isVariadicTypeVar(paramType);
+            if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 let isArgCompatibleWithVariadic = false;
                 const argTypeResult = getTypeOfArgument(argList[argIndex]);
-                const argType = argTypeResult.type;
                 let listElementType: Type | undefined;
                 let advanceToNextArg = false;
 
@@ -9101,40 +9231,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             : Localizer.Diagnostic.argPositionalExpectedCount().format({
                                   expected: positionParamLimitIndex,
                               }),
-                        argList[argIndex].valueExpression || errorNode
+                        argList[argIndex].valueExpression ?? errorNode
                     );
                     reportedArgError = true;
                 }
 
-                // If this is a tuple with specified element types, use those
-                // specified types rather than using the more generic iterator
-                // type which will be a union of all element types.
-                const combinedTupleType = combineSameSizedTuples(makeTopLevelTypeVarsConcrete(argType), tupleClassType);
+                const argType = argTypeResult.type;
 
-                if (
-                    !isParamVariadic &&
-                    combinedTupleType &&
-                    isClassInstance(combinedTupleType) &&
-                    combinedTupleType.tupleTypeArguments &&
-                    combinedTupleType.tupleTypeArguments.length > 0 &&
-                    unpackedArgIndex < combinedTupleType.tupleTypeArguments.length
-                ) {
-                    listElementType = combinedTupleType.tupleTypeArguments[unpackedArgIndex].type;
-
-                    // Determine if there are any more unpacked list arguments after
-                    // this one. If not, we'll clear this flag because this unpacked
-                    // list arg is bounded in length.
-                    foundUnpackedListArg =
-                        argList.find(
-                            (arg, index) => index > argIndex && arg.argumentCategory === ArgumentCategory.UnpackedList
-                        ) !== undefined;
-
-                    unpackedArgIndex++;
-                    if (unpackedArgIndex >= combinedTupleType.tupleTypeArguments.length) {
-                        unpackedArgIndex = 0;
-                        advanceToNextArg = true;
-                    }
-                } else if (isParamVariadic && isVariadicTypeVar(argType)) {
+                if (isParamVariadic && isVariadicTypeVar(argType)) {
                     // Allow an unpacked variadic type variable to satisfy an
                     // unpacked variadic type variable.
                     listElementType = argType;
@@ -9154,33 +9258,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isArgCompatibleWithVariadic = true;
                     advanceToNextArg = true;
                     isVariadicTypeVarFullyMatched = true;
-                } else if (
-                    isParamVariadic &&
-                    isClassInstance(argType) &&
-                    isTupleClass(argType) &&
-                    argType.tupleTypeArguments
-                ) {
+                } else if (isParamVariadic && isClassInstance(argType) && isTupleClass(argType)) {
                     // Handle the case where an unpacked tuple argument is
                     // matched to a TypeVarTuple parameter.
                     isArgCompatibleWithVariadic = true;
                     advanceToNextArg = true;
-                    isVariadicTypeVarFullyMatched = true;
 
-                    validateArgTypeParams.push({
-                        paramCategory: ParameterCategory.Simple,
-                        paramType,
-                        requiresTypeVarMatching: requiresSpecialization(paramType),
-                        argument: {
-                            argumentCategory: ArgumentCategory.Simple,
-                            typeResult: {
-                                type: ClassType.cloneForUnpacked(argType),
-                                isIncomplete: argTypeResult.isIncomplete,
-                            },
-                        },
-                        errorNode: argList[argIndex].valueExpression || errorNode,
-                        paramName,
-                        isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
-                    });
+                    // Determine whether we should treat the variadic type as fully matched.
+                    // This depends on how many args and unmatched parameters exist.
+                    if (remainingArgCount < remainingParamCount) {
+                        isVariadicTypeVarFullyMatched = true;
+                    }
+
+                    listElementType = ClassType.cloneForUnpacked(argType);
                 } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                     listElementType = undefined;
                 } else {
@@ -9227,6 +9317,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             errorNode: argList[argIndex].valueExpression || errorNode,
                             paramName,
                             isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
+                            mapsToVarArgList: isParamVariadic && remainingArgCount > remainingParamCount,
                         });
                     }
                 }
@@ -9277,9 +9368,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     paramCategory = isVariadicTypeVar(effectiveParamType)
                         ? ParameterCategory.VarArgList
                         : ParameterCategory.Simple;
-
-                    const remainingArgCount = positionalArgCount - argIndex;
-                    const remainingParamCount = positionParamLimitIndex - paramIndex - 1;
 
                     if (remainingArgCount <= remainingParamCount) {
                         if (remainingArgCount < remainingParamCount) {
@@ -9801,14 +9889,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 isUnbounded: argParam.argument.argumentCategory === ArgumentCategory.UnpackedList,
                             };
                         });
-                        const specializedTuple = ClassType.cloneAsInstance(
-                            specializeTupleClass(
-                                tupleClassType,
-                                tupleTypeArgs,
-                                /* isTypeArgumentExplicit */ true,
-                                /* isUnpackedTuple */ true
-                            )
-                        );
+
+                        let specializedTuple: Type;
+                        if (
+                            tupleTypeArgs.length === 1 &&
+                            !tupleTypeArgs[0].isUnbounded &&
+                            isClassInstance(tupleTypeArgs[0].type) &&
+                            isTupleClass(tupleTypeArgs[0].type) &&
+                            tupleTypeArgs[0].type.isUnpacked
+                        ) {
+                            // If there is a single unpacked tuple within this tuple,
+                            // simplify the type.
+                            specializedTuple = tupleTypeArgs[0].type;
+                        } else {
+                            specializedTuple = ClassType.cloneAsInstance(
+                                specializeTupleClass(
+                                    tupleClassType,
+                                    tupleTypeArgs,
+                                    /* isTypeArgumentExplicit */ true,
+                                    /* isUnpackedTuple */ true
+                                )
+                            );
+                        }
 
                         const combinedArg: ValidateArgTypeParams = {
                             paramCategory: ParameterCategory.VarArgList,
@@ -12470,11 +12572,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* flags */ undefined,
                     expectedKeyType ?? (forceStrictInference ? NeverType.createNever() : undefined)
                 );
+
                 if (keyTypeResult.isIncomplete) {
                     isIncomplete = true;
                 }
 
                 const keyType = keyTypeResult.type;
+
+                if (!keyTypeResult.isIncomplete && !keyTypeResult.typeErrors) {
+                    verifySetEntryOrDictKeyIsHashable(entryNode.keyExpression, keyType, /* isDictKey */ true);
+                }
+
                 let valueTypeResult: TypeResult;
 
                 if (
@@ -12510,6 +12618,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     keyTypes.push({ node: entryNode.keyExpression, type: keyType });
                     valueTypes.push({ node: entryNode.valueExpression, type: valueType });
                 }
+
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
                 const unexpandedTypeResult = getTypeOfExpression(entryNode.expandExpression);
@@ -12667,6 +12776,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
         let isIncomplete = false;
         let typeErrors = false;
+        const verifyHashable = node.nodeType === ParseNodeType.Set;
 
         if (!isClassInstance(expectedType)) {
             return undefined;
@@ -12704,20 +12814,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedTypeDiagAddendum = new DiagnosticAddendum();
         node.entries.forEach((entry) => {
             let entryTypeResult: TypeResult;
+
             if (entry.nodeType === ParseNodeType.ListComprehension) {
                 entryTypeResult = getElementTypeFromListComprehension(entry, expectedEntryType);
             } else {
                 entryTypeResult = getTypeOfExpression(entry, /* flags */ undefined, expectedEntryType);
             }
+
             entryTypes.push(entryTypeResult.type);
+
             if (entryTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
+
             if (entryTypeResult.typeErrors) {
                 typeErrors = true;
             }
+
             if (entryTypeResult.expectedTypeDiagAddendum) {
                 expectedTypeDiagAddendum.addAddendum(entryTypeResult.expectedTypeDiagAddendum);
+            }
+
+            if (verifyHashable && !entryTypeResult.isIncomplete && !entryTypeResult.typeErrors) {
+                verifySetEntryOrDictKeyIsHashable(entry, entryTypeResult.type, /* isDictKey */ false);
             }
         });
 
@@ -12739,6 +12858,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Attempts to infer the type of a list or set statement with no "expected type".
     function getTypeOfListOrSetInferred(node: ListNode | SetNode, hasExpectedType: boolean): TypeResult {
         const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
+        const verifyHashable = node.nodeType === ParseNodeType.Set;
         let isEmptyContainer = false;
         let isIncomplete = false;
         let typeErrors = false;
@@ -12760,12 +12880,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entryTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
+
             if (entryTypeResult.typeErrors) {
                 typeErrors = true;
             }
 
             if (index < maxEntriesToUseForInference) {
                 entryTypes.push(entryTypeResult.type);
+            }
+
+            if (verifyHashable && !entryTypeResult.isIncomplete && !entryTypeResult.typeErrors) {
+                verifySetEntryOrDictKeyIsHashable(entry, entryTypeResult.type, /* isDictKey */ false);
             }
         });
 
@@ -12807,6 +12932,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             : UnknownType.create();
 
         return { type, isIncomplete, typeErrors };
+    }
+
+    function verifySetEntryOrDictKeyIsHashable(entry: ExpressionNode, type: Type, isDictKey: boolean) {
+        // Verify that the type is hashable.
+        if (!isTypeHashable(type)) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(entry);
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(Localizer.DiagnosticAddendum.unhashableType().format({ type: printType(type) }));
+
+            const message = isDictKey
+                ? Localizer.Diagnostic.unhashableDictKey()
+                : Localizer.Diagnostic.unhashableSetEntry();
+
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                message + diag.getString(),
+                entry
+            );
+        }
     }
 
     function inferTypeArgFromExpectedType(
@@ -14538,7 +14683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     if (symbolWithScope) {
                         const decls = symbolWithScope.symbol.getDeclarations();
-                        if (decls.length === 1 && isPossibleTypeAliasDeclaration(decls[0])) {
+                        if (decls.length === 1 && isPossibleTypeAliasOrTypedDict(decls[0])) {
                             typeAliasNameNode = node.leftExpression;
                             isSpeculativeTypeAlias = true;
                         }
@@ -14684,6 +14829,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         writeTypeCache(node, rightHandType, EvaluatorFlags.None, isIncomplete);
+    }
+
+    function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
+        if (isPossibleTypeAliasDeclaration(decl)) {
+            return true;
+        }
+
+        if (
+            decl.type === DeclarationType.Variable &&
+            decl.node.parent &&
+            decl.node.parent.nodeType === ParseNodeType.Assignment &&
+            decl.node.parent.rightExpression?.nodeType === ParseNodeType.Call
+        ) {
+            // See if this is a call to TypedDict. We want to support
+            // recursive type references in a TypedDict call.
+            const callType = getTypeOfExpression(
+                decl.node.parent.rightExpression.leftExpression,
+                EvaluatorFlags.DoNotSpecialize
+            ).type;
+
+            if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Evaluates the type of a type alias (i.e. "type") statement. This code
@@ -17670,6 +17841,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             getTypeOfAnnotation(annotationNode, {
                 isVariableAnnotation: annotationNode.parent?.nodeType === ParseNodeType.TypeAnnotation,
+                allowUnpackedTuple:
+                    annotationParent.nodeType === ParseNodeType.Parameter &&
+                    annotationParent.category === ParameterCategory.VarArgList,
+                allowUnpackedTypedDict:
+                    annotationParent.nodeType === ParseNodeType.Parameter &&
+                    annotationParent.category === ParameterCategory.VarArgDictionary,
             });
             return;
         }
@@ -18540,25 +18717,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Determine if the variance must match.
                 if (adjustedTypeArgType && (flags & EvaluatorFlags.EnforceTypeVarVarianceConsistency) !== 0) {
                     const destType = typeParameters[index];
-                    if (
-                        isTypeVar(adjustedTypeArgType) &&
-                        !adjustedTypeArgType.details.isParamSpec &&
-                        !adjustedTypeArgType.details.isVariadic &&
-                        destType.details.declaredVariance !== Variance.Auto &&
-                        adjustedTypeArgType.details.declaredVariance !== Variance.Auto
-                    ) {
-                        if (
-                            adjustedTypeArgType.details.declaredVariance !== Variance.Invariant &&
-                            adjustedTypeArgType.details.declaredVariance !== destType.details.declaredVariance
-                        ) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.varianceMismatch().format({
-                                    typeVarName: printType(adjustedTypeArgType),
-                                    className: classType.details.name,
-                                })
-                            );
-                            adjustedTypeArgType = undefined;
-                        }
+                    const declaredVariance = destType.details.declaredVariance;
+
+                    if (!isVarianceOfTypeArgumentCompatible(adjustedTypeArgType, declaredVariance)) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.varianceMismatch().format({
+                                typeVarName: printType(adjustedTypeArgType),
+                                className: classType.details.name,
+                            })
+                        );
+                        adjustedTypeArgType = undefined;
                     }
                 }
 
@@ -19046,7 +19214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
-                            } else if (ClassType.isDataClass(baseType)) {
+                            } else if (ClassType.isDataClass(baseType) || ClassType.isTypedDictClass(baseType)) {
                                 const lookupResults = lookUpClassMember(baseType, paramName);
                                 if (lookupResults) {
                                     appendArray(declarations, lookupResults.symbol.getDeclarations());
@@ -19239,6 +19407,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeVar.details.boundType = convertToInstance(boundType);
                         }
                     }
+                }
+
+                if (declaration.node.defaultExpression) {
+                    // TODO - need to finish. For now, just evaluate the expression
+                    // to generate any errors.
+                    getTypeOfExpression(
+                        declaration.node.defaultExpression,
+                        EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple
+                    );
                 }
 
                 typeVar.details.isTypeParamSyntax = true;
@@ -19722,7 +19899,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (considerDecl) {
                 const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(decl);
-                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasDeclaration(decl);
+                const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(decl);
 
                 if (isExplicitTypeAlias) {
                     sawExplicitTypeAlias = true;

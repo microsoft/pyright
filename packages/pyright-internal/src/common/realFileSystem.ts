@@ -331,6 +331,7 @@ class RealFileSystem implements FileSystem {
 
     tmpdir() {
         if (!this._tmpdir) {
+            tmp.setGracefulCleanup();
             const dir = tmp.dirSync({ prefix: 'pyright' });
             this._tmpdir = dir.name;
         }

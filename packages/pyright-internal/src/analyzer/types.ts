@@ -493,12 +493,13 @@ interface ClassDetails {
     // or a base class.
     classDataClassTransform?: DataClassBehaviors | undefined;
 
-    // Variance of type parameters, inferred if necessary.
-    typeParameterVariance?: Variance[];
-
     // Indicates that one or more type parameters has an
     // autovariance, so variance must be inferred.
     requiresVarianceInference?: boolean;
+
+    // A cached value that indicates whether an instance of this class
+    // is hashable (i.e. does not override "__hash__" with None).
+    isInstanceHashable?: boolean;
 }
 
 export interface TupleTypeArgument {
