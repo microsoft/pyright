@@ -14842,15 +14842,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             decl.node.parent.nodeType === ParseNodeType.Assignment &&
             decl.node.parent.rightExpression?.nodeType === ParseNodeType.Call
         ) {
-            // See if this is a call to TypedDict. We want to support
-            // recursive type references in a TypedDict call.
-            const callType = getTypeOfExpression(
-                decl.node.parent.rightExpression.leftExpression,
-                EvaluatorFlags.DoNotSpecialize
-            ).type;
+            const callLeftNode = decl.node.parent.rightExpression.leftExpression;
 
-            if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
-                return true;
+            // Use a simple heuristic to determine whether this is potentially
+            // a call to the TypedDict call. This avoids the expensive (and potentially
+            // recursive) call to getTypeOfExpression in cases where it's not needed.
+            if (
+                (callLeftNode.nodeType === ParseNodeType.Name && callLeftNode.value) === 'TypedDict' ||
+                (callLeftNode.nodeType === ParseNodeType.MemberAccess &&
+                    callLeftNode.memberName.value === 'TypedDict' &&
+                    callLeftNode.leftExpression.nodeType === ParseNodeType.Name)
+            ) {
+                // See if this is a call to TypedDict. We want to support
+                // recursive type references in a TypedDict call.
+                const callType = getTypeOfExpression(callLeftNode, EvaluatorFlags.DoNotSpecialize).type;
+
+                if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
+                    return true;
+                }
             }
         }
 
