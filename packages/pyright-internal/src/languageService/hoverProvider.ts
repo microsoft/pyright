@@ -430,16 +430,21 @@ export class HoverProvider {
                 isFunction(methodType) &&
                 (FunctionType.hasDefaultParameters(methodType) || methodType.details.parameters.length === 0))
         ) {
-            const newMember = lookUpClassMember(classType, '__new__', ClassMemberLookupFlags.SkipInstanceVariables);
+            const newMember = lookUpClassMember(
+                classType,
+                '__new__',
+                ClassMemberLookupFlags.SkipObjectBaseClass | ClassMemberLookupFlags.SkipInstanceVariables
+            );
 
             if (newMember) {
-                const functionType = evaluator.getTypeOfMember(newMember);
+                const newMemberType = evaluator.getTypeOfMember(newMember);
 
-                if (isFunction(functionType) || isOverloadedFunction(functionType)) {
+                // prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ()
+                if (isFunction(newMemberType) || isOverloadedFunction(newMemberType)) {
                     // set treatConstructorAsClassMember to so that the `__new__` methodType wont include `cls` as a parameter
                     methodType = evaluator.bindFunctionToClassOrObject(
                         instanceType,
-                        functionType,
+                        newMemberType,
                         /*memberClass*/ undefined,
                         /*errorNode*/ undefined,
                         /*recurrisveCount*/ undefined,
