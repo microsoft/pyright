@@ -4,7 +4,7 @@
 from typing import ClassVar, List, Protocol
 
 
-class Template(Protocol):
+class ProtoA(Protocol):
     a: int
     b: ClassVar[str]
 
@@ -20,3 +20,14 @@ class Template(Protocol):
 
         # This should be an error
         cls.test2 = 3
+
+class ProtoB(Protocol):
+    x: ClassVar[int]
+
+class B:
+    x: int
+
+# This should generate an error because x is not a ClassVar in B.
+a: ProtoB = B()
+
+ 
