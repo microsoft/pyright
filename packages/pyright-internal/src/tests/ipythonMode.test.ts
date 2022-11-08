@@ -560,3 +560,35 @@ function findCommentByOffset(tokens: TextRangeCollection<Token>, offset: number)
 
     return comment;
 }
+
+test('unused expression at end is not error', async () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// 4[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 0);
+});
+
+test('unused expression is error if within another statement', async () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// if True:
+////     4[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 1);
+});
+
+function verifyAnalysisDiagnosticCount(code: string, expectedCount: number) {
+    const state = parseAndGetTestState(code).state;
+    const range = state.getRangeByMarkerName('marker')!;
+
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    state.analyze();
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert.strictEqual(diagnostics?.length, expectedCount);
+}

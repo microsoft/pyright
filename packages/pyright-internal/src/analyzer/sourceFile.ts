@@ -1357,7 +1357,7 @@ export class SourceFile {
     }
 
     test_enableIPythonMode(enable: boolean) {
-        this._ipythonMode = enable ? IPythonMode.ConcatDoc : IPythonMode.None;
+        this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
     }
 
     private _buildFileInfo(
