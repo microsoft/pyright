@@ -41,7 +41,6 @@ import {
     FormatStringNode,
     ForNode,
     FunctionNode,
-    GlobalNode,
     IfNode,
     ImportAsNode,
     ImportFromAsNode,
@@ -57,11 +56,9 @@ import {
     ModuleNameNode,
     ModuleNode,
     NameNode,
-    NonlocalNode,
     ParameterCategory,
     ParameterNode,
     ParseNode,
-    ParseNodeArray,
     ParseNodeType,
     PatternClassNode,
     RaiseNode,
@@ -78,7 +75,6 @@ import {
     TupleNode,
     TypeAnnotationNode,
     TypeParameterListNode,
-    TypeParameterNode,
     UnaryOperationNode,
     UnpackNode,
     WhileNode,
@@ -96,7 +92,7 @@ import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolve
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { getChildNodes, ParseTreeVisitor, ParseTreeWalker } from './parseTreeWalker';
+import { ParseTreeVisitor, ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
@@ -234,8 +230,18 @@ const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
 const isPrintCodeComplexityEnabled = false;
 
 class BaseCheckVisitor extends ParseTreeVisitor<boolean> {
+    private _enabled = true;
+
     constructor() {
         super(/* default */ true);
+    }
+
+    enable(enabled: boolean) {
+        this._enabled = enabled;
+    }
+
+    isEnabled() {
+        return this._enabled;
     }
 }
 
@@ -257,7 +263,6 @@ class ScopeAndTypeParameterCollectorVisitor extends BaseCheckVisitor {
 
     override visitClass(node: ClassNode): boolean {
         this._scopedNodes.push(node);
-
         return true;
     }
 
@@ -282,12 +287,15 @@ class ScopeAndTypeParameterCollectorVisitor extends BaseCheckVisitor {
     }
 }
 
-// Report the use of a deprecated symbol. For now, this functionality
-// is disabled. We'll leave it in place for the future.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class DeprecatedUseVisitor extends BaseCheckVisitor {
     constructor(private _evaluator: TypeEvaluator, private _fileInfo: AnalyzerFileInfo) {
         super();
+    }
+
+    override visitModule(node: ModuleNode): boolean {
+        // Report the use of a deprecated symbol. For now, this functionality
+        // is disabled. We'll leave it in place for the future.
+        return false;
     }
 
     override visitName(node: NameNode) {
@@ -324,81 +332,54 @@ class DeprecatedUseVisitor extends BaseCheckVisitor {
 }
 
 class UnboundNameVisitor extends BaseCheckVisitor {
-    private _isUnboundCheckSuppressed = false;
-
     constructor(private _evaluator: TypeEvaluator, private _fileInfo: AnalyzerFileInfo) {
         super();
     }
 
-    override visitName(node: NameNode): boolean {
-        // Determine if the name is possibly unbound.
-        if (this._isUnboundCheckSuppressed) {
+    override visitModule(node: ModuleNode): boolean {
+        if (this._fileInfo.diagnosticRuleSet.reportUnboundVariable === 'none') {
             return false;
         }
 
-        this._reportUnboundName(node);
+        return true;
+    }
+
+    override visitImportFrom(node: ImportFromNode): boolean {
         return false;
     }
 
-    override visitGlobal(node: GlobalNode): boolean {
-        this._suppressUnboundCheck(() => {
-            node.nameList.forEach((name) => {
-                this._evaluator.getType(name);
-                this.visitName(name);
-            });
-        });
+    override visitName(node: NameNode): boolean {
+        // Determine if the name is possibly unbound.
+        if (node.parent?.nodeType === ParseNodeType.Global || node.parent?.nodeType === ParseNodeType.Nonlocal) {
+            return false;
+        }
+
+        if (AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            return false;
+        }
+
+        const type = this._evaluator.getType(node);
+        if (!type) {
+            return false;
+        }
+
+        if (isUnbound(type)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                DiagnosticRule.reportUnboundVariable,
+                Localizer.Diagnostic.symbolIsUnbound().format({ name: node.value }),
+                node
+            );
+        } else if (isPossiblyUnbound(type)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                DiagnosticRule.reportUnboundVariable,
+                Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name: node.value }),
+                node
+            );
+        }
 
         return false;
-    }
-
-    override visitNonlocal(node: NonlocalNode): boolean {
-        this._suppressUnboundCheck(() => {
-            node.nameList.forEach((name) => {
-                this._evaluator.getType(name);
-                this.visitName(name);
-            });
-        });
-
-        return false;
-    }
-
-    private _suppressUnboundCheck(callback: () => void) {
-        const wasSuppressed = this._isUnboundCheckSuppressed;
-        this._isUnboundCheckSuppressed = true;
-
-        try {
-            callback();
-        } finally {
-            this._isUnboundCheckSuppressed = wasSuppressed;
-        }
-    }
-
-    private _reportUnboundName(node: NameNode) {
-        if (this._fileInfo.diagnosticRuleSet.reportUnboundVariable === 'none') {
-            return;
-        }
-
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
-            const type = this._evaluator.getType(node);
-
-            if (type) {
-                if (isUnbound(type)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                        DiagnosticRule.reportUnboundVariable,
-                        Localizer.Diagnostic.symbolIsUnbound().format({ name: node.value }),
-                        node
-                    );
-                } else if (isPossiblyUnbound(type)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                        DiagnosticRule.reportUnboundVariable,
-                        Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name: node.value }),
-                        node
-                    );
-                }
-            }
-        }
     }
 }
 
@@ -432,9 +413,6 @@ class ShadowedModuleVisitor extends BaseCheckVisitor {
     }
 
     private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromNode) {
-        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
-            return;
-        }
         const namePartNodes = node.nodeType === ParseNodeType.ImportAs ? node.module.nameParts : node.module.nameParts;
         const nameParts = namePartNodes.map((n) => n.value);
         const module: ImportedModuleDescriptor = {
@@ -1487,7 +1465,6 @@ class MainCheckerVisitor extends BaseCheckVisitor {
     override visitName(node: NameNode) {
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
-
         return true;
     }
 
@@ -1495,7 +1472,6 @@ class MainCheckerVisitor extends BaseCheckVisitor {
         node.expressions.forEach((expr) => {
             this._evaluator.verifyDeleteExpression(expr);
         });
-
         return true;
     }
 
@@ -1505,7 +1481,34 @@ class MainCheckerVisitor extends BaseCheckVisitor {
         return true;
     }
 
-    override visitTypeParameter(node: TypeParameterNode): boolean {
+    override visitImportAs(node: ImportAsNode): boolean {
+        this._evaluator.evaluateTypesForStatement(node);
+        return false;
+    }
+
+    override visitImportFrom(node: ImportFromNode): boolean {
+        if (!node.isWildcardImport) {
+            node.imports.forEach((importAs) => {
+                this._evaluator.evaluateTypesForStatement(importAs);
+            });
+        } else {
+            const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
+            if (
+                importInfo &&
+                importInfo.isImportFound &&
+                importInfo.importType !== ImportType.Local &&
+                !this._fileInfo.isStubFile
+            ) {
+                this._evaluator.addDiagnosticForTextRange(
+                    this._fileInfo,
+                    this._fileInfo.diagnosticRuleSet.reportWildcardImportFromLibrary,
+                    DiagnosticRule.reportWildcardImportFromLibrary,
+                    Localizer.Diagnostic.wildcardLibraryImport(),
+                    node.wildcardToken || node
+                );
+            }
+        }
+
         return false;
     }
 
@@ -4838,11 +4841,13 @@ export class Checker {
         const scopeAndTypeParameterVisitor = new ScopeAndTypeParameterCollectorVisitor();
 
         const walker = new CheckerWalker(this._evaluator, this._fileInfo, [
+            scopeAndTypeParameterVisitor,
             new MainCheckerVisitor(this._evaluator, this._fileInfo),
             new UnboundNameVisitor(this._evaluator, this._fileInfo),
             new ShadowedModuleVisitor(this._importResolver, this._evaluator, this._fileInfo, this._sourceMapper),
-            scopeAndTypeParameterVisitor,
             new MissingModuleSourceVisitor(this._importResolver, this._evaluator, this._fileInfo),
+            new UnreachableVisitor(this._evaluator, this._fileInfo),
+            new DeprecatedUseVisitor(this._evaluator, this._fileInfo),
         ]);
 
         walker.walk(this._moduleNode);
@@ -5691,69 +5696,18 @@ export class Checker {
     }
 }
 
-class CheckerWalker extends ParseTreeWalker {
-    constructor(
-        private _evaluator: TypeEvaluator,
-        private _fileInfo: AnalyzerFileInfo,
-        private _visitors: BaseCheckVisitor[]
-    ) {
+class UnreachableVisitor extends BaseCheckVisitor {
+    constructor(private _evaluator: TypeEvaluator, private _fileInfo: AnalyzerFileInfo) {
         super();
+    }
+
+    override visitModule(node: ModuleNode): boolean {
+        this._walkStatementsAndReportUnreachable(node.statements);
+        return true;
     }
 
     override visitSuite(node: SuiteNode): boolean {
         this._walkStatementsAndReportUnreachable(node.statements);
-        return false;
-    }
-
-    override visitNode(node: ParseNode): ParseNodeArray {
-        if (!this.visit(node) || !this._visitCheckers(node)) {
-            return [];
-        }
-
-        return getChildNodes(node);
-    }
-
-    override visitModule(node: ModuleNode): boolean {
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
-
-        if (isPrintCodeComplexityEnabled) {
-            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
-        }
-
-        if (codeComplexity > maxCodeComplexity) {
-            this._evaluator.addDiagnosticForTextRange(
-                this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.codeTooComplexToAnalyze(),
-                { start: 0, length: 0 }
-            );
-
-            return false;
-        }
-
-        this._walkStatementsAndReportUnreachable(node.statements);
-        return false;
-    }
-
-    override visitFunction(node: FunctionNode): boolean {
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
-
-        if (isPrintCodeComplexityEnabled) {
-            console.log(`Code complexity of function ${node.name.value} is ${codeComplexity.toString()}`);
-        }
-
-        if (codeComplexity > maxCodeComplexity) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.codeTooComplexToAnalyze(),
-                node.name
-            );
-
-            return false;
-        }
-
         return true;
     }
 
@@ -5780,8 +5734,6 @@ class CheckerWalker extends ParseTreeWalker {
             if (!reportedUnreachable && this._fileInfo.isStubFile) {
                 this._validateStubStatement(statement);
             }
-
-            this.walk(statement);
 
             prevStatement = statement;
         }
@@ -5882,12 +5834,112 @@ class CheckerWalker extends ParseTreeWalker {
             }
         }
     }
+}
 
-    private _visitCheckers(node: ParseNode): boolean {
-        // Change it to proper code.
-        this._visitors.forEach((v) => v.visit(node));
+class CheckerWalker extends ParseTreeWalker {
+    private readonly _disabledStack: { id: number; index: number }[] = [];
+
+    constructor(
+        private _evaluator: TypeEvaluator,
+        private _fileInfo: AnalyzerFileInfo,
+        private _visitors: BaseCheckVisitor[]
+    ) {
+        super();
+    }
+
+    override walk(node: ParseNode): void {
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            super.walk(node);
+        } else {
+            this._evaluator.suppressDiagnostics(node, () => {
+                super.walk(node);
+            });
+        }
+        this._reenableVisitors(node);
+    }
+
+    override visit(node: ParseNode): boolean {
+        return super.visit(node) && this._visitCheckers(node);
+    }
+
+    override visitModule(node: ModuleNode): boolean {
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
+
+        if (isPrintCodeComplexityEnabled) {
+            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
+        }
+
+        if (codeComplexity > maxCodeComplexity) {
+            this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                { start: 0, length: 0 }
+            );
+
+            return false;
+        }
 
         return true;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
+
+        if (isPrintCodeComplexityEnabled) {
+            console.log(`Code complexity of function ${node.name.value} is ${codeComplexity.toString()}`);
+        }
+
+        if (codeComplexity > maxCodeComplexity) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                node.name
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private _visitCheckers(node: ParseNode): boolean {
+        let ret = false;
+
+        for (let i = 0; i < this._visitors.length; i++) {
+            const visitor = this._visitors[i];
+            if (!visitor.isEnabled()) {
+                continue;
+            }
+
+            const result = visitor.visit(node);
+            if (!result) {
+                // Disable visitor which return "false" indicating it doesn't
+                // want to get called for its children.
+                visitor.enable(false);
+                this._disabledStack.push({ id: node.id, index: i });
+            }
+
+            ret = ret || result;
+        }
+
+        // If none of visitor returned true, then don't even walk down the sub tree.
+        return ret;
+    }
+
+    private _reenableVisitors(node: ParseNode) {
+        // Check whether there are visitors we need to re-enable.
+        while (this._disabledStack.length > 0) {
+            const lastItem = this._disabledStack[this._disabledStack.length - 1];
+            if (lastItem.id !== node.id) {
+                return;
+            }
+
+            this._visitors[lastItem.index].enable(true);
+            this._disabledStack.pop();
+        }
     }
 }
 
