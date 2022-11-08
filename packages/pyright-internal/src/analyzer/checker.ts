@@ -96,7 +96,7 @@ import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolve
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { ParseTreeWalker } from './parseTreeWalker';
+import { getChildNodes, ParseTreeVisitor, ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
@@ -233,10 +233,13 @@ const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
 // functions to be emitted.
 const isPrintCodeComplexityEnabled = false;
 
-export class Checker extends ParseTreeWalker {
-    private readonly _fileInfo: AnalyzerFileInfo;
-    private _isUnboundCheckSuppressed = false;
+class BaseCheckVisitor extends ParseTreeVisitor<boolean> {
+    constructor() {
+        super(/* default */ true);
+    }
+}
 
+class ScopeAndTypeParameterCollectorVisitor extends BaseCheckVisitor {
     // A list of all nodes that are defined within the module that
     // have their own scopes.
     private _scopedNodes: AnalyzerNodeInfo.ScopedNode[] = [];
@@ -244,54 +247,283 @@ export class Checker extends ParseTreeWalker {
     // A list of all visited type parameter lists.
     private _typeParameterLists: TypeParameterListNode[] = [];
 
+    get scopedNodes() {
+        return this._scopedNodes;
+    }
+
+    get typeParameterLists() {
+        return this._typeParameterLists;
+    }
+
+    override visitClass(node: ClassNode): boolean {
+        this._scopedNodes.push(node);
+
+        return true;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        this._scopedNodes.push(node);
+        return true;
+    }
+
+    override visitLambda(node: LambdaNode): boolean {
+        this._scopedNodes.push(node);
+        return true;
+    }
+
+    override visitTypeParameterList(node: TypeParameterListNode): boolean {
+        this._typeParameterLists.push(node);
+        return true;
+    }
+
+    override visitListComprehension(node: ListComprehensionNode): boolean {
+        this._scopedNodes.push(node);
+        return true;
+    }
+}
+
+// Report the use of a deprecated symbol. For now, this functionality
+// is disabled. We'll leave it in place for the future.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class DeprecatedUseVisitor extends BaseCheckVisitor {
+    constructor(private _evaluator: TypeEvaluator, private _fileInfo: AnalyzerFileInfo) {
+        super();
+    }
+
+    override visitName(node: NameNode) {
+        this._reportDeprecatedUse(node);
+        return true;
+    }
+
+    private _reportDeprecatedUse(node: NameNode) {
+        const deprecatedForm = deprecatedAliases.get(node.value) ?? deprecatedSpecialForms.get(node.value);
+        if (!deprecatedForm) {
+            return;
+        }
+
+        const type = this._evaluator.getType(node);
+
+        if (!type) {
+            return;
+        }
+
+        if (!isInstantiableClass(type) || type.details.fullName !== deprecatedForm.fullName) {
+            return;
+        }
+
+        if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
+            this._evaluator.addDeprecated(
+                Localizer.Diagnostic.deprecatedType().format({
+                    version: versionToString(deprecatedForm.version),
+                    replacement: deprecatedForm.replacementText,
+                }),
+                node
+            );
+        }
+    }
+}
+
+class UnboundNameVisitor extends BaseCheckVisitor {
+    private _isUnboundCheckSuppressed = false;
+
+    constructor(private _evaluator: TypeEvaluator, private _fileInfo: AnalyzerFileInfo) {
+        super();
+    }
+
+    override visitName(node: NameNode): boolean {
+        // Determine if the name is possibly unbound.
+        if (this._isUnboundCheckSuppressed) {
+            return false;
+        }
+
+        this._reportUnboundName(node);
+        return false;
+    }
+
+    override visitGlobal(node: GlobalNode): boolean {
+        this._suppressUnboundCheck(() => {
+            node.nameList.forEach((name) => {
+                this._evaluator.getType(name);
+                this.visitName(name);
+            });
+        });
+
+        return false;
+    }
+
+    override visitNonlocal(node: NonlocalNode): boolean {
+        this._suppressUnboundCheck(() => {
+            node.nameList.forEach((name) => {
+                this._evaluator.getType(name);
+                this.visitName(name);
+            });
+        });
+
+        return false;
+    }
+
+    private _suppressUnboundCheck(callback: () => void) {
+        const wasSuppressed = this._isUnboundCheckSuppressed;
+        this._isUnboundCheckSuppressed = true;
+
+        try {
+            callback();
+        } finally {
+            this._isUnboundCheckSuppressed = wasSuppressed;
+        }
+    }
+
+    private _reportUnboundName(node: NameNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportUnboundVariable === 'none') {
+            return;
+        }
+
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            const type = this._evaluator.getType(node);
+
+            if (type) {
+                if (isUnbound(type)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                        DiagnosticRule.reportUnboundVariable,
+                        Localizer.Diagnostic.symbolIsUnbound().format({ name: node.value }),
+                        node
+                    );
+                } else if (isPossiblyUnbound(type)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                        DiagnosticRule.reportUnboundVariable,
+                        Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name: node.value }),
+                        node
+                    );
+                }
+            }
+        }
+    }
+}
+
+class ShadowedModuleVisitor extends BaseCheckVisitor {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _moduleNode: ModuleNode,
+        private _fileInfo: AnalyzerFileInfo,
         private _sourceMapper: SourceMapper
     ) {
         super();
-
-        this._fileInfo = AnalyzerNodeInfo.getFileInfo(_moduleNode)!;
     }
 
-    check() {
-        this._scopedNodes.push(this._moduleNode);
-
-        this._conditionallyReportShadowedModule();
-
-        this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
-
-        // Mark symbols accessed by __all__ as accessed.
-        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(this._moduleNode);
-        if (dunderAllInfo) {
-            this._evaluator.markNamesAccessed(this._moduleNode, dunderAllInfo.names);
-
-            this._reportUnusedDunderAllSymbols(dunderAllInfo.stringNodes);
+    override visitModule(node: ModuleNode): boolean {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return false;
         }
 
-        // Perform a one-time validation of symbols in all scopes
-        // defined in this module for things like unaccessed variables.
-        this._validateSymbolTables();
-
-        this._reportDuplicateImports();
-
-        MissingModuleSourceReporter.report(this._importResolver, this._evaluator, this._fileInfo, this._moduleNode);
+        this._conditionallyReportShadowedModule(node);
+        return true;
     }
 
-    override walk(node: ParseNode) {
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
-            super.walk(node);
-        } else {
-            this._evaluator.suppressDiagnostics(node, () => {
-                super.walk(node);
+    override visitImportAs(node: ImportAsNode): boolean {
+        this._conditionallyReportShadowedImport(node);
+        return false;
+    }
+
+    override visitImportFrom(node: ImportFromNode): boolean {
+        this._conditionallyReportShadowedImport(node);
+        return false;
+    }
+
+    private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return;
+        }
+        const namePartNodes = node.nodeType === ParseNodeType.ImportAs ? node.module.nameParts : node.module.nameParts;
+        const nameParts = namePartNodes.map((n) => n.value);
+        const module: ImportedModuleDescriptor = {
+            nameParts,
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+
+        // Make sure the module is a potential stdlib one so we don't spend the time
+        // searching for the definition.
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
+        if (stdlibPath && this._importResolver.isStdlibModule(module, this._fileInfo.executionEnvironment)) {
+            // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
+            const definitions = DefinitionProvider.getDefinitionsForNode(
+                this._sourceMapper,
+                namePartNodes[namePartNodes.length - 1],
+                DefinitionFilter.All,
+                this._evaluator
+            );
+            const paths = definitions ? definitions.map((d) => d.path) : [];
+            paths.forEach((p) => {
+                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
+                    // This means the user has a module that is overwriting the stdlib module.
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                        DiagnosticRule.reportShadowedImports,
+                        Localizer.Diagnostic.stdlibModuleOverridden().format({
+                            name: nameParts.join('.'),
+                            path: p,
+                        }),
+                        node
+                    );
+
+                    // Add a quick action that renames the file.
+                    if (diag) {
+                        const renameAction: RenameShadowedFileAction = {
+                            action: ActionKind.RenameShadowedFileAction,
+                            oldFile: p,
+                            newFile: this._sourceMapper.getNextFileName(p),
+                        };
+                        diag.addAction(renameAction);
+                    }
+                }
             });
         }
     }
 
-    override visitSuite(node: SuiteNode): boolean {
-        this._walkStatementsAndReportUnreachable(node.statements);
-        return false;
+    private _conditionallyReportShadowedModule(moduleNode: ModuleNode) {
+        // Check the module we're in.
+        const moduleName = this._fileInfo.moduleName;
+        const desc: ImportedModuleDescriptor = {
+            nameParts: moduleName.split('.'),
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
+        if (
+            stdlibPath &&
+            this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
+            this._sourceMapper.isUserCode(this._fileInfo.filePath)
+        ) {
+            // This means the user has a module that is overwriting the stdlib module.
+            const diag = this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                DiagnosticRule.reportShadowedImports,
+                Localizer.Diagnostic.stdlibModuleOverridden().format({
+                    name: moduleName,
+                    path: this._fileInfo.filePath,
+                }),
+                moduleNode
+            );
+
+            // Add a quick action that renames the file.
+            if (diag) {
+                const renameAction: RenameShadowedFileAction = {
+                    action: ActionKind.RenameShadowedFileAction,
+                    oldFile: this._fileInfo.filePath,
+                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.filePath),
+                };
+                diag.addAction(renameAction);
+            }
+        }
+    }
+}
+
+class MainCheckerVisitor extends BaseCheckVisitor {
+    constructor(private _evaluator: TypeEvaluator, private _fileInfo: AnalyzerFileInfo) {
+        super();
     }
 
     override visitStatementList(node: StatementListNode) {
@@ -301,7 +533,6 @@ export class Checker extends ParseTreeWalker {
                 // through lazy analysis. This will mark referenced symbols as
                 // accessed and report any errors associated with it.
                 this._evaluator.getType(statement);
-
                 this._reportUnusedExpression(statement);
             }
         });
@@ -311,13 +542,6 @@ export class Checker extends ParseTreeWalker {
 
     override visitClass(node: ClassNode): boolean {
         const classTypeResult = this._evaluator.getTypeOfClass(node);
-
-        if (node.typeParameters) {
-            this.walk(node.typeParameters);
-        }
-        this.walk(node.suite);
-        this.walkMultiple(node.decorators);
-        this.walkMultiple(node.arguments);
 
         if (classTypeResult) {
             // Protocol classes cannot derive from non-protocol classes.
@@ -388,16 +612,10 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        this._scopedNodes.push(node);
-
-        return false;
+        return true;
     }
 
     override visitFunction(node: FunctionNode): boolean {
-        if (node.typeParameters) {
-            this.walk(node.typeParameters);
-        }
-
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
 
@@ -547,18 +765,6 @@ export class Checker extends ParseTreeWalker {
         }
 
         node.parameters.forEach((param, index) => {
-            if (param.defaultValue) {
-                this.walk(param.defaultValue);
-            }
-
-            if (param.typeAnnotation) {
-                this.walk(param.typeAnnotation);
-            }
-
-            if (param.typeAnnotationComment) {
-                this.walk(param.typeAnnotationComment);
-            }
-
             if (functionTypeResult) {
                 const annotationNode = param.typeAnnotation || param.typeAnnotationComment;
                 if (annotationNode && index < functionTypeResult.functionType.details.parameters.length) {
@@ -582,13 +788,7 @@ export class Checker extends ParseTreeWalker {
             }
         });
 
-        if (node.returnTypeAnnotation) {
-            this.walk(node.returnTypeAnnotation);
-        }
-
         if (node.functionAnnotationComment) {
-            this.walk(node.functionAnnotationComment);
-
             if (
                 this._fileInfo.diagnosticRuleSet.reportTypeCommentUsage !== 'none' &&
                 this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_5
@@ -602,37 +802,9 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        this.walkMultiple(node.decorators);
-
-        node.parameters.forEach((param) => {
-            if (param.name) {
-                this.walk(param.name);
-            }
-        });
-
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
-        const isTooComplexToAnalyze = codeComplexity > maxCodeComplexity;
-
-        if (isPrintCodeComplexityEnabled) {
-            console.log(`Code complexity of function ${node.name.value} is ${codeComplexity.toString()}`);
-        }
-
-        if (isTooComplexToAnalyze) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.codeTooComplexToAnalyze(),
-                node.name
-            );
-        } else {
-            this.walk(node.suite);
-        }
-
         if (functionTypeResult) {
             // Validate that the function returns the declared type.
-            if (!isTooComplexToAnalyze) {
-                this._validateFunctionReturn(node, functionTypeResult.functionType);
-            }
+            this._validateFunctionReturn(node, functionTypeResult.functionType);
 
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
@@ -663,8 +835,6 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        this._scopedNodes.push(node);
-
         if (functionTypeResult && isOverloadedFunction(functionTypeResult.decoratedType)) {
             // If this is the implementation for the overloaded function, skip
             // overload consistency checks.
@@ -690,14 +860,11 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        return false;
+        return true;
     }
 
     override visitLambda(node: LambdaNode): boolean {
         this._evaluator.getType(node);
-
-        // Walk the children.
-        this.walkMultiple([...node.parameters, node.expression]);
 
         node.parameters.forEach((param) => {
             if (param.name) {
@@ -743,9 +910,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        this._scopedNodes.push(node);
-
-        return false;
+        return true;
     }
 
     override visitCall(node: CallNode): boolean {
@@ -840,11 +1005,6 @@ export class Checker extends ParseTreeWalker {
 
     override visitDictionary(node: DictionaryNode): boolean {
         this._validateIllegalDefaultParamInitializer(node);
-        return true;
-    }
-
-    override visitListComprehension(node: ListComprehensionNode): boolean {
-        this._scopedNodes.push(node);
         return true;
     }
 
@@ -1038,7 +1198,6 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._validateYieldType(node, yieldType);
-
         return true;
     }
 
@@ -1325,42 +1484,9 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    override visitGlobal(node: GlobalNode): boolean {
-        this._suppressUnboundCheck(() => {
-            node.nameList.forEach((name) => {
-                this._evaluator.getType(name);
-
-                this.walk(name);
-            });
-        });
-
-        return false;
-    }
-
-    override visitNonlocal(node: NonlocalNode): boolean {
-        this._suppressUnboundCheck(() => {
-            node.nameList.forEach((name) => {
-                this._evaluator.getType(name);
-
-                this.walk(name);
-            });
-        });
-
-        return false;
-    }
-
     override visitName(node: NameNode) {
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
-
-        // Determine if the name is possibly unbound.
-        if (!this._isUnboundCheckSuppressed) {
-            this._reportUnboundName(node);
-        }
-
-        // Report the use of a deprecated symbol. For now, this functionality
-        // is disabled. We'll leave it in place for the future.
-        // this._reportDeprecatedUse(node);
 
         return true;
     }
@@ -1368,58 +1494,14 @@ export class Checker extends ParseTreeWalker {
     override visitDel(node: DelNode) {
         node.expressions.forEach((expr) => {
             this._evaluator.verifyDeleteExpression(expr);
-
-            this.walk(expr);
         });
 
-        return false;
+        return true;
     }
 
     override visitMemberAccess(node: MemberAccessNode) {
         this._evaluator.getType(node);
         this._conditionallyReportPrivateUsage(node.memberName);
-
-        // Walk the leftExpression but not the memberName.
-        this.walk(node.leftExpression);
-
-        return false;
-    }
-
-    override visitImportAs(node: ImportAsNode): boolean {
-        this._conditionallyReportShadowedImport(node);
-        this._evaluator.evaluateTypesForStatement(node);
-        return false;
-    }
-
-    override visitImportFrom(node: ImportFromNode): boolean {
-        this._conditionallyReportShadowedImport(node);
-        if (!node.isWildcardImport) {
-            node.imports.forEach((importAs) => {
-                this._evaluator.evaluateTypesForStatement(importAs);
-            });
-        } else {
-            const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
-            if (
-                importInfo &&
-                importInfo.isImportFound &&
-                importInfo.importType !== ImportType.Local &&
-                !this._fileInfo.isStubFile
-            ) {
-                this._evaluator.addDiagnosticForTextRange(
-                    this._fileInfo,
-                    this._fileInfo.diagnosticRuleSet.reportWildcardImportFromLibrary,
-                    DiagnosticRule.reportWildcardImportFromLibrary,
-                    Localizer.Diagnostic.wildcardLibraryImport(),
-                    node.wildcardToken || node
-                );
-            }
-        }
-
-        return false;
-    }
-
-    override visitTypeParameterList(node: TypeParameterListNode): boolean {
-        this._typeParameterLists.push(node);
         return true;
     }
 
@@ -1569,17 +1651,6 @@ export class Checker extends ParseTreeWalker {
                 Localizer.Diagnostic.matchIsNotExhaustive() + diagAddendum.getString(),
                 node.subjectExpression
             );
-        }
-    }
-
-    private _suppressUnboundCheck(callback: () => void) {
-        const wasSuppressed = this._isUnboundCheckSuppressed;
-        this._isUnboundCheckSuppressed = true;
-
-        try {
-            callback();
-        } finally {
-            this._isUnboundCheckSuppressed = wasSuppressed;
         }
     }
 
@@ -2192,185 +2263,6 @@ export class Checker extends ParseTreeWalker {
         );
     }
 
-    private _isLegalOverloadImplementation(
-        overload: FunctionType,
-        implementation: FunctionType,
-        diag: DiagnosticAddendum | undefined
-    ): boolean {
-        const implTypeVarContext = new TypeVarContext(getTypeVarScopeId(implementation));
-        const overloadTypeVarContext = new TypeVarContext(getTypeVarScopeId(overload));
-
-        // First check the parameters to see if they are assignable.
-        let isLegal = this._evaluator.assignType(
-            overload,
-            implementation,
-            diag,
-            overloadTypeVarContext,
-            implTypeVarContext,
-            AssignTypeFlags.SkipFunctionReturnTypeCheck |
-                AssignTypeFlags.ReverseTypeVarMatching |
-                AssignTypeFlags.SkipSelfClsTypeCheck
-        );
-
-        // Now check the return types.
-        const overloadReturnType =
-            overload.details.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
-        const implementationReturnType = applySolvedTypeVars(
-            implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
-            implTypeVarContext
-        );
-
-        const returnDiag = new DiagnosticAddendum();
-        if (
-            !isNever(overloadReturnType) &&
-            !this._evaluator.assignType(
-                implementationReturnType,
-                overloadReturnType,
-                returnDiag.createAddendum(),
-                implTypeVarContext,
-                overloadTypeVarContext,
-                AssignTypeFlags.SkipSolveTypeVars
-            )
-        ) {
-            returnDiag.addMessage(
-                Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
-                    sourceType: this._evaluator.printType(overloadReturnType, /* expandTypeAlias */ false),
-                    destType: this._evaluator.printType(implementationReturnType, /* expandTypeAlias */ false),
-                })
-            );
-            diag?.addAddendum(returnDiag);
-            isLegal = false;
-        }
-
-        return isLegal;
-    }
-
-    private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
-        let reportedUnreachable = false;
-        let prevStatement: StatementNode | undefined;
-
-        for (const statement of statements) {
-            // No need to report unreachable more than once since the first time
-            // covers all remaining statements in the statement list.
-            if (!reportedUnreachable) {
-                if (!this._evaluator.isNodeReachable(statement, prevStatement)) {
-                    // Create a text range that covers the next statement through
-                    // the end of the statement list.
-                    const start = statement.start;
-                    const lastStatement = statements[statements.length - 1];
-                    const end = TextRange.getEnd(lastStatement);
-                    this._evaluator.addUnreachableCode(statement, { start, length: end - start });
-
-                    reportedUnreachable = true;
-                }
-            }
-
-            if (!reportedUnreachable && this._fileInfo.isStubFile) {
-                this._validateStubStatement(statement);
-            }
-
-            this.walk(statement);
-
-            prevStatement = statement;
-        }
-    }
-
-    private _validateStubStatement(statement: StatementNode) {
-        switch (statement.nodeType) {
-            case ParseNodeType.If:
-            case ParseNodeType.Function:
-            case ParseNodeType.Class:
-            case ParseNodeType.Error: {
-                // These are allowed in a stub file.
-                break;
-            }
-
-            case ParseNodeType.While:
-            case ParseNodeType.For:
-            case ParseNodeType.Try:
-            case ParseNodeType.With: {
-                // These are not allowed.
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
-                    DiagnosticRule.reportInvalidStubStatement,
-                    Localizer.Diagnostic.invalidStubStatement(),
-                    statement
-                );
-                break;
-            }
-
-            case ParseNodeType.StatementList: {
-                for (const substatement of statement.statements) {
-                    let isValid = true;
-
-                    switch (substatement.nodeType) {
-                        case ParseNodeType.Assert:
-                        case ParseNodeType.AssignmentExpression:
-                        case ParseNodeType.Await:
-                        case ParseNodeType.BinaryOperation:
-                        case ParseNodeType.Constant:
-                        case ParseNodeType.Del:
-                        case ParseNodeType.Dictionary:
-                        case ParseNodeType.Index:
-                        case ParseNodeType.For:
-                        case ParseNodeType.FormatString:
-                        case ParseNodeType.Global:
-                        case ParseNodeType.Lambda:
-                        case ParseNodeType.List:
-                        case ParseNodeType.MemberAccess:
-                        case ParseNodeType.Name:
-                        case ParseNodeType.Nonlocal:
-                        case ParseNodeType.Number:
-                        case ParseNodeType.Raise:
-                        case ParseNodeType.Return:
-                        case ParseNodeType.Set:
-                        case ParseNodeType.Slice:
-                        case ParseNodeType.Ternary:
-                        case ParseNodeType.Tuple:
-                        case ParseNodeType.Try:
-                        case ParseNodeType.UnaryOperation:
-                        case ParseNodeType.Unpack:
-                        case ParseNodeType.While:
-                        case ParseNodeType.With:
-                        case ParseNodeType.WithItem:
-                        case ParseNodeType.Yield:
-                        case ParseNodeType.YieldFrom: {
-                            isValid = false;
-                            break;
-                        }
-
-                        case ParseNodeType.AugmentedAssignment: {
-                            // Exempt __all__ manipulations.
-                            isValid =
-                                substatement.operator === OperatorType.AddEqual &&
-                                substatement.leftExpression.nodeType === ParseNodeType.Name &&
-                                substatement.leftExpression.value === '__all__';
-                            break;
-                        }
-
-                        case ParseNodeType.Call: {
-                            // Exempt __all__ manipulations.
-                            isValid =
-                                substatement.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                                substatement.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                                substatement.leftExpression.leftExpression.value === '__all__';
-                            break;
-                        }
-                    }
-
-                    if (!isValid) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
-                            DiagnosticRule.reportInvalidStubStatement,
-                            Localizer.Diagnostic.invalidStubStatement(),
-                            substatement
-                        );
-                    }
-                }
-            }
-        }
-    }
-
     private _validateExceptionType(exceptionType: Type, errorNode: ExpressionNode) {
         const baseExceptionType = this._evaluator.getBuiltInType(errorNode, 'BaseException');
         const derivesFromBaseException = (classType: ClassType) => {
@@ -2438,664 +2330,6 @@ export class Checker extends ParseTreeWalker {
         }
 
         return resultingExceptionType || UnknownType.create();
-    }
-
-    private _reportUnusedDunderAllSymbols(nodes: StringNode[]) {
-        // If this rule is disabled, don't bother doing the work.
-        if (this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll === 'none') {
-            return;
-        }
-
-        const moduleScope = AnalyzerNodeInfo.getScope(this._moduleNode);
-        if (!moduleScope) {
-            return;
-        }
-
-        nodes.forEach((node) => {
-            if (!moduleScope.symbolTable.has(node.value)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
-                    DiagnosticRule.reportUnsupportedDunderAll,
-                    Localizer.Diagnostic.dunderAllSymbolNotPresent().format({ name: node.value }),
-                    node
-                );
-            }
-        });
-    }
-
-    private _validateSymbolTables() {
-        for (const scopedNode of this._scopedNodes) {
-            const scope = AnalyzerNodeInfo.getScope(scopedNode);
-
-            if (scope) {
-                scope.symbolTable.forEach((symbol, name) => {
-                    this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
-
-                    this._reportIncompatibleDeclarations(name, symbol);
-
-                    this._reportMultipleFinalDeclarations(name, symbol, scope.type);
-
-                    this._reportMultipleTypeAliasDeclarations(name, symbol);
-
-                    this._reportInvalidOverload(name, symbol);
-                });
-            }
-        }
-
-        // Report unaccessed type parameters.
-        const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
-        for (const paramList of this._typeParameterLists) {
-            for (const param of paramList.parameters) {
-                const symbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
-                assert(symbol);
-
-                if (!accessedSymbolSet.has(symbol.id)) {
-                    const decls = symbol.getDeclarations();
-                    decls.forEach((decl) => {
-                        this._conditionallyReportUnusedDeclaration(decl, /* isPrivate */ false);
-                    });
-                }
-            }
-        }
-    }
-
-    private _reportInvalidOverload(name: string, symbol: Symbol) {
-        const typedDecls = symbol.getTypedDeclarations();
-        if (typedDecls.length >= 1) {
-            const primaryDecl = typedDecls[0];
-
-            if (primaryDecl.type === DeclarationType.Function) {
-                const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-                const overloadedFunctions = isOverloadedFunction(type)
-                    ? OverloadedFunctionType.getOverloads(type)
-                    : isFunction(type) && FunctionType.isOverloaded(type)
-                    ? [type]
-                    : [];
-
-                if (overloadedFunctions.length === 1) {
-                    // There should never be a single overload.
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.singleOverload().format({ name }),
-                        primaryDecl.node.name
-                    );
-                }
-
-                overloadedFunctions.forEach((overload) => {
-                    if (
-                        overload.details.declaration &&
-                        !ParseTreeUtils.isFunctionSuiteEmpty(overload.details.declaration.node)
-                    ) {
-                        const diag = new DiagnosticAddendum();
-                        diag.addMessage(Localizer.DiagnosticAddendum.overloadWithImplementation());
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.overloadWithImplementation().format({ name }) + diag.getString(),
-                            overload.details.declaration.node.name
-                        );
-                    }
-                });
-
-                // If the file is not a stub and this is the first overload,
-                // verify that there is an implementation.
-                if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
-                    let implementationFunction: FunctionType | undefined;
-
-                    if (isOverloadedFunction(type) && OverloadedFunctionType.getImplementation(type)) {
-                        implementationFunction = OverloadedFunctionType.getImplementation(type);
-                    } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
-                        implementationFunction = type;
-                    }
-
-                    if (!implementationFunction) {
-                        let isProtocolMethod = false;
-                        const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
-                        if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
-                            const classType = this._evaluator.getTypeOfClass(containingClassNode);
-                            if (classType && ClassType.isProtocolClass(classType.classType)) {
-                                isProtocolMethod = true;
-                            }
-                        }
-
-                        // If this is a method within a protocol class, don't require that
-                        // there is an implementation.
-                        if (!isProtocolMethod) {
-                            this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.overloadWithoutImplementation().format({
-                                    name: primaryDecl.node.name.value,
-                                }),
-                                primaryDecl.node.name
-                            );
-                        }
-                    } else if (isOverloadedFunction(type)) {
-                        // Verify that all overload signatures are assignable to implementation signature.
-                        OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
-                            const diag = new DiagnosticAddendum();
-                            if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
-                                if (implementationFunction!.details.declaration) {
-                                    const diagnostic = this._evaluator.addDiagnostic(
-                                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                        DiagnosticRule.reportGeneralTypeIssues,
-                                        Localizer.Diagnostic.overloadImplementationMismatch().format({
-                                            name,
-                                            index: index + 1,
-                                        }) + diag.getString(),
-                                        implementationFunction!.details.declaration.node.name
-                                    );
-
-                                    if (diagnostic && overload.details.declaration) {
-                                        diagnostic.addRelatedInfo(
-                                            Localizer.DiagnosticAddendum.overloadSignature(),
-                                            overload.details.declaration?.path ?? primaryDecl.path,
-                                            overload.details.declaration?.range ?? primaryDecl.range
-                                        );
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
-        if (!isFinalVariable(symbol)) {
-            return;
-        }
-
-        const decls = symbol.getDeclarations();
-        let sawFinal = false;
-        let sawAssignment = false;
-
-        decls.forEach((decl) => {
-            if (isFinalVariableDeclaration(decl)) {
-                if (sawFinal) {
-                    this._evaluator.addError(Localizer.Diagnostic.finalRedeclaration().format({ name }), decl.node);
-                }
-                sawFinal = true;
-            }
-
-            if (decl.type === DeclarationType.Variable && decl.inferredTypeSource) {
-                if (sawAssignment) {
-                    // We check for assignment of Final instance and class variables
-                    // the type evaluator because we need to take into account whether
-                    // the assignment is within an `__init__` method, so ignore class
-                    // scopes here.
-                    if (scopeType !== ScopeType.Class) {
-                        this._evaluator.addError(Localizer.Diagnostic.finalReassigned().format({ name }), decl.node);
-                    }
-                }
-                sawAssignment = true;
-            }
-        });
-
-        // If it's not a stub file, an assignment must be provided.
-        if (!sawAssignment && !this._fileInfo.isStubFile) {
-            const firstDecl = decls.find((decl) => decl.type === DeclarationType.Variable && decl.isFinal);
-            if (firstDecl) {
-                // Is this an instance variable declared within a dataclass? If so, it
-                // is implicitly initialized by the synthesized `__init__` method and
-                // therefore has an implied assignment.
-                let isImplicitlyAssigned = false;
-
-                if (symbol.isClassMember() && !symbol.isClassVar()) {
-                    const containingClass = ParseTreeUtils.getEnclosingClass(firstDecl.node, /* stopAtFunction */ true);
-                    if (containingClass) {
-                        const classType = this._evaluator.getTypeOfClass(containingClass);
-                        if (
-                            classType &&
-                            isClass(classType.decoratedType) &&
-                            ClassType.isDataClass(classType.decoratedType)
-                        ) {
-                            isImplicitlyAssigned = true;
-                        }
-                    }
-                }
-
-                if (!isImplicitlyAssigned) {
-                    this._evaluator.addError(Localizer.Diagnostic.finalUnassigned().format({ name }), firstDecl.node);
-                }
-            }
-        }
-    }
-
-    private _reportMultipleTypeAliasDeclarations(name: string, symbol: Symbol) {
-        const decls = symbol.getDeclarations();
-        const typeAliasDecl = decls.find((decl) => isExplicitTypeAliasDeclaration(decl));
-
-        // If this is a type alias, there should be only one declaration.
-        if (typeAliasDecl && decls.length > 1) {
-            decls.forEach((decl) => {
-                if (decl !== typeAliasDecl) {
-                    this._evaluator.addError(Localizer.Diagnostic.typeAliasRedeclared().format({ name }), decl.node);
-                }
-            });
-        }
-    }
-
-    private _reportIncompatibleDeclarations(name: string, symbol: Symbol) {
-        // If there's one or more declaration with a declared type,
-        // all other declarations should match. The only exception is
-        // for functions that have an overload.
-        const primaryDecl = getLastTypedDeclaredForSymbol(symbol);
-
-        // If there's no declaration with a declared type, we're done.
-        if (!primaryDecl) {
-            return;
-        }
-
-        // Special case the '_' symbol, which is used in single dispatch
-        // code and other cases where the name does not matter.
-        if (name === '_') {
-            return;
-        }
-
-        let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
-
-        // If it's a function, we can skip any other declarations
-        // that are overloads or property setters/deleters.
-        if (primaryDecl.type === DeclarationType.Function) {
-            const primaryDeclTypeInfo = this._evaluator.getTypeOfFunction(primaryDecl.node);
-
-            otherDecls = otherDecls.filter((decl) => {
-                if (decl.type !== DeclarationType.Function) {
-                    return true;
-                }
-
-                const funcTypeInfo = this._evaluator.getTypeOfFunction(decl.node);
-                if (!funcTypeInfo) {
-                    return true;
-                }
-
-                const decoratedType = primaryDeclTypeInfo
-                    ? this._evaluator.makeTopLevelTypeVarsConcrete(primaryDeclTypeInfo.decoratedType)
-                    : undefined;
-
-                // We need to handle properties in a careful manner because of
-                // the way that setters and deleters are often defined using multiple
-                // methods with the same name.
-                if (
-                    decoratedType &&
-                    isClassInstance(decoratedType) &&
-                    ClassType.isPropertyClass(decoratedType) &&
-                    isClassInstance(funcTypeInfo.decoratedType) &&
-                    ClassType.isPropertyClass(funcTypeInfo.decoratedType)
-                ) {
-                    return funcTypeInfo.decoratedType.details.typeSourceId !== decoratedType.details.typeSourceId;
-                }
-
-                return !FunctionType.isOverloaded(funcTypeInfo.functionType);
-            });
-        }
-
-        // If there are no other declarations to consider, we're done.
-        if (otherDecls.length === 0) {
-            return;
-        }
-
-        let primaryDeclInfo: string;
-        if (primaryDecl.type === DeclarationType.Function) {
-            if (primaryDecl.isMethod) {
-                primaryDeclInfo = Localizer.DiagnosticAddendum.seeMethodDeclaration();
-            } else {
-                primaryDeclInfo = Localizer.DiagnosticAddendum.seeFunctionDeclaration();
-            }
-        } else if (primaryDecl.type === DeclarationType.Class) {
-            primaryDeclInfo = Localizer.DiagnosticAddendum.seeClassDeclaration();
-        } else if (primaryDecl.type === DeclarationType.Parameter) {
-            primaryDeclInfo = Localizer.DiagnosticAddendum.seeParameterDeclaration();
-        } else if (primaryDecl.type === DeclarationType.Variable) {
-            primaryDeclInfo = Localizer.DiagnosticAddendum.seeVariableDeclaration();
-        } else if (primaryDecl.type === DeclarationType.TypeAlias) {
-            primaryDeclInfo = Localizer.DiagnosticAddendum.seeTypeAliasDeclaration();
-        } else {
-            primaryDeclInfo = Localizer.DiagnosticAddendum.seeDeclaration();
-        }
-
-        const addPrimaryDeclInfo = (diag?: Diagnostic) => {
-            if (diag) {
-                let primaryDeclNode: ParseNode | undefined;
-                if (primaryDecl.type === DeclarationType.Function || primaryDecl.type === DeclarationType.Class) {
-                    primaryDeclNode = primaryDecl.node.name;
-                } else if (primaryDecl.type === DeclarationType.Variable) {
-                    if (primaryDecl.node.nodeType === ParseNodeType.Name) {
-                        primaryDeclNode = primaryDecl.node;
-                    }
-                } else if (
-                    primaryDecl.type === DeclarationType.Parameter ||
-                    primaryDecl.type === DeclarationType.TypeParameter
-                ) {
-                    if (primaryDecl.node.name) {
-                        primaryDeclNode = primaryDecl.node.name;
-                    }
-                }
-
-                if (primaryDeclNode) {
-                    diag.addRelatedInfo(primaryDeclInfo, primaryDecl.path, primaryDecl.range);
-                }
-            }
-        };
-
-        for (const otherDecl of otherDecls) {
-            if (otherDecl.type === DeclarationType.Class) {
-                let duplicateIsOk = false;
-
-                if (primaryDecl.type === DeclarationType.TypeParameter) {
-                    // The error will be reported elsewhere if a type parameter is
-                    // involved, so don't report it here.
-                    duplicateIsOk = true;
-                }
-
-                if (!duplicateIsOk) {
-                    const diag = this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.obscuredClassDeclaration().format({ name }),
-                        otherDecl.node.name
-                    );
-                    addPrimaryDeclInfo(diag);
-                }
-            } else if (otherDecl.type === DeclarationType.Function) {
-                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
-                let duplicateIsOk = false;
-
-                // If the return type has not yet been inferred, do so now.
-                if (primaryType && isFunction(primaryType)) {
-                    this._evaluator.getFunctionInferredReturnType(primaryType);
-                }
-
-                const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
-
-                const suite1 = ParseTreeUtils.getEnclosingSuite(primaryDecl.node);
-                const suite2 = ParseTreeUtils.getEnclosingSuite(otherDecl.node);
-
-                // Allow same-signature overrides in cases where the declarations
-                // are not within the same statement suite (e.g. one in the "if"
-                // and another in the "else").
-                const isInSameStatementList = suite1 === suite2;
-
-                // If the return type has not yet been inferred, do so now.
-                if (otherType && isFunction(otherType)) {
-                    this._evaluator.getFunctionInferredReturnType(otherType);
-                }
-
-                // If both declarations are functions, it's OK if they
-                // both have the same signatures.
-                if (!isInSameStatementList && primaryType && otherType && isTypeSame(primaryType, otherType)) {
-                    duplicateIsOk = true;
-                }
-
-                if (primaryDecl.type === DeclarationType.TypeParameter) {
-                    // The error will be reported elsewhere if a type parameter is
-                    // involved, so don't report it here.
-                    duplicateIsOk = true;
-                }
-
-                if (!duplicateIsOk) {
-                    const diag = this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        otherDecl.isMethod
-                            ? Localizer.Diagnostic.obscuredMethodDeclaration().format({ name })
-                            : Localizer.Diagnostic.obscuredFunctionDeclaration().format({ name }),
-                        otherDecl.node.name
-                    );
-                    addPrimaryDeclInfo(diag);
-                }
-            } else if (otherDecl.type === DeclarationType.Parameter) {
-                if (otherDecl.node.name) {
-                    let duplicateIsOk = false;
-
-                    if (primaryDecl.type === DeclarationType.TypeParameter) {
-                        // The error will be reported elsewhere if a type parameter is
-                        // involved, so don't report it here.
-                        duplicateIsOk = true;
-                    }
-
-                    if (!duplicateIsOk) {
-                        const message = Localizer.Diagnostic.obscuredParameterDeclaration();
-                        const diag = this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            message.format({ name }),
-                            otherDecl.node.name
-                        );
-                        addPrimaryDeclInfo(diag);
-                    }
-                }
-            } else if (otherDecl.type === DeclarationType.Variable) {
-                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
-
-                if (otherDecl.typeAnnotationNode) {
-                    if (otherDecl.node.nodeType === ParseNodeType.Name) {
-                        let duplicateIsOk = false;
-
-                        // It's OK if they both have the same declared type.
-                        const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
-                        if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
-                            duplicateIsOk = true;
-                        }
-
-                        if (primaryDecl.type === DeclarationType.TypeParameter) {
-                            // The error will be reported elsewhere if a type parameter is
-                            // involved, so don't report it here.
-                            duplicateIsOk = true;
-                        }
-
-                        if (!duplicateIsOk) {
-                            const diag = this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.obscuredVariableDeclaration().format({ name }),
-                                otherDecl.node
-                            );
-                            addPrimaryDeclInfo(diag);
-                        }
-                    }
-                }
-            } else if (otherDecl.type === DeclarationType.TypeAlias) {
-                const diag = this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.obscuredTypeAliasDeclaration().format({ name }),
-                    otherDecl.node.name
-                );
-                addPrimaryDeclInfo(diag);
-            }
-        }
-    }
-
-    private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
-        const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
-
-        if (
-            symbol.isIgnoredForProtocolMatch() ||
-            accessedSymbolSet.has(symbol.id) ||
-            this._fileInfo.ipythonMode === IPythonMode.CellDocs
-        ) {
-            return;
-        }
-
-        // A name of "_" means "I know this symbol isn't used", so
-        // don't report it as unused.
-        if (name === '_') {
-            return;
-        }
-
-        if (SymbolNameUtils.isDunderName(name)) {
-            return;
-        }
-
-        const decls = symbol.getDeclarations();
-        decls.forEach((decl) => {
-            this._conditionallyReportUnusedDeclaration(decl, this._isSymbolPrivate(name, scopeType));
-        });
-    }
-
-    private _conditionallyReportUnusedDeclaration(decl: Declaration, isPrivate: boolean) {
-        let diagnosticLevel: DiagnosticLevel;
-        let nameNode: NameNode | undefined;
-        let message: string | undefined;
-        let rule: DiagnosticRule | undefined;
-
-        switch (decl.type) {
-            case DeclarationType.Alias:
-                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedImport;
-                rule = DiagnosticRule.reportUnusedImport;
-                if (decl.node.nodeType === ParseNodeType.ImportAs) {
-                    if (decl.node.alias) {
-                        // For statements of the form "import x as x", don't mark "x" as unaccessed
-                        // because it's assumed to be re-exported.
-                        // See https://typing.readthedocs.io/en/latest/source/stubs.html#imports.
-                        if (decl.node.alias.value !== decl.moduleName) {
-                            nameNode = decl.node.alias;
-                        }
-                    } else {
-                        // Handle multi-part names specially.
-                        const nameParts = decl.node.module.nameParts;
-                        if (nameParts.length > 0) {
-                            const multipartName = nameParts.map((np) => np.value).join('.');
-                            const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
-                            TextRange.extend(textRange, nameParts[nameParts.length - 1]);
-                            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-                                Localizer.Diagnostic.unaccessedSymbol().format({ name: multipartName }),
-                                textRange,
-                                { action: Commands.unusedImport }
-                            );
-
-                            this._evaluator.addDiagnosticForTextRange(
-                                this._fileInfo,
-                                this._fileInfo.diagnosticRuleSet.reportUnusedImport,
-                                DiagnosticRule.reportUnusedImport,
-                                Localizer.Diagnostic.unaccessedImport().format({ name: multipartName }),
-                                textRange
-                            );
-                            return;
-                        }
-                    }
-                } else if (decl.node.nodeType === ParseNodeType.ImportFromAs) {
-                    const importFrom = decl.node.parent as ImportFromNode;
-
-                    // For statements of the form "from y import x as x", don't mark "x" as
-                    // unaccessed because it's assumed to be re-exported.
-                    const isReexport = decl.node.alias?.value === decl.node.name.value;
-
-                    // If this is a __future__ import, it's OK for the import symbol to be unaccessed.
-                    const isFuture =
-                        importFrom.module.nameParts.length === 1 &&
-                        importFrom.module.nameParts[0].value === '__future__';
-
-                    if (!isReexport && !isFuture) {
-                        nameNode = decl.node.alias || decl.node.name;
-                    }
-                }
-
-                if (nameNode) {
-                    message = Localizer.Diagnostic.unaccessedImport().format({ name: nameNode.value });
-                }
-                break;
-
-            case DeclarationType.TypeAlias:
-            case DeclarationType.Variable:
-            case DeclarationType.Parameter:
-                if (!isPrivate) {
-                    return;
-                }
-
-                if (this._fileInfo.isStubFile) {
-                    // Don't mark variables or parameters as unaccessed in
-                    // stub files. It's typical for them to be unaccessed here.
-                    return;
-                }
-
-                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedVariable;
-
-                if (decl.node.nodeType === ParseNodeType.Name) {
-                    nameNode = decl.node;
-
-                    // Don't emit a diagnostic if the name starts with an underscore.
-                    // This indicates that the variable is unused.
-                    if (nameNode.value.startsWith('_')) {
-                        diagnosticLevel = 'none';
-                    }
-                } else if (decl.node.nodeType === ParseNodeType.Parameter) {
-                    nameNode = decl.node.name;
-
-                    // Don't emit a diagnostic for unused parameters or type parameters.
-                    diagnosticLevel = 'none';
-                }
-
-                if (nameNode) {
-                    rule = DiagnosticRule.reportUnusedVariable;
-                    message = Localizer.Diagnostic.unaccessedVariable().format({ name: nameNode.value });
-                }
-                break;
-
-            case DeclarationType.Class:
-                if (!isPrivate) {
-                    return;
-                }
-
-                // If a stub is exporting a private type, we'll assume that the author
-                // knows what he or she is doing.
-                if (this._fileInfo.isStubFile) {
-                    return;
-                }
-
-                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedClass;
-                nameNode = decl.node.name;
-                rule = DiagnosticRule.reportUnusedClass;
-                message = Localizer.Diagnostic.unaccessedClass().format({ name: nameNode.value });
-                break;
-
-            case DeclarationType.Function:
-                if (!isPrivate) {
-                    return;
-                }
-
-                // If a stub is exporting a private type, we'll assume that the author
-                // knows what he or she is doing.
-                if (this._fileInfo.isStubFile) {
-                    return;
-                }
-
-                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedFunction;
-                nameNode = decl.node.name;
-                rule = DiagnosticRule.reportUnusedFunction;
-                message = Localizer.Diagnostic.unaccessedFunction().format({ name: nameNode.value });
-                break;
-
-            case DeclarationType.TypeParameter:
-                // Never report a diagnostic for an unused TypeParameter.
-                diagnosticLevel = 'none';
-                nameNode = decl.node.name;
-                break;
-
-            case DeclarationType.Intrinsic:
-            case DeclarationType.SpecialBuiltInClass:
-                return;
-
-            default:
-                assertNever(decl);
-        }
-
-        const action = rule === DiagnosticRule.reportUnusedImport ? { action: Commands.unusedImport } : undefined;
-        if (nameNode) {
-            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-                Localizer.Diagnostic.unaccessedSymbol().format({ name: nameNode.value }),
-                nameNode,
-                action
-            );
-
-            if (rule !== undefined && message) {
-                this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
-            }
-        }
     }
 
     // Validates that a call to isinstance or issubclass are necessary. This is a
@@ -3411,179 +2645,6 @@ export class Checker extends ParseTreeWalker {
         });
 
         return isSupported;
-    }
-
-    private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
-        // All variables within the scope of a function or a list
-        // comprehension are considered private.
-        if (scopeType === ScopeType.Function || scopeType === ScopeType.ListComprehension) {
-            return true;
-        }
-
-        // See if the symbol is private.
-        if (SymbolNameUtils.isPrivateName(nameValue)) {
-            return true;
-        }
-
-        if (SymbolNameUtils.isProtectedName(nameValue)) {
-            // Protected names outside of a class scope are considered private.
-            const isClassScope = scopeType === ScopeType.Class;
-            return !isClassScope;
-        }
-
-        return false;
-    }
-
-    private _reportDeprecatedUse(node: NameNode) {
-        const deprecatedForm = deprecatedAliases.get(node.value) ?? deprecatedSpecialForms.get(node.value);
-
-        if (!deprecatedForm) {
-            return;
-        }
-
-        const type = this._evaluator.getType(node);
-
-        if (!type) {
-            return;
-        }
-
-        if (!isInstantiableClass(type) || type.details.fullName !== deprecatedForm.fullName) {
-            return;
-        }
-
-        if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
-            this._evaluator.addDeprecated(
-                Localizer.Diagnostic.deprecatedType().format({
-                    version: versionToString(deprecatedForm.version),
-                    replacement: deprecatedForm.replacementText,
-                }),
-                node
-            );
-        }
-    }
-
-    private _reportUnboundName(node: NameNode) {
-        if (this._fileInfo.diagnosticRuleSet.reportUnboundVariable === 'none') {
-            return;
-        }
-
-        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
-            const type = this._evaluator.getType(node);
-
-            if (type) {
-                if (isUnbound(type)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                        DiagnosticRule.reportUnboundVariable,
-                        Localizer.Diagnostic.symbolIsUnbound().format({ name: node.value }),
-                        node
-                    );
-                } else if (isPossiblyUnbound(type)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                        DiagnosticRule.reportUnboundVariable,
-                        Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name: node.value }),
-                        node
-                    );
-                }
-            }
-        }
-    }
-
-    private _conditionallyReportShadowedModule() {
-        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
-            return;
-        }
-        // Check the module we're in.
-        const moduleName = this._fileInfo.moduleName;
-        const desc: ImportedModuleDescriptor = {
-            nameParts: moduleName.split('.'),
-            leadingDots: 0,
-            importedSymbols: [],
-        };
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
-        if (
-            stdlibPath &&
-            this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
-            this._sourceMapper.isUserCode(this._fileInfo.filePath)
-        ) {
-            // This means the user has a module that is overwriting the stdlib module.
-            const diag = this._evaluator.addDiagnosticForTextRange(
-                this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportShadowedImports,
-                DiagnosticRule.reportShadowedImports,
-                Localizer.Diagnostic.stdlibModuleOverridden().format({
-                    name: moduleName,
-                    path: this._fileInfo.filePath,
-                }),
-                this._moduleNode
-            );
-
-            // Add a quick action that renames the file.
-            if (diag) {
-                const renameAction: RenameShadowedFileAction = {
-                    action: ActionKind.RenameShadowedFileAction,
-                    oldFile: this._fileInfo.filePath,
-                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.filePath),
-                };
-                diag.addAction(renameAction);
-            }
-        }
-    }
-
-    private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromAsNode | ImportFromNode) {
-        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
-            return;
-        }
-        const namePartNodes =
-            node.nodeType === ParseNodeType.ImportAs
-                ? node.module.nameParts
-                : node.nodeType === ParseNodeType.ImportFromAs
-                ? [node.name]
-                : node.module.nameParts;
-        const nameParts = namePartNodes.map((n) => n.value);
-        const module: ImportedModuleDescriptor = {
-            nameParts,
-            leadingDots: 0,
-            importedSymbols: [],
-        };
-
-        // Make sure the module is a potential stdlib one so we don't spend the time
-        // searching for the definition.
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
-        if (stdlibPath && this._importResolver.isStdlibModule(module, this._fileInfo.executionEnvironment)) {
-            // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
-            const definitions = DefinitionProvider.getDefinitionsForNode(
-                this._sourceMapper,
-                namePartNodes[namePartNodes.length - 1],
-                DefinitionFilter.All,
-                this._evaluator
-            );
-            const paths = definitions ? definitions.map((d) => d.path) : [];
-            paths.forEach((p) => {
-                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
-                    // This means the user has a module that is overwriting the stdlib module.
-                    const diag = this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportShadowedImports,
-                        DiagnosticRule.reportShadowedImports,
-                        Localizer.Diagnostic.stdlibModuleOverridden().format({
-                            name: nameParts.join('.'),
-                            path: p,
-                        }),
-                        node
-                    );
-                    // Add a quick action that renames the file.
-                    if (diag) {
-                        const renameAction: RenameShadowedFileAction = {
-                            action: ActionKind.RenameShadowedFileAction,
-                            oldFile: p,
-                            newFile: this._sourceMapper.getNextFileName(p),
-                        };
-                        diag.addAction(renameAction);
-                    }
-                }
-            });
-        }
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
@@ -5759,6 +4820,831 @@ export class Checker extends ParseTreeWalker {
             exceptionTypesSoFar.push(...typesOfThisExcept);
         });
     }
+}
+
+export class Checker {
+    private readonly _fileInfo: AnalyzerFileInfo;
+
+    constructor(
+        private _importResolver: ImportResolver,
+        private _evaluator: TypeEvaluator,
+        private _moduleNode: ModuleNode,
+        private _sourceMapper: SourceMapper
+    ) {
+        this._fileInfo = AnalyzerNodeInfo.getFileInfo(_moduleNode)!;
+    }
+
+    check() {
+        const scopeAndTypeParameterVisitor = new ScopeAndTypeParameterCollectorVisitor();
+
+        const walker = new CheckerWalker(this._evaluator, this._fileInfo, [
+            new MainCheckerVisitor(this._evaluator, this._fileInfo),
+            new UnboundNameVisitor(this._evaluator, this._fileInfo),
+            new ShadowedModuleVisitor(this._importResolver, this._evaluator, this._fileInfo, this._sourceMapper),
+            scopeAndTypeParameterVisitor,
+            new MissingModuleSourceVisitor(this._importResolver, this._evaluator, this._fileInfo),
+        ]);
+
+        walker.walk(this._moduleNode);
+
+        // Mark symbols accessed by __all__ as accessed.
+        const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(this._moduleNode);
+        if (dunderAllInfo) {
+            this._evaluator.markNamesAccessed(this._moduleNode, dunderAllInfo.names);
+            this._reportUnusedDunderAllSymbols(dunderAllInfo.stringNodes);
+        }
+
+        // Perform a one-time validation of symbols in all scopes
+        // defined in this module for things like unaccessed variables.
+        this._validateSymbolTables(
+            scopeAndTypeParameterVisitor.scopedNodes,
+            scopeAndTypeParameterVisitor.typeParameterLists
+        );
+
+        this._reportDuplicateImports();
+    }
+
+    private _isLegalOverloadImplementation(
+        overload: FunctionType,
+        implementation: FunctionType,
+        diag: DiagnosticAddendum | undefined
+    ): boolean {
+        const implTypeVarContext = new TypeVarContext(getTypeVarScopeId(implementation));
+        const overloadTypeVarContext = new TypeVarContext(getTypeVarScopeId(overload));
+
+        // First check the parameters to see if they are assignable.
+        let isLegal = this._evaluator.assignType(
+            overload,
+            implementation,
+            diag,
+            overloadTypeVarContext,
+            implTypeVarContext,
+            AssignTypeFlags.SkipFunctionReturnTypeCheck |
+                AssignTypeFlags.ReverseTypeVarMatching |
+                AssignTypeFlags.SkipSelfClsTypeCheck
+        );
+
+        // Now check the return types.
+        const overloadReturnType =
+            overload.details.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
+        const implementationReturnType = applySolvedTypeVars(
+            implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
+            implTypeVarContext
+        );
+
+        const returnDiag = new DiagnosticAddendum();
+        if (
+            !isNever(overloadReturnType) &&
+            !this._evaluator.assignType(
+                implementationReturnType,
+                overloadReturnType,
+                returnDiag.createAddendum(),
+                implTypeVarContext,
+                overloadTypeVarContext,
+                AssignTypeFlags.SkipSolveTypeVars
+            )
+        ) {
+            returnDiag.addMessage(
+                Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
+                    sourceType: this._evaluator.printType(overloadReturnType, /* expandTypeAlias */ false),
+                    destType: this._evaluator.printType(implementationReturnType, /* expandTypeAlias */ false),
+                })
+            );
+            diag?.addAddendum(returnDiag);
+            isLegal = false;
+        }
+
+        return isLegal;
+    }
+
+    private _reportUnusedDunderAllSymbols(nodes: StringNode[]) {
+        // If this rule is disabled, don't bother doing the work.
+        if (this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll === 'none') {
+            return;
+        }
+
+        const moduleScope = AnalyzerNodeInfo.getScope(this._moduleNode);
+        if (!moduleScope) {
+            return;
+        }
+
+        nodes.forEach((node) => {
+            if (!moduleScope.symbolTable.has(node.value)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
+                    DiagnosticRule.reportUnsupportedDunderAll,
+                    Localizer.Diagnostic.dunderAllSymbolNotPresent().format({ name: node.value }),
+                    node
+                );
+            }
+        });
+    }
+
+    private _validateSymbolTables(
+        scopedNodes: AnalyzerNodeInfo.ScopedNode[],
+        typeParameterLists: TypeParameterListNode[]
+    ) {
+        for (const scopedNode of scopedNodes) {
+            const scope = AnalyzerNodeInfo.getScope(scopedNode);
+
+            if (scope) {
+                scope.symbolTable.forEach((symbol, name) => {
+                    this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
+
+                    this._reportIncompatibleDeclarations(name, symbol);
+
+                    this._reportMultipleFinalDeclarations(name, symbol, scope.type);
+
+                    this._reportMultipleTypeAliasDeclarations(name, symbol);
+
+                    this._reportInvalidOverload(name, symbol);
+                });
+            }
+        }
+
+        // Report unaccessed type parameters.
+        const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
+        for (const paramList of typeParameterLists) {
+            for (const param of paramList.parameters) {
+                const symbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
+                assert(symbol);
+
+                if (!accessedSymbolSet.has(symbol.id)) {
+                    const decls = symbol.getDeclarations();
+                    decls.forEach((decl) => {
+                        this._conditionallyReportUnusedDeclaration(decl, /* isPrivate */ false);
+                    });
+                }
+            }
+        }
+    }
+
+    private _reportInvalidOverload(name: string, symbol: Symbol) {
+        const typedDecls = symbol.getTypedDeclarations();
+        if (typedDecls.length >= 1) {
+            const primaryDecl = typedDecls[0];
+
+            if (primaryDecl.type === DeclarationType.Function) {
+                const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+                const overloadedFunctions = isOverloadedFunction(type)
+                    ? OverloadedFunctionType.getOverloads(type)
+                    : isFunction(type) && FunctionType.isOverloaded(type)
+                    ? [type]
+                    : [];
+
+                if (overloadedFunctions.length === 1) {
+                    // There should never be a single overload.
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.singleOverload().format({ name }),
+                        primaryDecl.node.name
+                    );
+                }
+
+                overloadedFunctions.forEach((overload) => {
+                    if (
+                        overload.details.declaration &&
+                        !ParseTreeUtils.isFunctionSuiteEmpty(overload.details.declaration.node)
+                    ) {
+                        const diag = new DiagnosticAddendum();
+                        diag.addMessage(Localizer.DiagnosticAddendum.overloadWithImplementation());
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.overloadWithImplementation().format({ name }) + diag.getString(),
+                            overload.details.declaration.node.name
+                        );
+                    }
+                });
+
+                // If the file is not a stub and this is the first overload,
+                // verify that there is an implementation.
+                if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
+                    let implementationFunction: FunctionType | undefined;
+
+                    if (isOverloadedFunction(type) && OverloadedFunctionType.getImplementation(type)) {
+                        implementationFunction = OverloadedFunctionType.getImplementation(type);
+                    } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
+                        implementationFunction = type;
+                    }
+
+                    if (!implementationFunction) {
+                        let isProtocolMethod = false;
+                        const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
+                        if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
+                            const classType = this._evaluator.getTypeOfClass(containingClassNode);
+                            if (classType && ClassType.isProtocolClass(classType.classType)) {
+                                isProtocolMethod = true;
+                            }
+                        }
+
+                        // If this is a method within a protocol class, don't require that
+                        // there is an implementation.
+                        if (!isProtocolMethod) {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.overloadWithoutImplementation().format({
+                                    name: primaryDecl.node.name.value,
+                                }),
+                                primaryDecl.node.name
+                            );
+                        }
+                    } else if (isOverloadedFunction(type)) {
+                        // Verify that all overload signatures are assignable to implementation signature.
+                        OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
+                            const diag = new DiagnosticAddendum();
+                            if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
+                                if (implementationFunction!.details.declaration) {
+                                    const diagnostic = this._evaluator.addDiagnostic(
+                                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.overloadImplementationMismatch().format({
+                                            name,
+                                            index: index + 1,
+                                        }) + diag.getString(),
+                                        implementationFunction!.details.declaration.node.name
+                                    );
+
+                                    if (diagnostic && overload.details.declaration) {
+                                        diagnostic.addRelatedInfo(
+                                            Localizer.DiagnosticAddendum.overloadSignature(),
+                                            overload.details.declaration?.path ?? primaryDecl.path,
+                                            overload.details.declaration?.range ?? primaryDecl.range
+                                        );
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
+        if (!isFinalVariable(symbol)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+        let sawFinal = false;
+        let sawAssignment = false;
+
+        decls.forEach((decl) => {
+            if (isFinalVariableDeclaration(decl)) {
+                if (sawFinal) {
+                    this._evaluator.addError(Localizer.Diagnostic.finalRedeclaration().format({ name }), decl.node);
+                }
+                sawFinal = true;
+            }
+
+            if (decl.type === DeclarationType.Variable && decl.inferredTypeSource) {
+                if (sawAssignment) {
+                    // We check for assignment of Final instance and class variables
+                    // the type evaluator because we need to take into account whether
+                    // the assignment is within an `__init__` method, so ignore class
+                    // scopes here.
+                    if (scopeType !== ScopeType.Class) {
+                        this._evaluator.addError(Localizer.Diagnostic.finalReassigned().format({ name }), decl.node);
+                    }
+                }
+                sawAssignment = true;
+            }
+        });
+
+        // If it's not a stub file, an assignment must be provided.
+        if (!sawAssignment && !this._fileInfo.isStubFile) {
+            const firstDecl = decls.find((decl) => decl.type === DeclarationType.Variable && decl.isFinal);
+            if (firstDecl) {
+                // Is this an instance variable declared within a dataclass? If so, it
+                // is implicitly initialized by the synthesized `__init__` method and
+                // therefore has an implied assignment.
+                let isImplicitlyAssigned = false;
+
+                if (symbol.isClassMember() && !symbol.isClassVar()) {
+                    const containingClass = ParseTreeUtils.getEnclosingClass(firstDecl.node, /* stopAtFunction */ true);
+                    if (containingClass) {
+                        const classType = this._evaluator.getTypeOfClass(containingClass);
+                        if (
+                            classType &&
+                            isClass(classType.decoratedType) &&
+                            ClassType.isDataClass(classType.decoratedType)
+                        ) {
+                            isImplicitlyAssigned = true;
+                        }
+                    }
+                }
+
+                if (!isImplicitlyAssigned) {
+                    this._evaluator.addError(Localizer.Diagnostic.finalUnassigned().format({ name }), firstDecl.node);
+                }
+            }
+        }
+    }
+
+    private _reportMultipleTypeAliasDeclarations(name: string, symbol: Symbol) {
+        const decls = symbol.getDeclarations();
+        const typeAliasDecl = decls.find((decl) => isExplicitTypeAliasDeclaration(decl));
+
+        // If this is a type alias, there should be only one declaration.
+        if (typeAliasDecl && decls.length > 1) {
+            decls.forEach((decl) => {
+                if (decl !== typeAliasDecl) {
+                    this._evaluator.addError(Localizer.Diagnostic.typeAliasRedeclared().format({ name }), decl.node);
+                }
+            });
+        }
+    }
+
+    private _reportIncompatibleDeclarations(name: string, symbol: Symbol) {
+        // If there's one or more declaration with a declared type,
+        // all other declarations should match. The only exception is
+        // for functions that have an overload.
+        const primaryDecl = getLastTypedDeclaredForSymbol(symbol);
+
+        // If there's no declaration with a declared type, we're done.
+        if (!primaryDecl) {
+            return;
+        }
+
+        // Special case the '_' symbol, which is used in single dispatch
+        // code and other cases where the name does not matter.
+        if (name === '_') {
+            return;
+        }
+
+        let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
+
+        // If it's a function, we can skip any other declarations
+        // that are overloads or property setters/deleters.
+        if (primaryDecl.type === DeclarationType.Function) {
+            const primaryDeclTypeInfo = this._evaluator.getTypeOfFunction(primaryDecl.node);
+
+            otherDecls = otherDecls.filter((decl) => {
+                if (decl.type !== DeclarationType.Function) {
+                    return true;
+                }
+
+                const funcTypeInfo = this._evaluator.getTypeOfFunction(decl.node);
+                if (!funcTypeInfo) {
+                    return true;
+                }
+
+                const decoratedType = primaryDeclTypeInfo
+                    ? this._evaluator.makeTopLevelTypeVarsConcrete(primaryDeclTypeInfo.decoratedType)
+                    : undefined;
+
+                // We need to handle properties in a careful manner because of
+                // the way that setters and deleters are often defined using multiple
+                // methods with the same name.
+                if (
+                    decoratedType &&
+                    isClassInstance(decoratedType) &&
+                    ClassType.isPropertyClass(decoratedType) &&
+                    isClassInstance(funcTypeInfo.decoratedType) &&
+                    ClassType.isPropertyClass(funcTypeInfo.decoratedType)
+                ) {
+                    return funcTypeInfo.decoratedType.details.typeSourceId !== decoratedType.details.typeSourceId;
+                }
+
+                return !FunctionType.isOverloaded(funcTypeInfo.functionType);
+            });
+        }
+
+        // If there are no other declarations to consider, we're done.
+        if (otherDecls.length === 0) {
+            return;
+        }
+
+        let primaryDeclInfo: string;
+        if (primaryDecl.type === DeclarationType.Function) {
+            if (primaryDecl.isMethod) {
+                primaryDeclInfo = Localizer.DiagnosticAddendum.seeMethodDeclaration();
+            } else {
+                primaryDeclInfo = Localizer.DiagnosticAddendum.seeFunctionDeclaration();
+            }
+        } else if (primaryDecl.type === DeclarationType.Class) {
+            primaryDeclInfo = Localizer.DiagnosticAddendum.seeClassDeclaration();
+        } else if (primaryDecl.type === DeclarationType.Parameter) {
+            primaryDeclInfo = Localizer.DiagnosticAddendum.seeParameterDeclaration();
+        } else if (primaryDecl.type === DeclarationType.Variable) {
+            primaryDeclInfo = Localizer.DiagnosticAddendum.seeVariableDeclaration();
+        } else if (primaryDecl.type === DeclarationType.TypeAlias) {
+            primaryDeclInfo = Localizer.DiagnosticAddendum.seeTypeAliasDeclaration();
+        } else {
+            primaryDeclInfo = Localizer.DiagnosticAddendum.seeDeclaration();
+        }
+
+        const addPrimaryDeclInfo = (diag?: Diagnostic) => {
+            if (diag) {
+                let primaryDeclNode: ParseNode | undefined;
+                if (primaryDecl.type === DeclarationType.Function || primaryDecl.type === DeclarationType.Class) {
+                    primaryDeclNode = primaryDecl.node.name;
+                } else if (primaryDecl.type === DeclarationType.Variable) {
+                    if (primaryDecl.node.nodeType === ParseNodeType.Name) {
+                        primaryDeclNode = primaryDecl.node;
+                    }
+                } else if (
+                    primaryDecl.type === DeclarationType.Parameter ||
+                    primaryDecl.type === DeclarationType.TypeParameter
+                ) {
+                    if (primaryDecl.node.name) {
+                        primaryDeclNode = primaryDecl.node.name;
+                    }
+                }
+
+                if (primaryDeclNode) {
+                    diag.addRelatedInfo(primaryDeclInfo, primaryDecl.path, primaryDecl.range);
+                }
+            }
+        };
+
+        for (const otherDecl of otherDecls) {
+            if (otherDecl.type === DeclarationType.Class) {
+                let duplicateIsOk = false;
+
+                if (primaryDecl.type === DeclarationType.TypeParameter) {
+                    // The error will be reported elsewhere if a type parameter is
+                    // involved, so don't report it here.
+                    duplicateIsOk = true;
+                }
+
+                if (!duplicateIsOk) {
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.obscuredClassDeclaration().format({ name }),
+                        otherDecl.node.name
+                    );
+                    addPrimaryDeclInfo(diag);
+                }
+            } else if (otherDecl.type === DeclarationType.Function) {
+                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
+                let duplicateIsOk = false;
+
+                // If the return type has not yet been inferred, do so now.
+                if (primaryType && isFunction(primaryType)) {
+                    this._evaluator.getFunctionInferredReturnType(primaryType);
+                }
+
+                const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
+
+                const suite1 = ParseTreeUtils.getEnclosingSuite(primaryDecl.node);
+                const suite2 = ParseTreeUtils.getEnclosingSuite(otherDecl.node);
+
+                // Allow same-signature overrides in cases where the declarations
+                // are not within the same statement suite (e.g. one in the "if"
+                // and another in the "else").
+                const isInSameStatementList = suite1 === suite2;
+
+                // If the return type has not yet been inferred, do so now.
+                if (otherType && isFunction(otherType)) {
+                    this._evaluator.getFunctionInferredReturnType(otherType);
+                }
+
+                // If both declarations are functions, it's OK if they
+                // both have the same signatures.
+                if (!isInSameStatementList && primaryType && otherType && isTypeSame(primaryType, otherType)) {
+                    duplicateIsOk = true;
+                }
+
+                if (primaryDecl.type === DeclarationType.TypeParameter) {
+                    // The error will be reported elsewhere if a type parameter is
+                    // involved, so don't report it here.
+                    duplicateIsOk = true;
+                }
+
+                if (!duplicateIsOk) {
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        otherDecl.isMethod
+                            ? Localizer.Diagnostic.obscuredMethodDeclaration().format({ name })
+                            : Localizer.Diagnostic.obscuredFunctionDeclaration().format({ name }),
+                        otherDecl.node.name
+                    );
+                    addPrimaryDeclInfo(diag);
+                }
+            } else if (otherDecl.type === DeclarationType.Parameter) {
+                if (otherDecl.node.name) {
+                    let duplicateIsOk = false;
+
+                    if (primaryDecl.type === DeclarationType.TypeParameter) {
+                        // The error will be reported elsewhere if a type parameter is
+                        // involved, so don't report it here.
+                        duplicateIsOk = true;
+                    }
+
+                    if (!duplicateIsOk) {
+                        const message = Localizer.Diagnostic.obscuredParameterDeclaration();
+                        const diag = this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            message.format({ name }),
+                            otherDecl.node.name
+                        );
+                        addPrimaryDeclInfo(diag);
+                    }
+                }
+            } else if (otherDecl.type === DeclarationType.Variable) {
+                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
+
+                if (otherDecl.typeAnnotationNode) {
+                    if (otherDecl.node.nodeType === ParseNodeType.Name) {
+                        let duplicateIsOk = false;
+
+                        // It's OK if they both have the same declared type.
+                        const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
+                        if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
+                            duplicateIsOk = true;
+                        }
+
+                        if (primaryDecl.type === DeclarationType.TypeParameter) {
+                            // The error will be reported elsewhere if a type parameter is
+                            // involved, so don't report it here.
+                            duplicateIsOk = true;
+                        }
+
+                        if (!duplicateIsOk) {
+                            const diag = this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.obscuredVariableDeclaration().format({ name }),
+                                otherDecl.node
+                            );
+                            addPrimaryDeclInfo(diag);
+                        }
+                    }
+                }
+            } else if (otherDecl.type === DeclarationType.TypeAlias) {
+                const diag = this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.obscuredTypeAliasDeclaration().format({ name }),
+                    otherDecl.node.name
+                );
+                addPrimaryDeclInfo(diag);
+            }
+        }
+    }
+
+    private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
+        const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
+
+        if (
+            symbol.isIgnoredForProtocolMatch() ||
+            accessedSymbolSet.has(symbol.id) ||
+            this._fileInfo.ipythonMode === IPythonMode.CellDocs
+        ) {
+            return;
+        }
+
+        // A name of "_" means "I know this symbol isn't used", so
+        // don't report it as unused.
+        if (name === '_') {
+            return;
+        }
+
+        if (SymbolNameUtils.isDunderName(name)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+        decls.forEach((decl) => {
+            this._conditionallyReportUnusedDeclaration(decl, this._isSymbolPrivate(name, scopeType));
+        });
+    }
+
+    private _conditionallyReportUnusedDeclaration(decl: Declaration, isPrivate: boolean) {
+        let diagnosticLevel: DiagnosticLevel;
+        let nameNode: NameNode | undefined;
+        let message: string | undefined;
+        let rule: DiagnosticRule | undefined;
+
+        switch (decl.type) {
+            case DeclarationType.Alias:
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedImport;
+                rule = DiagnosticRule.reportUnusedImport;
+                if (decl.node.nodeType === ParseNodeType.ImportAs) {
+                    if (decl.node.alias) {
+                        // For statements of the form "import x as x", don't mark "x" as unaccessed
+                        // because it's assumed to be re-exported.
+                        // See https://typing.readthedocs.io/en/latest/source/stubs.html#imports.
+                        if (decl.node.alias.value !== decl.moduleName) {
+                            nameNode = decl.node.alias;
+                        }
+                    } else {
+                        // Handle multi-part names specially.
+                        const nameParts = decl.node.module.nameParts;
+                        if (nameParts.length > 0) {
+                            const multipartName = nameParts.map((np) => np.value).join('.');
+                            const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
+                            TextRange.extend(textRange, nameParts[nameParts.length - 1]);
+                            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                                Localizer.Diagnostic.unaccessedSymbol().format({ name: multipartName }),
+                                textRange,
+                                { action: Commands.unusedImport }
+                            );
+
+                            this._evaluator.addDiagnosticForTextRange(
+                                this._fileInfo,
+                                this._fileInfo.diagnosticRuleSet.reportUnusedImport,
+                                DiagnosticRule.reportUnusedImport,
+                                Localizer.Diagnostic.unaccessedImport().format({ name: multipartName }),
+                                textRange
+                            );
+                            return;
+                        }
+                    }
+                } else if (decl.node.nodeType === ParseNodeType.ImportFromAs) {
+                    const importFrom = decl.node.parent as ImportFromNode;
+
+                    // For statements of the form "from y import x as x", don't mark "x" as
+                    // unaccessed because it's assumed to be re-exported.
+                    const isReexport = decl.node.alias?.value === decl.node.name.value;
+
+                    // If this is a __future__ import, it's OK for the import symbol to be unaccessed.
+                    const isFuture =
+                        importFrom.module.nameParts.length === 1 &&
+                        importFrom.module.nameParts[0].value === '__future__';
+
+                    if (!isReexport && !isFuture) {
+                        nameNode = decl.node.alias || decl.node.name;
+                    }
+                }
+
+                if (nameNode) {
+                    message = Localizer.Diagnostic.unaccessedImport().format({ name: nameNode.value });
+                }
+                break;
+
+            case DeclarationType.TypeAlias:
+            case DeclarationType.Variable:
+            case DeclarationType.Parameter:
+                if (!isPrivate) {
+                    return;
+                }
+
+                if (this._fileInfo.isStubFile) {
+                    // Don't mark variables or parameters as unaccessed in
+                    // stub files. It's typical for them to be unaccessed here.
+                    return;
+                }
+
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedVariable;
+
+                if (decl.node.nodeType === ParseNodeType.Name) {
+                    nameNode = decl.node;
+
+                    // Don't emit a diagnostic if the name starts with an underscore.
+                    // This indicates that the variable is unused.
+                    if (nameNode.value.startsWith('_')) {
+                        diagnosticLevel = 'none';
+                    }
+                } else if (decl.node.nodeType === ParseNodeType.Parameter) {
+                    nameNode = decl.node.name;
+
+                    // Don't emit a diagnostic for unused parameters or type parameters.
+                    diagnosticLevel = 'none';
+                }
+
+                if (nameNode) {
+                    rule = DiagnosticRule.reportUnusedVariable;
+                    message = Localizer.Diagnostic.unaccessedVariable().format({ name: nameNode.value });
+                }
+                break;
+
+            case DeclarationType.Class:
+                if (!isPrivate) {
+                    return;
+                }
+
+                // If a stub is exporting a private type, we'll assume that the author
+                // knows what he or she is doing.
+                if (this._fileInfo.isStubFile) {
+                    return;
+                }
+
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedClass;
+                nameNode = decl.node.name;
+                rule = DiagnosticRule.reportUnusedClass;
+                message = Localizer.Diagnostic.unaccessedClass().format({ name: nameNode.value });
+                break;
+
+            case DeclarationType.Function:
+                if (!isPrivate) {
+                    return;
+                }
+
+                // If a stub is exporting a private type, we'll assume that the author
+                // knows what he or she is doing.
+                if (this._fileInfo.isStubFile) {
+                    return;
+                }
+
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedFunction;
+                nameNode = decl.node.name;
+                rule = DiagnosticRule.reportUnusedFunction;
+                message = Localizer.Diagnostic.unaccessedFunction().format({ name: nameNode.value });
+                break;
+
+            case DeclarationType.TypeParameter:
+                // Never report a diagnostic for an unused TypeParameter.
+                diagnosticLevel = 'none';
+                nameNode = decl.node.name;
+                break;
+
+            case DeclarationType.Intrinsic:
+            case DeclarationType.SpecialBuiltInClass:
+                return;
+
+            default:
+                assertNever(decl);
+        }
+
+        const action = rule === DiagnosticRule.reportUnusedImport ? { action: Commands.unusedImport } : undefined;
+        if (nameNode) {
+            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                Localizer.Diagnostic.unaccessedSymbol().format({ name: nameNode.value }),
+                nameNode,
+                action
+            );
+
+            if (rule !== undefined && message) {
+                this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
+            }
+        }
+    }
+
+    // Determines whether the specified type is allowed as the second argument
+    // to an isinstance or issubclass check.
+    private _isTypeSupportedTypeForIsInstance(type: Type, isInstanceCheck: boolean) {
+        let isSupported = true;
+
+        doForEachSubtype(type, (subtype) => {
+            subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+            switch (subtype.category) {
+                case TypeCategory.Any:
+                case TypeCategory.Unknown:
+                case TypeCategory.Unbound:
+                    break;
+
+                case TypeCategory.Class:
+                    // If it's a class, make sure that it has not been given explicit
+                    // type arguments. This will result in a TypeError exception.
+                    if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
+                        isSupported = false;
+                    }
+                    break;
+
+                case TypeCategory.None:
+                    if (!isInstanceCheck) {
+                        isSupported = false;
+                    } else {
+                        isSupported = TypeBase.isInstantiable(subtype);
+                    }
+                    break;
+
+                case TypeCategory.Function:
+                    isSupported = TypeBase.isInstantiable(subtype);
+                    break;
+
+                case TypeCategory.Union:
+                    isSupported = this._isTypeSupportedTypeForIsInstance(subtype, isInstanceCheck);
+                    break;
+
+                default:
+                    isSupported = false;
+                    break;
+            }
+        });
+
+        return isSupported;
+    }
+
+    private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
+        // All variables within the scope of a function or a list
+        // comprehension are considered private.
+        if (scopeType === ScopeType.Function || scopeType === ScopeType.ListComprehension) {
+            return true;
+        }
+
+        // See if the symbol is private.
+        if (SymbolNameUtils.isPrivateName(nameValue)) {
+            return true;
+        }
+
+        if (SymbolNameUtils.isProtectedName(nameValue)) {
+            // Protected names outside of a class scope are considered private.
+            const isClassScope = scopeType === ScopeType.Class;
+            return !isClassScope;
+        }
+
+        return false;
+    }
 
     private _reportDuplicateImports() {
         const importStatements = getTopLevelImports(this._moduleNode);
@@ -5805,37 +5691,26 @@ export class Checker extends ParseTreeWalker {
     }
 }
 
-class MissingModuleSourceReporter extends ParseTreeWalker {
-    static report(
-        importResolver: ImportResolver,
-        evaluator: TypeEvaluator,
-        fileInfo: AnalyzerFileInfo,
-        node: ModuleNode
-    ) {
-        if (fileInfo.isStubFile) {
-            // Don't report this for stub files.
-            return;
-        }
-
-        new MissingModuleSourceReporter(importResolver, evaluator, fileInfo).walk(node);
-    }
-
-    private constructor(
-        private _importResolver: ImportResolver,
+class CheckerWalker extends ParseTreeWalker {
+    constructor(
         private _evaluator: TypeEvaluator,
-        private _fileInfo: AnalyzerFileInfo
+        private _fileInfo: AnalyzerFileInfo,
+        private _visitors: BaseCheckVisitor[]
     ) {
         super();
     }
 
+    override visitSuite(node: SuiteNode): boolean {
+        this._walkStatementsAndReportUnreachable(node.statements);
+        return false;
+    }
+
     override visitNode(node: ParseNode): ParseNodeArray {
-        // Optimization. don't walk into expressions which can't
-        // have import statement as child nodes.
-        if (isExpressionNode(node)) {
+        if (!this.visit(node) || !this._visitCheckers(node)) {
             return [];
         }
 
-        return super.visitNode(node);
+        return getChildNodes(node);
     }
 
     override visitModule(node: ModuleNode): boolean {
@@ -5853,10 +5728,187 @@ class MissingModuleSourceReporter extends ParseTreeWalker {
                 Localizer.Diagnostic.codeTooComplexToAnalyze(),
                 { start: 0, length: 0 }
             );
+
+            return false;
+        }
+
+        this._walkStatementsAndReportUnreachable(node.statements);
+        return false;
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
+
+        if (isPrintCodeComplexityEnabled) {
+            console.log(`Code complexity of function ${node.name.value} is ${codeComplexity.toString()}`);
+        }
+
+        if (codeComplexity > maxCodeComplexity) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                node.name
+            );
+
             return false;
         }
 
         return true;
+    }
+
+    private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
+        let reportedUnreachable = false;
+        let prevStatement: StatementNode | undefined;
+
+        for (const statement of statements) {
+            // No need to report unreachable more than once since the first time
+            // covers all remaining statements in the statement list.
+            if (!reportedUnreachable) {
+                if (!this._evaluator.isNodeReachable(statement, prevStatement)) {
+                    // Create a text range that covers the next statement through
+                    // the end of the statement list.
+                    const start = statement.start;
+                    const lastStatement = statements[statements.length - 1];
+                    const end = TextRange.getEnd(lastStatement);
+                    this._evaluator.addUnreachableCode(statement, { start, length: end - start });
+
+                    reportedUnreachable = true;
+                }
+            }
+
+            if (!reportedUnreachable && this._fileInfo.isStubFile) {
+                this._validateStubStatement(statement);
+            }
+
+            this.walk(statement);
+
+            prevStatement = statement;
+        }
+    }
+
+    private _validateStubStatement(statement: StatementNode) {
+        switch (statement.nodeType) {
+            case ParseNodeType.If:
+            case ParseNodeType.Function:
+            case ParseNodeType.Class:
+            case ParseNodeType.Error: {
+                // These are allowed in a stub file.
+                break;
+            }
+
+            case ParseNodeType.While:
+            case ParseNodeType.For:
+            case ParseNodeType.Try:
+            case ParseNodeType.With: {
+                // These are not allowed.
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
+                    DiagnosticRule.reportInvalidStubStatement,
+                    Localizer.Diagnostic.invalidStubStatement(),
+                    statement
+                );
+                break;
+            }
+
+            case ParseNodeType.StatementList: {
+                for (const substatement of statement.statements) {
+                    let isValid = true;
+
+                    switch (substatement.nodeType) {
+                        case ParseNodeType.Assert:
+                        case ParseNodeType.AssignmentExpression:
+                        case ParseNodeType.Await:
+                        case ParseNodeType.BinaryOperation:
+                        case ParseNodeType.Constant:
+                        case ParseNodeType.Del:
+                        case ParseNodeType.Dictionary:
+                        case ParseNodeType.Index:
+                        case ParseNodeType.For:
+                        case ParseNodeType.FormatString:
+                        case ParseNodeType.Global:
+                        case ParseNodeType.Lambda:
+                        case ParseNodeType.List:
+                        case ParseNodeType.MemberAccess:
+                        case ParseNodeType.Name:
+                        case ParseNodeType.Nonlocal:
+                        case ParseNodeType.Number:
+                        case ParseNodeType.Raise:
+                        case ParseNodeType.Return:
+                        case ParseNodeType.Set:
+                        case ParseNodeType.Slice:
+                        case ParseNodeType.Ternary:
+                        case ParseNodeType.Tuple:
+                        case ParseNodeType.Try:
+                        case ParseNodeType.UnaryOperation:
+                        case ParseNodeType.Unpack:
+                        case ParseNodeType.While:
+                        case ParseNodeType.With:
+                        case ParseNodeType.WithItem:
+                        case ParseNodeType.Yield:
+                        case ParseNodeType.YieldFrom: {
+                            isValid = false;
+                            break;
+                        }
+
+                        case ParseNodeType.AugmentedAssignment: {
+                            // Exempt __all__ manipulations.
+                            isValid =
+                                substatement.operator === OperatorType.AddEqual &&
+                                substatement.leftExpression.nodeType === ParseNodeType.Name &&
+                                substatement.leftExpression.value === '__all__';
+                            break;
+                        }
+
+                        case ParseNodeType.Call: {
+                            // Exempt __all__ manipulations.
+                            isValid =
+                                substatement.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                                substatement.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                                substatement.leftExpression.leftExpression.value === '__all__';
+                            break;
+                        }
+                    }
+
+                    if (!isValid) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
+                            DiagnosticRule.reportInvalidStubStatement,
+                            Localizer.Diagnostic.invalidStubStatement(),
+                            substatement
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    private _visitCheckers(node: ParseNode): boolean {
+        // Change it to proper code.
+        this._visitors.forEach((v) => v.visit(node));
+
+        return true;
+    }
+}
+
+class MissingModuleSourceVisitor extends BaseCheckVisitor {
+    constructor(
+        private _importResolver: ImportResolver,
+        private _evaluator: TypeEvaluator,
+        private _fileInfo: AnalyzerFileInfo
+    ) {
+        super();
+    }
+
+    override visit(node: ParseNode): boolean {
+        // Optimization.
+        // 1. This diagnostics is only for regular python files. Nothing to do for stub file.
+        // 2. Don't walk into expressions which can't have import statement as child nodes.
+        if (this._fileInfo.isStubFile || isExpressionNode(node)) {
+            return false;
+        }
+
+        return super.visit(node);
     }
 
     override visitModuleName(node: ModuleNameNode): boolean {
