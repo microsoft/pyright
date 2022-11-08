@@ -584,10 +584,11 @@ test('unused expression is error if within another statement', async () => {
 
 function verifyAnalysisDiagnosticCount(code: string, expectedCount: number) {
     const state = parseAndGetTestState(code).state;
-    const range = state.getRangeByMarkerName('marker')!;
 
-    const source = state.program.getBoundSourceFile(range.fileName)!;
     state.analyze();
+
+    const range = state.getRangeByMarkerName('marker')!;
+    const source = state.program.getBoundSourceFile(range.fileName)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
     assert.strictEqual(diagnostics?.length, expectedCount);
