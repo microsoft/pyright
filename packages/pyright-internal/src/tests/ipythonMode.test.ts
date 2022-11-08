@@ -571,6 +571,18 @@ test('unused expression at end is not error', async () => {
     verifyAnalysisDiagnosticCount(code, 0);
 });
 
+test('unused expression is error if not at end of cell', async () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// 4[|/*marker*/|]
+////
+//// x = 1
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 1);
+});
+
 test('unused expression is error if within another statement', async () => {
     const code = `
 // @filename: test.py
