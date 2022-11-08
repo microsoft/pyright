@@ -423,7 +423,7 @@ function assignClassToProtocolInternal(
                         }
                     }
 
-                    if (symbol.isClassVar() && !srcMemberInfo.symbol.isClassMember()) {
+                    if (symbol.isClassVar() && !srcMemberInfo.symbol.isClassVar()) {
                         diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
                         typesAreConsistent = false;
                     }
