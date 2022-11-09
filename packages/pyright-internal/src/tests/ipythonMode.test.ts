@@ -9,6 +9,7 @@
 import assert from 'assert';
 import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Localizer } from '../localization/localize';
@@ -580,7 +581,7 @@ test('unused expression is error if not at end of cell', async () => {
 //// x = 1
     `;
 
-    verifyAnalysisDiagnosticCount(code, 1);
+    verifyAnalysisDiagnosticCount(code, 1, DiagnosticRule.reportUnusedExpression);
 });
 
 test('unused expression is error if within another statement', async () => {
@@ -591,10 +592,10 @@ test('unused expression is error if within another statement', async () => {
 ////     4[|/*marker*/|]
     `;
 
-    verifyAnalysisDiagnosticCount(code, 1);
+    verifyAnalysisDiagnosticCount(code, 1, DiagnosticRule.reportUnusedExpression);
 });
 
-function verifyAnalysisDiagnosticCount(code: string, expectedCount: number) {
+function verifyAnalysisDiagnosticCount(code: string, expectedCount: number, expectedRule?: string) {
     const state = parseAndGetTestState(code).state;
 
     state.analyze();
@@ -604,4 +605,7 @@ function verifyAnalysisDiagnosticCount(code: string, expectedCount: number) {
     const diagnostics = source.getDiagnostics(state.configOptions);
 
     assert.strictEqual(diagnostics?.length, expectedCount);
+    if (expectedRule) {
+        diagnostics.forEach((diagnostic) => assert.strictEqual(diagnostic.getRule(), expectedRule));
+    }
 }
