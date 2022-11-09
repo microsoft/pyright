@@ -783,11 +783,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 // Indicates whether the specified type is a recursive type alias
 // placeholder that has not yet been resolved.
 export function isTypeAliasPlaceholder(type: Type): type is TypeVarType {
-    if (!isTypeVar(type)) {
-        return false;
-    }
-
-    return !!type.details.recursiveTypeAliasName && !type.details.boundType;
+    return isTypeVar(type) && TypeVarType.isTypeAliasPlaceholder(type);
 }
 
 // Determines whether the type alias placeholder is used directly
@@ -833,6 +829,10 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                 getTypeVarScopeId(type)
             );
             return applySolvedTypeVars(unspecializedType, typeVarContext);
+        }
+
+        if (isUnion(type) && type.includesTypeAliasPlaceholder) {
+            return mapSubtypes(type, (subtype) => transformPossibleRecursiveTypeAlias(subtype));
         }
     }
 

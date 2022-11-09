@@ -1971,6 +1971,7 @@ export interface UnionType extends TypeBase {
     literalStrMap?: Map<string, UnionableType> | undefined;
     literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     typeAliasSources?: Set<UnionType>;
+    includesTypeAliasPlaceholder?: boolean;
 }
 
 export namespace UnionType {
@@ -2004,6 +2005,12 @@ export namespace UnionType {
 
         unionType.flags &= newType.flags;
         unionType.subtypes.push(newType);
+
+        if (isTypeVar(newType) && TypeVarType.isTypeAliasPlaceholder(newType)) {
+            // Note that at least one type alias placeholder was included in
+            // this union. We'll need to expand it before the union is used.
+            unionType.includesTypeAliasPlaceholder = true;
+        }
     }
 
     export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
@@ -2250,6 +2257,12 @@ export namespace TypeVarType {
         assert(variance !== Variance.Auto);
 
         return variance;
+    }
+
+    // Indicates whether the specified type is a recursive type alias
+    // placeholder that has not yet been resolved.
+    export function isTypeAliasPlaceholder(type: TypeVarType) {
+        return !!type.details.recursiveTypeAliasName && !type.details.boundType;
     }
 }
 
