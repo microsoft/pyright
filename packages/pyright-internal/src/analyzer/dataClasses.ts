@@ -707,12 +707,14 @@ function isDataclassFieldConstructor(type: Type, fieldDescriptorNames: string[])
 
 export function validateDataClassTransformDecorator(
     evaluator: TypeEvaluator,
-    node: CallNode
+    node: CallNode,
+    defaultToFrozen = false
 ): DataClassBehaviors | undefined {
     const behaviors: DataClassBehaviors = {
         keywordOnlyParams: false,
         generateEq: true,
         generateOrder: false,
+        isFrozen: defaultToFrozen,
         fieldDescriptorNames: [],
     };
 
@@ -858,6 +860,7 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
             keywordOnlyParams: false,
             generateEq: true,
             generateOrder: false,
+            isFrozen: false,
             fieldDescriptorNames: ['dataclasses.field', 'dataclasses.Field'],
         };
     }
@@ -984,15 +987,6 @@ export function applyDataClassClassBehaviorOverrides(
             applyDataClassBehaviorOverride(evaluator, arg.name, classType, arg.name.value, arg.valueExpression);
         }
     });
-
-    // For class-based dataclass_transform, there's no standard way
-    // to specify whether the class is frozen or not. We will conservatively
-    // assume that the class is frozen so a `__hash__` function is always
-    // synthesized. Without this, users may see false positive errors when
-    // an instance is used in a set or the key of a dictionary. This assumption
-    // may result in a false negative if the class isn't actually frozen, but
-    // that's better than a false positive.
-    classType.details.flags |= ClassTypeFlags.FrozenDataClass;
 }
 
 export function applyDataClassDefaultBehaviors(classType: ClassType, defaultBehaviors: DataClassBehaviors) {
@@ -1009,6 +1003,10 @@ export function applyDataClassDefaultBehaviors(classType: ClassType, defaultBeha
 
     if (defaultBehaviors.generateOrder) {
         classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
+    }
+
+    if (defaultBehaviors.isFrozen) {
+        classType.details.flags |= ClassTypeFlags.FrozenDataClass;
     }
 }
 

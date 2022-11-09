@@ -78,3 +78,6 @@ v2 = c2_1 < c2_2
 # This should generate an error because Customer2 supports
 # keyword-only parameters for its constructor.
 c2_3 = Customer2(0, "John")
+
+hashable1 = {Customer2(id=1): 1}
+hashable2 = {Customer2(id=1), Customer2(id=2)}

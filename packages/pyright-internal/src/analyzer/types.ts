@@ -461,6 +461,7 @@ export interface DataClassBehaviors {
     keywordOnlyParams: boolean;
     generateEq: boolean;
     generateOrder: boolean;
+    isFrozen: boolean;
     fieldDescriptorNames: string[];
 }
 

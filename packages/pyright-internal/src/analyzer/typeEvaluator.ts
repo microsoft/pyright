@@ -15828,9 +15828,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     decoratorCallType.details.name === '__dataclass_transform__' ||
                     decoratorCallType.details.builtInName === 'dataclass_transform'
                 ) {
+                    // For class-based dataclass_transform, there's no standard way
+                    // to specify whether the class is frozen or not. We will conservatively
+                    // assume that the class is frozen so a `__hash__` function is always
+                    // synthesized. Without this, users may see false positive errors when
+                    // an instance is used in a set or the key of a dictionary. This assumption
+                    // may result in a false negative if the class isn't actually frozen, but
+                    // that's better than a false positive.
                     originalClassType.details.classDataClassTransform = validateDataClassTransformDecorator(
                         evaluatorInterface,
-                        decoratorNode.expression
+                        decoratorNode.expression,
+                        /* defaultToFrozen */ true
                     );
                 }
             }
