@@ -291,3 +291,17 @@ test('BasicPyprojectTomlParsing', () => {
     assert.strictEqual(configOptions.diagnosticRuleSet.reportMissingImports, 'error');
     assert.strictEqual(configOptions.diagnosticRuleSet.reportUnusedClass, 'warning');
 });
+
+test('FindFilesInMemoryOnly', () => {
+    const cwd = normalizePath(process.cwd());
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(), options);
+    const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
+    service.setOptions(commandLineOptions);
+
+    // Open a file that is not backed by the file system.
+    const untitled = combinePaths(cwd, 'untitled.py');
+    service.setFileOpened(untitled, 1, '# empty');
+
+    const fileList = service.test_getFileNamesFromFileSpecs();
+    assert(fileList.filter((f) => f === untitled));
+});
