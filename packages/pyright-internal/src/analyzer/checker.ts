@@ -259,6 +259,23 @@ export class Checker extends ParseTreeWalker {
 
         this._conditionallyReportShadowedModule();
 
+        // Report code complexity issues for the module.
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(this._moduleNode);
+
+        if (isPrintCodeComplexityEnabled) {
+            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
+        }
+
+        if (codeComplexity > maxCodeComplexity) {
+            this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                { start: 0, length: 0 }
+            );
+        }
+
         this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
         // Mark symbols accessed by __all__ as accessed.
@@ -302,26 +319,6 @@ export class Checker extends ParseTreeWalker {
                 this._reportUnusedExpression(statement);
             }
         });
-
-        return true;
-    }
-
-    override visitModule(node: ModuleNode): boolean {
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
-
-        if (isPrintCodeComplexityEnabled) {
-            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
-        }
-
-        if (codeComplexity > maxCodeComplexity) {
-            this._evaluator.addDiagnosticForTextRange(
-                this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.codeTooComplexToAnalyze(),
-                { start: 0, length: 0 }
-            );
-        }
 
         return true;
     }
