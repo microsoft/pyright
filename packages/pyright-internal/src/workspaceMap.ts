@@ -62,17 +62,23 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;
 
+        // The order of how we find the best matching workspace for the given file is
+        // 1. The given file is the workspace itself (ex, a file being a virtual workspace itself).
+        // 2. The given file matches the fileSpec of the service under the workspace
+        //    (the file is a user file the workspace provides LSP service for).
+        // 3. The given file doesn't match anything but we have only 1 regular workspace
+        //    (ex, open a library file from the workspace).
+        // 4. The given file doesn't match anything and there are multiple workspaces but one of workspaces
+        //    contains the file (ex, open a library file already imported by a workspace).
+        // 5. If none of the above works, then it matches the default workspace.
         this.forEach((workspace) => {
             if (workspace.path) {
-                // Is the file is under this workspace folder?
-                if (!workspace.owns(filePath)) {
+                if (workspace.path !== filePath && !workspace.serviceInstance.isTracked(filePath)) {
                     return;
                 }
 
-                // Is this the fist candidate? If not, is this workspace folder
-                // contained within the previous candidate folder? We always want
-                // to select the innermost folder, since that overrides the
-                // outer folders.
+                // Among workspaces that own the file, make sure we return the inner most one which
+                // we consider as the best workspace.
                 if (bestRootPath === undefined || workspace.path.startsWith(bestRootPath)) {
                     bestRootPath = workspace.path;
                     bestInstance = workspace;
@@ -83,14 +89,25 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         // If there were multiple workspaces or we couldn't find any,
         // create a default one to use for this file.
         if (bestInstance === undefined) {
+            const regularWorkspaces = this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular);
+
+            // If we have only 1 regular workspace, then use that.
+            if (regularWorkspaces.length === 1) {
+                return regularWorkspaces[0];
+            }
+
+            // If we have multiple workspaces, see whether we can at least find one that contains the file.
+            // the file might not be tracked (user file), but still belongs to a workspace as a library file or as an orphan file to the workspace.
+            const containingWorkspace = this._getBestWorkspace(
+                regularWorkspaces.filter((w) => w.serviceInstance.contains(filePath))
+            );
+            if (containingWorkspace) {
+                return containingWorkspace;
+            }
+
+            // If no workspace contains it, then it belongs to the default workspace.
             let defaultWorkspace = this.get(this._defaultWorkspacePath);
             if (!defaultWorkspace) {
-                // If there is only one workspace, use that one.
-                const workspaceNames = [...this.keys()];
-                if (workspaceNames.length === 1) {
-                    return this.get(workspaceNames[0])!;
-                }
-
                 // Create a default workspace for files that are outside
                 // of all workspaces.
                 defaultWorkspace = {
@@ -105,7 +122,6 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     disableWorkspaceSymbol: false,
                     isInitialized: createDeferred<boolean>(),
                     searchPathsToWatch: [],
-                    owns: (f) => true,
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
                 ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
@@ -115,5 +131,34 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         }
 
         return bestInstance;
+    }
+
+    getContainingWorkspace(filePath: string) {
+        return this._getBestWorkspace(
+            this.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular).filter((w) => filePath.startsWith(w.path))
+        );
+    }
+
+    private _getBestWorkspace(workspaces: WorkspaceServiceInstance[]) {
+        if (workspaces.length === 0) {
+            return undefined;
+        }
+
+        if (workspaces.length === 1) {
+            return workspaces[0];
+        }
+
+        // Best workspace is the inner most workspace.
+        return workspaces.reduce((previousWorkspace, currentWorkspace) => {
+            if (!previousWorkspace) {
+                return currentWorkspace;
+            }
+
+            if (currentWorkspace.path.startsWith(previousWorkspace.path)) {
+                return currentWorkspace;
+            }
+
+            return previousWorkspace;
+        }, workspaces[0]);
     }
 }

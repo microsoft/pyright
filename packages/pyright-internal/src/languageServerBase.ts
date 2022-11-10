@@ -168,7 +168,6 @@ export interface WorkspaceServiceInstance {
     disableWorkspaceSymbol: boolean;
     isInitialized: Deferred<boolean>;
     searchPathsToWatch: string[];
-    owns(filePath: string): boolean;
 }
 
 export interface MessageAction {
@@ -462,6 +461,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(service.fs, results));
         return service;
+    }
+
+    async test_getWorkspaces() {
+        const workspaces = [...this._workspaceMap.values()];
+        for (const workspace of workspaces) {
+            await workspace.isInitialized.promise;
+        }
+
+        return workspaces;
     }
 
     async getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance> {
@@ -1084,12 +1092,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             token
         );
 
-        // We only allow renaming symbol defined in the files this workspace owns.
-        // This is to make sure we don't rename files across workspaces in multiple workspaces context.
-        if (result && result.declarations.some((d) => d.path && !workspace.owns(d.path))) {
-            return null;
-        }
-
         return result?.range ?? null;
     }
 
@@ -1356,7 +1358,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         rootPath: string,
         path: string,
         kinds: string[] = [WellKnownWorkspaceKinds.Regular],
-        owns?: (filePath: string) => boolean,
         services?: WorkspaceServices
     ): WorkspaceServiceInstance {
         // 5 seconds default
@@ -1374,7 +1375,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 : () => defaultBackOffTime;
 
         const rootUri = workspaceFolder?.uri ?? '';
-        owns = owns ?? ((f) => f.startsWith(rootPath));
 
         return {
             workspaceName: workspaceFolder?.name ?? '',
@@ -1392,7 +1392,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
-            owns,
         };
     }
 
@@ -1619,9 +1618,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
-        // For now, return the same URL for all rules. We can separate these
-        // in the future.
-        return 'https://github.com/microsoft/pyright/blob/main/docs/configuration.md';
+        // Configuration.md is configured to have a link for every rule name.
+        return `https://github.com/microsoft/pyright/blob/main/docs/configuration.md#${rule}`;
     }
 
     protected abstract createProgressReporter(): ProgressReporter;

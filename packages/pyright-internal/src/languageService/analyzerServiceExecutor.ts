@@ -68,7 +68,6 @@ export class AnalyzerServiceExecutor {
             disableWorkspaceSymbol: true,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
-            owns: workspace.owns,
         };
 
         const serverSettings = await ls.getSettings(workspace);

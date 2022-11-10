@@ -194,7 +194,10 @@ export class AnalyzerService {
                 service.setFileOpened(
                     fileInfo.sourceFile.getFilePath(),
                     version,
-                    fileInfo.sourceFile.getOpenFileContents()!
+                    fileInfo.sourceFile.getOpenFileContents()!,
+                    fileInfo.sourceFile.getIPythonMode(),
+                    fileInfo.chainedSourceFile?.sourceFile.getFilePath(),
+                    fileInfo.sourceFile.getRealFilePath()
                 );
             }
         }
@@ -272,14 +275,19 @@ export class AnalyzerService {
         this._applyConfigOptions(host);
     }
 
+    contains(filePath: string): boolean {
+        return this.backgroundAnalysisProgram.contains(filePath);
+    }
+
     isTracked(filePath: string): boolean {
-        for (const includeSpec of this._configOptions.include) {
-            if (this._matchIncludeFileSpec(includeSpec.regExp, this._configOptions.exclude, filePath)) {
-                return true;
-            }
+        const fileInfo = this._program.getSourceFileInfo(filePath);
+        if (fileInfo) {
+            // If we already determined whether the file is tracked or not, don't do it again.
+            // This will make sure we have consistent look at the state once it is loaded to the memory.
+            return fileInfo.isTracked;
         }
 
-        return false;
+        return this._matchFileSpecs(filePath);
     }
 
     setFileOpened(
@@ -313,13 +321,13 @@ export class AnalyzerService {
         version: number | null,
         contents: TextDocumentContentChangeEvent[],
         ipythonMode = IPythonMode.None,
-        chainedFilePath?: string
+        realFilePath?: string
     ) {
         this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, {
             isTracked: this.isTracked(path),
             ipythonMode,
-            chainedFilePath,
-            realFilePath: undefined,
+            chainedFilePath: undefined,
+            realFilePath,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
@@ -328,13 +336,9 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.startIndexing(indexOptions);
     }
 
-    setFileClosed(path: string) {
-        this._backgroundAnalysisProgram.setFileClosed(path);
+    setFileClosed(path: string, isTracked?: boolean) {
+        this._backgroundAnalysisProgram.setFileClosed(path, isTracked);
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
-    }
-
-    isFileOpen(path: string) {
-        return this._program.isFileOpen(path);
     }
 
     getParseResult(path: string) {
@@ -1095,6 +1099,7 @@ export class AnalyzerService {
         // Use a map to generate a list of unique files.
         const fileMap = new Map<string, string>();
 
+        // Scan all matching files from file system.
         timingStats.findFilesTime.timeOperation(() => {
             const matchedFiles = this._matchFiles(this._configOptions.include, this._configOptions.exclude);
 
@@ -1102,6 +1107,14 @@ export class AnalyzerService {
                 fileMap.set(file, file);
             }
         });
+
+        // And scan all matching open files. We need to do this since some of files are not backed by
+        // files in file system but only exist in memory (ex, virtual workspace)
+        this._backgroundAnalysisProgram.program
+            .getOpened()
+            .map((o) => o.sourceFile.getFilePath())
+            .filter((f) => this._matchFileSpecs(f))
+            .forEach((f) => fileMap.set(f, f));
 
         return [...fileMap.values()];
     }
@@ -1726,6 +1739,16 @@ export class AnalyzerService {
     private _matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], filePath: string) {
         if (includeRegExp.test(filePath)) {
             if (!this._isInExcludePath(filePath, exclude) && this._shouldIncludeFile(filePath)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private _matchFileSpecs(filePath: string) {
+        for (const includeSpec of this._configOptions.include) {
+            if (this._matchIncludeFileSpec(includeSpec.regExp, this._configOptions.exclude, filePath)) {
                 return true;
             }
         }

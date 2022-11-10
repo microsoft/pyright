@@ -123,8 +123,8 @@ export class BackgroundAnalysisBase {
         });
     }
 
-    setFileClosed(filePath: string) {
-        this.enqueueRequest({ requestType: 'setFileClosed', data: filePath });
+    setFileClosed(filePath: string, isTracked?: boolean) {
+        this.enqueueRequest({ requestType: 'setFileClosed', data: { filePath, isTracked } });
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded: boolean) {
@@ -433,7 +433,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'setFileClosed': {
-                const diagnostics = this.program.setFileClosed(msg.data);
+                const { filePath, isTracked } = msg.data;
+                const diagnostics = this.program.setFileClosed(filePath, isTracked);
                 this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
                 break;
             }
