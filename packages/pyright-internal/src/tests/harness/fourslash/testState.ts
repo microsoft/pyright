@@ -11,23 +11,16 @@ import * as JSONC from 'jsonc-parser';
 import * as path from 'path';
 import Char from 'typescript-char';
 import {
-    AnnotatedTextEdit,
     CancellationToken,
-    ChangeAnnotation,
     CodeAction,
     Command,
     CompletionItem,
-    CreateFile,
-    DeleteFile,
     Diagnostic,
     DocumentHighlight,
     DocumentHighlightKind,
     ExecuteCommandParams,
     MarkupContent,
     MarkupKind,
-    OptionalVersionedTextDocumentIdentifier,
-    RenameFile,
-    TextDocumentEdit,
     TextEdit,
     WorkspaceEdit,
 } from 'vscode-languageserver';
@@ -91,6 +84,7 @@ import {
     TestCancellationToken,
 } from './fourSlashTypes';
 import { TestFeatures, TestLanguageService } from './testLanguageService';
+import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
 
 export interface TextChange {
     span: TextRange;
@@ -183,7 +177,6 @@ export class TestState {
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
-            owns: (f) => true,
         };
 
         const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
@@ -258,28 +251,11 @@ export class TestState {
     }
 
     getMarkerName(m: Marker): string {
-        let found: string | undefined;
-        this.testData.markerPositions.forEach((marker, name) => {
-            if (marker === m) {
-                found = name;
-            }
-        });
-
-        assert.ok(found);
-        return found!;
+        return getMarkerName(this.testData, m);
     }
 
     getMarkerByName(markerName: string) {
-        const markerPos = this.testData.markerPositions.get(markerName);
-        if (markerPos === undefined) {
-            throw new Error(
-                `Unknown marker "${markerName}" Available markers: ${this.getMarkerNames()
-                    .map((m) => '"' + m + '"')
-                    .join(', ')}`
-            );
-        } else {
-            return markerPos;
-        }
+        return getMarkerByName(this.testData, markerName);
     }
 
     getMarkers(): Marker[] {
@@ -288,7 +264,7 @@ export class TestState {
     }
 
     getMarkerNames(): string[] {
-        return [...this.testData.markerPositions.keys()];
+        return getMarkerNames(this.testData);
     }
 
     getPositionRange(markerString: string) {
@@ -766,155 +742,7 @@ export class TestState {
     }
 
     verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit) {
-        if (actual.changes) {
-            this._verifyTextEditMap(expected.changes!, actual.changes);
-        } else {
-            assert(!expected.changes);
-        }
-
-        if (actual.documentChanges) {
-            this._verifyDocumentEdits(expected.documentChanges!, actual.documentChanges);
-        } else {
-            assert(!expected.documentChanges);
-        }
-
-        if (actual.changeAnnotations) {
-            this._verifyChangeAnnotations(expected.changeAnnotations!, actual.changeAnnotations);
-        } else {
-            assert(!expected.changeAnnotations);
-        }
-    }
-
-    private _verifyChangeAnnotations(
-        expected: { [id: string]: ChangeAnnotation },
-        actual: { [id: string]: ChangeAnnotation }
-    ) {
-        assert.strictEqual(Object.entries(expected).length, Object.entries(actual).length);
-
-        for (const key of Object.keys(expected)) {
-            const expectedAnnotation = expected[key];
-            const actualAnnotation = actual[key];
-
-            // We need to improve it to test localized strings.
-            assert.strictEqual(expectedAnnotation.label, actualAnnotation.label);
-            assert.strictEqual(expectedAnnotation.description, actualAnnotation.description);
-
-            assert.strictEqual(expectedAnnotation.needsConfirmation, actualAnnotation.needsConfirmation);
-        }
-    }
-
-    private _textDocumentAreSame(
-        expected: OptionalVersionedTextDocumentIdentifier,
-        actual: OptionalVersionedTextDocumentIdentifier
-    ) {
-        return expected.version === actual.version && expected.uri === actual.uri;
-    }
-
-    private _verifyDocumentEdits(
-        expected: (TextDocumentEdit | CreateFile | RenameFile | DeleteFile)[],
-        actual: (TextDocumentEdit | CreateFile | RenameFile | DeleteFile)[]
-    ) {
-        assert.strictEqual(expected.length, actual.length);
-
-        for (const op of expected) {
-            assert(
-                actual.some((a) => {
-                    const expectedKind = TextDocumentEdit.is(op) ? 'edit' : op.kind;
-                    const actualKind = TextDocumentEdit.is(a) ? 'edit' : a.kind;
-                    if (expectedKind !== actualKind) {
-                        return false;
-                    }
-
-                    switch (expectedKind) {
-                        case 'edit': {
-                            const expectedEdit = op as TextDocumentEdit;
-                            const actualEdit = a as TextDocumentEdit;
-
-                            if (!this._textDocumentAreSame(expectedEdit.textDocument, actualEdit.textDocument)) {
-                                return false;
-                            }
-
-                            return this._textEditsAreSame(expectedEdit.edits, actualEdit.edits);
-                        }
-                        case 'create': {
-                            const expectedOp = op as CreateFile;
-                            const actualOp = a as CreateFile;
-                            return (
-                                expectedOp.kind === actualOp.kind &&
-                                expectedOp.annotationId === actualOp.annotationId &&
-                                expectedOp.uri === actualOp.uri &&
-                                expectedOp.options?.ignoreIfExists === actualOp.options?.ignoreIfExists &&
-                                expectedOp.options?.overwrite === actualOp.options?.overwrite
-                            );
-                        }
-                        case 'rename': {
-                            const expectedOp = op as RenameFile;
-                            const actualOp = a as RenameFile;
-                            return (
-                                expectedOp.kind === actualOp.kind &&
-                                expectedOp.annotationId === actualOp.annotationId &&
-                                expectedOp.oldUri === actualOp.oldUri &&
-                                expectedOp.newUri === actualOp.newUri &&
-                                expectedOp.options?.ignoreIfExists === actualOp.options?.ignoreIfExists &&
-                                expectedOp.options?.overwrite === actualOp.options?.overwrite
-                            );
-                        }
-                        case 'delete': {
-                            const expectedOp = op as DeleteFile;
-                            const actualOp = a as DeleteFile;
-                            return (
-                                expectedOp.annotationId === actualOp.annotationId &&
-                                expectedOp.kind === actualOp.kind &&
-                                expectedOp.uri === actualOp.uri &&
-                                expectedOp.options?.ignoreIfNotExists === actualOp.options?.ignoreIfNotExists &&
-                                expectedOp.options?.recursive === actualOp.options?.recursive
-                            );
-                        }
-                        default:
-                            debug.assertNever(expectedKind);
-                    }
-                })
-            );
-        }
-    }
-
-    private _verifyTextEditMap(expected: { [uri: string]: TextEdit[] }, actual: { [uri: string]: TextEdit[] }) {
-        assert.strictEqual(Object.entries(expected).length, Object.entries(actual).length);
-
-        for (const key of Object.keys(expected)) {
-            assert(this._textEditsAreSame(expected[key], actual[key]));
-        }
-    }
-
-    private _textEditsAreSame(
-        expectedEdits: (TextEdit | AnnotatedTextEdit)[],
-        actualEdits: (TextEdit | AnnotatedTextEdit)[]
-    ) {
-        if (expectedEdits.length !== actualEdits.length) {
-            return false;
-        }
-
-        for (const edit of expectedEdits) {
-            if (!actualEdits.some((a) => this._textEditAreSame(edit, a))) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private _textEditAreSame(expected: TextEdit, actual: TextEdit) {
-        if (!rangesAreEqual(expected.range, actual.range)) {
-            return false;
-        }
-
-        if (expected.newText !== actual.newText) {
-            return false;
-        }
-
-        const expectedAnnotation = AnnotatedTextEdit.is(expected) ? expected.annotationId : '';
-        const actualAnnotation = AnnotatedTextEdit.is(actual) ? actual.annotationId : '';
-        return expectedAnnotation === actualAnnotation;
+        return verifyWorkspaceEdit(expected, actual);
     }
 
     async verifyInvokeCodeAction(
@@ -2036,6 +1864,35 @@ export function createVfsInfoFromFourSlashData(projectRoot: string, testData: Fo
         }
     }
     return { files, sourceFileNames, projectRoot, ignoreCase, rawConfigJson };
+}
+
+export function getMarkerName(testData: FourSlashData, markerToFind: Marker) {
+    let found: string | undefined;
+    testData.markerPositions.forEach((marker, name) => {
+        if (marker === markerToFind) {
+            found = name;
+        }
+    });
+
+    assert.ok(found);
+    return found!;
+}
+
+export function getMarkerByName(testData: FourSlashData, markerName: string) {
+    const markerPos = testData.markerPositions.get(markerName);
+    if (markerPos === undefined) {
+        throw new Error(
+            `Unknown marker "${markerName}" Available markers: ${getMarkerNames(testData)
+                .map((m) => '"' + m + '"')
+                .join(', ')}`
+        );
+    } else {
+        return markerPos;
+    }
+}
+
+export function getMarkerNames(testData: FourSlashData): string[] {
+    return [...testData.markerPositions.keys()];
 }
 
 function isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {

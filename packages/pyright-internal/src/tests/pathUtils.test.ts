@@ -19,6 +19,7 @@ import {
     comparePathsCaseInsensitive,
     comparePathsCaseSensitive,
     containsPath,
+    convertUriToPath,
     deduplicateFolders,
     ensureTrailingDirectorySeparator,
     getAnyExtensionFromPath,
@@ -340,4 +341,14 @@ test('deduplicateFolders', () => {
     ];
 
     assert.deepStrictEqual(folders.sort(), expected.sort());
+});
+
+test('convert UNC path', () => {
+    const cwd = normalizeSlashes('/');
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
+
+    const path = convertUriToPath(fs, 'file://server/c$/folder/file.py');
+
+    // When converting UNC path, server part shouldn't be removed.
+    assert(path.indexOf('server') > 0);
 });

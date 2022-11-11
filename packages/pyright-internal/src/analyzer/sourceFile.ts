@@ -249,6 +249,14 @@ export class SourceFile {
         this._ipythonMode = ipythonMode;
     }
 
+    getRealFilePath(): string {
+        return this._realFilePath;
+    }
+
+    getIPythonMode(): IPythonMode {
+        return this._ipythonMode;
+    }
+
     getFilePath(): string {
         return this._filePath;
     }

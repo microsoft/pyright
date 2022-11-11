@@ -904,7 +904,9 @@ export function convertUriToPath(fs: FileSystem, uriString: string): string {
 
 export function extractPathFromUri(uriString: string) {
     const uri = URI.parse(uriString);
-    let convertedPath = normalizePath(uri.path);
+
+    // When schema is "file", we use fsPath so that we can handle things like UNC paths.
+    let convertedPath = normalizePath(uri.scheme === 'file' ? uri.fsPath : uri.path);
 
     // If this is a DOS-style path with a drive letter, remove
     // the leading slash.

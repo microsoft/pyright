@@ -67,6 +67,10 @@ export class BackgroundAnalysisProgram {
         return this._backgroundAnalysis;
     }
 
+    contains(filePath: string): boolean {
+        return !!this._program.getSourceFile(filePath);
+    }
+
     setConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
         this._backgroundAnalysis?.setConfigOptions(configOptions);
@@ -117,9 +121,9 @@ export class BackgroundAnalysisProgram {
         this.markFilesDirty([path], /* evenIfContentsAreSame */ true);
     }
 
-    setFileClosed(filePath: string) {
-        this._backgroundAnalysis?.setFileClosed(filePath);
-        const diagnostics = this._program.setFileClosed(filePath);
+    setFileClosed(filePath: string, isTracked?: boolean) {
+        this._backgroundAnalysis?.setFileClosed(filePath, isTracked);
+        const diagnostics = this._program.setFileClosed(filePath, isTracked);
         this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
