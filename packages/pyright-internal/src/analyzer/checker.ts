@@ -1628,6 +1628,19 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
+        if (
+            reportAsUnused &&
+            this._fileInfo.ipythonMode === IPythonMode.CellDocs &&
+            node.parent?.nodeType === ParseNodeType.StatementList &&
+            node.parent.statements[node.parent.statements.length - 1] === node &&
+            node.parent.parent?.nodeType === ParseNodeType.Module &&
+            node.parent.parent.statements[node.parent.parent.statements.length - 1] === node.parent
+        ) {
+            // Exclude an expression at the end of a notebook cell, as that is treated as
+            // the cell's value.
+            reportAsUnused = false;
+        }
+
         if (reportAsUnused) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportUnusedExpression,

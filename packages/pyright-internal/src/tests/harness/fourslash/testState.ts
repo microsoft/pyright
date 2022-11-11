@@ -521,7 +521,7 @@ export class TestState {
     }
 
     verifyDiagnostics(map?: { [marker: string]: { category: string; message: string } }): void {
-        this._analyze();
+        this.analyze();
 
         // organize things per file
         const resultPerFile = this._getDiagnosticsPerFile();
@@ -647,7 +647,7 @@ export class TestState {
     ): Promise<any> {
         // make sure we don't use cache built from other tests
         this.workspace.serviceInstance.invalidateAndForceReanalysis();
-        this._analyze();
+        this.analyze();
 
         for (const range of this.getRanges()) {
             const name = this.getMarkerName(range.marker!);
@@ -713,7 +713,7 @@ export class TestState {
     }
 
     async verifyCommand(command: Command, files: { [filePath: string]: string }): Promise<any> {
-        this._analyze();
+        this.analyze();
 
         const commandResult = await this._hostSpecificFeatures.execute(
             new TestLanguageService(this.workspace, this.console, this.fs),
@@ -751,7 +751,7 @@ export class TestState {
         },
         verifyCodeActionCount?: boolean
     ): Promise<any> {
-        this._analyze();
+        this.analyze();
 
         for (const range of this.getRanges()) {
             const name = this.getMarkerName(range.marker!);
@@ -904,7 +904,7 @@ export class TestState {
         },
         abbrMap?: { [abbr: string]: AbbreviationInfo }
     ): Promise<void> {
-        this._analyze();
+        this.analyze();
 
         for (const marker of this.getMarkers()) {
             const markerName = this.getMarkerName(marker);
@@ -1074,7 +1074,7 @@ export class TestState {
             };
         }
     ): void {
-        this._analyze();
+        this.analyze();
 
         for (const marker of this.getMarkers()) {
             const fileName = marker.fileName;
@@ -1143,7 +1143,7 @@ export class TestState {
             references: DocumentRange[];
         };
     }) {
-        this._analyze();
+        this.analyze();
 
         for (const marker of this.getMarkers()) {
             const fileName = marker.fileName;
@@ -1193,7 +1193,7 @@ export class TestState {
             references: DocumentHighlight[];
         };
     }) {
-        this._analyze();
+        this.analyze();
 
         for (const name of Object.keys(map)) {
             const marker = this.getMarkerByName(name);
@@ -1225,7 +1225,7 @@ export class TestState {
         },
         filter: DefinitionFilter = DefinitionFilter.All
     ) {
-        this._analyze();
+        this.analyze();
 
         for (const marker of this.getMarkers()) {
             const fileName = marker.fileName;
@@ -1253,7 +1253,7 @@ export class TestState {
             definitions: DocumentRange[];
         };
     }) {
-        this._analyze();
+        this.analyze();
 
         for (const marker of this.getMarkers()) {
             const fileName = marker.fileName;
@@ -1282,7 +1282,7 @@ export class TestState {
             changes: FileEditAction[];
         };
     }) {
-        this._analyze();
+        this.analyze();
 
         for (const marker of this.getMarkers()) {
             const fileName = marker.fileName;
@@ -1626,7 +1626,7 @@ export class TestState {
         return position <= editStart ? position : position < editEnd ? -1 : position + length - +(editEnd - editStart);
     }
 
-    private _analyze() {
+    public analyze() {
         while (this.program.analyze()) {
             // Continue to call analyze until it completes. Since we're not
             // specifying a timeout, it should complete the first time.
