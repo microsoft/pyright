@@ -45,7 +45,7 @@ def func1(x: Array[int, str, str, float], y: Array[()]):
     reveal_type(b1, expected_text="Array[*tuple[()]]")
 
     b2 = linearize(b1)
-    reveal_type(b2, expected_text="Sequence[Unknown]")
+    reveal_type(b2, expected_text="Sequence[Never]")
 
     e = array_to_tuple(x)
     reveal_type(e, expected_text="tuple[complex, int, str, str, float]")

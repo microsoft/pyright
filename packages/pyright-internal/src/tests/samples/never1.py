@@ -1,12 +1,48 @@
-# This sample verifies that "Never" doesn't appear in
-# an inferred function return type.
+# This sample tests the handling of the "Never" type,
+# ensuring that it's treated as the same as NoReturn.
+
+from typing import NoReturn
+from typing_extensions import Never
 
 
-def func1(a: str = ""):
-    if not isinstance(a, str):
-        reveal_type(a, expected_text="Never")
-        return [a]
+def assert_never1(val: Never) -> NoReturn:
+    raise Exception("Should never get here")
 
 
-x1 = func1()
-reveal_type(x1, expected_text="list[Unknown] | None")
+def assert_never2(val: NoReturn) -> NoReturn:
+    raise Exception("Should never get here")
+
+
+# This should generate an error because Never doesn't accept type arguments.
+def assert_never3(val: Never[int]):
+    ...
+
+
+# This should generate an error because NoReturn doesn't accept type arguments.
+def assert_never4(val: NoReturn[int]):
+    ...
+
+
+def func1(val: str | int) -> str:
+    if isinstance(val, (str, int)):
+        return "str or int"
+    else:
+        assert_never1(val)
+
+
+def func2(val: str | int) -> str:
+    if isinstance(val, (str, int)):
+        return "str or int"
+    else:
+        assert_never2(val)
+
+
+def func3():
+    # This should generate an error because of the missing argument.
+    assert_never1()
+
+
+reveal_type(assert_never1, expected_text="(val: Never) -> NoReturn")
+
+# This should generate an error.
+assert_never1(1)

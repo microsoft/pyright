@@ -637,15 +637,13 @@ export namespace ClassType {
     ): ClassType {
         const newClassType = TypeBase.cloneType(classType);
 
-        // Never should never appear as a type argument, so replace it with
-        newClassType.typeArguments = typeArguments
-            ? typeArguments.map((t) => (isNever(t) && !t.isNoReturn ? UnknownType.create() : t))
-            : undefined;
-
+        newClassType.typeArguments = typeArguments;
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
+
         if (includeSubclasses) {
             newClassType.includeSubclasses = true;
         }
+
         newClassType.tupleTypeArguments = tupleTypeArguments
             ? tupleTypeArguments.map((t) =>
                   isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded } : t
