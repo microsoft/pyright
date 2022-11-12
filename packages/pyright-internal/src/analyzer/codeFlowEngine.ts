@@ -718,33 +718,24 @@ export function getCodeFlowEngine(
                 const typesToCombine: Type[] = [];
 
                 let sawIncomplete = false;
-                let isProvenReachable = false;
 
                 return preventRecursion(branchNode, () => {
-                    branchNode.antecedents.forEach((antecedent) => {
-                        // If we're solving for "reachability", and we have now proven
-                        // reachability, there's no reason to do more work.
-                        if (reference === undefined && isProvenReachable) {
-                            return;
-                        }
-
+                    for (const antecedent of branchNode.antecedents) {
                         const flowTypeResult = getTypeFromFlowNode(antecedent);
+
+                        if (reference === undefined && flowTypeResult.type && !isNever(flowTypeResult.type)) {
+                            // If we're solving for "reachability", and we have now proven
+                            // reachability, there's no reason to do more work.
+                            return setCacheEntry(branchNode, typeAtStart, /* isIncomplete */ false);
+                        }
 
                         if (flowTypeResult.isIncomplete) {
                             sawIncomplete = true;
                         }
 
-                        if (reference === undefined && flowTypeResult.type !== undefined) {
-                            isProvenReachable = true;
-                        }
-
                         if (flowTypeResult.type) {
                             typesToCombine.push(flowTypeResult.type);
                         }
-                    });
-
-                    if (isProvenReachable) {
-                        return setCacheEntry(branchNode, typeAtStart, /* isIncomplete */ false);
                     }
 
                     const effectiveType = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
