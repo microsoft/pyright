@@ -2504,7 +2504,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
 
                             if (isClassInstance(subtype)) {
-                                const nextReturnType = getSpecializedReturnType(subtype, nextMethodName, [], errorNode);
+                                let nextReturnType = getSpecializedReturnType(subtype, nextMethodName, [], errorNode);
 
                                 if (!nextReturnType) {
                                     iterReturnTypeDiag.addMessage(
@@ -2514,6 +2514,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         })
                                     );
                                 } else {
+                                    // Convert any unpacked TypeVarTuples into object instances. We don't
+                                    // know anything more about them.
+                                    nextReturnType = mapSubtypes(nextReturnType, (returnSubtype) => {
+                                        if (
+                                            isTypeVar(returnSubtype) &&
+                                            returnSubtype.details.isVariadic &&
+                                            returnSubtype.isVariadicUnpacked
+                                        ) {
+                                            return objectType ?? UnknownType.create();
+                                        }
+
+                                        return returnSubtype;
+                                    });
+
                                     if (!isAsync) {
                                         return nextReturnType;
                                     }
