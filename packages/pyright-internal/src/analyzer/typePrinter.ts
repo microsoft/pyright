@@ -502,6 +502,10 @@ export function printType(
                     typeVarName = `*${typeVarName}`;
                 }
 
+                if (type.isVariadicInUnion) {
+                    typeVarName = `Union[${typeVarName}]`;
+                }
+
                 if (TypeBase.isInstantiable(type)) {
                     return `${_printNestedInstantiable(type, typeVarName)}`;
                 }
