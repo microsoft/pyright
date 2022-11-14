@@ -285,11 +285,14 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         param: FunctionParameter,
         index: number,
         typeOverride?: Type,
-        defaultArgTypeOverride?: Type
+        defaultArgTypeOverride?: Type,
+        sourceOverride?: ParameterSource
     ) => {
         if (param.name) {
             let source: ParameterSource;
-            if (param.category === ParameterCategory.VarArgList) {
+            if (sourceOverride !== undefined) {
+                source = sourceOverride;
+            } else if (param.category === ParameterCategory.VarArgList) {
                 source = ParameterSource.PositionOnly;
             } else if (sawKeywordOnlySeparator) {
                 source = ParameterSource.KeywordOnly;
@@ -338,9 +341,15 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                             type: tupleArg.type,
                             hasDeclaredType: true,
                         },
-                        tupleIndex,
-                        tupleArg.type
+                        index,
+                        tupleArg.type,
+                        /* defaultArgTypeOverride */ undefined,
+                        ParameterSource.PositionOnly
                     );
+
+                    if (category === ParameterCategory.Simple) {
+                        result.positionParamCount++;
+                    }
 
                     if (tupleIndex > 0 && addToPositionalOnly) {
                         result.positionOnlyParamCount++;

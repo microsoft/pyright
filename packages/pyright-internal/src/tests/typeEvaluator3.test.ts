@@ -712,6 +712,14 @@ test('MethodOverride4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MethodOverride5', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 

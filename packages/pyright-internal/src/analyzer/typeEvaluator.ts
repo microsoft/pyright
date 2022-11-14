@@ -23841,6 +23841,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (
                 i >= baseParamDetails.positionOnlyParamCount &&
                 !isPrivateOrProtectedName(baseParam.name || '') &&
+                baseParamDetails.params[i].source !== ParameterSource.PositionOnly &&
                 baseParam.category === ParameterCategory.Simple &&
                 baseParam.name !== overrideParam.name
             ) {
