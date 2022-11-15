@@ -15528,7 +15528,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (dataClassBehaviors) {
             applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
-            applyDataClassClassBehaviorOverrides(evaluatorInterface, classType, initSubclassArgs);
+            applyDataClassClassBehaviorOverrides(evaluatorInterface, node.name, classType, initSubclassArgs);
         }
 
         // Run any class hooks that depend on this class.
@@ -15855,6 +15855,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (dataclassBehaviors) {
                 applyDataClassDecorator(
                     evaluatorInterface,
+                    decoratorNode,
                     originalClassType,
                     dataclassBehaviors,
                     /* callNode */ undefined
@@ -15895,7 +15896,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (dataclassBehaviors) {
-                applyDataClassDecorator(evaluatorInterface, originalClassType, dataclassBehaviors, callNode);
+                applyDataClassDecorator(
+                    evaluatorInterface,
+                    decoratorNode,
+                    originalClassType,
+                    dataclassBehaviors,
+                    callNode
+                );
                 return inputClassType;
             }
         }

@@ -305,6 +305,7 @@ export namespace Localizer {
             );
         export const continueInFinally = () => getRawString('Diagnostic.continueInFinally');
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
+        export const dataClassBaseClassFrozen = () => getRawString('Diagnostic.dataClassBaseClassFrozen');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
         export const dataClassFieldWithoutAnnotation = () => getRawString('Diagnostic.dataClassFieldWithoutAnnotation');

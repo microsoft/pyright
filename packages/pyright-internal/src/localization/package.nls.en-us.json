@@ -74,6 +74,7 @@
         "continueInFinally": "\"continue\" cannot be used within a finally clause",
         "continueOutsideLoop": "\"continue\" can be used only within a loop",
         "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
+        "dataClassBaseClassFrozen": "A non-frozen class cannot inherit from a class that is frozen",
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",
         "dataClassFieldWithDefault": "Fields without default values cannot appear after fields with default values",
         "dataClassFieldWithoutAnnotation": "Dataclass field without type annotation will cause runtime exception",

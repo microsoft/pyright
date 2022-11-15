@@ -870,24 +870,34 @@ function applyDataClassBehaviorOverride(
     errorNode: ParseNode,
     classType: ClassType,
     argName: string,
-    argValue: ExpressionNode
+    argValueExpr: ExpressionNode
 ) {
     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-    const value = evaluateStaticBoolExpression(argValue, fileInfo.executionEnvironment, fileInfo.definedConstants);
+    const value = evaluateStaticBoolExpression(argValueExpr, fileInfo.executionEnvironment, fileInfo.definedConstants);
 
+    applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, argName, value);
+}
+
+function applyDataClassBehaviorOverrideValue(
+    evaluator: TypeEvaluator,
+    errorNode: ParseNode,
+    classType: ClassType,
+    argName: string,
+    argValue: boolean | undefined
+) {
     switch (argName) {
         case 'order':
-            if (value === true) {
+            if (argValue === true) {
                 classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
-            } else if (value === false) {
+            } else if (argValue === false) {
                 classType.details.flags &= ~ClassTypeFlags.SynthesizedDataClassOrder;
             }
             break;
 
         case 'kw_only':
-            if (value === false) {
+            if (argValue === false) {
                 classType.details.flags &= ~ClassTypeFlags.DataClassKeywordOnlyParams;
-            } else if (value === true) {
+            } else if (argValue === true) {
                 classType.details.flags |= ClassTypeFlags.DataClassKeywordOnlyParams;
             }
             break;
@@ -916,15 +926,25 @@ function applyDataClassBehaviorOverride(
                 }
             });
 
-            if (value === true || hasFrozenBaseClass) {
+            if (argValue) {
                 classType.details.flags |= ClassTypeFlags.FrozenDataClass;
 
                 // A frozen dataclass cannot derive from a non-frozen dataclass.
                 if (hasUnfrozenBaseClass) {
                     evaluator.addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.dataClassBaseClassNotFrozen(),
+                        errorNode
+                    );
+                }
+            } else {
+                // A non-frozen dataclass cannot derive from a frozen dataclass.
+                if (hasFrozenBaseClass) {
+                    evaluator.addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.dataClassBaseClassFrozen(),
                         errorNode
                     );
                 }
@@ -933,41 +953,41 @@ function applyDataClassBehaviorOverride(
         }
 
         case 'init':
-            if (value === false) {
+            if (argValue === false) {
                 classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassInit;
-            } else if (value === true) {
+            } else if (argValue === true) {
                 classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassInit;
             }
             break;
 
         case 'eq':
-            if (value === false) {
+            if (argValue === false) {
                 classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
-            } else if (value === true) {
+            } else if (argValue === true) {
                 classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassEq;
             }
             break;
 
         case 'slots':
-            if (value === true) {
+            if (argValue === true) {
                 classType.details.flags |= ClassTypeFlags.GenerateDataClassSlots;
 
                 if (classType.details.localSlotsNames) {
                     evaluator.addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.dataClassSlotsOverwrite(),
                         errorNode
                     );
                 }
-            } else if (value === false) {
+            } else if (argValue === false) {
                 classType.details.flags &= ~ClassTypeFlags.GenerateDataClassSlots;
             }
             break;
 
         case 'hash':
         case 'unsafe_hash':
-            if (value === true) {
+            if (argValue === true) {
                 classType.details.flags |= ClassTypeFlags.SynthesizeDataClassUnsafeHash;
             }
             break;
@@ -976,14 +996,27 @@ function applyDataClassBehaviorOverride(
 
 export function applyDataClassClassBehaviorOverrides(
     evaluator: TypeEvaluator,
+    errorNode: ParseNode,
     classType: ClassType,
     args: FunctionArgument[]
 ) {
+    let sawFrozenArg = false;
+
     args.forEach((arg) => {
         if (arg.valueExpression && arg.name) {
             applyDataClassBehaviorOverride(evaluator, arg.name, classType, arg.name.value, arg.valueExpression);
+
+            if (arg.name.value === 'frozen') {
+                sawFrozenArg = true;
+            }
         }
     });
+
+    // If there was no frozen argument, it is implicitly false. This will
+    // validate that we're not overriding a frozen class with a non-frozen class.
+    if (!sawFrozenArg) {
+        applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, 'frozen', false);
+    }
 }
 
 export function applyDataClassDefaultBehaviors(classType: ClassType, defaultBehaviors: DataClassBehaviors) {
@@ -1005,6 +1038,7 @@ export function applyDataClassDefaultBehaviors(classType: ClassType, defaultBeha
 
 export function applyDataClassDecorator(
     evaluator: TypeEvaluator,
+    errorNode: ParseNode,
     classType: ClassType,
     defaultBehaviors: DataClassBehaviors,
     callNode: CallNode | undefined
@@ -1012,6 +1046,6 @@ export function applyDataClassDecorator(
     applyDataClassDefaultBehaviors(classType, defaultBehaviors);
 
     if (callNode?.arguments) {
-        applyDataClassClassBehaviorOverrides(evaluator, classType, callNode.arguments);
+        applyDataClassClassBehaviorOverrides(evaluator, errorNode, classType, callNode.arguments);
     }
 }

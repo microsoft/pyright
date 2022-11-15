@@ -1375,13 +1375,13 @@ test('DataclassTransform1', () => {
 test('DataclassTransform2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform2.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('DataclassTransform3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform3.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('DataclassTransform4', () => {
