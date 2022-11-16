@@ -3014,16 +3014,17 @@ export class Parser {
         }
 
         if (!this._consumeTokenIfKeyword(KeywordType.Else)) {
-            return this._handleExpressionParseError(
-                ErrorExpressionCategory.MissingElse,
-                Localizer.Diagnostic.expectedElse()
+            return TernaryNode.create(
+                ifExpr,
+                testExpr,
+                this._handleExpressionParseError(
+                    ErrorExpressionCategory.MissingElse,
+                    Localizer.Diagnostic.expectedElse()
+                )
             );
         }
 
         const elseExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
-        if (elseExpr.nodeType === ParseNodeType.Error) {
-            return elseExpr;
-        }
 
         return TernaryNode.create(ifExpr, testExpr, elseExpr);
     }
