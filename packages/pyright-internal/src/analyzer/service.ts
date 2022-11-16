@@ -100,6 +100,7 @@ export interface AnalyzerServiceOptions {
     libraryReanalysisTimeProvider?: () => number;
     cacheManager?: CacheManager;
     serviceId?: string;
+    skipScanningUserFiles?: boolean;
 }
 
 // Hold uniqueId for this service. It can be used to distinguish each service later.
@@ -185,7 +186,13 @@ export class AnalyzerService {
             ...this._options,
             serviceId,
             backgroundAnalysis,
+            skipScanningUserFiles: true,
         });
+
+        // Cloned service will use whatever user files the service currently has.
+        const userFiles = this.backgroundAnalysisProgram.program.getTracked().map((i) => i.sourceFile.getFilePath());
+        service.backgroundAnalysisProgram.setTrackedFiles(userFiles);
+        service.backgroundAnalysisProgram.markAllFilesDirty(true);
 
         // Make sure we keep editor content (open file) which could be different than one in the file system.
         for (const fileInfo of this.backgroundAnalysisProgram.program.getOpened()) {
@@ -1191,7 +1198,7 @@ export class AnalyzerService {
             } else {
                 this._console.error(`Import '${this._typeStubTargetImportName}' not found`);
             }
-        } else {
+        } else if (!this._options.skipScanningUserFiles) {
             let fileList: string[] = [];
             this._console.info(`Searching for source files`);
             fileList = this._getFileNamesFromFileSpecs();

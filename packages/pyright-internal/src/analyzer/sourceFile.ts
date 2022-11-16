@@ -168,7 +168,9 @@ export class SourceFile {
     private _typeIgnoreAll: IgnoreComment | undefined;
     private _pyrightIgnoreLines = new Map<number, IgnoreComment>();
 
-    // Settings that control which diagnostics should be output.
+    // Settings that control which diagnostics should be output. The rules
+    // are initialized to the basic set. They should be updated after the
+    // the file is parsed.
     private _diagnosticRuleSet = getBasicDiagnosticRuleSet();
 
     // Circular dependencies that have been reported in this file.
@@ -327,11 +329,7 @@ export class SourceFile {
         // Filter the diagnostics based on "pyright: ignore" lines.
         if (this._pyrightIgnoreLines.size > 0) {
             diagList = diagList.filter((d) => {
-                if (
-                    d.category !== DiagnosticCategory.UnusedCode &&
-                    d.category !== DiagnosticCategory.UnreachableCode &&
-                    d.category !== DiagnosticCategory.Deprecated
-                ) {
+                if (d.category !== DiagnosticCategory.UnreachableCode && d.category !== DiagnosticCategory.Deprecated) {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                         const pyrightIgnoreComment = this._pyrightIgnoreLines.get(line);
                         if (pyrightIgnoreComment) {
