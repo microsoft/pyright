@@ -2807,7 +2807,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         );
 
-        return codeFlowResult.type !== undefined;
+        return codeFlowResult.type !== undefined && !isNever(codeFlowResult.type);
     }
 
     // Determines whether there is a code flow path from sourceNode to sinkNode.

@@ -645,7 +645,11 @@ export function getCodeFlowEngine(
 
                         // If the narrowed type is "never", don't allow further exploration.
                         if (narrowedTypeResult && isNever(narrowedTypeResult.type)) {
-                            return setCacheEntry(curFlowNode, /* type */ undefined, !!narrowedTypeResult.isIncomplete);
+                            return setCacheEntry(
+                                curFlowNode,
+                                narrowedTypeResult.type,
+                                !!narrowedTypeResult.isIncomplete
+                            );
                         }
 
                         curFlowNode = exhaustedMatchFlowNode.antecedent;
