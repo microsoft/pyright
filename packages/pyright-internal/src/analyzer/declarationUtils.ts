@@ -58,7 +58,8 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
 export function areDeclarationsSame(
     decl1: Declaration,
     decl2: Declaration,
-    treatModuleInImportAndFromImportSame = false
+    treatModuleInImportAndFromImportSame = false,
+    skipRangeForAliases = false
 ): boolean {
     if (decl1.type !== decl2.type) {
         return false;
@@ -68,11 +69,13 @@ export function areDeclarationsSame(
         return false;
     }
 
-    if (
-        decl1.range.start.line !== decl2.range.start.line ||
-        decl1.range.start.character !== decl2.range.start.character
-    ) {
-        return false;
+    if (!skipRangeForAliases || decl1.type !== DeclarationType.Alias) {
+        if (
+            decl1.range.start.line !== decl2.range.start.line ||
+            decl1.range.start.character !== decl2.range.start.character
+        ) {
+            return false;
+        }
     }
 
     // Alias declarations refer to the entire import statement.

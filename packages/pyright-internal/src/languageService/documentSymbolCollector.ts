@@ -196,7 +196,12 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         // need to call resolveAliasDeclaration on them.
         if (
             this._declarations.some((decl) =>
-                areDeclarationsSame(decl, resolvedDecl, this._treatModuleInImportAndFromImportSame)
+                areDeclarationsSame(
+                    decl,
+                    resolvedDecl!,
+                    this._treatModuleInImportAndFromImportSame,
+                    /* skipRangeForAliases */ true
+                )
             )
         ) {
             return true;
@@ -210,7 +215,12 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         return this._declarations.some((decl) =>
-            areDeclarationsSame(decl, resolvedDeclNonlocal, this._treatModuleInImportAndFromImportSame)
+            areDeclarationsSame(
+                decl,
+                resolvedDeclNonlocal,
+                this._treatModuleInImportAndFromImportSame,
+                /* skipRangeForAliases */ true
+            )
         );
     }
 
@@ -273,7 +283,14 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
     private static _addIfUnique(declarations: Declaration[], itemToAdd: Declaration) {
         for (const def of declarations) {
-            if (areDeclarationsSame(def, itemToAdd)) {
+            if (
+                areDeclarationsSame(
+                    def,
+                    itemToAdd,
+                    /* treatModuleInImportAndFromImportSame */ false,
+                    /* skipRangeForAliases */ true
+                )
+            ) {
                 return;
             }
         }

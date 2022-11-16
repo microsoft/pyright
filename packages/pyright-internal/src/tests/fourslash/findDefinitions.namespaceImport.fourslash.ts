@@ -22,7 +22,7 @@
                 definitions: [
                     {
                         path: helper.getMarkerByName('def1').fileName,
-                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                        range: { start: { line: 0, character: 16 }, end: { line: 0, character: 20 } },
                     },
                 ],
             },
@@ -30,7 +30,7 @@
                 definitions: [
                     {
                         path: helper.getMarkerByName('def2').fileName,
-                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                        range: { start: { line: 1, character: 16 }, end: { line: 1, character: 20 } },
                     },
                 ],
             },

@@ -566,6 +566,8 @@ export class TestState {
                         ? result.warnings
                         : category === 'information'
                         ? result.information
+                        : category === 'unused'
+                        ? result.unused
                         : category === 'none'
                         ? []
                         : this.raiseError(`unexpected category ${category}`);
@@ -1645,6 +1647,7 @@ export class TestState {
                     errors: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error),
                     warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
                     information: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information),
+                    unused: diagnostics.filter((diag) => diag.category === DiagnosticCategory.UnusedCode),
                 };
                 return [filePath, value] as [string, typeof value];
             } else {

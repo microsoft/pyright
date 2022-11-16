@@ -4049,13 +4049,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             // Look for the scope that contains the value definition and
             // see if it has a declared type.
-            const symbolWithScope = lookUpSymbolRecursive(
+            let symbolWithScope = lookUpSymbolRecursive(
                 node,
                 name,
                 !allowForwardReferences,
                 allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
             );
 
+            if (!symbolWithScope) {
+                // If the node is part of a "from X import Y as Z" statement and the node
+                // is the "Y" (non-aliased) name, we need to look up the alias symbol
+                // since the non-aliased name is not in the symbol table.
+                const alias = getAliasFromImport(node);
+                if (alias) {
+                    symbolWithScope = lookUpSymbolRecursive(
+                        alias,
+                        alias.value,
+                        !allowForwardReferences,
+                        allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+                    );
+                }
+            }
             if (symbolWithScope) {
                 let useCodeFlowAnalysis = !allowForwardReferences;
 
@@ -19102,6 +19116,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return declarations.length === 0 ? undefined : declarations;
     }
 
+    function getAliasFromImport(node: NameNode): NameNode | undefined {
+        if (
+            node.parent &&
+            node.parent.nodeType === ParseNodeType.ImportFromAs &&
+            node.parent.alias &&
+            node === node.parent.name
+        ) {
+            return node.parent.alias;
+        }
+        return undefined;
+    }
+
     function getDeclarationsForNameNode(node: NameNode, skipUnreachableCode = true): Declaration[] | undefined {
         if (skipUnreachableCode && AnalyzerNodeInfo.isCodeUnreachable(node)) {
             return undefined;
@@ -19112,16 +19138,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the node is part of a "from X import Y as Z" statement and the node
         // is the "Y" (non-aliased) name, we need to look up the alias symbol
         // since the non-aliased name is not in the symbol table.
-        if (
-            node.parent &&
-            node.parent.nodeType === ParseNodeType.ImportFromAs &&
-            node.parent.alias &&
-            node === node.parent.name
-        ) {
+        const alias = getAliasFromImport(node);
+        if (alias) {
             const scope = ScopeUtils.getScopeForNode(node);
             if (scope) {
                 // Look up the alias symbol.
-                const symbolInScope = scope.lookUpSymbolRecursive(node.parent.alias.value);
+                const symbolInScope = scope.lookUpSymbolRecursive(alias.value);
                 if (symbolInScope) {
                     // The alias could have more decls that don't refer to this import. Filter
                     // out the one(s) that specifically associated with this import statement.
