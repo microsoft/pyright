@@ -360,7 +360,6 @@ export class HoverProvider {
         });
     }
 
-    // logic similar to typeEvaluator.ts getCallSignatureInfo(...)
     private static _addInitOrNewMethodInsteadIfCallNode(
         format: MarkupKind,
         node: NameNode,
@@ -376,14 +375,10 @@ export class HoverProvider {
 
         // Allow the left to be a member access chain (e.g. a.b.c) if the
         // node in question is the last item in the chain.
-        if (
-            callLeftNode.parent &&
-            callLeftNode.parent.nodeType === ParseNodeType.MemberAccess &&
-            node === callLeftNode.parent.memberName
-        ) {
+        if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.memberName) {
             callLeftNode = node.parent;
             // Allow the left to be a generic class constructor (e.g. foo[int]())
-        } else if (callLeftNode.parent && callLeftNode.parent.nodeType === ParseNodeType.Index) {
+        } else if (callLeftNode?.parent?.nodeType === ParseNodeType.Index) {
             callLeftNode = node.parent;
         }
 
@@ -409,8 +404,8 @@ export class HoverProvider {
 
         let methodType: FunctionType | OverloadedFunctionType | undefined;
 
-        // Try to get the __init__ method first because it typically has
-        // more type information than __new__.  Don't exlude object.__init__ since in the plain case we want to show Foo().
+        // Try to get the `__init__` method first because it typically has more type information than `__new__`.
+        // Don't exlude `object.__init__` since in the plain case we want to show Foo().
         const initMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
 
         if (initMember) {
@@ -421,8 +416,7 @@ export class HoverProvider {
             }
         }
 
-        // If there was no `__init__`, exluding `object` class `__init__`,
-        // or if `__init__` only had default params (*args: Any, **kwargs: Any) or no params (),
+        // If there was no `__init__`, exluding `object` class `__init__`, or if `__init__` only had default params (*args: Any, **kwargs: Any) or no params (),
         // see if we can find a better `__new__` method.
         if (
             !methodType ||
@@ -439,9 +433,9 @@ export class HoverProvider {
             if (newMember) {
                 const newMemberType = evaluator.getTypeOfMember(newMember);
 
-                // prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ()
+                // Prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ().
                 if (isFunction(newMemberType) || isOverloadedFunction(newMemberType)) {
-                    // set treatConstructorAsClassMember to so that the `__new__` methodType wont include `cls` as a parameter
+                    // Set `treatConstructorAsClassMember` to true, inorder to exclude `cls` as a parameter.
                     methodType = evaluator.bindFunctionToClassOrObject(
                         instanceType,
                         newMemberType,
