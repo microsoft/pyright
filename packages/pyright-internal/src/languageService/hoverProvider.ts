@@ -439,10 +439,10 @@ export class HoverProvider {
                     methodType = evaluator.bindFunctionToClassOrObject(
                         instanceType,
                         newMemberType,
-                        /*memberClass*/ undefined,
-                        /*errorNode*/ undefined,
-                        /*recurrisveCount*/ undefined,
-                        /*treatConstructorAsClassMember*/ true
+                        /* memberClass */ undefined,
+                        /* errorNode */ undefined,
+                        /* recurrisveCount */ undefined,
+                        /* treatConstructorAsClassMember */ true
                     );
                 }
             }
