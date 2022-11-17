@@ -269,7 +269,6 @@ export class Binder extends ParseTreeWalker {
 
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
-                this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__name__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__loader__', node, 'Any');
@@ -281,6 +280,11 @@ export class Binder extends ParseTreeWalker {
                 this._addImplicitSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
                 this._addImplicitSymbolToCurrentScope('__annotations__', node, 'Dict[str, Any]');
                 this._addImplicitSymbolToCurrentScope('__builtins__', node, 'Any');
+
+                // If there is a static docstring provided in the module, assume
+                // that the type of `__doc__` is `str` rather than `str | None`.
+                const moduleDocString = ParseTreeUtils.getDocString(node.statements);
+                this._addImplicitSymbolToCurrentScope('__doc__', node, moduleDocString ? 'str' : 'str | None');
 
                 // Create a start node for the module.
                 this._currentFlowNode = this._createStartFlowNode();
