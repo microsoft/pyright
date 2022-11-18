@@ -83,8 +83,8 @@ def test1(a: int, b: str, c: List[int], d: Union[complex, str]):
     # This should generate an error
     v5_1 = func5(a)
 
+    # This should generate an error
     v5_2 = func5(a, a)
-    reveal_type(v5_2, expected_text="int")
 
     # This should generate an error
     v5_3 = func5(a, b)

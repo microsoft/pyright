@@ -1145,11 +1145,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (reportExpectingTypeErrors && !typeResult.isIncomplete) {
             if (flags & EvaluatorFlags.TypeVarTupleDisallowed) {
-                if (
-                    isTypeVar(typeResult.type) &&
-                    typeResult.type.details.isVariadic &&
-                    !typeResult.type.isVariadicInUnion
-                ) {
+                if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicInUnion) {
                     addError(Localizer.Diagnostic.typeVarTupleContext(), node);
                     typeResult.type = UnknownType.create();
                 }
@@ -2517,11 +2513,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     // Convert any unpacked TypeVarTuples into object instances. We don't
                                     // know anything more about them.
                                     nextReturnType = mapSubtypes(nextReturnType, (returnSubtype) => {
-                                        if (
-                                            isTypeVar(returnSubtype) &&
-                                            returnSubtype.details.isVariadic &&
-                                            returnSubtype.isVariadicUnpacked
-                                        ) {
+                                        if (isTypeVar(returnSubtype) && isUnpackedVariadicTypeVar(returnSubtype)) {
                                             return objectType ?? UnknownType.create();
                                         }
 
@@ -4228,6 +4220,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             isTypeVar(type) &&
             !type.details.isParamSpec &&
+            !type.isVariadicInUnion &&
             (flags & EvaluatorFlags.ExpectingType) === 0 &&
             type.details.name === name
         ) {
@@ -4461,7 +4454,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If this type var is variadic, the name refers to the packed form. It
         // must be unpacked in most contexts.
-        if (type.isVariadicUnpacked) {
+        if (isUnpackedVariadicTypeVar(type)) {
             type = TypeVarType.cloneForPacked(type);
         }
 
@@ -6165,7 +6158,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (typeArgs.length > typeParameters.length && !typeParameters.some((typeVar) => typeVar.details.isVariadic)) {
+        if (
+            typeArgs.length > typeParameters.length &&
+            !typeParameters.some((typeVar) => typeVar.details.isVariadic && !typeVar.isVariadicInUnion)
+        ) {
             addError(
                 Localizer.Diagnostic.typeArgsTooMany().format({
                     name: printType(baseType),
@@ -9266,7 +9262,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const argType = argTypeResult.type;
 
-                if (isParamVariadic && isVariadicTypeVar(argType)) {
+                if (isParamVariadic && isUnpackedVariadicTypeVar(argType)) {
                     // Allow an unpacked variadic type variable to satisfy an
                     // unpacked variadic type variable.
                     listElementType = argType;
@@ -9278,7 +9274,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isTupleClass(argType) &&
                     argType.tupleTypeArguments &&
                     argType.tupleTypeArguments.length === 1 &&
-                    isVariadicTypeVar(argType.tupleTypeArguments[0].type)
+                    isUnpackedVariadicTypeVar(argType.tupleTypeArguments[0].type)
                 ) {
                     // Handle the case where an unpacked variadic type var has
                     // been packaged into a tuple.
@@ -9888,7 +9884,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const paramType = paramDetails.params[paramDetails.argsIndex].type;
                 const variadicArgs = validateArgTypeParams.filter((argParam) => argParam.mapsToVarArgList);
 
-                if (isTypeVar(paramType) && paramType.details.isVariadic) {
+                if (isVariadicTypeVar(paramType) && !paramType.isVariadicInUnion) {
                     if (tupleClassType && isInstantiableClass(tupleClassType)) {
                         const tupleTypeArgs: TupleTypeArgument[] = variadicArgs.map((argParam) => {
                             const argType = getTypeOfArgument(argParam.argument).type;
@@ -9922,11 +9918,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (
                             tupleTypeArgs.length === 1 &&
                             !tupleTypeArgs[0].isUnbounded &&
-                            isClassInstance(tupleTypeArgs[0].type) &&
-                            isTupleClass(tupleTypeArgs[0].type) &&
-                            tupleTypeArgs[0].type.isUnpacked
+                            (isUnpackedClass(tupleTypeArgs[0].type) || isVariadicTypeVar(tupleTypeArgs[0].type))
                         ) {
-                            // If there is a single unpacked tuple within this tuple,
+                            // If there is a single unpacked tuple or unpacked variadic type variable
+                            // (including an unpacked TypeVarTuple union) within this tuple,
                             // simplify the type.
                             specializedTuple = tupleTypeArgs[0].type;
                         } else {
@@ -11092,7 +11087,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeVarTupleDefaultType(node: ExpressionNode): Type | undefined {
         const argType = getTypeOfExpressionExpectingType(node, { allowUnpackedTuple: true }).type;
         const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.isUnpacked;
-        const isUnpackedTypeVarTuple = isTypeVar(argType) && argType.isVariadicUnpacked;
+        const isUnpackedTypeVarTuple = isUnpackedVariadicTypeVar(argType);
 
         if (!isUnpackedTuple && !isUnpackedTypeVarTuple) {
             addDiagnostic(
@@ -14338,7 +14333,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 // If this is an unpacked TypeVar, note that it is in a union so we can differentiate
                 // between Unpack[Vs] and Union[Unpack[Vs]].
-                if (isTypeVar(typeArgType) && isVariadicTypeVar(typeArgType) && typeArgType.isVariadicUnpacked) {
+                if (isTypeVar(typeArgType) && isUnpackedVariadicTypeVar(typeArgType)) {
                     typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
                 }
 

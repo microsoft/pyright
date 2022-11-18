@@ -142,7 +142,7 @@ export function assignTypeToTypeVar(
         return assignTypeToParamSpec(evaluator, destType, srcType, diag, typeVarContext, recursionCount);
     }
 
-    if (destType.details.isVariadic) {
+    if (destType.details.isVariadic && !destType.isVariadicInUnion) {
         if (!isUnpacked(srcType)) {
             const tupleClassType = evaluator.getTupleClassType();
             if (tupleClassType && isInstantiableClass(tupleClassType)) {

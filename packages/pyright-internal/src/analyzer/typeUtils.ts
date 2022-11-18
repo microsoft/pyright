@@ -38,6 +38,7 @@ import {
     isUnion,
     isUnknown,
     isUnpackedClass,
+    isUnpackedVariadicTypeVar,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     ModuleType,
@@ -2171,7 +2172,7 @@ export function specializeTupleClass(
 ): ClassType {
     let combinedTupleType = combineTypes(
         typeArgs.map((t) => {
-            if (isTypeVar(t.type) && t.type.isVariadicUnpacked && !t.type.isVariadicInUnion) {
+            if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type)) {
                 // Treat the unpacked TypeVarTuple as a union.
                 return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
             }

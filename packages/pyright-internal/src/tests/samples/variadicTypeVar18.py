@@ -15,3 +15,4 @@ def func1(f: Callable[[*Ts], Any], p: tuple[*Ts]):
     for i in p:
         # This should generate an error.
         f(i)
+ 
