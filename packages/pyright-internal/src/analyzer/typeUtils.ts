@@ -2954,7 +2954,7 @@ class TypeVarTransformer {
                     }
 
                     if (
-                        isVariadicTypeVar(oldTypeArgType.type) &&
+                        isUnpackedVariadicTypeVar(oldTypeArgType.type) &&
                         isClassInstance(newTypeArgType) &&
                         isTupleClass(newTypeArgType) &&
                         newTypeArgType.tupleTypeArguments

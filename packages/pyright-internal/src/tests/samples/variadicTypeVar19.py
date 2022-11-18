@@ -37,3 +37,11 @@ def func5(x: "Iterable[Union[*Ts]]") -> Iterable[Union[*Ts]]:
 def func6():
    v1: list[int]  = [i for i in func5([1, 2, 3])]
    v2: list[int | str] = [i for i in func5([1, "foo"])]
+
+
+def func7(t: "tuple[*Ts]") -> "tuple[Union[*Ts], ...]": ...
+
+def func8(a: int, b: str):
+    v1 = func7(((a, b),))
+    reveal_type(v1, expected_text="tuple[tuple[int, str], ...]")
+
