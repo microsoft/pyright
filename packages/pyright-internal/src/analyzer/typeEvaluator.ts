@@ -21139,16 +21139,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags = AssignTypeFlags.Default,
         recursionCount = 0
     ): boolean {
-        // If this is a one-element union that contains a variadic type variable,
-        // pull out the subtype.
-        if (isUnion(destType) && destType.subtypes.length === 1 && isVariadicTypeVar(destType.subtypes[0])) {
-            destType = destType.subtypes[0];
-        }
-
-        if (isUnion(srcType) && srcType.subtypes.length === 1 && isVariadicTypeVar(srcType.subtypes[0])) {
-            srcType = srcType.subtypes[0];
-        }
-
         // Handle the case where the dest and src types are the same object.
         // We can normally shortcut this and say that they are compatible,
         // but if the type includes TypeVars, we need to go through

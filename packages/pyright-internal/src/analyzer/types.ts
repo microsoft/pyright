@@ -2341,10 +2341,12 @@ export function isVariadicTypeVar(type: Type): type is TypeVarType {
 }
 
 export function isUnpackedVariadicTypeVar(type: Type): boolean {
-    if (isUnion(type) && type.subtypes.length === 1) {
-        type = type.subtypes[0];
-    }
-    return type.category === TypeCategory.TypeVar && type.details.isVariadic && !!type.isVariadicUnpacked;
+    return (
+        type.category === TypeCategory.TypeVar &&
+        type.details.isVariadic &&
+        !!type.isVariadicUnpacked &&
+        !type.isVariadicInUnion
+    );
 }
 
 export function isUnpackedClass(type: Type): type is ClassType {
@@ -2666,6 +2668,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 if (boundType2) {
                     return false;
                 }
+            }
+
+            if (!type1.isVariadicInUnion !== !type2TypeVar.isVariadicInUnion) {
+                return false;
             }
 
             const constraints1 = type1.details.constraints;
