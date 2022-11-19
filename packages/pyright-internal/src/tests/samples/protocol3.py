@@ -1,7 +1,7 @@
 # This sample tests the assignment of protocols that
 # include property declarations.
 
-from typing import Protocol, TypeVar
+from typing import ContextManager, Protocol, TypeVar
 
 
 class Foo1(Protocol):
@@ -108,3 +108,19 @@ class MockFoo5(Protocol[_T_co]):
 
 foo5 = Foo5()
 h: MockFoo5[Foo5] = foo5
+
+
+_MockFoo6 = TypeVar("_MockFoo6", bound="MockFoo6")
+_Foo6 = TypeVar("_Foo6", bound="Foo6")
+
+
+class MockFoo6(Protocol):
+    @property
+    def bar(self: _MockFoo6) -> ContextManager[_MockFoo6]: ...
+
+class Foo6():
+    @property
+    def bar(self: _Foo6) -> ContextManager[_Foo6]: ...
+
+
+i: MockFoo6 = Foo6()
