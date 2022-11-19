@@ -463,6 +463,12 @@ test('UninitializedVariable1', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('RegionComments1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['regionComments1.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 // For now, this functionality is disabled.
 
 // test('Deprecated1', () => {

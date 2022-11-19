@@ -922,6 +922,10 @@ export class TestFileSystem implements FileSystem {
         return false;
     }
 
+    dispose(): void {
+        // Do Nothing
+    }
+
     private static _diffWorker(
         container: FileSet,
         changed: TestFileSystem,

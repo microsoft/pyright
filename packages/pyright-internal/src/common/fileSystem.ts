@@ -90,6 +90,8 @@ export interface FileSystem {
     getUri(path: string): string;
 
     isInZipOrEgg(path: string): boolean;
+
+    dispose(): void;
 }
 
 // File watchers can give "changed" event even for a file open. but for those cases,

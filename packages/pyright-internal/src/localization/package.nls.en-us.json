@@ -479,6 +479,8 @@
         "unionSyntaxIllegal": "Alternative syntax for unions requires Python 3.10 or newer",
         "unionTypeArgCount": "Union requires two or more type arguments",
         "uninitializedInstanceVariable": "Instance variable \"{name}\" is not initialized in the class body or __init__ method",
+        "unmatchedEndregionComment": "#endregion is missing corresponding #region",
+        "unmatchedRegionComment": "#region is missing corresponding #endregion",
         "unnecessaryCast": "Unnecessary \"cast\" call; type is already \"{type}\"",
         "unnecessaryIsInstanceAlways": "Unnecessary isinstance call; \"{testType}\" is always an instance of \"{classType}\"",
         "unnecessaryIsSubclassAlways": "Unnecessary issubclass call; \"{testType}\" is always a subclass of \"{classType}\"",

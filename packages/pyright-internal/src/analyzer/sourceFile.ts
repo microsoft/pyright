@@ -641,7 +641,7 @@ export class SourceFile {
     getFileContent(): string | undefined {
         // Get current buffer content if the file is opened.
         const openFileContent = this.getOpenFileContents();
-        if (openFileContent) {
+        if (openFileContent !== undefined) {
             return openFileContent;
         }
 
@@ -1321,7 +1321,7 @@ export class SourceFile {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
-                    const checker = new Checker(importResolver, evaluator, this._parseResults!.parseTree, sourceMapper);
+                    const checker = new Checker(importResolver, evaluator, this._parseResults!, sourceMapper);
                     checker.check();
                     this._isCheckingNeeded = false;
 
