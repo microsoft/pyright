@@ -17956,6 +17956,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     flags = EvaluatorFlags.DoNotSpecialize;
                     break;
                 }
+            } else if (parent.nodeType === ParseNodeType.StringList && nodeToEvaluate === parent.typeAnnotation) {
+                // Forward-declared type annotation expressions need to be be evaluated
+                // in context so they have the appropriate flags set. Most of these cases
+                // will have been detected above when calling getParentAnnotationNode,
+                // but TypeAlias expressions are not handled there.
+                nodeToEvaluate = parent;
+                continue;
             } else {
                 // Check for expression types that are always contextual.
                 if (
