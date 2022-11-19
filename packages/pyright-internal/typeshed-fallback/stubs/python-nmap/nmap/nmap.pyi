@@ -49,6 +49,8 @@ class _ResultHostPort(TypedDict):
     version: str
 
 __last_modification__: str
+__author__: str
+__version__: str
 
 class PortScanner:
     def __init__(self, nmap_search_path: Iterable[str] = ...) -> None: ...

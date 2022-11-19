@@ -1,4 +1,5 @@
 version = "2.1.*"
+obsolete_since = "2.2.0" # Released on 2022-10-31
 
 [tool.stubtest]
 ignore_missing_stub = false

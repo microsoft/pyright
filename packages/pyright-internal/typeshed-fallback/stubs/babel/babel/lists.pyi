@@ -1,5 +1,12 @@
-from typing import Any
+from collections.abc import Iterable
+from typing_extensions import Literal
 
-DEFAULT_LOCALE: Any
+from babel.core import Locale
 
-def format_list(lst, style: str = ..., locale=...): ...
+DEFAULT_LOCALE: str | None
+
+def format_list(
+    lst: Iterable[str],
+    style: Literal["standard", "standard-short", "or", "or-short", "unit", "unit-short", "unit-narrow"] = ...,
+    locale: Locale | str | None = ...,
+) -> str: ...

@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Mapping
-from typing import NoReturn
+from typing import NoReturn, Protocol
 
 from paramiko.channel import Channel, ChannelFile, ChannelStderrFile, ChannelStdinFile
 from paramiko.hostkeys import HostKeys
@@ -9,6 +9,11 @@ from paramiko.transport import Transport
 from paramiko.util import ClosingContextManager
 
 from .transport import _SocketLike
+
+class _TransportFactory(Protocol):
+    def __call__(
+        self, __sock: _SocketLike, *, gss_kex: bool, gss_deleg_creds: bool, disabled_algorithms: dict[str, Iterable[str]] | None
+    ) -> Transport: ...
 
 class SSHClient(ClosingContextManager):
     def __init__(self) -> None: ...
@@ -40,6 +45,7 @@ class SSHClient(ClosingContextManager):
         gss_trust_dns: bool = ...,
         passphrase: str | None = ...,
         disabled_algorithms: dict[str, Iterable[str]] | None = ...,
+        transport_factory: _TransportFactory | None = ...,
     ) -> None: ...
     def close(self) -> None: ...
     def exec_command(

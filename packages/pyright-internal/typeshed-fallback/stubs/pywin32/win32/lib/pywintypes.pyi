@@ -1,12 +1,16 @@
 # Can't generate with stubgen because:
 # "KeyError: 'pywintypes'"
 from _typeshed import Incomplete
+from datetime import datetime
 from typing_extensions import Literal
 
 import _win32typing
 
 class error(Exception): ...
 class com_error(Exception): ...
+
+class TimeType(datetime):
+    Format = datetime.strftime
 
 def DosDateTimeToTime() -> _win32typing.PyTime: ...
 def Unicode() -> str: ...
@@ -23,8 +27,8 @@ def SECURITY_DESCRIPTOR() -> _win32typing.PySECURITY_DESCRIPTOR: ...
 def HANDLE() -> int: ...
 def HKEY() -> _win32typing.PyHKEY: ...
 def WAVEFORMATEX() -> _win32typing.PyWAVEFORMATEX: ...
+def TimeStamp(*args, **kwargs): ...  # incomplete
 
 FALSE: Literal[False]
 TRUE: Literal[True]
-
-def TimeStamp(*args, **kwargs): ...  # incomplete
+WAVE_FORMAT_PCM: int

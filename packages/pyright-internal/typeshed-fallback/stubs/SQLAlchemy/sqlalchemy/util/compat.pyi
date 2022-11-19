@@ -12,6 +12,7 @@ from io import BytesIO as BytesIO, StringIO as StringIO
 from itertools import zip_longest as zip_longest
 from time import perf_counter as perf_counter
 from typing import TYPE_CHECKING as TYPE_CHECKING, Any, NamedTuple
+from typing_extensions import Literal
 from urllib.parse import (
     parse_qsl as parse_qsl,
     quote as quote,
@@ -22,17 +23,17 @@ from urllib.parse import (
 
 byte_buffer = BytesIO
 
-py39: Any
-py38: Any
-py37: Any
-py3k: Any
-py2k: Any
-pypy: Any
-cpython: Any
-win32: Any
-osx: Any
-arm: Any
-has_refcount_gc: Any
+py39: bool
+py38: bool
+py37: bool
+py3k: Literal[True]
+py2k: Literal[False]
+pypy: bool
+cpython: bool
+win32: bool
+osx: bool
+arm: bool
+has_refcount_gc: bool
 contextmanager = contextlib.contextmanager
 dottedgetter = operator.attrgetter
 namedtuple = collections.namedtuple  # noqa: Y024

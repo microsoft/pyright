@@ -8,6 +8,12 @@ def CreateSemaphore(
     SemaphoreAttributes: _win32typing.PySECURITY_ATTRIBUTES, InitialCount, MaximumCount, SemaphoreName
 ) -> int: ...
 def CreateWaitableTimer(TimerAttributes: _win32typing.PySECURITY_ATTRIBUTES, ManualReset, TimerName) -> int: ...
+def CreateWaitableTimerEx(
+    __lpTimerAttributes: _win32typing.PySECURITY_ATTRIBUTES | None,
+    __lpTimerName: str | None,
+    __dwFlags: int,
+    __dwDesiredAccess: int,
+) -> _win32typing.PyHANDLE: ...
 def MsgWaitForMultipleObjects(handlelist: list[int], bWaitAll, milliseconds, wakeMask): ...
 def MsgWaitForMultipleObjectsEx(handlelist: list[int], milliseconds, wakeMask, waitFlags): ...
 def OpenEvent(desiredAccess, bInheritHandle, name: str) -> int: ...
@@ -27,6 +33,8 @@ def WaitForSingleObjectEx(hHandle: int, milliseconds, bAlertable): ...
 def WaitForInputIdle(hProcess: int, milliseconds): ...
 def SignalObjectAndWait(*args, **kwargs): ...  # incomplete
 
+CREATE_WAITABLE_TIMER_HIGH_RESOLUTION: int
+CREATE_WAITABLE_TIMER_MANUAL_RESET: int
 EVENT_ALL_ACCESS: int
 EVENT_MODIFY_STATE: int
 INFINITE: int
@@ -44,6 +52,9 @@ QS_POSTMESSAGE: int
 QS_SENDMESSAGE: int
 QS_TIMER: int
 SYNCHRONIZE: int
+TIMER_ALL_ACCESS: int
+TIMER_MODIFY_STATE: int
+TIMER_QUERY_STATE: int
 WAIT_ABANDONED: int
 WAIT_ABANDONED_0: int
 WAIT_FAILED: int

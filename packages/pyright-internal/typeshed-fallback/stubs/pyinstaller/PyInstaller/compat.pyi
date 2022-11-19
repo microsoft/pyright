@@ -1,7 +1,6 @@
 # https://pyinstaller.org/en/stable/hooks.html#module-PyInstaller.compat
 from _typeshed import FileDescriptor, GenericPath, StrOrBytesPath
 from collections.abc import Iterable
-from importlib.abc import _Path
 from types import ModuleType
 from typing import AnyStr, overload
 from typing_extensions import Literal, TypeAlias
@@ -9,8 +8,8 @@ from typing_extensions import Literal, TypeAlias
 _OpenFile: TypeAlias = StrOrBytesPath | FileDescriptor
 
 is_64bits: bool
-is_py35: bool
-is_py36: bool
+is_py35: Literal[True]
+is_py36: Literal[True]
 is_py37: bool
 is_py38: bool
 is_py39: bool
@@ -69,7 +68,7 @@ def exec_python(*args: str, **kwargs: str | None) -> str: ...
 def exec_python_rc(*args: str, **kwargs: str | None) -> int: ...
 def expand_path(path: GenericPath[AnyStr]) -> AnyStr: ...
 def getsitepackages(prefixes: Iterable[str] | None = ...) -> list[str]: ...
-def importlib_load_source(name: str, pathname: _Path) -> ModuleType: ...
+def importlib_load_source(name: str, pathname: str) -> ModuleType: ...
 
 PY3_BASE_MODULES: set[str]
 PURE_PYTHON_MODULE_TYPES: set[str]

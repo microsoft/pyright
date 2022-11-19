@@ -1,6 +1,9 @@
+from _typeshed import ReadableBuffer
 from collections.abc import Iterator
 from typing import Any
 from typing_extensions import TypeAlias
+
+LATEST_MINOR_VERSION: int
 
 class NodeVisitor:
     def visit(self, node: AST) -> Any: ...
@@ -9,7 +12,9 @@ class NodeVisitor:
 class NodeTransformer(NodeVisitor):
     def generic_visit(self, node: AST) -> None: ...
 
-def parse(source: str | bytes, filename: str | bytes = ..., mode: str = ..., feature_version: int = ...) -> AST: ...
+def parse(
+    source: str | ReadableBuffer, filename: str | ReadableBuffer = ..., mode: str = ..., feature_version: int = ...
+) -> AST: ...
 def copy_location(new_node: AST, old_node: AST) -> AST: ...
 def dump(node: AST, annotate_fields: bool = ..., include_attributes: bool = ...) -> str: ...
 def fix_missing_locations(node: AST) -> AST: ...
@@ -252,7 +257,7 @@ class Call(expr):
     keywords: list[keyword]
 
 class Num(expr):
-    n: complex
+    n: int | float | complex
 
 class Str(expr):
     s: str

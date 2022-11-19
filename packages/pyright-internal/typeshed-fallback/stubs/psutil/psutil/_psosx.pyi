@@ -1,6 +1,6 @@
 from typing import Any, NamedTuple
 
-from ._common import (
+from psutil._common import (
     AccessDenied as AccessDenied,
     NoSuchProcess as NoSuchProcess,
     ZombieProcess as ZombieProcess,

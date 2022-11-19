@@ -1,2 +1,6 @@
 version = "2.1.*"
 requires = []
+
+[tool.stubtest]
+# linux and darwin are equivalent
+platforms = ["linux", "win32"]

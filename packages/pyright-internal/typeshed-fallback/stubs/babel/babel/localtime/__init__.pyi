@@ -1,16 +1,17 @@
-from datetime import tzinfo
-from typing import Any
+from datetime import datetime, timedelta, tzinfo
 
-STDOFFSET: Any
-DSTOFFSET: Any
-DSTDIFF: Any
-ZERO: Any
+from pytz import BaseTzInfo
+
+STDOFFSET: timedelta
+DSTOFFSET: timedelta
+DSTDIFF: timedelta
+ZERO: timedelta
 
 class _FallbackLocalTimezone(tzinfo):
-    def utcoffset(self, dt): ...
-    def dst(self, dt): ...
-    def tzname(self, dt): ...
+    def utcoffset(self, dt: datetime | None) -> timedelta: ...
+    def dst(self, dt: datetime | None) -> timedelta: ...
+    def tzname(self, dt: datetime | None) -> str: ...
 
-def get_localzone(): ...
+def get_localzone() -> BaseTzInfo: ...
 
-LOCALTZ: Any
+LOCALTZ: BaseTzInfo | _FallbackLocalTimezone

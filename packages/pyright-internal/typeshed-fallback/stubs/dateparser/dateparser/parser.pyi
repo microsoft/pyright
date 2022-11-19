@@ -1,3 +1,4 @@
+import datetime
 from typing import Any
 
 NSP_COMPATIBLE: Any
@@ -41,7 +42,7 @@ class _parser:
     ordered_num_directives: Any
     def __init__(self, tokens, settings): ...
     @classmethod
-    def parse(cls, datestring, settings): ...
+    def parse(cls, datestring, settings, tz: datetime.tzinfo | None = ...): ...
 
 class tokenizer:
     digits: str

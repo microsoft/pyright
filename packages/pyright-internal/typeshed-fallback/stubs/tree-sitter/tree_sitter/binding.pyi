@@ -72,7 +72,9 @@ class Parser:
 @final
 class Query:
     # start_point and end_point arguments don't seem to do anything
-    def captures(self) -> list[tuple[Node, str]]: ...
+    # TODO: sync with
+    # https://github.com/tree-sitter/py-tree-sitter/blob/d3016edac2c33ce647653d896fbfb435ac2a6245/tree_sitter/binding.c#L1304
+    def captures(self, node: Node) -> list[tuple[Node, str]]: ...
 
 @final
 class Range:

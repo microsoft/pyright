@@ -11,7 +11,7 @@ class _UrlBase(NamedTuple):
     fragment: str | None
     host: str | None
     path: str | None
-    port: str | None
+    port: int | None
     query: str | None
     scheme: str | None
 
@@ -21,7 +21,7 @@ class Url(_UrlBase):
         scheme: str | None = ...,
         auth: str | None = ...,
         host: str | None = ...,
-        port: str | None = ...,
+        port: int | None = ...,
         path: str | None = ...,
         query: str | None = ...,
         fragment: str | None = ...,

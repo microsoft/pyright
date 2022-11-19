@@ -6,7 +6,7 @@ from os import stat_result
 from typing import Any, overload
 from typing_extensions import TypeAlias
 
-from . import ospath
+from aiofiles import ospath
 
 path = ospath
 

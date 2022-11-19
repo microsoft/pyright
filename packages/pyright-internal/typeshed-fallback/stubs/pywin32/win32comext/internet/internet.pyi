@@ -1,5 +1,3 @@
-# Can't generate with stubgen because:
-# "SystemError: CoInternetCreateSecurityManager() method: bad call flags"
 import _win32typing
 
 def CoInternetCreateSecurityManager(reserved) -> _win32typing.PyIInternetSecurityManager: ...
@@ -34,6 +32,15 @@ GET_FEATURE_FROM_THREAD_INTRANET: int
 GET_FEATURE_FROM_THREAD_LOCALMACHINE: int
 GET_FEATURE_FROM_THREAD_RESTRICTED: int
 GET_FEATURE_FROM_THREAD_TRUSTED: int
+IID_IDocHostUIHandler: _win32typing.PyIID
+IID_IHTMLOMWindowServices: _win32typing.PyIID
+IID_IInternetBindInfo: _win32typing.PyIID
+IID_IInternetPriority: _win32typing.PyIID
+IID_IInternetProtocol: _win32typing.PyIID
+IID_IInternetProtocolInfo: _win32typing.PyIID
+IID_IInternetProtocolRoot: _win32typing.PyIID
+IID_IInternetProtocolSink: _win32typing.PyIID
+IID_IInternetSecurityManager: _win32typing.PyIID
 SET_FEATURE_IN_REGISTRY: int
 SET_FEATURE_ON_PROCESS: int
 SET_FEATURE_ON_THREAD: int
