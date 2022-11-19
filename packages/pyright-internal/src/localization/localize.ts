@@ -940,6 +940,8 @@ export namespace Localizer {
         export const unionTypeArgCount = () => getRawString('Diagnostic.unionTypeArgCount');
         export const uninitializedInstanceVariable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.uninitializedInstanceVariable'));
+        export const unmatchedEndregionComment = () => getRawString('Diagnostic.unmatchedEndregionComment');
+        export const unmatchedRegionComment = () => getRawString('Diagnostic.unmatchedRegionComment');
         export const unnecessaryCast = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unnecessaryCast'));
         export const unnecessaryIsInstanceAlways = () =>

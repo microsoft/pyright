@@ -1,10 +1,12 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test.py
+//// class MyType: pass
+////
 //// class B:
 ////     var1 = 1
-////     var2: int
-////     var3: str = "hello"
+////     var2: MyType
+////     var3: list[str] = ["hello"]
 ////     __var4 = 4
 ////
 ////     def __init__(self):
@@ -12,11 +14,17 @@
 ////
 //// class T(B):
 ////     var5: bool
-////     [|va/*marker*/|]
+////     [|va/*marker1*/|]
+////
+//// class T1(B):
+////     var2: [|/*marker2*/|]
+////
+//// class T2(B):
+////     var3: [|/*marker3*/|]
 
 // @ts-ignore
 await helper.verifyCompletion('included', 'markdown', {
-    marker: {
+    marker1: {
         completions: [
             {
                 label: 'var1',
@@ -25,12 +33,26 @@ await helper.verifyCompletion('included', 'markdown', {
             {
                 label: 'var2',
                 kind: Consts.CompletionItemKind.Variable,
-                textEdit: { range: helper.getPositionRange('marker'), newText: 'var2: int' },
             },
             {
                 label: 'var3',
                 kind: Consts.CompletionItemKind.Variable,
-                textEdit: { range: helper.getPositionRange('marker'), newText: 'var3: str' },
+            },
+        ],
+    },
+    marker2: {
+        completions: [
+            {
+                label: 'MyType',
+                kind: Consts.CompletionItemKind.Reference,
+            },
+        ],
+    },
+    marker3: {
+        completions: [
+            {
+                label: 'list[str]',
+                kind: Consts.CompletionItemKind.Reference,
             },
         ],
     },

@@ -540,6 +540,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._connection.onExecuteCommand(async (params, token, reporter) =>
             this.onExecuteCommand(params, token, reporter)
         );
+        this._connection.onShutdown(async (token) => this.onShutdown(token));
     }
 
     protected initialize(
@@ -786,7 +787,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return undefined;
         }
         return locations
-            .filter((loc) => !workspace.serviceInstance.fs.isInZipOrEgg(loc.path))
+            .filter((loc) => this.canNavigateToFile(loc.path, workspace.serviceInstance.fs))
             .map((loc) => Location.create(convertPathToUri(workspace.serviceInstance.fs, loc.path), loc.range));
     }
 
@@ -826,7 +827,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             const convert = (locs: DocumentRange[]): Location[] => {
                 return locs
-                    .filter((loc) => !workspace.serviceInstance.fs.isInZipOrEgg(loc.path))
+                    .filter((loc) => this.canNavigateToFile(loc.path, workspace.serviceInstance.fs))
                     .map((loc) => Location.create(convertPathToUri(workspace.serviceInstance.fs, loc.path), loc.range));
             };
 
@@ -1138,7 +1139,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        if (workspace.serviceInstance.fs.isInZipOrEgg(callItem.uri)) {
+        if (!this.canNavigateToFile(callItem.uri, workspace.serviceInstance.fs)) {
             return null;
         }
 
@@ -1161,7 +1162,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        callItems = callItems.filter((item) => !workspace.serviceInstance.fs.isInZipOrEgg(item.from.uri));
+        callItems = callItems.filter((item) => this.canNavigateToFile(item.from.uri, workspace.serviceInstance.fs));
 
         // Convert the file paths in the items to proper URIs.
         callItems.forEach((item) => {
@@ -1187,7 +1188,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        callItems = callItems.filter((item) => !workspace.serviceInstance.fs.isInZipOrEgg(item.to.uri));
+        callItems = callItems.filter((item) => this.canNavigateToFile(item.to.uri, workspace.serviceInstance.fs));
 
         // Convert the file paths in the items to proper URIs.
         callItems.forEach((item) => {
@@ -1299,6 +1300,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
     }
 
+    protected onShutdown(token: CancellationToken) {
+        // Shutdown remaining workspaces.
+        this._workspaceMap.forEach((_, key) => this._workspaceMap.delete(key));
+        return Promise.resolve();
+    }
+
     protected resolveWorkspaceCompletionItem(
         workspace: WorkspaceServiceInstance,
         filePath: string,
@@ -1408,7 +1415,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
-            if (fs.isInZipOrEgg(fileDiag.filePath)) {
+            if (!this.canNavigateToFile(fileDiag.filePath, fs)) {
                 return;
             }
 
@@ -1575,7 +1582,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const relatedInfo = diag.getRelatedInfo();
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo
-                    .filter((info) => !fs.isInZipOrEgg(info.filePath))
+                    .filter((info) => this.canNavigateToFile(info.filePath, fs))
                     .map((info) =>
                         DiagnosticRelatedInformation.create(
                             Location.create(convertPathToUri(fs, info.filePath), info.range),
@@ -1623,4 +1630,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected abstract createProgressReporter(): ProgressReporter;
+
+    protected canNavigateToFile(path: string, fs: FileSystem): boolean {
+        return !fs.isInZipOrEgg(path);
+    }
 }

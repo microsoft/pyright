@@ -234,6 +234,10 @@ export class PyrightFileSystem
         }
     }
 
+    override dispose(): void {
+        this._realFS.dispose();
+    }
+
     clearPartialStubs(): void {
         super._clear();
 

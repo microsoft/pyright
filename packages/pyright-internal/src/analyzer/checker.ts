@@ -85,6 +85,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
+import { ParseResults } from '../parser/parser';
 import { getUnescapedString, UnescapeError, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -97,6 +98,7 @@ import { getRelativeModuleName, getTopLevelImports } from './importStatementUtil
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
+import { getRegionComments, RegionComment, RegionCommentType } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
@@ -233,6 +235,7 @@ const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
 const isPrintCodeComplexityEnabled = false;
 
 export class Checker extends ParseTreeWalker {
+    private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
     private _isUnboundCheckSuppressed = false;
 
@@ -246,12 +249,13 @@ export class Checker extends ParseTreeWalker {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _moduleNode: ModuleNode,
+        private _parseResults: ParseResults,
         private _sourceMapper: SourceMapper
     ) {
         super();
 
-        this._fileInfo = AnalyzerNodeInfo.getFileInfo(_moduleNode)!;
+        this._moduleNode = _parseResults.parseTree;
+        this._fileInfo = AnalyzerNodeInfo.getFileInfo(this._moduleNode)!;
     }
 
     check() {
@@ -291,6 +295,8 @@ export class Checker extends ParseTreeWalker {
         this._validateSymbolTables();
 
         this._reportDuplicateImports();
+
+        this._checkRegions();
     }
 
     override walk(node: ParseNode) {
@@ -5909,5 +5915,38 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         });
+    }
+
+    private _checkRegions() {
+        const regionComments = getRegionComments(this._parseResults);
+        const regionStack: RegionComment[] = [];
+
+        regionComments.forEach((regionComment) => {
+            if (regionComment.type === RegionCommentType.Region) {
+                regionStack.push(regionComment);
+            } else {
+                if (regionStack.length > 0) {
+                    regionStack.pop();
+                } else {
+                    this._addDiagnosticForRegionComment(
+                        regionComment,
+                        Localizer.Diagnostic.unmatchedEndregionComment()
+                    );
+                }
+            }
+        });
+
+        regionStack.forEach((regionComment) => {
+            this._addDiagnosticForRegionComment(regionComment, Localizer.Diagnostic.unmatchedRegionComment());
+        });
+    }
+
+    private _addDiagnosticForRegionComment(regionComment: RegionComment, message: string): Diagnostic | undefined {
+        // extend range to include # character
+        const range: TextRange = regionComment.comment;
+        range.start -= 1;
+        range.length += 1;
+
+        return this._evaluator.addDiagnosticForTextRange(this._fileInfo, 'error', '', message, range);
     }
 }
