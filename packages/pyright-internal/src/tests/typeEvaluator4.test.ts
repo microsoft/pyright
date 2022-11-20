@@ -1149,7 +1149,7 @@ test('Annotated1', () => {
 test('Circular1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular1.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Circular2', () => {
