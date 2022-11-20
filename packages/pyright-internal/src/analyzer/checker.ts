@@ -1043,7 +1043,8 @@ export class Checker extends ParseTreeWalker {
             yieldType = UnknownType.create();
         } else {
             yieldType =
-                this._evaluator.getTypeOfIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+                this._evaluator.getTypeOfIterable({ type: yieldFromType }, /* isAsync */ false, node)?.type ??
+                UnknownType.create();
 
             // Does the iterator return a Generator? If so, get the yield type from it.
             // If the iterator doesn't return a Generator, use the iterator return type
@@ -1053,7 +1054,8 @@ export class Checker extends ParseTreeWalker {
                 yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
             } else {
                 yieldType =
-                    this._evaluator.getTypeOfIterator(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+                    this._evaluator.getTypeOfIterator({ type: yieldFromType }, /* isAsync */ false, node)?.type ??
+                    UnknownType.create();
             }
         }
 
@@ -2519,7 +2521,7 @@ export class Checker extends ParseTreeWalker {
                 resultingExceptionType = ClassType.cloneAsInstance(exceptionType);
             } else if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    this._evaluator.getTypeOfIterator(exceptionType, /* isAsync */ false, errorNode) ||
+                    this._evaluator.getTypeOfIterator({ type: exceptionType }, /* isAsync */ false, errorNode)?.type ??
                     UnknownType.create();
 
                 resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
@@ -5824,8 +5826,11 @@ export class Checker extends ParseTreeWalker {
                 typesOfThisExcept.push(exceptionType);
             } else if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    this._evaluator.getTypeOfIterator(exceptionType, /* isAsync */ false, /* errorNode */ undefined) ||
-                    UnknownType.create();
+                    this._evaluator.getTypeOfIterator(
+                        { type: exceptionType },
+                        /* isAsync */ false,
+                        /* errorNode */ undefined
+                    )?.type ?? UnknownType.create();
 
                 doForEachSubtype(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {

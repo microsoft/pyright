@@ -369,8 +369,16 @@ export interface TypeEvaluator {
         resolveLocalNames: boolean,
         allowExternallyHiddenAccess?: boolean
     ) => DeclarationUtils.ResolvedAliasInfo | undefined;
-    getTypeOfIterable: (type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined) => Type | undefined;
-    getTypeOfIterator: (type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined) => Type | undefined;
+    getTypeOfIterable: (
+        typeResult: TypeResult,
+        isAsync: boolean,
+        errorNode: ExpressionNode | undefined
+    ) => TypeResult | undefined;
+    getTypeOfIterator: (
+        typeResult: TypeResult,
+        isAsync: boolean,
+        errorNode: ExpressionNode | undefined
+    ) => TypeResult | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     getTypeOfArgument: (arg: FunctionArgument) => TypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;

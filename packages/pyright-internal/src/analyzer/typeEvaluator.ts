@@ -1272,10 +1272,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 typeResult = { type: ClassType.cloneForUnpacked(iterType) };
             } else {
-                const type =
-                    getTypeOfIterator(iterType, /* isAsync */ false, node) ??
-                    UnknownType.create(!!iterTypeResult.isIncomplete);
-                typeResult = { type, unpackedType: iterType, isIncomplete: iterTypeResult.isIncomplete };
+                const iteratorTypeResult = getTypeOfIterator(iterTypeResult, /* isAsync */ false, node) ?? {
+                    type: UnknownType.create(!!iterTypeResult.isIncomplete),
+                    isIncomplete: iterTypeResult.isIncomplete,
+                };
+                typeResult = {
+                    type: iteratorTypeResult.type,
+                    unpackedType: iterType,
+                    isIncomplete: iteratorTypeResult.isIncomplete,
+                };
             }
         }
         return typeResult;
@@ -2406,16 +2411,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Validates that the type is an iterator and returns the iterated type
     // (i.e. the type returned from the '__next__' or '__anext__' method).
-    function getTypeOfIterator(type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined): Type | undefined {
+    function getTypeOfIterator(
+        typeResult: TypeResult,
+        isAsync: boolean,
+        errorNode: ExpressionNode | undefined
+    ): TypeResult | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         let isValidIterator = true;
 
-        type = transformPossibleRecursiveTypeAlias(type);
+        let type = transformPossibleRecursiveTypeAlias(typeResult.type);
         type = makeTopLevelTypeVarsConcrete(type);
 
         if (isOptionalType(type)) {
-            if (errorNode) {
+            if (errorNode && !typeResult.isIncomplete) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
@@ -2546,7 +2555,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (errorNode) {
+            if (errorNode && !typeResult.isIncomplete) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -2559,18 +2568,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         });
 
-        return isValidIterator ? iterableType : undefined;
+        return isValidIterator ? { type: iterableType, isIncomplete: typeResult.isIncomplete } : undefined;
     }
 
     // Validates that the type is an iterable and returns the iterable type argument.
-    function getTypeOfIterable(type: Type, isAsync: boolean, errorNode: ExpressionNode | undefined): Type | undefined {
+    function getTypeOfIterable(
+        typeResult: TypeResult,
+        isAsync: boolean,
+        errorNode: ExpressionNode | undefined
+    ): TypeResult | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         let isValidIterable = true;
 
-        type = makeTopLevelTypeVarsConcrete(type);
+        let type = makeTopLevelTypeVarsConcrete(typeResult.type);
 
         if (isOptionalType(type)) {
-            if (errorNode) {
+            if (errorNode && !typeResult.isIncomplete) {
                 addDiagnostic(
                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
@@ -2623,7 +2636,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         });
 
-        return isValidIterable ? iterableType : undefined;
+        return isValidIterable ? { type: iterableType, isIncomplete: typeResult.isIncomplete } : undefined;
     }
 
     function isTypeHashable(type: Type): boolean {
@@ -3372,7 +3385,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 // The assigned expression isn't a tuple, so it had better
                 // be some iterable type.
-                const iterableType = getTypeOfIterator(subtype, /* isAsync */ false, srcExpr) || UnknownType.create();
+                const iterableType =
+                    getTypeOfIterator({ type: subtype, isIncomplete: isTypeIncomplete }, /* isAsync */ false, srcExpr)
+                        ?.type ?? UnknownType.create();
                 for (let index = 0; index < targetExpressions.length; index++) {
                     targetTypes[index].push(addConditionToType(iterableType, getTypeCondition(subtype)));
                 }
@@ -6727,12 +6742,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             unpackedListArgs.forEach((arg) => {
                 const typeResult = getTypeOfExpression(arg.valueExpression);
-                const exprType = typeResult.type;
                 if (typeResult.isIncomplete) {
                     isPositionalIndexTypeIncomplete = true;
                 }
                 const iterableType =
-                    getTypeOfIterator(exprType, /* isAsync */ false, arg.valueExpression) || UnknownType.create();
+                    getTypeOfIterator(typeResult, /* isAsync */ false, arg.valueExpression)?.type ??
+                    UnknownType.create();
                 tupleEntries.push(iterableType);
             });
 
@@ -9299,8 +9314,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     listElementType = undefined;
                 } else {
                     listElementType =
-                        getTypeOfIterator(argType, /* isAsync */ false, argList[argIndex].valueExpression!) ||
-                        UnknownType.create();
+                        getTypeOfIterator(
+                            { type: argType, isIncomplete: argTypeResult.isIncomplete },
+                            /* isAsync */ false,
+                            argList[argIndex].valueExpression!
+                        )?.type ?? UnknownType.create();
 
                     if (paramDetails.params[paramIndex].param.category !== ParameterCategory.VarArgList) {
                         matchedUnpackedListOfUnknownLength = true;
@@ -11941,10 +11959,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     // If __contains__ was not supported, fall back
                                     // on an iterable.
                                     const iteratorType = getTypeOfIterator(
-                                        rightSubtypeExpanded,
+                                        { type: rightSubtypeExpanded, isIncomplete: rightTypeResult.isIncomplete },
                                         /* isAsync */ false,
                                         /* errorNode */ undefined
-                                    );
+                                    )?.type;
 
                                     if (iteratorType && assignType(iteratorType, leftSubtype)) {
                                         returnType = getBuiltInObject(errorNode, 'bool');
@@ -13112,7 +13130,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfYieldFrom(node: YieldFromNode): TypeResult {
-        const yieldFromType = getTypeOfExpression(node.expression).type;
+        const yieldFromTypeResult = getTypeOfExpression(node.expression);
+        const yieldFromType = yieldFromTypeResult.type;
         let generatorTypeArgs = getGeneratorTypeArgs(yieldFromType);
 
         let returnedType: Type | undefined;
@@ -13124,7 +13143,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle old-style (pre-await) Coroutines as a special case.
             returnedType = UnknownType.create();
         } else {
-            const iterableType = getTypeOfIterable(yieldFromType, /* isAsync */ false, node) ?? UnknownType.create();
+            const iterableType =
+                getTypeOfIterable(yieldFromTypeResult, /* isAsync */ false, node)?.type ?? UnknownType.create();
 
             // Does the iterable return a Generator?
             generatorTypeArgs = getGeneratorTypeArgs(iterableType);
@@ -13313,7 +13333,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let expectedElementType: Type | undefined;
         if (expectedType) {
-            expectedElementType = getTypeOfIterator(expectedType, isAsync, /* errorNode */ undefined);
+            expectedElementType = getTypeOfIterator({ type: expectedType }, isAsync, /* errorNode */ undefined)?.type;
         }
 
         const elementTypeResult = getElementTypeFromListComprehension(node, expectedElementType);
@@ -13405,11 +13425,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isIncomplete = true;
             }
             const iterableType = stripLiteralValue(iterableTypeResult.type);
-            const itemType =
-                getTypeOfIterator(iterableType, !!node.isAsync, node.iterableExpression) ?? UnknownType.create();
+            const itemTypeResult = getTypeOfIterator(
+                { type: iterableType, isIncomplete: iterableTypeResult.isIncomplete },
+                !!node.isAsync,
+                node.iterableExpression
+            ) ?? { type: UnknownType.create(), isIncomplete: iterableTypeResult.isIncomplete };
 
             const targetExpr = node.targetExpression;
-            assignTypeToExpression(targetExpr, itemType, !!iterableTypeResult.isIncomplete, node.iterableExpression);
+            assignTypeToExpression(
+                targetExpr,
+                itemTypeResult.type,
+                !!itemTypeResult.isIncomplete,
+                node.iterableExpression
+            );
         } else {
             assert(node.nodeType === ParseNodeType.ListComprehensionIf);
 
@@ -17172,20 +17200,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             functionDecl.yieldStatements.forEach((yieldNode) => {
                                 if (isNodeReachable(yieldNode)) {
                                     if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
-                                        const iteratorType = getTypeOfExpression(yieldNode.expression).type;
+                                        const iteratorTypeResult = getTypeOfExpression(yieldNode.expression);
                                         if (
-                                            isClassInstance(iteratorType) &&
-                                            ClassType.isBuiltIn(iteratorType, 'Coroutine')
+                                            isClassInstance(iteratorTypeResult.type) &&
+                                            ClassType.isBuiltIn(iteratorTypeResult.type, 'Coroutine')
                                         ) {
                                             // Handle old-style (pre-await) Coroutines.
                                             inferredYieldTypes.push();
                                             useAwaitableGenerator = true;
                                         } else {
                                             const yieldType = getTypeOfIterator(
-                                                iteratorType,
+                                                iteratorTypeResult,
                                                 /* isAsync */ false,
                                                 yieldNode
-                                            );
+                                            )?.type;
                                             inferredYieldTypes.push(yieldType ?? UnknownType.create());
                                         }
                                     } else {
@@ -17286,7 +17314,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const iteratorTypeResult = getTypeOfExpression(node.iterableExpression);
         const iteratedType =
-            getTypeOfIterator(iteratorTypeResult.type, !!node.isAsync, node.iterableExpression) ?? UnknownType.create();
+            getTypeOfIterator(iteratorTypeResult, !!node.isAsync, node.iterableExpression)?.type ??
+            UnknownType.create();
 
         assignTypeToExpression(
             node.targetExpression,
@@ -17306,7 +17335,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        const exceptionTypes = getTypeOfExpression(node.typeExpression!).type;
+        const exceptionTypeResult = getTypeOfExpression(node.typeExpression!);
+        const exceptionTypes = exceptionTypeResult.type;
 
         function getExceptionType(exceptionType: Type, errorNode: ExpressionNode) {
             exceptionType = makeTopLevelTypeVarsConcrete(exceptionType);
@@ -17321,7 +17351,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    getTypeOfIterator(exceptionType, /* isAsync */ false, errorNode) ?? UnknownType.create();
+                    getTypeOfIterator(
+                        { type: exceptionType, isIncomplete: exceptionTypeResult.isIncomplete },
+                        /* isAsync */ false,
+                        errorNode
+                    )?.type ?? UnknownType.create();
 
                 return mapSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
