@@ -325,9 +325,14 @@ export function getCodeFlowEngine(
                 flowNodeTypeCache.pendingNodes.add(flowNode.id);
 
                 try {
-                    return callback();
-                } finally {
+                    const result = callback();
                     flowNodeTypeCache.pendingNodes.delete(flowNode.id);
+                    return result;
+                } catch (e) {
+                    // Don't use a "finally" clause here because the TypeScript
+                    // debugger doesn't handle "step out" well with finally clauses.
+                    flowNodeTypeCache.pendingNodes.delete(flowNode.id);
+                    throw e;
                 }
             }
 
