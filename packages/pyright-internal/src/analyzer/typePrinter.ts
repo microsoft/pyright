@@ -253,10 +253,10 @@ export function printType(
             }
 
             case TypeCategory.Unknown: {
-                if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
+                if (printTypeFlags & (PrintTypeFlags.PythonSyntax | PrintTypeFlags.PrintUnknownWithAny)) {
                     return 'Any';
                 }
-                return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
+                return 'Unknown';
             }
 
             case TypeCategory.Module: {
