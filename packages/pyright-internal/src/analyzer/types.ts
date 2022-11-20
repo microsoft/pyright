@@ -2713,6 +2713,12 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             return false;
         }
+
+        case TypeCategory.Unknown: {
+            const type2Unknown = type2 as UnknownType;
+
+            return type1.isIncomplete === type2Unknown.isIncomplete;
+        }
     }
 
     return true;
