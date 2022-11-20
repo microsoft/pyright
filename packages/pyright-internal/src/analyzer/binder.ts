@@ -1760,7 +1760,7 @@ export class Binder extends ParseTreeWalker {
                                     node,
                                     path: resolvedPath,
                                     loadSymbolsFromPath: true,
-                                    range: getEmptyRange(), // Range is unknown for wildcarded name import.
+                                    range: getEmptyRange(), // Range is unknown for wildcard name import.
                                     usesLocalName: false,
                                     symbolName: name,
                                     moduleName: this._fileInfo.moduleName,

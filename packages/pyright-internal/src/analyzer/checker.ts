@@ -1439,6 +1439,10 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitImportFromAs(node: ImportFromAsNode): boolean {
+        if (this._fileInfo.isStubFile) {
+            return false;
+        }
+
         const decls = this._evaluator.getDeclarationsForNameNode(node.name);
         if (!decls) {
             return false;
@@ -1468,6 +1472,10 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitModuleName(node: ModuleNameNode): boolean {
+        if (this._fileInfo.isStubFile) {
+            return false;
+        }
+
         const importResult = AnalyzerNodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
 
