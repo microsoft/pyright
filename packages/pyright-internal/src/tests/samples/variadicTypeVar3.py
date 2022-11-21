@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Generic, List, Sequence, Tuple, TypeVar, Union
+from typing import Generic, Sequence, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 
@@ -13,7 +13,7 @@ _Xs = TypeVarTuple("_Xs")
 
 class Array(Generic[Unpack[_Xs]]):
     def __init__(self, *args: Unpack[_Xs]) -> None:
-        self.x: Tuple[Unpack[_Xs]] = args
+        self.x: tuple[Unpack[_Xs]] = args
         reveal_type(args, expected_text="tuple[*_Xs@Array]")
 
     # This should generate an error because _Xs is not unpacked.
@@ -26,7 +26,7 @@ def linearize(value: Array[Unpack[_Xs]]) -> Sequence[Union[Unpack[_Xs]]]:
     return []
 
 
-def array_to_tuple(value: Array[Unpack[_Xs]]) -> Tuple[complex, Unpack[_Xs]]:
+def array_to_tuple(value: Array[Unpack[_Xs]]) -> tuple[complex, Unpack[_Xs]]:
     ...
 
 
@@ -45,13 +45,13 @@ def func1(x: Array[int, str, str, float], y: Array[()]):
     reveal_type(b1, expected_text="Array[*tuple[()]]")
 
     b2 = linearize(b1)
-    reveal_type(b2, expected_text="Sequence[Unknown]")
+    reveal_type(b2, expected_text="Sequence[Never]")
 
     e = array_to_tuple(x)
-    reveal_type(e, expected_text="Tuple[complex, int, str, str, float]")
+    reveal_type(e, expected_text="tuple[complex, int, str, str, float]")
 
     f = array_to_tuple(y)
-    reveal_type(f, expected_text="Tuple[complex]")
+    reveal_type(f, expected_text="tuple[complex]")
 
 
 class ArrayIntStr(Array[int, str, _T]):
@@ -73,12 +73,12 @@ v4: Array[int, str, int, int] = v1
 v5: Array[int, str] = v1
 
 
-def test1(p1: Tuple[str, int], p2: List[str]):
+def test1(p1: tuple[str, int], p2: list[str]):
     v6 = Array(*p1)
     reveal_type(v6, expected_text="Array[str, int]")
 
-    # Same thing.
-    v7 = Array(int, *p1, str)
+    v7 = Array(1, *p1, "")
+    reveal_type(v7, expected_text="Array[int, str, int, str]")
 
     # This should generate an error because open-ended
     # tuple types should not be allowed.

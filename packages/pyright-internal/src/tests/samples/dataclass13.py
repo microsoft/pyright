@@ -28,6 +28,13 @@ class DC4(DC2):
     val5: ClassVar[int]
 
 
+# This should generate an error because a non-frozen dataclass
+# cannot inherit from a frozen dataclass.
+@dataclass(frozen=False)
+class DC5(DC2):
+    val4: int = 5
+
+
 a = DC1(val1=3)
 a.val1 = 3
 

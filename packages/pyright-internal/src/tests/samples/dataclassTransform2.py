@@ -45,6 +45,8 @@ class Customer1(ModelBase, frozen=True):
     name2: str = model_field(alias="other_name", default="None")
 
 
+# This should generate an error because a non-frozen class cannot
+# derive from a frozen one.
 class Customer1Subclass(Customer1, frozen=False):
     salary: float = model_field()
 

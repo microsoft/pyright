@@ -39,6 +39,9 @@ def popen2(*args, **kwargs): ...  # incomplete
 def popen3(*args, **kwargs): ...  # incomplete
 def popen4(*args, **kwargs): ...  # incomplete
 
+FILE_FLAG_FIRST_PIPE_INSTANCE: int
+PIPE_ACCEPT_REMOTE_CLIENTS: int
+PIPE_REJECT_REMOTE_CLIENTS: int
 NMPWAIT_NOWAIT: int
 NMPWAIT_USE_DEFAULT_WAIT: int
 NMPWAIT_WAIT_FOREVER: int

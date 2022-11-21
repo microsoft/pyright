@@ -26,13 +26,11 @@ Foo = Union[bool, List["Foo"], Dict["Foo", "Foo"]]
 
 bar1: Foo = [True, [True, False]]
 bar2: Foo = [True, [True], {True: False}]
-bar3: Foo = {[True]: False}
 bar4: Foo = {True: [False]}
 
 # These should generate errors.
 baz1: Foo = [True, ["True", False]]
 baz2: Foo = [True, [True], {True: "False"}]
-baz3: Foo = {["True"]: False}
 baz4: Foo = {True: ["False"]}
 
 Json = Union[None, int, str, float, List["Json"], Dict[str, "Json"]]

@@ -6,7 +6,7 @@ from typing_extensions import TypeAlias
 
 from ._format import FormatChecker
 from ._types import TypeChecker
-from ._utils import URIDict
+from ._utils import Unset, URIDict
 from .exceptions import ValidationError
 
 # these type aliases do not exist at runtime, they're only defined here in the stub
@@ -31,7 +31,7 @@ class _Validator:
     evolve: Any
     def __init__(self, schema: _Schema, resolver: Any | None = ..., format_checker: Any | None = ...) -> None: ...
     @classmethod
-    def check_schema(cls, schema: _Schema) -> None: ...
+    def check_schema(cls, schema: _Schema, format_checker: FormatChecker | Unset = ...) -> None: ...
     def iter_errors(self, instance, _schema: _Schema | None = ...) -> Generator[Any, None, None]: ...
     def descend(
         self, instance, schema: _Schema, path: Any | None = ..., schema_path: Any | None = ...

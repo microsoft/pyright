@@ -1,7 +1,7 @@
 from contextlib import AbstractContextManager
 from typing import Any, NamedTuple
 
-from ._common import (
+from psutil._common import (
     FREEBSD as FREEBSD,
     NETBSD as NETBSD,
     OPENBSD as OPENBSD,

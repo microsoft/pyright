@@ -1,9 +1,9 @@
 import socket
+from _socket import _Address, _RetAddress
 from _typeshed import Incomplete, ReadableBuffer
 from collections.abc import Callable, MutableSequence, Sequence
 from typing import Any, TypeVar
 
-from _socket import _Address, _RetAddress
 from OpenSSL.crypto import X509, PKey, X509Name
 
 OPENSSL_VERSION_NUMBER: int

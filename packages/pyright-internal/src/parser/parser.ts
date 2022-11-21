@@ -520,7 +520,7 @@ export class Parser {
         return TypeParameterListNode.create(openBracketToken, closingToken, typeVariableNodes);
     }
 
-    // type_param: ['*' | '**'] NAME [':' expr]
+    // type_param: ['*' | '**'] NAME [':' bound_expr] ['=' default_expr]
     private _parseTypeParameter(): TypeParameterNode | undefined {
         let typeParamCategory = TypeParameterCategory.TypeVar;
         if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
@@ -538,16 +538,22 @@ export class Parser {
         const name = NameNode.create(nameToken);
 
         let boundExpression: ExpressionNode | undefined;
-        if (this._peekTokenType() === TokenType.Colon) {
-            this._getNextToken();
-            boundExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
+        if (this._consumeTokenIfType(TokenType.Colon)) {
+            boundExpression = this._parseExpression(/* allowUnpack */ false);
 
             if (typeParamCategory !== TypeParameterCategory.TypeVar) {
                 this._addError(Localizer.Diagnostic.typeParameterBoundNotAllowed(), boundExpression);
             }
         }
 
-        return TypeParameterNode.create(name, typeParamCategory, boundExpression);
+        let defaultExpression: ExpressionNode | undefined;
+        if (this._consumeTokenIfOperator(OperatorType.Assign)) {
+            defaultExpression = this._parseExpression(
+                /* allowUnpack */ typeParamCategory === TypeParameterCategory.TypeVarTuple
+            );
+        }
+
+        return TypeParameterNode.create(name, typeParamCategory, boundExpression, defaultExpression);
     }
 
     // match_stmt: "match" subject_expr ':' NEWLINE INDENT case_block+ DEDENT
@@ -1404,13 +1410,14 @@ export class Parser {
                 postColonCallback();
             }
 
+            let bodyIndentToken: IndentToken | undefined;
             const possibleIndent = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Indent)) {
                 this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
             } else {
-                const indentToken = possibleIndent as IndentToken;
-                if (indentToken.isIndentAmbiguous) {
-                    this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+                bodyIndentToken = possibleIndent as IndentToken;
+                if (bodyIndentToken.isIndentAmbiguous) {
+                    this._addError(Localizer.Diagnostic.inconsistentTabs(), bodyIndentToken);
                 }
             }
 
@@ -1444,7 +1451,12 @@ export class Parser {
                     } else {
                         extendRange(suite, dedentToken);
                     }
-                    break;
+
+                    // Did this dedent take us to an indent amount that is less than the
+                    // initial indent of the suite body?
+                    if (!bodyIndentToken || dedentToken.indentAmount < bodyIndentToken.indentAmount) {
+                        break;
+                    }
                 }
 
                 const statement = this._parseStatement();
@@ -3008,16 +3020,17 @@ export class Parser {
         }
 
         if (!this._consumeTokenIfKeyword(KeywordType.Else)) {
-            return this._handleExpressionParseError(
-                ErrorExpressionCategory.MissingElse,
-                Localizer.Diagnostic.expectedElse()
+            return TernaryNode.create(
+                ifExpr,
+                testExpr,
+                this._handleExpressionParseError(
+                    ErrorExpressionCategory.MissingElse,
+                    Localizer.Diagnostic.expectedElse()
+                )
             );
         }
 
         const elseExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
-        if (elseExpr.nodeType === ParseNodeType.Error) {
-            return elseExpr;
-        }
 
         return TernaryNode.create(ifExpr, testExpr, elseExpr);
     }

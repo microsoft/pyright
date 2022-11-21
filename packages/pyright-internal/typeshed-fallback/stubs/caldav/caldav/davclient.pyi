@@ -6,6 +6,7 @@ from urllib.parse import ParseResult, SplitResult
 
 from requests.auth import AuthBase
 from requests.models import Response
+from requests.sessions import _Timeout
 from requests.structures import CaseInsensitiveDict
 
 from .lib.url import URL
@@ -35,6 +36,7 @@ class DAVClient:
     username: str | None
     password: str | None
     auth: AuthBase | None
+    timeout: _Timeout | None
     ssl_verify_cert: bool | str
     ssl_cert: str | tuple[str, str] | None
     def __init__(
@@ -44,6 +46,7 @@ class DAVClient:
         username: str | None = ...,
         password: str | None = ...,
         auth: AuthBase | None = ...,
+        timeout: _Timeout | None = ...,
         ssl_verify_cert: bool | str = ...,
         ssl_cert: str | tuple[str, str] | None = ...,
     ) -> None: ...

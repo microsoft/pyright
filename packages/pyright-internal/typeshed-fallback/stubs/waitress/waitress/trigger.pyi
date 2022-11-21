@@ -4,7 +4,7 @@ from socket import socket
 from threading import Lock
 from typing_extensions import Literal
 
-from . import wasyncore as wasyncore
+from waitress import wasyncore as wasyncore
 
 class _triggerbase:
     kind: str | None = ...
@@ -18,7 +18,7 @@ class _triggerbase:
     def pull_trigger(self, thunk: Callable[[None], object] | None = ...) -> None: ...
     def handle_read(self) -> None: ...
 
-if sys.platform == "linux" or sys.platform == "darwin":
+if sys.platform != "win32":
     class trigger(_triggerbase, wasyncore.file_dispatcher):
         kind: str = ...
         def __init__(self, map: Mapping[str, _triggerbase]) -> None: ...

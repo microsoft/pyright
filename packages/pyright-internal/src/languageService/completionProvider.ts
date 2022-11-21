@@ -103,6 +103,7 @@ import {
     ParseNodeType,
     SetNode,
     StringNode,
+    TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
@@ -755,7 +756,7 @@ export class CompletionProvider {
             curNode.parent.parent?.nodeType === ParseNodeType.Suite &&
             curNode.parent.parent.parent?.nodeType === ParseNodeType.Class
         ) {
-            const completionList = this._getClassVariableCompletions(priorWord, curNode);
+            const completionList = this._getClassVariableCompletions(curNode);
             if (completionList) {
                 return completionList;
             }
@@ -934,7 +935,86 @@ export class CompletionProvider {
         return { completionMap };
     }
 
-    private _getClassVariableCompletions(priorWord: string, partialName: NameNode): CompletionResults | undefined {
+    private _addClassVariableTypeAnnotationCompletions(
+        priorWord: string,
+        parseNode: ParseNode,
+        completionMap: CompletionMap
+    ): void {
+        // class T:
+        //    f: |<= here
+        const isTypeAnnotationOfClassVariable =
+            parseNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+            parseNode.parent.valueExpression.nodeType === ParseNodeType.Name &&
+            parseNode.parent.typeAnnotation === parseNode &&
+            parseNode.parent.parent?.nodeType === ParseNodeType.StatementList &&
+            parseNode.parent.parent.parent?.nodeType === ParseNodeType.Suite &&
+            parseNode.parent.parent.parent.parent?.nodeType === ParseNodeType.Class;
+
+        if (!isTypeAnnotationOfClassVariable) {
+            return;
+        }
+
+        const enclosingClass = ParseTreeUtils.getEnclosingClass(parseNode, false);
+        if (!enclosingClass) {
+            return;
+        }
+
+        const classResults = this._evaluator.getTypeOfClass(enclosingClass);
+        if (!classResults) {
+            return undefined;
+        }
+
+        const symbolTable = new Map<string, Symbol>();
+        for (const mroClass of classResults.classType.details.mro) {
+            if (mroClass === classResults.classType) {
+                // Ignore current type.
+                continue;
+            }
+
+            if (isInstantiableClass(mroClass)) {
+                getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
+            }
+        }
+
+        const classVariableName = ((parseNode.parent as TypeAnnotationNode).valueExpression as NameNode).value;
+        const symbol = symbolTable.get(classVariableName);
+        if (!symbol) {
+            return;
+        }
+
+        const decls = symbol
+            .getDeclarations()
+            .filter((d) => isVariableDeclaration(d) && d.moduleName !== 'builtins') as VariableDeclaration[];
+
+        // Skip any symbols invalid such as defined in the same class.
+        if (
+            decls.length === 0 ||
+            decls.some((d) => d.node && ParseTreeUtils.getEnclosingClass(d.node, false) === enclosingClass)
+        ) {
+            return;
+        }
+
+        const declWithTypeAnnotations = decls.filter((d) => d.typeAnnotationNode);
+        if (declWithTypeAnnotations.length === 0) {
+            return;
+        }
+
+        const printFlags = isStubFile(this._filePath)
+            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations |
+              ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
+            : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
+
+        const text = `${ParseTreeUtils.printExpression(
+            declWithTypeAnnotations[declWithTypeAnnotations.length - 1].typeAnnotationNode!,
+            printFlags
+        )}`;
+
+        this._addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
+            sortText: this._makeSortText(SortCategory.LikelyKeyword, text),
+        });
+    }
+
+    private _getClassVariableCompletions(partialName: NameNode): CompletionResults | undefined {
         const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, false);
         if (!enclosingClass) {
             return undefined;
@@ -951,11 +1031,6 @@ export class CompletionProvider {
                 getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
             }
         }
-
-        const printFlags = isStubFile(this._filePath)
-            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations |
-              ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
-            : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
 
         const completionMap = new CompletionMap();
         symbolTable.forEach((symbol, name) => {
@@ -980,19 +1055,7 @@ export class CompletionProvider {
                 return;
             }
 
-            let edits: Edits | undefined;
-            const declWithTypeAnnotations = decls.filter((d) => d.typeAnnotationNode);
-            if (declWithTypeAnnotations.length > 0) {
-                const text = `${name}: ${ParseTreeUtils.printExpression(
-                    declWithTypeAnnotations[declWithTypeAnnotations.length - 1].typeAnnotationNode!,
-                    printFlags
-                )}`;
-                edits = {
-                    textEdit: this._createReplaceEdits(priorWord, partialName, text),
-                };
-            }
-
-            this._addSymbol(name, symbol, partialName.value, completionMap, { edits });
+            this._addSymbol(name, symbol, partialName.value, completionMap, {});
         });
 
         return completionMap.size > 0 ? { completionMap } : undefined;
@@ -1482,6 +1545,11 @@ export class CompletionProvider {
         if (priorText.slice(-2) === '..') {
             return completionResults;
         }
+
+        // Defining type annotation for class variables.
+        // ex) class A:
+        //         variable: | <= here
+        this._addClassVariableTypeAnnotationCompletions(priorWord, parseNode, completionMap);
 
         // Add call argument completions.
         this._addCallArgumentCompletions(

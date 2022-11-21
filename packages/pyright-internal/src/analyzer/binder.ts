@@ -23,7 +23,7 @@ import { assert, assertNever, fail } from '../common/debug';
 import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileName, stripFileExtension } from '../common/pathUtils';
-import { convertOffsetsToRange } from '../common/positionUtils';
+import { convertTextRangeToRange } from '../common/positionUtils';
 import { getEmptyRange } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
@@ -269,7 +269,6 @@ export class Binder extends ParseTreeWalker {
 
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
-                this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__name__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__loader__', node, 'Any');
@@ -281,6 +280,11 @@ export class Binder extends ParseTreeWalker {
                 this._addImplicitSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
                 this._addImplicitSymbolToCurrentScope('__annotations__', node, 'Dict[str, Any]');
                 this._addImplicitSymbolToCurrentScope('__builtins__', node, 'Any');
+
+                // If there is a static docstring provided in the module, assume
+                // that the type of `__doc__` is `str` rather than `str | None`.
+                const moduleDocString = ParseTreeUtils.getDocString(node.statements);
+                this._addImplicitSymbolToCurrentScope('__doc__', node, moduleDocString ? 'str' : 'str | None');
 
                 // Create a start node for the module.
                 this._currentFlowNode = this._createStartFlowNode();
@@ -397,7 +401,7 @@ export class Binder extends ParseTreeWalker {
             type: DeclarationType.Class,
             node,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
+            range: convertTextRangeToRange(node.name, this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
             isInExceptSuite: this._isInExceptSuite,
         };
@@ -455,7 +459,7 @@ export class Binder extends ParseTreeWalker {
             isMethod: !!containingClassNode,
             isGenerator: false,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
+            range: convertTextRangeToRange(node.name, this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
             isInExceptSuite: this._isInExceptSuite,
         };
@@ -522,11 +526,7 @@ export class Binder extends ParseTreeWalker {
                                 type: DeclarationType.Parameter,
                                 node: paramNode,
                                 path: this._fileInfo.filePath,
-                                range: convertOffsetsToRange(
-                                    paramNode.start,
-                                    TextRange.getEnd(paramNode),
-                                    this._fileInfo.lines
-                                ),
+                                range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
                                 moduleName: this._fileInfo.moduleName,
                                 isInExceptSuite: this._isInExceptSuite,
                             };
@@ -599,11 +599,7 @@ export class Binder extends ParseTreeWalker {
                                 type: DeclarationType.Parameter,
                                 node: paramNode,
                                 path: this._fileInfo.filePath,
-                                range: convertOffsetsToRange(
-                                    paramNode.start,
-                                    TextRange.getEnd(paramNode),
-                                    this._fileInfo.lines
-                                ),
+                                range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
                                 moduleName: this._fileInfo.moduleName,
                                 isInExceptSuite: this._isInExceptSuite,
                             };
@@ -738,6 +734,10 @@ export class Binder extends ParseTreeWalker {
             if (param.boundExpression) {
                 this.walk(param.boundExpression);
             }
+
+            if (param.defaultExpression) {
+                this.walk(param.defaultExpression);
+            }
         });
 
         node.parameters.forEach((param) => {
@@ -747,7 +747,7 @@ export class Binder extends ParseTreeWalker {
                 type: DeclarationType.TypeParameter,
                 node: param,
                 path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(node.start, TextRange.getEnd(node), this._fileInfo.lines),
+                range: convertTextRangeToRange(node, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
             };
@@ -782,7 +782,7 @@ export class Binder extends ParseTreeWalker {
             type: DeclarationType.TypeAlias,
             node,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
+            range: convertTextRangeToRange(node.name, this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
             isInExceptSuite: this._isInExceptSuite,
         };
@@ -836,15 +836,7 @@ export class Binder extends ParseTreeWalker {
             }
         }
 
-        // If this is an annotated variable assignment within a class body,
-        // we need to evaluate the type annotation first.
-        const bindVariableBeforeRhsEvaluation =
-            node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-            ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true) !== undefined;
-
-        if (!bindVariableBeforeRhsEvaluation) {
-            this.walk(node.rightExpression);
-        }
+        this.walk(node.rightExpression);
 
         let isPossibleTypeAlias = true;
         if (ParseTreeUtils.getEnclosingFunction(node)) {
@@ -865,10 +857,6 @@ export class Binder extends ParseTreeWalker {
 
         // If we didn't create assignment target flow nodes above, do so now.
         this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
-
-        if (bindVariableBeforeRhsEvaluation) {
-            this.walk(node.rightExpression);
-        }
 
         // Is this an assignment to dunder all?
         if (this._currentScope.type === ScopeType.Module) {
@@ -1097,12 +1085,24 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
-        this.walk(node.typeAnnotation);
+        // If this is an annotated variable assignment within a class body,
+        // we need to evaluate the type annotation first.
+        const bindVariableBeforeAnnotationEvaluation =
+            node.parent?.nodeType === ParseNodeType.Assignment &&
+            ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true) !== undefined;
+
+        if (!bindVariableBeforeAnnotationEvaluation) {
+            this.walk(node.typeAnnotation);
+        }
 
         this._createVariableAnnotationFlowNode();
 
         this._bindPossibleTupleNamedTarget(node.valueExpression);
         this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
+
+        if (bindVariableBeforeAnnotationEvaluation) {
+            this.walk(node.typeAnnotation);
+        }
 
         // For type annotations that are not part of assignments (e.g. simple variable
         // annotations), we need to populate the reference map. Otherwise the type
@@ -1365,7 +1365,7 @@ export class Binder extends ParseTreeWalker {
                     isConstant: isConstantName(node.name.value),
                     inferredTypeSource: node,
                     path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
+                    range: convertTextRangeToRange(node.name, this._fileInfo.lines),
                     moduleName: this._fileInfo.moduleName,
                     isInExceptSuite: this._isInExceptSuite,
                 };
@@ -1760,7 +1760,7 @@ export class Binder extends ParseTreeWalker {
                                     node,
                                     path: resolvedPath,
                                     loadSymbolsFromPath: true,
-                                    range: getEmptyRange(),
+                                    range: getEmptyRange(), // Range is unknown for wildcard name import.
                                     usesLocalName: false,
                                     symbolName: name,
                                     moduleName: this._fileInfo.moduleName,
@@ -1832,6 +1832,7 @@ export class Binder extends ParseTreeWalker {
             node.imports.forEach((importSymbolNode) => {
                 const importedName = importSymbolNode.name.value;
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
+
                 const symbol = this._bindNameToScope(this._currentScope, nameNode);
 
                 if (symbol) {
@@ -1871,7 +1872,7 @@ export class Binder extends ParseTreeWalker {
                             node: importSymbolNode,
                             path: implicitImport.path,
                             loadSymbolsFromPath: true,
-                            range: getEmptyRange(),
+                            range: convertTextRangeToRange(importSymbolNode, this._fileInfo.lines),
                             usesLocalName: false,
                             moduleName: this._fileInfo.moduleName,
                             isInExceptSuite: this._isInExceptSuite,
@@ -1897,7 +1898,7 @@ export class Binder extends ParseTreeWalker {
                         usesLocalName: !!importSymbolNode.alias,
                         symbolName: importedName,
                         submoduleFallback,
-                        range: getEmptyRange(),
+                        range: convertTextRangeToRange(nameNode, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
                         isNativeLib: importInfo?.isNativeLib,
@@ -2239,11 +2240,7 @@ export class Binder extends ParseTreeWalker {
                     isConstant: isConstantName(node.target.value),
                     inferredTypeSource: node,
                     path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(
-                        node.target.start,
-                        TextRange.getEnd(node.target),
-                        this._fileInfo.lines
-                    ),
+                    range: convertTextRangeToRange(node.target, this._fileInfo.lines),
                     moduleName: this._fileInfo.moduleName,
                     isInExceptSuite: this._isInExceptSuite,
                 };
@@ -2323,11 +2320,7 @@ export class Binder extends ParseTreeWalker {
                 isConstant: isConstantName(slotName),
                 isDefinedBySlots: true,
                 path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(
-                    slotNameNode.start,
-                    slotNameNode.start + slotNameNode.length,
-                    this._fileInfo.lines
-                ),
+                range: convertTextRangeToRange(slotNameNode, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
             };
@@ -2376,7 +2369,7 @@ export class Binder extends ParseTreeWalker {
                 isConstant: isConstantName(target.value),
                 inferredTypeSource: target.parent,
                 path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(target.start, TextRange.getEnd(target), this._fileInfo.lines),
+                range: convertTextRangeToRange(target, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
             };
@@ -2473,7 +2466,7 @@ export class Binder extends ParseTreeWalker {
                 node,
                 path: pathOfLastSubmodule,
                 loadSymbolsFromPath: false,
-                range: getEmptyRange(),
+                range: importAlias ? convertTextRangeToRange(importAlias, this._fileInfo.lines) : getEmptyRange(),
                 usesLocalName: !!importAlias,
                 moduleName: importInfo.importName,
                 firstNamePart: firstNamePartValue,
@@ -2488,7 +2481,7 @@ export class Binder extends ParseTreeWalker {
                 node,
                 path: pathOfLastSubmodule,
                 loadSymbolsFromPath: true,
-                range: getEmptyRange(),
+                range: importAlias ? convertTextRangeToRange(importAlias, this._fileInfo.lines) : getEmptyRange(),
                 usesLocalName: !!importAlias,
                 moduleName: importInfo?.importName ?? '',
                 firstNamePart: firstNamePartValue,
@@ -3467,7 +3460,7 @@ export class Binder extends ParseTreeWalker {
                         isInferenceAllowedInPyTyped: this._isInferenceAllowedInPyTyped(name.value),
                         typeAliasName: isPossibleTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
+                        range: convertTextRangeToRange(name, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
@@ -3515,11 +3508,7 @@ export class Binder extends ParseTreeWalker {
                         inferredTypeSource: source,
                         isDefinedByMemberAccess: true,
                         path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(
-                            target.memberName.start,
-                            target.memberName.start + target.memberName.length,
-                            this._fileInfo.lines
-                        ),
+                        range: convertTextRangeToRange(target.memberName, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
@@ -3633,7 +3622,7 @@ export class Binder extends ParseTreeWalker {
                         typeAliasName: isExplicitTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
                         typeAnnotationNode,
-                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
+                        range: convertTextRangeToRange(name, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
@@ -3706,11 +3695,7 @@ export class Binder extends ParseTreeWalker {
                         isFinal: finalInfo.isFinal,
                         path: this._fileInfo.filePath,
                         typeAnnotationNode: finalInfo.isFinal && !finalInfo.finalTypeNode ? undefined : typeAnnotation,
-                        range: convertOffsetsToRange(
-                            target.memberName.start,
-                            target.memberName.start + target.memberName.length,
-                            this._fileInfo.lines
-                        ),
+                        range: convertTextRangeToRange(target.memberName, this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
@@ -4135,11 +4120,7 @@ export class Binder extends ParseTreeWalker {
                 type: DeclarationType.SpecialBuiltInClass,
                 node: annotationNode,
                 path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(
-                    annotationNode.start,
-                    TextRange.getEnd(annotationNode),
-                    this._fileInfo.lines
-                ),
+                range: convertTextRangeToRange(annotationNode, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
             });

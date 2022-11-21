@@ -93,7 +93,7 @@ export class EnumLiteral {
 export type LiteralValue = number | bigint | boolean | string | EnumLiteral;
 
 export type TypeSourceId = number;
-export const maxTypeRecursionCount = 14;
+export const maxTypeRecursionCount = 32;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
@@ -493,12 +493,13 @@ interface ClassDetails {
     // or a base class.
     classDataClassTransform?: DataClassBehaviors | undefined;
 
-    // Variance of type parameters, inferred if necessary.
-    typeParameterVariance?: Variance[];
-
     // Indicates that one or more type parameters has an
     // autovariance, so variance must be inferred.
     requiresVarianceInference?: boolean;
+
+    // A cached value that indicates whether an instance of this class
+    // is hashable (i.e. does not override "__hash__" with None).
+    isInstanceHashable?: boolean;
 }
 
 export interface TupleTypeArgument {
@@ -636,15 +637,13 @@ export namespace ClassType {
     ): ClassType {
         const newClassType = TypeBase.cloneType(classType);
 
-        // Never should never appear as a type argument, so replace it with
-        newClassType.typeArguments = typeArguments
-            ? typeArguments.map((t) => (isNever(t) && !t.isNoReturn ? UnknownType.create() : t))
-            : undefined;
-
+        newClassType.typeArguments = typeArguments;
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
+
         if (includeSubclasses) {
             newClassType.includeSubclasses = true;
         }
+
         newClassType.tupleTypeArguments = tupleTypeArguments
             ? tupleTypeArguments.map((t) =>
                   isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded } : t
@@ -1761,14 +1760,6 @@ export namespace FunctionType {
             ? type.specializedTypes.returnType
             : type.details.declaredReturnType;
     }
-
-    /** Ignore nameless separator parameters by default */
-    export function getFunctionParameters(type: FunctionType, excludeNameless = true) {
-        if (excludeNameless) {
-            return type.details.parameters.filter((param) => !!param.name);
-        }
-        return type.details.parameters;
-    }
 }
 
 export interface OverloadedFunctionType extends TypeBase {
@@ -1978,6 +1969,7 @@ export interface UnionType extends TypeBase {
     literalStrMap?: Map<string, UnionableType> | undefined;
     literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     typeAliasSources?: Set<UnionType>;
+    includesTypeAliasPlaceholder?: boolean;
 }
 
 export namespace UnionType {
@@ -2011,6 +2003,12 @@ export namespace UnionType {
 
         unionType.flags &= newType.flags;
         unionType.subtypes.push(newType);
+
+        if (isTypeVar(newType) && TypeVarType.isTypeAliasPlaceholder(newType)) {
+            // Note that at least one type alias placeholder was included in
+            // this union. We'll need to expand it before the union is used.
+            unionType.includesTypeAliasPlaceholder = true;
+        }
     }
 
     export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
@@ -2258,6 +2256,12 @@ export namespace TypeVarType {
 
         return variance;
     }
+
+    // Indicates whether the specified type is a recursive type alias
+    // placeholder that has not yet been resolved.
+    export function isTypeAliasPlaceholder(type: TypeVarType) {
+        return !!type.details.recursiveTypeAliasName && !type.details.boundType;
+    }
 }
 
 export function isNever(type: Type): type is NeverType {
@@ -2337,10 +2341,12 @@ export function isVariadicTypeVar(type: Type): type is TypeVarType {
 }
 
 export function isUnpackedVariadicTypeVar(type: Type): boolean {
-    if (isUnion(type) && type.subtypes.length === 1) {
-        type = type.subtypes[0];
-    }
-    return type.category === TypeCategory.TypeVar && type.details.isVariadic && !!type.isVariadicUnpacked;
+    return (
+        type.category === TypeCategory.TypeVar &&
+        type.details.isVariadic &&
+        !!type.isVariadicUnpacked &&
+        !type.isVariadicInUnion
+    );
 }
 
 export function isUnpackedClass(type: Type): type is ClassType {
@@ -2634,6 +2640,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 }
             }
 
+            if (!type1.isVariadicInUnion !== !type2TypeVar.isVariadicInUnion) {
+                return false;
+            }
+
             if (type1.details === type2TypeVar.details) {
                 return true;
             }
@@ -2702,6 +2712,12 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             return false;
+        }
+
+        case TypeCategory.Unknown: {
+            const type2Unknown = type2 as UnknownType;
+
+            return type1.isIncomplete === type2Unknown.isIncomplete;
         }
     }
 

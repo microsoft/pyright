@@ -3,6 +3,8 @@
 
 
 class Example1:
+    # This should generate two errors because "str" refers to itself
+    # and it is a variable, so it's an illegal annotation.
     str: str = ""
 
     int = int

@@ -50,11 +50,13 @@ export interface DeclarationBase {
     // Used by hover provider to display helpful text.
     type: DeclarationType;
 
-    // Parse node associated with the declaration.
+    // Parse node associated with the declaration. Does not necessarily match
+    // the path and range.
     node: ParseNode;
 
     // The file and range within that file that
-    // contains the declaration.
+    // contains the declaration. Unless this is an alias, then path refers to the
+    // file the alias is referring to.
     path: string;
     range: Range;
 

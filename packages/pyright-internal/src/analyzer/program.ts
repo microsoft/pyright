@@ -272,7 +272,7 @@ export class Program {
     }
 
     addTrackedFile(filePath: string, isThirdPartyImport = false, isInPyTypedPackage = false): SourceFile {
-        let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        let sourceFileInfo = this.getSourceFileInfo(filePath);
         const importName = this._getImportNameForFile(filePath);
 
         if (sourceFileInfo) {
@@ -315,7 +315,7 @@ export class Program {
         contents: TextDocumentContentChangeEvent[],
         options?: OpenFileOptions
     ) {
-        let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        let sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
             const sourceFile = new SourceFile(
@@ -334,7 +334,7 @@ export class Program {
             sourceFileInfo = {
                 sourceFile,
                 isTracked: options?.isTracked ?? false,
-                chainedSourceFile: chainedFilePath ? this._getSourceFileInfoFromPath(chainedFilePath) : undefined,
+                chainedSourceFile: chainedFilePath ? this.getSourceFileInfo(chainedFilePath) : undefined,
                 isOpenByClient: true,
                 isTypeshedFile: false,
                 isThirdPartyImport: false,
@@ -360,26 +360,25 @@ export class Program {
     }
 
     getChainedFilePath(filePath: string): string | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         return sourceFileInfo?.chainedSourceFile?.sourceFile.getFilePath();
     }
 
     updateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (sourceFileInfo) {
-            sourceFileInfo.chainedSourceFile = chainedFilePath
-                ? this._getSourceFileInfoFromPath(chainedFilePath)
-                : undefined;
+            sourceFileInfo.chainedSourceFile = chainedFilePath ? this.getSourceFileInfo(chainedFilePath) : undefined;
 
             sourceFileInfo.sourceFile.markDirty();
             this._markFileDirtyRecursive(sourceFileInfo, new Set<string>());
         }
     }
 
-    setFileClosed(filePath: string): FileDiagnostics[] {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+    setFileClosed(filePath: string, isTracked?: boolean): FileDiagnostics[] {
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
+            sourceFileInfo.isTracked = isTracked ?? sourceFileInfo.isTracked;
             sourceFileInfo.sourceFile.setClientVersion(null, []);
 
             // There is no guarantee that content is saved before the file is closed.
@@ -393,10 +392,6 @@ export class Program {
         }
 
         return this._removeUnneededFiles();
-    }
-
-    isFileOpen(filePath: string) {
-        return this._getSourceFileInfoFromPath(filePath) !== undefined;
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {
@@ -422,7 +417,7 @@ export class Program {
     markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean, indexingNeeded = true) {
         const markDirtySet = new Set<string>();
         filePaths.forEach((filePath) => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (sourceFileInfo) {
                 const fileName = getFileName(filePath);
 
@@ -500,7 +495,7 @@ export class Program {
     }
 
     getSourceFile(filePath: string): SourceFile | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -512,8 +507,12 @@ export class Program {
         return this.getBoundSourceFileInfo(filePath)?.sourceFile;
     }
 
+    getSourceFileInfo(filePath: string): SourceFileInfo | undefined {
+        return this._sourceFileMap.get(normalizePathCase(this._fs, filePath));
+    }
+
     getBoundSourceFileInfo(filePath: string): SourceFileInfo | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -541,7 +540,7 @@ export class Program {
 
                 // Check the open files.
                 for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo)) {
+                    if (this._checkTypes(sourceFileInfo, token)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -565,7 +564,7 @@ export class Program {
                         continue;
                     }
 
-                    if (this._checkTypes(sourceFileInfo)) {
+                    if (this._checkTypes(sourceFileInfo, token)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -821,7 +820,7 @@ export class Program {
     // We need to track the relationship so if the original type stub is removed from the
     // program, we can remove the corresponding shadowed file and any files it imports.
     private _addShadowedFile(stubFile: SourceFileInfo, shadowImplPath: string): SourceFile {
-        let shadowFileInfo = this._getSourceFileInfoFromPath(shadowImplPath);
+        let shadowFileInfo = this.getSourceFileInfo(shadowImplPath);
 
         if (!shadowFileInfo) {
             const importName = this._getImportNameForFile(shadowImplPath);
@@ -978,7 +977,7 @@ export class Program {
         let sourceFileInfo: SourceFileInfo | undefined;
 
         if (typeof filePathOrModule === 'string') {
-            sourceFileInfo = this._getSourceFileInfoFromPath(filePathOrModule);
+            sourceFileInfo = this.getSourceFileInfo(filePathOrModule);
         } else {
             // Resolve the import.
             const importResult = this._importResolver.resolveImport(
@@ -995,14 +994,14 @@ export class Program {
                 let resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
                 if (resolvedPath) {
                     // See if the source file already exists in the program.
-                    sourceFileInfo = this._getSourceFileInfoFromPath(resolvedPath);
+                    sourceFileInfo = this.getSourceFileInfo(resolvedPath);
 
                     if (!sourceFileInfo) {
                         resolvedPath = normalizePathCase(this._fs, resolvedPath);
 
                         // Start tracking the source file.
                         this.addTrackedFile(resolvedPath);
-                        sourceFileInfo = this._getSourceFileInfoFromPath(resolvedPath);
+                        sourceFileInfo = this.getSourceFileInfo(resolvedPath);
                     }
                 }
             }
@@ -1071,7 +1070,7 @@ export class Program {
         return false;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo) {
+    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken) {
         return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
@@ -1101,7 +1100,14 @@ export class Program {
             }
 
             if (!this._disableChecker) {
-                fileToCheck.sourceFile.check(this._importResolver, this._evaluator!);
+                const execEnv = this._configOptions.findExecEnvironment(fileToCheck.sourceFile.getFilePath());
+                fileToCheck.sourceFile.check(
+                    this._importResolver,
+                    this._evaluator!,
+                    execEnv,
+                    this._createSourceMapper(execEnv, token, fileToCheck),
+                    (p) => isUserCode(this.getSourceFileInfo(p))
+                );
             }
 
             // For very large programs, we may need to discard the evaluator and
@@ -1244,7 +1250,7 @@ export class Program {
 
         circDep.normalizeOrder();
         const firstFilePath = circDep.getPaths()[0];
-        const firstSourceFile = this._getSourceFileInfoFromPath(firstFilePath)!;
+        const firstSourceFile = this.getSourceFileInfo(firstFilePath)!;
         assert(firstSourceFile !== undefined);
         firstSourceFile.sourceFile.addCircularDependency(circDep);
     }
@@ -1267,7 +1273,7 @@ export class Program {
     }
 
     getTextOnRange(filePath: string, range: Range, token: CancellationToken): string | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -1300,7 +1306,7 @@ export class Program {
         options: AutoImportOptions,
         token: CancellationToken
     ): AutoImportResult[] {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return [];
         }
@@ -1431,7 +1437,7 @@ export class Program {
         token: CancellationToken
     ): DocumentRange[] | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -1455,7 +1461,7 @@ export class Program {
         token: CancellationToken
     ): DocumentRange[] | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -1487,7 +1493,7 @@ export class Program {
         token: CancellationToken
     ) {
         this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return;
             }
@@ -1547,7 +1553,7 @@ export class Program {
                             continue;
                         }
 
-                        const declFileInfo = this._getSourceFileInfoFromPath(decl.path);
+                        const declFileInfo = this.getSourceFileInfo(decl.path);
                         if (!declFileInfo) {
                             // The file the declaration belongs to doesn't belong to the program.
                             continue;
@@ -1588,7 +1594,7 @@ export class Program {
         this._handleMemoryHighUsage();
 
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -1614,7 +1620,7 @@ export class Program {
 
     addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (sourceFileInfo) {
                 if (!sourceFileInfo.sourceFile.getCachedIndexResults()) {
                     // If we already have cached index for this file, no need to bind this file.
@@ -1664,7 +1670,7 @@ export class Program {
         token: CancellationToken
     ): HoverResults | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -1688,7 +1694,7 @@ export class Program {
         token: CancellationToken
     ): DocumentHighlight[] | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -1712,7 +1718,7 @@ export class Program {
         token: CancellationToken
     ): SignatureHelpResults | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -1739,7 +1745,7 @@ export class Program {
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ): Promise<CompletionResultsList | undefined> {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -1814,7 +1820,7 @@ export class Program {
         token: CancellationToken
     ) {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return;
             }
@@ -1847,7 +1853,7 @@ export class Program {
     renameModule(path: string, newPath: string, token: CancellationToken): FileEditActions | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
             if (isFile(this._fs, path)) {
-                const fileInfo = this._getSourceFileInfoFromPath(path);
+                const fileInfo = this.getSourceFileInfo(path);
                 if (!fileInfo) {
                     return undefined;
                 }
@@ -1877,7 +1883,7 @@ export class Program {
         token: CancellationToken
     ): FileEditActions | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const fileInfo = this._getSourceFileInfoFromPath(filePath);
+            const fileInfo = this.getSourceFileInfo(filePath);
             if (!fileInfo) {
                 return undefined;
             }
@@ -1938,7 +1944,7 @@ export class Program {
         token: CancellationToken
     ): { range: Range; declarations: Declaration[] } | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -1985,7 +1991,7 @@ export class Program {
         token: CancellationToken
     ): FileEditActions | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
             if (!sourceFileInfo) {
                 return undefined;
             }
@@ -2100,7 +2106,7 @@ export class Program {
     }
 
     getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -2137,7 +2143,7 @@ export class Program {
         position: Position,
         token: CancellationToken
     ): CallHierarchyIncomingCall[] | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -2193,7 +2199,7 @@ export class Program {
         position: Position,
         token: CancellationToken
     ): CallHierarchyOutgoingCall[] | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -2230,7 +2236,7 @@ export class Program {
         args: any[],
         token: CancellationToken
     ): TextEditAction[] | undefined {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        const sourceFileInfo = this.getSourceFileInfo(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -2282,12 +2288,12 @@ export class Program {
             (userFile && !referencesResult.requiresGlobalSearch) ||
             (!userFile &&
                 sourceFileInfo.isOpenByClient &&
-                referencesResult.declarations.every((d) => this._getSourceFileInfoFromPath(d.path) === sourceFileInfo))
+                referencesResult.declarations.every((d) => this.getSourceFileInfo(d.path) === sourceFileInfo))
         ) {
             return 'singleFileMode';
         }
 
-        if (referencesResult.declarations.every((d) => isUserCode(this._getSourceFileInfoFromPath(d.path)))) {
+        if (referencesResult.declarations.every((d) => isUserCode(this.getSourceFileInfo(d.path)))) {
             return 'multiFileMode';
         }
 
@@ -2298,7 +2304,7 @@ export class Program {
 
     private _supportRenameModule(declarations: Declaration[], isDefaultWorkspace: boolean) {
         // Rename module is not supported for standalone file and all decls must be on a user file.
-        return !isDefaultWorkspace && declarations.every((d) => isUserCode(this._getSourceFileInfoFromPath(d.path)));
+        return !isDefaultWorkspace && declarations.every((d) => isUserCode(this.getSourceFileInfo(d.path)));
     }
 
     private _getReferenceResult(
@@ -2560,7 +2566,7 @@ export class Program {
             execEnv,
             this._evaluator!,
             (stubFilePath: string, implFilePath: string) => {
-                const stubFileInfo = this._getSourceFileInfoFromPath(stubFilePath);
+                const stubFileInfo = this.getSourceFileInfo(stubFilePath);
                 if (!stubFileInfo) {
                     return undefined;
                 }
@@ -2568,6 +2574,7 @@ export class Program {
                 return this.getBoundSourceFile(implFilePath);
             },
             (f) => this.getBoundSourceFileInfo(f),
+            (f) => this.getSourceFileInfo(f),
             mapCompiled ?? false,
             preferStubs ?? false,
             from,
@@ -2770,8 +2777,8 @@ export class Program {
                 // We found a new import to add. See if it's already part
                 // of the program.
                 let importedFileInfo: SourceFileInfo;
-                if (this._getSourceFileInfoFromPath(importInfo.path)) {
-                    importedFileInfo = this._getSourceFileInfoFromPath(importInfo.path)!;
+                if (this.getSourceFileInfo(importInfo.path)) {
+                    importedFileInfo = this.getSourceFileInfo(importInfo.path)!;
                 } else {
                     const importName = this._getImportNameForFile(importInfo.path);
                     const sourceFile = new SourceFile(
@@ -2810,8 +2817,8 @@ export class Program {
         // specified by the source file.
         sourceFileInfo.imports = [];
         newImportPathMap.forEach((_, path) => {
-            if (this._getSourceFileInfoFromPath(path)) {
-                sourceFileInfo.imports.push(this._getSourceFileInfoFromPath(path)!);
+            if (this.getSourceFileInfo(path)) {
+                sourceFileInfo.imports.push(this.getSourceFileInfo(path)!);
             }
         });
 
@@ -2821,7 +2828,7 @@ export class Program {
         const builtinsImport = sourceFileInfo.sourceFile.getBuiltinsImport();
         if (builtinsImport && builtinsImport.isImportFound) {
             const resolvedBuiltinsPath = builtinsImport.resolvedPaths[builtinsImport.resolvedPaths.length - 1];
-            sourceFileInfo.builtinsImport = this._getSourceFileInfoFromPath(resolvedBuiltinsPath);
+            sourceFileInfo.builtinsImport = this.getSourceFileInfo(resolvedBuiltinsPath);
         }
 
         // Resolve the ipython display import for the file. This needs to be
@@ -2831,14 +2838,10 @@ export class Program {
         if (ipythonDisplayImport && ipythonDisplayImport.isImportFound) {
             const resolvedIPythonDisplayPath =
                 ipythonDisplayImport.resolvedPaths[ipythonDisplayImport.resolvedPaths.length - 1];
-            sourceFileInfo.ipythonDisplayImport = this._getSourceFileInfoFromPath(resolvedIPythonDisplayPath);
+            sourceFileInfo.ipythonDisplayImport = this.getSourceFileInfo(resolvedIPythonDisplayPath);
         }
 
         return filesAdded;
-    }
-
-    private _getSourceFileInfoFromPath(filePath: string): SourceFileInfo | undefined {
-        return this._sourceFileMap.get(normalizePathCase(this._fs, filePath));
     }
 
     private _removeSourceFileFromListAndMap(filePath: string, indexToRemove: number) {

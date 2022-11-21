@@ -638,6 +638,11 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += this._printExpression(node.boundExpression);
         }
 
+        if (node.defaultExpression) {
+            line += ' = ';
+            line += this._printExpression(node.defaultExpression);
+        }
+
         return line;
     }
 

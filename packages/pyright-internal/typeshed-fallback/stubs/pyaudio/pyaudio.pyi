@@ -1,5 +1,8 @@
+import sys
 from collections.abc import Callable, Mapping, Sequence
-from typing_extensions import Final, TypeAlias
+from typing_extensions import Final, TypeAlias, final
+
+__docformat__: str
 
 paFloat32: Final[int]
 paInt32: Final[int]
@@ -64,12 +67,50 @@ paOutputUnderflow: Final[int]
 paOutputOverflow: Final[int]
 paPrimingOutput: Final[int]
 
-paMacCoreStreamInfo: PaMacCoreStreamInfo
+paFramesPerBufferUnspecified: Final[int]
+
+if sys.platform == "darwin":
+    @final
+    class paMacCoreStreamInfo:
+        paMacCoreChangeDeviceParameters: Final[int]
+        paMacCoreFailIfConversionRequired: Final[int]
+        paMacCoreConversionQualityMin: Final[int]
+        paMacCoreConversionQualityMedium: Final[int]
+        paMacCoreConversionQualityLow: Final[int]
+        paMacCoreConversionQualityHigh: Final[int]
+        paMacCoreConversionQualityMax: Final[int]
+        paMacCorePlayNice: Final[int]
+        paMacCorePro: Final[int]
+        paMacCoreMinimizeCPUButPlayNice: Final[int]
+        paMacCoreMinimizeCPU: Final[int]
+        flags: Final[int]
+        channel_map: Final[_ChannelMap | None]
+        def __init__(self, flags: int = ..., channel_map: _ChannelMap = ...) -> None: ...
+
+    class PaMacCoreStreamInfo:
+        paMacCoreChangeDeviceParameters: Final[int]
+        paMacCoreFailIfConversionRequired: Final[int]
+        paMacCoreConversionQualityMin: Final[int]
+        paMacCoreConversionQualityMedium: Final[int]
+        paMacCoreConversionQualityLow: Final[int]
+        paMacCoreConversionQualityHigh: Final[int]
+        paMacCoreConversionQualityMax: Final[int]
+        paMacCorePlayNice: Final[int]
+        paMacCorePro: Final[int]
+        paMacCoreMinimizeCPUButPlayNice: Final[int]
+        paMacCoreMinimizeCPU: Final[int]
+        def __init__(self, flags: int | None = ..., channel_map: _ChannelMap | None = ...) -> None: ...
+        def get_flags(self) -> int: ...
+        def get_channel_map(self) -> _ChannelMap | None: ...
+
+    _PaMacCoreStreamInfo: TypeAlias = PaMacCoreStreamInfo
+else:
+    _PaMacCoreStreamInfo: TypeAlias = None
 
 # Auxiliary types
 _ChannelMap: TypeAlias = Sequence[int]
 _PaHostApiInfo: TypeAlias = Mapping[str, str | int]
-_PaDeviceInfo: TypeAlias = Mapping[str, str | float]
+_PaDeviceInfo: TypeAlias = Mapping[str, str | int | float]
 _StreamCallback: TypeAlias = Callable[[bytes | None, int, Mapping[str, float], int], tuple[bytes | None, int]]
 
 def get_format_from_width(width: int, unsigned: bool = ...) -> int: ...
@@ -90,8 +131,8 @@ class Stream:
         output_device_index: int | None = ...,
         frames_per_buffer: int = ...,
         start: bool = ...,
-        input_host_api_specific_stream_info: PaMacCoreStreamInfo | None = ...,
-        output_host_api_specific_stream_info: PaMacCoreStreamInfo | None = ...,
+        input_host_api_specific_stream_info: _PaMacCoreStreamInfo | None = ...,
+        output_host_api_specific_stream_info: _PaMacCoreStreamInfo | None = ...,
         stream_callback: _StreamCallback | None = ...,
     ) -> None: ...
     def close(self) -> None: ...
@@ -143,24 +184,8 @@ class PyAudio:
         output_device_index: int | None = ...,
         frames_per_buffer: int = ...,
         start: bool = ...,
-        input_host_api_specific_stream_info: PaMacCoreStreamInfo | None = ...,
-        output_host_api_specific_stream_info: PaMacCoreStreamInfo | None = ...,
+        input_host_api_specific_stream_info: _PaMacCoreStreamInfo | None = ...,
+        output_host_api_specific_stream_info: _PaMacCoreStreamInfo | None = ...,
         stream_callback: _StreamCallback | None = ...,
     ) -> Stream: ...
     def terminate(self) -> None: ...
-
-class PaMacCoreStreamInfo:
-    paMacCoreChangeDeviceParameters: Final[int] = ...
-    paMacCoreFailIfConversionRequired: Final[int] = ...
-    paMacCoreConversionQualityMin: Final[int] = ...
-    paMacCoreConversionQualityMedium: Final[int] = ...
-    paMacCoreConversionQualityLow: Final[int] = ...
-    paMacCoreConversionQualityHigh: Final[int] = ...
-    paMacCoreConversionQualityMax: Final[int] = ...
-    paMacCorePlayNice: Final[int] = ...
-    paMacCorePro: Final[int] = ...
-    paMacCoreMinimizeCPUButPlayNice: Final[int] = ...
-    paMacCoreMinimizeCPU: Final[int] = ...
-    def __init__(self, flags: int | None = ..., channel_map: _ChannelMap | None = ...) -> None: ...
-    def get_flags(self) -> int: ...
-    def get_channel_map(self) -> _ChannelMap | None: ...

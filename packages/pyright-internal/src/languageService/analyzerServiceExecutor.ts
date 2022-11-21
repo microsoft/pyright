@@ -21,6 +21,12 @@ import {
     WorkspaceServiceInstance,
 } from '../languageServerBase';
 
+export interface CloneOptions {
+    useBackgroundAnalysis?: boolean;
+    typeStubTargetImportName?: string;
+    fileSystem?: FileSystem;
+}
+
 export class AnalyzerServiceExecutor {
     static runWithOptions(
         languageServiceRootPath: string,
@@ -44,12 +50,13 @@ export class AnalyzerServiceExecutor {
     static async cloneService(
         ls: LanguageServerInterface,
         workspace: WorkspaceServiceInstance,
-        typeStubTargetImportName?: string,
-        fileSystem?: FileSystem
+        options?: CloneOptions
     ): Promise<AnalyzerService> {
         // Allocate a temporary pseudo-workspace to perform this job.
         const instanceName = 'cloned service';
         const serviceId = getNextServiceId(instanceName);
+
+        options = options ?? {};
 
         const tempWorkspace: WorkspaceServiceInstance = {
             workspaceName: `temp workspace for cloned service`,
@@ -60,15 +67,14 @@ export class AnalyzerServiceExecutor {
             serviceInstance: workspace.serviceInstance.clone(
                 instanceName,
                 serviceId,
-                ls.createBackgroundAnalysis(serviceId),
-                fileSystem
+                options.useBackgroundAnalysis ? ls.createBackgroundAnalysis(serviceId) : undefined,
+                options.fileSystem
             ),
             disableLanguageServices: true,
             disableOrganizeImports: true,
             disableWorkspaceSymbol: true,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
-            owns: workspace.owns,
         };
 
         const serverSettings = await ls.getSettings(workspace);
@@ -76,7 +82,7 @@ export class AnalyzerServiceExecutor {
             ls.rootPath,
             tempWorkspace,
             serverSettings,
-            typeStubTargetImportName,
+            options.typeStubTargetImportName,
             /* trackFiles */ false
         );
 

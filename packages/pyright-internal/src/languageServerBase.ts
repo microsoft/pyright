@@ -168,7 +168,6 @@ export interface WorkspaceServiceInstance {
     disableWorkspaceSymbol: boolean;
     isInitialized: Deferred<boolean>;
     searchPathsToWatch: string[];
-    owns(filePath: string): boolean;
 }
 
 export interface MessageAction {
@@ -464,6 +463,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return service;
     }
 
+    async test_getWorkspaces() {
+        const workspaces = [...this._workspaceMap.values()];
+        for (const workspace of workspaces) {
+            await workspace.isInitialized.promise;
+        }
+
+        return workspaces;
+    }
+
     async getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance> {
         const workspace = this._workspaceMap.getWorkspaceForFile(this, filePath);
         await workspace.isInitialized.promise;
@@ -532,6 +540,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._connection.onExecuteCommand(async (params, token, reporter) =>
             this.onExecuteCommand(params, token, reporter)
         );
+        this._connection.onShutdown(async (token) => this.onShutdown(token));
     }
 
     protected initialize(
@@ -778,7 +787,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return undefined;
         }
         return locations
-            .filter((loc) => !workspace.serviceInstance.fs.isInZipOrEgg(loc.path))
+            .filter((loc) => this.canNavigateToFile(loc.path, workspace.serviceInstance.fs))
             .map((loc) => Location.create(convertPathToUri(workspace.serviceInstance.fs, loc.path), loc.range));
     }
 
@@ -818,7 +827,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             const convert = (locs: DocumentRange[]): Location[] => {
                 return locs
-                    .filter((loc) => !workspace.serviceInstance.fs.isInZipOrEgg(loc.path))
+                    .filter((loc) => this.canNavigateToFile(loc.path, workspace.serviceInstance.fs))
                     .map((loc) => Location.create(convertPathToUri(workspace.serviceInstance.fs, loc.path), loc.range));
             };
 
@@ -1084,12 +1093,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             token
         );
 
-        // We only allow renaming symbol defined in the files this workspace owns.
-        // This is to make sure we don't rename files across workspaces in multiple workspaces context.
-        if (result && result.declarations.some((d) => d.path && !workspace.owns(d.path))) {
-            return null;
-        }
-
         return result?.range ?? null;
     }
 
@@ -1136,7 +1139,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        if (workspace.serviceInstance.fs.isInZipOrEgg(callItem.uri)) {
+        if (!this.canNavigateToFile(callItem.uri, workspace.serviceInstance.fs)) {
             return null;
         }
 
@@ -1159,7 +1162,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        callItems = callItems.filter((item) => !workspace.serviceInstance.fs.isInZipOrEgg(item.from.uri));
+        callItems = callItems.filter((item) => this.canNavigateToFile(item.from.uri, workspace.serviceInstance.fs));
 
         // Convert the file paths in the items to proper URIs.
         callItems.forEach((item) => {
@@ -1185,7 +1188,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return null;
         }
 
-        callItems = callItems.filter((item) => !workspace.serviceInstance.fs.isInZipOrEgg(item.to.uri));
+        callItems = callItems.filter((item) => this.canNavigateToFile(item.to.uri, workspace.serviceInstance.fs));
 
         // Convert the file paths in the items to proper URIs.
         callItems.forEach((item) => {
@@ -1297,6 +1300,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
     }
 
+    protected onShutdown(token: CancellationToken) {
+        // Shutdown remaining workspaces.
+        this._workspaceMap.forEach((_, key) => this._workspaceMap.delete(key));
+        return Promise.resolve();
+    }
+
     protected resolveWorkspaceCompletionItem(
         workspace: WorkspaceServiceInstance,
         filePath: string,
@@ -1356,7 +1365,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         rootPath: string,
         path: string,
         kinds: string[] = [WellKnownWorkspaceKinds.Regular],
-        owns?: (filePath: string) => boolean,
         services?: WorkspaceServices
     ): WorkspaceServiceInstance {
         // 5 seconds default
@@ -1374,7 +1382,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 : () => defaultBackOffTime;
 
         const rootUri = workspaceFolder?.uri ?? '';
-        owns = owns ?? ((f) => f.startsWith(rootPath));
 
         return {
             workspaceName: workspaceFolder?.name ?? '',
@@ -1392,7 +1399,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
-            owns,
         };
     }
 
@@ -1409,7 +1415,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected onAnalysisCompletedHandler(fs: FileSystem, results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
-            if (fs.isInZipOrEgg(fileDiag.filePath)) {
+            if (!this.canNavigateToFile(fileDiag.filePath, fs)) {
                 return;
             }
 
@@ -1576,7 +1582,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const relatedInfo = diag.getRelatedInfo();
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo
-                    .filter((info) => !fs.isInZipOrEgg(info.filePath))
+                    .filter((info) => this.canNavigateToFile(info.filePath, fs))
                     .map((info) =>
                         DiagnosticRelatedInformation.create(
                             Location.create(convertPathToUri(fs, info.filePath), info.range),
@@ -1619,10 +1625,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
-        // For now, return the same URL for all rules. We can separate these
-        // in the future.
-        return 'https://github.com/microsoft/pyright/blob/main/docs/configuration.md';
+        // Configuration.md is configured to have a link for every rule name.
+        return `https://github.com/microsoft/pyright/blob/main/docs/configuration.md#${rule}`;
     }
 
     protected abstract createProgressReporter(): ProgressReporter;
+
+    protected canNavigateToFile(path: string, fs: FileSystem): boolean {
+        return !fs.isInZipOrEgg(path);
+    }
 }

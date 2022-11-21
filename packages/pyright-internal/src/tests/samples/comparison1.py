@@ -18,9 +18,6 @@ def func1(os: OS, val: Literal[1, "linux"]):
 
     # This should generate an error because this expression will always
     # evaluate to True.
-    # NOTE: The "always true" diganostic is currently disabled, so this
-    # will not currently generate a diagnostic.
-    # See https://github.com/microsoft/pyright/issues/4107
     if os != val:
         return False
 

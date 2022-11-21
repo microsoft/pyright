@@ -15,11 +15,12 @@
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
-import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileExtension } from '../common/pathUtils';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
+import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -60,7 +61,6 @@ import {
     ParameterCategory,
     ParameterNode,
     ParseNode,
-    ParseNodeArray,
     ParseNodeType,
     PatternClassNode,
     RaiseNode,
@@ -85,22 +85,24 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
+import { ParseResults } from '../parser/parser';
 import { getUnescapedString, UnescapeError, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
-import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { createImportedModuleDescriptor, ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
+import { getRegionComments, RegionComment, RegionCommentType } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
-import { isStubFile } from './sourceMapper';
+import { isStubFile, SourceMapper } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -233,6 +235,7 @@ const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
 const isPrintCodeComplexityEnabled = false;
 
 export class Checker extends ParseTreeWalker {
+    private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
     private _isUnboundCheckSuppressed = false;
 
@@ -246,15 +249,36 @@ export class Checker extends ParseTreeWalker {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _moduleNode: ModuleNode
+        private _parseResults: ParseResults,
+        private _sourceMapper: SourceMapper
     ) {
         super();
 
-        this._fileInfo = AnalyzerNodeInfo.getFileInfo(_moduleNode)!;
+        this._moduleNode = _parseResults.parseTree;
+        this._fileInfo = AnalyzerNodeInfo.getFileInfo(this._moduleNode)!;
     }
 
     check() {
         this._scopedNodes.push(this._moduleNode);
+
+        this._conditionallyReportShadowedModule();
+
+        // Report code complexity issues for the module.
+        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(this._moduleNode);
+
+        if (isPrintCodeComplexityEnabled) {
+            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
+        }
+
+        if (codeComplexity > maxCodeComplexity) {
+            this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.codeTooComplexToAnalyze(),
+                { start: 0, length: 0 }
+            );
+        }
 
         this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
@@ -272,7 +296,7 @@ export class Checker extends ParseTreeWalker {
 
         this._reportDuplicateImports();
 
-        MissingModuleSourceReporter.report(this._importResolver, this._evaluator, this._fileInfo, this._moduleNode);
+        this._checkRegions();
     }
 
     override walk(node: ParseNode) {
@@ -506,17 +530,15 @@ export class Checker extends ParseTreeWalker {
             });
 
             // Check for invalid use of ParamSpec P.args and P.kwargs.
-            const paramSpecParams = FunctionType.getFunctionParameters(functionTypeResult.functionType).filter(
-                (param) => {
-                    if (param.typeAnnotation && isTypeVar(param.type) && isParamSpec(param.type)) {
-                        if (param.category !== ParameterCategory.Simple && param.name && param.type.paramSpecAccess) {
-                            return true;
-                        }
+            const paramSpecParams = functionTypeResult.functionType.details.parameters.filter((param) => {
+                if (param.typeAnnotation && isTypeVar(param.type) && isParamSpec(param.type)) {
+                    if (param.category !== ParameterCategory.Simple && param.name && param.type.paramSpecAccess) {
+                        return true;
                     }
-
-                    return false;
                 }
-            );
+
+                return false;
+            });
 
             if (paramSpecParams.length === 1 && paramSpecParams[0].typeAnnotation) {
                 this._evaluator.addError(
@@ -1021,7 +1043,8 @@ export class Checker extends ParseTreeWalker {
             yieldType = UnknownType.create();
         } else {
             yieldType =
-                this._evaluator.getTypeOfIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+                this._evaluator.getTypeOfIterable({ type: yieldFromType }, /* isAsync */ false, node)?.type ??
+                UnknownType.create();
 
             // Does the iterator return a Generator? If so, get the yield type from it.
             // If the iterator doesn't return a Generator, use the iterator return type
@@ -1031,7 +1054,8 @@ export class Checker extends ParseTreeWalker {
                 yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
             } else {
                 yieldType =
-                    this._evaluator.getTypeOfIterator(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+                    this._evaluator.getTypeOfIterator({ type: yieldFromType }, /* isAsync */ false, node)?.type ??
+                    UnknownType.create();
             }
         }
 
@@ -1384,11 +1408,13 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitImportAs(node: ImportAsNode): boolean {
+        this._conditionallyReportShadowedImport(node);
         this._evaluator.evaluateTypesForStatement(node);
-        return false;
+        return true;
     }
 
     override visitImportFrom(node: ImportFromNode): boolean {
+        this._conditionallyReportShadowedImport(node);
         if (!node.isWildcardImport) {
             node.imports.forEach((importAs) => {
                 this._evaluator.evaluateTypesForStatement(importAs);
@@ -1411,6 +1437,51 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
+        return true;
+    }
+
+    override visitImportFromAs(node: ImportFromAsNode): boolean {
+        if (this._fileInfo.isStubFile) {
+            return false;
+        }
+
+        const decls = this._evaluator.getDeclarationsForNameNode(node.name);
+        if (!decls) {
+            return false;
+        }
+
+        for (const decl of decls) {
+            if (!isAliasDeclaration(decl) || !decl.submoduleFallback || decl.node !== node) {
+                // If it is not implicitly imported module, move to next.
+                continue;
+            }
+
+            const resolvedAlias = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+            if (!resolvedAlias?.path || !isStubFile(resolvedAlias.path)) {
+                continue;
+            }
+
+            const importResult = this._getImportResult(node, resolvedAlias.path);
+            if (!importResult) {
+                continue;
+            }
+
+            this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node.name);
+            break;
+        }
+
+        return false;
+    }
+
+    override visitModuleName(node: ModuleNameNode): boolean {
+        if (this._fileInfo.isStubFile) {
+            return false;
+        }
+
+        const importResult = AnalyzerNodeInfo.getImportInfo(node);
+        assert(importResult !== undefined);
+
+        this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node);
         return false;
     }
 
@@ -1462,6 +1533,49 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _getImportResult(node: ImportFromAsNode, filePath: string) {
+        const execEnv = this._importResolver.getConfigOption().findExecEnvironment(filePath);
+        const moduleNameNode = (node.parent as ImportFromNode).module;
+
+        // Handle both absolute and relative imports.
+        const moduleName =
+            moduleNameNode.leadingDots === 0
+                ? this._importResolver.getModuleNameForImport(filePath, execEnv).moduleName
+                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.filePath, filePath);
+
+        if (!moduleName) {
+            return undefined;
+        }
+
+        return this._importResolver.resolveImport(
+            this._fileInfo.filePath,
+            execEnv,
+            createImportedModuleDescriptor(moduleName)
+        );
+    }
+
+    private _addMissingModuleSourceDiagnosticIfNeeded(importResult: ImportResult, node: ParseNode) {
+        if (
+            importResult.isNativeLib ||
+            !importResult.isStubFile ||
+            importResult.importType === ImportType.BuiltIn ||
+            !importResult.nonStubImportResult ||
+            importResult.nonStubImportResult.isImportFound
+        ) {
+            return;
+        }
+
+        // Type stub found, but source is missing.
+        this._evaluator.addDiagnostic(
+            this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
+            DiagnosticRule.reportMissingModuleSource,
+            Localizer.Diagnostic.importSourceResolveFailure().format({
+                importName: importResult.importName,
+            }),
+            node
+        );
     }
 
     private _reportUnnecessaryConditionExpression(expression: ExpressionNode) {
@@ -1528,6 +1642,19 @@ export class Checker extends ParseTreeWalker {
             if (!node.entries.some((entry) => entry.nodeType === ParseNodeType.ListComprehension)) {
                 reportAsUnused = true;
             }
+        }
+
+        if (
+            reportAsUnused &&
+            this._fileInfo.ipythonMode === IPythonMode.CellDocs &&
+            node.parent?.nodeType === ParseNodeType.StatementList &&
+            node.parent.statements[node.parent.statements.length - 1] === node &&
+            node.parent.parent?.nodeType === ParseNodeType.Module &&
+            node.parent.parent.statements[node.parent.parent.statements.length - 1] === node.parent
+        ) {
+            // Exclude an expression at the end of a notebook cell, as that is treated as
+            // the cell's value.
+            reportAsUnused = false;
         }
 
         if (reportAsUnused) {
@@ -1686,6 +1813,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        const getMessage = () => {
+            return node.operator === OperatorType.Equals
+                ? Localizer.Diagnostic.comparisonAlwaysFalse()
+                : Localizer.Diagnostic.comparisonAlwaysTrue();
+        };
+
         // Check for the special case where the LHS and RHS are both literals.
         if (isLiteralTypeOrUnion(rightType) && isLiteralTypeOrUnion(leftType)) {
             if (
@@ -1695,31 +1828,24 @@ export class Checker extends ParseTreeWalker {
                     this._fileInfo.definedConstants
                 ) === undefined
             ) {
-                const isAssignableRL = this._evaluator.assignType(rightType, leftType);
-                const isAssignableLR = this._evaluator.assignType(leftType, rightType);
+                let isPossiblyTrue = false;
 
-                if (isAssignableRL === isAssignableLR) {
-                    let isAlwaysTrue = node.operator === OperatorType.Equals;
-                    if (!isAssignableRL) {
-                        isAlwaysTrue = !isAlwaysTrue;
+                doForEachSubtype(leftType, (leftSubtype) => {
+                    if (this._evaluator.assignType(rightType, leftSubtype)) {
+                        isPossiblyTrue = true;
                     }
+                });
 
-                    const message = isAlwaysTrue
-                        ? Localizer.Diagnostic.comparisonAlwaysTrueLiteral()
-                        : Localizer.Diagnostic.comparisonAlwaysFalseLiteral();
-
-                    // For now, only report the "always false" case because there are
-                    // legitimate use cases for "always true" literal conditional
-                    // comparisons, such as with exhaustive if/elif/else trees.
-                    // See https://github.com/microsoft/pyright/issues/4107.
-                    if (!isAlwaysTrue) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
-                            DiagnosticRule.reportUnnecessaryComparison,
-                            message,
-                            node
-                        );
-                    }
+                if (!isPossiblyTrue) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
+                        DiagnosticRule.reportUnnecessaryComparison,
+                        getMessage().format({
+                            leftType: this._evaluator.printType(leftType, /* expandTypeAlias */ true),
+                            rightType: this._evaluator.printType(rightType, /* expandTypeAlias */ true),
+                        }),
+                        node
+                    );
                 }
             }
         } else {
@@ -1748,15 +1874,10 @@ export class Checker extends ParseTreeWalker {
                 const leftTypeText = this._evaluator.printType(leftType, /* expandTypeAlias */ true);
                 const rightTypeText = this._evaluator.printType(rightType, /* expandTypeAlias */ true);
 
-                const message =
-                    node.operator === OperatorType.Equals
-                        ? Localizer.Diagnostic.comparisonAlwaysFalseNoOverlap()
-                        : Localizer.Diagnostic.comparisonAlwaysTrueNoOverlap();
-
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
                     DiagnosticRule.reportUnnecessaryComparison,
-                    message.format({
+                    getMessage().format({
                         leftType: leftTypeText,
                         rightType: rightTypeText,
                     }),
@@ -2400,7 +2521,7 @@ export class Checker extends ParseTreeWalker {
                 resultingExceptionType = ClassType.cloneAsInstance(exceptionType);
             } else if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    this._evaluator.getTypeOfIterator(exceptionType, /* isAsync */ false, errorNode) ||
+                    this._evaluator.getTypeOfIterator({ type: exceptionType }, /* isAsync */ false, errorNode)?.type ??
                     UnknownType.create();
 
                 resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
@@ -3492,6 +3613,102 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
+    private _conditionallyReportShadowedModule() {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return;
+        }
+        // Check the module we're in.
+        const moduleName = this._fileInfo.moduleName;
+        const desc: ImportedModuleDescriptor = {
+            nameParts: moduleName.split('.'),
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
+        if (
+            stdlibPath &&
+            this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
+            this._sourceMapper.isUserCode(this._fileInfo.filePath)
+        ) {
+            // This means the user has a module that is overwriting the stdlib module.
+            const diag = this._evaluator.addDiagnosticForTextRange(
+                this._fileInfo,
+                this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                DiagnosticRule.reportShadowedImports,
+                Localizer.Diagnostic.stdlibModuleOverridden().format({
+                    name: moduleName,
+                    path: this._fileInfo.filePath,
+                }),
+                this._moduleNode
+            );
+
+            // Add a quick action that renames the file.
+            if (diag) {
+                const renameAction: RenameShadowedFileAction = {
+                    action: ActionKind.RenameShadowedFileAction,
+                    oldFile: this._fileInfo.filePath,
+                    newFile: this._sourceMapper.getNextFileName(this._fileInfo.filePath),
+                };
+                diag.addAction(renameAction);
+            }
+        }
+    }
+
+    private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromAsNode | ImportFromNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
+            return;
+        }
+        const namePartNodes =
+            node.nodeType === ParseNodeType.ImportAs
+                ? node.module.nameParts
+                : node.nodeType === ParseNodeType.ImportFromAs
+                ? [node.name]
+                : node.module.nameParts;
+        const nameParts = namePartNodes.map((n) => n.value);
+        const module: ImportedModuleDescriptor = {
+            nameParts,
+            leadingDots: 0,
+            importedSymbols: [],
+        };
+
+        // Make sure the module is a potential stdlib one so we don't spend the time
+        // searching for the definition.
+        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
+        if (stdlibPath && this._importResolver.isStdlibModule(module, this._fileInfo.executionEnvironment)) {
+            // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
+            const definitions = DefinitionProvider.getDefinitionsForNode(
+                this._sourceMapper,
+                namePartNodes[namePartNodes.length - 1],
+                DefinitionFilter.All,
+                this._evaluator
+            );
+            const paths = definitions ? definitions.map((d) => d.path) : [];
+            paths.forEach((p) => {
+                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
+                    // This means the user has a module that is overwriting the stdlib module.
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportShadowedImports,
+                        DiagnosticRule.reportShadowedImports,
+                        Localizer.Diagnostic.stdlibModuleOverridden().format({
+                            name: nameParts.join('.'),
+                            path: p,
+                        }),
+                        node
+                    );
+                    // Add a quick action that renames the file.
+                    if (diag) {
+                        const renameAction: RenameShadowedFileAction = {
+                            action: ActionKind.RenameShadowedFileAction,
+                            oldFile: p,
+                            newFile: this._sourceMapper.getNextFileName(p),
+                        };
+                        diag.addAction(renameAction);
+                    }
+                }
+            });
+        }
+    }
+
     private _conditionallyReportPrivateUsage(node: NameNode) {
         if (this._fileInfo.diagnosticRuleSet.reportPrivateUsage === 'none') {
             return;
@@ -4190,6 +4407,11 @@ export class Checker extends ParseTreeWalker {
     // Reports the case where an instance variable is not declared or initialized
     // within the class body or constructor method.
     private _validateInstanceVariableInitialization(classType: ClassType) {
+        // This check doesn't apply to stub files.
+        if (this._fileInfo.isStubFile) {
+            return;
+        }
+
         // This check can be expensive, so don't perform it if the corresponding
         // rule is disabled.
         if (this._fileInfo.diagnosticRuleSet.reportUninitializedInstanceVariable === 'none') {
@@ -5604,8 +5826,11 @@ export class Checker extends ParseTreeWalker {
                 typesOfThisExcept.push(exceptionType);
             } else if (isClassInstance(exceptionType)) {
                 const iterableType =
-                    this._evaluator.getTypeOfIterator(exceptionType, /* isAsync */ false, /* errorNode */ undefined) ||
-                    UnknownType.create();
+                    this._evaluator.getTypeOfIterator(
+                        { type: exceptionType },
+                        /* isAsync */ false,
+                        /* errorNode */ undefined
+                    )?.type ?? UnknownType.create();
 
                 doForEachSubtype(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
@@ -5704,139 +5929,37 @@ export class Checker extends ParseTreeWalker {
             }
         });
     }
-}
 
-class MissingModuleSourceReporter extends ParseTreeWalker {
-    static report(
-        importResolver: ImportResolver,
-        evaluator: TypeEvaluator,
-        fileInfo: AnalyzerFileInfo,
-        node: ModuleNode
-    ) {
-        if (fileInfo.isStubFile) {
-            // Don't report this for stub files.
-            return;
-        }
+    private _checkRegions() {
+        const regionComments = getRegionComments(this._parseResults);
+        const regionStack: RegionComment[] = [];
 
-        new MissingModuleSourceReporter(importResolver, evaluator, fileInfo).walk(node);
-    }
-
-    private constructor(
-        private _importResolver: ImportResolver,
-        private _evaluator: TypeEvaluator,
-        private _fileInfo: AnalyzerFileInfo
-    ) {
-        super();
-    }
-
-    override visitNode(node: ParseNode): ParseNodeArray {
-        // Optimization. don't walk into expressions which can't
-        // have import statement as child nodes.
-        if (isExpressionNode(node)) {
-            return [];
-        }
-
-        return super.visitNode(node);
-    }
-
-    override visitModule(node: ModuleNode): boolean {
-        const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(node);
-
-        if (isPrintCodeComplexityEnabled) {
-            console.log(`Code complexity of module ${this._fileInfo.filePath} is ${codeComplexity.toString()}`);
-        }
-
-        if (codeComplexity > maxCodeComplexity) {
-            this._evaluator.addDiagnosticForTextRange(
-                this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.codeTooComplexToAnalyze(),
-                { start: 0, length: 0 }
-            );
-            return false;
-        }
-
-        return true;
-    }
-
-    override visitModuleName(node: ModuleNameNode): boolean {
-        const importResult = AnalyzerNodeInfo.getImportInfo(node);
-        assert(importResult !== undefined);
-
-        this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node);
-        return false;
-    }
-
-    override visitImportFromAs(node: ImportFromAsNode): boolean {
-        const decls = this._evaluator.getDeclarationsForNameNode(node.name);
-        if (!decls) {
-            return false;
-        }
-
-        for (const decl of decls) {
-            if (!isAliasDeclaration(decl) || !decl.submoduleFallback || decl.node !== node) {
-                // If it is not implicitly imported module, move to next.
-                continue;
+        regionComments.forEach((regionComment) => {
+            if (regionComment.type === RegionCommentType.Region) {
+                regionStack.push(regionComment);
+            } else {
+                if (regionStack.length > 0) {
+                    regionStack.pop();
+                } else {
+                    this._addDiagnosticForRegionComment(
+                        regionComment,
+                        Localizer.Diagnostic.unmatchedEndregionComment()
+                    );
+                }
             }
+        });
 
-            const resolvedAlias = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-            if (!resolvedAlias?.path || !isStubFile(resolvedAlias.path)) {
-                continue;
-            }
-
-            const importResult = this._getImportResult(node, resolvedAlias.path);
-            if (!importResult) {
-                continue;
-            }
-
-            this._addMissingModuleSourceDiagnosticIfNeeded(importResult, node.name);
-            break;
-        }
-
-        return false;
+        regionStack.forEach((regionComment) => {
+            this._addDiagnosticForRegionComment(regionComment, Localizer.Diagnostic.unmatchedRegionComment());
+        });
     }
 
-    private _getImportResult(node: ImportFromAsNode, filePath: string) {
-        const execEnv = this._importResolver.getConfigOption().findExecEnvironment(filePath);
-        const moduleNameNode = (node.parent as ImportFromNode).module;
+    private _addDiagnosticForRegionComment(regionComment: RegionComment, message: string): Diagnostic | undefined {
+        // extend range to include # character
+        const range: TextRange = regionComment.comment;
+        range.start -= 1;
+        range.length += 1;
 
-        // Handle both absolute and relative imports.
-        const moduleName =
-            moduleNameNode.leadingDots === 0
-                ? this._importResolver.getModuleNameForImport(filePath, execEnv).moduleName
-                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.filePath, filePath);
-
-        if (!moduleName) {
-            return undefined;
-        }
-
-        return this._importResolver.resolveImport(
-            this._fileInfo.filePath,
-            execEnv,
-            createImportedModuleDescriptor(moduleName)
-        );
-    }
-
-    private _addMissingModuleSourceDiagnosticIfNeeded(importResult: ImportResult, node: ParseNode) {
-        if (
-            importResult.isNativeLib ||
-            !importResult.isStubFile ||
-            importResult.importType === ImportType.BuiltIn ||
-            !importResult.nonStubImportResult ||
-            importResult.nonStubImportResult.isImportFound
-        ) {
-            return;
-        }
-
-        // Type stub found, but source is missing.
-        this._evaluator.addDiagnostic(
-            this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
-            DiagnosticRule.reportMissingModuleSource,
-            Localizer.Diagnostic.importSourceResolveFailure().format({
-                importName: importResult.importName,
-            }),
-            node
-        );
+        return this._evaluator.addDiagnosticForTextRange(this._fileInfo, 'error', '', message, range);
     }
 }

@@ -1,9 +1,5 @@
-import sys
 from typing import Any
 from typing_extensions import Literal
-
-if sys.platform != "win32":
-    from socket import AF_UNIX as AF_UNIX
 
 unix_socket_available: bool
 

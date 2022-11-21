@@ -168,7 +168,9 @@ export class SourceFile {
     private _typeIgnoreAll: IgnoreComment | undefined;
     private _pyrightIgnoreLines = new Map<number, IgnoreComment>();
 
-    // Settings that control which diagnostics should be output.
+    // Settings that control which diagnostics should be output. The rules
+    // are initialized to the basic set. They should be updated after the
+    // the file is parsed.
     private _diagnosticRuleSet = getBasicDiagnosticRuleSet();
 
     // Circular dependencies that have been reported in this file.
@@ -249,6 +251,14 @@ export class SourceFile {
         this._ipythonMode = ipythonMode;
     }
 
+    getRealFilePath(): string {
+        return this._realFilePath;
+    }
+
+    getIPythonMode(): IPythonMode {
+        return this._ipythonMode;
+    }
+
     getFilePath(): string {
         return this._filePath;
     }
@@ -319,11 +329,7 @@ export class SourceFile {
         // Filter the diagnostics based on "pyright: ignore" lines.
         if (this._pyrightIgnoreLines.size > 0) {
             diagList = diagList.filter((d) => {
-                if (
-                    d.category !== DiagnosticCategory.UnusedCode &&
-                    d.category !== DiagnosticCategory.UnreachableCode &&
-                    d.category !== DiagnosticCategory.Deprecated
-                ) {
+                if (d.category !== DiagnosticCategory.UnreachableCode && d.category !== DiagnosticCategory.Deprecated) {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                         const pyrightIgnoreComment = this._pyrightIgnoreLines.get(line);
                         if (pyrightIgnoreComment) {
@@ -635,7 +641,7 @@ export class SourceFile {
     getFileContent(): string | undefined {
         // Get current buffer content if the file is opened.
         const openFileContent = this.getOpenFileContents();
-        if (openFileContent) {
+        if (openFileContent !== undefined) {
             return openFileContent;
         }
 
@@ -942,6 +948,19 @@ export class SourceFile {
             evaluator,
             token
         );
+    }
+
+    getDefinitionsForNode(
+        sourceMapper: SourceMapper,
+        node: NameNode,
+        evaluator: TypeEvaluator
+    ): DocumentRange[] | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._parseResults) {
+            return undefined;
+        }
+
+        return DefinitionProvider.getDefinitionsForNode(sourceMapper, node, DefinitionFilter.All, evaluator);
     }
 
     getTypeDefinitionsForPosition(
@@ -1285,7 +1304,13 @@ export class SourceFile {
         });
     }
 
-    check(importResolver: ImportResolver, evaluator: TypeEvaluator) {
+    check(
+        importResolver: ImportResolver,
+        evaluator: TypeEvaluator,
+        execEnv: ExecutionEnvironment,
+        sourceMapper: SourceMapper,
+        isUserCode: (p: string) => boolean
+    ) {
         assert(!this.isParseRequired(), 'Check called before parsing');
         assert(!this.isBindingRequired(), 'Check called before binding');
         assert(!this._isBindingInProgress, 'Check called while binding in progress');
@@ -1296,7 +1321,7 @@ export class SourceFile {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checkDuration = new Duration();
-                    const checker = new Checker(importResolver, evaluator, this._parseResults!.parseTree);
+                    const checker = new Checker(importResolver, evaluator, this._parseResults!, sourceMapper);
                     checker.check();
                     this._isCheckingNeeded = false;
 
@@ -1338,7 +1363,7 @@ export class SourceFile {
     }
 
     test_enableIPythonMode(enable: boolean) {
-        this._ipythonMode = enable ? IPythonMode.ConcatDoc : IPythonMode.None;
+        this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
     }
 
     private _buildFileInfo(

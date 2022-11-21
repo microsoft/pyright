@@ -4,6 +4,7 @@ from typing_extensions import Literal
 
 STDOUT: Literal[-11]
 STDERR: Literal[-12]
+ENABLE_VIRTUAL_TERMINAL_PROCESSING: int
 
 if sys.platform == "win32":
     from ctypes import LibraryLoader, Structure, WinDLL, wintypes
@@ -24,6 +25,8 @@ if sys.platform == "win32":
     def FillConsoleOutputCharacter(stream_id: int, char: str, length: int, start: COORD) -> int: ...
     def FillConsoleOutputAttribute(stream_id: int, attr: int, length: int, start: COORD) -> wintypes.BOOL: ...
     def SetConsoleTitle(title: str) -> wintypes.BOOL: ...
+    def GetConsoleMode(handle: int) -> int: ...
+    def SetConsoleMode(handle: int, mode: int) -> None: ...
 
 else:
     windll: None

@@ -65,3 +65,13 @@ def func7() -> int:
     match [10]:
         case [*values]:
             return values[0]
+
+
+class SingleColor(Enum):
+    red = 0
+
+def func8(x: SingleColor) -> int:
+    match x:
+        case SingleColor.red:
+            return 1
+

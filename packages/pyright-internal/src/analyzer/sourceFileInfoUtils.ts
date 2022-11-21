@@ -9,5 +9,5 @@
 import { SourceFileInfo } from './program';
 
 export function isUserCode(fileInfo: SourceFileInfo | undefined) {
-    return fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
+    return !!fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
 }

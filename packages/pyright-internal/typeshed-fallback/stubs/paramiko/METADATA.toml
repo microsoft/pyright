@@ -1,2 +1,6 @@
-version = "2.11.*"
+version = "2.12.*"
 requires = ["types-cryptography"]
+
+[tool.stubtest]
+# linux and darwin are equivalent
+platforms = ["linux", "win32"]

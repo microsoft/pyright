@@ -1,6 +1,6 @@
 import datetime
-from _typeshed import Self
-from collections.abc import Iterable, Iterator, Mapping
+from _typeshed import Incomplete, Self
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, TypeVar, overload
 from typing_extensions import Literal, TypeAlias
 from urllib.parse import ParseResult, SplitResult
@@ -8,11 +8,12 @@ from urllib.parse import ParseResult, SplitResult
 from vobject.base import VBase
 
 from .davclient import DAVClient
-from .elements.cdav import CompFilter, ScheduleInboxURL, ScheduleOutboxURL
+from .elements.cdav import CalendarQuery, CompFilter, ScheduleInboxURL, ScheduleOutboxURL
 from .lib.url import URL
 
 _CC = TypeVar("_CC", bound=CalendarObjectResource)
-
+# Actually "type[Todo] | type[Event] | type[Journal]", but mypy doesn't like that.
+_CompClass: TypeAlias = type[CalendarObjectResource]
 _VCalAddress: TypeAlias = Any  # actually icalendar.vCalAddress
 
 class DAVObject:
@@ -107,13 +108,61 @@ class Calendar(DAVObject):
         verify_expand: bool = ...,
     ) -> list[CalendarObjectResource]: ...
     @overload
-    def search(self, xml, comp_class: None = ...) -> list[CalendarObjectResource]: ...
+    def search(
+        self,
+        xml: None = ...,
+        comp_class: None = ...,
+        todo: bool | None = ...,
+        include_completed: bool = ...,
+        sort_keys: Sequence[str] = ...,
+        **kwargs,
+    ) -> list[CalendarObjectResource]: ...
     @overload
-    def search(self, xml, comp_class: type[_CC]) -> list[_CC]: ...
+    def search(
+        self,
+        xml,
+        comp_class: type[_CC],
+        todo: bool | None = ...,
+        include_completed: bool = ...,
+        sort_keys: Sequence[str] = ...,
+        **kwargs,
+    ) -> list[_CC]: ...
+    @overload
+    def search(
+        self,
+        *,
+        comp_class: type[_CC],
+        todo: bool | None = ...,
+        include_completed: bool = ...,
+        sort_keys: Sequence[str] = ...,
+        **kwargs,
+    ) -> list[_CC]: ...
+    def build_search_xml_query(
+        self,
+        comp_class: _CompClass | None = ...,
+        todo: bool | None = ...,
+        ignore_completed1: bool | None = ...,
+        ignore_completed2: bool | None = ...,
+        ignore_completed3: bool | None = ...,
+        event: bool | None = ...,
+        category: Incomplete | None = ...,
+        class_: Incomplete | None = ...,
+        filters: list[Incomplete] | None = ...,
+        expand: bool | None = ...,
+        start: datetime.datetime | None = ...,
+        end: datetime.datetime | None = ...,
+        *,
+        uid=...,
+        summary=...,
+        comment=...,
+        description=...,
+        location=...,
+        status=...,
+    ) -> tuple[CalendarQuery, _CompClass]: ...
     def freebusy_request(self, start: datetime.datetime, end: datetime.datetime) -> FreeBusy: ...
     def todos(self, sort_keys: Iterable[str] = ..., include_completed: bool = ..., sort_key: str | None = ...) -> list[Todo]: ...
     def event_by_url(self, href, data: Any | None = ...) -> Event: ...
-    def object_by_uid(self, uid: str, comp_filter: CompFilter | None = ...) -> Event: ...
+    def object_by_uid(self, uid: str, comp_filter: CompFilter | None = ..., comp_class: _CompClass | None = ...) -> Event: ...
     def todo_by_uid(self, uid: str) -> CalendarObjectResource: ...
     def event_by_uid(self, uid: str) -> CalendarObjectResource: ...
     def journal_by_uid(self, uid: str) -> CalendarObjectResource: ...
@@ -166,7 +215,12 @@ class CalendarObjectResource(DAVObject):
     def load(self: Self) -> Self: ...
     def change_attendee_status(self, attendee: Any | None = ..., **kwargs) -> None: ...
     def save(
-        self: Self, no_overwrite: bool = ..., no_create: bool = ..., obj_type: Any | None = ..., if_schedule_tag_match: bool = ...
+        self: Self,
+        no_overwrite: bool = ...,
+        no_create: bool = ...,
+        obj_type: str | None = ...,
+        increase_seqno: bool = ...,
+        if_schedule_tag_match: bool = ...,
     ) -> Self: ...
     data: Any
     vobject_instance: VBase
@@ -180,4 +234,9 @@ class FreeBusy(CalendarObjectResource):
     def __init__(self, parent, data, url: str | ParseResult | SplitResult | URL | None = ..., id: Any | None = ...) -> None: ...
 
 class Todo(CalendarObjectResource):
-    def complete(self, completion_timestamp: datetime.datetime | None = ...) -> None: ...
+    def complete(
+        self,
+        completion_timestamp: datetime.datetime | None = ...,
+        handle_rrule: bool = ...,
+        rrule_mode: Literal["safe", "this_and_future"] = ...,
+    ) -> None: ...

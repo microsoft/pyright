@@ -1,7 +1,8 @@
 import enum
+from _typeshed import Incomplete
 from typing import Any, NamedTuple
 
-from ._common import (
+from psutil._common import (
     NIC_DUPLEX_FULL as NIC_DUPLEX_FULL,
     NIC_DUPLEX_HALF as NIC_DUPLEX_HALF,
     NIC_DUPLEX_UNKNOWN as NIC_DUPLEX_UNKNOWN,
@@ -14,9 +15,12 @@ from ._common import (
     supports_ipv6 as supports_ipv6,
     usage_percent as usage_percent,
 )
+from psutil._compat import PY3 as PY3
 
 __extra__all__: Any
 POWER_SUPPLY_PATH: str
+HAS_PROC_SMAPS: bool
+HAS_PROC_SMAPS_ROLLUP: bool
 HAS_PROC_IO_PRIORITY: Any
 HAS_CPU_AFFINITY: Any
 CLOCK_TICKS: Any
@@ -154,6 +158,16 @@ def net_if_stats(): ...
 disk_usage: Any
 
 def disk_io_counters(perdisk: bool = ...): ...
+
+class RootFsDeviceFinder:
+    major: Incomplete
+    minor: Incomplete
+    def __init__(self) -> None: ...
+    def ask_proc_partitions(self): ...
+    def ask_sys_dev_block(self): ...
+    def ask_sys_class_block(self): ...
+    def find(self): ...
+
 def disk_partitions(all: bool = ...): ...
 def sensors_temperatures(): ...
 def sensors_fans(): ...

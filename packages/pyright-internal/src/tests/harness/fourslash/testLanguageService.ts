@@ -105,7 +105,6 @@ export class TestLanguageService implements LanguageServerInterface {
             disableWorkspaceSymbol: false,
             isInitialized: createDeferred<boolean>(),
             searchPathsToWatch: [],
-            owns: (f) => true,
         };
     }
     decodeTextDocumentUri(uriString: string): string {

@@ -60,7 +60,8 @@ class ClassD:
 
     # This should generate an error because ClassF refers
     # to itself, and there is no ClassF declared at the module
-    # level.
+    # level. It should also generate a second error because
+    # ClassF is a variable and can't be used as an annotation.
     ClassF: "ClassF"
 
     str: "str"

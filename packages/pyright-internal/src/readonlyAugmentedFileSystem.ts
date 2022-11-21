@@ -172,6 +172,10 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         return this._realFS.isInZipOrEgg(path);
     }
 
+    dispose(): void {
+        this._realFS.dispose();
+    }
+
     protected _recordMovedEntry(mappedPath: string, originalPath: string, reversible = true, isFile = true) {
         this._entryMap.set(mappedPath, originalPath);
 

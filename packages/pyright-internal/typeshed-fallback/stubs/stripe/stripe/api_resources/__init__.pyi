@@ -7,6 +7,7 @@ from stripe.api_resources import (
     reporting as reporting,
     sigma as sigma,
     terminal as terminal,
+    test_helpers as test_helpers,
 )
 from stripe.api_resources.account import Account as Account
 from stripe.api_resources.account_link import AccountLink as AccountLink

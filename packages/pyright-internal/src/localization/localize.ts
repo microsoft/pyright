@@ -24,7 +24,7 @@ export class ParameterizedString<T extends {}> {
     format(params: T): string {
         let str = this._formatString;
         Object.keys(params).forEach((key) => {
-            str = str.replace(`{${key}}`, (params as any)[key].toString());
+            str = str.replace(new RegExp(`{${key}}`, 'g'), (params as any)[key].toString());
         });
         return str;
     }
@@ -277,15 +277,13 @@ export namespace Localizer {
             new ParameterizedString<{ type: string; alias: string }>(
                 getRawString('Diagnostic.collectionAliasInstantiation')
             );
-        export const comparisonAlwaysFalseLiteral = () => getRawString('Diagnostic.comparisonAlwaysFalseLiteral');
-        export const comparisonAlwaysFalseNoOverlap = () =>
+        export const comparisonAlwaysFalse = () =>
             new ParameterizedString<{ leftType: string; rightType: string }>(
-                getRawString('Diagnostic.comparisonAlwaysFalseNoOverlap')
+                getRawString('Diagnostic.comparisonAlwaysFalse')
             );
-        export const comparisonAlwaysTrueLiteral = () => getRawString('Diagnostic.comparisonAlwaysTrueLiteral');
-        export const comparisonAlwaysTrueNoOverlap = () =>
+        export const comparisonAlwaysTrue = () =>
             new ParameterizedString<{ leftType: string; rightType: string }>(
-                getRawString('Diagnostic.comparisonAlwaysTrueNoOverlap')
+                getRawString('Diagnostic.comparisonAlwaysTrue')
             );
         export const comprehensionInDict = () => getRawString('Diagnostic.comprehensionInDict');
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
@@ -307,6 +305,7 @@ export namespace Localizer {
             );
         export const continueInFinally = () => getRawString('Diagnostic.continueInFinally');
         export const continueOutsideLoop = () => getRawString('Diagnostic.continueOutsideLoop');
+        export const dataClassBaseClassFrozen = () => getRawString('Diagnostic.dataClassBaseClassFrozen');
         export const dataClassBaseClassNotFrozen = () => getRawString('Diagnostic.dataClassBaseClassNotFrozen');
         export const dataClassFieldWithDefault = () => getRawString('Diagnostic.dataClassFieldWithDefault');
         export const dataClassFieldWithoutAnnotation = () => getRawString('Diagnostic.dataClassFieldWithoutAnnotation');
@@ -750,6 +749,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.slotsClassVarConflict'));
         export const starStarWildcardNotAllowed = () => getRawString('Diagnostic.starStarWildcardNotAllowed');
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
+        export const stdlibModuleOverridden = () =>
+            new ParameterizedString<{ name: string; path: string }>(getRawString('Diagnostic.stdlibModuleOverridden'));
+
         export const strictTypeGuardReturnType = () =>
             new ParameterizedString<{ type: string; returnType: string }>(
                 getRawString('Diagnostic.strictTypeGuardReturnType')
@@ -932,10 +934,14 @@ export namespace Localizer {
         export const unexpectedExprToken = () => getRawString('Diagnostic.unexpectedExprToken');
         export const unexpectedIndent = () => getRawString('Diagnostic.unexpectedIndent');
         export const unexpectedUnindent = () => getRawString('Diagnostic.unexpectedUnindent');
+        export const unhashableDictKey = () => getRawString('Diagnostic.unhashableDictKey');
+        export const unhashableSetEntry = () => getRawString('Diagnostic.unhashableSetEntry');
         export const unionSyntaxIllegal = () => getRawString('Diagnostic.unionSyntaxIllegal');
         export const unionTypeArgCount = () => getRawString('Diagnostic.unionTypeArgCount');
         export const uninitializedInstanceVariable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.uninitializedInstanceVariable'));
+        export const unmatchedEndregionComment = () => getRawString('Diagnostic.unmatchedEndregionComment');
+        export const unmatchedRegionComment = () => getRawString('Diagnostic.unmatchedRegionComment');
         export const unnecessaryCast = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unnecessaryCast'));
         export const unnecessaryIsInstanceAlways = () =>
@@ -1278,12 +1284,14 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsCovariant'));
         export const typeVarIsInvariant = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsInvariant'));
-        export const typeVarTupleRequiresKnownLength = () =>
-            getRawString('DiagnosticAddendum.typeVarTupleRequiresKnownLength');
-        export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
         export const typeVarsMissing = () =>
             new ParameterizedString<{ names: string }>(getRawString('DiagnosticAddendum.typeVarsMissing'));
+        export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
+        export const typeVarTupleRequiresKnownLength = () =>
+            getRawString('DiagnosticAddendum.typeVarTupleRequiresKnownLength');
         export const typeVarUnsolvableRemedy = () => getRawString('DiagnosticAddendum.typeVarUnsolvableRemedy');
+        export const unhashableType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.unhashableType'));
         export const unreachableExcept = () =>
             new ParameterizedString<{ exceptionType: string; parentType: string }>(
                 getRawString('DiagnosticAddendum.unreachableExcept')
@@ -1309,6 +1317,10 @@ export namespace Localizer {
             new ParameterizedString<{ count: number }>(getRawString('CodeAction.filesToAnalyzeCount'));
         export const findingReferences = () => getRawString('CodeAction.findingReferences');
         export const organizeImports = () => getRawString('CodeAction.organizeImports');
+        export const renameShadowedFile = () =>
+            new ParameterizedString<{ newFile: string; oldFile: string }>(
+                getRawString('CodeAction.renameShadowedFile')
+            );
     }
 
     export namespace Refactoring {

@@ -2,7 +2,7 @@ import enum
 from collections.abc import Iterable
 from typing import Any, NamedTuple
 
-from ._common import (
+from psutil._common import (
     ENCODING as ENCODING,
     ENCODING_ERRS as ENCODING_ERRS,
     AccessDenied as AccessDenied,
@@ -16,7 +16,8 @@ from ._common import (
     parse_environ_block as parse_environ_block,
     usage_percent as usage_percent,
 )
-from ._psutil_windows import (
+from psutil._compat import PY3 as PY3
+from psutil._psutil_windows import (
     ABOVE_NORMAL_PRIORITY_CLASS as ABOVE_NORMAL_PRIORITY_CLASS,
     BELOW_NORMAL_PRIORITY_CLASS as BELOW_NORMAL_PRIORITY_CLASS,
     HIGH_PRIORITY_CLASS as HIGH_PRIORITY_CLASS,
@@ -25,7 +26,6 @@ from ._psutil_windows import (
     REALTIME_PRIORITY_CLASS as REALTIME_PRIORITY_CLASS,
 )
 
-msg: str
 __extra__all__: Any
 CONN_DELETE_TCB: str
 ERROR_PARTIAL_COPY: int

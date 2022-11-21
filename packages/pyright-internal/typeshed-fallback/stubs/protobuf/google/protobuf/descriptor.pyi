@@ -60,6 +60,27 @@ class Descriptor(_NestedDescriptorBase):
     oneofs: Any
     oneofs_by_name: Any
     syntax: Any
+    def __init__(
+        self,
+        name: str,
+        full_name: str,
+        filename: Any,
+        containing_type: Descriptor | None,
+        fields: list[FieldDescriptor],
+        nested_types: list[FieldDescriptor],
+        enum_types: list[EnumDescriptor],
+        extensions: list[FieldDescriptor],
+        options: Any | None = ...,
+        serialized_options: Any | None = ...,
+        is_extendable: bool | None = ...,
+        extension_ranges: Any | None = ...,
+        oneofs: list[OneofDescriptor] | None = ...,
+        file: FileDescriptor | None = ...,
+        serialized_start: Any | None = ...,
+        serialized_end: Any | None = ...,
+        syntax: str | None = ...,
+        create_key: Any | None = ...,
+    ): ...
     def EnumValueName(self, enum, value): ...
     def CopyToProto(self, proto): ...
     def GetOptions(self) -> MessageOptions: ...
@@ -227,6 +248,19 @@ class ServiceDescriptor(_NestedDescriptorBase):
     index: Any
     methods: Any
     methods_by_name: Any
+    def __init__(
+        self,
+        name: str,
+        full_name: str,
+        index: int,
+        methods: list[MethodDescriptor],
+        options: ServiceOptions | None = ...,
+        serialized_options: Any | None = ...,
+        file: FileDescriptor | None = ...,
+        serialized_start: Any | None = ...,
+        serialized_end: Any | None = ...,
+        create_key: Any | None = ...,
+    ): ...
     def FindMethodByName(self, name): ...
     def CopyToProto(self, proto): ...
     def GetOptions(self) -> ServiceOptions: ...

@@ -21,8 +21,9 @@ func1(3, 5, 2, "str")
 # This should generate an error
 func1("hello", 3)
 
-# This should generate an error
 str_list = ["he", "2", "3"]
+
+# This should generate an error
 func1(3, *str_list)
 
 
@@ -114,5 +115,15 @@ func9(0, "", **kwargs3)
 args4: List[str] = ["hi"]
 func9(0, *args4, **kwargs3)
 
-# This should generate an error
+# This should generate an error.
 func9(*args4, **kwargs3)
+
+def func10(x: int): ...
+
+func10(1, *())
+
+# This should generate an error.
+func10(1, *(1, ))
+
+def func11(y: tuple[int, ...]):
+    func10(1, *y)

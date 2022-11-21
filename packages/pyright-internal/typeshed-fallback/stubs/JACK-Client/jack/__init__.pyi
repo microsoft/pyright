@@ -1,3 +1,4 @@
+import sys
 from _typeshed import Self
 from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from typing import Any, overload
@@ -285,3 +286,15 @@ def port_name_size() -> int: ...
 def set_error_function(callback: Callable[[str], object] | None = ...) -> None: ...
 def set_info_function(callback: Callable[[str], object] | None = ...) -> None: ...
 def client_pid(name: str) -> int: ...
+
+METADATA_CONNECTED: str
+METADATA_HARDWARE: str
+METADATA_ICON_LARGE: str
+METADATA_ICON_SMALL: str
+METADATA_PORT_GROUP: str
+METADATA_PRETTY_NAME: str
+if sys.platform != "linux":
+    METADATA_EVENT_TYPES: str
+    METADATA_ICON_NAME: str
+    METADATA_ORDER: str
+    METADATA_SIGNAL_TYPE: str

@@ -6,6 +6,7 @@ from collections.abc import Callable, Generator
 from logging import Logger
 from types import TracebackType
 from typing import Any
+from typing_extensions import Literal
 
 __pkgname__: str
 ITEMREX: re.Pattern[str]
@@ -16,7 +17,7 @@ MONTH_ENUM: list[str | None]
 SPECIALS: dict[str, str]
 SPECIAL_IGNORE: list[str]
 S_INFO: list[dict[str, Any]]
-PY3: bool
+PY3: Literal[True]
 WINOS: bool
 POSIX: bool
 SYSTEMV: bool

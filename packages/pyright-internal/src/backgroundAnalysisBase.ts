@@ -123,8 +123,8 @@ export class BackgroundAnalysisBase {
         });
     }
 
-    setFileClosed(filePath: string) {
-        this.enqueueRequest({ requestType: 'setFileClosed', data: filePath });
+    setFileClosed(filePath: string, isTracked?: boolean) {
+        this.enqueueRequest({ requestType: 'setFileClosed', data: { filePath, isTracked } });
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded: boolean) {
@@ -433,7 +433,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'setFileClosed': {
-                const diagnostics = this.program.setFileClosed(msg.data);
+                const { filePath, isTracked } = msg.data;
+                const diagnostics = this.program.setFileClosed(filePath, isTracked);
                 this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
                 break;
             }
@@ -468,8 +469,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'shutdown': {
-                this._program.dispose();
-                parentPort?.close();
+                this.shutdown();
                 break;
             }
 
@@ -531,6 +531,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected reportIndex(port: MessagePort, result: { path: string; indexResults: IndexResults }) {
         port.postMessage({ requestType: 'indexResult', data: result });
+    }
+
+    protected override shutdown() {
+        this._program.dispose();
+        super.shutdown();
     }
 
     private _reportDiagnostics(diagnostics: FileDiagnostics[], filesLeftToAnalyze: number, elapsedTime: number) {

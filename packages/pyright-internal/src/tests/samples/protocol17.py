@@ -92,3 +92,7 @@ class Protocol9(Protocol[_T1_co]):
     @property
     def prop1(self) -> _T1_co:
         ...
+
+class Protocol10(Protocol[_T1_co]):
+    def m1(self) -> type[_T1_co]:
+        ...

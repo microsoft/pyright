@@ -5,7 +5,6 @@ from typing import Optional
 from typing_extensions import TypeAlias
 
 from ._canonical_names import all_modifiers as all_modifiers, sided_modifiers as sided_modifiers
-from ._generic import GenericListener as _GenericListener
 from ._keyboard_event import KEY_DOWN as KEY_DOWN, KEY_UP as KEY_UP, KeyboardEvent as KeyboardEvent
 
 _Key: TypeAlias = int | str

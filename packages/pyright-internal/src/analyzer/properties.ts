@@ -454,7 +454,8 @@ export function assignProperty(
     selfTypeVarContext?: TypeVarContext,
     recursionCount = 0
 ): boolean {
-    const objectToBind = ClassType.cloneAsInstance(srcClass);
+    const srcObjectToBind = ClassType.cloneAsInstance(srcClass);
+    const destObjectToBind = ClassType.cloneAsInstance(destClass);
     let isAssignable = true;
     const accessors: { name: string; missingDiagMsg: () => string; incompatibleDiagMsg: () => string }[] = [
         {
@@ -500,15 +501,29 @@ export function assignProperty(
                 destAccessType = applySolvedTypeVars(destAccessType, selfTypeVarContext) as FunctionType;
             }
 
+            // The access methods of fget, fset and fdel are modeled as static
+            // variables because they do not bind go the "property" class that
+            // contains them, but we'll turn it back into a non-static method
+            // here and bind them to the associated objects.
+            destAccessType = FunctionType.cloneWithNewFlags(
+                destAccessType,
+                destAccessType.details.flags & ~FunctionTypeFlags.StaticMethod
+            );
+
+            srcAccessType = FunctionType.cloneWithNewFlags(
+                srcAccessType,
+                srcAccessType.details.flags & ~FunctionTypeFlags.StaticMethod
+            );
+
             const boundDestAccessType = evaluator.bindFunctionToClassOrObject(
-                objectToBind,
+                destObjectToBind,
                 destAccessType,
                 /* memberClass */ undefined,
                 /* errorNode */ undefined,
                 recursionCount
             );
             const boundSrcAccessType = evaluator.bindFunctionToClassOrObject(
-                objectToBind,
+                srcObjectToBind,
                 srcAccessType,
                 /* memberClass */ undefined,
                 /* errorNode */ undefined,

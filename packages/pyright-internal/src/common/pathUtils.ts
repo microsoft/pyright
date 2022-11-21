@@ -534,6 +534,15 @@ export function getFileName(pathString: string) {
     return path.basename(pathString);
 }
 
+export function getShortenedFileName(pathString: string, maxDirLength = 15) {
+    const fileName = getFileName(pathString);
+    const dirName = getDirectoryPath(pathString);
+    if (dirName.length > maxDirLength) {
+        return `...${dirName.slice(dirName.length - maxDirLength)}${path.sep}${fileName}`;
+    }
+    return pathString;
+}
+
 export function stripFileExtension(fileName: string, multiDotExtension = false) {
     const ext = getFileExtension(fileName, multiDotExtension);
     return fileName.substr(0, fileName.length - ext.length);
@@ -895,7 +904,9 @@ export function convertUriToPath(fs: FileSystem, uriString: string): string {
 
 export function extractPathFromUri(uriString: string) {
     const uri = URI.parse(uriString);
-    let convertedPath = normalizePath(uri.path);
+
+    // When schema is "file", we use fsPath so that we can handle things like UNC paths.
+    let convertedPath = normalizePath(uri.scheme === 'file' ? uri.fsPath : uri.path);
 
     // If this is a DOS-style path with a drive letter, remove
     // the leading slash.

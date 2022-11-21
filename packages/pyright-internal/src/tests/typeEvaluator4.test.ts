@@ -88,7 +88,7 @@ test('Metaclass9', () => {
 
 test('AssignmentExpr1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr1.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('AssignmentExpr2', () => {
@@ -548,7 +548,7 @@ test('DataClass12', () => {
 test('DataClass13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass13.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('DataClass14', () => {
@@ -1149,7 +1149,7 @@ test('Annotated1', () => {
 test('Circular1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular1.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Circular2', () => {
@@ -1227,30 +1227,4 @@ test('TryExcept10', () => {
 test('Del1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del1.py']);
     TestUtils.validateResults(analysisResults, 6);
-});
-
-test('Override1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['override1.py']);
-    TestUtils.validateResults(analysisResults, 2);
-});
-
-test('TypeVarDefault1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault1.py']);
-    TestUtils.validateResults(analysisResults, 12);
-});
-
-test('TypeVarDefault2', () => {
-    const configOptions = new ConfigOptions('.');
-
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
-});
-
-test('TypeVarDefault3', () => {
-    const configOptions = new ConfigOptions('.');
-
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
 });

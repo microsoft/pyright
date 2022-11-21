@@ -9,6 +9,7 @@
 import assert from 'assert';
 import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Localizer } from '../localization/localize';
@@ -559,4 +560,52 @@ function findCommentByOffset(tokens: TextRangeCollection<Token>, offset: number)
     }
 
     return comment;
+}
+
+test('unused expression at end is not error', async () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// 4[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 0);
+});
+
+test('unused expression is error if not at end of cell', async () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// 4[|/*marker*/|]
+////
+//// x = 1
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 1, DiagnosticRule.reportUnusedExpression);
+});
+
+test('unused expression is error if within another statement', async () => {
+    const code = `
+// @filename: test.py
+// @ipythonMode: true
+//// if True:
+////     4[|/*marker*/|]
+    `;
+
+    verifyAnalysisDiagnosticCount(code, 1, DiagnosticRule.reportUnusedExpression);
+});
+
+function verifyAnalysisDiagnosticCount(code: string, expectedCount: number, expectedRule?: string) {
+    const state = parseAndGetTestState(code).state;
+
+    state.analyze();
+
+    const range = state.getRangeByMarkerName('marker')!;
+    const source = state.program.getBoundSourceFile(range.fileName)!;
+    const diagnostics = source.getDiagnostics(state.configOptions);
+
+    assert.strictEqual(diagnostics?.length, expectedCount);
+    if (expectedRule) {
+        diagnostics.forEach((diagnostic) => assert.strictEqual(diagnostic.getRule(), expectedRule));
+    }
 }
