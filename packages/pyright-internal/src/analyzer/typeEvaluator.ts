@@ -17425,43 +17425,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
-            const diag = new DiagnosticAddendum();
             const additionalHelp = new DiagnosticAddendum();
 
-            if (isClassInstance(subtype)) {
-                const enterType = getTypeOfObjectMember(
-                    node.expression,
+            if (isClass(subtype)) {
+                let enterType = getTypeOfMagicMethodReturn(
                     subtype,
+                    [],
                     enterMethodName,
-                    { method: 'get' },
-                    diag
-                )?.type;
+                    node.expression,
+                    /* expectedType */ undefined
+                );
 
                 if (enterType) {
-                    let memberReturnType: Type;
-                    if (isFunction(enterType)) {
-                        memberReturnType = getFunctionEffectiveReturnType(enterType);
-                    } else {
-                        memberReturnType = UnknownType.create();
-                    }
-
                     // For "async while", an implicit "await" is performed.
                     if (isAsync) {
-                        memberReturnType = getTypeOfAwaitable(memberReturnType, node.expression);
+                        enterType = getTypeOfAwaitable(enterType, node.expression);
                     }
 
-                    return memberReturnType;
+                    return enterType;
                 }
 
                 if (!isAsync) {
-                    const memberType = getTypeOfObjectMember(
-                        node.expression,
-                        subtype,
-                        '__aenter__',
-                        { method: 'get' },
-                        diag
-                    );
-                    if (memberType) {
+                    if (
+                        getTypeOfMagicMethodReturn(
+                            subtype,
+                            [],
+                            '__aenter__',
+                            node.expression,
+                            /* expectedType */ undefined
+                        )
+                    ) {
                         additionalHelp.addMessage(Localizer.DiagnosticAddendum.asyncHelp());
                     }
                 }
@@ -17487,15 +17480,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return;
             }
 
-            const diag = new DiagnosticAddendum();
-
-            if (isClassInstance(subtype)) {
-                const exitType = getTypeOfObjectMember(
-                    node.expression,
+            if (isClass(subtype)) {
+                const anyArg: TypeResult = { type: AnyType.create() };
+                const exitType = getTypeOfMagicMethodReturn(
                     subtype,
+                    [anyArg, anyArg, anyArg],
                     exitMethodName,
-                    { method: 'get' },
-                    diag
+                    node.expression,
+                    /* expectedType */ undefined
                 );
 
                 if (exitType) {
