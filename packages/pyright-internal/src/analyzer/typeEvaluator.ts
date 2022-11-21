@@ -2123,8 +2123,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (TypeBase.isInstantiable(subtype)) {
                         let methodType: FunctionType | OverloadedFunctionType | undefined;
 
-                        // Try to get the __init__ method first because it typically has
-                        // more type information than __new__.
+                        //Try to get the `__init__` method first because it typically has more type information than `__new__`.
                         methodType = getBoundMethod(subtype, '__init__');
 
                         // Is this the __init__ method provided by the object class?
@@ -2138,7 +2137,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // If there was no `__init__` or the only `__init__` that was found
                         // was form the `object` class, see if we can find a better `__new__`
                         // method.
-                        if (!methodType || isObjectInit || isSkipConstructor) {
+                        if (
+                            !methodType ||
+                            isObjectInit ||
+                            isSkipConstructor ||
+                            (methodType &&
+                                isFunction(methodType) &&
+                                (FunctionType.hasDefaultParameters(methodType) ||
+                                    methodType.details.parameters.length === 0))
+                        ) {
                             const constructorType = getBoundMethod(
                                 subtype,
                                 '__new__',

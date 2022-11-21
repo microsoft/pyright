@@ -2654,7 +2654,6 @@ export class CompletionProvider {
                                         } else {
                                             typeDetail =
                                                 name +
-                                                ': ' +
                                                 this._evaluator.printType(functionType, /* expandTypeAlias */ false);
                                         }
                                     }
