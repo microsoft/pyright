@@ -260,6 +260,7 @@ import {
     getTypeVarScopeId,
     getUnionSubtypeCount,
     isEllipsisType,
+    isIncompleteUnknown,
     isLiteralType,
     isMaybeDescriptorInstance,
     isOptionalType,
@@ -23719,9 +23720,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // If the source is an unsolved TypeVar but the declared type is concrete,
                         // use the concrete type.
                         return declaredSubtype;
-                    } else if (isAnyOrUnknown(assignedSubtype)) {
-                        // Any or Unknown do not narrow because they're assignable to all types.
-                        return declaredSubtype;
                     }
 
                     return assignedSubtype;
@@ -23740,7 +23738,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         // If the result of narrowing is Any, stick with the declared (unnarrowed) type.
-        if (isAnyOrUnknown(assignedType)) {
+        // If the result of narrowing is an Unknown that is complete, stick with Unknown.
+        // If it's incomplete, propagate the incomplete type for the benefit of
+        // code flow analysis.
+        if (isAnyOrUnknown(assignedType) && !isIncompleteUnknown(assignedType)) {
             return declaredType;
         }
 

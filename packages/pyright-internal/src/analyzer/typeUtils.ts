@@ -455,6 +455,10 @@ export function isOptionalType(type: Type): boolean {
     return false;
 }
 
+export function isIncompleteUnknown(type: Type): boolean {
+    return isUnknown(type) && type.isIncomplete;
+}
+
 // Calls a callback for each subtype and combines the results
 // into a final type.
 export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
