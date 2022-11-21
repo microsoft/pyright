@@ -24,5 +24,5 @@
 //// class A(): pass
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(class)\nA()\n```\n---\ndoc string for A',
+    marker1: '```python\n(class) A()\n```\n---\ndoc string for A',
 });

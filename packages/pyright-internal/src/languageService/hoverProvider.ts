@@ -257,7 +257,7 @@ export class HoverProvider {
                     return;
                 }
 
-                this._addResultsPart(parts, '(class)\n' + node.value, /* python */ true);
+                this._addResultsPart(parts, '(class) ' + node.value, /* python */ true);
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -460,7 +460,7 @@ export class HoverProvider {
                 classText = `${node.value}(${functionParts[0].join(', ')})`;
             }
 
-            this._addResultsPart(parts, '(class)\n' + classText, /* python */ true);
+            this._addResultsPart(parts, '(class) ' + classText, /* python */ true);
             const addedDoc = this._addDocumentationPartForType(
                 format,
                 sourceMapper,

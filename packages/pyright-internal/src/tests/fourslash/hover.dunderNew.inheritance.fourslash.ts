@@ -12,5 +12,5 @@
 //// x = [|/*marker1*/Child|]()
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(class)\nChild(name: str)\n```',
+    marker1: '```python\n(class) Child(name: str)\n```',
 });

@@ -16,6 +16,6 @@
 
 helper.verifyHover('plaintext', {
     marker1:
-        '(class)\nValidator\n\nThe validator class\n\n.. versionadded:: 2.0\n    This directive shows in plaintext.',
+        '(class) Validator\n\nThe validator class\n\n.. versionadded:: 2.0\n    This directive shows in plaintext.',
     marker2: '(method) is_valid(text: str) -> bool\n\nChecks if the input string is valid.',
 });

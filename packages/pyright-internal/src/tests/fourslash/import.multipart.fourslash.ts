@@ -17,5 +17,5 @@
 
 // @ts-ignore
 helper.verifyHover('markdown', {
-    marker: '```python\n(class)\nFoo()\n```',
+    marker: '```python\n(class) Foo()\n```',
 });
