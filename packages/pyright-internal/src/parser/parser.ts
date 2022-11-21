@@ -1410,13 +1410,14 @@ export class Parser {
                 postColonCallback();
             }
 
+            let bodyIndentToken: IndentToken | undefined;
             const possibleIndent = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Indent)) {
                 this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
             } else {
-                const indentToken = possibleIndent as IndentToken;
-                if (indentToken.isIndentAmbiguous) {
-                    this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
+                bodyIndentToken = possibleIndent as IndentToken;
+                if (bodyIndentToken.isIndentAmbiguous) {
+                    this._addError(Localizer.Diagnostic.inconsistentTabs(), bodyIndentToken);
                 }
             }
 
@@ -1450,7 +1451,12 @@ export class Parser {
                     } else {
                         extendRange(suite, dedentToken);
                     }
-                    break;
+
+                    // Did this dedent take us to an indent amount that is less than the
+                    // initial indent of the suite body?
+                    if (!bodyIndentToken || dedentToken.indentAmount < bodyIndentToken.indentAmount) {
+                        break;
+                    }
                 }
 
                 const statement = this._parseStatement();
