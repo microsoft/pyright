@@ -21564,50 +21564,53 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Is the src a specialized "Type" object?
-        if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'type')) {
-            const srcTypeArgs = srcType.typeArguments;
+        if (isClassInstance(expandedSrcType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
+            const srcTypeArgs = expandedSrcType.typeArguments;
+            let typeTypeArg: Type;
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
-                if (isAnyOrUnknown(srcTypeArgs[0])) {
-                    if (isClassInstance(destType) && ClassType.isBuiltIn(srcType, 'type')) {
+                typeTypeArg = srcTypeArgs[0];
+                if (isAnyOrUnknown(typeTypeArg)) {
+                    if (isClassInstance(destType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
                         return true;
                     }
                     return TypeBase.isInstantiable(destType);
                 }
+            } else {
+                typeTypeArg = objectType ?? AnyType.create();
+            }
 
-                if (isClassInstance(srcTypeArgs[0]) || isTypeVar(srcTypeArgs[0])) {
-                    if (
-                        assignType(
-                            destType,
-                            convertToInstantiable(srcTypeArgs[0]),
-                            diag?.createAddendum(),
-                            destTypeVarContext,
-                            srcTypeVarContext,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        return true;
-                    }
-
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
-                    return false;
+            if (isClassInstance(typeTypeArg) || isTypeVar(typeTypeArg)) {
+                if (
+                    assignType(
+                        destType,
+                        convertToInstantiable(typeTypeArg),
+                        diag?.createAddendum(),
+                        destTypeVarContext,
+                        srcTypeVarContext,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    return true;
                 }
+
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
+                return false;
             }
         }
 
         if (isInstantiableClass(destType)) {
-            const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
-            if (isInstantiableClass(concreteSrcType)) {
+            if (isInstantiableClass(expandedSrcType)) {
                 // PEP 544 says that if the dest type is a Type[Proto] class,
                 // the source must be a "concrete" (non-protocol) class.
                 if (ClassType.isProtocolClass(destType)) {
                     if (
-                        ClassType.isProtocolClass(concreteSrcType) &&
+                        ClassType.isProtocolClass(expandedSrcType) &&
                         isInstantiableClass(srcType) &&
                         !srcType.includeSubclasses
                     ) {
@@ -21624,7 +21627,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (
                     assignClass(
                         destType,
-                        concreteSrcType,
+                        expandedSrcType,
                         diag,
                         destTypeVarContext,
                         srcTypeVarContext,
