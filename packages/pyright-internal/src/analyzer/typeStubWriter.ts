@@ -289,7 +289,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                     let returnType = this._evaluator.getFunctionInferredReturnType(functionType.functionType);
                     returnType = removeUnknownFromUnion(returnType);
                     if (!isNever(returnType) && !isUnknown(returnType)) {
-                        line += ` # -> ${this._evaluator.printType(returnType, /* expandTypeAlias */ false)}:`;
+                        line += ` # -> ${this._evaluator.printType(returnType)}:`;
                     }
                 }
             }

@@ -317,6 +317,12 @@ export interface CallResult {
     specializedInitSelfType?: Type | undefined;
 }
 
+export interface PrintTypeOptions {
+    expandTypeAlias?: boolean;
+    enforcePythonSyntax?: boolean;
+    useTypingUnpack?: boolean;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -495,7 +501,7 @@ export interface TypeEvaluator {
         range: TextRange
     ) => Diagnostic | undefined;
 
-    printType: (type: Type, expandTypeAlias?: boolean) => string;
+    printType: (type: Type, options?: PrintTypeOptions) => string;
     printFunctionParts: (type: FunctionType) => [string[], string];
 
     getTypeCacheEntryCount: () => number;

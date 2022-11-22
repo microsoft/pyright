@@ -123,7 +123,7 @@ export class HoverProvider {
                         // the top-level module, which does have a declaration.
                         typeText = '(module) ' + node.value;
                     } else {
-                        typeText = node.value + ': ' + evaluator.printType(type, /* expandTypeAlias */ false);
+                        typeText = node.value + ': ' + evaluator.printType(type);
                     }
 
                     this._addResultsPart(results.parts, typeText, /* python */ true);
@@ -283,7 +283,7 @@ export class HoverProvider {
                     } else {
                         this._addResultsPart(
                             parts,
-                            `(${label}) ` + node.value + sep + evaluator.printType(type, false),
+                            `(${label}) ` + node.value + sep + evaluator.printType(type),
                             /* python */ true
                         );
                     }
@@ -331,11 +331,7 @@ export class HoverProvider {
                     }
 
                     // e.g. (key) name: str
-                    const text =
-                        '(key) ' +
-                        node.value +
-                        ': ' +
-                        evaluator.printType(entry.valueType, /* expandTypeAlias */ false);
+                    const text = '(key) ' + node.value + ': ' + evaluator.printType(entry.valueType);
                     this._addResultsPart(parts, text, /* python */ true);
 
                     const declarations = subtype.details.fields.get(node.value)?.getDeclarations();
@@ -405,7 +401,7 @@ export class HoverProvider {
         let methodType: FunctionType | OverloadedFunctionType | undefined;
 
         // Try to get the `__init__` method first because it typically has more type information than `__new__`.
-        // Don't exlude `object.__init__` since in the plain case we want to show Foo().
+        // Don't exclude `object.__init__` since in the plain case we want to show Foo().
         const initMember = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipInstanceVariables);
 
         if (initMember) {
@@ -416,7 +412,7 @@ export class HoverProvider {
             }
         }
 
-        // If there was no `__init__`, exluding `object` class `__init__`, or if `__init__` only had default params (*args: Any, **kwargs: Any) or no params (),
+        // If there was no `__init__`, excluding `object` class `__init__`, or if `__init__` only had default params (*args: Any, **kwargs: Any) or no params (),
         // see if we can find a better `__new__` method.
         if (
             !methodType ||
@@ -435,13 +431,13 @@ export class HoverProvider {
 
                 // Prefer `__new__` if it doesn't have default params (*args: Any, **kwargs: Any) or no params ().
                 if (isFunction(newMemberType) || isOverloadedFunction(newMemberType)) {
-                    // Set `treatConstructorAsClassMember` to true, inorder to exclude `cls` as a parameter.
+                    // Set `treatConstructorAsClassMember` to true to exclude `cls` as a parameter.
                     methodType = evaluator.bindFunctionToClassOrObject(
                         instanceType,
                         newMemberType,
                         /* memberClass */ undefined,
                         /* errorNode */ undefined,
-                        /* recurrisveCount */ undefined,
+                        /* recursiveCount */ undefined,
                         /* treatConstructorAsClassMember */ true
                     );
                 }
@@ -480,7 +476,7 @@ export class HoverProvider {
 
     private static _getTypeText(node: NameNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {
         const type = evaluator.getType(node) || UnknownType.create();
-        return ': ' + evaluator.printType(type, expandTypeAlias);
+        return ': ' + evaluator.printType(type, { expandTypeAlias });
     }
 
     private static _addDocumentationPart(

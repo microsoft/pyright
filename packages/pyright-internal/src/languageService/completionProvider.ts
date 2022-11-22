@@ -2616,7 +2616,7 @@ export class CompletionProvider {
                                             }
                                         }
                                     }
-                                    typeDetail = name + ': ' + this._evaluator.printType(type, expandTypeAlias);
+                                    typeDetail = name + ': ' + this._evaluator.printType(type, { expandTypeAlias });
                                     break;
                                 }
 
@@ -2640,10 +2640,7 @@ export class CompletionProvider {
                                                     /* inferTypeIfNeeded */ true
                                                 ) || UnknownType.create();
                                             typeDetail =
-                                                name +
-                                                ': ' +
-                                                this._evaluator.printType(propertyType, /* expandTypeAlias */ false) +
-                                                ' (property)';
+                                                name + ': ' + this._evaluator.printType(propertyType) + ' (property)';
                                         } else if (isOverloadedFunction(functionType)) {
                                             // 35 is completion tooltip's default width size
                                             typeDetail = getOverloadedFunctionTooltip(
@@ -2652,9 +2649,7 @@ export class CompletionProvider {
                                                 /* columnThreshold */ 35
                                             );
                                         } else {
-                                            typeDetail =
-                                                name +
-                                                this._evaluator.printType(functionType, /* expandTypeAlias */ false);
+                                            typeDetail = name + this._evaluator.printType(functionType);
                                         }
                                     }
                                     break;

@@ -167,6 +167,7 @@ import {
     FunctionArgument,
     FunctionTypeResult,
     maxSubtypesForInferredType,
+    PrintTypeOptions,
     TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
@@ -3845,7 +3846,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ) {
                                 diagAddendum.addMessage(
                                     Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                                        type: printType(subtype, /* expandTypeAlias */ false),
+                                        type: printType(subtype),
                                     })
                                 );
                             } else {
@@ -3863,7 +3864,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (callResult && callResult.argumentErrors) {
                                     diagAddendum.addMessage(
                                         Localizer.Diagnostic.exceptionTypeNotInstantiable().format({
-                                            type: printType(subtype, /* expandTypeAlias */ false),
+                                            type: printType(subtype),
                                         })
                                     );
                                 }
@@ -3878,14 +3879,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ) {
                                 diagAddendum.addMessage(
                                     Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                                        type: printType(subtype, /* expandTypeAlias */ false),
+                                        type: printType(subtype),
                                     })
                                 );
                             }
                         } else {
                             diagAddendum.addMessage(
                                 Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                                    type: printType(subtype, /* expandTypeAlias */ false),
+                                    type: printType(subtype),
                                 })
                             );
                         }
@@ -6499,7 +6500,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.classAlreadySpecialized().format({
-                                type: printType(convertToInstance(concreteSubtype), /* expandTypeAlias */ true),
+                                type: printType(convertToInstance(concreteSubtype), { expandTypeAlias: true }),
                             }),
                             node.baseExpression
                         );
@@ -7371,7 +7372,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const type = typeResult.type;
 
         const exprString = ParseTreeUtils.printExpression(arg0Value);
-        const typeString = printType(type, /* expandTypeAlias */ true);
+        const typeString = printType(type, { expandTypeAlias: true });
 
         if (expectedText !== undefined) {
             if (expectedText !== typeString) {
@@ -7431,7 +7432,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     infoMessages.push(
                         Localizer.DiagnosticAddendum.typeOfSymbol().format({
                             name,
-                            type: printType(typeOfSymbol, /* expandTypeAlias */ true),
+                            type: printType(typeOfSymbol, { expandTypeAlias: true }),
                         })
                     );
                 }
@@ -8499,7 +8500,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeNotCallable().format({
                     expression: ParseTreeUtils.printExpression(exprNode),
-                    type: printType(callTypeResult.type, /* expandTypeAlias */ true),
+                    type: printType(callTypeResult.type, { expandTypeAlias: true }),
                 }),
                 exprNode
             );
@@ -10887,7 +10888,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const diagAddendum = getDiagAddendum();
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.argumentType().format({
-                                type: printType(simplifiedType, /* expandTypeAlias */ true),
+                                type: printType(simplifiedType, { expandTypeAlias: true }),
                             })
                         );
                         addDiagnostic(
@@ -13412,7 +13413,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 diagAddendum.addMessage(
                     Localizer.DiagnosticAddendum.typeOfSymbol().format({
                         name: nameValue,
-                        type: printType(simplifiedType, /* expandTypeAlias */ true),
+                        type: printType(simplifiedType, { expandTypeAlias: true }),
                     })
                 );
                 addDiagnostic(
@@ -24514,11 +24515,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return TypePrinter.printFunctionParts(type, evaluatorOptions.printTypeFlags, getFunctionEffectiveReturnType);
     }
 
-    function printType(type: Type, expandTypeAlias = false): string {
+    function printType(type: Type, options?: PrintTypeOptions): string {
         let flags = evaluatorOptions.printTypeFlags;
 
-        if (expandTypeAlias) {
+        if (options?.expandTypeAlias) {
             flags |= TypePrinter.PrintTypeFlags.ExpandTypeAlias;
+        }
+        if (options?.enforcePythonSyntax) {
+            flags |= TypePrinter.PrintTypeFlags.PythonSyntax;
+        }
+        if (options?.useTypingUnpack) {
+            flags |= TypePrinter.PrintTypeFlags.UseTypingUnpack;
         }
 
         return TypePrinter.printType(type, flags, getFunctionEffectiveReturnType);

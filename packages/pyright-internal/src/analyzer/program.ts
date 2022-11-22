@@ -83,7 +83,7 @@ import { isStubFile, SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
 import { createTracePrinter } from './tracePrinter';
-import { TypeEvaluator } from './typeEvaluatorTypes';
+import { PrintTypeOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { Type } from './types';
@@ -763,11 +763,11 @@ export class Program {
         return evaluator.getEffectiveTypeOfSymbol(symbol);
     }
 
-    printType(type: Type, expandTypeAlias: boolean): string {
+    printType(type: Type, options?: PrintTypeOptions): string {
         this._handleMemoryHighUsage();
 
         const evaluator = this._evaluator || this._createNewEvaluator();
-        return evaluator.printType(type, expandTypeAlias);
+        return evaluator.printType(type, options);
     }
 
     private static _getPrintTypeFlags(configOptions: ConfigOptions): PrintTypeFlags {
