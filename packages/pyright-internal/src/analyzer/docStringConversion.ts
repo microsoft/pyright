@@ -683,7 +683,7 @@ class DocStringConverter {
                 });
                 this._appendLine(formattedLine);
 
-                //Convert header end
+                // Convert header end
                 const endHeaderStr = line.trimStart().replace(/=/g, '-').replace(' ', '|');
                 this._appendLine(`|${endHeaderStr}|`);
                 this._eatLine();

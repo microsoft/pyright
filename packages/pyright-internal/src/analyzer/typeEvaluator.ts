@@ -2123,7 +2123,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (TypeBase.isInstantiable(subtype)) {
                         let methodType: FunctionType | OverloadedFunctionType | undefined;
 
-                        //Try to get the `__init__` method first because it typically has more type information than `__new__`.
+                        // Try to get the `__init__` method first because it typically has more
+                        // type information than `__new__`.
                         methodType = getBoundMethod(subtype, '__init__');
 
                         // Is this the __init__ method provided by the object class?
