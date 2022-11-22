@@ -22347,8 +22347,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         subtype,
                         srcType,
                         diagAddendum?.createAddendum(),
-                        /* destTypeVarContextClone */ undefined,
-                        /* srcTypeVarContextClone */ undefined,
+                        destTypeVarContext,
+                        srcTypeVarContext,
                         flags,
                         recursionCount
                     )
