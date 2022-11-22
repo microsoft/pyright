@@ -589,19 +589,13 @@ export class PackageTypeVerifier {
                     const extraInfo = new DiagnosticAddendum();
                     if (baseSymbolType) {
                         extraInfo.addMessage(
-                            `Type declared in base class is "${this._program.printType(
-                                baseSymbolType,
-                                /* expandTypeAlias */ false
-                            )}"`
+                            `Type declared in base class is "${this._program.printType(baseSymbolType)}"`
                         );
                     }
 
                     if (childSymbolType) {
                         extraInfo.addMessage(
-                            `Type inferred in child class is "${this._program.printType(
-                                childSymbolType,
-                                /* expandTypeAlias */ false
-                            )}"`
+                            `Type inferred in child class is "${this._program.printType(childSymbolType)}"`
                         );
 
                         if (TypeBase.isAmbiguous(childSymbolType)) {
@@ -670,9 +664,7 @@ export class PackageTypeVerifier {
 
         if (TypeBase.isAmbiguous(type) && !isUnknown(type)) {
             const ambiguousDiag = new DiagnosticAddendum();
-            ambiguousDiag.addMessage(
-                `Inferred type is "${this._program.printType(type, /* expandTypeAlias */ false)}"`
-            );
+            ambiguousDiag.addMessage(`Inferred type is "${this._program.printType(type)}"`);
             this._addSymbolError(
                 symbolInfo,
                 'Type is missing type annotation and could be inferred differently by type checkers' +
@@ -824,7 +816,7 @@ export class PackageTypeVerifier {
                             knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                         } else if (isPartlyUnknown(typeArg)) {
                             const diag = new DiagnosticAddendum();
-                            diag.addMessage(`Type is ${this._program.printType(typeArg, /* expandTypeAlias */ false)}`);
+                            diag.addMessage(`Type is ${this._program.printType(typeArg)}`);
                             this._addSymbolError(
                                 symbolInfo,
                                 `Type argument ${index + 1} for class "${
@@ -928,9 +920,7 @@ export class PackageTypeVerifier {
                     );
 
                     if (paramKnownStatus !== TypeKnownStatus.Known) {
-                        extraInfo.addMessage(
-                            `Parameter type is "${this._program.printType(param.type, /* expandTypeAlias */ false)}"`
-                        );
+                        extraInfo.addMessage(`Parameter type is "${this._program.printType(param.type)}"`);
 
                         if (symbolInfo) {
                             this._addSymbolError(
@@ -975,10 +965,7 @@ export class PackageTypeVerifier {
 
                 if (returnTypeKnownStatus !== TypeKnownStatus.Known) {
                     extraInfo.addMessage(
-                        `Return type is "${this._program.printType(
-                            type.details.declaredReturnType,
-                            /* expandTypeAlias */ false
-                        )}"`
+                        `Return type is "${this._program.printType(type.details.declaredReturnType)}"`
                     );
 
                     if (symbolInfo) {
