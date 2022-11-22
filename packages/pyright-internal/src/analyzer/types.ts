@@ -2465,10 +2465,17 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
                     for (let i = 0; i < typeArgCount; i++) {
                         // Assume that missing type args are "Any".
-                        const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
-                        const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
+                        const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : UnknownType.create();
+                        const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : UnknownType.create();
 
-                        if (!isTypeSame(typeArg1, typeArg2, { ...options, ignoreTypeFlags: false }, recursionCount)) {
+                        if (
+                            !isTypeSame(
+                                typeArg1,
+                                typeArg2,
+                                { ...options, ignoreTypeFlags: false, treatAnySameAsUnknown: true },
+                                recursionCount
+                            )
+                        ) {
                             return false;
                         }
                     }
