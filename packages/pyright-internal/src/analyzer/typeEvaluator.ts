@@ -20834,9 +20834,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         });
                     }
                 } else {
-                    const removedArgs = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture);
+                    const removedArgTypes = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture).map((t) => {
+                        if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
+                            return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
+                        }
+                        return t.type;
+                    });
                     srcTypeArgs.splice(destUnboundedIndex, 0, {
-                        type: removedArgs.length > 0 ? combineTypes(removedArgs.map((t) => t.type)) : AnyType.create(),
+                        type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
                         isUnbounded: false,
                     });
                 }
