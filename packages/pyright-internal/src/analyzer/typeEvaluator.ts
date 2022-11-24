@@ -4058,6 +4058,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Does this name refer to a PEP 695-style type parameter?
         const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
         if (typeParamSymbol) {
             symbol = typeParamSymbol;

@@ -846,7 +846,21 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
         }
 
         if (isUnion(type) && type.includesTypeAliasPlaceholder) {
-            return mapSubtypes(type, (subtype) => transformPossibleRecursiveTypeAlias(subtype));
+            let newType = mapSubtypes(type, (subtype) => transformPossibleRecursiveTypeAlias(subtype));
+
+            if (newType !== type && type.typeAliasInfo) {
+                // Copy the type alias information if present.
+                newType = TypeBase.cloneForTypeAlias(
+                    newType,
+                    type.typeAliasInfo.name,
+                    type.typeAliasInfo.fullName,
+                    type.typeAliasInfo.typeVarScopeId,
+                    type.typeAliasInfo.typeParameters,
+                    type.typeAliasInfo.typeArguments
+                );
+            }
+
+            return newType;
         }
     }
 
