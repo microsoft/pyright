@@ -858,7 +858,8 @@ export class Tokenizer {
             isDecimalInteger =
                 this._cs.currentChar !== Char.Period &&
                 this._cs.currentChar !== Char.e &&
-                this._cs.currentChar !== Char.E;
+                this._cs.currentChar !== Char.E &&
+                (this._cs.currentChar < Char._1 || this._cs.currentChar > Char._9);
         }
 
         if (isDecimalInteger) {
