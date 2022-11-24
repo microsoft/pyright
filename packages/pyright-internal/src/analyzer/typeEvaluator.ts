@@ -19936,6 +19936,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const decls = symbol.getDeclarations();
         const isFinalVar = isFinalVariable(symbol);
         let isIncomplete = false;
+        let sawPendingEvaluation = false;
         let includesVariableDecl = false;
         let includesSpeculativeResult = false;
 
@@ -20075,6 +20076,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     isIncomplete = true;
+
+                    // Note that at least one decl could not be evaluated because
+                    // it was already in the process of being evaluated.
+                    sawPendingEvaluation = true;
                 }
             }
         });
@@ -20082,7 +20087,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (typesToCombine.length > 0) {
             const result: EffectiveTypeResult = {
                 type: combineTypes(typesToCombine),
-                isIncomplete: false,
+                isIncomplete: sawPendingEvaluation,
                 includesVariableDecl,
                 includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                 isRecursiveDefinition: false,
