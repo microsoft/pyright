@@ -20093,7 +20093,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isRecursiveDefinition: false,
             };
 
-            if (!includesSpeculativeResult) {
+            if (!includesSpeculativeResult && !result.isIncomplete) {
                 // Add the entry to the cache so we don't need to compute it next time.
                 if (!cacheEntries) {
                     cacheEntries = new Map<string, EffectiveTypeResult>();
