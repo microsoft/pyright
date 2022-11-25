@@ -91,3 +91,16 @@ class DC9(DC8):
     # This should generate an error because the default
     # value for "a" is inherited from the base class.
     b: str
+
+
+@dataclass
+class DC10:
+    a: str = field(init=False, default="s")
+    b: bool = field()
+    
+    
+@dataclass
+class DC11(DC10):
+    a: str = field()
+    b: bool = field()
+

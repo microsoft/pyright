@@ -383,7 +383,7 @@ export function synthesizeDataClassMethods(
 
                             // While this isn't documented behavior, it appears that the dataclass implementation
                             // causes overridden variables to "inherit" default values from parent classes.
-                            if (!dataClassEntry.hasDefault && oldEntry.hasDefault) {
+                            if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
                                 dataClassEntry.hasDefault = true;
                                 dataClassEntry.defaultValueExpression = oldEntry.defaultValueExpression;
                                 hasDefaultValue = true;
