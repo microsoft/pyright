@@ -3,12 +3,6 @@ from enum import Enum, Flag, IntEnum
 
 from .syntax import Name
 
-class DocumentState(IntEnum):
-    UNINITIALIZED: int
-    READY: int
-    GENERATING_PAGE: int
-    CLOSED: int
-
 class SignatureFlag(IntEnum):
     SIGNATURES_EXIST: int
     APPEND_ONLY: int

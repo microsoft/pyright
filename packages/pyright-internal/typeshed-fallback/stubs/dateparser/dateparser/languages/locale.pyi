@@ -2,7 +2,6 @@ from re import Pattern
 
 from dateparser.conf import Settings
 
-DIGIT_GROUP_PATTERN: Pattern[str]
 NUMERAL_PATTERN: Pattern[str]
 
 class Locale:

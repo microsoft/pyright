@@ -26,8 +26,8 @@ class Task(Generic[_P, _R_co]):
     incrementable: Iterable[str]
     auto_shortflags: bool
     help: dict[str, str]
-    pre: Iterable[Task[..., Any]]
-    post: Iterable[Task[..., Any]]
+    pre: Iterable[Task[..., Any] | Call]
+    post: Iterable[Task[..., Any] | Call]
     times_called: int
     autoprint: bool
     def __init__(
@@ -40,8 +40,8 @@ class Task(Generic[_P, _R_co]):
         default: bool = ...,
         auto_shortflags: bool = ...,
         help: dict[str, str] | None = ...,
-        pre: Iterable[Task[..., Any]] | None = ...,
-        post: Iterable[Task[..., Any]] | None = ...,
+        pre: Iterable[Task[..., Any] | Call] | None = ...,
+        post: Iterable[Task[..., Any] | Call] | None = ...,
         autoprint: bool = ...,
         iterable: Iterable[str] | None = ...,
         incrementable: Iterable[str] | None = ...,
@@ -60,7 +60,7 @@ class Task(Generic[_P, _R_co]):
 
 @overload
 def task(
-    *args: Task[..., Any],
+    *args: Task[..., Any] | Call,
     name: str | None = ...,
     aliases: tuple[str, ...] = ...,
     positional: Iterable[str] | None = ...,
@@ -68,15 +68,15 @@ def task(
     default: bool = ...,
     auto_shortflags: bool = ...,
     help: dict[str, str] | None = ...,
-    pre: list[Task[..., Any]] | None = ...,
-    post: list[Task[..., Any]] | None = ...,
+    pre: list[Task[..., Any] | Call] | None = ...,
+    post: list[Task[..., Any] | Call] | None = ...,
     autoprint: bool = ...,
     iterable: Iterable[str] | None = ...,
     incrementable: Iterable[str] | None = ...,
 ) -> Callable[[Callable[_P, _R_co]], Task[_P, _R_co]]: ...
 @overload
 def task(
-    *args: Task[..., Any],
+    *args: Task[..., Any] | Call,
     name: str | None = ...,
     aliases: tuple[str, ...] = ...,
     positional: Iterable[str] | None = ...,
@@ -84,8 +84,8 @@ def task(
     default: bool = ...,
     auto_shortflags: bool = ...,
     help: dict[str, str] | None = ...,
-    pre: list[Task[..., Any]] | None = ...,
-    post: list[Task[..., Any]] | None = ...,
+    pre: list[Task[..., Any] | Call] | None = ...,
+    post: list[Task[..., Any] | Call] | None = ...,
     autoprint: bool = ...,
     iterable: Iterable[str] | None = ...,
     incrementable: Iterable[str] | None = ...,

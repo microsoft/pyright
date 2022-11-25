@@ -1,4 +1,4 @@
-version = "2.5.*"
+version = "2.6.*"
 requires = ["types-Pillow"]
 
 [tool.stubtest]

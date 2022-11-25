@@ -1,5 +1,9 @@
 import enum
-from typing import AnyStr
+from collections.abc import Callable
+from typing import Any, AnyStr, Generic
+from typing_extensions import TypeAlias
+
+from .regex import Pattern
 
 class error(Exception):
     def __init__(self, message: str, pattern: AnyStr | None = ..., pos: int | None = ...) -> None: ...
@@ -76,3 +80,12 @@ X: int
 VERBOSE: int
 
 DEFAULT_VERSION: int
+
+_Lexicon: TypeAlias = list[tuple[AnyStr, Callable[[Scanner[AnyStr], AnyStr], Any]]]
+
+class Scanner(Generic[AnyStr]):
+    lexicon: _Lexicon[AnyStr]
+    scanner: Pattern[AnyStr]
+
+    def __init__(self, lexicon: _Lexicon[AnyStr], flags: int = ...) -> None: ...
+    def scan(self, string: AnyStr) -> tuple[list[Any], AnyStr]: ...

@@ -1,5 +1,6 @@
 import contextlib
 import enum
+import sys
 from _typeshed import Self
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any, ClassVar
@@ -61,6 +62,11 @@ class Key(enum.Enum):
     f18: int
     f19: int
     f20: int
+    if sys.platform == "win32":
+        f21: int
+        f22: int
+        f23: int
+        f24: int
     home: int
     left: int
     page_down: int
@@ -88,6 +94,10 @@ class Key(enum.Enum):
 class Controller:
     _KeyCode: ClassVar[type[KeyCode]]  # undocumented
     _Key: ClassVar[type[Key]]  # undocumented
+
+    if sys.platform == "linux":
+        CTRL_MASK: ClassVar[int]
+        SHIFT_MASK: ClassVar[int]
 
     class InvalidKeyException(Exception): ...
     class InvalidCharacterException(Exception): ...

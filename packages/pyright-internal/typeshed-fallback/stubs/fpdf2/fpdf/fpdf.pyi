@@ -1,16 +1,15 @@
 import datetime
 from _typeshed import Incomplete, StrPath
-from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import _GeneratorContextManager
-from enum import IntEnum
 from io import BytesIO
 from typing import Any, ClassVar, NamedTuple, overload
 from typing_extensions import Literal, TypeAlias
 
+from fpdf import ViewerPreferences
 from PIL import Image
 
-from .actions import Action
+from .annotations import AnnotationDict, PDFEmbeddedFile
 from .drawing import DrawingContext, PaintedPath
 from .enums import (
     Align,
@@ -26,7 +25,10 @@ from .enums import (
     XPos as XPos,
     YPos as YPos,
 )
+from .html import HTML2FPDF
+from .output import PDFPage
 from .recorder import FPDFRecorder
+from .structure_tree import StructureTreeBuilder
 from .syntax import DestinationXYZ
 from .util import _Unit
 
@@ -37,46 +39,6 @@ _Format: TypeAlias = Literal["", "a3", "A3", "a4", "A4", "a5", "A5", "letter", "
 _FontStyle: TypeAlias = Literal["", "B", "I"]
 _FontStyles: TypeAlias = Literal["", "B", "I", "U", "BU", "UB", "BI", "IB", "IU", "UI", "BIU", "BUI", "IBU", "IUB", "UBI", "UIB"]
 PAGE_FORMATS: dict[_Format, tuple[float, float]]
-
-class DocumentState(IntEnum):
-    UNINITIALIZED: int
-    READY: int
-    GENERATING_PAGE: int
-    CLOSED: int
-
-class Annotation(NamedTuple):
-    type: str
-    x: int
-    y: int
-    width: int
-    height: int
-    flags: tuple[AnnotationFlag, ...] = ...
-    contents: str | None = ...
-    link: str | int | None = ...
-    alt_text: str | None = ...
-    action: Action | None = ...
-    color: int | None = ...
-    modification_time: datetime.datetime | None = ...
-    title: str | None = ...
-    quad_points: Sequence[int] | None = ...
-    page: int | None = ...
-    border_width: int = ...
-    name: AnnotationName | None = ...
-    ink_list: tuple[int, ...] = ...
-    embedded_file_name: str | None = ...
-    field_type: str | None = ...
-    value: str | None = ...
-    def serialize(self, fpdf) -> str: ...
-
-class EmbeddedFile(NamedTuple):
-    basename: str
-    bytes: bytes
-    desc: str = ...
-    creation_date: datetime.datetime | None = ...
-    modification_date: datetime.datetime | None = ...
-    compress: bool = ...
-    checksum: bool = ...
-    def file_spec(self, embedded_file_ref) -> str: ...
 
 class TitleStyle(NamedTuple):
     font_family: str | None = ...
@@ -95,70 +57,78 @@ class ToCPlaceholder(NamedTuple):
     pages: int = ...
 
 class SubsetMap:
-    def __init__(self, identities: list[int]) -> None: ...
+    def __init__(self, identities: Iterable[int]) -> None: ...
+    def __len__(self) -> int: ...
     def pick(self, unicode: int) -> int: ...
     def dict(self) -> dict[int, int]: ...
 
 def get_page_format(format: _Format | tuple[float, float], k: float | None = ...) -> tuple[float, float]: ...
 
 # TODO: TypedDicts
-_Page: TypeAlias = dict[str, Any]
 _Font: TypeAlias = dict[str, Any]
-_FontFile: TypeAlias = dict[str, Any]
 _Image: TypeAlias = dict[str, Any]
 
 class FPDF:
     MARKDOWN_BOLD_MARKER: ClassVar[str]
     MARKDOWN_ITALICS_MARKER: ClassVar[str]
     MARKDOWN_UNDERLINE_MARKER: ClassVar[str]
-    offsets: dict[int, int]
+
+    HTML2FPDF_CLASS: ClassVar[type[HTML2FPDF]]
+
     page: int
-    n: int
-    buffer: bytearray
-    pages: dict[int, _Page]
-    state: DocumentState
+    pages: dict[int, PDFPage]
     fonts: dict[str, _Font]
-    font_files: dict[str, _FontFile]
-    diffs: dict[int, int]
     images: dict[str, _Image]
-    annots: defaultdict[int, list[Annotation]]
     links: dict[int, DestinationXYZ]
-    embedded_files: list[Incomplete]
-    embedded_files_per_pdf_ref: dict[Incomplete, Incomplete]
-    in_footer: int
-    lasth: int
-    current_font: _Font
-    font_family: str
-    font_style: str
-    font_stretching: float
-    char_spacing: float
-    underline: bool
+    embedded_files: list[PDFEmbeddedFile]
+
+    in_footer: bool
     str_alias_nb_pages: str
-    draw_color: str
-    fill_color: str
-    text_color: str
-    page_background: Incomplete | None
-    angle: int
+
     xmp_metadata: str | None
     image_filter: str
     page_duration: int
     page_transition: Incomplete | None
-    struct_builder: Incomplete
-    section_title_styles: Incomplete
-    core_fonts: Incomplete
+    allow_images_transparency: bool
+    oversized_images: Incomplete | None
+    oversized_images_ratio: float
+    struct_builder: StructureTreeBuilder
+    section_title_styles: dict[int, Incomplete]
+
+    core_fonts: dict[str, str]
     core_fonts_encoding: str
-    font_aliases: Incomplete
+    font_aliases: dict[str, str]
     k: float
-    def_orientation: Incomplete
-    font_size: float
-    c_margin: float
+
+    font_family: str
+    font_style: str
+    font_size_pt: float
+    font_stretching: float
+    char_spacing: float
+    underline: bool
+    current_font: _Font
+    draw_color: str
+    fill_color: str
+    text_color: str
+    page_background: Incomplete | None
+    dash_pattern: dict[str, int]  # TODO: TypedDict
     line_width: float
+    text_mode: TextMode
+
     dw_pt: float
     dh_pt: float
-    pdf_version: str
-
+    def_orientation: Literal["P", "L"]
     x: float
     y: float
+    l_margin: float
+    t_margin: float
+    c_margin: float
+    viewer_preferences: ViewerPreferences | None
+    compress: bool
+    pdf_version: str
+    creation_date: datetime.datetime
+
+    buffer: bytearray | None
 
     # Set during call to _set_orientation(), called from __init__().
     cur_orientation: Literal["P", "L"]
@@ -166,6 +136,7 @@ class FPDF:
     h_pt: float
     w: float
     h: float
+
     def __init__(
         self,
         orientation: _Orientation = ...,
@@ -173,8 +144,8 @@ class FPDF:
         format: _Format | tuple[float, float] = ...,
         font_cache_dir: Literal["DEPRECATED"] = ...,
     ) -> None: ...
-    @property
-    def font_size_pt(self) -> float: ...
+    # args and kwargs are passed to HTML2FPDF_CLASS constructor.
+    def write_html(self, text: str, *args: Any, **kwargs: Any) -> None: ...
     @property
     def is_ttf_font(self) -> bool: ...
     @property
@@ -187,9 +158,7 @@ class FPDF:
     def pages_count(self) -> int: ...
     def set_margin(self, margin: float) -> None: ...
     def set_margins(self, left: float, top: float, right: float = ...) -> None: ...
-    l_margin: float
     def set_left_margin(self, margin: float) -> None: ...
-    t_margin: float
     def set_top_margin(self, margin: float) -> None: ...
     r_margin: float
     def set_right_margin(self, margin: float) -> None: ...
@@ -197,6 +166,8 @@ class FPDF:
     b_margin: float
     page_break_trigger: float
     def set_auto_page_break(self, auto: bool, margin: float = ...) -> None: ...
+    @property
+    def default_page_dimensions(self) -> tuple[float, float]: ...
     zoom_mode: Literal["fullpage", "fullwidth", "real", "default"] | float
     page_layout: PageLayout | None
     def set_display_mode(
@@ -204,7 +175,6 @@ class FPDF:
         zoom: Literal["fullpage", "fullwidth", "real", "default"] | float,
         layout: Literal["single", "continuous", "two", "default"] = ...,
     ) -> None: ...
-    compress: bool
     def set_compression(self, compress: bool) -> None: ...
     title: str
     def set_title(self, title: str) -> None: ...
@@ -220,14 +190,11 @@ class FPDF:
     def set_creator(self, creator: str) -> None: ...
     producer: str
     def set_producer(self, producer: str) -> None: ...
-    creation_date: datetime.datetime | bool | None
-    def set_creation_date(self, date: datetime.datetime | bool | None = ...) -> None: ...
+    def set_creation_date(self, date: datetime.datetime) -> None: ...
     def set_xmp_metadata(self, xmp_metadata: str) -> None: ...
     def set_doc_option(self, opt: str, value: str) -> None: ...
     def set_image_filter(self, image_filter: str) -> None: ...
     def alias_nb_pages(self, alias: str = ...) -> None: ...
-    def open(self) -> None: ...
-    def close(self) -> None: ...
     def add_page(
         self,
         orientation: _Orientation = ...,
@@ -315,7 +282,7 @@ class FPDF:
         style: RenderStyle | str | None = ...,
     ) -> None: ...
     def add_font(
-        self, family: str, style: _FontStyle = ..., fname: str | None = ..., uni: bool | Literal["DEPRECATED"] = ...
+        self, family: str | None = ..., style: _FontStyle = ..., fname: str | None = ..., uni: bool | Literal["DEPRECATED"] = ...
     ) -> None: ...
     def set_font(self, family: str | None = ..., style: _FontStyles = ..., size: int = ...) -> None: ...
     def set_font_size(self, size: float) -> None: ...
@@ -325,7 +292,7 @@ class FPDF:
     def set_link(self, link, y: int = ..., x: int = ..., page: int = ..., zoom: float | Literal["null"] = ...) -> None: ...
     def link(
         self, x: float, y: float, w: float, h: float, link: str | int, alt_text: str | None = ..., border_width: int = ...
-    ) -> Annotation: ...
+    ) -> AnnotationDict: ...
     def embed_file(
         self,
         file_path: StrPath | None = ...,
@@ -355,7 +322,7 @@ class FPDF:
         desc: str = ...,
         compress: bool = ...,
         checksum: bool = ...,
-    ) -> Annotation: ...
+    ) -> AnnotationDict: ...
     def text_annotation(
         self,
         x: float,
@@ -385,7 +352,7 @@ class FPDF:
         color: tuple[float, float, float] = ...,
         modification_time: datetime.datetime | None = ...,
         page: int | None = ...,
-    ) -> Annotation: ...
+    ) -> AnnotationDict: ...
     def ink_annotation(
         self,
         coords: Iterable[Incomplete],
@@ -393,7 +360,7 @@ class FPDF:
         title: str = ...,
         color: Sequence[float] = ...,
         border_width: int = ...,
-    ) -> Annotation: ...
+    ) -> AnnotationDict: ...
     def text(self, x: float, y: float, txt: str = ...) -> None: ...
     def rotate(self, angle: float, x: float | None = ..., y: float | None = ...) -> None: ...
     def rotation(self, angle: float, x: float | None = ..., y: float | None = ...) -> _GeneratorContextManager[None]: ...

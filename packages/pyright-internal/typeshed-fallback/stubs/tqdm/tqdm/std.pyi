@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMappin
 from typing import Any, ClassVar, Generic, NoReturn, TypeVar, overload
 from typing_extensions import Literal
 
+from ._monitor import TMonitor
 from .utils import Comparable
 
 __all__ = [
@@ -31,6 +32,7 @@ _T = TypeVar("_T")
 
 class tqdm(Generic[_T], Iterable[_T], Comparable):
     monitor_interval: ClassVar[int]
+    monitor: ClassVar[TMonitor | None]
 
     @staticmethod
     def format_sizeof(num: float, suffix: str = ..., divisor: float = ...) -> str: ...

@@ -1,9 +1,9 @@
 from _typeshed import Incomplete
 from collections.abc import Callable
 from re import Pattern
-from typing import NamedTuple
+from typing_extensions import TypeAlias
 
-from .drawing import Point
+_BasePen: TypeAlias = Incomplete  # actually fontTools.pens.basePen.BasePen
 
 __pdoc__: dict[str, bool]
 
@@ -56,35 +56,12 @@ class ShapeBuilder:
 
 def convert_transforms(tfstr): ...
 
-class SVGSmoothCubicCurve(NamedTuple):
-    c2: Point
-    end: Point
-    @classmethod
-    def from_path_points(cls, path, c2x, c2y, ex, ey): ...
-    def render(self, path_gsds, style, last_item, initial_point): ...
-    def render_debug(self, path_gsds, style, last_item, initial_point, debug_stream, pfx): ...
-
-class SVGRelativeSmoothCubicCurve(NamedTuple):
-    c2: Point
-    end: Point
-    @classmethod
-    def from_path_points(cls, path, c2x, c2y, ex, ey): ...
-    def render(self, path_gsds, style, last_item, initial_point): ...
-    def render_debug(self, path_gsds, style, last_item, initial_point, debug_stream, pfx): ...
-
-class SVGSmoothQuadraticCurve(NamedTuple):
-    end: Point
-    @classmethod
-    def from_path_points(cls, path, ex, ey): ...
-    def render(self, path_gsds, style, last_item, initial_point): ...
-    def render_debug(self, path_gsds, style, last_item, initial_point, debug_stream, pfx): ...
-
-class SVGRelativeSmoothQuadraticCurve(NamedTuple):
-    end: Point
-    @classmethod
-    def from_path_points(cls, path, ex, ey): ...
-    def render(self, path_gsds, style, last_item, initial_point): ...
-    def render_debug(self, path_gsds, style, last_item, initial_point, debug_stream, pfx): ...
+class PathPen(_BasePen):
+    pdf_path: Incomplete
+    last_was_line_to: bool
+    first_is_move: bool | None
+    def __init__(self, pdf_path, *args, **kwargs): ...
+    def arcTo(self, rx, ry, rotation, arc, sweep, end) -> None: ...
 
 def svg_path_converter(pdf_path, svg_path) -> None: ...
 
