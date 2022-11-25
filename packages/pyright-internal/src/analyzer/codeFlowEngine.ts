@@ -256,6 +256,24 @@ export function getCodeFlowEngine(
                     flowIncompleteGeneration++;
                 }
 
+                let combinedType: Type | undefined;
+                if (cachedEntry.incompleteSubtypes.length > 0) {
+                    // Recompute the effective type based on all of the incomplete
+                    // types we've accumulated so far.
+                    const typesToCombine: Type[] = [];
+
+                    cachedEntry.incompleteSubtypes.forEach((t) => {
+                        if (t.type) {
+                            typesToCombine.push(t.type);
+                        }
+                    });
+
+                    combinedType = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
+                }
+
+                cachedEntry.type = combinedType;
+                cachedEntry.generationCount = flowIncompleteGeneration;
+
                 return getCacheEntry(flowNode);
             }
 
@@ -276,24 +294,8 @@ export function getCodeFlowEngine(
                     return { type: cachedEntry, isIncomplete: false };
                 }
 
-                let type = cachedEntry.type;
-
-                if (cachedEntry.incompleteSubtypes.length > 0) {
-                    // Recompute the effective type based on all of the incomplete
-                    // types we've accumulated so far.
-                    const typesToCombine: Type[] = [];
-
-                    cachedEntry.incompleteSubtypes.forEach((t) => {
-                        if (t.type) {
-                            typesToCombine.push(t.type);
-                        }
-                    });
-
-                    type = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
-                }
-
                 return {
-                    type,
+                    type: cachedEntry.type,
                     isIncomplete: true,
                     incompleteSubtypes: cachedEntry.incompleteSubtypes,
                     generationCount: cachedEntry.generationCount,
