@@ -249,6 +249,7 @@ export class ImportResolver {
             isImportFound: false,
             isPartlyResolved: false,
             isNamespacePackage: false,
+            isInitFilePresent: false,
             isStubPackage: false,
             importFailureInfo,
             resolvedPaths: [],
@@ -974,6 +975,7 @@ export class ImportResolver {
         const resolvedPaths: string[] = [];
         let dirPath = rootPath;
         let isNamespacePackage = false;
+        let isInitFilePresent = false;
         let isStubPackage = false;
         let isStubFile = false;
         let isNativeLib = false;
@@ -1023,7 +1025,7 @@ export class ImportResolver {
                     const fileNameWithoutExtension = '__init__';
                     const pyFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.py');
                     const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
-                    let foundInit = false;
+                    isInitFilePresent = false;
 
                     if (allowPyi && this.fileExistsCached(pyiFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
@@ -1031,11 +1033,11 @@ export class ImportResolver {
                         if (isLastPart) {
                             isStubFile = true;
                         }
-                        foundInit = true;
+                        isInitFilePresent = true;
                     } else if (this.fileExistsCached(pyFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
                         resolvedPaths.push(pyFilePath);
-                        foundInit = true;
+                        isInitFilePresent = true;
                     }
 
                     if (!pyTypedInfo && lookForPyTyped) {
@@ -1047,7 +1049,7 @@ export class ImportResolver {
                     if (!isLastPart) {
                         // We are not at the last part, and we found a directory,
                         // so continue to look for the next part.
-                        if (!foundInit) {
+                        if (!isInitFilePresent) {
                             resolvedPaths.push('');
                             isNamespacePackage = true;
                             pyTypedInfo = undefined;
@@ -1055,7 +1057,7 @@ export class ImportResolver {
                         continue;
                     }
 
-                    if (foundInit) {
+                    if (isInitFilePresent) {
                         implicitImports = this._findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
                             pyFilePath,
                             pyiFilePath,
@@ -1129,6 +1131,7 @@ export class ImportResolver {
             importName,
             isRelative: false,
             isNamespacePackage,
+            isInitFilePresent,
             isStubPackage,
             isImportFound: importFound,
             isPartlyResolved,
@@ -1498,11 +1501,18 @@ export class ImportResolver {
                 newImport.isNamespacePackage &&
                 moduleDescriptor.importedSymbols
             ) {
-                if (
-                    !this._isNamespacePackageResolved(moduleDescriptor, bestImportSoFar.implicitImports) &&
-                    this._isNamespacePackageResolved(moduleDescriptor, newImport.implicitImports)
-                ) {
-                    return newImport;
+                if (!this._isNamespacePackageResolved(moduleDescriptor, bestImportSoFar.implicitImports)) {
+                    if (this._isNamespacePackageResolved(moduleDescriptor, newImport.implicitImports)) {
+                        return newImport;
+                    }
+
+                    // Prefer the namespace package that has an __init__.py(i) file present
+                    // in the final directory over one that does not.
+                    if (bestImportSoFar.isInitFilePresent && !newImport.isInitFilePresent) {
+                        return bestImportSoFar;
+                    } else if (!bestImportSoFar.isInitFilePresent && newImport.isInitFilePresent) {
+                        return newImport;
+                    }
                 }
             }
 
