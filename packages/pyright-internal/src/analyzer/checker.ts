@@ -1411,6 +1411,17 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitImportFrom(node: ImportFromNode): boolean {
+        // Verify that any "__future__" import occurs at the top of the file.
+        if (
+            node.module.leadingDots === 0 &&
+            node.module.nameParts.length === 1 &&
+            node.module.nameParts[0].value === '__future__'
+        ) {
+            if (!ParseTreeUtils.isValidLocationForFutureImport(node)) {
+                this._evaluator.addError(Localizer.Diagnostic.futureImportLocationNotAllowed(), node);
+            }
+        }
+
         this._conditionallyReportShadowedImport(node);
         if (!node.isWildcardImport) {
             node.imports.forEach((importAs) => {

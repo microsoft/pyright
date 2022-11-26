@@ -446,6 +446,7 @@ export namespace Localizer {
         export const functionDecoratorTypeUnknown = () => getRawString('Diagnostic.functionDecoratorTypeUnknown');
         export const functionInConditionalExpression = () => getRawString('Diagnostic.functionInConditionalExpression');
         export const functionTypeParametersIllegal = () => getRawString('Diagnostic.functionTypeParametersIllegal');
+        export const futureImportLocationNotAllowed = () => getRawString('Diagnostic.futureImportLocationNotAllowed');
         export const generatorAsyncReturnType = () => getRawString('Diagnostic.generatorAsyncReturnType');
         export const generatorNotParenthesized = () => getRawString('Diagnostic.generatorNotParenthesized');
         export const generatorSyncReturnType = () => getRawString('Diagnostic.generatorSyncReturnType');

@@ -23,6 +23,7 @@ import {
     ExecutionScopeNode,
     ExpressionNode,
     FunctionNode,
+    ImportFromNode,
     IndexNode,
     isExpressionNode,
     LambdaNode,
@@ -2250,6 +2251,47 @@ export function isUnannotatedFunction(node: FunctionNode) {
             (param) => param.typeAnnotation === undefined && param.typeAnnotationComment === undefined
         )
     );
+}
+
+// Verifies that an import of the form "from __future__ import x"
+// occurs only at the top of a file. This mirrors the algorithm used
+// in the CPython interpreter.
+export function isValidLocationForFutureImport(node: ImportFromNode): boolean {
+    const module = getModuleNode(node);
+    assert(module);
+
+    let sawDocString = false;
+
+    for (const statement of module.statements) {
+        if (statement.nodeType !== ParseNodeType.StatementList) {
+            return false;
+        }
+
+        for (const simpleStatement of statement.statements) {
+            if (simpleStatement === node) {
+                return true;
+            }
+
+            if (simpleStatement.nodeType === ParseNodeType.StringList) {
+                if (sawDocString) {
+                    return false;
+                }
+                sawDocString = true;
+            } else if (simpleStatement.nodeType === ParseNodeType.ImportFrom) {
+                if (
+                    simpleStatement.module.leadingDots !== 0 ||
+                    simpleStatement.module.nameParts.length !== 1 ||
+                    simpleStatement.module.nameParts[0].value !== '__future__'
+                ) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+    }
+
+    return false;
 }
 
 // "Chaining" is when binary operators can be chained together

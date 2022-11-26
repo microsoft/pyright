@@ -169,3 +169,18 @@ test('TypeVarDefault5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('FutureImport1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['futureImport1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('FutureImport2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['futureImport2.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('FutureImport3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['futureImport3.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
