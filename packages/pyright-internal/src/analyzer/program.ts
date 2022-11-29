@@ -1772,7 +1772,7 @@ export class Program {
                             this._buildModuleSymbolsMap(
                                 sourceFileInfo,
                                 !!libraryMap,
-                                /* includeIndexUserSymbols */ false,
+                                options.includeUserSymbolsInAutoImport,
                                 token
                             ),
                         token
@@ -1841,7 +1841,7 @@ export class Program {
                     this._buildModuleSymbolsMap(
                         sourceFileInfo,
                         !!libraryMap,
-                        /* includeIndexUserSymbols */ false,
+                        options.includeUserSymbolsInAutoImport,
                         token
                     ),
                 completionItem,

@@ -285,10 +285,10 @@ This text comes after.
     const markdown = `Take a look at this code:
 
 ${tripleTick}
-if foo:
-    print(foo)
-else:
-    print('not foo!')
+    if foo:
+        print(foo)
+    else:
+        print('not foo!')
 ${tripleTick}
 
 This text comes after.
@@ -308,10 +308,10 @@ test('RestLiteralBlockEmptyDoubleColonLine', () => {
 `;
 
     const markdown = `${tripleTick}
-if foo:
-    print(foo)
-else:
-    print('not foo!')
+    if foo:
+        print(foo)
+    else:
+        print('not foo!')
 ${tripleTick}
 `;
 
@@ -336,10 +336,10 @@ This text comes after.
     const markdown = `Take a look at this code:
 
 ${tripleTick}
-if foo:
-    print(foo)
-else:
-    print('not foo!')
+    if foo:
+        print(foo)
+    else:
+        print('not foo!')
 ${tripleTick}
 
 This text comes after.
@@ -849,3 +849,40 @@ function _testConvertToPlainText(docstring: string, expectedPlainText: string) {
 function _normalizeLineEndings(text: string): string {
     return text.split(/\r?\n/).join('\n');
 }
+
+test('RPYCLiteralBlockTransition', () => {
+    const docstring = `
+::
+
+         #####    #####             ####
+        ##   ##  ##   ##           ##             ####
+        ##  ##   ##  ##           ##                 #
+        #####    #####   ##   ##  ##               ##
+        ##  ##   ##       ## ##   ##                 #
+        ##   ##  ##        ###    ##              ###
+        ##   ##  ##        ##      #####
+     -------------------- ## ------------------------------------------
+                         ##
+
+Remote Python Call (RPyC)
+`;
+
+    const markdown = `
+
+${tripleTick}
+         #####    #####             ####
+        ##   ##  ##   ##           ##             ####
+        ##  ##   ##  ##           ##                 #
+        #####    #####   ##   ##  ##               ##
+        ##  ##   ##       ## ##   ##                 #
+        ##   ##  ##        ###    ##              ###
+        ##   ##  ##        ##      #####
+     -------------------- ## ------------------------------------------
+                         ##
+${tripleTick}
+
+Remote Python Call (RPyC)
+`;
+
+    _testConvertToMarkdown(docstring, markdown);
+});

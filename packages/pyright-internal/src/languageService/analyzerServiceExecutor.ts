@@ -11,10 +11,10 @@ import { isPythonBinary } from '../analyzer/pythonPathUtils';
 import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
-import { createDeferred } from '../common/deferred';
 import { FileSystem } from '../common/fileSystem';
 import { combinePaths } from '../common/pathUtils';
 import {
+    createInitStatus,
     LanguageServerInterface,
     ServerSettings,
     WellKnownWorkspaceKinds,
@@ -73,7 +73,7 @@ export class AnalyzerServiceExecutor {
             disableLanguageServices: true,
             disableOrganizeImports: true,
             disableWorkspaceSymbol: true,
-            isInitialized: createDeferred<boolean>(),
+            isInitialized: createInitStatus(),
             searchPathsToWatch: [],
         };
 

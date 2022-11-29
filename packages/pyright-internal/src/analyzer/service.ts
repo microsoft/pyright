@@ -590,6 +590,10 @@ export class AnalyzerService {
         return this._getFileNamesFromFileSpecs();
     }
 
+    test_shouldHandleSourceFileWatchChanges(path: string, isFile: boolean) {
+        return this._shouldHandleSourceFileWatchChanges(path, isFile);
+    }
+
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
     private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
@@ -1372,54 +1376,36 @@ export class AnalyzerService {
                         return;
                     }
 
-                    // For file change, we only care python file change.
-                    if (
-                        eventInfo.isFile &&
-                        (!hasPythonExtension(path) || isTemporaryFile(path) || !this.isTracked(path))
-                    ) {
+                    if (!this._shouldHandleSourceFileWatchChanges(path, eventInfo.isFile)) {
                         return;
                     }
 
-                    if (eventInfo.isFile && (eventInfo.event === 'change' || eventInfo.event === 'unlink')) {
+                    // If the change is the content of 1 file, then it can't affect `import resolution` result. All we need to do is
+                    // reanalyzing related files (files that transitively depends on this file).
+                    if (eventInfo.isFile && eventInfo.event === 'change') {
                         this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
                         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
-                    } else {
-                        // Added files or folder changes impact imports,
-                        // clear the import resolver cache and reanalyze everything.
-                        //
-                        // Here we don't need to rebuild any indexing since this kind of change can't affect
-                        // indices. For library, since the changes are on workspace files, it won't affect library
-                        // indices. For user file, since user file indices don't contains import alias symbols,
-                        // it won't affect those indices. we only need to rebuild user file indices when symbols
-                        // defined in the file are changed. ex) user modified the file.
-                        // Newly added file will be scanned since it doesn't have existing indices.
-                        this.invalidateAndForceReanalysis(
-                            /* rebuildUserFileIndexing */ false,
-                            /* rebuildLibraryIndexing */ false
-                        );
-                        this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
+                        return;
                     }
+
+                    // fs events happened can impact import resolution result.
+                    // clear the import resolver cache and reanalyze everything.
+                    //
+                    // Here we don't need to rebuild any indexing since this kind of change can't affect
+                    // indices. For library, since the changes are on workspace files, it won't affect library
+                    // indices. For user file, since user file indices don't contains import alias symbols,
+                    // it won't affect those indices. we only need to rebuild user file indices when symbols
+                    // defined in the file are changed. ex) user modified the file.
+                    // Newly added file will be scanned since it doesn't have existing indices.
+                    this.invalidateAndForceReanalysis(
+                        /* rebuildUserFileIndexing */ false,
+                        /* rebuildLibraryIndexing */ false
+                    );
+                    this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                 });
             } catch {
                 this._console.error(`Exception caught when installing fs watcher for:\n ${fileList.join('\n')}`);
             }
-        }
-
-        function isTemporaryFile(path: string) {
-            // Determine if this is an add or delete event related to a temporary
-            // file. Some tools (like auto-formatters) create temporary files
-            // alongside the original file and name them "x.py.<temp-id>.py" where
-            // <temp-id> is a 32-character random string of hex digits. We don't
-            // want these events to trigger a full reanalysis.
-            const fileName = getFileName(path);
-            const fileNameSplit = fileName.split('.');
-            if (fileNameSplit.length === 4) {
-                if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         function getEventInfo(
@@ -1463,6 +1449,60 @@ export class AnalyzerService {
             // We have unknown event.
             console.warn(`Received unknown file change event: '${event}' for '${path}'`);
             return undefined;
+        }
+    }
+
+    private _shouldHandleSourceFileWatchChanges(path: string, isFile: boolean) {
+        if (isFile) {
+            if (!hasPythonExtension(path) || isTemporaryFile(path)) {
+                return false;
+            }
+
+            // Check whether the file change can affect semantics. If the file changed is not a user file or already a part of
+            // the program (since we lazily load library files or extra path files when they are used), then the change can't
+            // affect semantics. so just bail out.
+            if (!this.isTracked(path) && !this._program.getSourceFileInfo(path)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // The fs change is on a folder.
+        if (!this._matchFileSpecs(path, /* isFile */ false)) {
+            // First, make sure the folder is included. By default, we exclude any folder whose name starts with '.'
+            return false;
+        }
+
+        const parentPath = getDirectoryPath(path);
+        const hasInit =
+            parentPath.startsWith(this._configOptions.projectRoot) &&
+            (this.fs.existsSync(combinePaths(parentPath, '__init__.py')) ||
+                this.fs.existsSync(combinePaths(parentPath, '__init__.pyi')));
+
+        // We don't have any file under the given path and its parent folder doesn't have __init__ then this folder change
+        // doesn't have any meaning to us.
+        if (!hasInit && !this._program.containsSourceFileIn(path)) {
+            return false;
+        }
+
+        return true;
+
+        function isTemporaryFile(path: string) {
+            // Determine if this is an add or delete event related to a temporary
+            // file. Some tools (like auto-formatters) create temporary files
+            // alongside the original file and name them "x.py.<temp-id>.py" where
+            // <temp-id> is a 32-character random string of hex digits. We don't
+            // want these events to trigger a full reanalysis.
+            const fileName = getFileName(path);
+            const fileNameSplit = fileName.split('.');
+            if (fileNameSplit.length === 4) {
+                if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
@@ -1735,17 +1775,17 @@ export class AnalyzerService {
         }
     }
 
-    private _shouldIncludeFile(filePath: string) {
-        return _includeFileRegex.test(filePath);
+    private _shouldIncludeFile(filePath: string, isFile = true) {
+        return isFile ? _includeFileRegex.test(filePath) : true;
     }
 
     private _isInExcludePath(path: string, excludePaths: FileSpec[]) {
         return !!excludePaths.find((excl) => excl.regExp.test(path));
     }
 
-    private _matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], filePath: string) {
+    private _matchIncludeFileSpec(includeRegExp: RegExp, exclude: FileSpec[], filePath: string, isFile = true) {
         if (includeRegExp.test(filePath)) {
-            if (!this._isInExcludePath(filePath, exclude) && this._shouldIncludeFile(filePath)) {
+            if (!this._isInExcludePath(filePath, exclude) && this._shouldIncludeFile(filePath, isFile)) {
                 return true;
             }
         }
@@ -1753,9 +1793,9 @@ export class AnalyzerService {
         return false;
     }
 
-    private _matchFileSpecs(filePath: string) {
+    private _matchFileSpecs(filePath: string, isFile = true) {
         for (const includeSpec of this._configOptions.include) {
-            if (this._matchIncludeFileSpec(includeSpec.regExp, this._configOptions.exclude, filePath)) {
+            if (this._matchIncludeFileSpec(includeSpec.regExp, this._configOptions.exclude, filePath, isFile)) {
                 return true;
             }
         }

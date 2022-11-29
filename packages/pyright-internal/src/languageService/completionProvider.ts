@@ -61,6 +61,7 @@ import {
     UnknownType,
 } from '../analyzer/types';
 import {
+    ClassMemberLookupFlags,
     doForEachSubtype,
     getDeclaringModulesForType,
     getMembersForClass,
@@ -68,6 +69,7 @@ import {
     isLiteralType,
     isLiteralTypeOrUnion,
     isProperty,
+    lookUpClassMember,
     lookUpObjectMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -271,6 +273,7 @@ export interface CompletionOptions {
     snippet: boolean;
     lazyEdit: boolean;
     autoImport: boolean;
+    includeUserSymbolsInAutoImport: boolean;
     extraCommitChars: boolean;
     importFormat: ImportFormat;
 }
@@ -964,6 +967,29 @@ export class CompletionProvider {
             return undefined;
         }
 
+        const classVariableName = ((parseNode.parent as TypeAnnotationNode).valueExpression as NameNode).value;
+        const classMember = lookUpClassMember(
+            classResults.classType,
+            classVariableName,
+            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipOriginalClass
+        );
+
+        // First, see whether we can use semantic info to get variable type.
+        if (classMember) {
+            const memberType = this._evaluator.getTypeOfMember(classMember);
+
+            const text = this._evaluator.printType(memberType, {
+                enforcePythonSyntax: true,
+                expandTypeAlias: false,
+            });
+
+            this._addNameToCompletions(text, CompletionItemKind.Reference, priorWord, completionMap, {
+                sortText: this._makeSortText(SortCategory.LikelyKeyword, text),
+            });
+            return;
+        }
+
+        // If we can't do that using semantic info, then try syntactic info.
         const symbolTable = new Map<string, Symbol>();
         for (const mroClass of classResults.classType.details.mro) {
             if (mroClass === classResults.classType) {
@@ -976,7 +1002,6 @@ export class CompletionProvider {
             }
         }
 
-        const classVariableName = ((parseNode.parent as TypeAnnotationNode).valueExpression as NameNode).value;
         const symbol = symbolTable.get(classVariableName);
         if (!symbol) {
             return;

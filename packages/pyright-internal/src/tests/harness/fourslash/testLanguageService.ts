@@ -22,12 +22,12 @@ import { CommandController } from '../../../commands/commandController';
 import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
-import { createDeferred } from '../../../common/deferred';
 import { LanguageServiceExtension } from '../../../common/extensibility';
 import { FileSystem } from '../../../common/fileSystem';
 import { Range } from '../../../common/textRange';
 import { UriParser } from '../../../common/uriParser';
 import {
+    createInitStatus,
     LanguageServerInterface,
     MessageAction,
     ServerSettings,
@@ -103,7 +103,7 @@ export class TestLanguageService implements LanguageServerInterface {
             disableLanguageServices: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
-            isInitialized: createDeferred<boolean>(),
+            isInitialized: createInitStatus(),
             searchPathsToWatch: [],
         };
     }

@@ -56,6 +56,7 @@ test('check chained files', async () => {
             autoImport: false,
             extraCommitChars: false,
             importFormat: ImportFormat.Absolute,
+            includeUserSymbolsInAutoImport: false,
         },
         undefined,
         CancellationToken.None
@@ -103,6 +104,7 @@ test('modify chained files', async () => {
             autoImport: false,
             extraCommitChars: false,
             importFormat: ImportFormat.Absolute,
+            includeUserSymbolsInAutoImport: false,
         },
         undefined,
         CancellationToken.None
