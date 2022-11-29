@@ -582,11 +582,10 @@ export function printType(
                     if (type.paramSpecAccess) {
                         return `${type.details.name}.${type.paramSpecAccess}`;
                     }
-                    return `${TypeVarType.getReadableName(type)}`;
+                    return `${_getReadableTypeVarName(type, (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0)}`;
                 }
 
-                let typeVarName = TypeVarType.getReadableName(type);
-
+                let typeVarName = _getReadableTypeVarName(type, (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0);
                 if (type.isVariadicUnpacked) {
                     typeVarName = _printUnpack(typeVarName, printTypeFlags);
                 }
@@ -999,4 +998,12 @@ function _printNestedInstantiable(type: Type, textToWrap: string) {
     }
 
     return textToWrap;
+}
+
+function _getReadableTypeVarName(type: TypeVarType, usePythonSyntax: boolean) {
+    if (usePythonSyntax) {
+        return type.details.name;
+    }
+
+    return TypeVarType.getReadableName(type);
 }

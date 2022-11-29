@@ -144,7 +144,7 @@ function _getIndentation(
     preferDedent: boolean
 ): { token?: Token; indentation: number } {
     const tokens = parseResults.tokenizerOutput.tokens;
-    const startingToken = _findPreviousNonWhitespaceToken(tokens, offset);
+    const startingToken = findPreviousNonWhitespaceToken(tokens, offset);
     if (!startingToken) {
         return {
             indentation: 0,
@@ -428,7 +428,7 @@ function _findStringToken(tokens: TextRangeCollection<Token>, index: number): To
     return token.type === TokenType.String ? token : undefined;
 }
 
-function _findPreviousNonWhitespaceToken(tokens: TextRangeCollection<Token>, offset: number): Token | undefined {
+export function findPreviousNonWhitespaceToken(tokens: TextRangeCollection<Token>, offset: number): Token | undefined {
     const index = tokens.getItemAtPosition(offset);
     if (index < 0) {
         return undefined;

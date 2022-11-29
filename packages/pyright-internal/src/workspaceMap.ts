@@ -4,17 +4,30 @@
  * Workspace management related functionality.
  */
 
-import { createDeferred } from './common/deferred';
-import { LanguageServerBase, WellKnownWorkspaceKinds, WorkspaceServiceInstance } from './languageServerBase';
+import {
+    createInitStatus,
+    LanguageServerBase,
+    WellKnownWorkspaceKinds,
+    WorkspaceServiceInstance,
+} from './languageServerBase';
 
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
     private _defaultWorkspacePath = '<default>';
+
+    override set(key: string, value: WorkspaceServiceInstance): this {
+        // Make sure to delete existing workspace if there is one.
+        this.delete(key);
+        return super.set(key, value);
+    }
 
     override delete(key: string): boolean {
         const workspace = this.get(key);
         if (!workspace) {
             return false;
         }
+
+        // Make sure to unblock if there is someone waiting this workspace.
+        workspace.isInitialized.resolve();
 
         // Properly dispose of the service instance.
         workspace.serviceInstance.dispose();
@@ -58,9 +71,15 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         return workspaces;
     }
 
-    getWorkspaceForFile(ls: LanguageServerBase, filePath: string): WorkspaceServiceInstance {
+    async getWorkspaceForFile(ls: LanguageServerBase, filePath: string): Promise<WorkspaceServiceInstance> {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;
+
+        // Wait for all workspaces to be initialized before attempting to find the best workspace. Otherwise
+        // the list of files won't be complete and the `contains` check might fail.
+        for (const workspace of this.values()) {
+            await workspace.isInitialized.promise;
+        }
 
         // The order of how we find the best matching workspace for the given file is
         // 1. The given file is the workspace itself (ex, a file being a virtual workspace itself).
@@ -120,12 +139,18 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     disableLanguageServices: false,
                     disableOrganizeImports: false,
                     disableWorkspaceSymbol: false,
-                    isInitialized: createDeferred<boolean>(),
+                    isInitialized: createInitStatus(),
                     searchPathsToWatch: [],
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
-                ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
+
+                // Do not await this. let isInitialized.promise to await. Otherwise, ordering
+                // will get messed up. The very first call will run last.
+                ls.updateSettingsForWorkspace(defaultWorkspace, defaultWorkspace.isInitialized).ignoreErrors();
             }
+
+            // Make sure the default workspace is initialized before using it.
+            await defaultWorkspace.isInitialized.promise;
 
             return defaultWorkspace;
         }
