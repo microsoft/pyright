@@ -401,7 +401,7 @@ export class SourceFile {
                 const rangeEnd = rangeStart + this._typeIgnoreAll.range.length;
                 const range = convertOffsetsToRange(rangeStart, rangeEnd, this._parseResults!.tokenizerOutput.lines!);
 
-                if (!isUnreachableCodeRange(range)) {
+                if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                     unnecessaryTypeIgnoreDiags.push(
                         new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryTypeIgnore(), range)
                     );
@@ -418,7 +418,7 @@ export class SourceFile {
                         this._parseResults!.tokenizerOutput.lines!
                     );
 
-                    if (!isUnreachableCodeRange(range)) {
+                    if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                         unnecessaryTypeIgnoreDiags.push(
                             new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryTypeIgnore(), range)
                         );
