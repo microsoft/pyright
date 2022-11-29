@@ -12922,11 +12922,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entry.nodeType === ParseNodeType.ListComprehension) {
                 entryTypeResult = getElementTypeFromListComprehension(entry);
             } else {
-                entryTypeResult = getTypeOfExpression(
-                    entry,
-                    /* flags */ undefined,
-                    hasExpectedType ? NeverType.createNever() : undefined
-                );
+                entryTypeResult = getTypeOfExpression(entry);
             }
 
             if (entryTypeResult.isIncomplete) {
