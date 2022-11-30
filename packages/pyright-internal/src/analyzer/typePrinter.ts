@@ -368,12 +368,12 @@ export function printType(
                         return `((${parts[0].join(', ')}) -> ${parts[1]})`;
                     }
 
-                    // no indentation when only one parameter or when printing functions as parameters
+                    // Use single line form when printing functions as parameters.
                     if (parameterIndention === 0 || recursionCount > 1 || parts[0].length <= 1) {
                         return `(${parts[0].join(', ')}) -> ${parts[1]}`;
                     }
 
-                    // format with indentation
+                    // Separate parameters into addition lines with indentation.
                     const indentString = '\n' + ' '.repeat(parameterIndention);
                     return `(${parts[0].join(',' + indentString)}${indentString}) -> ${parts[1]}`;
                 }
@@ -382,7 +382,7 @@ export function printType(
             case TypeCategory.OverloadedFunction: {
                 const overloadedType = type;
                 const overloads = overloadedType.overloads.map((overload) =>
-                    // Reduce the recursion count by one to allow parameter indention to work
+                    // Reduce the recursion count by one to allow parameter indention to work.
                     printType(
                         overload,
                         printTypeFlags,

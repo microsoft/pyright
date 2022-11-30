@@ -217,7 +217,7 @@ export class HoverProvider {
                 }
 
                 const typeText = typeVarName || node.value + this._getTypeText(typeNode, evaluator, expandTypeAlias);
-                this._addResultsPart(parts, `(${label}) ${typeText}`, /* python */ true);
+                this._addResultsPart(parts, `(${label})\n${typeText}`, /* python */ true);
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -284,7 +284,7 @@ export class HoverProvider {
                         const functionName = node.value + sep;
                         this._addResultsPart(
                             parts,
-                            `(${label}) ` +
+                            `(${label})\n` +
                                 functionName +
                                 evaluator.printType(type, { parameterIndention: functionName.length }),
                             /* python */ true
