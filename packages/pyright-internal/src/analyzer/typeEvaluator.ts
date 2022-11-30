@@ -24539,8 +24539,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (options?.useTypingUnpack) {
             flags |= TypePrinter.PrintTypeFlags.UseTypingUnpack;
         }
+        const parameterIndention = options?.parameterIndention ?? 0;
 
-        return TypePrinter.printType(type, flags, getFunctionEffectiveReturnType);
+        return TypePrinter.printType(
+            type,
+            flags,
+            getFunctionEffectiveReturnType,
+            /* recursionTypes */ [],
+            /* recursionCount */ 0,
+            parameterIndention
+        );
     }
 
     // Calls back into the parser to parse the contents of a string literal.

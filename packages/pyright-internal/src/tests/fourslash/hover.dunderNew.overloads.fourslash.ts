@@ -13,5 +13,5 @@
 //// x = [|/*marker1*/Foo|]()
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(class) Foo(name: str, last: str)\n\nFoo(age: int, height: float)\n\n\n```',
+    marker1: '```python\n(class)\nFoo(name: str,\n   last: str)\n\nFoo(age: int,\n   height: float)\n\n\n```',
 });

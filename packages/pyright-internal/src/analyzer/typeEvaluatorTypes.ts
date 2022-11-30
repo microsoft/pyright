@@ -321,6 +321,7 @@ export interface PrintTypeOptions {
     expandTypeAlias?: boolean;
     enforcePythonSyntax?: boolean;
     useTypingUnpack?: boolean;
+    parameterIndention?: number;
 }
 
 export interface TypeEvaluator {

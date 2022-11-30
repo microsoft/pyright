@@ -80,7 +80,8 @@ export function printType(
     printTypeFlags: PrintTypeFlags,
     returnTypeCallback: FunctionReturnTypeCallback,
     recursionTypes: Type[] = [],
-    recursionCount = 0
+    recursionCount = 0,
+    parameterIndention = 0
 ): string {
     const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
     const parenthesizeCallable = (printTypeFlags & PrintTypeFlags.ParenthesizeCallable) !== 0;
@@ -359,29 +360,42 @@ export function printType(
                     }
                 } else {
                     const parts = printFunctionParts(type, printTypeFlags, returnTypeCallback, recursionTypes);
-                    const paramSignature = `(${parts[0].join(', ')})`;
                     if (FunctionType.isParamSpecValue(type)) {
-                        return paramSignature;
+                        return `(${parts[0].join(', ')})`;
                     }
-                    const fullSignature = `${paramSignature} -> ${parts[1]}`;
 
                     if (parenthesizeCallable) {
-                        return `(${fullSignature})`;
+                        return `((${parts[0].join(', ')}) -> ${parts[1]})`;
                     }
 
-                    return fullSignature;
+                    // no indentation when only one parameter or when printing functions as parameters
+                    if (parameterIndention === 0 || recursionCount > 1 || parts[0].length <= 1) {
+                        return `(${parts[0].join(', ')}) -> ${parts[1]}`;
+                    }
+
+                    // format with indentation
+                    const indentString = '\n' + ' '.repeat(parameterIndention);
+                    return `(${parts[0].join(',' + indentString)}${indentString}) -> ${parts[1]}`;
                 }
             }
 
             case TypeCategory.OverloadedFunction: {
                 const overloadedType = type;
                 const overloads = overloadedType.overloads.map((overload) =>
-                    printType(overload, printTypeFlags, returnTypeCallback, recursionTypes, recursionCount)
+                    // Reduce the recursion count by one to allow parameter indention to work
+                    printType(
+                        overload,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        recursionTypes,
+                        parameterIndention === 0 ? recursionCount : recursionCount - 1,
+                        parameterIndention
+                    )
                 );
                 if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
                     return 'Callable[..., Any]';
                 }
-                return `Overload[${overloads.join(', ')}]`;
+                return `Overload[${overloads.join(',\n\n' + ' '.repeat(parameterIndention))}]`;
             }
 
             case TypeCategory.Union: {

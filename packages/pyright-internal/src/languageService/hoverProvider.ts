@@ -281,9 +281,12 @@ export class HoverProvider {
                             /* python */ true
                         );
                     } else {
+                        const functionName = node.value + sep;
                         this._addResultsPart(
                             parts,
-                            `(${label}) ` + node.value + sep + evaluator.printType(type),
+                            `(${label}) ` +
+                                functionName +
+                                evaluator.printType(type, { parameterIndention: functionName.length }),
                             /* python */ true
                         );
                     }
@@ -445,18 +448,19 @@ export class HoverProvider {
         }
 
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
-            let classText = '';
+            let classText = '(class)\n';
+            const indention = node.value.length;
             if (isOverloadedFunction(methodType)) {
                 const overloads = methodType.overloads.map((overload) => evaluator.printFunctionParts(overload));
                 overloads.forEach((overload, index) => {
-                    classText = classText + `${node.value}(${overload[0].join(', ')})\n\n`;
+                    classText += `${node.value}(${overload[0].join(',\n' + ' '.repeat(indention))})\n\n`;
                 });
             } else if (isFunction(methodType)) {
                 const functionParts = evaluator.printFunctionParts(methodType);
-                classText = `${node.value}(${functionParts[0].join(', ')})`;
+                classText += `${node.value}(${functionParts[0].join(',\n' + ' '.repeat(indention))})`;
             }
 
-            this._addResultsPart(parts, '(class) ' + classText, /* python */ true);
+            this._addResultsPart(parts, classText, /* python */ true);
             const addedDoc = this._addDocumentationPartForType(
                 format,
                 sourceMapper,
@@ -476,7 +480,7 @@ export class HoverProvider {
 
     private static _getTypeText(node: NameNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {
         const type = evaluator.getType(node) || UnknownType.create();
-        return ': ' + evaluator.printType(type, { expandTypeAlias });
+        return ': ' + evaluator.printType(type, { expandTypeAlias, parameterIndention: node.value.length + 2 });
     }
 
     private static _addDocumentationPart(

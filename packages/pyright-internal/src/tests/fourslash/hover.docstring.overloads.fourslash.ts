@@ -36,6 +36,6 @@
 
 helper.verifyHover('markdown', {
     marker1:
-        '```python\n(variable) dontwork: Overload[(self: _rand, x: int) -> None, (self: _rand, x: float) -> None]\n```\n---\ndontwork docstring',
+        '```python\n(variable) dontwork: Overload[(self: _rand,\n          x: int\n          ) -> None,\n\n          (self: _rand,\n          x: float\n          ) -> None]\n```\n---\ndontwork docstring',
     marker2: '```python\n(variable) works: (self: _rand) -> None\n```\n---\nworks docstring',
 });
