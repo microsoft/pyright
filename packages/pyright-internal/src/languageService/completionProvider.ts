@@ -1839,11 +1839,6 @@ export class CompletionProvider {
     }
 
     private _getIndexerKeys(indexNode: IndexNode, invocationNode: ParseNode) {
-        if (indexNode.baseExpression.nodeType !== ParseNodeType.Name) {
-            // This completion only supports simple name case
-            return [];
-        }
-
         const baseType = this._evaluator.getType(indexNode.baseExpression);
         if (!baseType || !isClassInstance(baseType)) {
             return [];
@@ -1871,6 +1866,11 @@ export class CompletionProvider {
             if (keys.length > 0) {
                 return keys;
             }
+        }
+
+        if (indexNode.baseExpression.nodeType !== ParseNodeType.Name) {
+            // This completion only supports simple name case
+            return [];
         }
 
         // Must be local variable/parameter
