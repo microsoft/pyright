@@ -26,7 +26,7 @@ test('top level statement - function', () => {
 ////  [|/*marker*/|]
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 0);
 });
 
 test('function with open paren at end of file', () => {

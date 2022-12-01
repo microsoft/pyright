@@ -1410,15 +1410,15 @@ export class Parser {
                 postColonCallback();
             }
 
-            let bodyIndentToken: IndentToken | undefined;
             const possibleIndent = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Indent)) {
                 this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
-            } else {
-                bodyIndentToken = possibleIndent as IndentToken;
-                if (bodyIndentToken.isIndentAmbiguous) {
-                    this._addError(Localizer.Diagnostic.inconsistentTabs(), bodyIndentToken);
-                }
+                return suite;
+            }
+
+            const bodyIndentToken = possibleIndent as IndentToken;
+            if (bodyIndentToken.isIndentAmbiguous) {
+                this._addError(Localizer.Diagnostic.inconsistentTabs(), bodyIndentToken);
             }
 
             while (true) {
@@ -1456,6 +1456,13 @@ export class Parser {
                     // initial indent of the suite body?
                     if (!bodyIndentToken || dedentToken.indentAmount < bodyIndentToken.indentAmount) {
                         break;
+                    } else if (dedentToken.indentAmount === bodyIndentToken.indentAmount) {
+                        // If the next token is also a dedent that reduces the indent
+                        // level to a less than the initial indent of the suite body, swallow
+                        // the extra dedent to help recover the parse.
+                        if (this._consumeTokenIfType(TokenType.Dedent)) {
+                            break;
+                        }
                     }
                 }
 
