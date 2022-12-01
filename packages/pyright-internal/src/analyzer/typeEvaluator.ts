@@ -21583,6 +21583,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isClassInstance(expandedSrcType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
             const srcTypeArgs = expandedSrcType.typeArguments;
             let typeTypeArg: Type;
+            let instantiableType: Type;
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 typeTypeArg = srcTypeArgs[0];
                 if (isAnyOrUnknown(typeTypeArg)) {
@@ -21591,15 +21592,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                     return TypeBase.isInstantiable(destType);
                 }
+                instantiableType = convertToInstantiable(typeTypeArg);
             } else {
                 typeTypeArg = objectType ?? AnyType.create();
+                instantiableType = expandedSrcType;
             }
 
             if (isClassInstance(typeTypeArg) || isTypeVar(typeTypeArg)) {
                 if (
                     assignType(
                         destType,
-                        convertToInstantiable(typeTypeArg),
+                        instantiableType,
                         diag?.createAddendum(),
                         destTypeVarContext,
                         srcTypeVarContext,
