@@ -1460,7 +1460,9 @@ export class Parser {
                         // If the next token is also a dedent that reduces the indent
                         // level to a less than the initial indent of the suite body, swallow
                         // the extra dedent to help recover the parse.
+                        const nextToken = this._peekToken();
                         if (this._consumeTokenIfType(TokenType.Dedent)) {
+                            extendRange(suite, nextToken);
                             break;
                         }
                     }
