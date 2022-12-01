@@ -1,4 +1,4 @@
-# This sample tests the use of a # pyright: ignore comment in conjunction
+# This sample tests the use of a pyright ignore comment in conjunction
 # with the reportUnnecessaryTypeIgnoreComment mechanism.
 
 from typing import Optional
@@ -19,6 +19,6 @@ def foo(self, x: Optional[int]) -> str:
     v4 = x + x  # pyright: ignore []
 
     # One of these is unnecessary
-    v5 = x + "hi"  # pyright: ignore [reportGeneralTypeIssues, foo]
+    v5 = x + "hi"  # test # pyright: ignore [reportGeneralTypeIssues, foo]
 
     return 3  # pyright: ignore [reportGeneralTypeIssues]
