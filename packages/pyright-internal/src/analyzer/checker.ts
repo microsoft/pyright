@@ -3666,6 +3666,14 @@ export class Checker extends ParseTreeWalker {
         if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
             return;
         }
+
+        // Skip this check for relative imports.
+        const nodeModule = node.nodeType === ParseNodeType.ImportFromAs ? (node.parent as any)?.module : node.module;
+        if (nodeModule?.importInfo?.isRelative) {
+            return;
+        }
+
+        // Otherwise use the name to determine if a match for a stdlib module.
         const namePartNodes =
             node.nodeType === ParseNodeType.ImportAs
                 ? node.module.nameParts

@@ -240,6 +240,9 @@ export class Program {
                 const filePath = normalizePathCase(this._fs, oldFile.sourceFile.getFilePath());
                 if (!newFileMap.has(filePath)) {
                     oldFile.isTracked = false;
+                } else {
+                    // Otherwise make sure this file is marked as tracked.
+                    oldFile.isTracked = true;
                 }
             });
         }
