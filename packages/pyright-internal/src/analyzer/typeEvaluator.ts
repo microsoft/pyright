@@ -15576,7 +15576,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (dataClassBehaviors) {
             applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
-            applyDataClassClassBehaviorOverrides(evaluatorInterface, node.name, classType, initSubclassArgs);
+            applyDataClassClassBehaviorOverrides(
+                evaluatorInterface,
+                node.name,
+                classType,
+                initSubclassArgs,
+                dataClassBehaviors
+            );
         }
 
         // Run any class hooks that depend on this class.

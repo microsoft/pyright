@@ -11,6 +11,7 @@ def __dataclass_transform__(
     eq_default: bool = True,
     order_default: bool = False,
     kw_only_default: bool = False,
+    frozen_default: bool = False,
     field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
 ) -> Callable[[_T], _T]:
     return lambda a: a
@@ -109,3 +110,17 @@ class GenericCustomer(GenericModelBase[int]):
     id: int = model_field()
 
 gc_1 = GenericCustomer(id=3)
+
+@__dataclass_transform__(frozen_default=True)
+class ModelBaseFrozen:
+    not_a_field: str
+
+class Customer3(ModelBaseFrozen):
+    id: int
+    name: str
+
+
+c3_1 = Customer3(id=2, name="hi")
+
+# This should generate an error because Customer3 is frozen.
+c3_1.id = 4
