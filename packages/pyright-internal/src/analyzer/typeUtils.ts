@@ -1683,6 +1683,7 @@ export function buildTypeVarContext(
                                 category: param.category,
                                 name: param.name,
                                 hasDefault: !!param.hasDefault,
+                                defaultValueExpression: param.defaultValueExpression,
                                 isNameSynthesized: param.isNameSynthesized,
                                 type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
                             });
@@ -2691,6 +2692,7 @@ export function convertParamSpecValueToType(paramSpecEntry: ParamSpecValue, omit
                 category: entry.category,
                 name: entry.name,
                 hasDefault: entry.hasDefault,
+                defaultValueExpression: entry.defaultValueExpression,
                 isNameSynthesized: entry.isNameSynthesized,
                 hasDeclaredType: true,
                 type: entry.type,

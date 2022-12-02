@@ -1097,12 +1097,12 @@ export interface ParamSpecEntry {
     name?: string | undefined;
     isNameSynthesized?: boolean;
     hasDefault?: boolean | undefined;
+    defaultValueExpression?: ExpressionNode | undefined;
     type: Type;
 }
 
 export interface FunctionParameter extends ParamSpecEntry {
     isTypeInferred?: boolean | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
     defaultType?: Type | undefined;
     hasDeclaredType?: boolean | undefined;
     typeAnnotation?: ExpressionNode | undefined;
@@ -1441,6 +1441,7 @@ export namespace FunctionType {
                         category: specEntry.category,
                         name: specEntry.name,
                         hasDefault: specEntry.hasDefault,
+                        defaultValueExpression: specEntry.defaultValueExpression,
                         isNameSynthesized: specEntry.isNameSynthesized,
                         hasDeclaredType: true,
                         type: specEntry.type,
@@ -1535,6 +1536,7 @@ export namespace FunctionType {
                 category: specEntry.category,
                 name: specEntry.name,
                 hasDefault: specEntry.hasDefault,
+                defaultValueExpression: specEntry.defaultValueExpression,
                 isNameSynthesized: specEntry.isNameSynthesized,
                 hasDeclaredType: true,
                 type: specEntry.type,

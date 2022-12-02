@@ -700,6 +700,7 @@ function assignTypeToParamSpec(
                 name: p.name,
                 isNameSynthesized: p.isNameSynthesized,
                 hasDefault: !!p.hasDefault,
+                defaultValueExpression: p.defaultValueExpression,
                 type: FunctionType.getEffectiveParameterType(functionSrcType, index),
             };
             return paramSpecEntry;

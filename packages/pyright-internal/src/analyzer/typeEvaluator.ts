@@ -23489,6 +23489,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             name: p.name,
                             isNameSynthesized: p.isNameSynthesized,
                             hasDefault: !!p.hasDefault,
+                            defaultValueExpression: p.defaultValueExpression,
                             type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
                         });
                     }
