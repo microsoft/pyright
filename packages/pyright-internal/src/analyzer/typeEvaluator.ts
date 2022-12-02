@@ -17864,12 +17864,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 getTypeOfExpression(node, EvaluatorFlags.AllowForwardReferences);
                 return;
             }
-
-            if (node.parent.nodeType === ParseNodeType.ModuleName) {
-                // A name within a module name isn't an expression,
-                // so there's nothing we can evaluate here.
-                return;
-            }
         }
 
         // If the expression is part of a type annotation, we need to evaluate
