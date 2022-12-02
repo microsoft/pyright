@@ -59,10 +59,6 @@ describe('TypeEvaluatorWithTracker tests', () => {
 
         TestUtils.typeAnalyzeSampleFiles(['badToken1.py'], config, console);
         assert.ok(consoleInterface.logs.length > 10, `No calls logged`);
-        assert.ok(
-            consoleInterface.logs.some((s) => s.includes('evaluateTypesForStatement')),
-            `Inner evaluateTypesForStatement not found`
-        );
     });
 
     test('Log not generated when level is error', () => {

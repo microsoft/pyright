@@ -4224,12 +4224,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (name === 'reveal_type' || name === 'reveal_locals') {
                     type = AnyType.create();
                 } else {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUndefinedVariable,
-                        DiagnosticRule.reportUndefinedVariable,
-                        Localizer.Diagnostic.symbolIsUndefined().format({ name }),
-                        node
-                    );
+                    // Skip undefined variables for things that aren't actually variables.
+                    if (node.parent?.nodeType !== ParseNodeType.ModuleName) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUndefinedVariable,
+                            DiagnosticRule.reportUndefinedVariable,
+                            Localizer.Diagnostic.symbolIsUndefined().format({ name }),
+                            node
+                        );
+                    }
 
                     type = UnknownType.create();
                 }
