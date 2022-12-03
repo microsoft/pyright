@@ -526,6 +526,10 @@ const maxEntriesToUseForInference = 64;
 // to avoid excessive computation.
 const maxDeclarationsToUseForInference = 64;
 
+// Maximum number of times to attempt effective type evaluation
+// of a variable that has no type declaration.
+const maxEffectiveTypeEvaluationAttempts = 16;
+
 // Maximum number of combinatoric union type expansions allowed
 // when resolving an overload.
 const maxOverloadUnionExpansionCount = 64;
@@ -15572,7 +15576,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (dataClassBehaviors) {
             applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
-            applyDataClassClassBehaviorOverrides(evaluatorInterface, node.name, classType, initSubclassArgs);
+            applyDataClassClassBehaviorOverrides(
+                evaluatorInterface,
+                node.name,
+                classType,
+                initSubclassArgs,
+                dataClassBehaviors
+            );
         }
 
         // Run any class hooks that depend on this class.
@@ -19916,6 +19926,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Look in the cache to see if we've computed this already.
         let cacheEntries = effectiveTypeCache.get(symbol.id);
+        let evaluationAttempts = 0;
         const usageNodeId = usageNode ? usageNode.id : undefined;
         const effectiveTypeCacheKey = `${usageNodeId === undefined ? '.' : usageNodeId.toString()}${
             useLastDecl ? '*' : ''
@@ -19923,7 +19934,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (cacheEntries) {
             const result = cacheEntries.get(effectiveTypeCacheKey);
             if (result) {
-                return result;
+                if (!result.isIncomplete) {
+                    return result;
+                }
+
+                evaluationAttempts = (result.evaluationAttempts ?? 0) + 1;
             }
         }
 
@@ -20074,8 +20089,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
 
                     // Note that at least one decl could not be evaluated because
-                    // it was already in the process of being evaluated.
-                    sawPendingEvaluation = true;
+                    // it was already in the process of being evaluated. Don't set
+                    // this flag if we've already attempted the type evaluation
+                    // many times because this probably means there's a cyclical
+                    // dependency that cannot be broken.
+                    if (evaluationAttempts < maxEffectiveTypeEvaluationAttempts) {
+                        sawPendingEvaluation = true;
+                    }
                 }
             }
         });
@@ -20087,6 +20107,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 includesVariableDecl,
                 includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                 isRecursiveDefinition: false,
+                evaluationAttempts,
             };
 
             if (!includesSpeculativeResult) {
@@ -20108,6 +20129,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             includesVariableDecl,
             includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
             isRecursiveDefinition: false,
+            evaluationAttempts,
         };
     }
 
@@ -23489,6 +23511,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             name: p.name,
                             isNameSynthesized: p.isNameSynthesized,
                             hasDefault: !!p.hasDefault,
+                            defaultValueExpression: p.defaultValueExpression,
                             type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
                         });
                     }

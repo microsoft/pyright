@@ -2622,6 +2622,13 @@ export class Program {
                 ) {
                     thirdPartyImportAllowed = true;
                 }
+            } else if (importer.isThirdPartyImport) {
+                // If the importing file is a third-party import, allow importing of
+                // additional third-party imports. This supports the case where the importer
+                // is in a py.typed library but is importing from another non-py.typed
+                // library. It also supports the case where someone explicitly opens a
+                // library source file in their editor.
+                thirdPartyImportAllowed = true;
             }
 
             // Some libraries ship with stub files that import from non-stubs. Don't
