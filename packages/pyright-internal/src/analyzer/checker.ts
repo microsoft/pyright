@@ -3668,8 +3668,13 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Skip this check for relative imports.
-        const nodeModule = node.nodeType === ParseNodeType.ImportFromAs ? (node.parent as any)?.module : node.module;
-        if (nodeModule?.importInfo?.isRelative) {
+        const nodeModule =
+            node.nodeType === ParseNodeType.ImportFromAs
+                ? node.parent?.nodeType === ParseNodeType.ImportFrom
+                    ? node.parent?.module
+                    : undefined
+                : node.module;
+        if (nodeModule?.leadingDots) {
             return;
         }
 
