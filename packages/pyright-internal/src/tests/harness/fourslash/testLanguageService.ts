@@ -88,6 +88,8 @@ export class TestLanguageService implements LanguageServerInterface {
     constructor(workspace: WorkspaceServiceInstance, readonly console: ConsoleInterface, readonly fs: FileSystem) {
         this._workspace = workspace;
         this._uriParser = new UriParser(this.fs);
+        const defaultTestConfig = new ConfigOptions('.');
+        defaultTestConfig.compactSignatureDisplay = true;
         this._defaultWorkspace = {
             workspaceName: '',
             rootPath: '',
@@ -98,7 +100,7 @@ export class TestLanguageService implements LanguageServerInterface {
                 console: this.console,
                 hostFactory: () => new TestAccessHost(),
                 importResolverFactory: AnalyzerService.createImportResolver,
-                configOptions: new ConfigOptions('.'),
+                configOptions: defaultTestConfig,
             }),
             disableLanguageServices: false,
             disableOrganizeImports: false,
@@ -128,6 +130,7 @@ export class TestLanguageService implements LanguageServerInterface {
             useLibraryCodeForTypes: this._workspace.serviceInstance.getConfigOptions().useLibraryCodeForTypes,
             disableLanguageServices: this._workspace.disableLanguageServices,
             autoImportCompletions: this._workspace.serviceInstance.getConfigOptions().autoImportCompletions,
+            compactSignatureDisplay: this._workspace.serviceInstance.getConfigOptions().compactSignatureDisplay,
         };
 
         return Promise.resolve(settings);

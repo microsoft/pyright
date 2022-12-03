@@ -1331,6 +1331,9 @@ export class TestState {
     }
 
     private _applyTestConfigOptions(configOptions: ConfigOptions, mountPaths?: Map<string, string>) {
+        // Always using compact signatures to reduce formatting affects on tests.
+        configOptions.compactSignatureDisplay = true;
+
         // Always enable "test mode".
         configOptions.internalTestMode = true;
 

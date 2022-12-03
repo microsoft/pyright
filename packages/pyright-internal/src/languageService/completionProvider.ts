@@ -112,7 +112,12 @@ import { StringToken, StringTokenFlags, Token, TokenType } from '../parser/token
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ImportFormat, ModuleSymbolMap } from './autoImporter';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { IndexResults } from './documentSymbolProvider';
-import { getAutoImportText, getDocumentationPartsForTypeAndDecl, getOverloadedFunctionTooltip } from './tooltipUtils';
+import {
+    getAutoImportText,
+    getDocumentationPartsForTypeAndDecl,
+    getFunctionTooltip,
+    getOverloadedFunctionTooltip,
+} from './tooltipUtils';
 
 namespace Keywords {
     const base: string[] = [
@@ -2669,9 +2674,19 @@ export class CompletionProvider {
                                         } else if (isOverloadedFunction(functionType)) {
                                             // 35 is completion tooltip's default width size
                                             typeDetail = getOverloadedFunctionTooltip(
+                                                /* label */ '',
                                                 functionType,
                                                 this._evaluator,
+                                                this._configOptions.compactSignatureDisplay,
                                                 /* columnThreshold */ 35
+                                            );
+                                        } else if (isFunction(functionType)) {
+                                            typeDetail = getFunctionTooltip(
+                                                '',
+                                                name,
+                                                functionType,
+                                                this._evaluator,
+                                                this._configOptions.compactSignatureDisplay
                                             );
                                         } else {
                                             typeDetail = name + this._evaluator.printType(functionType);

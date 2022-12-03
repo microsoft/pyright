@@ -763,6 +763,9 @@ export class ConfigOptions {
     // treated as Any rather than Unknown?
     evaluateUnknownImportsAsAny?: boolean;
 
+    // Don't insert newlines after multiple parameters in a function signature.
+    compactSignatureDisplay = false;
+
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {
             return getStrictDiagnosticRuleSet();
@@ -1131,6 +1134,15 @@ export class ConfigOptions {
                 console.error(`Config "typeEvaluationTimeThreshold" field must be a number.`);
             } else {
                 this.typeEvaluationTimeThreshold = configObj.typeEvaluationTimeThreshold;
+            }
+        }
+
+        // Read the "indexing" setting.
+        if (configObj.compactSignatureDisplay !== undefined) {
+            if (typeof configObj.compactSignatureDisplay !== 'boolean') {
+                console.error(`Config "compactSignatureDisplay" field must be true or false.`);
+            } else {
+                this.compactSignatureDisplay = configObj.compactSignatureDisplay;
             }
         }
     }

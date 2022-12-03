@@ -37,13 +37,19 @@ import {
     lookUpClassMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { ConfigOptions } from '../common/configOptions';
 import { assertNever, fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { getDocumentationPartsForTypeAndDecl, getOverloadedFunctionTooltip } from './tooltipUtils';
+import {
+    getConstructorTooltip,
+    getDocumentationPartsForTypeAndDecl,
+    getFunctionTooltip,
+    getOverloadedFunctionTooltip,
+} from './tooltipUtils';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -62,6 +68,7 @@ export class HoverProvider {
         position: Position,
         format: MarkupKind,
         evaluator: TypeEvaluator,
+        configOptions: ConfigOptions,
         token: CancellationToken
     ): HoverResults | undefined {
         throwIfCancellationRequested(token);
@@ -106,7 +113,8 @@ export class HoverProvider {
                     results.parts,
                     primaryDeclaration,
                     node,
-                    evaluator
+                    evaluator,
+                    configOptions
                 );
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
@@ -153,7 +161,8 @@ export class HoverProvider {
         parts: HoverTextPart[],
         declaration: Declaration,
         node: NameNode,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        configOptions: ConfigOptions
     ): void {
         const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
@@ -251,7 +260,8 @@ export class HoverProvider {
                         evaluator,
                         parts,
                         sourceMapper,
-                        resolvedDecl
+                        resolvedDecl,
+                        configOptions
                     )
                 ) {
                     return;
@@ -272,15 +282,28 @@ export class HoverProvider {
                 }
 
                 const type = evaluator.getType(node);
-                const sep = isProperty ? ': ' : '';
+
                 if (type) {
                     if (isOverloadedFunction(type)) {
                         this._addResultsPart(
                             parts,
-                            `(${label})\n${getOverloadedFunctionTooltip(type, evaluator)}`,
+                            getOverloadedFunctionTooltip(label, type, evaluator, configOptions.compactSignatureDisplay),
+                            /* python */ true
+                        );
+                    } else if (isFunction(type)) {
+                        this._addResultsPart(
+                            parts,
+                            getFunctionTooltip(
+                                label,
+                                node.value,
+                                type,
+                                evaluator,
+                                configOptions.compactSignatureDisplay
+                            ),
                             /* python */ true
                         );
                     } else {
+                        const sep = isProperty ? ': ' : '';
                         this._addResultsPart(
                             parts,
                             `(${label}) ` + node.value + sep + evaluator.printType(type),
@@ -362,7 +385,8 @@ export class HoverProvider {
         evaluator: TypeEvaluator,
         parts: HoverTextPart[],
         sourceMapper: SourceMapper,
-        declaration: Declaration
+        declaration: Declaration,
+        configOptions: ConfigOptions
     ) {
         // If the class is used as part of a call (i.e. it is being
         // instantiated), include the constructor arguments within the
@@ -445,18 +469,15 @@ export class HoverProvider {
         }
 
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
-            let classText = '';
-            if (isOverloadedFunction(methodType)) {
-                const overloads = methodType.overloads.map((overload) => evaluator.printFunctionParts(overload));
-                overloads.forEach((overload, index) => {
-                    classText = classText + `${node.value}(${overload[0].join(', ')})\n\n`;
-                });
-            } else if (isFunction(methodType)) {
-                const functionParts = evaluator.printFunctionParts(methodType);
-                classText = `${node.value}(${functionParts[0].join(', ')})`;
-            }
+            const classText = getConstructorTooltip(
+                /* label */ 'class',
+                node.value,
+                methodType,
+                evaluator,
+                configOptions.compactSignatureDisplay
+            );
 
-            this._addResultsPart(parts, '(class) ' + classText, /* python */ true);
+            this._addResultsPart(parts, classText, /* python */ true);
             const addedDoc = this._addDocumentationPartForType(
                 format,
                 sourceMapper,

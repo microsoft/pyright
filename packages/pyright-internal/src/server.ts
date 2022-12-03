@@ -88,6 +88,7 @@ export class PyrightServer extends LanguageServerBase {
             diagnosticSeverityOverrides: {},
             logLevel: LogLevel.Info,
             autoImportCompletions: true,
+            compactSignatureDisplay: true,
         };
 
         try {

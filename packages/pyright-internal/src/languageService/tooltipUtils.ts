@@ -35,12 +35,16 @@ import { isDefined } from '../common/core';
 
 // 70 is vscode's default hover width size.
 export function getOverloadedFunctionTooltip(
+    label: string,
     type: OverloadedFunctionType,
     evaluator: TypeEvaluator,
+    isCompact = false,
     columnThreshold = 70
 ) {
-    let content = '';
-    const overloads = OverloadedFunctionType.getOverloads(type).map((o) => o.details.name + evaluator.printType(o));
+    let content = label.length === 0 ? '' : `(${label})\n`;
+    const overloads = OverloadedFunctionType.getOverloads(type).map((o) =>
+        getFunctionTooltip(/* label */ '', o.details.name, o, evaluator, isCompact)
+    );
 
     for (let i = 0; i < overloads.length; i++) {
         if (i !== 0 && overloads[i].length > columnThreshold && overloads[i - 1].length <= columnThreshold) {
@@ -58,6 +62,48 @@ export function getOverloadedFunctionTooltip(
     }
 
     return content;
+}
+
+export function getFunctionTooltip(
+    label: string,
+    functionName: string,
+    type: FunctionType,
+    evaluator: TypeEvaluator,
+    isCompact = false
+) {
+    const labelFormatted = label.length === 0 ? '' : isCompact ? `(${label}) ` : `(${label})\n`;
+    const indentStr = isCompact ? '' : '\n' + ' '.repeat(functionName.length);
+    const funcParts = evaluator.printFunctionParts(type);
+    const paramSignature =
+        funcParts[0].length > 1
+            ? `(${funcParts[0].join(', ' + indentStr)}${indentStr})`
+            : `(${funcParts[0].join(', ')})`;
+    return labelFormatted + functionName + `${paramSignature} -> ${funcParts[1]}`;
+}
+
+export function getConstructorTooltip(
+    label: string,
+    constructorName: string,
+    type: FunctionType | OverloadedFunctionType,
+    evaluator: TypeEvaluator,
+    isCompact = false
+) {
+    let classText = label.length === 0 ? '' : isCompact ? `(${label}) ` : `(${label})\n`;
+
+    if (isOverloadedFunction(type)) {
+        const overloads = type.overloads.map((overload) =>
+            getConstructorTooltip('', constructorName, overload, evaluator, isCompact)
+        );
+        overloads.forEach((overload, index) => {
+            classText += overload + '\n\n';
+        });
+    } else if (isFunction(type)) {
+        const indentStr = isCompact ? '' : '\n' + ' '.repeat(constructorName.length);
+        const funcParts = evaluator.printFunctionParts(type);
+        const paramSignature = `${constructorName}(${funcParts[0].join(', ' + indentStr)}${indentStr})`;
+        classText += paramSignature;
+    }
+    return classText;
 }
 
 export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
