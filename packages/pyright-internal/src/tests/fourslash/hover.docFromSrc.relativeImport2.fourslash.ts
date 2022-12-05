@@ -13,10 +13,11 @@
 ////
 
 // @filename: test.py
-//// from .module1 import func1
+//// from [|/*module_docs*/.module1|] import func1
 ////
 //// print([|/*func1_docs*/func1|]())
 
 helper.verifyHover('markdown', {
     func1_docs: '```python\n(function) func1() -> bool\n```\n---\nfunc1 docs',
+    module_docs: '```python\n(module) .module1\n```\n---\nmodule1 docs',
 });

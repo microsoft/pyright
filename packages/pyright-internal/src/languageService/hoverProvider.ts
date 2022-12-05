@@ -11,10 +11,12 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
+import { getImportInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { getModuleNodeDocString } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
     ClassType,
@@ -141,6 +143,12 @@ export class HoverProvider {
             const type = evaluator.getExpectedType(node)?.type;
             if (type !== undefined) {
                 this._tryAddPartsForTypedDictKey(format, sourceMapper, evaluator, node, type, results.parts);
+            }
+        } else if (node.nodeType === ParseNodeType.ModuleName || node.nodeType === ParseNodeType.Module) {
+            const importInfo = getImportInfo(node);
+            if (importInfo) {
+                this._addResultsPart(results.parts, '(module) ' + importInfo.importName, /* python */ true);
+                this._addModuleDocString(format, sourceMapper, results.parts, importInfo.resolvedPaths);
             }
         }
 
@@ -294,7 +302,7 @@ export class HoverProvider {
 
             case DeclarationType.Alias: {
                 this._addResultsPart(parts, '(module) ' + node.value, /* python */ true);
-                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addModuleDocString(format, sourceMapper, parts, [resolvedDecl.path]);
                 break;
             }
 
@@ -491,6 +499,22 @@ export class HoverProvider {
         if (type) {
             this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
         }
+    }
+
+    private static _addModuleDocString(
+        format: MarkupKind,
+        sourceMapper: SourceMapper,
+        parts: HoverTextPart[],
+        resolvedPaths: string[]
+    ) {
+        // Parse the modules files and try to find the doc string.
+        const modules = resolvedPaths.map((p) => sourceMapper.findModules(p)).flat();
+        const docString = getModuleNodeDocString(modules);
+        if (docString) {
+            this._addDocumentationResultsPart(format, parts, docString);
+            return true;
+        }
+        return false;
     }
 
     private static _addDocumentationPartForType(
