@@ -28,6 +28,10 @@
 //// [|/*marker7*/def stuff():
 ////     pass|]
 
+// @filename: __main__.py
+//// [|/*marker10*/def something():
+////     pass|]
+
 // @filename: curses/ascii.py
 //// [|/*marker8*/# This shouldn't cause a problem when referenced below because the below reference
 //// # will look at the lib curses/ascii.py instead|]
@@ -82,6 +86,10 @@ await helper.verifyDiagnostics({
         message: `"${helper.getPathSep()}curses${helper.getPathSep()}ascii.py" is overriding the stdlib module "curses.ascii"`,
     },
     marker9: {
+        category: 'none',
+        message: undefined,
+    },
+    marker10: {
         category: 'none',
         message: undefined,
     },
