@@ -49,6 +49,7 @@
 //// import [|/*marker4*/ctypes.util as bar|]
 //// import [|/*marker5*/random|]
 //// import [|/*marker6*/curses.ascii as ascii|]
+//// from  [|/*marker9*/.random import stuff|] # Relative should be okay
 ////
 // @ts-ignore
 await helper.verifyDiagnostics({
@@ -83,6 +84,10 @@ await helper.verifyDiagnostics({
     marker8: {
         category: 'warning',
         message: `"${helper.getPathSep()}curses${helper.getPathSep()}ascii.py" is overriding the stdlib module "curses.ascii"`,
+    },
+    marker9: {
+        category: 'none',
+        message: undefined,
     },
     marker10: {
         category: 'none',
