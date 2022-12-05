@@ -1630,8 +1630,8 @@ export class ImportResolver {
                         readDir(dirRoot, prefix ? `${prefix}.${entry.name}` : entry.name);
                     } else if (entry.name.includes('.py')) {
                         const stripped = stripFileExtension(entry.name);
-                        // Skip __init__.py as a module
-                        if (stripped !== '__init__') {
+                        // Skip anything starting with an underscore.
+                        if (!stripped.startsWith('_')) {
                             cache.add(prefix ? `${prefix}.${stripped}` : stripped);
                         }
                     }
