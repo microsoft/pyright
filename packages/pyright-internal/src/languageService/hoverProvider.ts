@@ -147,8 +147,13 @@ export class HoverProvider {
         } else if (node.nodeType === ParseNodeType.ModuleName || node.nodeType === ParseNodeType.Module) {
             const importInfo = getImportInfo(node);
             if (importInfo) {
-                this._addResultsPart(results.parts, '(module) ' + importInfo.importName, /* python */ true);
-                this._addModuleDocString(format, sourceMapper, results.parts, importInfo.resolvedPaths);
+                this._addModuleParts(
+                    format,
+                    sourceMapper,
+                    results.parts,
+                    importInfo.importName,
+                    importInfo.resolvedPaths
+                );
             }
         }
 
@@ -301,8 +306,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.Alias: {
-                this._addResultsPart(parts, '(module) ' + node.value, /* python */ true);
-                this._addModuleDocString(format, sourceMapper, parts, [resolvedDecl.path]);
+                this._addModuleParts(format, sourceMapper, parts, node.value, [resolvedDecl.path]);
                 break;
             }
 
@@ -501,12 +505,16 @@ export class HoverProvider {
         }
     }
 
-    private static _addModuleDocString(
+    private static _addModuleParts(
         format: MarkupKind,
         sourceMapper: SourceMapper,
         parts: HoverTextPart[],
+        name: string,
         resolvedPaths: string[]
     ) {
+        // First the 'module' header.
+        this._addResultsPart(parts, '(module) ' + name, /* python */ true);
+
         // Parse the modules files and try to find the doc string.
         const modules = resolvedPaths.map((p) => sourceMapper.findModules(p)).flat();
         const docString = getModuleNodeDocString(modules);
