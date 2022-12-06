@@ -22411,7 +22411,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (
                     isClassInstance(srcType) &&
                     isLiteralType(srcType) &&
-                    UnionType.containsType(destType, srcType, recursionCount)
+                    UnionType.containsType(destType, srcType, /* exclusionSet */ undefined, recursionCount)
                 ) {
                     return true;
                 }
