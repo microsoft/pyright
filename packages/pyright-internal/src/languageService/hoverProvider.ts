@@ -144,17 +144,6 @@ export class HoverProvider {
             if (type !== undefined) {
                 this._tryAddPartsForTypedDictKey(format, sourceMapper, evaluator, node, type, results.parts);
             }
-        } else if (node.nodeType === ParseNodeType.ModuleName || node.nodeType === ParseNodeType.Module) {
-            const importInfo = getImportInfo(node);
-            if (importInfo) {
-                this._addModuleParts(
-                    format,
-                    sourceMapper,
-                    results.parts,
-                    importInfo.importName,
-                    importInfo.resolvedPaths
-                );
-            }
         }
 
         return results.parts.length > 0 ? results : undefined;
@@ -502,6 +491,11 @@ export class HoverProvider {
         const type = evaluator.getType(node);
         if (type) {
             this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
+        } else if (node.parent?.nodeType === ParseNodeType.ModuleName) {
+            const importInfo = getImportInfo(node.parent);
+            if (importInfo) {
+                this._addModuleParts(format, sourceMapper, parts, importInfo.importName, importInfo.resolvedPaths);
+            }
         }
     }
 

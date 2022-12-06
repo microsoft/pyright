@@ -179,6 +179,19 @@ export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourc
     return docStrings;
 }
 
+export function getModuleNodeDocString(modules: ModuleNode[]): string | undefined {
+    for (const module of modules) {
+        if (module.statements) {
+            const docString = ParseTreeUtils.getDocString(module.statements);
+            if (docString) {
+                return docString;
+            }
+        }
+    }
+
+    return undefined;
+}
+
 export function getModuleDocString(
     type: ModuleType,
     resolvedDecl: DeclarationBase | undefined,
@@ -360,19 +373,6 @@ function _getFunctionOrClassDeclsDocString(decls: FunctionDeclaration[] | ClassD
         const docString = getFunctionOrClassDeclDocString(decl);
         if (docString) {
             return docString;
-        }
-    }
-
-    return undefined;
-}
-
-export function getModuleNodeDocString(modules: ModuleNode[]): string | undefined {
-    for (const module of modules) {
-        if (module.statements) {
-            const docString = ParseTreeUtils.getDocString(module.statements);
-            if (docString) {
-                return docString;
-            }
         }
     }
 
