@@ -8278,7 +8278,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        if (!validatedTypes && argList.length > 0) {
+        if (!validatedTypes && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
             // Suppress this error if the class was instantiated from a custom
             // metaclass because it's likely that it's a false positive. Also
             // suppress the error if the class's metaclass has a __call__ method.
