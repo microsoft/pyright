@@ -17,6 +17,8 @@ hex_sha512: Any
 class htdigest(uh.MinimalHandler):
     name: ClassVar[str]
     default_encoding: ClassVar[str]
+    setting_kwds: ClassVar[tuple[str, ...]]
+    context_kwds: ClassVar[tuple[str, ...]]
     @classmethod
     def hash(cls, secret, user, realm, encoding: Any | None = ...): ...  # type: ignore[override]
     @classmethod

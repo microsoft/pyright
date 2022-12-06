@@ -24,6 +24,8 @@ RE_SANITIZE_PERIOD: Pattern[str]
 RE_SANITIZE_ON: Pattern[str]
 RE_SANITIZE_APOSTROPHE: Pattern[str]
 RE_SEARCH_TIMESTAMP: Pattern[str]
+RE_SANITIZE_CROATIAN: Pattern[str]
+RE_SEARCH_NEGATIVE_TIMESTAMP: Pattern[str]
 
 def sanitize_spaces(date_string: str) -> str: ...
 def date_range(begin, end, **kwargs) -> None: ...
