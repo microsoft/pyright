@@ -9933,11 +9933,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 (isClassInstance(argType) &&
                                     isTupleClass(argType) &&
                                     argType.tupleTypeArguments &&
-                                    argType.tupleTypeArguments.some((arg) => isUnpackedVariadicTypeVar(arg.type)));
+                                    argType.tupleTypeArguments.length === 1 &&
+                                    isUnpackedVariadicTypeVar(argType.tupleTypeArguments[0].type));
 
                             if (
                                 containsVariadicTypeVar &&
-                                argParam.argument.argumentCategory !== ArgumentCategory.UnpackedList
+                                argParam.argument.argumentCategory !== ArgumentCategory.UnpackedList &&
+                                !argParam.mapsToVarArgList
                             ) {
                                 addDiagnostic(
                                     AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
