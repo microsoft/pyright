@@ -538,6 +538,13 @@ const maxOverloadUnionExpansionCount = 64;
 // that can be concurrently pending before we give up.
 const maxInferFunctionReturnRecursionCount = 12;
 
+// Maximum recursion amount when comparing two recursive type aliases.
+// Increasing this can greatly increase the time required to evaluate
+// two recursive type aliases that have the same definition. Decreasing
+// it can increase the chance of false negatives for such recursive
+// type aliases.
+const maxRecursiveTypeAliasRecursionCount = 10;
+
 // This switch enables a special debug mode that attempts to catch
 // bugs due to inconsistent evaluation flags used when reading types
 // from the type cache.
@@ -21266,8 +21273,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Transform recursive type aliases if necessary.
-        destType = transformPossibleRecursiveTypeAlias(destType);
-        srcType = transformPossibleRecursiveTypeAlias(srcType);
+        const transformedDestType = transformPossibleRecursiveTypeAlias(destType);
+        const transformedSrcType = transformPossibleRecursiveTypeAlias(srcType);
+
+        // Did both the source and dest include recursive type aliases?
+        // If so, we are potentially dealing with different recursive type
+        // aliases that are defined in the same way.
+        if (
+            transformedDestType !== destType &&
+            transformedSrcType !== srcType &&
+            isUnion(transformedDestType) &&
+            isUnion(transformedSrcType)
+        ) {
+            // Use a smaller recursive limit in this case to prevent runaway recursion.
+            if (recursionCount > maxRecursiveTypeAliasRecursionCount) {
+                return true;
+            }
+        }
+
+        destType = transformedDestType;
+        srcType = transformedSrcType;
 
         // If the source or dest is unbound, allow the assignment. The
         // error will be reported elsewhere.
