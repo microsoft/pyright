@@ -15,6 +15,7 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { getModuleNodeDocString } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
     ClassType,
@@ -293,8 +294,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.Alias: {
-                this._addResultsPart(parts, '(module) ' + node.value, /* python */ true);
-                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addModuleParts(format, sourceMapper, parts, node.value, [resolvedDecl.path]);
                 break;
             }
 
@@ -491,6 +491,26 @@ export class HoverProvider {
         if (type) {
             this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
         }
+    }
+
+    private static _addModuleParts(
+        format: MarkupKind,
+        sourceMapper: SourceMapper,
+        parts: HoverTextPart[],
+        name: string,
+        resolvedPaths: string[]
+    ) {
+        // First the 'module' header.
+        this._addResultsPart(parts, '(module) ' + name, /* python */ true);
+
+        // Parse the modules files and try to find the doc string.
+        const modules = resolvedPaths.map((p) => sourceMapper.findModules(p)).flat();
+        const docString = getModuleNodeDocString(modules);
+        if (docString) {
+            this._addDocumentationResultsPart(format, parts, docString);
+            return true;
+        }
+        return false;
     }
 
     private static _addDocumentationPartForType(

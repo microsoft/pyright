@@ -2,10 +2,12 @@
 
 // @filename: package1/__init__.py
 // @library: true
+//// '''package1 docs'''
 //// from .subpackage import func1
 
 // @filename: package1/subpackage/__init__.py
 // @library: true
+//// '''subpackage docs'''
 //// def func1():
 ////     '''func1 docs'''
 ////     return True
@@ -17,10 +19,11 @@
 //// def func1() -> bool: ...
 
 // @filename: test.py
-//// from package1 import func1
+//// from [|/*package_docs*/package1|] import func1
 ////
 //// print([|/*func1_docs*/func1|]())
 
 helper.verifyHover('markdown', {
     func1_docs: '```python\n(function) func1() -> bool\n```\n---\nfunc1 docs',
+    package_docs: '```python\n(module) package1\n```\n---\npackage1 docs',
 });
