@@ -491,11 +491,6 @@ export class HoverProvider {
         const type = evaluator.getType(node);
         if (type) {
             this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
-        } else if (node.parent?.nodeType === ParseNodeType.ModuleName) {
-            const importInfo = getImportInfo(node.parent);
-            if (importInfo) {
-                this._addModuleParts(format, sourceMapper, parts, importInfo.importName, importInfo.resolvedPaths);
-            }
         }
     }
 
