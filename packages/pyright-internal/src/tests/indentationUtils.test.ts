@@ -45,7 +45,7 @@ test('first child indentation', () => {
 ////     [|/*marker*/|]
     `;
 
-    testIndentation(code, 0);
+    testIndentation(code, 4);
 });
 
 test('nested first child indentation', () => {
@@ -55,7 +55,7 @@ test('nested first child indentation', () => {
 ////         [|/*marker*/|]
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 8);
 });
 
 test('nested sibling indentation', () => {
@@ -272,7 +272,7 @@ test('single line comment', () => {
 
     `;
 
-    testIndentation(code, 0);
+    testIndentation(code, 4);
 });
 
 test('multiline string literals top', () => {
@@ -442,7 +442,7 @@ test('unfinished block', () => {
 ////     return 1
     `;
 
-    testIndentation(code, 4);
+    testIndentation(code, 8);
 });
 
 function testIndentation(code: string, indentation: number, preferDedent?: boolean) {

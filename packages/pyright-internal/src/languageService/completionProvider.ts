@@ -276,6 +276,7 @@ export interface CompletionOptions {
     includeUserSymbolsInAutoImport: boolean;
     extraCommitChars: boolean;
     importFormat: ImportFormat;
+    triggerCharacter?: string;
 }
 
 export type AbbreviationMap = Map<string, AbbreviationInfo>;
@@ -509,6 +510,11 @@ export class CompletionProvider {
                 if (result || result === undefined) {
                     return result;
                 }
+            }
+
+            if (curNode.nodeType === ParseNodeType.List && this._options.triggerCharacter === '[') {
+                // If this is an empty list, don't start putting completions up yet.
+                return undefined;
             }
 
             if (curNode.nodeType === ParseNodeType.ImportFrom) {
