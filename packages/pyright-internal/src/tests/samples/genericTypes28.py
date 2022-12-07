@@ -1,7 +1,7 @@
 # This sample tests that Optional types can be matched
 # to Type[T] expressions.
 
-from typing import Callable, Generic, Optional, Type, TypeVar
+from typing import Generic, Optional, Type, TypeVar
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2", bound=None)
@@ -49,7 +49,3 @@ def bar(value: _T1) -> Type[Foo[_T1]]:
 d = Bar.get()
 reveal_type(d, expected_text="Type[Bar]")
 reveal_type(Bar.get(), expected_text="Type[Bar]")
-
-
-def class_constructor(cls: type[_T1]) -> Callable[..., _T1]:
-    return cls

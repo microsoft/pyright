@@ -576,6 +576,18 @@ export class Program {
         });
     }
 
+    // Performs parsing and analysis of a single file in the program. If the file is not part of
+    // the program returns false to indicate analysis was not performed.
+    analyzeFile(filePath: string, token: CancellationToken = CancellationToken.None): boolean {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this.getSourceFileInfo(filePath);
+            if (sourceFileInfo && this._checkTypes(sourceFileInfo, token)) {
+                return true;
+            }
+            return false;
+        });
+    }
+
     indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken): number {
         if (!this._configOptions.indexing) {
             return 0;
@@ -1604,7 +1616,7 @@ export class Program {
             const content = sourceFileInfo.sourceFile.getFileContent() ?? '';
             if (
                 options.indexingForAutoImportMode &&
-                !options.forceIndexing &&
+                !options.includeAllSymbols &&
                 !sourceFileInfo.sourceFile.isStubFile() &&
                 !sourceFileInfo.sourceFile.isThirdPartyPyTypedPresent()
             ) {
