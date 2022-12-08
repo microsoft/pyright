@@ -162,7 +162,6 @@ import {
     getProtocolSymbols,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
-    isEllipsisType,
     isLiteralType,
     isLiteralTypeOrUnion,
     isPartlyUnknown,
@@ -509,19 +508,6 @@ export class Checker extends ParseTreeWalker {
                                 param.name
                             );
                         }
-                    }
-                }
-
-                // If it's a stub file, report an issue of the default value expression is not "...".
-                if (param.defaultValue && this._fileInfo.isStubFile) {
-                    const defaultValueType = this._evaluator.getType(param.defaultValue);
-                    if (!defaultValueType || !isEllipsisType(defaultValueType)) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
-                            DiagnosticRule.reportInvalidStubStatement,
-                            Localizer.Diagnostic.defaultValueNotEllipsis(),
-                            param.defaultValue
-                        );
                     }
                 }
             });
