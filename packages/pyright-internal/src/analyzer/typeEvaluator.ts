@@ -567,7 +567,6 @@ export interface EvaluatorOptions {
     printTypeFlags: TypePrinter.PrintTypeFlags;
     logCalls: boolean;
     minimumLoggingThreshold: number;
-    analyzeUnannotatedFunctions: boolean;
     evaluateUnknownImportsAsAny: boolean;
     verifyTypeCacheEvaluatorFlags: boolean;
 }
@@ -2935,6 +2934,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
+        // Should we suppress this diagnostic because it's within an unannotated function?
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
+            const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
+
+            // Is the target node within the body of the function? If so, suppress the diagnostic.
+            if (
+                containingFunction &&
+                ParseTreeUtils.isUnannotatedFunction(containingFunction) &&
+                ParseTreeUtils.isNodeContainedWithin(node, containingFunction.suite)
+            ) {
+                return undefined;
+            }
+        }
+
         const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node, range);
         if (diagnostic) {
             diagnostic.setRule(rule);
@@ -4059,16 +4073,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
         const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0 || fileInfo.isStubFile;
 
-        if (!evaluatorOptions.analyzeUnannotatedFunctions) {
-            const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
-            if (containingFunction && ParseTreeUtils.isUnannotatedFunction(containingFunction)) {
-                return {
-                    type: AnyType.create(),
-                    isIncomplete: false,
-                };
-            }
-        }
-
         // Does this name refer to a PEP 695-style type parameter?
         const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
         if (typeParamSymbol) {
@@ -4109,6 +4113,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 symbol = symbolWithScope.symbol;
+                setSymbolAccessed(fileInfo, symbol, node);
+
+                // If we're not supposed to be analyzing this function, skip the remaining work
+                // to determine the name's type. Simply evaluate its type as Any.
+                if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
+                    const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
+                    if (containingFunction && ParseTreeUtils.isUnannotatedFunction(containingFunction)) {
+                        return {
+                            type: AnyType.create(),
+                            isIncomplete: false,
+                        };
+                    }
+                }
 
                 // Get the effective type (either the declared type or the inferred type).
                 // If we're using code flow analysis, pass the usage node so we consider
@@ -4195,8 +4212,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Detect, report, and fill in missing type arguments if appropriate.
                 type = reportMissingTypeArguments(node, type, flags);
-
-                setSymbolAccessed(fileInfo, symbol, node);
 
                 if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                     // Verify that the name does not refer to a (non type alias) variable.
@@ -20260,6 +20275,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
         let isIncomplete = false;
+        let analyzeUnannotatedFunctions = true;
 
         // Don't attempt to infer the return type for a stub file.
         if (FunctionType.isStubDefinition(type)) {
@@ -20277,9 +20293,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 returnType = NoneType.createInstance();
             } else if (type.details.declaration) {
                 const functionNode = type.details.declaration.node;
+                analyzeUnannotatedFunctions =
+                    AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.analyzeUnannotatedFunctions;
 
                 // Skip return type inference if we are in "skip unannotated function" mode.
-                if (evaluatorOptions.analyzeUnannotatedFunctions && !checkCodeFlowTooComplex(functionNode.suite)) {
+                if (analyzeUnannotatedFunctions && !checkCodeFlowTooComplex(functionNode.suite)) {
                     const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
                     // For very complex functions that have no annotated parameter types,
@@ -20332,7 +20350,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // attempt to do a better job at inference.
         if (
             !isIncomplete &&
-            evaluatorOptions.analyzeUnannotatedFunctions &&
+            analyzeUnannotatedFunctions &&
             isPartlyUnknown(returnType) &&
             FunctionType.hasUnannotatedParams(type) &&
             !FunctionType.isStubDefinition(type) &&

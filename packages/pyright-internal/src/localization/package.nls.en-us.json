@@ -470,6 +470,7 @@
         "unaccessedImport": "Import \"{name}\" is not accessed",
         "unaccessedSymbol": "\"{name}\" is not accessed",
         "unaccessedVariable": "Variable \"{name}\" is not accessed",
+        "unannotatedFunctionSkipped": "Analysis of function \"{name}\" is skipped because it unannotated",
         "unexpectedAsyncToken": "Expected \"def\", \"with\" or \"for\" to follow \"async\"",
         "unexpectedExprToken": "Unexpected token at end of expression",
         "unexpectedIndent": "Unexpected indentation",

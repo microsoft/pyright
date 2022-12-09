@@ -414,6 +414,15 @@ export class Checker extends ParseTreeWalker {
             this.walk(node.typeParameters);
         }
 
+        if (!this._fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions && !this._fileInfo.isStubFile) {
+            if (ParseTreeUtils.isUnannotatedFunction(node)) {
+                this._evaluator.addInformation(
+                    Localizer.Diagnostic.unannotatedFunctionSkipped().format({ name: node.name.value }),
+                    node.name
+                );
+            }
+        }
+
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
 

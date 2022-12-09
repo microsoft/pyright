@@ -930,6 +930,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedSymbol'));
         export const unaccessedVariable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedVariable'));
+        export const unannotatedFunctionSkipped = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unannotatedFunctionSkipped'));
         export const unexpectedAsyncToken = () => getRawString('Diagnostic.unexpectedAsyncToken');
         export const unexpectedExprToken = () => getRawString('Diagnostic.unexpectedExprToken');
         export const unexpectedIndent = () => getRawString('Diagnostic.unexpectedIndent');
