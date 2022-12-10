@@ -12408,15 +12408,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
+            let matchingSubtypeResult: TypeResult | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
-                if (!matchingSubtype) {
-                    const subtypeResult = useSpeculativeMode(node, () => {
-                        return getTypeOfDictionaryExpected(node, subtype);
-                    });
+                // Use shortcut if we've already found a match.
+                if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
+                    return;
+                }
 
-                    if (subtypeResult && assignType(subtype, subtypeResult.type)) {
+                const subtypeResult = useSpeculativeMode(node, () => {
+                    return getTypeOfDictionaryExpected(node, subtype);
+                });
+
+                if (subtypeResult && assignType(subtype, subtypeResult.type)) {
+                    // If this is the first result we're seeing or it's the first result
+                    // without errors, select it as the match.
+                    if (!matchingSubtypeResult || (matchingSubtypeResult.typeErrors && !subtypeResult.typeErrors)) {
                         matchingSubtype = subtype;
+                        matchingSubtypeResult = subtypeResult;
                     }
                 }
             });
@@ -12819,15 +12828,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
+            let matchingSubtypeResult: TypeResult | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
-                if (!matchingSubtype) {
-                    const subtypeResult = useSpeculativeMode(node, () => {
-                        return getTypeOfListOrSetExpected(node, subtype);
-                    });
+                // Use shortcut if we've already found a match.
+                if (matchingSubtypeResult && !matchingSubtypeResult.typeErrors) {
+                    return;
+                }
 
-                    if (subtypeResult && assignType(subtype, subtypeResult.type)) {
+                const subtypeResult = useSpeculativeMode(node, () => {
+                    return getTypeOfListOrSetExpected(node, subtype);
+                });
+
+                if (subtypeResult && assignType(subtype, subtypeResult.type)) {
+                    // If this is the first result we're seeing or it's the first result
+                    // without errors, select it as the match.
+                    if (!matchingSubtypeResult || (matchingSubtypeResult.typeErrors && !subtypeResult.typeErrors)) {
                         matchingSubtype = subtype;
+                        matchingSubtypeResult = subtypeResult;
                     }
                 }
             });
