@@ -21649,7 +21649,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is the src a specialized "Type" object?
         if (isClassInstance(expandedSrcType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
             const srcTypeArgs = expandedSrcType.typeArguments;
-            let typeTypeArg: Type;
+            let typeTypeArg: Type | undefined;
+            let instantiableType: Type | undefined;
+
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 typeTypeArg = srcTypeArgs[0];
                 if (isAnyOrUnknown(typeTypeArg)) {
@@ -21658,32 +21660,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                     return TypeBase.isInstantiable(destType);
                 }
-            } else {
+                instantiableType = convertToInstantiable(typeTypeArg);
+            } else if (TypeBase.isInstantiable(destType)) {
                 typeTypeArg = objectType ?? AnyType.create();
+                instantiableType = expandedSrcType;
             }
 
-            if (isClassInstance(typeTypeArg) || isTypeVar(typeTypeArg)) {
-                if (
-                    assignType(
-                        destType,
-                        convertToInstantiable(typeTypeArg),
-                        diag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
-                        flags,
-                        recursionCount
-                    )
-                ) {
-                    return true;
-                }
+            if (instantiableType && typeTypeArg) {
+                if (isClassInstance(typeTypeArg) || isTypeVar(typeTypeArg)) {
+                    if (
+                        assignType(
+                            destType,
+                            instantiableType,
+                            diag?.createAddendum(),
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        return true;
+                    }
 
-                diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
-                );
-                return false;
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                    return false;
+                }
             }
         }
 
