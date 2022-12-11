@@ -1029,9 +1029,13 @@ export namespace Localizer {
             new ParameterizedString<{ types: string }>(getRawString('DiagnosticAddendum.argumentTypes'));
         export const assignToNone = () => getRawString('DiagnosticAddendum.assignToNone');
         export const asyncHelp = () => getRawString('DiagnosticAddendum.asyncHelp');
-        export const baseClassProvidesType = () =>
+        export const baseClassOverriddenType = () =>
             new ParameterizedString<{ baseClass: string; type: string }>(
-                getRawString('DiagnosticAddendum.baseClassProvidesType')
+                getRawString('DiagnosticAddendum.baseClassOverriddenType')
+            );
+        export const baseClassOverridesType = () =>
+            new ParameterizedString<{ baseClass: string; type: string }>(
+                getRawString('DiagnosticAddendum.baseClassOverridesType')
             );
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));

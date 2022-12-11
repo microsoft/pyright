@@ -686,6 +686,12 @@ test('Classes8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Classes9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('MethodOverride1', () => {
     const configOptions = new ConfigOptions('.');
 
