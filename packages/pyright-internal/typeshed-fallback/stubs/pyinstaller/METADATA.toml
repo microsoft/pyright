@@ -1,4 +1,4 @@
-version = "5.6.*"
+version = "5.7.*"
 requires = ["types-setuptools"]
 
 [tool.stubtest]

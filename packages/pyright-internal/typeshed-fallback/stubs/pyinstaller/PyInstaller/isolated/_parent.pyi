@@ -9,6 +9,7 @@ _R = TypeVar("_R")
 _P = ParamSpec("_P")
 
 class Python:
+    def __init__(self, strict_mode: bool | None = ...) -> None: ...
     def __enter__(self: Self) -> Self: ...
     def __exit__(
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None
