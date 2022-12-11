@@ -796,7 +796,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
 // Indicates whether the specified type is a recursive type alias
 // placeholder that has not yet been resolved.
-export function isTypeAliasPlaceholder(type: Type): type is TypeVarType {
+export function isTypeAliasPlaceholder(type: Type): boolean {
     return isTypeVar(type) && TypeVarType.isTypeAliasPlaceholder(type);
 }
 

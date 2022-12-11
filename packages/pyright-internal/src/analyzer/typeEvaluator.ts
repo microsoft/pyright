@@ -1178,7 +1178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (flags & EvaluatorFlags.DisallowRecursiveTypeAliasPlaceholder) {
-            if (isTypeAliasPlaceholder(typeResult.type)) {
+            if (isTypeVar(typeResult.type) && isTypeAliasPlaceholder(typeResult.type)) {
                 typeResult.type.details.illegalRecursionDetected = true;
             }
         }
@@ -6379,7 +6379,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return typeAliasResult;
         }
 
-        if (isTypeAliasPlaceholder(baseTypeResult.type)) {
+        if (isTypeVar(baseTypeResult.type) && isTypeAliasPlaceholder(baseTypeResult.type)) {
             const typeArgTypes = getTypeArgs(node, flags).map((t) => convertToInstance(t.type));
             const type = TypeBase.cloneForTypeAlias(
                 baseTypeResult.type,
@@ -24231,7 +24231,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return srcType;
         }
 
-        let effectiveSrcType: Type = srcType;
+        let effectiveSrcType: Type = transformPossibleRecursiveTypeAlias(srcType);
 
         if (isTypeVar(srcType)) {
             if (isTypeSame(srcType, destType)) {
@@ -24249,7 +24249,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // If there's a bound type, make sure the source is derived from it.
-        if (destType.details.boundType) {
+        if (destType.details.boundType && !isTypeAliasPlaceholder(effectiveSrcType)) {
             if (
                 !assignType(
                     destType.details.boundType,
@@ -24305,6 +24305,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If there are no constraints, we're done.
         const constraints = destType.details.constraints;
         if (constraints.length === 0) {
+            return srcType;
+        }
+
+        if (isTypeAliasPlaceholder(srcType)) {
             return srcType;
         }
 
