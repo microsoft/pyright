@@ -178,7 +178,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportMatchNotExhaustive"></a> **reportMatchNotExhaustive** [boolean or string, optional]: Generate or suppress diagnostics for a 'match' statement that does not provide cases that exhaustively match against all potential types of the target expression. The default value for this setting is 'none'.
 
-**reportShadowedImports** [boolean or string, optional]: Generate or suppress diagnostics for files that are overriding a module in the stdlib. The default value for this setting is 'none'.
+<a name="reportShadowedImports"></a> **reportShadowedImports** [boolean or string, optional]: Generate or suppress diagnostics for files that are overriding a module in the stdlib. The default value for this setting is 'none'.
 
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.
