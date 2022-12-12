@@ -22,20 +22,13 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
         };
     }
 
-    // Handle the case where we're pointing to the last line of the file.
-    let offsetAdjustment = 0;
-    if (offset >= lines.end) {
-        offset = lines.end - 1;
-        offsetAdjustment = 1;
-    }
-
-    const itemIndex = lines.getItemContaining(offset);
-    assert(itemIndex >= 0 && itemIndex <= lines.length);
+    const itemIndex = offset >= lines.end ? lines.count - 1 : lines.getItemContaining(offset);
+    assert(itemIndex >= 0 && itemIndex <= lines.count);
     const lineRange = lines.getItemAt(itemIndex);
     assert(lineRange !== undefined);
     return {
         line: itemIndex,
-        character: offset - lineRange.start + offsetAdjustment,
+        character: Math.max(0, Math.min(lineRange.length, offset - lineRange.start)),
     };
 }
 

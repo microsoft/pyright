@@ -158,6 +158,10 @@ export class BackgroundAnalysisProgram {
         );
     }
 
+    analyzeFile(filePath: string, token: CancellationToken): boolean {
+        return this._program.analyzeFile(filePath, token);
+    }
+
     startIndexing(indexOptions: IndexOptions) {
         this._backgroundAnalysis?.startIndexing(indexOptions, this._configOptions, this.importResolver, this.host.kind);
     }

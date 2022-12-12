@@ -250,6 +250,7 @@ export interface EffectiveTypeResult {
     includesVariableDecl: boolean;
     includesIllegalTypeAliasDecl: boolean;
     isRecursiveDefinition: boolean;
+    evaluationAttempts?: number;
 }
 
 export interface ValidateArgTypeParams {

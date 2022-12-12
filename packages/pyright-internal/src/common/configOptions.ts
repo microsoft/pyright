@@ -92,6 +92,9 @@ export interface DiagnosticRuleSet {
     // Use strict inference rules for dictionary expressions?
     strictDictionaryInference: boolean;
 
+    // Analyze functions and methods that have no annotations?
+    analyzeUnannotatedFunctions: boolean;
+
     // Use strict type rules for parameters assigned default of None?
     strictParameterNoneValue: boolean;
 
@@ -312,6 +315,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.strictListInference,
         DiagnosticRule.strictSetInference,
         DiagnosticRule.strictDictionaryInference,
+        DiagnosticRule.analyzeUnannotatedFunctions,
         DiagnosticRule.strictParameterNoneValue,
     ];
 
@@ -410,6 +414,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         strictListInference: false,
         strictSetInference: false,
         strictDictionaryInference: false,
+        analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'none',
@@ -489,6 +494,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         strictListInference: false,
         strictSetInference: false,
         strictDictionaryInference: false,
+        analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'error',
@@ -568,6 +574,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         strictListInference: true,
         strictSetInference: true,
         strictDictionaryInference: true,
+        analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         reportGeneralTypeIssues: 'error',
@@ -715,10 +722,6 @@ export class ConfigOptions {
 
     // Was this config initialized from JSON (pyrightconfig/pyproject)?
     initializedFromJson = false;
-
-    // Should we skip analysis of all functions and methods that have
-    // no parameter ore return type annotations?
-    analyzeUnannotatedFunctions = true;
 
     //---------------------------------------------------------------
     // Diagnostics Rule Set

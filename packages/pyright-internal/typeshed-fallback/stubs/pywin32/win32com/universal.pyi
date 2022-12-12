@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 
 from pythoncom import com_error as com_error
+from win32com.client import gencache as gencache
 
 def RegisterInterfaces(typelibGUID, lcid, major, minor, interface_names: Incomplete | None = ...): ...
 

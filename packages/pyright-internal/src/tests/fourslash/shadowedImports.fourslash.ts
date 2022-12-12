@@ -28,6 +28,10 @@
 //// [|/*marker7*/def stuff():
 ////     pass|]
 
+// @filename: __main__.py
+//// [|/*marker10*/def something():
+////     pass|]
+
 // @filename: curses/ascii.py
 //// [|/*marker8*/# This shouldn't cause a problem when referenced below because the below reference
 //// # will look at the lib curses/ascii.py instead|]
@@ -45,6 +49,7 @@
 //// import [|/*marker4*/ctypes.util as bar|]
 //// import [|/*marker5*/random|]
 //// import [|/*marker6*/curses.ascii as ascii|]
+//// from  [|/*marker9*/.random import stuff|] # Relative should be okay
 ////
 // @ts-ignore
 await helper.verifyDiagnostics({
@@ -79,5 +84,13 @@ await helper.verifyDiagnostics({
     marker8: {
         category: 'warning',
         message: `"${helper.getPathSep()}curses${helper.getPathSep()}ascii.py" is overriding the stdlib module "curses.ascii"`,
+    },
+    marker9: {
+        category: 'none',
+        message: undefined,
+    },
+    marker10: {
+        category: 'none',
+        message: undefined,
     },
 });

@@ -1,25 +1,29 @@
 from _typeshed import Incomplete
+from typing_extensions import TypeAlias
 
-from win32com.client import dynamic as dynamic
+import _win32typing
+from win32com.client import dynamic as dynamic, gencache as gencache
+
+_Stringifiable: TypeAlias = object
 
 def GetObject(Pathname: str | None = ..., Class: Incomplete | None = ..., clsctx: Incomplete | None = ...) -> CDispatch: ...
 def GetActiveObject(Class, clsctx=...): ...
 def Moniker(Pathname, clsctx=...): ...
 def Dispatch(
-    dispatch,
-    userName: Incomplete | None = ...,
-    resultCLSID: Incomplete | None = ...,
-    typeinfo: Incomplete | None = ...,
-    UnicodeToString: Incomplete | None = ...,
-    clsctx=...,
-): ...
+    dispatch: str | dynamic.PyIDispatchType | dynamic._GoodDispatchTypes | dynamic.PyIUnknownType,
+    userName: str | None = ...,
+    resultCLSID: _Stringifiable | None = ...,
+    typeinfo: _win32typing.PyITypeInfo | None = ...,
+    UnicodeToString: None = ...,
+    clsctx: int = ...,
+) -> dynamic.CDispatch: ...
 def DispatchEx(
     clsid,
     machine: Incomplete | None = ...,
     userName: Incomplete | None = ...,
     resultCLSID: Incomplete | None = ...,
     typeinfo: Incomplete | None = ...,
-    UnicodeToString: Incomplete | None = ...,
+    UnicodeToString: None = ...,
     clsctx: Incomplete | None = ...,
 ): ...
 

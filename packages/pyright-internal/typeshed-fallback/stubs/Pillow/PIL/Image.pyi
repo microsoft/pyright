@@ -178,7 +178,7 @@ class Image:
         mode: _Mode | None = ...,
         matrix: _ConversionMatrix | None = ...,
         dither: int | None = ...,
-        palette: Literal[Palette.WEB] = ...,
+        palette: Palette | Literal[0, 1] = ...,
         colors: int = ...,
     ) -> Image: ...
     def quantize(
@@ -238,6 +238,7 @@ class Image:
         *,
         save_all: bool = ...,
         bitmap_format: Literal["bmp", "png"] = ...,  # for ICO files
+        optimize: bool = ...,
         **params: Any,
     ) -> None: ...
     def seek(self, frame: int) -> None: ...

@@ -23,6 +23,7 @@ import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
@@ -473,18 +474,18 @@ export class SourceFile {
             const category = convertLevelToCategory(this._diagnosticRuleSet.reportImportCycles);
 
             this._circularDependencies.forEach((cirDep) => {
-                diagList.push(
-                    new Diagnostic(
-                        category,
-                        Localizer.Diagnostic.importCycleDetected() +
-                            '\n' +
-                            cirDep
-                                .getPaths()
-                                .map((path) => '  ' + path)
-                                .join('\n'),
-                        getEmptyRange()
-                    )
+                const diag = new Diagnostic(
+                    category,
+                    Localizer.Diagnostic.importCycleDetected() +
+                        '\n' +
+                        cirDep
+                            .getPaths()
+                            .map((path) => '  ' + path)
+                            .join('\n'),
+                    getEmptyRange()
                 );
+                diag.setRule(DiagnosticRule.reportImportCycles);
+                diagList.push();
             });
         }
 

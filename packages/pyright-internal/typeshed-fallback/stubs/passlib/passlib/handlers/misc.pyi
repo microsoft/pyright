@@ -15,6 +15,8 @@ class unix_fallback(DisabledHash, uh.StaticHandler):
 class unix_disabled(DisabledHash, uh.MinimalHandler):
     name: ClassVar[str]
     default_marker: ClassVar[str]
+    setting_kwds: ClassVar[tuple[str, ...]]
+    context_kwds: ClassVar[tuple[str, ...]]
     @classmethod
     def using(cls, marker: Any | None = ..., **kwds): ...  # type: ignore[override]
     @classmethod
@@ -33,6 +35,8 @@ class unix_disabled(DisabledHash, uh.MinimalHandler):
 class plaintext(uh.MinimalHandler):
     name: ClassVar[str]
     default_encoding: ClassVar[str]
+    setting_kwds: ClassVar[tuple[str, ...]]
+    context_kwds: ClassVar[tuple[str, ...]]
     @classmethod
     def identify(cls, hash: str | bytes): ...
     @classmethod

@@ -80,3 +80,22 @@ v2 = c2_1 < c2_2
 # This should generate an error because Customer2 supports
 # keyword-only parameters for its constructor.
 c2_3 = Customer2(0, "John")
+
+
+
+@dataclass_transform(frozen_default=True)
+class ModelMetaFrozen(type):
+    pass
+
+class ModelBaseFrozen(metaclass=ModelMetaFrozen):
+    ...
+
+class Customer3(ModelBaseFrozen):
+    id: int
+    name: str
+
+
+c3_1 = Customer3(id=2, name="hi")
+
+# This should generate an error because Customer3 is frozen.
+c3_1.id = 4

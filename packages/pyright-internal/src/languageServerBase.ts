@@ -1401,6 +1401,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             includeUserSymbolsInAutoImport: false,
             extraCommitChars: false,
             importFormat: ImportFormat.Absolute,
+            triggerCharacter: params?.context?.triggerCharacter,
         };
     }
 

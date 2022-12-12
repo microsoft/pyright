@@ -11,3 +11,5 @@ from ._constants import (
     __url__ as __url__,
     __version__ as __version__,
 )
+
+open = load_workbook

@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from distutils.cmd import Command as Command
 from distutils.dist import Distribution as Distribution
 from distutils.extension import Extension as Extension
@@ -19,7 +19,7 @@ def setup(
     packages: list[str] = ...,
     py_modules: list[str] = ...,
     scripts: list[str] = ...,
-    ext_modules: list[Extension] = ...,
+    ext_modules: Sequence[Extension] = ...,
     classifiers: list[str] = ...,
     distclass: type[Distribution] = ...,
     script_name: str = ...,

@@ -1,9 +1,9 @@
 import sys
-from _typeshed import StrOrBytesPath
+from _typeshed import GenericPath, StrOrBytesPath
 from asyncio.events import AbstractEventLoop
 from collections.abc import Sequence
-from os import stat_result
-from typing import Any, overload
+from os import _ScandirIterator, stat_result
+from typing import Any, AnyStr, overload
 from typing_extensions import TypeAlias
 
 from aiofiles import ospath
@@ -51,6 +51,14 @@ async def rmdir(
     path: StrOrBytesPath, *, dir_fd: int | None = ..., loop: AbstractEventLoop | None = ..., executor: Any = ...
 ) -> None: ...
 async def removedirs(name: StrOrBytesPath, *, loop: AbstractEventLoop | None = ..., executor: Any = ...) -> None: ...
+@overload
+async def scandir(path: None = ..., *, loop: AbstractEventLoop | None = ..., executor: Any = ...) -> _ScandirIterator[str]: ...
+@overload
+async def scandir(path: int, *, loop: AbstractEventLoop | None = ..., executor: Any = ...) -> _ScandirIterator[str]: ...
+@overload
+async def scandir(
+    path: GenericPath[AnyStr], *, loop: AbstractEventLoop | None = ..., executor: Any = ...
+) -> _ScandirIterator[AnyStr]: ...
 
 if sys.platform != "win32":
     @overload

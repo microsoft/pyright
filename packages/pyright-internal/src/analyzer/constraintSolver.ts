@@ -161,6 +161,18 @@ export function assignTypeToTypeVar(
         }
     }
 
+    // If we're assigning an unpacked TypeVarTuple to a regular TypeVar,
+    // we need to treat it as a union of the unpacked TypeVarTuple.
+    if (
+        isTypeVar(srcType) &&
+        srcType.details.isVariadic &&
+        srcType.isVariadicUnpacked &&
+        !srcType.isVariadicInUnion &&
+        !destType.details.isVariadic
+    ) {
+        srcType = TypeVarType.cloneForUnpacked(srcType, /* isInUnion */ true);
+    }
+
     // If we're attempting to assign `type` to Type[T], transform `type` into `Type[Any]`.
     if (
         TypeBase.isInstantiable(destType) &&
@@ -688,6 +700,7 @@ function assignTypeToParamSpec(
                 name: p.name,
                 isNameSynthesized: p.isNameSynthesized,
                 hasDefault: !!p.hasDefault,
+                defaultValueExpression: p.defaultValueExpression,
                 type: FunctionType.getEffectiveParameterType(functionSrcType, index),
             };
             return paramSpecEntry;

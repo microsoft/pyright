@@ -34,10 +34,7 @@ test('function with open paren at end of file', () => {
 //// def f(
 //// [|/*marker*/|]
     `;
-
-    // This is due to how our tokenizer associate new line at
-    // end of stream.
-    testIndentation(code, 0);
+    testIndentation(code, 4);
 });
 
 test('function with open paren between top level statement', () => {
@@ -76,10 +73,7 @@ test('call with open paren at end of file', () => {
 //// f(
 //// [|/*marker*/|]
     `;
-
-    // This is due to how our tokenizer associate new line at
-    // end of stream.
-    testIndentation(code, 0);
+    testIndentation(code, 4);
 });
 
 test('call with open paren between top level statement', () => {

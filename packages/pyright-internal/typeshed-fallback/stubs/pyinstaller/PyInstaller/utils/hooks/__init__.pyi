@@ -1,9 +1,9 @@
 # https://pyinstaller.org/en/stable/hooks.html
 
-from _typeshed import StrOrBytesPath, StrPath, SupportsKeysAndGetItem
-from collections.abc import Callable, Iterable, Mapping
+from _typeshed import StrOrBytesPath, StrPath
+from collections.abc import Callable, Iterable
 from typing import Any
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal
 
 import pkg_resources
 from PyInstaller import HOMEPATH as HOMEPATH
@@ -13,17 +13,12 @@ from PyInstaller.utils.hooks.win32 import get_pywin32_module_file_attribute as g
 
 conda_support = conda
 
-_Environ: TypeAlias = SupportsKeysAndGetItem[str, str] | Iterable[tuple[str, str]] | Mapping[str, str]
-
 PY_IGNORE_EXTENSIONS: set[str]
 hook_variables: dict[str, str]
 
 def exec_statement(statement: str) -> str | int: ...
 def exec_statement_rc(statement: str) -> str | int: ...
-def exec_script(script_filename: StrOrBytesPath, *args: str, env: _Environ | None = ...) -> str | int: ...
-def exec_script_rc(script_filename: StrOrBytesPath, *args: str, env: _Environ | None = ...) -> str | int: ...
 def eval_statement(statement: str) -> Any | Literal[""]: ...
-def eval_script(script_filename: StrOrBytesPath, *args: str, env: _Environ | None = ...) -> Any | Literal[""]: ...
 def get_pyextension_imports(module_name: str) -> list[str]: ...
 def get_homebrew_path(formula: str = ...) -> str | None: ...
 def remove_prefix(string: str, prefix: str) -> str: ...

@@ -1,7 +1,7 @@
 import http.client
 from _typeshed import Self
 from collections.abc import Generator
-from typing import Any
+from typing import Any, ClassVar
 
 from .error import *
 
@@ -48,6 +48,7 @@ class HmacDigestAuthentication(Authentication):
     hashmod: Any
     pwhashmod: Any
     key: Any
+    __author__: ClassVar[str]
     def __init__(self, credentials, host, request_uri, headers, response, content, http) -> None: ...
     def request(self, method, request_uri, headers, content) -> None: ...
     def response(self, response, content): ...

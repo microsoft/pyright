@@ -461,6 +461,7 @@ export interface DataClassBehaviors {
     keywordOnlyParams: boolean;
     generateEq: boolean;
     generateOrder: boolean;
+    frozen: boolean;
     fieldDescriptorNames: string[];
 }
 
@@ -1097,12 +1098,12 @@ export interface ParamSpecEntry {
     name?: string | undefined;
     isNameSynthesized?: boolean;
     hasDefault?: boolean | undefined;
+    defaultValueExpression?: ExpressionNode | undefined;
     type: Type;
 }
 
 export interface FunctionParameter extends ParamSpecEntry {
     isTypeInferred?: boolean | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
     defaultType?: Type | undefined;
     hasDeclaredType?: boolean | undefined;
     typeAnnotation?: ExpressionNode | undefined;
@@ -1441,6 +1442,7 @@ export namespace FunctionType {
                         category: specEntry.category,
                         name: specEntry.name,
                         hasDefault: specEntry.hasDefault,
+                        defaultValueExpression: specEntry.defaultValueExpression,
                         isNameSynthesized: specEntry.isNameSynthesized,
                         hasDeclaredType: true,
                         type: specEntry.type,
@@ -1535,6 +1537,7 @@ export namespace FunctionType {
                 category: specEntry.category,
                 name: specEntry.name,
                 hasDefault: specEntry.hasDefault,
+                defaultValueExpression: specEntry.defaultValueExpression,
                 isNameSynthesized: specEntry.isNameSynthesized,
                 hasDeclaredType: true,
                 type: specEntry.type,
@@ -2011,7 +2014,15 @@ export namespace UnionType {
         }
     }
 
-    export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
+    // Determines whether the union contains a specified subtype. If exclusionSet is passed,
+    // the method skips any subtype indexes that are in the set and adds a found index to
+    // the exclusion set. This speeds up union type comparisons.
+    export function containsType(
+        unionType: UnionType,
+        subtype: Type,
+        exclusionSet?: Set<number>,
+        recursionCount = 0
+    ): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
         if (isClassInstance(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
@@ -2022,7 +2033,20 @@ export namespace UnionType {
             }
         }
 
-        return unionType.subtypes.find((t) => isTypeSame(t, subtype, {}, recursionCount)) !== undefined;
+        const foundIndex = unionType.subtypes.findIndex((t, i) => {
+            if (exclusionSet?.has(i)) {
+                return false;
+            }
+
+            return isTypeSame(t, subtype, {}, recursionCount);
+        });
+
+        if (foundIndex < 0) {
+            return false;
+        }
+
+        exclusionSet?.add(foundIndex);
+        return true;
     }
 
     export function addTypeAliasSource(unionType: UnionType, typeAliasSource: Type) {
@@ -2609,9 +2633,12 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             // The types do not have a particular order, so we need to
             // do the comparison in an order-independent manner.
+            const exclusionSet = new Set<number>();
             return (
-                findSubtype(type1, (subtype) => !UnionType.containsType(unionType2, subtype, recursionCount)) ===
-                undefined
+                findSubtype(
+                    type1,
+                    (subtype) => !UnionType.containsType(unionType2, subtype, exclusionSet, recursionCount)
+                ) === undefined
             );
         }
 

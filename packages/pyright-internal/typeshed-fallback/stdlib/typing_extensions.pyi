@@ -227,6 +227,7 @@ else:
         eq_default: bool = ...,
         order_default: bool = ...,
         kw_only_default: bool = ...,
+        frozen_default: bool = ...,
         field_specifiers: tuple[type[Any] | Callable[..., Any], ...] = ...,
         **kwargs: object,
     ) -> IdentityFunction: ...

@@ -713,6 +713,7 @@ export function validateDataClassTransformDecorator(
         keywordOnlyParams: false,
         generateEq: true,
         generateOrder: false,
+        frozen: false,
         fieldDescriptorNames: [],
     };
 
@@ -777,6 +778,24 @@ export function validateDataClassTransformDecorator(
                 }
 
                 behaviors.generateOrder = value;
+                break;
+            }
+
+            case 'frozen_default': {
+                const value = evaluateStaticBoolExpression(
+                    arg.valueExpression,
+                    fileInfo.executionEnvironment,
+                    fileInfo.definedConstants
+                );
+                if (value === undefined) {
+                    evaluator.addError(
+                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                        arg.valueExpression
+                    );
+                    return;
+                }
+
+                behaviors.frozen = value;
                 break;
             }
 
@@ -858,6 +877,7 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
             keywordOnlyParams: false,
             generateEq: true,
             generateOrder: false,
+            frozen: false,
             fieldDescriptorNames: ['dataclasses.field', 'dataclasses.Field'],
         };
     }
@@ -998,7 +1018,8 @@ export function applyDataClassClassBehaviorOverrides(
     evaluator: TypeEvaluator,
     errorNode: ParseNode,
     classType: ClassType,
-    args: FunctionArgument[]
+    args: FunctionArgument[],
+    defaultBehaviors: DataClassBehaviors
 ) {
     let sawFrozenArg = false;
 
@@ -1015,7 +1036,7 @@ export function applyDataClassClassBehaviorOverrides(
     // If there was no frozen argument, it is implicitly false. This will
     // validate that we're not overriding a frozen class with a non-frozen class.
     if (!sawFrozenArg) {
-        applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, 'frozen', false);
+        applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, 'frozen', defaultBehaviors.frozen);
     }
 }
 
@@ -1034,6 +1055,10 @@ export function applyDataClassDefaultBehaviors(classType: ClassType, defaultBeha
     if (defaultBehaviors.generateOrder) {
         classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
     }
+
+    if (defaultBehaviors.frozen) {
+        classType.details.flags |= ClassTypeFlags.FrozenDataClass;
+    }
 }
 
 export function applyDataClassDecorator(
@@ -1045,7 +1070,5 @@ export function applyDataClassDecorator(
 ) {
     applyDataClassDefaultBehaviors(classType, defaultBehaviors);
 
-    if (callNode?.arguments) {
-        applyDataClassClassBehaviorOverrides(evaluator, errorNode, classType, callNode.arguments);
-    }
+    applyDataClassClassBehaviorOverrides(evaluator, errorNode, classType, callNode?.arguments ?? [], defaultBehaviors);
 }
