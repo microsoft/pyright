@@ -115,6 +115,7 @@ import {
     getNameNodeForDeclaration,
     isExplicitTypeAliasDeclaration,
     isFinalVariableDeclaration,
+    isLegalTypeAliasExpressionForm,
     isPossibleTypeAliasDeclaration,
 } from './declarationUtils';
 import {
@@ -14779,6 +14780,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (isDeclaredTypeAlias(node.leftExpression)) {
                     typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
+
+                    if (!isLegalTypeAliasExpressionForm(node.rightExpression)) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAliasIllegalExpressionForm(),
+                            node.rightExpression
+                        );
+                    }
                 } else if (node.leftExpression.nodeType === ParseNodeType.Name) {
                     const symbolWithScope = lookUpSymbolRecursive(
                         node.leftExpression,
@@ -15003,6 +15013,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (node.typeParameters) {
             typeParameters = evaluateTypeParameterList(node.typeParameters);
             typeAliasTypeVar.details.recursiveTypeParameters = typeParameters;
+        }
+
+        if (!isLegalTypeAliasExpressionForm(node.expression)) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeAliasIllegalExpressionForm(),
+                node.expression
+            );
         }
 
         const aliasTypeResult = getTypeOfExpressionExpectingType(node.expression);

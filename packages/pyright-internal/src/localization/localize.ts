@@ -786,6 +786,7 @@ export namespace Localizer {
         export const tupleInAnnotation = () => getRawString('Diagnostic.tupleInAnnotation');
         export const tupleIndexOutOfRange = () =>
             new ParameterizedString<{ type: string; index: number }>(getRawString('Diagnostic.tupleIndexOutOfRange'));
+        export const typeAliasIllegalExpressionForm = () => getRawString('Diagnostic.typeAliasIllegalExpressionForm');
         export const typeAliasIsRecursiveDirect = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursiveDirect'));
         export const typeAliasIsRecursiveIndirect = () =>
