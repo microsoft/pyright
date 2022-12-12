@@ -649,7 +649,7 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
     const pathComponents = getPathComponents(absolutePath);
 
     const escapedSeparator = getRegexEscapedSeparator();
-    const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
+    const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^.][^${escapedSeparator}]*)*?`;
     const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
 
     // Strip the directory separator from the root component.

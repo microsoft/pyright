@@ -135,14 +135,24 @@ test('stripFileExtension2', () => {
 
 test('getWildcardRegexPattern1', () => {
     const pattern = getWildcardRegexPattern('/users/me', './blah/');
-    const sep = getRegexEscapedSeparator();
-    assert.equal(pattern, `${sep}users${sep}me${sep}blah`);
+    const regex = new RegExp(pattern);
+    assert.ok(regex.test('/users/me/blah/d'));
+    assert.ok(!regex.test('/users/me/blad/d'));
 });
 
 test('getWildcardRegexPattern2', () => {
-    const pattern = getWildcardRegexPattern('/users/me', './**/*.py?/');
-    const sep = getRegexEscapedSeparator();
-    assert.equal(pattern, `${sep}users${sep}me(${sep}[^${sep}.][^${sep}]*)*?${sep}[^${sep}]*\\.py[^${sep}]`);
+    const pattern = getWildcardRegexPattern('/users/me', './**/*.py?');
+    const regex = new RegExp(pattern);
+    assert.ok(regex.test('/users/me/.blah/foo.pyd'));
+    assert.ok(!regex.test('/users/me/./foo.py'));
+    assert.ok(!regex.test('/users/me/.blah/foo.py')); // No char after
+});
+
+test('getWildcardRegexPattern3', () => {
+    const pattern = getWildcardRegexPattern('/users/me', './**/.*.py');
+    const regex = new RegExp(pattern);
+    assert.ok(regex.test('/users/me/.blah/.foo.py'));
+    assert.ok(!regex.test('/users/me/.blah/foo.py'));
 });
 
 test('getWildcardRoot1', () => {
