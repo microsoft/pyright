@@ -27,7 +27,6 @@ import {
     getFileExtension,
     getFileName,
     getPathComponents,
-    getRegexEscapedSeparator,
     getRelativePath,
     getRelativePathFromDirectory,
     getWildcardRegexPattern,
@@ -133,26 +132,33 @@ test('stripFileExtension2', () => {
     assert.equal(path2, 'blah.blah/hello.cpython-32m');
 });
 
+function fixSeparators(linuxPath: string) {
+    if (path.sep === '\\') {
+        return linuxPath.replace(/\//g, path.sep);
+    }
+    return linuxPath;
+}
+
 test('getWildcardRegexPattern1', () => {
     const pattern = getWildcardRegexPattern('/users/me', './blah/');
     const regex = new RegExp(pattern);
-    assert.ok(regex.test('/users/me/blah/d'));
-    assert.ok(!regex.test('/users/me/blad/d'));
+    assert.ok(regex.test(fixSeparators('/users/me/blah/d')));
+    assert.ok(!regex.test(fixSeparators('/users/me/blad/d')));
 });
 
 test('getWildcardRegexPattern2', () => {
     const pattern = getWildcardRegexPattern('/users/me', './**/*.py?');
     const regex = new RegExp(pattern);
-    assert.ok(regex.test('/users/me/.blah/foo.pyd'));
-    assert.ok(!regex.test('/users/me/./foo.py'));
-    assert.ok(!regex.test('/users/me/.blah/foo.py')); // No char after
+    assert.ok(regex.test(fixSeparators('/users/me/.blah/foo.pyd')));
+    assert.ok(!regex.test(fixSeparators('/users/me/./foo.py')));
+    assert.ok(!regex.test(fixSeparators('/users/me/.blah/foo.py'))); // No char after
 });
 
 test('getWildcardRegexPattern3', () => {
     const pattern = getWildcardRegexPattern('/users/me', './**/.*.py');
     const regex = new RegExp(pattern);
-    assert.ok(regex.test('/users/me/.blah/.foo.py'));
-    assert.ok(!regex.test('/users/me/.blah/foo.py'));
+    assert.ok(regex.test(fixSeparators('/users/me/.blah/.foo.py')));
+    assert.ok(!regex.test(fixSeparators('/users/me/.blah/foo.py')));
 });
 
 test('getWildcardRoot1', () => {
