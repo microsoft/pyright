@@ -17,8 +17,4 @@ channel_types: dict[str, int] = {}
 
 keys = channel_types.keys()
 
-_T = TypeVar("_T")
-_S = TypeVar("_S")
-
-
 options.update(dict.fromkeys(keys, 1))

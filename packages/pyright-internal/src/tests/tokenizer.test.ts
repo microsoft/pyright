@@ -1391,12 +1391,12 @@ test('Lines1', () => {
     // the replacement here.
     const sampleTextLfOnly = sampleText.replace(/\r\n/g, '\n');
     const resultsLf = t.tokenize(sampleTextLfOnly);
-    assert.equal(resultsLf.lines.count, 14);
+    assert.equal(resultsLf.lines.count, 15);
 
     // Now replace the LF with CR/LF sequences.
     const sampleTextCrLf = sampleTextLfOnly.replace(/\n/g, '\r\n');
     const resultsCrLf = t.tokenize(sampleTextCrLf);
-    assert.equal(resultsCrLf.lines.count, 14);
+    assert.equal(resultsCrLf.lines.count, 15);
 });
 
 test('Comments1', () => {

@@ -761,7 +761,11 @@ export class AnalyzerService {
             configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
 
-        configOptions.analyzeUnannotatedFunctions = commandLineOptions.analyzeUnannotatedFunctions ?? true;
+        // Override the analyzeUnannotatedFunctions setting based on the command-line setting.
+        if (commandLineOptions.analyzeUnannotatedFunctions !== undefined) {
+            configOptions.diagnosticRuleSet.analyzeUnannotatedFunctions =
+                commandLineOptions.analyzeUnannotatedFunctions;
+        }
 
         const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
             const settingSource = commandLineOptions.fromVsCodeExtension

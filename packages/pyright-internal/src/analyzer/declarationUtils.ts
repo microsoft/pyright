@@ -8,7 +8,7 @@
  */
 
 import { getEmptyRange } from '../common/textRange';
-import { NameNode, ParseNodeType } from '../parser/parseNodes';
+import { ExpressionNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { AliasDeclaration, Declaration, DeclarationType, isAliasDeclaration, ModuleLoaderActions } from './declaration';
 import { getFileInfoFromNode } from './parseTreeUtils';
 
@@ -123,8 +123,11 @@ export function isPossibleTypeAliasDeclaration(decl: Declaration) {
 
     // Perform a sanity check on the RHS expression. Some expression
     // forms should never be considered legitimate for type aliases.
-    const rhsOfAssignment = decl.node.parent.rightExpression;
-    switch (rhsOfAssignment.nodeType) {
+    return isLegalTypeAliasExpressionForm(decl.node.parent.rightExpression);
+}
+
+export function isLegalTypeAliasExpressionForm(node: ExpressionNode) {
+    switch (node.nodeType) {
         case ParseNodeType.Error:
         case ParseNodeType.UnaryOperation:
         case ParseNodeType.AssignmentExpression:

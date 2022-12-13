@@ -796,7 +796,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
 // Indicates whether the specified type is a recursive type alias
 // placeholder that has not yet been resolved.
-export function isTypeAliasPlaceholder(type: Type): type is TypeVarType {
+export function isTypeAliasPlaceholder(type: Type): boolean {
     return isTypeVar(type) && TypeVarType.isTypeAliasPlaceholder(type);
 }
 
@@ -1076,7 +1076,10 @@ export function isTupleClass(type: ClassType) {
 // the form tuple[x, ...] where the number of elements
 // in the tuple is unknown.
 export function isUnboundedTupleClass(type: ClassType) {
-    return type.tupleTypeArguments && type.tupleTypeArguments.some((t) => t.isUnbounded);
+    return (
+        type.tupleTypeArguments &&
+        type.tupleTypeArguments.some((t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type))
+    );
 }
 
 // Partially specializes a type within the context of a specified

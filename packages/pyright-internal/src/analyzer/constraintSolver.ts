@@ -90,6 +90,12 @@ export function assignTypeToTypeVar(
             return true;
         }
 
+        // Never or NoReturn is always assignable to all type variables unless
+        // we're enforcing invariance.
+        if (isNever(srcType) && (flags & AssignTypeFlags.EnforceInvariance) === 0) {
+            return true;
+        }
+
         // If we're in "ignore type var scope" mode, don't generate
         // an error in this path.
         if ((flags & AssignTypeFlags.IgnoreTypeVarScope) !== 0) {

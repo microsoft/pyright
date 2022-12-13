@@ -489,11 +489,11 @@ test('TypeAlias4', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_9, 8);
+    TestUtils.validateResults(analysisResults3_9, 10);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_10, 7);
+    TestUtils.validateResults(analysisResults3_10, 9);
 });
 
 test('TypeAlias5', () => {
@@ -631,6 +631,12 @@ test('RecursiveTypeAlias10', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('RecursiveTypeAlias11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 
@@ -678,6 +684,12 @@ test('Classes8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes8.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Classes9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('MethodOverride1', () => {
@@ -820,6 +832,12 @@ test('Never1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never1.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Never2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never2.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('TypePromotions1', () => {

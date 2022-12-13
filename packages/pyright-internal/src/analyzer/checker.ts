@@ -162,7 +162,6 @@ import {
     getProtocolSymbols,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
-    isEllipsisType,
     isLiteralType,
     isLiteralTypeOrUnion,
     isPartlyUnknown,
@@ -415,6 +414,15 @@ export class Checker extends ParseTreeWalker {
             this.walk(node.typeParameters);
         }
 
+        if (!this._fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions && !this._fileInfo.isStubFile) {
+            if (ParseTreeUtils.isUnannotatedFunction(node)) {
+                this._evaluator.addInformation(
+                    Localizer.Diagnostic.unannotatedFunctionSkipped().format({ name: node.name.value }),
+                    node.name
+                );
+            }
+        }
+
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
 
@@ -509,19 +517,6 @@ export class Checker extends ParseTreeWalker {
                                 param.name
                             );
                         }
-                    }
-                }
-
-                // If it's a stub file, report an issue of the default value expression is not "...".
-                if (param.defaultValue && this._fileInfo.isStubFile) {
-                    const defaultValueType = this._evaluator.getType(param.defaultValue);
-                    if (!defaultValueType || !isEllipsisType(defaultValueType)) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
-                            DiagnosticRule.reportInvalidStubStatement,
-                            Localizer.Diagnostic.defaultValueNotEllipsis(),
-                            param.defaultValue
-                        );
                     }
                 }
             });
@@ -4875,7 +4870,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Build maps of symbols for each of the base classes.
-        const symbolMaps = baseClasses.map((baseClass) => {
+        const baseClassSymbolMaps = baseClasses.map((baseClass) => {
             const specializedBaseClass = classType.details.mro.find(
                 (c) => isClass(c) && ClassType.isSameGenericClass(c, baseClass)
             );
@@ -4887,51 +4882,59 @@ export class Checker extends ParseTreeWalker {
             return getClassFieldsRecursive(specializedBaseClass);
         });
 
-        for (let symbolMapBaseIndex = 1; symbolMapBaseIndex < symbolMaps.length; symbolMapBaseIndex++) {
-            const baseSymbolMap = symbolMaps[symbolMapBaseIndex];
+        const childClassSymbolMap = getClassFieldsRecursive(classType);
 
-            for (const [name, baseClassAndSymbol] of baseSymbolMap) {
+        for (let symbolMapBaseIndex = 1; symbolMapBaseIndex < baseClassSymbolMaps.length; symbolMapBaseIndex++) {
+            const baseSymbolMap = baseClassSymbolMaps[symbolMapBaseIndex];
+
+            for (const [name, overriddenClassAndSymbol] of baseSymbolMap) {
                 // Special-case dundered methods, which can differ in signature. Also
                 // exempt private symbols.
                 if (SymbolNameUtils.isDunderName(name) || SymbolNameUtils.isPrivateName(name)) {
                     continue;
                 }
 
-                const baseClassType = baseClassAndSymbol.classType;
-                if (!isClass(baseClassType)) {
+                const overriddenClassType = overriddenClassAndSymbol.classType;
+                if (!isClass(overriddenClassType)) {
                     continue;
                 }
 
-                for (let overrideIndex = 0; overrideIndex < symbolMapBaseIndex; overrideIndex++) {
-                    const overrideSymbolMap = symbolMaps[overrideIndex];
-                    const overrideClassAndSymbol = overrideSymbolMap.get(name);
+                const overrideClassAndSymbol = childClassSymbolMap.get(name);
 
-                    if (overrideClassAndSymbol) {
-                        this._validateMultipleInheritanceOverride(
-                            baseClassAndSymbol,
-                            overrideClassAndSymbol,
-                            classType,
-                            name,
-                            baseClasses[symbolMapBaseIndex],
-                            baseClasses[overrideIndex],
-                            errorNode
-                        );
+                if (overrideClassAndSymbol) {
+                    const overrideClassType = overrideClassAndSymbol.classType;
+
+                    // If the override is the same as the overridden, then there's nothing
+                    // to check. If the override is the child class, then we can also skip
+                    // the check because the normal override checks will report the error.
+                    if (
+                        !isClass(overrideClassType) ||
+                        ClassType.isSameGenericClass(overrideClassType, overriddenClassType) ||
+                        ClassType.isSameGenericClass(overrideClassType, classType)
+                    ) {
+                        continue;
                     }
+
+                    this._validateMultipleInheritanceOverride(
+                        overriddenClassAndSymbol,
+                        overrideClassAndSymbol,
+                        classType,
+                        name,
+                        errorNode
+                    );
                 }
             }
         }
     }
 
     private _validateMultipleInheritanceOverride(
-        baseClassAndSymbol: ClassMember,
+        overriddenClassAndSymbol: ClassMember,
         overrideClassAndSymbol: ClassMember,
         childClassType: ClassType,
         memberName: string,
-        baseClass1: ClassType,
-        baseClass2: ClassType,
         errorNode: ParseNode
     ) {
-        if (!isClass(baseClassAndSymbol.classType) || !isClass(overrideClassAndSymbol.classType)) {
+        if (!isClass(overriddenClassAndSymbol.classType) || !isClass(overrideClassAndSymbol.classType)) {
             return;
         }
 
@@ -4941,18 +4944,23 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        let baseType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
-        baseType = partiallySpecializeType(baseType, baseClassAndSymbol.classType);
+        let overriddenType = this._evaluator.getEffectiveTypeOfSymbol(overriddenClassAndSymbol.symbol);
+        overriddenType = partiallySpecializeType(overriddenType, overriddenClassAndSymbol.classType);
 
         const overrideSymbol = overrideClassAndSymbol.symbol;
         let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideSymbol);
         overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
 
+        const childOverrideSymbol = childClassType.details.fields.get(memberName);
+        const childOverrideType = childOverrideSymbol
+            ? this._evaluator.getEffectiveTypeOfSymbol(childOverrideSymbol)
+            : undefined;
+
         let diag: Diagnostic | undefined;
         const overrideDecl = getLastTypedDeclaredForSymbol(overrideClassAndSymbol.symbol);
-        const baseDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+        const overriddenDecl = getLastTypedDeclaredForSymbol(overriddenClassAndSymbol.symbol);
 
-        if (isFunction(baseType) || isOverloadedFunction(baseType)) {
+        if (isFunction(overriddenType) || isOverloadedFunction(overriddenType)) {
             const diagAddendum = new DiagnosticAddendum();
             let overrideFunction: FunctionType | undefined;
 
@@ -4971,7 +4979,7 @@ export class Checker extends ParseTreeWalker {
             if (overrideFunction) {
                 if (
                     !this._evaluator.validateOverrideMethod(
-                        baseType,
+                        overriddenType,
                         overrideFunction,
                         diagAddendum,
                         /* enforceParamNameMatch */ true
@@ -4991,7 +4999,7 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             }
-        } else if (isProperty(baseType)) {
+        } else if (isProperty(overriddenType)) {
             // Handle properties specially.
             if (!isProperty(overrideType) && !isAnyOrUnknown(overrideType)) {
                 const decls = overrideSymbol.getDeclarations();
@@ -5013,37 +5021,42 @@ export class Checker extends ParseTreeWalker {
             // This check can be expensive, so don't perform it if the corresponding
             // rule is disabled.
             if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
-                if (!isAnyOrUnknown(baseType) && !isAnyOrUnknown(overrideType) && !isTypeSame(baseType, overrideType)) {
-                    diag = this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
-                        DiagnosticRule.reportIncompatibleVariableOverride,
-                        Localizer.Diagnostic.baseClassVariableTypeIncompatible().format({
-                            classType: childClassType.details.name,
-                            name: memberName,
-                        }),
-                        errorNode
-                    );
+                if (!isAnyOrUnknown(overriddenType) && !isAnyOrUnknown(overrideType)) {
+                    // If the child class overrides this symbol with its own type, make sure
+                    // the override is compatible with the overridden symbol. Otherwise use the
+                    // override type.
+                    if (!this._evaluator.assignType(overriddenType, childOverrideType ?? overrideType)) {
+                        diag = this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            Localizer.Diagnostic.baseClassVariableTypeIncompatible().format({
+                                classType: childClassType.details.name,
+                                name: memberName,
+                            }),
+                            errorNode
+                        );
+                    }
                 }
             }
         }
 
-        if (diag && overrideDecl && baseDecl) {
+        if (diag && overrideDecl && overriddenDecl) {
             diag.addRelatedInfo(
-                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
-                    baseClass: this._evaluator.printType(convertToInstance(baseClass1)),
+                Localizer.DiagnosticAddendum.baseClassOverriddenType().format({
+                    baseClass: this._evaluator.printType(convertToInstance(overriddenClassAndSymbol.classType)),
+                    type: this._evaluator.printType(overriddenType),
+                }),
+                overriddenDecl.path,
+                overriddenDecl.range
+            );
+
+            diag.addRelatedInfo(
+                Localizer.DiagnosticAddendum.baseClassOverridesType().format({
+                    baseClass: this._evaluator.printType(convertToInstance(overrideClassAndSymbol.classType)),
                     type: this._evaluator.printType(overrideType),
                 }),
                 overrideDecl.path,
                 overrideDecl.range
-            );
-
-            diag.addRelatedInfo(
-                Localizer.DiagnosticAddendum.baseClassProvidesType().format({
-                    baseClass: this._evaluator.printType(convertToInstance(baseClass2)),
-                    type: this._evaluator.printType(baseType),
-                }),
-                baseDecl.path,
-                baseDecl.range
             );
         }
     }

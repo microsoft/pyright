@@ -281,10 +281,16 @@ export class HoverProvider {
                             `(${label})\n${getOverloadedFunctionTooltip(type, evaluator)}`,
                             /* python */ true
                         );
+                    } else if (isFunction(type)) {
+                        this._addResultsPart(
+                            parts,
+                            `(${label}) ${node.value}${sep}${evaluator.printType(type)}`,
+                            /* python */ true
+                        );
                     } else {
                         this._addResultsPart(
                             parts,
-                            `(${label}) ` + node.value + sep + evaluator.printType(type),
+                            `(${label}) ${node.value}: ${evaluator.printType(type)}`,
                             /* python */ true
                         );
                     }
