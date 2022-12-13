@@ -834,6 +834,12 @@ test('Never1', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('Never2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['never2.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('TypePromotions1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePromotions1.py']);
 
