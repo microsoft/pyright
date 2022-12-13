@@ -38,7 +38,6 @@ import {
     lookUpClassMember,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { ConfigOptions } from '../common/configOptions';
 import { assertNever, fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
@@ -69,7 +68,7 @@ export class HoverProvider {
         position: Position,
         format: MarkupKind,
         evaluator: TypeEvaluator,
-        configOptions: ConfigOptions,
+        compactSignatureDisplay: boolean,
         token: CancellationToken
     ): HoverResults | undefined {
         throwIfCancellationRequested(token);
@@ -115,7 +114,7 @@ export class HoverProvider {
                     primaryDeclaration,
                     node,
                     evaluator,
-                    configOptions
+                    compactSignatureDisplay
                 );
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
@@ -163,7 +162,7 @@ export class HoverProvider {
         declaration: Declaration,
         node: NameNode,
         evaluator: TypeEvaluator,
-        configOptions: ConfigOptions
+        compactSignatureDisplay: boolean
     ): void {
         const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
@@ -262,7 +261,7 @@ export class HoverProvider {
                         parts,
                         sourceMapper,
                         resolvedDecl,
-                        configOptions
+                        compactSignatureDisplay
                     )
                 ) {
                     return;
@@ -288,29 +287,16 @@ export class HoverProvider {
                     if (isOverloadedFunction(type)) {
                         this._addResultsPart(
                             parts,
-                            getOverloadedFunctionTooltip(label, type, evaluator, configOptions.compactSignatureDisplay),
+                            getOverloadedFunctionTooltip(label, type, evaluator, compactSignatureDisplay),
                             /* python */ true
                         );
                     } else if (isFunction(type)) {
                         this._addResultsPart(
                             parts,
-                            getFunctionTooltip(
-                                label,
-                                node.value,
-                                type,
-                                evaluator,
-                                configOptions.compactSignatureDisplay
-                            ),
-                            /* python */ true
-                        );
-                    } else if (isFunction(type)) {
-                        this._addResultsPart(
-                            parts,
-                            `(${label}) ${node.value}${sep}${evaluator.printType(type)}`,
+                            getFunctionTooltip(label, node.value, type, evaluator, compactSignatureDisplay),
                             /* python */ true
                         );
                     } else {
-                        const sep = isProperty ? ': ' : '';
                         this._addResultsPart(
                             parts,
                             `(${label}) ${node.value}: ${evaluator.printType(type)}`,
@@ -392,7 +378,7 @@ export class HoverProvider {
         parts: HoverTextPart[],
         sourceMapper: SourceMapper,
         declaration: Declaration,
-        configOptions: ConfigOptions
+        compactSignatureDisplay: boolean
     ) {
         // If the class is used as part of a call (i.e. it is being
         // instantiated), include the constructor arguments within the
@@ -475,15 +461,11 @@ export class HoverProvider {
         }
 
         if (methodType && (isFunction(methodType) || isOverloadedFunction(methodType))) {
-            const classText = getConstructorTooltip(
-                /* label */ 'class',
-                node.value,
-                methodType,
-                evaluator,
-                configOptions.compactSignatureDisplay
+            this._addResultsPart(
+                parts,
+                getConstructorTooltip(/* label */ 'class', node.value, methodType, evaluator, compactSignatureDisplay),
+                /* python */ true
             );
-
-            this._addResultsPart(parts, classText, /* python */ true);
             const addedDoc = this._addDocumentationPartForType(
                 format,
                 sourceMapper,

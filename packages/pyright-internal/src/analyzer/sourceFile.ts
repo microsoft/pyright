@@ -1081,7 +1081,7 @@ export class SourceFile {
         position: Position,
         format: MarkupKind,
         evaluator: TypeEvaluator,
-        configOptions: ConfigOptions,
+        compactSignatureDisplay: boolean,
         token: CancellationToken
     ): HoverResults | undefined {
         // If this file hasn't been bound, no hover info is available.
@@ -1095,7 +1095,7 @@ export class SourceFile {
             position,
             format,
             evaluator,
-            configOptions,
+            compactSignatureDisplay,
             token
         );
     }
