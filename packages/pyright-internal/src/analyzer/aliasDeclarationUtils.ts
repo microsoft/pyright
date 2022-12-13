@@ -32,7 +32,13 @@ export function resolveAliasDeclaration(
     let curDeclaration: Declaration | undefined = declaration;
     const alreadyVisited: Declaration[] = [];
     let isPrivate = false;
-    let isPrivatePyTypedImport = false;
+
+    // These variables are used to find a transition from a non-py.typed to
+    // a py.typed resolution chain. In this case, if the imported symbol
+    // is a private symbol (i.e. not intended to be re-exported), we store
+    // the name of the importer and imported modules so the caller can
+    // report an error.
+    let sawPyTypedTransition = false;
     let privatePyTypedImported: string | undefined;
     let privatePyTypedImporter: string | undefined;
 
@@ -126,16 +132,23 @@ export function resolveAliasDeclaration(
             curDeclaration = declarations[declarations.length - 1];
         }
 
-        if (isPrivatePyTypedImport) {
-            privatePyTypedImported = privatePyTypedImported ?? curDeclaration?.moduleName;
-        }
+        if (lookupResult?.isInPyTypedPackage) {
+            if (!sawPyTypedTransition) {
+                if (symbol.isPrivatePyTypedImport()) {
+                    privatePyTypedImporter = curDeclaration?.moduleName;
+                }
 
-        if (symbol.isPrivatePyTypedImport()) {
-            isPrivatePyTypedImport = true;
-        }
-
-        if (isPrivatePyTypedImport) {
-            privatePyTypedImporter = privatePyTypedImporter ?? curDeclaration?.moduleName;
+                // Note that we've seen a transition from a non-py.typed to a py.typed
+                // import. No further check is needed.
+                sawPyTypedTransition = true;
+            } else {
+                // If we've already seen a transition, look for the first non-private
+                // symbol that is resolved so we can tell the user to import from this
+                // location instead.
+                if (!symbol.isPrivatePyTypedImport()) {
+                    privatePyTypedImported = privatePyTypedImported ?? curDeclaration?.moduleName;
+                }
+            }
         }
 
         // Make sure we don't follow a circular list indefinitely.

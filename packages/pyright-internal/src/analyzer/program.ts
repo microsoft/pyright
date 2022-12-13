@@ -1026,6 +1026,7 @@ export class Program {
 
         const parseResults = sourceFileInfo.sourceFile.getParseResults();
         const moduleNode = parseResults!.parseTree;
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(moduleNode);
 
         const dunderAllInfo = AnalyzerNodeInfo.getDunderAllInfo(parseResults!.parseTree);
 
@@ -1036,6 +1037,7 @@ export class Program {
             get docString() {
                 return getDocString(moduleNode.statements);
             },
+            isInPyTypedPackage: fileInfo.isInPyTypedPackage,
         };
     };
 
