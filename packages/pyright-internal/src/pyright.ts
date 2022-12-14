@@ -35,6 +35,8 @@ import { ChokidarFileWatcherProvider } from './common/chokidarFileWatcherProvide
 
 const toolName = 'pyright';
 
+type SeverityLevel = 'error' | 'warning' | 'information';
+
 enum ExitStatus {
     NoErrors = 0,
     ErrorsReported = 1,
@@ -91,7 +93,7 @@ interface PyrightPublicSymbolReport {
 
 interface PyrightJsonDiagnostic {
     file: string;
-    severity: 'error' | 'warning' | 'information';
+    severity: SeverityLevel;
     message: string;
     range?: Range | undefined;
     rule?: string | undefined;
@@ -131,6 +133,7 @@ async function processArgs(): Promise<ExitStatus> {
         { name: 'help', alias: 'h', type: Boolean },
         { name: 'ignoreexternal', type: Boolean },
         { name: 'lib', type: Boolean },
+        { name: 'level', type: String },
         { name: 'outputjson', type: Boolean },
         { name: 'project', alias: 'p', type: String },
         { name: 'pythonplatform', type: String },
@@ -267,6 +270,17 @@ async function processArgs(): Promise<ExitStatus> {
         options.useLibraryCodeForTypes = true;
     }
 
+    let minSeverityLevel: SeverityLevel = 'information';
+    if (args.level && typeof args.level === 'string') {
+        const levelValue = args.level.toLowerCase();
+        if (levelValue === 'error' || levelValue === 'warning') {
+            minSeverityLevel = levelValue;
+        } else {
+            console.error(`'${args.level}' is not a valid value for --level; specify error or warning.`);
+            return ExitStatus.ParameterError;
+        }
+    }
+
     options.checkOnlyOpenFiles = false;
 
     if (!!args.stats && !!args.verbose) {
@@ -288,6 +302,7 @@ async function processArgs(): Promise<ExitStatus> {
             args['verifytypes'] || '',
             options,
             !!args.outputjson,
+            minSeverityLevel,
             args['ignoreexternal']
         );
     } else if (args['ignoreexternal'] !== undefined) {
@@ -323,6 +338,7 @@ async function processArgs(): Promise<ExitStatus> {
             if (args.outputjson) {
                 const report = reportDiagnosticsAsJson(
                     results.diagnostics,
+                    minSeverityLevel,
                     results.filesInProgram,
                     results.elapsedTime
                 );
@@ -332,7 +348,7 @@ async function processArgs(): Promise<ExitStatus> {
                 }
             } else {
                 printVersion();
-                const report = reportDiagnosticsAsText(results.diagnostics);
+                const report = reportDiagnosticsAsText(results.diagnostics, minSeverityLevel);
                 errorCount += report.errorCount;
                 if (treatWarningsAsErrors) {
                     errorCount += report.warningCount;
@@ -399,12 +415,13 @@ function verifyPackageTypes(
     packageName: string,
     options: PyrightCommandLineOptions,
     outputJson: boolean,
+    minSeverityLevel: SeverityLevel,
     ignoreUnknownTypesFromImports: boolean
 ): ExitStatus {
     try {
         const verifier = new PackageTypeVerifier(fileSystem, options, packageName, ignoreUnknownTypesFromImports);
         const report = verifier.verify();
-        const jsonReport = buildTypeCompletenessReport(packageName, report);
+        const jsonReport = buildTypeCompletenessReport(packageName, report, minSeverityLevel);
 
         if (outputJson) {
             console.log(JSON.stringify(jsonReport, /* replacer */ undefined, 4));
@@ -434,7 +451,11 @@ function accumulateReportDiagnosticStats(diag: PyrightJsonDiagnostic, report: Py
     }
 }
 
-function buildTypeCompletenessReport(packageName: string, completenessReport: PackageTypeReport): PyrightJsonResults {
+function buildTypeCompletenessReport(
+    packageName: string,
+    completenessReport: PackageTypeReport,
+    minSeverityLevel: SeverityLevel
+): PyrightJsonResults {
     const report: PyrightJsonResults = {
         version: getVersionString(),
         time: Date.now().toString(),
@@ -451,7 +472,9 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     // Add the general diagnostics.
     completenessReport.generalDiagnostics.forEach((diag) => {
         const jsonDiag = convertDiagnosticToJson('', diag);
-        report.generalDiagnostics.push(jsonDiag);
+        if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
+            report.generalDiagnostics.push(jsonDiag);
+        }
         accumulateReportDiagnosticStats(jsonDiag, report);
     });
 
@@ -491,6 +514,16 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
 
     // Add the symbols.
     completenessReport.symbols.forEach((symbol) => {
+        const diagnostics: PyrightJsonDiagnostic[] = [];
+
+        // Convert and filter the diagnostics.
+        symbol.diagnostics.forEach((diag) => {
+            const jsonDiag = convertDiagnosticToJson(diag.filePath, diag.diagnostic);
+            if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
+                diagnostics.push(jsonDiag);
+            }
+        });
+
         const jsonSymbol: PyrightPublicSymbolReport = {
             category: PackageTypeVerifier.getSymbolCategoryString(symbol.category),
             name: symbol.fullName,
@@ -498,7 +531,7 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
             isExported: symbol.isExported,
             isTypeKnown: symbol.typeKnownStatus === TypeKnownStatus.Known,
             isTypeAmbiguous: symbol.typeKnownStatus === TypeKnownStatus.Ambiguous,
-            diagnostics: symbol.diagnostics.map((diag) => convertDiagnosticToJson(diag.filePath, diag.diagnostic)),
+            diagnostics,
         };
 
         const alternateNames = completenessReport.alternateSymbolNames.get(symbol.fullName);
@@ -655,6 +688,7 @@ function printUsage() {
             '  -h,--help                          Show this help message\n' +
             '  --ignoreexternal                   Ignore external imports for --verifytypes\n' +
             '  --lib                              Use library code to infer types when stubs are missing\n' +
+            '  --level <LEVEL>                    Minimum diagnostic level (error or warning)\n' +
             '  --outputjson                       Output results in JSON format\n' +
             '  -p,--project <FILE OR DIRECTORY>   Use the configuration file at this location\n' +
             '  --pythonplatform <PLATFORM>        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
@@ -683,6 +717,7 @@ function printVersion() {
 
 function reportDiagnosticsAsJson(
     fileDiagnostics: FileDiagnostics[],
+    minSeverityLevel: SeverityLevel,
     filesInProgram: number,
     timeInSec: number
 ): DiagnosticResult {
@@ -707,7 +742,10 @@ function reportDiagnosticsAsJson(
                 diag.category === DiagnosticCategory.Information
             ) {
                 const jsonDiag = convertDiagnosticToJson(fileDiag.filePath, diag);
-                report.generalDiagnostics.push(jsonDiag);
+                if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
+                    report.generalDiagnostics.push(jsonDiag);
+                }
+
                 accumulateReportDiagnosticStats(jsonDiag, report);
             }
         });
@@ -721,6 +759,21 @@ function reportDiagnosticsAsJson(
         informationCount: report.summary.informationCount,
         diagnosticCount: report.summary.errorCount + report.summary.warningCount + report.summary.informationCount,
     };
+}
+
+function isDiagnosticIncluded(diagSeverity: SeverityLevel, minSeverityLevel: SeverityLevel) {
+    // Errors are always included.
+    if (diagSeverity === 'error') {
+        return true;
+    }
+
+    // Warnings are included only if the min severity level is below error.
+    if (diagSeverity === 'warning') {
+        return minSeverityLevel !== 'error';
+    }
+
+    // Informations are included only if the min severity level is 'information'.
+    return minSeverityLevel === 'information';
 }
 
 function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJsonDiagnostic {
@@ -738,7 +791,10 @@ function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJso
     };
 }
 
-function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): DiagnosticResult {
+function reportDiagnosticsAsText(
+    fileDiagnostics: FileDiagnostics[],
+    minSeverityLevel: SeverityLevel
+): DiagnosticResult {
     let errorCount = 0;
     let warningCount = 0;
     let informationCount = 0;
@@ -755,7 +811,10 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
         if (fileErrorsAndWarnings.length > 0) {
             console.log(`${fileDiagnostics.filePath}`);
             fileErrorsAndWarnings.forEach((diag) => {
-                logDiagnosticToConsole(convertDiagnosticToJson(fileDiagnostics.filePath, diag));
+                const jsonDiag = convertDiagnosticToJson(fileDiagnostics.filePath, diag);
+                if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
+                    logDiagnosticToConsole(jsonDiag);
+                }
 
                 if (diag.category === DiagnosticCategory.Error) {
                     errorCount++;
