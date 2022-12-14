@@ -15,7 +15,7 @@
         "test:coverage": "jest --forceExit --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json"
     },
     "dependencies": {
-        "@iarna/toml": "2.2.5",
+        "@iarna/toml": "3.0.0",
         "@yarnpkg/fslib": "2.9.0",
         "@yarnpkg/libzip": "2.2.4",
         "chalk": "^4.1.2",
