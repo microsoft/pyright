@@ -103,7 +103,7 @@ test('ParserRecovery1', () => {
     const diagSink = new DiagnosticSink();
     const parseResults = TestUtils.parseSampleFile('parserRecovery1.py', diagSink).parseResults;
 
-    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 1);
+    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 2);
     const functionNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
     assert.equal(functionNode!.parent!.nodeType, ParseNodeType.Module);
 });
@@ -112,7 +112,7 @@ test('ParserRecovery2', () => {
     const diagSink = new DiagnosticSink();
     const parseResults = TestUtils.parseSampleFile('parserRecovery2.py', diagSink).parseResults;
 
-    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 1);
+    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 2);
     const functionNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
     assert.equal(functionNode!.parent!.nodeType, ParseNodeType.Suite);
 });
@@ -121,7 +121,7 @@ test('ParserRecovery3', () => {
     const diagSink = new DiagnosticSink();
     const parseResults = TestUtils.parseSampleFile('parserRecovery3.py', diagSink).parseResults;
 
-    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 1);
+    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 2);
     const functionNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
     assert.equal(functionNode!.parent!.nodeType, ParseNodeType.Module);
 });

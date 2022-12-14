@@ -388,7 +388,7 @@ test('Python2', () => {
 test('InconsistentSpaceTab1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentSpaceTab1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('InconsistentSpaceTab2', () => {
