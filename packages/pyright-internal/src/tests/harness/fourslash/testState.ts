@@ -153,6 +153,10 @@ export class TestState {
         this._files = vfsInfo.sourceFileNames;
 
         const configOptions = this._convertGlobalOptionsToConfigOptions(vfsInfo.projectRoot, mountPaths);
+
+        //  using compact signatures to reduce formatting affects on tests.
+        configOptions.compactSignatureDisplay = true;
+
         if (this.rawConfigJson) {
             configOptions.initializeFromJson(this.rawConfigJson, 'basic', this.console, this.fs, testAccessHost);
             this._applyTestConfigOptions(configOptions);
@@ -1331,9 +1335,6 @@ export class TestState {
     }
 
     private _applyTestConfigOptions(configOptions: ConfigOptions, mountPaths?: Map<string, string>) {
-        // Always using compact signatures to reduce formatting affects on tests.
-        configOptions.compactSignatureDisplay = true;
-
         // Always enable "test mode".
         configOptions.internalTestMode = true;
 

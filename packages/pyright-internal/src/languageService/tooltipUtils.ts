@@ -74,10 +74,7 @@ export function getFunctionTooltip(
     const labelFormatted = label.length === 0 ? '' : isCompact ? `(${label}) ` : `(${label})\n`;
     const indentStr = isCompact ? '' : '\n' + ' '.repeat(functionName.length);
     const funcParts = evaluator.printFunctionParts(type);
-    const paramSignature =
-        funcParts[0].length > 1
-            ? `(${funcParts[0].join(', ' + indentStr)}${indentStr})`
-            : `(${funcParts[0].join(', ')})`;
+    const paramSignature = formatSignature(funcParts, indentStr);
     return labelFormatted + functionName + `${paramSignature} -> ${funcParts[1]}`;
 }
 
@@ -100,10 +97,16 @@ export function getConstructorTooltip(
     } else if (isFunction(type)) {
         const indentStr = isCompact ? '' : '\n' + ' '.repeat(constructorName.length);
         const funcParts = evaluator.printFunctionParts(type);
-        const paramSignature = `${constructorName}(${funcParts[0].join(', ' + indentStr)}${indentStr})`;
-        classText += paramSignature;
+        const paramSignature = formatSignature(funcParts, indentStr);
+        classText += constructorName + paramSignature;
     }
     return classText;
+}
+
+function formatSignature(funcParts: [string[], string], indentStr: string) {
+    return funcParts[0].length > 1
+        ? `(${funcParts[0].join(', ' + indentStr)}${indentStr})`
+        : `(${funcParts[0].join(', ')})`;
 }
 
 export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
