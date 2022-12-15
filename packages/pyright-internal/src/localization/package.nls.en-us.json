@@ -478,6 +478,7 @@
         "unexpectedUnindent": "Unindent not expected",
         "unhashableDictKey": "Dictionary key must be hashable",
         "unhashableSetEntry": "Set entry must be hashable",
+        "unionForwardReferenceNotAllowed": "Union syntax cannot be used with string operand; use quotes around entire expression",
         "unionSyntaxIllegal": "Alternative syntax for unions requires Python 3.10 or newer",
         "unionTypeArgCount": "Union requires two or more type arguments",
         "uninitializedInstanceVariable": "Instance variable \"{name}\" is not initialized in the class body or __init__ method",

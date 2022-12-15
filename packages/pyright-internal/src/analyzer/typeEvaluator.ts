@@ -11674,6 +11674,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     TypeBase.setSpecialForm(newUnion);
                 }
 
+                // Check for "stringified" forward reference type expressions. The "|" operator
+                // doesn't support these except in certain circumstances. Notably, it can't be used
+                // with other strings or with types that are not specialized using an index form.
+                if (!fileInfo.isStubFile) {
+                    let stringNode: ExpressionNode | undefined;
+                    let otherNode: ExpressionNode | undefined;
+                    let otherType: Type | undefined;
+
+                    if (leftExpression.nodeType === ParseNodeType.StringList) {
+                        stringNode = leftExpression;
+                        otherNode = rightExpression;
+                        otherType = rightType;
+                    } else if (rightExpression.nodeType === ParseNodeType.StringList) {
+                        stringNode = rightExpression;
+                        otherNode = leftExpression;
+                        otherType = leftType;
+                    }
+
+                    if (stringNode && otherNode && otherType) {
+                        let isAllowed = true;
+                        if (isClass(otherType)) {
+                            if (!otherType.isTypeArgumentExplicit || isClassInstance(otherType)) {
+                                isAllowed = false;
+                            }
+                        }
+
+                        if (!isAllowed) {
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.unionForwardReferenceNotAllowed(),
+                                stringNode
+                            );
+                        }
+                    }
+                }
+
                 return { type: newUnion };
             }
         }

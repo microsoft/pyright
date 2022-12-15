@@ -939,6 +939,7 @@ export namespace Localizer {
         export const unexpectedUnindent = () => getRawString('Diagnostic.unexpectedUnindent');
         export const unhashableDictKey = () => getRawString('Diagnostic.unhashableDictKey');
         export const unhashableSetEntry = () => getRawString('Diagnostic.unhashableSetEntry');
+        export const unionForwardReferenceNotAllowed = () => getRawString('Diagnostic.unionForwardReferenceNotAllowed');
         export const unionSyntaxIllegal = () => getRawString('Diagnostic.unionSyntaxIllegal');
         export const unionTypeArgCount = () => getRawString('Diagnostic.unionTypeArgCount');
         export const uninitializedInstanceVariable = () =>
