@@ -2,7 +2,7 @@
 
 
 class A:
-    instance: "A" | None
+    instance: "A | None"
 
     def __init__(self) -> None:
         self.foo: bool

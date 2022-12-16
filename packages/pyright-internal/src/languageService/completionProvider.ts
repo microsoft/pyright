@@ -2695,7 +2695,7 @@ export class CompletionProvider {
                                                 this._configOptions.compactSignatureDisplay
                                             );
                                         } else {
-                                            typeDetail = name + this._evaluator.printType(functionType);
+                                            typeDetail = name + ': ' + this._evaluator.printType(functionType);
                                         }
                                     }
                                     break;
