@@ -2679,8 +2679,10 @@ export class CompletionProvider {
                                                 this._evaluator,
                                                 /* columnThreshold */ 35
                                             );
-                                        } else {
+                                        } else if (isFunction(functionType)) {
                                             typeDetail = name + this._evaluator.printType(functionType);
+                                        } else {
+                                            typeDetail = name + ': ' + this._evaluator.printType(functionType);
                                         }
                                     }
                                     break;
