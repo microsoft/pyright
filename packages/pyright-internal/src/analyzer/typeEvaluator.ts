@@ -7751,11 +7751,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Unknown, but include the "possible types" to allow for completion
             // suggestions.
             if (!isDefinitiveMatchFound) {
-                if (possibleMatchResults.length > 1) {
-                    returnTypes.push(UnknownType.createPossibleType(combineTypes(possibleMatchResults)));
-                } else {
-                    returnTypes.push(possibleMatchResults[0]);
-                }
+                // Eliminate any return types that are subsumed by other return types.
+                let dedupedMatchResults: Type[] = [];
+
+                possibleMatchResults.forEach((subtype) => {
+                    let isSubtypeSubsumed = false;
+
+                    for (let dedupedIndex = 0; dedupedIndex < dedupedMatchResults.length; dedupedIndex++) {
+                        if (assignType(dedupedMatchResults[dedupedIndex], subtype)) {
+                            isSubtypeSubsumed = true;
+                            break;
+                        } else if (assignType(subtype, dedupedMatchResults[dedupedIndex])) {
+                            dedupedMatchResults[dedupedIndex] = NeverType.createNever();
+                            break;
+                        }
+                    }
+
+                    if (!isSubtypeSubsumed) {
+                        dedupedMatchResults.push(subtype);
+                    }
+                });
+
+                dedupedMatchResults = dedupedMatchResults.filter((t) => !isNever(t));
+                const combinedTypes = combineTypes(dedupedMatchResults);
+
+                returnTypes.push(
+                    dedupedMatchResults.length > 1 ? UnknownType.createPossibleType(combinedTypes) : combinedTypes
+                );
             }
 
             if (!matchedOverload) {
