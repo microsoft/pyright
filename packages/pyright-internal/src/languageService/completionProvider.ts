@@ -1446,6 +1446,12 @@ export class CompletionProvider {
         if (leftType) {
             leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
 
+            // If this is an unknown type with a "possible type" associated with
+            // it, use the possible type.
+            if (isUnknown(leftType) && leftType.possibleType) {
+                leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType.possibleType);
+            }
+
             doForEachSubtype(leftType, (subtype) => {
                 subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 

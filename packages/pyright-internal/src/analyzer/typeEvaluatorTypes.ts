@@ -307,6 +307,9 @@ export interface CallResult {
     // Were any errors discovered when evaluating argument types?
     argumentErrors: boolean;
 
+    // Did one or more arguments evaluated to Any or Unknown?
+    isArgumentAnyOrUnknown?: boolean;
+
     // The parameter associated with the "active" argument (used
     // for signature help provider)
     activeParam?: FunctionParameter | undefined;

@@ -265,6 +265,12 @@ export namespace UnboundType {
 export interface UnknownType extends TypeBase {
     category: TypeCategory.Unknown;
     isIncomplete: boolean;
+
+    // A "possible type" is a form of a "weak union" where the actual
+    // type is unknown, but it could be one of the subtypes in the union.
+    // This is used for overload matching in cases where more than one
+    // overload matches due to an argument that evaluates to Any or Unknown.
+    possibleType?: Type;
 }
 
 export namespace UnknownType {
@@ -281,6 +287,17 @@ export namespace UnknownType {
 
     export function create(isIncomplete = false) {
         return isIncomplete ? _incompleteInstance : _instance;
+    }
+
+    export function createPossibleType(possibleType: Type) {
+        const unknownWithPossibleType: UnknownType = {
+            category: TypeCategory.Unknown,
+            flags: TypeFlags.Instantiable | TypeFlags.Instance,
+            isIncomplete: false,
+            possibleType,
+        };
+
+        return unknownWithPossibleType;
     }
 }
 

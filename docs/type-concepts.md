@@ -400,7 +400,7 @@ reveal_type(Child.method2())  # Type[Child]
 
 ### Overloads
 
-Some functions or methods can return one of several different types. In cases where the return type depends on the types of the input parameters, it is useful to specify this using a series of `@overload` signatures. When Pyright evaluates a call expression, it determines which overload signature best matches the supplied arguments.
+Some functions or methods can return one of several different types. In cases where the return type depends on the types of the input arguments, it is useful to specify this using a series of `@overload` signatures. When Pyright evaluates a call expression, it determines which overload signature best matches the supplied arguments.
 
 [PEP 484](https://www.python.org/dev/peps/pep-0484/#function-method-overloading) introduced the `@overload` decorator and described how it can be used, but the PEP did not specify precisely how a type checker should choose the “best” overload. Pyright uses the following rules.
 
@@ -410,7 +410,7 @@ Some functions or methods can return one of several different types. In cases wh
 
 3. If only one overload remains, it is the “winner”.
 
-4. If more than one overload remains, the “winner” is chosen based on the order in which the overloads are declared. In general, the first remaining overload is the “winner”. One exception to this rule is when a `*args` (unpacked) argument matches a `*args` parameter in one of the overload signatures. This situation overrides the normal order-based rule.
+4. If more than one overload remains, the “winner” is chosen based on the order in which the overloads are declared. In general, the first remaining overload is the “winner”. One exception to this rule is when a `*args` (unpacked) argument matches a `*args` parameter in one of the overload signatures. This situation overrides the normal order-based rule. Another exception is when two or more overloads match because an argument evaluates to `Any` or `Unknown`. In this situation, the matching overload is ambiguous, so the call expression evaluates to `Unknown`.
 
 5. If no overloads remain, Pyright considers whether any of the arguments are union types. If so, these union types are expanded into their constituent subtypes, and the entire process of overload matching is repeated with the expanded argument types. If two or more overloads match, the union of their respective return types form the final return type for the call expression.
 
