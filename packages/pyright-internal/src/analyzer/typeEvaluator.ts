@@ -6546,8 +6546,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return typeResult.type;
                 }
 
-                if (isNever(concreteSubtype)) {
-                    return UnknownType.create();
+                if (isNever(concreteSubtype) || isUnbound(concreteSubtype)) {
+                    return NeverType.createNever();
                 }
 
                 if (isNoneInstance(concreteSubtype) && !isIncomplete) {
@@ -6561,7 +6561,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return UnknownType.create();
                 }
 
-                if (!isUnbound(concreteSubtype) && !isIncomplete) {
+                if (!isIncomplete) {
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
