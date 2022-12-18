@@ -186,17 +186,17 @@ Pyright never narrows `Any` when performing type narrowing for assignments. Mypy
 b: list[Any]
 
 b = [1, 2, 3]
-reveal_type(b) # mypy: list[Any]
+reveal_type(b) # pyright: list[Any], mypy: list[Any]
 
 c = [1, 2, 3]
 b = c
-reveal_type(b) # mypy: list[int]
+reveal_type(b) # pyright: list[Any], mypy: list[int]
 ```
 
 
 ## Inference of List, Set, and Dict Expressions
 
-Pyright’s inference rules for [list, set and dict expressions](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#list-expressions) differ from mypy’s when heterogeneous entry types are used. Mypy uses a join operator to combine the types. Pyright uses either an `Unknown` or a union depending on configuration settings. A join operator often produces a type that is not what was intended, and this leads to false positive errors.
+Pyright’s inference rules for [list, set and dict expressions](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#list-expressions) differ from mypy’s when values with heterogeneous types are used. Mypy uses a join operator to combine the types. Pyright uses either an `Unknown` or a union depending on configuration settings. A join operator often produces a type that is not what was intended, and this leads to false positive errors.
 
 ```python
 x = [1, 3.4, ""]
@@ -229,7 +229,7 @@ y: Literal["stop", "go"] = x[1] # mypy: type error
 
 ## Assignment-Based Narrowing for Literals
 
-When assigning a literal value to a variable, pyright narrows the type to include the literal. Mypy does not. Pyright retains the literal types in this case because more precise (narrower) types are typically beneficial and have little or no downside.
+When assigning a literal value to a variable, pyright narrows the type to reflect the literal. Mypy does not. Pyright retains the literal types in this case because more precise (narrower) types are typically beneficial and have little or no downside.
 
 ```python
 x: str | None
@@ -252,23 +252,23 @@ def func2():
 
 ## Type Narrowing for Asymmetric Descriptors
 
-When pyright handles a write to a class variable that contains a descriptor object (including properties), it normally applies assignment-based type narrowing. However, when the descriptor is asymmetric — that is, its “getter” type is different from its “setter” type, pyright refrains from applying assignment-based type narrowing. For a full discussion of this, refer to [this issue])(https://github.com/python/mypy/issues/3004). Mypy has not yet implemented the agreed-upon behavior, so its type narrowing behavior may differ from pyright’s in this case.
+When pyright evaluates a write to a class variable that contains a descriptor object (including properties), it normally applies assignment-based type narrowing. However, when the descriptor is asymmetric — that is, its “getter” type is different from its “setter” type, pyright refrains from applying assignment-based type narrowing. For a full discussion of this, refer to [this issue])(https://github.com/python/mypy/issues/3004). Mypy has not yet implemented the agreed-upon behavior, so its type narrowing behavior may differ from pyright’s in this case.
 
 
 ## Parameter Type Inference
 
-Mypy doesn’t infer types of function parameters beyond `self` and `cls` parameters in methods.
+Mypy infers the type of `self` and `cls` parameters in methods but otherwise does not infer any parameter types.
 
 Pyright implements several parameter type inference techniques that improve type checking and language service features in the absence of explicit parameter type annotations. For details, refer to [this documentation](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#parameter-type-inference).
 
 
-## Constraint Solving
+## Constraint Solver Behaviors
 
 When evaluating a call expression that invokes a generic class constructor or a generic function, a type checker performs a process called “constraint solving” to solve the type variables found within the target function signature. The solved type variables are then applied to the return type of that function to determine the final type of the call expression. This process is called “constraint solving” because it takes into account various constraints that are specified for each type variable. These constraints include variance rules and type variable bounds.
 
-Many aspects of constraint solving are not specified in PEP 484. This includes behaviors around literals, whether to use unions or joins to widen types, and how to handle cases where multiple types could satisfy all type constraints.
+Many aspects of constraint solving are unspecified in PEP 484. This includes behaviors around literals, whether to use unions or joins to widen types, and how to handle cases where multiple types could satisfy all type constraints.
 
-### Literals
+#### Constraint Solver: Literals
 
 Pyright’s constraint solver retains literal types only when they are required to satisfy constraints. In other cases, it widens the type to a non-literal type. Mypy is inconsistent in its handling of literal types.
 
@@ -283,9 +283,9 @@ def func(one: Literal[1]):
     reveal_type(v2) # pyright: int, mypy: int
 ```
 
-### Unions vs Joins
+#### Constraint Solver: Type Widening
 
-As mentioned previously, pyright always uses unions rather than joins. Mypy typically uses joins.
+As mentioned previously, pyright always uses unions rather than joins. Mypy typically uses joins. This applies to type widening during the constraint solving process.
 
 ```python
 T = TypeVar("T")
@@ -295,7 +295,7 @@ def func3(val1: T, val2: T) -> T:
 reveal_type(func3("", 1)) # mypy: object, pyright: str | int
 ```
 
-### Ambiguous Solution Scoring
+#### Constraint Solver: Ambiguous Solution Scoring
 
 In cases where more than one solution is possible for a type variable, both pyright and mypy employ various heuristics to pick the “best” solution. These heuristics are complex and difficult to document in their fullness. Pyright’s general strategy is to return the “simplest” type that meets the constraints.
 
@@ -311,10 +311,10 @@ def make_list(x: T | Iterable[T]) -> list[T]:
 
 def func2(x: list[int], y: list[str] | int):
     v1 = make_list(x)
-    reveal_type(v1) # pyright: `list[int]` (`list[list[T]]` is also a valid answer)
+    reveal_type(v1) # pyright: "list[int]" ("list[list[T]]" is also a valid answer)
 
     v2 = make_list(y)
-    reveal_type(v2) # pyright: `list[int | str]` (`list[list[str] | int]` is also a valid answer)
+    reveal_type(v2) # pyright: "list[int | str]" ("list[list[str] | int]" is also a valid answer)
 ```
 
 
@@ -326,7 +326,7 @@ When mypy analyzes a class or function that has in-scope constrained TypeVars, i
 T = TypeVar("T", list[Any], set[Any])
 
 def func(a: AnyStr, b: T):
-    reveal_type(a) # Mypy reveals 2 different types (`str` and `bytes`), pyright reveals `AnyStr`
+    reveal_type(a) # Mypy reveals 2 different types ("str" and "bytes"), pyright reveals "AnyStr"
     return a + b # Mypy reports 4 errors
 ```
 
