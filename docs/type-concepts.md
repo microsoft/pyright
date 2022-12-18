@@ -170,7 +170,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x == None` and `x != None`
 * `type(x) is T` and `type(x) is not T`
 * `x is E` and `x is not E` (where E is a literal enum or bool)
-* `x == L` and `x != L` (where L is a literal expression)
+* `x == L` and `x != L` (where L is an expression that evaluates to a literal type)
 * `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
 * `x.y is E` and `x.y is not E` (where E is a literal enum or bool and x is a type that is distinguished by a field with a literal type)
 * `x.y == L` and `x.y != L` (where L is a literal expression and x is a type that is distinguished by a field or property with a literal type)
@@ -179,12 +179,12 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x[I] is None` and `x[I] is not None` (where I is a literal expression and x is a known-length tuple that is distinguished by the index indicated by I)
 * `len(x) == L` and `len(x) != L` (where x is tuple and L is a literal integer)
 * `x in y` or `x not in y` (where y is instance of list, set, frozenset, deque, tuple, dict, defaultdict, or OrderedDict)
-* `S in D` and `S not in D` (where S is a string literal and D is a TypedDict)
+* `S in D` and `S not in D` (where S is a string literal and D is a final TypedDict)
 * `isinstance(x, T)` (where T is a type or a tuple of types)
 * `issubclass(x, T)` (where T is a type or a tuple of types)
 * `callable(x)`
 * `f(x)` (where f is a user-defined type guard as defined in [PEP 647](https://www.python.org/dev/peps/pep-0647/))
-* `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsy in all cases).
+* `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
 * `x` (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are integer literals (e.g. `a[2]` or `a[-1]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
