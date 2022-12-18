@@ -113,6 +113,7 @@ To update to the latest version:
 * [Settings](/docs/settings.md)
 * [Comments](/docs/comments.md)
 * [Type Inference](/docs/type-inference.md)
+* [Differences from Mypy](/docs/mypy-comparison.md)
 * [Import Resolution](/docs/import-resolution.md)
 * [Extending Builtins](/docs/builtins.md)
 * [Type Stubs](/docs/type-stubs.md)
