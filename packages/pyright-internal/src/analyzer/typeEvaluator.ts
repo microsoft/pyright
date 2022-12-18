@@ -21420,14 +21420,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const transformedDestType = transformPossibleRecursiveTypeAlias(destType);
         const transformedSrcType = transformPossibleRecursiveTypeAlias(srcType);
 
-        // Did both the source and dest include recursive type aliases?
-        // If so, we are potentially dealing with different recursive type
-        // aliases that are defined in the same way.
+        // Did either the source or dest include recursive type aliases?
+        // If so, we could be dealing with different recursive type aliases
+        // or a recursive type alias and a recursive protocol definition.
         if (
-            transformedDestType !== destType &&
-            transformedSrcType !== srcType &&
-            isUnion(transformedDestType) &&
-            isUnion(transformedSrcType)
+            (transformedDestType !== destType && isUnion(transformedDestType)) ||
+            (transformedSrcType !== srcType && isUnion(transformedSrcType))
         ) {
             // Use a smaller recursive limit in this case to prevent runaway recursion.
             if (recursionCount > maxRecursiveTypeAliasRecursionCount) {
