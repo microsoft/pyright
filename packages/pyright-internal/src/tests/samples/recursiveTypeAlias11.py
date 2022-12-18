@@ -25,7 +25,7 @@ class ClassA3(ClassA1):
 TA1 = ClassA2["TA1"] | ClassA3
 
 
-""" Test constrainted TypeVar """
+""" Test constrained TypeVar """
 
 
 class ClassB1:
