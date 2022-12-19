@@ -273,6 +273,10 @@ Many aspects of constraint solving are unspecified in PEP 484. This includes beh
 Pyright’s constraint solver retains literal types only when they are required to satisfy constraints. In other cases, it widens the type to a non-literal type. Mypy is inconsistent in its handling of literal types.
 
 ```python
+T = TypeVar("T")
+def identity(x: T) -> T:
+    return x
+
 def func(one: Literal[1]):
     reveal_type(one) # Literal[1]
     v1 = identity(one)
@@ -289,10 +293,10 @@ As mentioned previously, pyright always uses unions rather than joins. Mypy typi
 
 ```python
 T = TypeVar("T")
-def func3(val1: T, val2: T) -> T:
+def func(val1: T, val2: T) -> T:
     ...
 
-reveal_type(func3("", 1)) # mypy: object, pyright: str | int
+reveal_type(func("", 1)) # mypy: object, pyright: str | int
 ```
 
 #### Constraint Solver: Ambiguous Solution Scoring
