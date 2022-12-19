@@ -485,7 +485,7 @@ export class SourceFile {
                     getEmptyRange()
                 );
                 diag.setRule(DiagnosticRule.reportImportCycles);
-                diagList.push();
+                diagList.push(diag);
             });
         }
 
