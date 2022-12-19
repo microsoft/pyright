@@ -252,7 +252,7 @@ def func2():
 
 ## Type Narrowing for Asymmetric Descriptors
 
-When pyright evaluates a write to a class variable that contains a descriptor object (including properties), it normally applies assignment-based type narrowing. However, when the descriptor is asymmetric — that is, its “getter” type is different from its “setter” type, pyright refrains from applying assignment-based type narrowing. For a full discussion of this, refer to [this issue])(https://github.com/python/mypy/issues/3004). Mypy has not yet implemented the agreed-upon behavior, so its type narrowing behavior may differ from pyright’s in this case.
+When pyright evaluates a write to a class variable that contains a descriptor object (including properties), it normally applies assignment-based type narrowing. However, when the descriptor is asymmetric — that is, its “getter” type is different from its “setter” type, pyright refrains from applying assignment-based type narrowing. For a full discussion of this, refer to [this issue](https://github.com/python/mypy/issues/3004). Mypy has not yet implemented the agreed-upon behavior, so its type narrowing behavior may differ from pyright’s in this case.
 
 
 ## Parameter Type Inference
@@ -395,7 +395,7 @@ Pyright honors class decorators. Mypy largely ignores them. See [this issue](htt
 
 ## Support for Type Comments
 
-Versions of Python prior to 3.5 did not have a dedicated syntax for supplying type annotations. Annotations therefore needed to be supplied using “type comments” of the form `# type: <annotation>`. Python 3.6 added the ability to supply type annotations for variables. 
+Versions of Python prior to 3.0 did not have a dedicated syntax for supplying type annotations. Annotations therefore needed to be supplied using “type comments” of the form `# type: <annotation>`. Python 3.6 added the ability to supply type annotations for variables. 
 
 Mypy has full support for type comments. Pyright supports type comments only in locations where there is a way to provide an annotation using modern syntax. Pyright was written to assume Python 3.5 and newer, so support for older versions was not a priority.
 
