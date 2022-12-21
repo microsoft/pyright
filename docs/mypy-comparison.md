@@ -334,12 +334,12 @@ def func(a: AnyStr, b: T):
     return a + b # Mypy reports 4 errors
 ```
 
-Pyright cannot use the multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
+Pyright cannot use the same multi-pass technique as mypy in this case. It needs to produce a single type for any given identifier to support language server features. Pyright instead uses a mechanism called [conditional types](https://github.com/microsoft/pyright/blob/main/docs/type-concepts.md#constrained-type-variables-and-conditional-types). This approach allows pyright to handle some constrained TypeVar use cases that mypy cannot, but there are conversely other use cases that mypy can handle and pyright cannot.
 
 
 ## “Unknown” Type and Strict Mode
 
-Pyright differentiates between explicit and implicit forms of `Any`. The implicit form is referred to as [`Unknown`]https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#unknown-type. For example, if a parameter is annotated as `list[Any]`, that is a use of an explicit `Any`, but if a parameter is annotated as `list`, that is an implicit `Any`, so pyright refers to this type as `list[Unknown]`. Pyright implements several checks that are enabled in “strict” type-checking modes that report the use of an `Unknown` type. Such uses can mask type errors.
+Pyright differentiates between explicit and implicit forms of `Any`. The implicit form is referred to as [`Unknown`](https://github.com/microsoft/pyright/blob/main/docs/type-inference.md#unknown-type). For example, if a parameter is annotated as `list[Any]`, that is a use of an explicit `Any`, but if a parameter is annotated as `list`, that is an implicit `Any`, so pyright refers to this type as `list[Unknown]`. Pyright implements several checks that are enabled in “strict” type-checking modes that report the use of an `Unknown` type. Such uses can mask type errors.
 
 Mypy does not track the difference between explicit and implicit `Any` types, but it supports various checks that report the use of values whose type is `Any`: `--warn-return-any` and `--disallow-any-*`. For details, refer to [this documentation](https://mypy.readthedocs.io/en/stable/command_line.html#disallow-dynamic-typing).
 
