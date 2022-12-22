@@ -63,3 +63,19 @@ c: Mammal[str] = Tapir()
 d: Ungulate[bytes] = Camel()
 e: Ungulate[str] = Cow()
 f: CamelLike = Camel()
+
+
+
+class CallTreeProto(Protocol):
+    subcalls: list["CallTreeProto"]
+
+class MyCallTree:
+    subcalls: list["MyCallTree"]
+    
+class OtherCallTree:
+    subcalls: list["CallTreeProto"]
+
+# This should generate an error.
+x1: CallTreeProto = MyCallTree()
+
+x2: CallTreeProto = OtherCallTree()

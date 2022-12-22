@@ -73,7 +73,7 @@ export function assignClassToProtocol(
             return isTypeSame(entry.srcType, srcType) && isTypeSame(entry.destType, destType);
         })
     ) {
-        return true;
+        return !enforceInvariance;
     }
 
     // See if we've already determined that this class is compatible with this protocol.
