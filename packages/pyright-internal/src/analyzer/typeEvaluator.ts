@@ -1444,26 +1444,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function stripLiteralValue(type: Type): Type {
-        if (isClass(type)) {
-            if (type.literalValue !== undefined) {
-                type = ClassType.cloneWithLiteral(type, /* value */ undefined);
-            } else if (ClassType.isBuiltIn(type, 'LiteralString')) {
-                // Handle "LiteralString" specially.
-                if (strClassType && isInstantiableClass(strClassType)) {
-                    type = ClassType.cloneAsInstance(strClassType);
+        return mapSubtypes(type, (subtype) => {
+            if (isClass(subtype)) {
+                if (subtype.literalValue !== undefined) {
+                    return ClassType.cloneWithLiteral(subtype, /* value */ undefined);
+                }
+
+                if (ClassType.isBuiltIn(subtype, 'LiteralString')) {
+                    // Handle "LiteralString" specially.
+                    if (strClassType && isInstantiableClass(strClassType)) {
+                        return ClassType.cloneAsInstance(strClassType);
+                    }
                 }
             }
 
-            return type;
-        }
-
-        if (isUnion(type)) {
-            return mapSubtypes(type, (subtype) => {
-                return stripLiteralValue(subtype);
-            });
-        }
-
-        return type;
+            return subtype;
+        });
     }
 
     function getTypeOfParameterAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParameterCategory) {
@@ -10114,7 +10110,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const effectiveReturnType = getFunctionEffectiveReturnType(type);
         let effectiveExpectedType: Type | undefined = expectedType;
-        let effectiveFlags = AssignTypeFlags.AllowTypeVarNarrowing;
+        let effectiveFlags = AssignTypeFlags.Default;
         if (containsLiteralType(effectiveExpectedType, /* includeTypeArgs */ true)) {
             effectiveFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
         }
@@ -10151,9 +10147,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (effectiveExpectedType) {
             // Prepopulate the typeVarContext based on the specialized expected type if the
             // callee has a declared return type. This will allow us to more closely match
-            // the expected type if possible. We set the AllowTypeVarNarrowing and
-            // SkipStripLiteralForTypeVar flags so the type can be further narrowed
-            // and so literals are not stripped.
+            // the expected type if possible.
 
             // If the return type is not the same as the expected type but is
             // assignable to the expected type, determine which type arguments
@@ -13170,7 +13164,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeVarContext = new TypeVarContext(targetTypeVar.scopeId);
 
         if (useSynthesizedTypeVar) {
-            typeVarContext.setTypeVarType(targetTypeVar, isNarrowable ? undefined : expectedType, expectedType);
+            typeVarContext.setTypeVarType(
+                targetTypeVar,
+                isNarrowable ? undefined : expectedType,
+                /* narrowBoundNoLiterals */ undefined,
+                expectedType
+            );
         }
 
         if (
@@ -13188,8 +13187,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeVarContext.setTypeVarType(
                 targetTypeVar,
                 isNarrowable ? undefined : expectedType,
-                expectedType,
-                /* retainLiteral */ true
+                /* narrowBoundNoLiterals */ undefined,
+                expectedType
             );
         }
 
@@ -21191,6 +21190,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 destTypeVarContext.setTypeVarType(
                     destType.details.typeParameters[i],
                     /* narrowBound */ undefined,
+                    /* narrowBoundNoLiterals */ undefined,
                     typeArgType
                 );
             }
@@ -21448,9 +21448,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             srcType = makeTopLevelTypeVarsConcrete(srcType);
         }
 
-        // Strip a few of the flags we don't want to propagate to other calls.
+        // Strip flags we don't want to propagate to other calls.
         const originalFlags = flags;
-        flags &= ~(AssignTypeFlags.AllowBoolTypeGuard | AssignTypeFlags.AllowTypeVarNarrowing);
+        flags &= ~AssignTypeFlags.AllowBoolTypeGuard;
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -21576,29 +21576,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         recursionCount
                     );
                 } else {
-                    // Reverse the order of assignment to populate the TypeVarContext for
-                    // the source TypeVar. Normally we set the AllowTypeVarNarrowing flag
-                    // so the wide type bound of the TypeVar is set rather than the narrow
-                    // type bound. This allows the type to be further narrowed through other
-                    // assignments. However, if we're populating the expected type in the
-                    // TypeVarContext, we don't want to allow further narrowing.
-                    let effectiveFlags = originalFlags;
-                    if ((originalFlags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
-                        effectiveFlags &= ~(
-                            AssignTypeFlags.ReverseTypeVarMatching | AssignTypeFlags.AllowTypeVarNarrowing
-                        );
-                    } else {
-                        effectiveFlags |= AssignTypeFlags.AllowTypeVarNarrowing;
-                    }
-
                     if (
                         assignTypeToTypeVar(
                             evaluatorInterface,
-                            srcType as TypeVarType,
+                            srcType,
                             destType,
                             diag,
                             srcTypeVarContext,
-                            effectiveFlags,
+                            originalFlags,
                             recursionCount
                         )
                     ) {
@@ -21616,7 +21601,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     destSubtype,
                                     diag,
                                     srcTypeVarContext,
-                                    originalFlags | AssignTypeFlags.AllowTypeVarNarrowing,
+                                    originalFlags,
                                     recursionCount
                                 )
                             ) {
@@ -22218,25 +22203,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // to eliminate as many exact type matches between the src and dest.
         if (isUnion(destType)) {
             // Handle the special case where the dest is a union of Any and
-            // a type variable and AssignTypeFlags.AllowTypeVarNarrowing is
-            // in effect. This occurs, for example, with the return type of
+            // a type variable. This occurs, for example, with the return type of
             // the getattr function.
-            if ((flags & AssignTypeFlags.AllowTypeVarNarrowing) !== 0) {
-                const nonAnySubtypes = destType.subtypes.filter((t) => !isAnyOrUnknown(t));
-                if (nonAnySubtypes.length === 1 && isTypeVar(nonAnySubtypes[0])) {
-                    assignType(
-                        nonAnySubtypes[0],
-                        srcType,
-                        /* diag */ undefined,
-                        destTypeVarContext,
-                        srcTypeVarContext,
-                        flags,
-                        recursionCount
-                    );
+            const nonAnySubtypes = destType.subtypes.filter((t) => !isAnyOrUnknown(t));
+            if (nonAnySubtypes.length === 1 && isTypeVar(nonAnySubtypes[0])) {
+                assignType(
+                    nonAnySubtypes[0],
+                    srcType,
+                    /* diag */ undefined,
+                    destTypeVarContext,
+                    srcTypeVarContext,
+                    flags,
+                    recursionCount
+                );
 
-                    // This always succeeds because the destination contains Any.
-                    return true;
-                }
+                // This always succeeds because the destination contains Any.
+                return true;
             }
 
             const remainingDestSubtypes: Type[] = [];

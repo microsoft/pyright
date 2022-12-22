@@ -27,12 +27,13 @@ import { doForEachSubtype } from './typeUtils';
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
 
-    // The final type must "fit" between the narrow and
-    // wide type bound.
+    // The final type must "fit" between the narrow and wide type bound.
+    // If there are literal subtypes in the narrowBound, these are stripped,
+    // and the resulting widened type is placed in narrowBoundNoLiterals as
+    // long as they fit within the wideBound.
     narrowBound?: Type | undefined;
+    narrowBoundNoLiterals?: Type | undefined;
     wideBound?: Type | undefined;
-
-    retainLiteral?: boolean | undefined;
 }
 
 export interface ParamSpecMapEntry {
@@ -72,7 +73,12 @@ export class TypeVarContext {
         }
 
         this._typeVarMap.forEach((value) => {
-            newTypeVarMap.setTypeVarType(value.typeVar, value.narrowBound, value.wideBound, value.retainLiteral);
+            newTypeVarMap.setTypeVarType(
+                value.typeVar,
+                value.narrowBound,
+                value.narrowBoundNoLiterals,
+                value.wideBound
+            );
         });
 
         this._paramSpecMap.forEach((value) => {
@@ -159,19 +165,26 @@ export class TypeVarContext {
         if (!entry) {
             return undefined;
         }
-        if (entry.narrowBound) {
+
+        if (useNarrowBoundOnly) {
             return entry.narrowBound;
         }
-        if (!useNarrowBoundOnly) {
-            return entry.wideBound;
-        }
-        return undefined;
+
+        // Prefer the narrow version with no literals. It will be undefined
+        // if the literal type couldn't be widened due to constraints imposed
+        // by the wide bound.
+        return entry.narrowBoundNoLiterals ?? entry.narrowBound ?? entry.wideBound;
     }
 
-    setTypeVarType(reference: TypeVarType, narrowBound: Type | undefined, wideBound?: Type, retainLiteral?: boolean) {
+    setTypeVarType(
+        reference: TypeVarType,
+        narrowBound: Type | undefined,
+        narrowBoundNoLiterals?: Type,
+        wideBound?: Type
+    ) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
-        this._typeVarMap.set(key, { typeVar: reference, narrowBound, wideBound, retainLiteral });
+        this._typeVarMap.set(key, { typeVar: reference, narrowBound, narrowBoundNoLiterals, wideBound });
     }
 
     getVariadicTypeVar(reference: TypeVarType): TupleTypeArgument[] | undefined {
@@ -228,11 +241,6 @@ export class TypeVarContext {
         }
 
         return undefined;
-    }
-
-    getRetainLiterals(reference: TypeVarType): boolean {
-        const entry = this._typeVarMap.get(this._getKey(reference));
-        return !!entry?.retainLiteral;
     }
 
     lock() {

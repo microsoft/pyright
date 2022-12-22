@@ -43,7 +43,6 @@ import {
     addConditionToType,
     AssignTypeFlags,
     buildTypeVarContextFromSpecializedClass,
-    containsLiteralType,
     convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
@@ -389,14 +388,7 @@ export function assignTypeToTypeVar(
     let newWideTypeBound = curWideTypeBound;
     const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
-    // Strip literals if the existing value contains no literals. This allows
-    // for explicit (but no implicit) literal specialization of a generic class.
-    const retainLiterals =
-        (flags & AssignTypeFlags.RetainLiteralsForTypeVar) !== 0 ||
-        typeVarContext.getRetainLiterals(destType) ||
-        (destType.details.boundType && containsLiteralType(destType.details.boundType)) ||
-        destType.details.constraints.some((t) => containsLiteralType(t));
-    let adjSrcType = retainLiterals ? srcType : evaluator.stripLiteralValue(srcType);
+    let adjSrcType = srcType;
 
     if (TypeBase.isInstantiable(destType)) {
         if (isEffectivelyInstantiable(adjSrcType)) {
@@ -412,7 +404,18 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (isContravariant || (flags & AssignTypeFlags.AllowTypeVarNarrowing) !== 0) {
+    if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
+        // If we're populating the expected type, constrain either the
+        // narrow type bound, wide type bound or both.
+        if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+            newNarrowTypeBound = adjSrcType;
+            newWideTypeBound = adjSrcType;
+        } else if (isContravariant) {
+            newNarrowTypeBound = adjSrcType;
+        } else {
+            newWideTypeBound = adjSrcType;
+        }
+    } else if (isContravariant) {
         // Update the wide type bound.
         if (!curWideTypeBound) {
             newWideTypeBound = adjSrcType;
@@ -663,7 +666,24 @@ export function assignTypeToTypeVar(
     }
 
     if (!typeVarContext.isLocked() && isTypeVarInScope) {
-        typeVarContext.setTypeVarType(destType, newNarrowTypeBound, newWideTypeBound, retainLiterals);
+        let newNarrowTypeBoundNoLiterals: Type | undefined;
+
+        if (
+            newNarrowTypeBound &&
+            (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) === 0
+        ) {
+            const strippedLiteral = evaluator.stripLiteralValue(newNarrowTypeBound);
+
+            // Strip the literals from the narrow type bound and see if it is still
+            // narrower than the wide bound.
+            if (strippedLiteral !== newNarrowTypeBound) {
+                if (!newWideTypeBound || evaluator.assignType(newWideTypeBound, strippedLiteral)) {
+                    newNarrowTypeBoundNoLiterals = strippedLiteral;
+                }
+            }
+        }
+
+        typeVarContext.setTypeVarType(destType, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
     }
 
     return true;
@@ -825,8 +845,8 @@ export function populateTypeVarContextBasedOnExpectedType(
                     typeVarContext.setTypeVarType(
                         entry.typeVar,
                         TypeVarType.getVariance(entry.typeVar) === Variance.Covariant ? undefined : typeVarType,
-                        TypeVarType.getVariance(entry.typeVar) === Variance.Contravariant ? undefined : typeVarType,
-                        entry.retainLiteral
+                        /* narrowBoundNoLiterals */ undefined,
+                        TypeVarType.getVariance(entry.typeVar) === Variance.Contravariant ? undefined : typeVarType
                     );
                 }
             }
@@ -903,6 +923,7 @@ export function populateTypeVarContextBasedOnExpectedType(
                         typeVarContext.setTypeVarType(
                             targetTypeVar,
                             TypeVarType.getVariance(typeVar) === Variance.Covariant ? undefined : expectedTypeArgValue,
+                            /* narrowBoundNoLiterals */ undefined,
                             TypeVarType.getVariance(typeVar) === Variance.Contravariant
                                 ? undefined
                                 : expectedTypeArgValue

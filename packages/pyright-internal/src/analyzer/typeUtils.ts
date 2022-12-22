@@ -150,9 +150,10 @@ export const enum AssignTypeFlags {
     // on dest type vars rather than source type var.
     ReverseTypeVarMatching = 1 << 1,
 
-    // Normally invariant and contravariant TypeVars cannot be
-    // narrowed. This overrides the standard behavior.
-    AllowTypeVarNarrowing = 1 << 2,
+    // We're comparing type compatibility of two distinct recursive types.
+    // This has the potential of recursing infinitely. This flag allows us
+    // to detect the recursion after the first level of checking.
+    SkipRecursiveTypeCheck = 1 << 2,
 
     // Normally type vars are treated as variables that need to
     // be "solved". If this flag is set, they are treated as types
@@ -190,11 +191,6 @@ export const enum AssignTypeFlags {
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 10,
-
-    // We're comparing type compatibility of two distinct recursive types.
-    // This has the potential of recursing infinitely. This flag allows us
-    // to detect the recursion after the first level of checking.
-    SkipRecursiveTypeCheck = 1 << 11,
 }
 
 export enum ParameterSource {
@@ -1724,7 +1720,12 @@ export function buildTypeVarContext(
                     typeArgType = typeArgs[index];
                 }
 
-                typeVarContext.setTypeVarType(typeParam, typeArgType, typeArgType, /* retainLiteral */ true);
+                typeVarContext.setTypeVarType(
+                    typeParam,
+                    typeArgType,
+                    /* narrowBoundNoLiterals */ undefined,
+                    typeArgType
+                );
             }
         }
     });
