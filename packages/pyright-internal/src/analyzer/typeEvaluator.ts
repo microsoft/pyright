@@ -23627,24 +23627,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         });
 
-        // Perform partial specialization of type variables to allow for
-        // "higher-order" type variables.
-        if (!destTypeVarContext.isLocked()) {
-            destTypeVarContext.getTypeVars().forEach((entry) => {
-                if (entry.narrowBound) {
-                    const specializedType = applySolvedTypeVars(entry.narrowBound, destTypeVarContext);
-                    if (specializedType !== entry.narrowBound) {
-                        destTypeVarContext.setTypeVarType(
-                            entry.typeVar,
-                            specializedType,
-                            entry.wideBound,
-                            entry.retainLiteral
-                        );
-                    }
-                }
-            });
-        }
-
         // Are we assigning to a function with a ParamSpec?
         if (targetIncludesParamSpec) {
             const effectiveDestType = (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destType : srcType;
