@@ -20995,7 +20995,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             specializeTupleClass(
                                 tupleClassType,
                                 removedArgs.map((typeArg) => {
-                                    return { type: stripLiteralValue(typeArg.type), isUnbounded: typeArg.isUnbounded };
+                                    return { type: typeArg.type, isUnbounded: typeArg.isUnbounded };
                                 }),
                                 /* isTypeArgumentExplicit */ true,
                                 /* isUnpackedTuple */ true
@@ -21032,7 +21032,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         entryDiag?.createAddendum(),
                         typeVarContext,
                         /* srcTypeVarContext */ undefined,
-                        flags | AssignTypeFlags.RetainLiteralsForTypeVar,
+                        flags,
                         recursionCount
                     )
                 ) {

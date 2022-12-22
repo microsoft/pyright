@@ -30,8 +30,10 @@ import {
     isUnion,
     isUnknown,
     isUnpacked,
+    isUnpackedClass,
     isVariadicTypeVar,
     ParamSpecEntry,
+    TupleTypeArgument,
     Type,
     TypeBase,
     TypeVarScopeId,
@@ -530,18 +532,6 @@ export function assignTypeToTypeVar(
                     return false;
                 }
 
-                // Don't allow widening for variadic type variables.
-                const possibleVariadic = destType;
-                if (isVariadicTypeVar(possibleVariadic)) {
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: evaluator.printType(curNarrowTypeBound),
-                            destType: evaluator.printType(adjSrcType),
-                        })
-                    );
-                    return false;
-                }
-
                 if (
                     evaluator.assignType(
                         adjSrcType,
@@ -554,6 +544,19 @@ export function assignTypeToTypeVar(
                     )
                 ) {
                     newNarrowTypeBound = adjSrcType;
+                } else if (isVariadicTypeVar(destType)) {
+                    const widenedType = widenTypeForVariadicTypeVar(curNarrowTypeBound, adjSrcType);
+                    if (!widenedType) {
+                        diag?.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: evaluator.printType(curNarrowTypeBound),
+                                destType: evaluator.printType(adjSrcType),
+                            })
+                        );
+                        return false;
+                    }
+
+                    newNarrowTypeBound = widenedType;
                 } else {
                     const objectType = evaluator.getObjectType();
 
@@ -672,7 +675,9 @@ export function assignTypeToTypeVar(
             newNarrowTypeBound &&
             (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) === 0
         ) {
-            const strippedLiteral = evaluator.stripLiteralValue(newNarrowTypeBound);
+            const strippedLiteral = isVariadicTypeVar(destType)
+                ? stripLiteralValueForUnpackedTuple(evaluator, newNarrowTypeBound)
+                : evaluator.stripLiteralValue(newNarrowTypeBound);
 
             // Strip the literals from the narrow type bound and see if it is still
             // narrower than the wide bound.
@@ -939,4 +944,74 @@ export function populateTypeVarContextBasedOnExpectedType(
     }
 
     return false;
+}
+
+// For normal TypeVars, the constraint solver can widen a type by combining
+// two otherwise incompatible types into a union. For TypeVarTuples, we need
+// to do the equivalent operation for unpacked tuples.
+function widenTypeForVariadicTypeVar(type1: Type, type2: Type): Type | undefined {
+    // If the two types are not unpacked tuples, we can't combine them.
+    if (!isUnpackedClass(type1) || !isUnpackedClass(type2)) {
+        return undefined;
+    }
+
+    // If the two unpacked tuples are not the same length, we can't combine them.
+    if (
+        !type1.tupleTypeArguments ||
+        !type2.tupleTypeArguments ||
+        type1.tupleTypeArguments.length !== type2.tupleTypeArguments.length
+    ) {
+        return undefined;
+    }
+
+    let canCombine = true;
+
+    const tupleTypeArgs: TupleTypeArgument[] = type1.tupleTypeArguments.map((arg1, index) => {
+        const arg2 = type2.tupleTypeArguments![index];
+
+        // If an entry is unbound in length and the corresponding entry in the
+        // other tuple is not (or vice versa), we can't combine them.
+        if (arg1.isUnbounded !== arg2.isUnbounded) {
+            canCombine = false;
+        }
+
+        return {
+            isUnbounded: arg1.isUnbounded,
+            type: combineTypes([arg1.type, arg2.type]),
+        };
+    });
+
+    if (!canCombine) {
+        return undefined;
+    }
+
+    return specializeTupleClass(type1, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
+}
+
+// If the provided type is an unpacked tuple, this function strips the
+// literals from types of the corresponding elements.
+function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type): Type {
+    if (!isUnpackedClass(type) || !type.tupleTypeArguments) {
+        return type;
+    }
+
+    let strippedLiteral = false;
+    const tupleTypeArgs: TupleTypeArgument[] = type.tupleTypeArguments.map((arg) => {
+        const strippedType = evaluator.stripLiteralValue(arg.type);
+
+        if (strippedType !== arg.type) {
+            strippedLiteral = true;
+        }
+
+        return {
+            isUnbounded: arg.isUnbounded,
+            type: strippedType,
+        };
+    });
+
+    if (!strippedLiteral) {
+        return type;
+    }
+
+    return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
 }

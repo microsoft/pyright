@@ -54,8 +54,8 @@ def func3(p1: Tuple[int], p2: Tuple[int, str]):
     v4 = func2((3, "hi"), p2)
     reveal_type(v4, expected_text="str")
 
-    # This should generate an error
     v5 = func2((3, 3), p2)
+    reveal_type(v5, expected_text="str | int")
 
 
 def func4(a: int, *args: *_Xs, **kwargs: str) -> Tuple[int, *_Xs]:
