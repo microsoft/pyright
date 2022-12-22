@@ -4304,36 +4304,57 @@ export class Parser {
     }
 
     private _parseChainAssignments(leftExpr: ExpressionNode): ExpressionNode {
-        let rightExpr =
-            this._tryParseYieldExpression() ||
-            this._parseTestOrStarListAsExpression(
-                /* allowAssignmentExpression */ false,
-                /* allowMultipleUnpack */ true,
-                ErrorExpressionCategory.MissingExpression,
-                Localizer.Diagnostic.expectedAssignRightHandExpr()
-            );
+        // Make a list of assignment targets.
+        const assignmentTargets = [leftExpr];
+        let rightExpr: ExpressionNode;
 
-        if (rightExpr.nodeType === ParseNodeType.Error) {
-            return AssignmentNode.create(leftExpr, rightExpr);
-        }
+        while (true) {
+            rightExpr =
+                this._tryParseYieldExpression() ||
+                this._parseTestOrStarListAsExpression(
+                    /* allowAssignmentExpression */ false,
+                    /* allowMultipleUnpack */ true,
+                    ErrorExpressionCategory.MissingExpression,
+                    Localizer.Diagnostic.expectedAssignRightHandExpr()
+                );
 
-        // Recur until we've consumed the entire chain.
-        if (this._consumeTokenIfOperator(OperatorType.Assign)) {
-            rightExpr = this._parseChainAssignments(rightExpr);
             if (rightExpr.nodeType === ParseNodeType.Error) {
-                return rightExpr;
+                break;
             }
+
+            // Continue until we've consumed the entire chain.
+            if (!this._consumeTokenIfOperator(OperatorType.Assign)) {
+                break;
+            }
+
+            assignmentTargets.push(rightExpr);
         }
 
-        const assignmentNode = AssignmentNode.create(leftExpr, rightExpr);
+        // Create a tree of assignment expressions starting with the first one.
+        // The final RHS value is assigned to the targets left to right in Python.
+        let assignmentNode = AssignmentNode.create(assignmentTargets[0], rightExpr);
 
         // Look for a type annotation comment at the end of the line.
         const typeAnnotationComment = this._parseVariableTypeAnnotationComment();
         if (typeAnnotationComment) {
-            assignmentNode.typeAnnotationComment = typeAnnotationComment;
-            assignmentNode.typeAnnotationComment.parent = assignmentNode;
-            extendRange(assignmentNode, assignmentNode.typeAnnotationComment);
+            if (assignmentTargets.length > 1) {
+                // Type comments are not allowed for chained assignments for the
+                // same reason that variable type annotations don't support
+                // chained assignments. Note that a type comment was used here
+                // so it can be later reported as an error by the binder.
+                assignmentNode.chainedTypeAnnotationComment = typeAnnotationComment;
+            } else {
+                assignmentNode.typeAnnotationComment = typeAnnotationComment;
+                assignmentNode.typeAnnotationComment.parent = assignmentNode;
+                extendRange(assignmentNode, assignmentNode.typeAnnotationComment);
+            }
         }
+
+        assignmentTargets.forEach((target, index) => {
+            if (index > 0) {
+                assignmentNode = AssignmentNode.create(target, assignmentNode);
+            }
+        });
 
         return assignmentNode;
     }

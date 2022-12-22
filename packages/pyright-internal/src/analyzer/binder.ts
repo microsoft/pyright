@@ -818,6 +818,15 @@ export class Binder extends ParseTreeWalker {
             this._addTypeDeclarationForVariable(node.leftExpression, node.typeAnnotationComment);
         }
 
+        if (node.chainedTypeAnnotationComment) {
+            this._addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.annotationNotSupported(),
+                node.chainedTypeAnnotationComment
+            );
+        }
+
         // If the assignment target base expression is potentially a
         // TypedDict, add the base expression to the flow expressions set
         // to accommodate TypedDict type narrowing.
