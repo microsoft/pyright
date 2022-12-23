@@ -1,0 +1,10 @@
+version = "3.5.*"
+
+[tool.stubtest]
+# Skip stubtest because it crashes with `SystemExit` when trying to import `serial.__main__`.
+# This has been fixed in https://github.com/python/mypy/pull/14284.
+# TODO: Remove skip once mypy 1.0 is released with the fix.
+skip = true
+ignore_missing_stub = false
+platforms = ["linux", "win32", "darwin"]
+extras = ["cp2110"]
