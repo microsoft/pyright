@@ -1655,7 +1655,7 @@ export function buildTypeVarContextFromSpecializedClass(classType: ClassType, ma
 
     const typeVarContext = buildTypeVarContext(typeParameters, typeArguments, getTypeVarScopeId(classType));
     if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments && typeParameters.length >= 1) {
-        typeVarContext.setVariadicTypeVar(typeParameters[0], classType.tupleTypeArguments);
+        typeVarContext.setTupleTypeVar(typeParameters[0], classType.tupleTypeArguments);
     }
 
     return typeVarContext;
@@ -3306,7 +3306,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        return this._typeVarContext.getVariadicTypeVar(typeVar);
+        return this._typeVarContext.getTupleTypeVar(typeVar);
     }
 
     override transformParamSpec(paramSpec: TypeVarType) {
