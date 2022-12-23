@@ -604,9 +604,9 @@ export function assignTypeToTypeVar(
                         makeConcrete ? evaluator.makeTopLevelTypeVarsConcrete(curWideTypeBound) : curWideTypeBound,
                         newNarrowTypeBound,
                         diag?.createAddendum(),
-                        new TypeVarContext(destType.scopeId),
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        flags & AssignTypeFlags.IgnoreTypeVarScope,
+                        AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
                     )
                 ) {

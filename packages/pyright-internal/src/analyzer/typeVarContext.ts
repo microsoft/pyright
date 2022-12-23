@@ -22,7 +22,7 @@ import {
     TypeVarType,
     WildcardTypeVarScopeId,
 } from './types';
-import { doForEachSubtype } from './typeUtils';
+import { applySolvedTypeVars, doForEachSubtype } from './typeUtils';
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
@@ -228,6 +228,51 @@ export class TypeVarContext {
     setParamSpec(reference: TypeVarType, type: ParamSpecValue) {
         assert(!this._isLocked);
         this._paramSpecMap.set(this._getKey(reference), { paramSpec: reference, type });
+    }
+
+    // Applies solved TypeVars from one context to this context.
+    applySourceContextTypeVars(srcContext: TypeVarContext) {
+        // If there are no solved TypeVars, don't bother.
+        if (srcContext.getTypeVarCount() === 0 && srcContext.getParamSpecCount() === 0) {
+            return;
+        }
+
+        const wasLocked = this.isLocked();
+        this.unlock();
+
+        this._typeVarMap.forEach((entry) => {
+            const newNarrowTypeBound = entry.narrowBound
+                ? applySolvedTypeVars(entry.narrowBound, srcContext)
+                : undefined;
+            const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
+                ? applySolvedTypeVars(entry.narrowBoundNoLiterals, srcContext)
+                : undefined;
+            const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
+
+            this.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
+        });
+
+        this._tupleTypeVarMap?.forEach((entry) => {
+            const updatedTypes: TupleTypeArgument[] = entry.types.map((arg) => {
+                return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
+            });
+
+            this.setTupleTypeVar(entry.typeVar, updatedTypes);
+        });
+
+        this._paramSpecMap.forEach((entry) => {
+            if (entry.type) {
+                const updatedType = { ...entry.type };
+                updatedType.parameters = updatedType.parameters.map((param) => {
+                    return { ...param, type: applySolvedTypeVars(param.type, srcContext) };
+                });
+                this.setParamSpec(entry.paramSpec, updatedType);
+            }
+        });
+
+        if (wasLocked) {
+            this.lock();
+        }
     }
 
     getTypeVarCount() {

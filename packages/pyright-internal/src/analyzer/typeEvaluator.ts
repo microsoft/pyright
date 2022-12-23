@@ -23789,6 +23789,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Apply any solved source TypeVars to the dest TypeVar solutions. This
+        // allows for higher-order functions to accept generic callbacks.
+        destTypeVarContext.applySourceContextTypeVars(srcTypeVarContext);
+
         return canAssign;
     }
 
