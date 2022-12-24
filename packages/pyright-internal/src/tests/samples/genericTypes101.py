@@ -1,7 +1,7 @@
 # This sample tests the handling of generic callbacks passed to a higher-order
 # function that is also generic.
 
-from typing import Callable, Protocol, TypeVar
+from typing import Callable, ParamSpec, Protocol, TypeVar
 
 _T = TypeVar("_T")
 _T1 = TypeVar("_T1")
@@ -34,3 +34,14 @@ reveal_type(x1_0, expected_text="str")
 x1_1 = func2(ident, 1)
 reveal_type(x1_1, expected_text="int")
 
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+def func3(__obj: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    ...
+
+x2_0 = func3(ident, "hi")
+reveal_type(x2_0, expected_text="str")
+
+x2_1 = func3(ident, 1)
+reveal_type(x2_1, expected_text="int")

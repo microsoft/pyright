@@ -10542,10 +10542,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         paramSpec: TypeVarType,
-        typeVarContext: TypeVarContext,
+        destTypeVarContext: TypeVarContext,
         conditionFilter: TypeCondition[] | undefined
     ): boolean {
-        const paramSpecValue = typeVarContext.getParamSpec(paramSpec);
+        const paramSpecValue = destTypeVarContext.getParamSpec(paramSpec);
+        const srcTypeVarContext = new TypeVarContext(paramSpecValue?.typeVarScopeId);
 
         if (!paramSpecValue) {
             addDiagnostic(
@@ -10556,10 +10557,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
             return false;
         }
-
-        // If the ParamSpec was bound to a generic function, some TypeVars may
-        // not yet be solved. Add the TypeVar scope for the bound function.
-        typeVarContext.addSolveForScope(paramSpecValue.typeVarScopeId);
 
         let reportedArgError = false;
 
@@ -10640,7 +10637,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 argument: arg,
                                 errorNode: arg.valueExpression || errorNode,
                             },
-                            typeVarContext,
+                            srcTypeVarContext,
                             /* functionType */ undefined,
                             /* skipUnknownArgCheck */ false,
                             /* skipOverloadArg */ false,
@@ -10679,6 +10676,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
                 reportedArgError = true;
             }
+        }
+
+        if (!reportedArgError) {
+            destTypeVarContext.applySourceContextTypeVars(srcTypeVarContext);
         }
 
         return !reportedArgError;
