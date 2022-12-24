@@ -21,7 +21,7 @@ export type TypeCache = Map<number, CachedType | undefined>;
 export type CachedType = Type | IncompleteType;
 
 export interface IncompleteSubtypeInfo {
-    type: Type | undefined;
+    type: Type;
     isIncomplete: boolean;
     isPending: boolean;
     evaluationCount: number;

@@ -72,6 +72,7 @@ import {
 import {
     ClassMemberLookupFlags,
     doForEachSubtype,
+    isIncompleteUnknown,
     isTypeAliasPlaceholder,
     lookUpClassMember,
     mapSubtypes,
@@ -226,7 +227,7 @@ export function getCodeFlowEngine(
             function setIncompleteSubtype(
                 flowNode: FlowNode,
                 index: number,
-                type: Type | undefined,
+                type: Type,
                 isIncomplete: boolean,
                 isPending: boolean,
                 evaluationCount: number
@@ -239,12 +240,7 @@ export function getCodeFlowEngine(
                 const incompleteEntries = cachedEntry.incompleteSubtypes;
                 if (index < incompleteEntries.length) {
                     const oldEntry = incompleteEntries[index];
-                    if (
-                        oldEntry.isIncomplete !== isIncomplete ||
-                        oldEntry.type === undefined ||
-                        type === undefined ||
-                        !isTypeSame(oldEntry.type, type)
-                    ) {
+                    if (oldEntry.isIncomplete !== isIncomplete || !isTypeSame(oldEntry.type, type)) {
                         incompleteEntries[index] = { type, isIncomplete, isPending, evaluationCount };
                         flowIncompleteGeneration++;
                     } else if (oldEntry.isPending !== isPending) {
@@ -366,7 +362,10 @@ export function getCodeFlowEngine(
 
                     // Check for recursion.
                     if (flowNodeTypeCache.pendingNodes.has(curFlowNode.id)) {
-                        return { type: cachedEntry?.type, isIncomplete: true };
+                        return {
+                            type: cachedEntry?.type ?? UnknownType.create(/* isIncomplete */ true),
+                            isIncomplete: true,
+                        };
                     }
 
                     if (curFlowNode.flags & FlowFlags.Unreachable) {
@@ -785,6 +784,7 @@ export function getCodeFlowEngine(
                     let isProvenReachable =
                         reference === undefined &&
                         cacheEntry.incompleteSubtypes?.some((subtype) => subtype.type !== undefined);
+                    let firstAntecedentTypeIsIncomplete = false;
 
                     loopNode.antecedents.forEach((antecedent, index) => {
                         // If we've trying to determine reachability and we've already proven
@@ -824,7 +824,7 @@ export function getCodeFlowEngine(
                             cacheEntry = setIncompleteSubtype(
                                 loopNode,
                                 index,
-                                subtypeEntry?.type,
+                                subtypeEntry?.type ?? UnknownType.create(/* isIncomplete */ true),
                                 /* isIncomplete */ true,
                                 /* isPending */ true,
                                 entryEvaluationCount
@@ -835,12 +835,19 @@ export function getCodeFlowEngine(
 
                                 if (flowTypeResult.isIncomplete) {
                                     sawIncomplete = true;
+
+                                    if (index === 0) {
+                                        firstAntecedentTypeIsIncomplete = true;
+                                    }
                                 }
 
                                 cacheEntry = setIncompleteSubtype(
                                     loopNode,
                                     index,
-                                    flowTypeResult.type,
+                                    flowTypeResult.type ??
+                                        (flowTypeResult.isIncomplete
+                                            ? UnknownType.create(/* isIncomplete */ true)
+                                            : NeverType.createNever()),
                                     flowTypeResult.isIncomplete,
                                     /* isPending */ false,
                                     entryEvaluationCount + 1
@@ -849,7 +856,7 @@ export function getCodeFlowEngine(
                                 setIncompleteSubtype(
                                     loopNode,
                                     index,
-                                    undefined,
+                                    UnknownType.create(/* isIncomplete */ true),
                                     /* isIncomplete */ true,
                                     /* isPending */ false,
                                     entryEvaluationCount + 1
@@ -889,7 +896,15 @@ export function getCodeFlowEngine(
                         // path, mark it as complete. If we couldn't evaluate a type along
                         // any antecedent path, assume that some recursive call further
                         // up the stack will be able to produce a valid type.
-                        const reportIncomplete = sawIncomplete && effectiveType === undefined;
+                        let reportIncomplete = sawIncomplete;
+                        if (
+                            !sawPending &&
+                            effectiveType &&
+                            !isIncompleteUnknown(effectiveType) &&
+                            !firstAntecedentTypeIsIncomplete
+                        ) {
+                            reportIncomplete = false;
+                        }
 
                         // If we saw a pending entry, do not save over the top of the cache
                         // entry because we'll overwrite a pending evaluation.
