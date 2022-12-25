@@ -24024,11 +24024,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Verify that the positional param count matches exactly or that the override
         // adds only params that preserve the original signature.
         let foundParamCountMismatch = false;
-        if (
-            overrideParamDetails.positionParamCount < baseParamDetails.positionParamCount &&
-            overrideParamDetails.argsIndex === undefined
-        ) {
-            foundParamCountMismatch = true;
+        if (overrideParamDetails.positionParamCount < baseParamDetails.positionParamCount) {
+            if (overrideParamDetails.argsIndex === undefined) {
+                foundParamCountMismatch = true;
+            } else {
+                const overrideArgsType = overrideParamDetails.params[overrideParamDetails.argsIndex].type;
+                for (let i = overrideParamDetails.positionParamCount; i < baseParamDetails.positionParamCount; i++) {
+                    if (
+                        !assignType(
+                            overrideArgsType,
+                            baseParamDetails.params[i].type,
+                            diag?.createAddendum(),
+                            new TypeVarContext(getTypeVarScopeId(overrideMethod)),
+                            new TypeVarContext(getTypeVarScopeId(baseMethod)),
+                            AssignTypeFlags.SkipSolveTypeVars
+                        )
+                    ) {
+                        Localizer.DiagnosticAddendum.overrideParamType().format({
+                            index: i + 1,
+                            baseType: printType(baseParamDetails.params[i].type),
+                            overrideType: printType(overrideArgsType),
+                        });
+                        canOverride = false;
+                    }
+                }
+            }
         } else if (overrideParamDetails.positionParamCount > baseParamDetails.positionParamCount) {
             // Verify that all of the override parameters that extend the
             // signature are either *args, **kwargs or parameters with
