@@ -1461,17 +1461,6 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     }
     recursionCount++;
 
-    const getTypeVarsFromClass = (classType: ClassType) => {
-        const combinedList: TypeVarType[] = [];
-        if (classType.typeArguments) {
-            classType.typeArguments.forEach((typeArg) => {
-                addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount));
-            });
-        }
-
-        return combinedList;
-    };
-
     if (type.typeAliasInfo?.typeArguments) {
         const combinedList: TypeVarType[] = [];
 
@@ -1497,7 +1486,14 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     }
 
     if (isClass(type)) {
-        return getTypeVarsFromClass(type);
+        const combinedList: TypeVarType[] = [];
+        if (type.typeArguments) {
+            type.typeArguments.forEach((typeArg) => {
+                addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount));
+            });
+        }
+
+        return combinedList;
     }
 
     if (isUnion(type)) {
