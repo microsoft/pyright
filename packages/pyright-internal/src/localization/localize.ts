@@ -878,8 +878,6 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; container: string }>(
                 getRawString('Diagnostic.typeParameterNotDeclared')
             );
-        export const typeParameterOutOfScope = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeParameterOutOfScope'));
         export const typePartiallyUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typePartiallyUnknown'));
         export const typeUnknown = () =>

@@ -441,7 +441,6 @@
         "typeParameterExistingTypeParameter": "Type parameter \"{name}\" is already in use",
         "typeParametersMissing": "At least one type parameter must be specified",
         "typeParameterNotDeclared": "Type parameter \"{name}\" is not included in the type parameter list for \"{container}\"",
-        "typeParameterOutOfScope": "Type parameter \"{name}\" has no meaning in this context",
         "typePartiallyUnknown": "Type of \"{name}\" is partially unknown",
         "typeUnknown": "Type of \"{name}\" is unknown",
         "typeVarAssignedName": "TypeVar must be assigned to a variable named \"{name}\"",
