@@ -4618,7 +4618,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Walks up the parse tree to find a function, class, or type alias
-    // assignment that provides the context for a type variable.
+    // declaration that provides the context for a type variable.
     function findScopedTypeVar(
         node: ExpressionNode,
         type: TypeVarType
@@ -4648,21 +4648,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (curNode.nodeType === ParseNodeType.Function) {
                 const functionTypeInfo = getTypeOfFunction(curNode);
                 if (functionTypeInfo) {
-                    typeParametersForScope = [];
-                    functionTypeInfo.functionType.details.parameters.forEach((param) => {
-                        if (param.hasDeclaredType) {
-                            addTypeVarsToListIfUnique(
-                                typeParametersForScope!,
-                                getTypeVarArgumentsRecursive(param.type)
-                            );
-                        }
-                    });
-                    if (functionTypeInfo.functionType.details.declaredReturnType) {
-                        addTypeVarsToListIfUnique(
-                            typeParametersForScope!,
-                            getTypeVarArgumentsRecursive(functionTypeInfo.functionType.details.declaredReturnType)
-                        );
-                    }
+                    typeParametersForScope = functionTypeInfo.functionType.details.typeParameters;
                 }
 
                 scopeUsesTypeParameterSyntax = !!curNode.typeParameters;
@@ -16389,8 +16375,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // If this function uses PEP 695 syntax for type parameters,
+        // accumulate the list of type parameters upfront.
+        const typeParametersSeen: TypeVarType[] = [];
         if (node.typeParameters) {
-            evaluateTypeParameterList(node.typeParameters);
+            functionType.details.typeParameters = evaluateTypeParameterList(node.typeParameters);
+        } else {
+            functionType.details.typeParameters = typeParametersSeen;
         }
 
         const markParamAccessed = (param: ParameterNode) => {
@@ -16572,6 +16563,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             FunctionType.addParameter(functionType, functionParam);
 
+            if (functionParam.hasDeclaredType) {
+                addTypeVarsToListIfUnique(typeParametersSeen, getTypeVarArgumentsRecursive(functionParam.type));
+            }
+
             if (param.name) {
                 const variadicParamType = transformVariadicParamType(node, param.category, functionParam.type);
                 paramTypes.push(variadicParamType);
@@ -16648,6 +16643,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     functionType.details.declaredReturnType = UnknownType.create();
                 }
             }
+        }
+
+        // If the function doesn't use PEP 695 syntax, accumulate
+        // any type parameters used in the return type.
+        if (functionType.details.declaredReturnType) {
+            addTypeVarsToListIfUnique(
+                typeParametersSeen,
+                getTypeVarArgumentsRecursive(functionType.details.declaredReturnType)
+            );
         }
 
         // If the return type is explicitly annotated as a generator, mark the

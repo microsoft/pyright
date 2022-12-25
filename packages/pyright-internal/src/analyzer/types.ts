@@ -2132,18 +2132,19 @@ export interface TypeVarType extends TypeBase {
     category: TypeCategory.TypeVar;
     details: TypeVarDetails;
 
-    // An ID that uniquely identifies the scope in which this TypeVar is defined.
+    // An ID that uniquely identifies the scope to which this TypeVar is bound
     scopeId?: TypeVarScopeId | undefined;
 
     // A human-readable name of the function, class, or type alias that
-    // provides the scope for this type variable. This might not be unique,
-    // so it should be used only for error messages.
+    // provides the scope to which this type variable is bound. Unlike the
+    // scopeId, this might not be unique, so it should be used only for error
+    // messages.
     scopeName?: string | undefined;
 
-    // If the TypeVar is bound to a scope, this is the scope type.
+    // If the TypeVar is bound to a scope, this is the scope type
     scopeType?: TypeVarScopeType;
 
-    // String formatted as <name>.<scopeId>.
+    // String formatted as <name>.<scopeId>
     nameWithScope?: string | undefined;
 
     // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
@@ -2153,10 +2154,10 @@ export interface TypeVarType extends TypeBase {
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
     isVariadicInUnion?: boolean | undefined;
 
-    // Represents access to "args" or "kwargs" of a ParamSpec.
+    // Represents access to "args" or "kwargs" of a ParamSpec
     paramSpecAccess?: ParamSpecAccess;
 
-    // May be different from declaredVariance if the latter is Auto.
+    // May be different from declaredVariance if declared as Auto
     computedVariance?: Variance;
 }
 
