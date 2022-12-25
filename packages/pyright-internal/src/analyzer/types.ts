@@ -1222,6 +1222,11 @@ interface FunctionDetails {
     // Parameter specification used only for Callable types created
     // with a ParamSpec representing the parameters.
     paramSpec?: TypeVarType | undefined;
+
+    // If the function is generic (has one or more typeParameters) and
+    // one or more of these appear only within the return type and within
+    // a callable, they are rescoped to that callable.
+    rescopedTypeParameters?: TypeVarType[];
 }
 
 export interface SpecializedFunctionTypes {

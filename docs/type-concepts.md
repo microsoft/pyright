@@ -578,3 +578,43 @@ reveal_type(Parent.x)  # object
 reveal_type(Child.x)  # int
 ```
 
+#### Type Variable Scoping
+
+A type variable must be bound to a valid scope (a class, function, or type alias) before it can be used within that scope.
+
+Pyright displays the bound scope for a type variable using an `@` symbol. For example, `T@func` means that type variable `T` is bound to function `func`.
+
+```python
+S = TypeVar("S")
+T = TypeVar("T")
+
+def func(a: T) -> T:
+    b: T = a # T refers to T@func
+    reveal_type(b) # T@func
+
+    c: S # Error: S has no bound scope in this context
+    return b
+```
+
+When a TypeVar or ParamSpec appears within parameter or return type annotations for a function and it is not already bound to an outer scope, it is normally bound to the function. As an exception to this rule, if the TypeVar or ParamSpec appears only within the return type annotation of the function and only within a single Callable in the return type, it is bound to that Callable rather than the function. This allows a function to return a generic Callable.
+
+```python
+# T is bound to func1 because it appears in a parameter type annotation.
+def func1(a: T) -> Callable[[T], T]:
+    a: T # OK because T is bound to func1
+
+# T is bound to the return callable rather than func2 because it appears
+# only within a return Callable.
+def func2() -> Callable[[T], T]:
+    a: T # Error because T has no bound scope in this context
+
+# T is bound to func3 because it appears outside of a Callable.
+def func3() -> Callable[[T], T] | T:
+    ...
+
+# This scoping logic applies also to type aliases used within a return
+# type annotation. T is bound to the return Callable rather than func4.
+Transform = Callable[[S], S]
+def func4() -> Transform[T]:
+    ...
+```

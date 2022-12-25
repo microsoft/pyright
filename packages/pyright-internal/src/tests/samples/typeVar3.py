@@ -67,7 +67,7 @@ T = TypeVar("T")
 
 def foo() -> Callable[[T], T]:
     def inner(v: T) -> T:
-        reveal_type(v, expected_text="T@foo")
+        reveal_type(v, expected_text="T@inner")
         return v
 
     return inner

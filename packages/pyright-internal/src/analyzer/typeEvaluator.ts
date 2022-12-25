@@ -27,7 +27,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { Localizer } from '../localization/localize';
+import { Localizer, ParameterizedString } from '../localization/localize';
 import {
     ArgumentCategory,
     AssignmentNode,
@@ -271,6 +271,7 @@ import {
     isTupleClass,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
+    isTypeVarLimitedToCallable,
     isUnboundedTupleClass,
     isUnionableType,
     isVarianceOfTypeArgumentCompatible,
@@ -394,6 +395,12 @@ interface ClassMemberLookup {
 export interface DescriptorTypeResult {
     type: Type;
     isAsymmetricDescriptor: boolean;
+}
+
+interface ScopedTypeVarResult {
+    type: TypeVarType;
+    isRescoped: boolean;
+    foundInterveningClass: boolean;
 }
 
 interface AliasMapEntry {
@@ -4434,7 +4441,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const outerFunctionScope = ParseTreeUtils.getEnclosingClassOrFunction(enclosingScope);
 
                                 if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
-                                    enclosingScope = outerFunctionScope;
+                                    if (scopedTypeVarInfo.isRescoped) {
+                                        addDiagnostic(
+                                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet
+                                                .reportGeneralTypeIssues,
+                                            DiagnosticRule.reportGeneralTypeIssues,
+                                            Localizer.Diagnostic.paramSpecScopedToReturnType().format({
+                                                name: type.details.name,
+                                            }),
+                                            node
+                                        );
+                                    } else {
+                                        enclosingScope = outerFunctionScope;
+                                    }
                                 } else if (!scopedTypeVarInfo.type.scopeId) {
                                     addDiagnostic(
                                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -4488,9 +4507,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     (type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
                     !type.details.isSynthesized
                 ) {
-                    const message = isParamSpec(type)
-                        ? Localizer.Diagnostic.paramSpecNotUsedByOuterScope()
-                        : Localizer.Diagnostic.typeVarNotUsedByOuterScope();
+                    let message: ParameterizedString<{ name: string }>;
+                    if (scopedTypeVarInfo.isRescoped) {
+                        message = isParamSpec(type)
+                            ? Localizer.Diagnostic.paramSpecScopedToReturnType()
+                            : Localizer.Diagnostic.typeVarScopedToReturnType();
+                    } else {
+                        message = isParamSpec(type)
+                            ? Localizer.Diagnostic.paramSpecNotUsedByOuterScope()
+                            : Localizer.Diagnostic.typeVarNotUsedByOuterScope();
+                    }
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -4619,10 +4645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Walks up the parse tree to find a function, class, or type alias
     // declaration that provides the context for a type variable.
-    function findScopedTypeVar(
-        node: ExpressionNode,
-        type: TypeVarType
-    ): { type: TypeVarType; foundInterveningClass: boolean } {
+    function findScopedTypeVar(node: ExpressionNode, type: TypeVarType): ScopedTypeVarResult {
         let curNode: ParseNode | undefined = node;
         let nestedClassCount = 0;
 
@@ -4648,7 +4671,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (curNode.nodeType === ParseNodeType.Function) {
                 const functionTypeInfo = getTypeOfFunction(curNode);
                 if (functionTypeInfo) {
-                    typeParametersForScope = functionTypeInfo.functionType.details.typeParameters;
+                    const functionDetails = functionTypeInfo.functionType.details;
+                    typeParametersForScope = functionDetails.typeParameters;
+
+                    // Was this type parameter "rescoped" to a callable found within the
+                    // return type annotation? If so, it is not available for use within
+                    // the function body.
+                    if (functionDetails.rescopedTypeParameters?.some((tp) => tp.details.name === type.details.name)) {
+                        return { type, isRescoped: true, foundInterveningClass: false };
+                    }
                 }
 
                 scopeUsesTypeParameterSyntax = !!curNode.typeParameters;
@@ -4662,7 +4693,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (match?.scopeId) {
                     // Use the scoped version of the TypeVar rather than the (unscoped) original type.
                     type = TypeVarType.cloneForScopeId(type, match.scopeId, match.scopeName!, match.scopeType!);
-                    return { type, foundInterveningClass: nestedClassCount > 1 && !scopeUsesTypeParameterSyntax };
+                    return {
+                        type,
+                        isRescoped: false,
+                        foundInterveningClass: nestedClassCount > 1 && !scopeUsesTypeParameterSyntax,
+                    };
                 }
             }
 
@@ -4711,6 +4746,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             leftType.details.recursiveTypeAliasName,
                             TypeVarScopeType.TypeAlias
                         ),
+                        isRescoped: false,
                         foundInterveningClass: false,
                     };
                 }
@@ -4720,7 +4756,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Return the original type.
-        return { type, foundInterveningClass: false };
+        return { type, isRescoped: false, foundInterveningClass: false };
     }
 
     function getTypeOfMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
@@ -16612,20 +16648,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If there was a defined return type, analyze that first so when we
         // walk the contents of the function, return statements can be
         // validated against this type.
-        if (node.returnTypeAnnotation) {
+        const returnTypeAnnotationNode =
+            node.returnTypeAnnotation ?? node.functionAnnotationComment?.returnTypeAnnotation;
+        if (returnTypeAnnotationNode) {
             // Temporarily set the return type to unknown in case of recursion.
             functionType.details.declaredReturnType = UnknownType.create();
 
-            const returnType = getTypeOfAnnotation(node.returnTypeAnnotation, {
-                associateTypeVarsWithScope: true,
-                disallowRecursiveTypeAlias: true,
-            });
-            functionType.details.declaredReturnType = returnType;
-        } else if (node.functionAnnotationComment) {
-            // Temporarily set the return type to unknown in case of recursion.
-            functionType.details.declaredReturnType = UnknownType.create();
-
-            const returnType = getTypeOfAnnotation(node.functionAnnotationComment.returnTypeAnnotation, {
+            const returnType = getTypeOfAnnotation(returnTypeAnnotationNode, {
                 associateTypeVarsWithScope: true,
                 disallowRecursiveTypeAlias: true,
             });
@@ -16645,12 +16674,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // If the function doesn't use PEP 695 syntax, accumulate
-        // any type parameters used in the return type.
-        if (functionType.details.declaredReturnType) {
-            addTypeVarsToListIfUnique(
-                typeParametersSeen,
-                getTypeVarArgumentsRecursive(functionType.details.declaredReturnType)
+        // Accumulate any type parameters used in the return type.
+        if (functionType.details.declaredReturnType && returnTypeAnnotationNode) {
+            rescopeTypeVarsForCallableReturnType(
+                functionType.details.declaredReturnType,
+                functionType,
+                typeParametersSeen
             );
         }
 
@@ -16720,6 +16749,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(node, decoratedType, EvaluatorFlags.None, /* isIncomplete */ false);
 
         return { functionType, decoratedType };
+    }
+
+    // If the declared return type of a function contains type variables that
+    // are found nowhere else in the signature and are contained within a
+    // Callable, these type variables are "rescoped" from the function to
+    // the Callable.
+    function rescopeTypeVarsForCallableReturnType(
+        returnType: Type,
+        functionType: FunctionType,
+        typeParametersSeen: TypeVarType[]
+    ) {
+        const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
+        const rescopedTypeVars: TypeVarType[] = [];
+
+        typeVarsInReturnType.forEach((typeVar) => {
+            if (TypeBase.isInstantiable(typeVar)) {
+                typeVar = TypeVarType.cloneAsInstance(typeVar);
+            }
+
+            // If this type variable isn't scoped to this function, it is probably
+            // associated with an outer scope.
+            if (typeVar.scopeId !== functionType.details.typeVarScopeId) {
+                return;
+            }
+
+            // If this type variable was already seen in one or more input parameters,
+            // don't attempt to rescope it.
+            if (typeParametersSeen.some((tp) => isTypeSame(convertToInstance(tp), typeVar))) {
+                return;
+            }
+
+            // Is this type variable seen outside of a single callable?
+            if (isTypeVarLimitedToCallable(returnType, typeVar)) {
+                rescopedTypeVars.push(typeVar);
+            }
+        });
+
+        addTypeVarsToListIfUnique(typeParametersSeen, typeVarsInReturnType);
+
+        // Note that the type parameters have been rescoped so they are not
+        // considered valid for the body of this function.
+        functionType.details.rescopedTypeParameters = rescopedTypeVars;
     }
 
     function adjustParameterAnnotatedType(param: ParameterNode, type: Type): Type {
