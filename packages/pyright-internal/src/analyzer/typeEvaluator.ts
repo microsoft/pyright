@@ -11356,73 +11356,93 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // the new type as if it were a subclass of the original type.
     function createNewType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-        let className = '_';
-        if (argList.length >= 1) {
-            const nameArg = argList[0];
-            if (nameArg.argumentCategory === ArgumentCategory.Simple) {
-                if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
-                    className = nameArg.valueExpression.strings.map((s) => s.value).join('');
-                }
-            }
+        let className = '';
+
+        if (argList.length !== 2) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.newTypeParamCount(),
+                errorNode
+            );
+            return undefined;
         }
 
-        if (argList.length >= 2) {
-            const baseClass = getTypeOfArgumentExpectingType(argList[1]).type;
+        const nameArg = argList[0];
+        if (
+            nameArg.argumentCategory === ArgumentCategory.Simple &&
+            nameArg.valueExpression &&
+            nameArg.valueExpression.nodeType === ParseNodeType.StringList
+        ) {
+            className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+        }
 
-            if (isInstantiableClass(baseClass)) {
-                if (ClassType.isProtocolClass(baseClass)) {
-                    addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
-                } else if (baseClass.literalValue !== undefined) {
-                    addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
-                }
+        if (!className) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.newTypeBadName(),
+                argList[0].node ?? errorNode
+            );
+            return undefined;
+        }
 
-                const classFlags =
-                    baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
-                const classType = ClassType.createInstantiable(
-                    className,
-                    ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-                    fileInfo.moduleName,
-                    fileInfo.filePath,
-                    classFlags,
-                    ParseTreeUtils.getTypeSourceId(errorNode),
-                    /* declaredMetaclass */ undefined,
-                    baseClass.details.effectiveMetaclass
-                );
-                classType.details.baseClasses.push(baseClass);
-                computeMroLinearization(classType);
+        const baseClass = getTypeOfArgumentExpectingType(argList[1]).type;
 
-                // Synthesize an __init__ method that accepts only the specified type.
-                const initType = FunctionType.createSynthesizedInstance('__init__');
-                FunctionType.addParameter(initType, {
-                    category: ParameterCategory.Simple,
-                    name: 'self',
-                    type: ClassType.cloneAsInstance(classType),
-                    hasDeclaredType: true,
-                });
-                FunctionType.addParameter(initType, {
-                    category: ParameterCategory.Simple,
-                    name: '_x',
-                    type: ClassType.cloneAsInstance(baseClass),
-                    hasDeclaredType: true,
-                });
-                initType.details.declaredReturnType = NoneType.createInstance();
-                classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
-
-                // Synthesize a trivial __new__ method.
-                const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-                FunctionType.addParameter(newType, {
-                    category: ParameterCategory.Simple,
-                    name: 'cls',
-                    type: classType,
-                    hasDeclaredType: true,
-                });
-                FunctionType.addDefaultParameters(newType);
-                newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-                classType.details.fields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
-                return classType;
-            } else if (!isAnyOrUnknown(baseClass)) {
-                addError(Localizer.Diagnostic.newTypeNotAClass(), argList[1].node || errorNode);
+        if (isInstantiableClass(baseClass)) {
+            if (ClassType.isProtocolClass(baseClass)) {
+                addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
+            } else if (baseClass.literalValue !== undefined) {
+                addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
             }
+
+            const classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
+            const classType = ClassType.createInstantiable(
+                className,
+                ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
+                fileInfo.moduleName,
+                fileInfo.filePath,
+                classFlags,
+                ParseTreeUtils.getTypeSourceId(errorNode),
+                /* declaredMetaclass */ undefined,
+                baseClass.details.effectiveMetaclass
+            );
+            classType.details.baseClasses.push(baseClass);
+            computeMroLinearization(classType);
+
+            // Synthesize an __init__ method that accepts only the specified type.
+            const initType = FunctionType.createSynthesizedInstance('__init__');
+            FunctionType.addParameter(initType, {
+                category: ParameterCategory.Simple,
+                name: 'self',
+                type: ClassType.cloneAsInstance(classType),
+                hasDeclaredType: true,
+            });
+            FunctionType.addParameter(initType, {
+                category: ParameterCategory.Simple,
+                name: '_x',
+                type: ClassType.cloneAsInstance(baseClass),
+                hasDeclaredType: true,
+            });
+            initType.details.declaredReturnType = NoneType.createInstance();
+            classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
+
+            // Synthesize a trivial __new__ method.
+            const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
+            FunctionType.addParameter(newType, {
+                category: ParameterCategory.Simple,
+                name: 'cls',
+                type: classType,
+                hasDeclaredType: true,
+            });
+            FunctionType.addDefaultParameters(newType);
+            newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
+            classType.details.fields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
+            return classType;
+        }
+
+        if (!isAnyOrUnknown(baseClass)) {
+            addError(Localizer.Diagnostic.newTypeNotAClass(), argList[1].node || errorNode);
         }
 
         return undefined;

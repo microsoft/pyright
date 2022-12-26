@@ -562,8 +562,10 @@ export namespace Localizer {
         export const namedTupleNoTypes = () => getRawString('Diagnostic.namedTupleNoTypes');
         export const namedTupleSecondArg = () => getRawString('Diagnostic.namedTupleSecondArg');
         export const newClsParam = () => getRawString('Diagnostic.newClsParam');
+        export const newTypeBadName = () => getRawString('Diagnostic.newTypeBadName');
         export const newTypeLiteral = () => getRawString('Diagnostic.newTypeLiteral');
         export const newTypeNotAClass = () => getRawString('Diagnostic.newTypeNotAClass');
+        export const newTypeParamCount = () => getRawString('Diagnostic.newTypeParamCount');
         export const newTypeProtocolClass = () => getRawString('Diagnostic.newTypeProtocolClass');
         export const nonDefaultAfterDefault = () => getRawString('Diagnostic.nonDefaultAfterDefault');
         export const noneNotCallable = () => getRawString('Diagnostic.noneNotCallable');
